@@ -109,7 +109,7 @@ impl EngineState<'_> {
         }
         let frame_value = lexical.and_then(|frame| frame.locals.get(declaration.slot as usize));
         let value = seed_source_value(
-            &self.data.storage,
+            &*self,
             configured.as_ref(),
             name,
             declaration.owner,
@@ -155,12 +155,10 @@ impl EngineState<'_> {
                     continue;
                 }
                 visited_count += 1;
-                let data = self
-                    .data
-                    .storage
-                    .get_instance(id)
-                    .ok_or(RuntimeError::InvalidExecutionState)?;
-                if let Some(parent) = data.parent {
+                if let Some(parent) = self
+                    .instance_parent(id)
+                    .map_err(|_| RuntimeError::InvalidExecutionState)?
+                {
                     self.push_owned_instance(&mut pending, parent.0)?;
                 }
                 let template = self
@@ -176,10 +174,8 @@ impl EngineState<'_> {
                 {
                     let declaration = &self.prepared.layout.entries[declaration_id as usize];
                     if let Some(type_id) = declaration.type_id
-                        && let Ok(view) = self
-                            .data
-                            .storage
-                            .read_slot(MemoryLocation::Instance(id), declaration.slot as usize)
+                        && let Ok(view) =
+                            self.read_slot(MemoryLocation::Instance(id), declaration.slot as usize)
                     {
                         self.owned_view_instances(type_id, view, &mut pending, 0)?;
                     }
@@ -195,8 +191,6 @@ impl EngineState<'_> {
                     .ok_or(RuntimeError::Overflow)?;
                 for slot in 0..count {
                     let view = self
-                        .data
-                        .storage
                         .read_slot(MemoryLocation::Instance(id), slot)
                         .map_err(|_| RuntimeError::InvalidExecutionState)?;
                     charge = charge
@@ -222,8 +216,6 @@ impl EngineState<'_> {
                     backups_charged = capacity;
                 }
                 let snapshot = self
-                    .data
-                    .storage
                     .snapshot_instance(id)
                     .ok_or(RuntimeError::InvalidExecutionState)?;
                 backups.push((id, snapshot));
@@ -364,7 +356,7 @@ impl EngineState<'_> {
         backups: &mut Vec<(InstanceId, InstanceData)>,
     ) {
         for (id, data) in backups.drain(..) {
-            self.data.storage.restore_instance(id, data);
+            self.restore_instance(id, data);
         }
     }
 }

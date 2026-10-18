@@ -1,0 +1,782 @@
+//! Tests of the cell store's construction in the engine (specification 34 §6.2, MEM-10; C1-9d2b-1).
+//!
+//! `EngineState::build` constructs the cell arm when it is asked to: the arm is charged, reserved once and
+//! filled by the same construction steps as the `Value` store. These tests build programs on both stores
+//! and read the cells through the store-access seam. The bounded-C corpus supplies compiled programs; the
+//! `Keeper` module (`keeper.rs`) supplies references in aggregates and dates, which no corpus program has.
+//! Each expected value is worked out by hand from the ST source it names.
+
+mod keeper;
+
+use super::{services, Construction, EngineData, EngineState, EngineStore, StoreKind};
+use crate::bytecode::{StorageOwner, StorageRole, ValidationLimits};
+use crate::collections::OrderedMap;
+use crate::error::RuntimeError;
+use crate::memory::cell_access::{fixture, CellArm};
+use crate::memory::layout::{CellRange, LayoutRegion};
+use crate::memory::view::{StoreAccess, StoreMutate};
+use crate::memory::{Generation, InstanceId, MemoryLocation};
+use crate::retain::RestartMode;
+use crate::value::{
+    ArrayValue, DateTimeProfile, DateTimeValue, DateValue, Duration, RefSegment, StructValue,
+    Value, ValueRef, ValueRefView,
+};
+use crate::vm::{PreparationLimits, PreparedModule};
+use smol_str::SmolStr;
+use std::sync::Arc;
+
+const SCALAR: &[u8] =
+    include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/scalar/program.stbc");
+const INITIALIZERS: &[u8] =
+    include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/initializers/program.stbc");
+const BLOCKS: &[u8] =
+    include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/blocks/program.stbc");
+const STRINGS: &[u8] =
+    include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/strings/program.stbc");
+const RETAIN: &[u8] =
+    include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/retain/program.stbc");
+
+/// Every program of the bounded-C corpus and the three saved artifacts the boards run, by name.
+const CORPUS: [(&str, &[u8]); 18] = [
+    ("scalar", SCALAR),
+    (
+        "gpio",
+        include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/gpio/program.stbc"),
+    ),
+    (
+        "io",
+        include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/io/program.stbc"),
+    ),
+    (
+        "calls",
+        include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/calls/program.stbc"),
+    ),
+    ("blocks", BLOCKS),
+    (
+        "methods",
+        include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/methods/program.stbc"),
+    ),
+    (
+        "instances",
+        include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/instances/program.stbc"),
+    ),
+    (
+        "arrays",
+        include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/arrays/program.stbc"),
+    ),
+    (
+        "structures",
+        include_bytes!(
+            "../../../../trust-runtime/tests/fixtures/bounded-c/structures/program.stbc"
+        ),
+    ),
+    (
+        "references",
+        include_bytes!(
+            "../../../../trust-runtime/tests/fixtures/bounded-c/references/program.stbc"
+        ),
+    ),
+    ("strings", STRINGS),
+    ("initializers", INITIALIZERS),
+    (
+        "sizeof",
+        include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/sizeof/program.stbc"),
+    ),
+    ("retain", RETAIN),
+    (
+        "faults",
+        include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/faults/program.stbc"),
+    ),
+    (
+        "saved/main",
+        include_bytes!(
+            "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
+        ),
+    ),
+    (
+        "saved/numeric",
+        include_bytes!(
+            "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/numeric-v2.stbc"
+        ),
+    ),
+    (
+        "saved/gpio",
+        include_bytes!("../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc"),
+    ),
+];
+
+fn prepare(bytes: &[u8]) -> PreparedModule {
+    PreparedModule::from_bytes(bytes, PreparationLimits::default()).expect("the program prepares")
+}
+
+/// The admission limits of the chips, as `tests/scan_allocation_zero.rs` states them.
+fn chip_limits() -> PreparationLimits {
+    PreparationLimits {
+        max_artifact_bytes: 16 * 1024,
+        max_preparation_bytes: 512 * 1024,
+        max_preparation_work: 1_000_000,
+        validation: ValidationLimits {
+            max_scratch_bytes: 48 * 1024,
+            max_work: 500_000,
+        },
+        max_construction_values: 4096,
+        max_construction_bytes: 128 * 1024,
+        max_process_image_bytes: 64,
+        max_work: 50_000,
+        max_construction_work: 50_000,
+        max_call_depth: 4,
+    }
+}
+
+/// The engine data of `prepared` built on `store`, with the default profile.
+fn build(prepared: &PreparedModule, store: StoreKind) -> Result<Box<EngineData>, RuntimeError> {
+    build_with(prepared, store, DateTimeProfile::default())
+}
+
+fn build_with(
+    prepared: &PreparedModule,
+    store: StoreKind,
+    profile: DateTimeProfile,
+) -> Result<Box<EngineData>, RuntimeError> {
+    EngineState::construct_data_with(
+        prepared,
+        0,
+        &services::LOGICAL_ONLY,
+        Construction { store, profile },
+    )
+}
+
+/// The cell arm a state built on `StoreKind::Cells` holds.
+fn arm(data: &EngineData) -> &CellArm {
+    match &data.store {
+        EngineStore::Cells(arm) => arm,
+        EngineStore::Values => panic!("the state holds the Value store"),
+    }
+}
+
+/// The value of the global `name`.
+fn global(state: &EngineState<'_>, name: &str) -> Value {
+    StoreAccess::read_global(state, name)
+        .unwrap_or_else(|| panic!("the global {name} is declared"))
+        .materialize()
+        .expect("the global materializes")
+}
+
+/// The value of the member `name` of `instance`.
+fn member(state: &EngineState<'_>, instance: InstanceId, name: &str) -> Value {
+    StoreAccess::read_instance_var(state, instance, name)
+        .unwrap_or_else(|| panic!("the instance holds {name}"))
+        .materialize()
+        .expect("the member materializes")
+}
+
+fn declaration_name(prepared: &PreparedModule, declaration: u32) -> &str {
+    let entry = &prepared.layout.entries[declaration as usize];
+    prepared.vm.strings[entry.name_idx as usize].as_str()
+}
+
+/// Every declared variable of `prepared` as `state` holds it: the globals in declaration order, then each
+/// persistent instance with its type, its parent and its members. One line per fact, so two stores that
+/// agree give equal lists.
+fn declared_values(prepared: &PreparedModule, state: &EngineState<'_>) -> Vec<String> {
+    let mut lines = Vec::new();
+    for &declaration in prepared.declarations(StorageOwner::Global, None) {
+        let name = declaration_name(prepared, declaration);
+        let value = StoreAccess::read_global(state, name).map(|view| view.materialize());
+        lines.push(format!("global {name} = {value:?}"));
+    }
+    for (index, root) in prepared.roots.entries.iter().enumerate() {
+        let (Some(pou), Some(instance)) =
+            (root.template_pou_id, state.data.construction.roots[index])
+        else {
+            continue;
+        };
+        lines.push(format!(
+            "instance {} of {:?}, parent {:?}",
+            instance.0,
+            StoreAccess::instance_type_name(state, instance),
+            StoreAccess::instance_parent(state, instance),
+        ));
+        for &declaration in prepared.declarations(StorageOwner::Instance, Some(pou)) {
+            let name = declaration_name(prepared, declaration);
+            let value = StoreAccess::read_instance_var(state, instance, name)
+                .map(|view| view.materialize());
+            lines.push(format!("instance {} {name} = {value:?}", instance.0));
+        }
+    }
+    lines
+}
+
+/// The limits a corpus pass prepares its programs under.
+type Limits = fn() -> PreparationLimits;
+
+/// Build every corpus program on both stores under `limits` and compare what they hold. The first list
+/// holds one line for every fact that differs, and the second the programs the cell store refused.
+fn compare_corpus(limits: Limits) -> (Vec<String>, Vec<String>) {
+    let mut differences = Vec::new();
+    let mut refused = Vec::new();
+    for (name, bytes) in CORPUS {
+        let prepared = PreparedModule::from_bytes(bytes, limits()).expect("the program prepares");
+        let mut values =
+            build(&prepared, StoreKind::Values).expect("the Value store constructs the program");
+        assert!(matches!(values.store, EngineStore::Values), "{name}");
+        let mut cells = match build(&prepared, StoreKind::Cells) {
+            Ok(cells) => cells,
+            Err(error) => {
+                refused.push(format!("{name}: {error:?}"));
+                continue;
+            }
+        };
+        assert!(matches!(cells.store, EngineStore::Cells(_)), "{name}");
+        // Every global, and every persistent instance with its type, its parent and its members, is one
+        // line: a comparison of empty lists would prove nothing.
+        let declared = prepared.declarations(StorageOwner::Global, None).len()
+            + prepared
+                .roots
+                .entries
+                .iter()
+                .filter_map(|root| root.template_pou_id)
+                .map(|pou| {
+                    1 + prepared
+                        .declarations(StorageOwner::Instance, Some(pou))
+                        .len()
+                })
+                .sum::<usize>();
+        let mut values_state = EngineState::borrow(&mut values, &prepared, &services::LOGICAL_ONLY);
+        let mut cells_state = EngineState::borrow(&mut cells, &prepared, &services::LOGICAL_ONLY);
+        for (stage, restart) in [
+            ("constructed", None),
+            ("after a cold restart", Some(RestartMode::Cold)),
+            ("after a warm restart", Some(RestartMode::Warm)),
+        ] {
+            if let Some(mode) = restart {
+                values_state
+                    .restart(mode)
+                    .expect("the Value store restarts");
+                cells_state.restart(mode).expect("the cell store restarts");
+            }
+            let expected = declared_values(&prepared, &values_state);
+            let actual = declared_values(&prepared, &cells_state);
+            assert_eq!(expected.len(), declared, "{name} {stage}");
+            assert_eq!(
+                expected.len(),
+                actual.len(),
+                "{name} {stage}: the lines differ in number"
+            );
+            for (expected, actual) in expected.iter().zip(&actual) {
+                if expected != actual {
+                    differences.push(format!(
+                        "{name} {stage}: values `{expected}` / cells `{actual}`"
+                    ));
+                }
+            }
+        }
+    }
+    (differences, refused)
+}
+
+#[test]
+fn cells_hold_the_values_arm_initial_values_after_construction() {
+    // Specification 34 §6.2 (MEM-10) and the C1-9 note's rule for the switch: a program that starts on the
+    // cell store reads exactly what it reads on the `Value` store. Each corpus program is built on both
+    // stores, and every declared global and every member of every persistent instance is read back and
+    // compared with the `Value` store's answer, along with each instance's type and parent. A cell store
+    // that left a default unwritten, wrote an initializer into the wrong member, shifted a member's
+    // ordinal, or gave an instance another identity would differ on that line. The programs are built under
+    // the default limits and, without the register tier, under the chips' construction limits (128 KiB of
+    // construction bytes and 50,000 units of work), which the cell store's charge must still fit. Both
+    // stores are compared again after a cold and after a warm restart: a function static is initialized
+    // when the resource first starts and again by its first call after a restart, so it reads `Null`
+    // on the `Value` store in between, and the cell that holds it must stay empty as well.
+    //
+    // `structures` is the one program the cell store refuses: it declares a `STRUCT OVERLAP`, which C1-15
+    // places (specification 34 §6.2), so construction cannot write the overlay's value into its cells yet
+    // and the commit of that variable is refused. The known differences of C1-9b do not show here: a
+    // `WSTRING` has no UTF-8 text but materializes, and the program root of a built state holds its
+    // instance on both stores.
+    let mut passes: Vec<(Limits, &str)> = vec![(PreparationLimits::default, "default limits")];
+    if !cfg!(feature = "register-ir") {
+        passes.push((chip_limits, "chip limits"));
+    }
+    for (limits, label) in passes {
+        let (differences, refused) = compare_corpus(limits);
+        assert!(
+            differences.is_empty(),
+            "{label}: the cells differ from the Value store: {differences:#?}"
+        );
+        assert_eq!(refused, ["structures: InvalidExecutionState"], "{label}");
+    }
+}
+
+#[test]
+fn persistent_instances_are_registered_at_construction() {
+    // Specification 34 §6.2 (MEM-10; O8): each persistent root has an instance, recorded in the cell arm with
+    // an identity from the store's one counter, in CONSTRUCTION_ROOTS order. `initializers` declares
+    // `PROGRAM Initializers` (VAR tracker : Tracker; slot, result : INT END_VAR) and `FUNCTION_BLOCK
+    // Tracker` (VAR history : ARRAY[1..3] OF INT END_VAR). Its roots are the global `ticks`, the global
+    // `table`, the program (template pou 0), the tracker (template pou 34, nested in the program) and the
+    // static `calls`. Only the program and the tracker have instances, so they take identities 0 and 1 on
+    // the `Value` store, and the cells must give the same. The program holds `tracker`, `slot` and `result`
+    // (3 cells) after the 5 cells of the globals (`ticks` 1, `table` 3, `calls` 1), so its range starts at
+    // cell 5; the tracker holds `history` (3 cells) and follows at cell 8.
+    //
+    // A second counter for per-call instances would start at 0 and issue identity 0 again: the instance
+    // created next must take 2 on both stores. A store that did not record the instances would answer no
+    // type name for identity 0 or 1.
+    let prepared = prepare(INITIALIZERS);
+    let mut values = build(&prepared, StoreKind::Values).expect("the Value store constructs");
+    let mut cells = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let roots = vec![None, None, Some(InstanceId(0)), Some(InstanceId(1)), None];
+    assert_eq!(values.construction.roots, roots);
+    assert_eq!(cells.construction.roots, roots);
+    assert_eq!(
+        arm(&cells).instance_range(InstanceId(0)),
+        Some(CellRange {
+            region: LayoutRegion::Persistent,
+            start: 5,
+            cells: 3,
+        })
+    );
+    assert_eq!(
+        arm(&cells).instance_range(InstanceId(1)),
+        Some(CellRange {
+            region: LayoutRegion::Persistent,
+            start: 8,
+            cells: 3,
+        })
+    );
+    assert_eq!(arm(&cells).instance_range(InstanceId(2)), None);
+
+    let values = EngineState::borrow(&mut values, &prepared, &services::LOGICAL_ONLY);
+    let mut cells = EngineState::borrow(&mut cells, &prepared, &services::LOGICAL_ONLY);
+    for instance in [InstanceId(0), InstanceId(1)] {
+        let name = StoreAccess::instance_type_name(&cells, instance).cloned();
+        assert!(name.is_some(), "instance {instance:?} is recorded");
+        assert_eq!(
+            name.as_ref(),
+            StoreAccess::instance_type_name(&values, instance)
+        );
+        assert!(matches!(
+            StoreAccess::instance_parent(&cells, instance),
+            Ok(None)
+        ));
+    }
+    assert_eq!(global(&cells, "Plant"), Value::Instance(InstanceId(0)));
+    assert_eq!(
+        member(&cells, InstanceId(0), "tracker"),
+        Value::Instance(InstanceId(1))
+    );
+    assert_eq!(
+        StoreMutate::try_create_instance(&mut cells, "Scratch"),
+        Ok(InstanceId(2))
+    );
+}
+
+#[test]
+fn cells_use_the_engine_date_time_profile() {
+    // Specification 34 §6.2 and IEC 61131-3 Ed.3 Table 10 (the initial value of DATE and DT): a DATE and a
+    // DATE_AND_TIME default to the epoch of the engine's profile. `Keeper` declares `day_g : DATE` and
+    // `stamp_g : DATE_AND_TIME`. For a profile whose epoch is 1,000 ticks both cells hold 1,000 once the
+    // store is installed, before any initializer runs; the default profile gives 0. A store built with
+    // `DateTimeProfile::default()` whatever the engine runs with would read 0 in both cases.
+    //
+    // The built state agrees: the engine applies its profile before it constructs anything, so the
+    // initializers that follow default the same leaves to the same epoch, on both stores.
+    let prepared = keeper::prepared();
+    let epoch = DateTimeProfile {
+        epoch: DateValue::new(1_000),
+        resolution: Duration::from_millis(1),
+    };
+    for (profile, ticks) in [(epoch, 1_000), (DateTimeProfile::default(), 0)] {
+        let resource = prepared.resources.resources[0].clone();
+        let mut data = EngineState::new_data(
+            &prepared,
+            &services::LOGICAL_ONLY,
+            resource,
+            0,
+            Generation::FIRST,
+            false,
+            Duration::ZERO,
+        );
+        data.profile = profile;
+        let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+        state.install_cell_store().expect("the cell store installs");
+        assert_eq!(global(&state, "day_g"), Value::Date(DateValue::new(ticks)));
+        assert_eq!(
+            global(&state, "stamp_g"),
+            Value::Dt(DateTimeValue::new(ticks))
+        );
+    }
+    for store in [StoreKind::Values, StoreKind::Cells] {
+        let mut data = build_with(&prepared, store, epoch).expect("the program constructs");
+        let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+        assert_eq!(global(&state, "day_g"), Value::Date(DateValue::new(1_000)));
+        assert_eq!(
+            global(&state, "stamp_g"),
+            Value::Dt(DateTimeValue::new(1_000))
+        );
+    }
+}
+
+fn array(elements: Vec<Value>, dims: Vec<(i64, i64)>) -> Value {
+    Value::Array(Box::new(ArrayValue::from_canonical_parts(elements, dims)))
+}
+
+fn ints(values: &[i16]) -> Value {
+    let high = i64::try_from(values.len()).expect("a short list");
+    array(
+        values.iter().copied().map(Value::Int).collect(),
+        vec![(1, high)],
+    )
+}
+
+#[test]
+fn explicit_initializers_land_in_the_cells() {
+    // Specification 34 §6.2 (MEM-10) and IEC 61131-3 Ed.3 §6.5.2.2 (initial values): the value a declaration
+    // names lands in its cells, whichever kind of variable it is. The expected values are the ones the ST
+    // sources of the corpus declare.
+    //
+    // initializers: `ticks : DINT := DINT#0`, `table : ARRAY[1..3] OF INT := [4, 5, 6]`; the program's
+    // `slot : INT := INT#1` (`result : INT` has none and defaults to 0) and the function block's
+    // `history : ARRAY[1..3] OF INT := [1, 2, 3]`. The program is instance 0 and the tracker instance 1.
+    // A cell store that took the default over the initializer would read 0 and [0, 0, 0].
+    let prepared = prepare(INITIALIZERS);
+    let mut data = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    assert_eq!(global(&state, "ticks"), Value::DInt(0));
+    assert_eq!(global(&state, "table"), ints(&[4, 5, 6]));
+    assert_eq!(member(&state, InstanceId(0), "slot"), Value::Int(1));
+    assert_eq!(member(&state, InstanceId(0), "result"), Value::Int(0));
+    assert_eq!(member(&state, InstanceId(1), "history"), ints(&[1, 2, 3]));
+
+    // scalar: `gain : REAL := REAL#1.5`, `mask : WORD := WORD#16#00FF`, `elapsed : TIME := T#0ms` and
+    // `level : LREAL := LREAL#0.0`, each global of its own kind. The program is instance 0 and its
+    // `phase : INT := INT#0` and `ready : BOOL := FALSE` start at 0 and false.
+    let prepared = prepare(SCALAR);
+    let mut data = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    assert_eq!(global(&state, "gain"), Value::Real(1.5));
+    assert_eq!(global(&state, "mask"), Value::Word(0x00FF));
+    assert_eq!(global(&state, "elapsed"), Value::Time(Duration::ZERO));
+    assert_eq!(global(&state, "level"), Value::LReal(0.0));
+    assert_eq!(member(&state, InstanceId(0), "phase"), Value::Int(0));
+    assert_eq!(member(&state, InstanceId(0), "ready"), Value::Bool(false));
+
+    // strings: the program's `name : STRING[16] := 'pump'`, `wide : WSTRING[16] := "valve"`,
+    // `number : DINT := DINT#42` and `reading : REAL := REAL#1.25`; `line : STRING := ''` is empty.
+    let prepared = prepare(STRINGS);
+    let mut data = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    let program = InstanceId(0);
+    assert_eq!(
+        member(&state, program, "name"),
+        Value::String(SmolStr::new("pump"))
+    );
+    assert_eq!(
+        member(&state, program, "wide"),
+        Value::WString(String::from("valve"))
+    );
+    assert_eq!(member(&state, program, "number"), Value::DInt(42));
+    assert_eq!(member(&state, program, "reading"), Value::Real(1.25));
+    assert_eq!(
+        member(&state, program, "line"),
+        Value::String(SmolStr::new(""))
+    );
+
+    // blocks: the function block `Pulse` (instance 1) declares `increment : INT := INT#1`, and the program
+    // `toggle : BOOL := FALSE`, `slot : INT := INT#1` and `counts : ARRAY[0..1] OF INT`. The declaration
+    // constant of `Pulse`'s edge-phase member is the previous value of its R_EDGE input, FALSE.
+    let prepared = prepare(BLOCKS);
+    let mut data = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    let pulse = InstanceId(1);
+    assert_eq!(member(&state, pulse, "increment"), Value::Int(1));
+    assert_eq!(member(&state, program, "toggle"), Value::Bool(false));
+    assert_eq!(member(&state, program, "slot"), Value::Int(1));
+    assert_eq!(
+        member(&state, program, "counts"),
+        array(vec![Value::Int(0), Value::Int(0)], vec![(0, 1)])
+    );
+    let pulse_pou = prepared.roots.entries[2]
+        .template_pou_id
+        .expect("the third root is the Pulse instance");
+    let phases: Vec<&str> = prepared
+        .instance_declarations(pulse_pou)
+        .filter(|declaration| declaration.role == StorageRole::EdgePhase)
+        .map(|declaration| prepared.vm.strings[declaration.name_idx as usize].as_str())
+        .collect();
+    assert_eq!(phases.len(), 1);
+    assert_eq!(member(&state, pulse, phases[0]), Value::Bool(false));
+}
+
+/// The structure `Holder` of `Keeper`: a reference `r` and a DINT `n`.
+fn holder(reference: Option<ValueRef>, n: i32) -> Value {
+    let mut fields = OrderedMap::default();
+    fields.insert(SmolStr::new("r"), Value::Reference(reference));
+    fields.insert(SmolStr::new("n"), Value::DInt(n));
+    Value::Struct(Arc::new(StructValue::from_canonical_parts(
+        SmolStr::new("Holder"),
+        fields,
+    )))
+}
+
+/// The array `ARRAY[1..2] OF REF_TO DINT` of two references.
+fn references(first: Option<ValueRef>, second: Option<ValueRef>) -> Value {
+    array(
+        vec![Value::Reference(first), Value::Reference(second)],
+        vec![(1, 2)],
+    )
+}
+
+#[test]
+fn a_reference_in_a_structure_and_an_array_of_references_round_trip_on_cells() {
+    // Specification 34 §6.2 (MEM-10; O9): a `REF_TO` member of a structure or an array, global or in an
+    // instance, is a reference leaf reserved at construction, and it reads and writes through the region's
+    // reference table. `Keeper` declares the globals `holder_g : Holder` (`r : REF_TO DINT; n : DINT`, the
+    // global ordinal 1) and `slots_g : ARRAY[1..2] OF REF_TO DINT` (ordinal 2), and the function block
+    // `Keeper` with `held : Holder` and `slots : ARRAY[1..2] OF REF_TO DINT`, whose instance is
+    // `keeper_g`, identity 1 (`Main` takes 0). That is six reference leaves.
+    //
+    // Before any write every leaf is a null reference and `n` is 0. Then the structure `holder_g` takes a
+    // reference to `holder_g.n` and 4, the array `slots_g` takes that reference and a null one, and one
+    // element of the array is written through its path. The instance takes its two aggregates the same
+    // way. Each read returns exactly what was written, the table's capacity never changes, and an INT
+    // written where a reference belongs is refused and changes nothing. A store that refused a nested
+    // reference or kept it outside the table would refuse these writes or read null.
+    let prepared = keeper::prepared();
+    let mut data = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let capacity = arm(&data).cells().regions().references().capacity();
+    let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    let keeper = InstanceId(1);
+    assert_eq!(global(&state, "keeper_g"), Value::Instance(keeper));
+    assert_eq!(global(&state, "holder_g"), holder(None, 0));
+    assert_eq!(global(&state, "slots_g"), references(None, None));
+    assert_eq!(member(&state, keeper, "held"), holder(None, 0));
+    assert_eq!(member(&state, keeper, "slots"), references(None, None));
+
+    let target = ValueRef {
+        location: MemoryLocation::Global,
+        offset: 1,
+        generation: Generation::FIRST,
+        path: vec![RefSegment::Field(SmolStr::new("n"))],
+    };
+    assert!(StoreMutate::write_slot(
+        &mut state,
+        MemoryLocation::Global,
+        1,
+        holder(Some(target.clone()), 4)
+    ));
+    assert_eq!(global(&state, "holder_g"), holder(Some(target.clone()), 4));
+    assert!(StoreMutate::write_slot(
+        &mut state,
+        MemoryLocation::Global,
+        2,
+        references(Some(target.clone()), None)
+    ));
+    let second = [RefSegment::Index(vec![2])];
+    let element = ValueRefView {
+        location: MemoryLocation::Global,
+        offset: 2,
+        generation: Generation::FIRST,
+        path: &second,
+    };
+    assert_eq!(
+        StoreMutate::write_reference(&mut state, element, Value::Reference(Some(target.clone()))),
+        Ok(true)
+    );
+    assert_eq!(
+        global(&state, "slots_g"),
+        references(Some(target.clone()), Some(target.clone()))
+    );
+
+    assert!(StoreMutate::write_instance_var(
+        &mut state,
+        keeper,
+        "held",
+        holder(Some(target.clone()), 7)
+    ));
+    assert!(StoreMutate::write_instance_var(
+        &mut state,
+        keeper,
+        "slots",
+        references(None, Some(target.clone()))
+    ));
+    assert_eq!(
+        member(&state, keeper, "held"),
+        holder(Some(target.clone()), 7)
+    );
+    assert_eq!(
+        member(&state, keeper, "slots"),
+        references(None, Some(target))
+    );
+
+    let member_r = [RefSegment::Field(SmolStr::new("r"))];
+    let int_for_reference = ValueRefView {
+        location: MemoryLocation::Global,
+        offset: 1,
+        generation: Generation::FIRST,
+        path: &member_r,
+    };
+    assert!(StoreMutate::write_reference(&mut state, int_for_reference, Value::Int(3)).is_err());
+    assert_eq!(
+        capacity,
+        arm(&data).cells().regions().references().capacity()
+    );
+}
+
+#[test]
+fn an_instance_without_a_root_is_placed_or_refused() {
+    // Specification 34 §6.2 (MEM-10; O8): a persistent instance lives in its root's range. `Keeper` has
+    // the roots `Main` (instance 0), the globals without instances, and `keeper_g` (instance 1). The
+    // globals take 7 cells (`holder_g` 2, `slots_g` 2, `keeper_g` 1, the two dates 1 each), so the roots
+    // start at cell 7: `Main` has no cells of its own, and the `Keeper` instance holds `held` (2) and
+    // `slots` (2), 4 cells. Each root is placed in its own range.
+    //
+    // An instance with no owner and no root has no range to live in. The cell store refuses it by name
+    // and issues no identity, so the instance created next takes 2; the `Value` store has no range to
+    // fill and keeps it, as it always did, and issues 2 for it. These are the paths that create such an
+    // instance: the parent of an instance that no inheritance-parent root names, and a retained object
+    // that no root of the replacement names. Both reach this reservation. The first is built end to end
+    // below, from the cell fixture without its inheritance-parent root; the second calls the same
+    // reservation (`RetainedGraph::instance`) and is not built, since no corpus program retains an
+    // object that its replacement has no root for.
+    let prepared = keeper::prepared();
+    let mut cells = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    assert_eq!(
+        arm(&cells).instance_range(InstanceId(0)),
+        Some(CellRange {
+            region: LayoutRegion::Persistent,
+            start: 7,
+            cells: 0,
+        })
+    );
+    assert_eq!(
+        arm(&cells).instance_range(InstanceId(1)),
+        Some(CellRange {
+            region: LayoutRegion::Persistent,
+            start: 7,
+            cells: 4,
+        })
+    );
+    let mut state = EngineState::borrow(&mut cells, &prepared, &services::LOGICAL_ONLY);
+    let refused =
+        state.engineering_operation(|state| state.reserve_instance(keeper::KEEPER_POU, None));
+    assert_eq!(
+        refused,
+        Err(RuntimeError::InitFailed {
+            owner: SmolStr::new("Keeper"),
+            variable: SmolStr::new("<instance>"),
+            error: SmolStr::new(
+                "a persistent instance without a construction root has no cell range"
+            ),
+        })
+    );
+    assert_eq!(
+        StoreMutate::try_create_instance(&mut state, "Probe"),
+        Ok(InstanceId(2))
+    );
+
+    let mut values = build(&prepared, StoreKind::Values).expect("the Value store constructs");
+    let mut state = EngineState::borrow(&mut values, &prepared, &services::LOGICAL_ONLY);
+    assert_eq!(
+        state.engineering_operation(|state| state.reserve_instance(keeper::KEEPER_POU, None)),
+        Ok(InstanceId(2))
+    );
+
+    // The parent of an instance: the cell fixture's `fb_g : Derived`, with the inheritance-parent root of
+    // its instance removed, is a persistent root whose template extends `Base` and whose parent no root
+    // names. The `Value` store creates that parent instance without a root, as it always did, and
+    // constructs the module. The cell store has no range for it and refuses the construction by name,
+    // before an identity is issued for the parent.
+    let prepared = fixture::prepared_without_parent_root();
+    assert!(build(&prepared, StoreKind::Values).is_ok());
+    assert_eq!(
+        build(&prepared, StoreKind::Cells).err(),
+        Some(RuntimeError::InitFailed {
+            owner: SmolStr::new("Base"),
+            variable: SmolStr::new("<instance>"),
+            error: SmolStr::new(
+                "a persistent instance without a construction root has no cell range"
+            ),
+        })
+    );
+}
+
+#[test]
+fn a_cold_restart_reconstructs_the_store_it_replaces() {
+    // Specification 34 §11.3 and TIME-09: a restart constructs the next generation on the store it
+    // replaces, with the profile it ran with. A state built on cells holds cells after a cold restart, in
+    // generation 1, and its program starts again from its initializers: `initializers` reads `slot` 1 and
+    // the identities 0 and 1 again. A restart that rebuilt the `Value` store would leave the arm empty.
+    let prepared = prepare(INITIALIZERS);
+    let mut data = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    assert!(state.write_instance_var(InstanceId(0), "slot", Value::Int(3)));
+    assert_eq!(member(&state, InstanceId(0), "slot"), Value::Int(3));
+    state
+        .restart(RestartMode::Cold)
+        .expect("the cold restart constructs");
+    assert!(state.holds_cells());
+    assert_eq!(StoreAccess::generation(&state), Generation(1));
+    assert_eq!(member(&state, InstanceId(0), "slot"), Value::Int(1));
+    assert_eq!(global(&state, "Plant"), Value::Instance(InstanceId(0)));
+    assert_eq!(
+        member(&state, InstanceId(0), "tracker"),
+        Value::Instance(InstanceId(1))
+    );
+}
+
+#[test]
+fn a_warm_restart_carries_the_retained_values_on_cells() {
+    // Specification 11 §6.7 and IEC 61131-3 Ed.3 §6.5.6.1: a warm restart gives the RETAIN variables the
+    // values they had when the resource stopped, and a cold restart their initial values; every other
+    // variable starts again from its initializer. `retain` declares `VAR_GLOBAL RETAIN counter : DINT :=
+    // 0; setpoint : REAL := 20.0;`, `VAR_GLOBAL ticks : DINT := 0;` and, in the program (instance 0),
+    // `VAR RETAIN runs : DINT; label : STRING[12] := 'boiler';`. The run changes all five to 7, 21.5, 9,
+    // 3 and 'cooked'. After the warm restart `counter`, `setpoint`, `runs` and `label` read 7, 21.5, 3
+    // and 'cooked' and `ticks` reads 0 again; after the cold restart that follows, all five read their
+    // initial values 0, 20.0, 0 and 'boiler', and `ticks` 0. A restart that read the retained values from
+    // the `Value` half would carry nothing, and one that kept every value would carry `ticks` too.
+    let prepared = prepare(RETAIN);
+    let mut data = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    let program = InstanceId(0);
+    assert!(StoreMutate::set_global(
+        &mut state,
+        "counter",
+        Value::DInt(7)
+    ));
+    assert!(StoreMutate::set_global(
+        &mut state,
+        "setpoint",
+        Value::Real(21.5)
+    ));
+    assert!(StoreMutate::set_global(&mut state, "ticks", Value::DInt(9)));
+    assert!(state.write_instance_var(program, "runs", Value::DInt(3)));
+    assert!(state.write_instance_var(program, "label", Value::String(SmolStr::new("cooked"))));
+
+    state
+        .restart(RestartMode::Warm)
+        .expect("the warm restart constructs");
+    assert!(state.holds_cells());
+    assert_eq!(global(&state, "counter"), Value::DInt(7));
+    assert_eq!(global(&state, "setpoint"), Value::Real(21.5));
+    assert_eq!(global(&state, "ticks"), Value::DInt(0));
+    assert_eq!(member(&state, program, "runs"), Value::DInt(3));
+    assert_eq!(
+        member(&state, program, "label"),
+        Value::String(SmolStr::new("cooked"))
+    );
+
+    state
+        .restart(RestartMode::Cold)
+        .expect("the cold restart constructs");
+    assert_eq!(global(&state, "counter"), Value::DInt(0));
+    assert_eq!(global(&state, "setpoint"), Value::Real(20.0));
+    assert_eq!(global(&state, "ticks"), Value::DInt(0));
+    assert_eq!(member(&state, program, "runs"), Value::DInt(0));
+    assert_eq!(
+        member(&state, program, "label"),
+        Value::String(SmolStr::new("boiler"))
+    );
+}

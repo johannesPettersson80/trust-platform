@@ -352,6 +352,27 @@ impl<'a> ValueView<'a> {
         }
     }
 
+    /// The reference a cell reference leaf holds (C1-9d2b-1), borrowed: `None` for a null reference, for
+    /// any other cell and for a `Value` view, which a caller reads as its `Value`.
+    pub(crate) fn cell_reference(&self) -> Result<Option<&'a ValueRef>, RuntimeError> {
+        match *self {
+            Self::Value(_) => Ok(None),
+            Self::Cells {
+                cells,
+                range,
+                type_id,
+            } => cells.reference_leaf(range, type_id),
+        }
+    }
+
+    /// Whether this view holds a cell array of primitives, enumerations or subranges (C1-9d2b-1).
+    pub(crate) fn cell_array_of_primitives(&self) -> bool {
+        match *self {
+            Self::Value(_) => false,
+            Self::Cells { cells, type_id, .. } => cells.array_of_primitives(type_id),
+        }
+    }
+
     /// The instance a function block cell holds, which a walk owns (C1-9d2a, item (e)). An interface
     /// cell holds an instance that it does not own, so it gives `None`, as does any other cell.
     pub(crate) fn owned_cell_instance(&self) -> Result<Option<InstanceId>, RuntimeError> {

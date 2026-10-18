@@ -27,6 +27,11 @@ impl EngineState<'_> {
             (mode == RestartMode::Warm).then_some(&*self),
             Some(&self.data.images),
             self.data.now,
+            // The restart reconstructs the store it replaces, with the profile it ran with.
+            Construction {
+                store: self.data.store.kind(),
+                profile: self.data.profile,
+            },
         )?;
         let mut next = Self::borrow(&mut next_data, self.prepared, self.services);
         if mode == RestartMode::Warm {
@@ -71,7 +76,7 @@ impl EngineState<'_> {
                 };
                 let new = self.data.construction.roots[root_index]
                     .ok_or(RuntimeError::InvalidExecutionState)?;
-                if let Some(view) = source.data.storage.read_instance_var(old, name) {
+                if let Some(view) = source.read_instance_var(old, name) {
                     let value = view.materialize()?;
                     self.check_retention_walk(&value, 0)?;
                     if value_is_retainable(&value) {
@@ -81,7 +86,7 @@ impl EngineState<'_> {
                 for &phase_id in source.prepared.edge_declarations(index as u32) {
                     let phase = &source.prepared.layout.entries[phase_id as usize];
                     let phase_name = &source.prepared.vm.strings[phase.name_idx as usize];
-                    if let Some(view) = source.data.storage.read_instance_var(old, phase_name) {
+                    if let Some(view) = source.read_instance_var(old, phase_name) {
                         let value = view.materialize()?;
                         self.restore_program_value(new, phase_name, &value)?;
                     }
@@ -134,11 +139,7 @@ impl EngineState<'_> {
         value: &Value,
     ) -> Result<(), RuntimeError> {
         self.charge_allocation_bytes(self.value_clone_charge(value, 0)?)?;
-        if !self
-            .data
-            .storage
-            .write_instance_var(instance, name.clone(), value.clone())
-        {
+        if !StoreMutate::write_instance_var(self, instance, name.clone(), value.clone()) {
             return Err(RuntimeError::InvalidExecutionState);
         }
         Ok(())

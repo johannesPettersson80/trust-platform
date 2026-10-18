@@ -3,9 +3,11 @@
 //! The arm reads the globals and the persistent instances from their cells, through the prepared
 //! layouts. A [`crate::memory::view::ValueView::Cells`] names the cells of one value and reads them
 //! without copying.
-//! Locals, per-call instances and the rest of the `Value` half stay on the `values` field of the
-//! arm, which is today's [`crate::memory::VariableStorage`], so their reads are unchanged. Until C1-9d the engine builds only
-//! the `Value` store, so no answer of a running engine changes.
+//! Locals, per-call instances and the rest of the `Value` half stay in today's
+//! [`crate::memory::VariableStorage`], which the engine owns beside the arm and lends to the reader and
+//! the writer of each call (C1-9d2b-1), so the engine's activations and the arm's reads of locals and
+//! per-call instances address one `Value` half and their reads are unchanged. The engine builds the arm
+//! at construction when it is asked to (`vm::engine`), and builds only the `Value` store otherwise.
 //!
 //! The reads take the prepared module through `CellReader`: a cell view needs the layouts that
 //! place its members and elements, and the store-access trait carries no prepared module. The
@@ -108,7 +110,7 @@ impl<'a> CellsView<'a> {
 
     /// The `ValueRef` a reference leaf at `range` holds, when it holds one: `None` for a leaf of
     /// another type and for a null reference.
-    fn reference_leaf(
+    pub(crate) fn reference_leaf(
         self,
         range: CellRange,
         type_id: u32,
@@ -134,10 +136,6 @@ impl<'a> CellsView<'a> {
 
 /// A persistent instance held in cells: its template POU, the range of its own members, its parent
 /// and its declared type name (specification 34 §6.2; O6, O8).
-#[allow(
-    dead_code,
-    reason = "C1-9d records instances at construction; until then only the tests record them"
-)]
 #[derive(Debug)]
 struct PersistentInstance {
     pou: u32,
@@ -146,39 +144,27 @@ struct PersistentInstance {
     type_name: SmolStr,
 }
 
-/// The cell arm's state (specification 34 §6.2; C1-9b): the cell store, the `Value` half that holds
-/// locals and per-call instances, and the persistent instances by identity.
-#[allow(
-    dead_code,
-    reason = "C1-9d builds the cell arm at construction; until then only the tests build it"
-)]
+/// The cell arm's state (specification 34 §6.2; C1-9b): the cell store, whose one identity counter issues
+/// every instance identity, and the persistent instances by identity. The `Value` half that holds locals
+/// and per-call instances is the engine's own `VariableStorage`, lent to each reader and writer.
 #[derive(Debug, Default)]
 pub(crate) struct CellArm {
     cells: CellStorage,
-    values: VariableStorage,
     instances: BTreeMap<InstanceId, PersistentInstance>,
 }
 
 impl CellArm {
-    /// An arm over `cells`, with an empty `Value` half and no persistent instance recorded yet.
-    #[allow(
-        dead_code,
-        reason = "C1-9d builds the cell arm at construction; until then only the tests build it"
-    )]
+    /// An arm over `cells`, with no persistent instance recorded yet.
     pub(crate) fn new(cells: CellStorage) -> Self {
         Self {
             cells,
-            values: VariableStorage::new(),
             instances: BTreeMap::new(),
         }
     }
 
     /// Record that `instance`, of template `pou` and type `type_name`, occupies the cells of `range`
-    /// with `parent` as its parent. C1-9d records the instances as it constructs them.
-    #[allow(
-        dead_code,
-        reason = "C1-9d records instances at construction; until then only the tests record them"
-    )]
+    /// with `parent` as its parent. Construction records the persistent instances as it reserves them
+    /// ([`CellArm::create_persistent_instance`]); the tests record the identities they issued.
     pub(crate) fn register_instance(
         &mut self,
         instance: InstanceId,
@@ -197,6 +183,60 @@ impl CellArm {
             },
         );
     }
+
+    /// Issue the next identity from the cell store's one counter and record the persistent instance
+    /// that holds it (specification 34 §6.2; R2, O8). Per-call instances draw on the same counter, so no
+    /// identity is issued twice. `range` is the instance's own cells within its root's range.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::Overflow`] when the counter is exhausted; nothing is recorded then.
+    pub(crate) fn create_persistent_instance(
+        &mut self,
+        pou: u32,
+        range: CellRange,
+        type_name: &str,
+    ) -> Result<InstanceId, RuntimeError> {
+        let instance = self.cells.issue_instance_id()?;
+        self.register_instance(instance, pou, range, None, type_name);
+        Ok(instance)
+    }
+
+    /// Give the persistent instance `child` the parent `parent`. `false` when `child` is not a persistent
+    /// instance of the arm.
+    pub(crate) fn set_instance_parent(
+        &mut self,
+        child: InstanceId,
+        parent: Option<InstanceId>,
+    ) -> bool {
+        match self.instances.get_mut(&child) {
+            Some(persistent) => {
+                persistent.parent = parent;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// The number of persistent instances the arm records.
+    pub(crate) fn persistent_count(&self) -> usize {
+        self.instances.len()
+    }
+
+    /// The cells of a persistent instance's own members, or `None` for an identity that is not a
+    /// persistent instance of the arm.
+    #[cfg(test)]
+    pub(crate) fn instance_range(&self, instance: InstanceId) -> Option<CellRange> {
+        self.instances
+            .get(&instance)
+            .map(|persistent| persistent.range)
+    }
+
+    /// The cell store the arm reads and writes, for the tests.
+    #[cfg(test)]
+    pub(crate) fn cells(&self) -> &CellStorage {
+        &self.cells
+    }
 }
 
 /// Where a path ends: in cells of the arm, or in a place of the `Value` half.
@@ -214,12 +254,22 @@ enum Target<'p> {
 pub(crate) struct CellReader<'a> {
     prepared: &'a PreparedModule,
     arm: &'a CellArm,
+    /// The `Value` half the engine lends: the activations' locals and the per-call instances.
+    values: &'a VariableStorage,
 }
 
 impl<'a> CellReader<'a> {
-    /// A reader of `arm`, placing its cells through `prepared`.
-    pub(crate) fn new(prepared: &'a PreparedModule, arm: &'a CellArm) -> Self {
-        Self { prepared, arm }
+    /// A reader of `arm` and of the `Value` half `values`, placing the arm's cells through `prepared`.
+    pub(crate) fn new(
+        prepared: &'a PreparedModule,
+        arm: &'a CellArm,
+        values: &'a VariableStorage,
+    ) -> Self {
+        Self {
+            prepared,
+            arm,
+            values,
+        }
     }
 
     /// The installation generation of the arm's references (specification 34 §11.3, MEM-07).
@@ -301,8 +351,7 @@ impl<'a> CellReader<'a> {
             let (_, _, range, type_id) = self.member_by(instance, |_, member| member == name)?;
             return Some(self.view(range, type_id));
         }
-        self.arm
-            .values
+        self.values
             .get_instance_var(instance, name)
             .map(ValueView::Value)
     }
@@ -313,7 +362,7 @@ impl<'a> CellReader<'a> {
         let ordinal = self.global_index(name)?;
         match self.global(ordinal) {
             Some((range, type_id)) => Some(self.view(range, type_id)),
-            None => self.arm.values.get_global(name).map(ValueView::Value),
+            None => self.values.get_global(name).map(ValueView::Value),
         }
     }
 
@@ -344,7 +393,7 @@ impl<'a> CellReader<'a> {
             let (ordinal, _, _, _) = self.member_by(instance, |_, member| member == name)?;
             return self.value_ref(MemoryLocation::Instance(instance), ordinal);
         }
-        self.arm.values.ref_for_instance(instance, name)
+        self.values.ref_for_instance(instance, name)
     }
 
     /// The reference to the variable `name` of `instance` or of its nearest ancestor that declares it.
@@ -356,7 +405,7 @@ impl<'a> CellReader<'a> {
         let mut current = instance;
         for _ in 0..=self.arm.instances.len() {
             if !self.arm.instances.contains_key(&current) {
-                return self.arm.values.ref_for_instance_recursive(current, name);
+                return self.values.ref_for_instance_recursive(current, name);
             }
             if let Some((ordinal, _, _, _)) = self.member_by(current, |_, member| member == name) {
                 return self.value_ref(MemoryLocation::Instance(current), ordinal);
@@ -387,15 +436,13 @@ impl<'a> CellReader<'a> {
                 .member_by(instance, |_, member| member == name)
                 .map(|(ordinal, _, _, _)| ordinal);
         }
-        self.arm
-            .values
-            .declared_instance_field_offset(instance, name)
+        self.values.declared_instance_field_offset(instance, name)
     }
 
     /// An owned copy of the instance record: its members materialized from their cells.
     pub(crate) fn snapshot_instance(self, instance: InstanceId) -> Option<InstanceData> {
         let Some(persistent) = self.arm.instances.get(&instance) else {
-            return self.arm.values.get_instance(instance).cloned();
+            return self.values.get_instance(instance).cloned();
         };
         let mut variables = OrderedMap::default();
         let mut ordinal = 0usize;
@@ -418,7 +465,6 @@ impl<'a> CellReader<'a> {
         match self.arm.instances.get(&instance) {
             Some(persistent) => Some(&persistent.type_name),
             None => self
-                .arm
                 .values
                 .get_instance(instance)
                 .map(|data| &data.type_name),
@@ -434,12 +480,65 @@ impl<'a> CellReader<'a> {
         match self.arm.instances.get(&instance) {
             Some(persistent) => Ok(persistent.parent),
             None => self
-                .arm
                 .values
                 .get_instance(instance)
                 .map(|data| data.parent)
                 .ok_or(VmTrap::NullReference),
         }
+    }
+
+    /// The number of members `instance` holds: the members of a persistent instance's template that own
+    /// storage, or the variables of a `Value`-half instance. `None` when no such instance exists. A walk
+    /// of an instance visits ordinals `0..count` (specification 34 MEM-09; C1-9d2b-1).
+    pub(crate) fn instance_member_count(self, instance: InstanceId) -> Option<usize> {
+        match self.arm.instances.get(&instance) {
+            Some(persistent) => Some(
+                self.prepared
+                    .instance_declarations(persistent.pou)
+                    .filter(|declaration| {
+                        declaration.type_id.is_some() && declaration.owns_storage()
+                    })
+                    .count(),
+            ),
+            None => self
+                .values
+                .get_instance(instance)
+                .map(|data| data.variables.len()),
+        }
+    }
+
+    /// The declared name of member `ordinal` of `instance`, in declaration order. `None` when the
+    /// instance or the member does not exist.
+    pub(crate) fn instance_member_name(
+        self,
+        instance: InstanceId,
+        ordinal: usize,
+    ) -> Option<&'a str> {
+        if self.arm.instances.contains_key(&instance) {
+            let (_, name, _, _) = self.member_by(instance, |index, _| index == ordinal)?;
+            return Some(name);
+        }
+        self.values
+            .get_instance(instance)?
+            .variables
+            .get_index(ordinal)
+            .map(|(name, _)| name.as_str())
+    }
+
+    /// The view of member `ordinal` of `instance`, in declaration order. `None` when the instance or the
+    /// member does not exist.
+    pub(crate) fn instance_member_view(
+        self,
+        instance: InstanceId,
+        ordinal: usize,
+    ) -> Option<ValueView<'a>> {
+        if self.arm.instances.contains_key(&instance) {
+            let (_, _, range, type_id) = self.member_by(instance, |index, _| index == ordinal)?;
+            return Some(self.view(range, type_id));
+        }
+        self.values
+            .read_instance_field_by_offset(instance, ordinal)
+            .map(ValueView::Value)
     }
 
     /// The view of the cells of `range`, a value of `type_id`, through this reader's region.
@@ -461,8 +560,7 @@ impl<'a> CellReader<'a> {
         offset: usize,
         path: &[RefSegment],
     ) -> Result<ValueView<'a>, VmTrap> {
-        self.arm
-            .values
+        self.values
             .read_by_ref_parts(location, offset, path)
             .map(ValueView::Value)
             .ok_or(VmTrap::NullReference)
@@ -493,7 +591,7 @@ impl<'a> CellReader<'a> {
     /// the half holds such a global under its name (C1-9c).
     fn values_global(self, ordinal: usize) -> Option<usize> {
         let name = self.global_name(ordinal)?;
-        self.arm.values.globals().get_index_of(name)
+        self.values.globals().get_index_of(name)
     }
 
     /// The declaration-order ordinal of the global named `name`.
@@ -644,7 +742,6 @@ impl<'a> CellReader<'a> {
         for _ in 0..=self.arm.instances.len() {
             let Some(persistent) = self.arm.instances.get(&current) else {
                 let reference = self
-                    .arm
                     .values
                     .ref_for_instance_recursive(current, name)
                     .ok_or(VmTrap::NullReference)?;
@@ -746,8 +843,9 @@ fn step(prepared: &PreparedModule, type_id: u32, segment: &RefSegment) -> Option
 
 #[path = "cell_charge.rs"]
 mod cell_charge;
+/// The bytecode fixture of the cell arm's tests, whose builders the engine's construction tests reuse.
 #[cfg(all(test, feature = "std"))]
-mod fixture;
+pub(crate) mod fixture;
 #[cfg(all(test, feature = "std"))]
 mod tests;
 #[cfg(all(test, feature = "std"))]

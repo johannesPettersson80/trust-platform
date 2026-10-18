@@ -1126,7 +1126,16 @@ reserved region and allocates nothing. The persistent region holds its globals' 
 cells and reference leaves, one range per root, counted from the prepared layouts rather than by hand. The
 bytes a store takes are its cells at 16 bytes each, its reference records, and its reference
 table, which holds one entry per reference leaf and the `ValueRef` of each non-null reference until
-C1-11 (O9), so construction charges them before reserving. Nothing reads the store at run time yet, so stored values, outputs and
+C1-11 (O9), so construction charges them before reserving. Construction charges, in the same
+charge and before it reserves, the memory it holds while it builds the store: the `globals` range
+table, one 12-byte entry for each STORAGE_LAYOUT declaration; the `roots` range table, one 12-byte
+entry for each CONSTRUCTION_ROOTS record; and the lists it fills while it walks the layouts, one
+8-byte entry for each text leaf, one 4-byte entry for each reference leaf and one 24-byte entry for
+each declared variable that construction fills with its default, which is every global and every
+member of a persistent instance except a function static and a native-state slot (their static
+action and their native import give them their values, and until then their cells are empty).
+They are reserved memory, so they count with the cells, and an entry has the same size on every
+target. Nothing reads the store at run time yet, so stored values, outputs and
 faults are unchanged. The text store holds a region's text buffers — one fixed buffer per text leaf
 at its leaf's byte capacity, reserved once and never grown, with its length in use — and its text
 sink cuts written text exactly where assignment normalization cuts it, so a `Cell::Text` leaf

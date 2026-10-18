@@ -93,7 +93,7 @@ const HOLDER_REF: u32 = 19;
 const HOLDER_INITIALIZER: u32 = 11;
 const HOLDER_RESULT_REF: u32 = 20;
 
-fn primitive(prim_id: u16, max_length: u16) -> TypeEntry {
+pub(crate) fn primitive(prim_id: u16, max_length: u16) -> TypeEntry {
     TypeEntry {
         kind: TypeKind::Primitive,
         name_idx: None,
@@ -104,7 +104,7 @@ fn primitive(prim_id: u16, max_length: u16) -> TypeEntry {
     }
 }
 
-fn named(kind: TypeKind, name_idx: u32, data: TypeData) -> TypeEntry {
+pub(crate) fn named(kind: TypeKind, name_idx: u32, data: TypeData) -> TypeEntry {
     TypeEntry {
         kind,
         name_idx: Some(name_idx),
@@ -112,7 +112,7 @@ fn named(kind: TypeKind, name_idx: u32, data: TypeData) -> TypeEntry {
     }
 }
 
-fn anonymous(kind: TypeKind, data: TypeData) -> TypeEntry {
+pub(crate) fn anonymous(kind: TypeKind, data: TypeData) -> TypeEntry {
     TypeEntry {
         kind,
         name_idx: None,
@@ -120,7 +120,7 @@ fn anonymous(kind: TypeKind, data: TypeData) -> TypeEntry {
     }
 }
 
-fn field(name_idx: u32, type_id: u32) -> Field {
+pub(crate) fn field(name_idx: u32, type_id: u32) -> Field {
     Field {
         name_idx,
         type_id,
@@ -132,7 +132,7 @@ fn field(name_idx: u32, type_id: u32) -> Field {
     clippy::too_many_arguments,
     reason = "a storage declaration mirrors its wire fields one-to-one in the fixture"
 )]
-fn declaration(
+pub(crate) fn declaration(
     owner: StorageOwner,
     role: StorageRole,
     owner_pou_id: Option<u32>,
@@ -159,7 +159,7 @@ fn declaration(
     }
 }
 
-fn initializer(
+pub(crate) fn initializer(
     declaration_idx: u32,
     owner_pou_id: Option<u32>,
     result_ref_idx: u32,
@@ -193,7 +193,7 @@ fn initializer(
     }
 }
 
-fn var_meta(name_idx: u32, type_id: u32, ref_idx: u32) -> VarMetaEntry {
+pub(crate) fn var_meta(name_idx: u32, type_id: u32, ref_idx: u32) -> VarMetaEntry {
     VarMetaEntry {
         name_idx,
         type_id,
@@ -203,7 +203,7 @@ fn var_meta(name_idx: u32, type_id: u32, ref_idx: u32) -> VarMetaEntry {
     }
 }
 
-fn global_ref(offset: u32) -> RefEntry {
+pub(crate) fn global_ref(offset: u32) -> RefEntry {
     RefEntry {
         location: RefLocation::Global,
         owner_id: 0,
@@ -212,7 +212,7 @@ fn global_ref(offset: u32) -> RefEntry {
     }
 }
 
-fn result_ref(initializer: u32) -> RefEntry {
+pub(crate) fn result_ref(initializer: u32) -> RefEntry {
     RefEntry {
         location: RefLocation::InitializerResult,
         owner_id: initializer,
@@ -223,7 +223,7 @@ fn result_ref(initializer: u32) -> RefEntry {
 
 /// The module the fixture starts from: the sections it does not replace (constant pool, POU bodies,
 /// resource metadata, I/O map), and empty placeholders for those it does.
-fn base_module() -> BytecodeModule {
+pub(crate) fn base_module() -> BytecodeModule {
     let mut module = BytecodeModule::new(BytecodeVersion::new(1, 1));
     module.sections = vec![
         Section {
@@ -682,6 +682,28 @@ pub(super) fn prepared() -> PreparedModule {
         PreparationLimits::default(),
     )
     .expect("the fixture prepares")
+}
+
+/// The fixture without the inheritance-parent root of `fb_g`'s instance. The encoder always emits that
+/// root (`bytecode/encoder/construction/roots.rs`), so this is a module only a hand-built artifact can
+/// be: `fb_g : Derived` is a root whose template has a parent POU that no root names (C1-9d2b-1, R5).
+pub(crate) fn prepared_without_parent_root() -> PreparedModule {
+    let mut module = fixture();
+    let SectionData::ConstructionRoots(roots) = module
+        .section_mut(SectionId::ConstructionRoots)
+        .expect("the construction roots section")
+    else {
+        unreachable!("the construction roots section holds construction roots")
+    };
+    roots.entries.remove(PARENT_ROOT);
+    module
+        .validate()
+        .expect("the module without the parent root is a valid source-free module");
+    PreparedModule::from_bytes(
+        &module.encode().expect("encode"),
+        PreparationLimits::default(),
+    )
+    .expect("the module without the parent root prepares")
 }
 
 /// The fixture plus one global, `holder_g : Holder` ([`HOLDER_G`]), a structure of a `REF_TO DINT` and a

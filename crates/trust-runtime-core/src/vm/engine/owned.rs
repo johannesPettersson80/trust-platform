@@ -367,6 +367,11 @@ impl<S: ExecutionServices> OwnedRuntimeState<S> {
             congruent.then_some(&source),
             Some(&source.data.images),
             source.data.now,
+            // The replacement continues the installation on the store it runs on, with its profile.
+            super::Construction {
+                store: source.data.store.kind(),
+                profile: source.data.profile,
+            },
         )?;
         let mut candidate = EngineState::borrow(&mut data, &prepared, &services);
         let mut events = if congruent {

@@ -541,14 +541,12 @@ impl EngineState<'_> {
         let reference = self.persistent_io_view(binding.ref_idx)?;
         self.check_read(reference)?;
         let view = self
-            .data
-            .storage
             .read_path(reference.location, reference.offset, reference.path)
             .map_err(|_| RuntimeError::NullReference)?;
         self.charge_allocation_bytes(self.view_clone_charge(&view)?)?;
         // The read above already resolved this path, so the view holds exactly the
         // leaf the old whole-value materialize returned.
-        let value = self.data.storage.materialize(&view)?;
+        let value = self.materialize(&view)?;
         let value = binding.codec.encode(value, binding.address.size)?;
         if binding.address.path.len() > 1 {
             self.charge_hierarchical_entry(&binding.address)?;

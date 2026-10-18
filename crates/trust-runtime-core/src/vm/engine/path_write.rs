@@ -33,7 +33,7 @@ impl EngineState<'_> {
         path: &[RefSegment],
         input: &Value,
     ) -> Result<(), RuntimeError> {
-        self.charge_path_write_inner(&self.data.storage, ValueView::Value(root), path, input, 0)
+        self.charge_path_write_inner(self, ValueView::Value(root), path, input, 0)
     }
 
     /// The view form of [`Self::charge_path_write`] (C1-9d2a, item (a)): the charge of a write inside
@@ -44,7 +44,7 @@ impl EngineState<'_> {
         path: &[RefSegment],
         input: &Value,
     ) -> Result<(), RuntimeError> {
-        self.charge_path_write_inner(&self.data.storage, *root, path, input, 0)
+        self.charge_path_write_inner(self, *root, path, input, 0)
     }
 
     /// The charge of a write to `path` inside the value `root` (C1-9d1). A `Value` root walks as it

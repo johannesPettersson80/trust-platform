@@ -39,7 +39,7 @@ const MAIN_G: usize = 0;
 
 /// Run `write` on a writer of the cell arm of `fixture`.
 fn with_writer<T>(fixture: &mut Fixture, write: impl FnOnce(&mut CellWriter<'_>) -> T) -> T {
-    let mut writer = CellWriter::new(&fixture.prepared, &mut fixture.arm);
+    let mut writer = CellWriter::new(&fixture.prepared, &mut fixture.arm, &mut fixture.half);
     write(&mut writer)
 }
 
@@ -704,6 +704,7 @@ fn holder_fixture() -> Fixture {
     Fixture {
         prepared,
         arm: CellArm::new(cells),
+        half: VariableStorage::new(),
         values: VariableStorage::new(),
     }
 }

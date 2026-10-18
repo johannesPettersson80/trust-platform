@@ -16,8 +16,10 @@ use crate::value::{write_value_path, RefSegment};
 #[path = "context/owner_tests.rs"]
 mod owner_tests;
 
-impl ReferenceContext for EngineState<'_> {
-    type Store = VariableStorage;
+impl<'e> ReferenceContext for EngineState<'e> {
+    // The dispatcher reaches the variables through the state itself, which routes each read and write to
+    // the store the engine holds: the `Value` storage or the cell arm (C1-9d2b-1).
+    type Store = EngineState<'e>;
 
     fn dynamic_reference_candidates(
         &self,
@@ -182,10 +184,7 @@ impl ReferenceContext for EngineState<'_> {
                     return Ok(instance);
                 }
                 instance = self
-                    .data
-                    .storage
-                    .get_instance(instance)
-                    .and_then(|value| value.parent)
+                    .instance_parent(instance)?
                     .ok_or_else(|| VmTrap::NullReference)?;
             }
         }
@@ -193,11 +192,11 @@ impl ReferenceContext for EngineState<'_> {
             .ok_or_else(|| VmTrap::NullReference)
     }
 
-    fn storage(&self) -> &VariableStorage {
-        &self.data.storage
+    fn storage(&self) -> &Self::Store {
+        self
     }
-    fn storage_mut(&mut self) -> &mut VariableStorage {
-        &mut self.data.storage
+    fn storage_mut(&mut self) -> &mut Self::Store {
+        self
     }
     fn check_reference_write(
         &self,
@@ -245,7 +244,7 @@ impl ReferenceContext for EngineState<'_> {
         #[cfg(all(feature = "std", feature = "test-support"))]
         let _timing =
             crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::StorageWrite);
-        self.charge_storage_path_write(&self.data.storage, location, offset, path, &value)?;
+        self.charge_storage_path_write(&*self, location, offset, path, &value)?;
         if path.is_empty() && !matches!(value, Value::Struct(_)) {
             return Ok(self.write_slot(location, offset, value));
         }

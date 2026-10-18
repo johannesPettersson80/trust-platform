@@ -133,11 +133,7 @@ impl EngineState<'_> {
             .prepared
             .global(name)
             .ok_or_else(|| RuntimeError::InvalidExecutionState)?;
-        let Ok(slot) = self
-            .data
-            .storage
-            .read_slot(MemoryLocation::Global, declaration.slot as usize)
-        else {
+        let Ok(slot) = self.read_slot(MemoryLocation::Global, declaration.slot as usize) else {
             return Err(RuntimeError::TypeMismatch);
         };
         match slot.scalar()? {
@@ -153,8 +149,6 @@ impl EngineState<'_> {
         let reference = self.persistent_io_view(ref_idx)?;
         self.check_read(reference)?;
         let view = self
-            .data
-            .storage
             .read_path(reference.location, reference.offset, reference.path)
             .map_err(|_| RuntimeError::NullReference)?;
         let instance = match view.instance()? {
@@ -262,15 +256,13 @@ impl EngineState<'_> {
                 self.check_write(reference.as_view(), &value)?;
                 let value = self.normalize_reference_value(reference.as_view(), value)?;
                 self.charge_storage_path_write(
-                    &self.data.storage,
+                    &*self,
                     reference.location,
                     reference.offset as usize,
                     &reference.path,
                     &value,
                 )?;
                 let prepared = self
-                    .data
-                    .storage
                     .prepare_write(
                         reference.location,
                         reference.offset as usize,
@@ -280,11 +272,7 @@ impl EngineState<'_> {
                     .ok_or_else(|| RuntimeError::NullReference)?;
                 self.check_entry_deadline()?;
                 let capacity = self.declared_string_capacity(reference.as_view());
-                if !self
-                    .data
-                    .storage
-                    .commit_write(&reference.path, value, prepared, capacity)
-                {
+                if !StoreMutate::commit_write(self, &reference.path, value, prepared, capacity) {
                     return Err(RuntimeError::NullReference);
                 }
                 Ok(())

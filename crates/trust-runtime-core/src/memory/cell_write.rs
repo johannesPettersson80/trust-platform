@@ -17,7 +17,7 @@ use crate::memory::cells::{
 };
 use crate::memory::layout::CellRange;
 use crate::memory::view::{PreparedWrite, PreparedWriteKind, StoreMutate};
-use crate::memory::{InstanceData, InstanceId, MemoryLocation};
+use crate::memory::{InstanceData, InstanceId, MemoryLocation, VariableStorage};
 use crate::value::{write_string_element, RefSegment, Value, ValueRefView};
 use crate::vm::type_policy::{normalize_primitive_value, resolved_primitive_shape};
 use crate::vm::PreparedModule;
@@ -32,22 +32,81 @@ pub(crate) struct CellPatch {
     pub(crate) leaf: Option<Value>,
 }
 
-/// The writer of the cell arm: the writes of [`StoreMutate`] over one arm, placed by the prepared
-/// module (C1-9c). A writer borrows its arm for the one call that makes it.
+/// The writer of the cell arm: the writes of [`StoreMutate`] over one arm and the `Value` half the engine
+/// lends it, placed by the prepared module (C1-9c). A writer borrows both for the one call that makes it.
 pub(crate) struct CellWriter<'a> {
     prepared: &'a PreparedModule,
     arm: &'a mut CellArm,
+    /// The `Value` half: the activations' locals and the per-call instances.
+    values: &'a mut VariableStorage,
 }
 
 impl<'a> CellWriter<'a> {
-    /// A writer of `arm`, placing its cells through `prepared`.
-    pub(crate) fn new(prepared: &'a PreparedModule, arm: &'a mut CellArm) -> Self {
-        Self { prepared, arm }
+    /// A writer of `arm` and of the `Value` half `values`, placing the arm's cells through `prepared`.
+    pub(crate) fn new(
+        prepared: &'a PreparedModule,
+        arm: &'a mut CellArm,
+        values: &'a mut VariableStorage,
+    ) -> Self {
+        Self {
+            prepared,
+            arm,
+            values,
+        }
     }
 
-    /// A reader of the arm this writer holds, for the locate and walk that the writes share.
+    /// A reader of the arm and the `Value` half this writer holds, for the locate and walk that the
+    /// writes share.
     fn reader(&self) -> CellReader<'_> {
-        CellReader::new(self.prepared, &*self.arm)
+        CellReader::new(self.prepared, &*self.arm, &*self.values)
+    }
+
+    /// Record a persistent instance of template `pou` and type `type_name` in the cells of the root at
+    /// CONSTRUCTION_ROOTS index `root`, from the store's one identity counter (specification 34 §6.2;
+    /// R2, O8). Its range is the first `own` cells of its root's range, where `own` is the number of
+    /// cells the template's own members take.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::InvalidExecutionState`] when the root owns no range, and
+    /// [`RuntimeError::Overflow`] when the identity counter is exhausted.
+    pub(crate) fn create_persistent_instance(
+        &mut self,
+        root: usize,
+        pou: u32,
+        type_name: &str,
+    ) -> Result<InstanceId, RuntimeError> {
+        let root_range = self
+            .arm
+            .cells
+            .regions()
+            .root_range(root)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        let own = crate::memory::regions::own_cells(self.prepared, pou);
+        let range = CellRange {
+            cells: own,
+            ..root_range
+        };
+        self.arm.create_persistent_instance(pou, range, type_name)
+    }
+
+    /// Give `child` the parent `parent`: a persistent instance records it in the arm, and a per-call
+    /// instance in the `Value` half. `false` when `child` exists in neither.
+    pub(crate) fn set_instance_parent(
+        &mut self,
+        child: InstanceId,
+        parent: Option<InstanceId>,
+    ) -> bool {
+        if self.arm.set_instance_parent(child, parent) {
+            return true;
+        }
+        match self.values.get_instance_mut(child) {
+            Some(record) => {
+                record.parent = parent;
+                true
+            }
+            None => false,
+        }
     }
 
     /// Store the checked `leaf` of `type_id` into the cells of `range`. The check ran before the copy
@@ -89,7 +148,6 @@ impl<'a> CellWriter<'a> {
                 Ok(self.store(range, type_id, leaf))
             }
             Ok(Target::Values(location, offset, rest)) => self
-                .arm
                 .values
                 .write_by_ref_parts_checked(location, offset, rest, value),
             Err(_) => {
@@ -139,7 +197,6 @@ impl CellReader<'_> {
             Ok(Target::Values(location, offset, rest)) => {
                 let consumed = path.len() - rest.len();
                 let staged = self
-                    .arm
                     .values
                     .prepare_by_ref_parts_write(location, offset, rest, value)?;
                 Ok(staged
@@ -282,7 +339,6 @@ impl StoreMutate for CellWriter<'_> {
                 }
             }
             Ok(Target::Values(location, offset, _)) => self
-                .arm
                 .values
                 .write_direct_slot_by_location(location, offset, value),
             Err(_) => false,
@@ -308,7 +364,7 @@ impl StoreMutate for CellWriter<'_> {
     ) -> bool {
         let name = name.into();
         if !self.arm.instances.contains_key(&instance) {
-            return self.arm.values.set_instance_var(instance, name, value);
+            return self.values.set_instance_var(instance, name, value);
         }
         let target = self
             .reader()
@@ -335,7 +391,7 @@ impl StoreMutate for CellWriter<'_> {
                 Err(_) => false,
             },
             None => {
-                self.arm.values.set_global(name, value);
+                self.values.set_global(name, value);
                 true
             }
         }
@@ -348,22 +404,22 @@ impl StoreMutate for CellWriter<'_> {
         // Per-call and persistent instances draw on the one counter of the cell store (R4). A persistent
         // instance also needs its reserved root range, which the trait does not carry (O8).
         let id = self.arm.cells.issue_instance_id()?;
-        self.arm.values.insert_instance(id, type_name)?;
+        self.values.insert_instance(id, type_name)?;
         Ok(id)
     }
 
     fn remove_instance(&mut self, id: InstanceId) -> bool {
         // A persistent instance ends with its generation, so only a per-call instance is released.
-        !self.arm.instances.contains_key(&id) && self.arm.values.remove_instance(id).is_some()
+        !self.arm.instances.contains_key(&id) && self.values.remove_instance(id).is_some()
     }
 
     fn retain_instances(&mut self, keep: impl FnMut(InstanceId) -> bool) -> usize {
-        self.arm.values.retain_instances(keep)
+        self.values.retain_instances(keep)
     }
 
     fn restore_instance(&mut self, instance: InstanceId, data: InstanceData) {
         if !self.arm.instances.contains_key(&instance) {
-            StoreMutate::restore_instance(&mut self.arm.values, instance, data);
+            StoreMutate::restore_instance(&mut *self.values, instance, data);
             return;
         }
         // Every member is checked before any is written, so a refused restore changes nothing.
@@ -399,7 +455,6 @@ impl StoreMutate for CellWriter<'_> {
         match prepared.0 {
             PreparedWriteKind::Values { consumed, staged } => match path.get(consumed..) {
                 Some(path) => self
-                    .arm
                     .values
                     .commit_prepared_write(path, value, staged, capacity),
                 None => false,
@@ -421,7 +476,7 @@ impl StoreMutate for CellWriter<'_> {
                 self.store(range, type_id, value);
             }
             Ok(Target::Values(location, offset, _)) => {
-                self.arm.values.restore_direct_slot(location, offset, value);
+                self.values.restore_direct_slot(location, offset, value);
             }
             Err(_) => {}
         }

@@ -73,8 +73,6 @@ impl EngineState<'_> {
             }
             let name = &source.prepared.vm.strings[declaration.name_idx as usize];
             let value = source
-                .data
-                .storage
                 .read_global(name)
                 .ok_or(RuntimeError::NullReference)?
                 .materialize()?;
@@ -102,7 +100,16 @@ impl EngineState<'_> {
                 .prepare_insert(marker_plan)?;
             // All work/allocation admission and marker reservation precede the
             // candidate's persistent value/retained-state publication.
-            StoreMutate::set_global(&mut self.data.storage, name.clone(), value.clone());
+            // The marker reservation borrows the lifecycle tables; the destination write needs only the
+            // storage and store fields, and goes through the store the engine holds.
+            let mut routed = super::store_access::routed_mut_fields(
+                &mut self.data.storage,
+                &mut self.data.store,
+                self.prepared,
+            );
+            if !StoreMutate::set_global(&mut routed, name.clone(), value.clone()) {
+                return Err(RuntimeError::InvalidExecutionState);
+            }
             self.data
                 .construction
                 .retained_globals
@@ -207,10 +214,8 @@ impl RetainedGraph<'_, '_> {
             return Err(RuntimeError::ReferenceLifetime);
         }
         let source = self.source;
-        let data = source
-            .data
-            .storage
-            .get_instance(old)
+        source
+            .instance_type_name(old)
             .ok_or(RuntimeError::NullReference)?;
         let new = if let Some(new) = self.identities.get(&old.0) {
             InstanceId(*new)
@@ -251,19 +256,16 @@ impl RetainedGraph<'_, '_> {
         // Reserve every field before recursion so cycles can bind native/private slots too.
         for &declaration in members {
             let name = member_name(source.prepared, declaration);
-            if target.data.storage.read_instance_var(new, name).is_none() {
-                target
-                    .data
-                    .storage
-                    .write_instance_var(new, name.clone(), Value::Null);
+            if target.read_instance_var(new, name).is_none() {
+                StoreMutate::write_instance_var(target, new, name.clone(), Value::Null);
             }
         }
-        let parent = data.parent;
+        let parent = source
+            .instance_parent(old)
+            .map_err(|_| RuntimeError::NullReference)?;
         for &declaration in members {
             let name = member_name(source.prepared, declaration);
             let old_value = source
-                .data
-                .storage
                 .read_instance_var(old, name)
                 .ok_or(RuntimeError::NullReference)?
                 .materialize()?;
@@ -274,23 +276,16 @@ impl RetainedGraph<'_, '_> {
                 None => None,
             };
             let value = self.value(target, ty, &old_value, depth + 1)?;
-            if !target
-                .data
-                .storage
-                .write_instance_var(new, name.clone(), value)
-            {
+            if !StoreMutate::write_instance_var(target, new, name.clone(), value) {
                 return Err(RuntimeError::NullReference);
             }
         }
         let parent = parent
             .map(|parent| self.instance(target, parent, depth + 1))
             .transpose()?;
-        target
-            .data
-            .storage
-            .get_instance_mut(new)
-            .ok_or(RuntimeError::NullReference)?
-            .parent = parent;
+        if !target.set_instance_parent(new, parent) {
+            return Err(RuntimeError::NullReference);
+        }
         target.charge_sorted_growth(
             target
                 .data
@@ -371,18 +366,10 @@ impl RetainedGraph<'_, '_> {
                     .offset;
             }
             MemoryLocation::Instance(old) => {
-                let data = self
+                let name = self
                     .source
-                    .data
-                    .storage
-                    .get_instance(old)
+                    .instance_member_name(old, reference.offset as usize)
                     .ok_or(RuntimeError::NullReference)?;
-                let name = data
-                    .variables
-                    .get_index(reference.offset as usize)
-                    .ok_or(RuntimeError::NullReference)?
-                    .0
-                    .clone();
                 // A reference to an artifact root preserves binding, not ownership.
                 let new = self.binding(target, old, depth + 1)?;
                 let mapped = target

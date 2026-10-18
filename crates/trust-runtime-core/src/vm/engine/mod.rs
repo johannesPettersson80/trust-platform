@@ -9,6 +9,7 @@ use crate::bytecode::{InitializationOnce, InitializerEntry, ResourceEntry};
 use crate::error::RuntimeError;
 use crate::fault::{FaultRecord, FaultSite, NO_TASK};
 use crate::memory::cell_access::CellArm;
+use crate::memory::regions::CellStorage;
 use crate::memory::{FrameId, Generation, InstanceId, VariableStorage};
 use crate::task::TaskState;
 use crate::value::{DateTimeProfile, Duration, Value, ValueRef};
@@ -134,17 +135,43 @@ struct ExecutionResources {
 }
 
 /// The store the engine reads variables through (specification 34 §6.2; C1-9b). `Values` reads
-/// `EngineData::storage`, today's `Value` storage. `Cells` reads the cell arm, which holds its own
-/// `Value` half for locals and per-call instances. Only `Values` is built until C1-9d.
-#[allow(
-    dead_code,
-    reason = "C1-9d builds the cell arm at construction; until then only the tests build it"
-)]
+/// `EngineData::storage`, today's `Value` storage. `Cells` reads the cell arm for the globals and the
+/// persistent instances, and `EngineData::storage` for the locals and the per-call instances, which both
+/// arms keep there. `build` constructs the arm [`StoreKind`] names (C1-9d2b-1).
 enum EngineStore {
     /// Today's `Value` storage, `EngineData::storage`.
     Values,
     /// The cell arm.
     Cells(Box<CellArm>),
+}
+
+impl EngineStore {
+    /// The kind of store this is, so that a restart reconstructs the store it replaces.
+    fn kind(&self) -> StoreKind {
+        match self {
+            EngineStore::Values => StoreKind::Values,
+            EngineStore::Cells(_) => StoreKind::Cells,
+        }
+    }
+}
+
+/// Which store [`EngineState::build`] constructs (specification 34 §6.2; C1-9d2b-1). The default is
+/// `Values`, today's store, until the cell store becomes the engine's default (C1-9d3).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum StoreKind {
+    /// Today's `Value` storage.
+    #[default]
+    Values,
+    /// The cell store: charged, reserved once and filled by the construction steps.
+    Cells,
+}
+
+/// How [`EngineState::build`] constructs an application: the store it builds on and the date/time
+/// profile its defaults use (C1-9d2b-1). The default is the `Value` store with the default profile.
+#[derive(Clone, Copy, Debug, Default)]
+struct Construction {
+    store: StoreKind,
+    profile: DateTimeProfile,
 }
 
 /// Owned mutable application data. Metadata and platform services are borrowed
@@ -203,6 +230,16 @@ impl<'a> EngineState<'a> {
         resource_index: usize,
         services: &'a dyn ExecutionServices,
     ) -> Result<Box<EngineData>, RuntimeError> {
+        Self::construct_data_with(prepared, resource_index, services, Construction::default())
+    }
+
+    /// [`Self::construct_data`] on the store and with the profile `construction` names (C1-9d2b-1).
+    fn construct_data_with(
+        prepared: &'a PreparedModule,
+        resource_index: usize,
+        services: &'a dyn ExecutionServices,
+        construction: Construction,
+    ) -> Result<Box<EngineData>, RuntimeError> {
         Self::build(
             prepared,
             resource_index,
@@ -212,6 +249,7 @@ impl<'a> EngineState<'a> {
             None,
             None,
             Duration::ZERO,
+            construction,
         )
     }
 
@@ -313,6 +351,7 @@ impl<'a> EngineState<'a> {
         retained: Option<&EngineState<'_>>,
         prior_images: Option<&ProcessImages>,
         now: Duration,
+        construction: Construction,
     ) -> Result<Box<EngineData>, RuntimeError> {
         prepared.validate_services(services)?;
         let resource = prepared
@@ -332,6 +371,7 @@ impl<'a> EngineState<'a> {
             after_restart,
             now,
         );
+        data.profile = construction.profile;
         let mut state = Self::borrow(&mut data, prepared, services);
         state.check_entry_deadline()?;
         #[cfg(feature = "register-ir")]
@@ -386,6 +426,9 @@ impl<'a> EngineState<'a> {
             state.copy_process_images(images)?;
         }
         state.reserve_type_operations()?;
+        if construction.store == StoreKind::Cells {
+            state.install_cell_store()?;
+        }
         state.construct_resource(retained)?;
         // A variable located at %M starts with its initial value (or, after a warm restart, its
         // retained one). The first scan loads the marker image into the bound variables, so the
@@ -395,6 +438,20 @@ impl<'a> EngineState<'a> {
         state.check_entry_deadline()?;
         state.data.construction_complete = true;
         Ok(data)
+    }
+
+    /// Charge the cell store's bytes, reserve it once, write the declared defaults of its leaves and make
+    /// it the store the engine reads and writes the globals and persistent instances through (specification
+    /// 34 §6.2; R1, R3, O18). The construction steps that follow fill it as they fill the `Value` store.
+    fn install_cell_store(&mut self) -> Result<(), RuntimeError> {
+        let storage = CellStorage::construct_with_profile(
+            self.prepared,
+            self.data.storage.generation(),
+            self.data.profile,
+            |bytes| self.charge_allocation_bytes(bytes),
+        )?;
+        self.data.store = EngineStore::Cells(Box::new(CellArm::new(storage)));
+        Ok(())
     }
 
     fn borrow<'b>(
@@ -515,6 +572,8 @@ mod stdlib_text_work_tests;
 mod storage_tests;
 #[cfg(test)]
 mod store_access_tests;
+#[cfg(all(test, feature = "std"))]
+mod store_construction_tests;
 
 #[cfg(test)]
 mod activation_registry_tests;

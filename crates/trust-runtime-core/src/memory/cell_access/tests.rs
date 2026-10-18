@@ -22,7 +22,6 @@
 //! cell `own_v` (1), then the 6 cells of its parent's template, where the parent instance construction
 //! creates for `fb_g` lives. The parent is a separate instance from the one `base_g` holds.
 
-use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use smol_str::SmolStr;
@@ -194,6 +193,8 @@ pub(super) fn values_store() -> VariableStorage {
 pub(super) struct Fixture {
     pub(super) prepared: PreparedModule,
     pub(super) arm: CellArm,
+    /// The `Value` half the engine lends the arm: it holds the program root, which owns no cells.
+    pub(super) half: VariableStorage,
     pub(super) values: VariableStorage,
 }
 
@@ -240,12 +241,9 @@ impl Fixture {
             start: derived_root.start,
             cells: 1,
         };
-        let mut arm = CellArm {
-            cells,
-            values: VariableStorage::new(),
-            instances: BTreeMap::new(),
-        };
-        arm.values.set_global("Main", Value::Null);
+        let mut arm = CellArm::new(cells);
+        let mut half = VariableStorage::new();
+        half.set_global("Main", Value::Null);
         arm.register_instance(BASE_INSTANCE, BASE_POU, parent_range, None, "Base");
         arm.register_instance(
             DERIVED_INSTANCE,
@@ -258,12 +256,13 @@ impl Fixture {
         Self {
             prepared,
             arm,
+            half,
             values: values_store(),
         }
     }
 
     pub(super) fn reader(&self) -> CellReader<'_> {
-        CellReader::new(&self.prepared, &self.arm)
+        CellReader::new(&self.prepared, &self.arm, &self.half)
     }
 }
 
@@ -689,7 +688,7 @@ fn per_call_and_persistent_identities_never_collide() {
     // identity drawn from the `Value` half's own counter, which starts at 0, would be 0: the identity of
     // the parent instance, whose members a read through the new instance would then return.
     let mut fixture = Fixture::new();
-    let mut writer = CellWriter::new(&fixture.prepared, &mut fixture.arm);
+    let mut writer = CellWriter::new(&fixture.prepared, &mut fixture.arm, &mut fixture.half);
     let first = StoreMutate::try_create_instance(&mut writer, "Helper");
     let second = StoreMutate::try_create_instance(&mut writer, "Helper");
     assert_eq!(first, Ok(InstanceId(3)));

@@ -1,6 +1,8 @@
 //! Runtime checks for mutable references and initialization visibility.
+use super::store_access::Routed;
 use super::*;
 use crate::bytecode::{InitializerBodyKind, StorageOwner, StorageRole};
+use crate::memory::view::{StoreAccess, ValueView};
 use crate::memory::MemoryLocation;
 use crate::value::ValueRefView;
 use crate::vm::context::ExecutionContext;
@@ -257,22 +259,7 @@ impl EngineState<'_> {
                 self.check_instance_lifetime(*instance, destination)?;
                 self.charge_sorted_growth(visited.visited_demand(*instance))?;
                 if visited.visited_insert(*instance)? {
-                    let data = self
-                        .data
-                        .storage
-                        .get_instance(*instance)
-                        .ok_or_else(|| RuntimeError::NullReference)?;
-                    if let Some(parent) = data.parent {
-                        self.check_value_lifetime_inner(
-                            &Value::Instance(parent),
-                            destination,
-                            depth + 1,
-                            visited,
-                        )?;
-                    }
-                    for value in data.variables.values() {
-                        self.check_value_lifetime_inner(value, destination, depth + 1, visited)?;
-                    }
+                    self.check_instance_members_lifetime(*instance, destination, depth, visited)?;
                 }
             }
             Value::Array(array) if !array_holds_only_primitives(array) => {
@@ -286,6 +273,116 @@ impl EngineState<'_> {
                 }
             }
             _ => {}
+        }
+        Ok(())
+    }
+
+    /// The lifetime check of the parent and the members of the instance `instance`, which the check of
+    /// an instance visits once (TIME-08: one unit per node visited). The `Value` store walks the record it
+    /// holds; the cell store walks the members as views, in declaration order (C1-9d2b-1).
+    fn check_instance_members_lifetime<V: VisitedInstances>(
+        &self,
+        instance: InstanceId,
+        destination: Option<FrameId>,
+        depth: usize,
+        visited: &mut V,
+    ) -> Result<(), RuntimeError> {
+        let Routed::Values(store) = self.data.routed(self.prepared) else {
+            return self.check_cell_instance_lifetime(instance, destination, depth, visited);
+        };
+        let data = store
+            .get_instance(instance)
+            .ok_or_else(|| RuntimeError::NullReference)?;
+        if let Some(parent) = data.parent {
+            self.check_value_lifetime_inner(
+                &Value::Instance(parent),
+                destination,
+                depth + 1,
+                visited,
+            )?;
+        }
+        for value in data.variables.values() {
+            self.check_value_lifetime_inner(value, destination, depth + 1, visited)?;
+        }
+        Ok(())
+    }
+
+    /// The parent and the members of `instance` on the cell store, each checked as the `Value` store
+    /// checks the value it holds.
+    fn check_cell_instance_lifetime<V: VisitedInstances>(
+        &self,
+        instance: InstanceId,
+        destination: Option<FrameId>,
+        depth: usize,
+        visited: &mut V,
+    ) -> Result<(), RuntimeError> {
+        let members = self
+            .instance_member_count(instance)
+            .ok_or_else(|| RuntimeError::NullReference)?;
+        if let Some(parent) = self
+            .instance_parent(instance)
+            .map_err(|_| RuntimeError::NullReference)?
+        {
+            self.check_value_lifetime_inner(
+                &Value::Instance(parent),
+                destination,
+                depth + 1,
+                visited,
+            )?;
+        }
+        for ordinal in 0..members {
+            let view = self
+                .instance_member_view(instance, ordinal)
+                .ok_or_else(|| RuntimeError::NullReference)?;
+            self.check_view_lifetime(view, destination, depth + 1, visited)?;
+        }
+        Ok(())
+    }
+
+    /// The lifetime check of a stored view, with the nodes `check_value_lifetime_inner` visits for the
+    /// `Value` it names: one unit for the node, then a reference, an instance, the members of a
+    /// structure and the elements of an array that is not of primitives (C1-9d2b-1).
+    fn check_view_lifetime<V: VisitedInstances>(
+        &self,
+        view: ValueView<'_>,
+        destination: Option<FrameId>,
+        depth: usize,
+        visited: &mut V,
+    ) -> Result<(), RuntimeError> {
+        if let ValueView::Value(value) = view {
+            return self.check_value_lifetime_inner(value, destination, depth, visited);
+        }
+        self.charge_work_units(1)?;
+        if depth > crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        if let Some(reference) = view.cell_reference()? {
+            self.check_generation(reference.generation)?;
+            if let MemoryLocation::Local(source) = reference.location {
+                self.check_local_lifetime(source, destination)?;
+            }
+            if let MemoryLocation::Instance(instance) = reference.location {
+                self.check_instance_lifetime(instance, destination)?;
+            }
+            return Ok(());
+        }
+        if let Some(instance) = view.instance()? {
+            self.check_instance_lifetime(instance, destination)?;
+            self.charge_sorted_growth(visited.visited_demand(instance))?;
+            if visited.visited_insert(instance)? {
+                self.check_instance_members_lifetime(instance, destination, depth, visited)?;
+            }
+            return Ok(());
+        }
+        let Some(count) = view.cell_child_count()? else {
+            return Ok(());
+        };
+        if view.cell_array_of_primitives() {
+            return Ok(());
+        }
+        for ordinal in 0..count {
+            let child = view.cell_child(ordinal)?;
+            self.check_view_lifetime(child, destination, depth + 1, visited)?;
         }
         Ok(())
     }
@@ -328,7 +425,7 @@ impl EngineState<'_> {
         instance: InstanceId,
         destination: Option<FrameId>,
     ) -> Result<(), RuntimeError> {
-        if self.data.storage.get_instance(instance).is_none() {
+        if self.instance_type_name(instance).is_none() {
             return Err(RuntimeError::ReferenceLifetime);
         }
         if let Some(Some(owner)) = self.data.lifetimes.instance_lifetimes.get(&instance) {

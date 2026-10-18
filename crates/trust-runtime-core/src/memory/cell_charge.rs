@@ -398,6 +398,24 @@ impl<'a> CellsView<'a> {
         }
     }
 
+    /// Whether `type_id` is an array whose elements are primitives, enumerations or subranges, which no
+    /// reference or instance can be reached through (C1-9d2b-1): the lifetime check of a `Value` array
+    /// skips such an array's elements, and the cell form skips them too.
+    pub(crate) fn array_of_primitives(self, type_id: u32) -> bool {
+        let Some((_, entry)) = resolve_entry(self.prepared, type_id) else {
+            return false;
+        };
+        let TypeData::Array { elem_type_id, .. } = &entry.data else {
+            return false;
+        };
+        resolve_entry(self.prepared, *elem_type_id).is_some_and(|(_, element)| {
+            matches!(
+                element.data,
+                TypeData::Primitive { .. } | TypeData::Subrange { .. } | TypeData::Enum { .. }
+            )
+        })
+    }
+
     /// Whether `type_id` is a function block, whose cell holds an instance that a walk owns (C1-9d2a,
     /// item (e)). An interface cell holds an instance that it does not own.
     pub(crate) fn is_pou(self, type_id: u32) -> bool {

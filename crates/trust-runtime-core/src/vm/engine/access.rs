@@ -20,16 +20,14 @@ impl EngineState<'_> {
         &self,
         reference: ValueRefView<'_>,
     ) -> Result<Value, RuntimeError> {
-        if let Ok(view) = self.data.storage.read_reference(reference) {
-            return self.data.storage.materialize(&view);
+        if let Ok(view) = self.read_reference(reference) {
+            return self.materialize(&view);
         }
         let (last, prefix) = reference
             .path
             .split_last()
             .ok_or(RuntimeError::NullReference)?;
         let view = self
-            .data
-            .storage
             .read_path(reference.location, reference.offset, prefix)
             .map_err(|_| RuntimeError::NullReference)?;
         crate::vm::dispatch_refs::materialize_segment(&view, last)?

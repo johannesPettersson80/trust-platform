@@ -504,23 +504,27 @@ fn derived_template_exists_without_own_variables() {
 fn reservation_is_charged_before_it_is_reserved() {
     // Specification 34 §6.2 and O18: the region's bytes are charged before anything is reserved.
     // Nine cells at 16 bytes and no reference records give 144 bytes; six text buffers of five
-    // bytes give 30. The charge is 174 bytes, requested once. An allowance one byte short refuses
-    // it and reserves nothing; an allowance of exactly 174 admits the region.
+    // bytes give 30. Construction charges the memory it holds with them (C1-9d2b-1, R6): the
+    // `globals` table has one 12-byte entry for each of the 5 declarations and the `roots` table one
+    // for each of the 4 roots, 108 bytes; the transient lists hold 6 text leaves at 8 bytes and 5
+    // initial values at 24 bytes (`trigger`, `g_a`, `g_b` and the `v` of each `Names` root), 168
+    // bytes. The charge is 144 + 30 + 108 + 168 = 450 bytes, requested once. An allowance one byte
+    // short refuses it and reserves nothing; an allowance of exactly 450 admits the region.
     let prepared = prepared();
     let requested = std::cell::Cell::new(0usize);
     let refused = CellStorage::construct(&prepared, Generation::FIRST, |bytes| {
         requested.set(bytes);
-        if bytes > 173 {
+        if bytes > 449 {
             Err(RuntimeError::Overflow)
         } else {
             Ok(())
         }
     });
     assert_eq!(refused.err(), Some(RuntimeError::Overflow));
-    assert_eq!(requested.get(), 174);
+    assert_eq!(requested.get(), 450);
 
     let admitted = CellStorage::construct(&prepared, Generation::FIRST, |bytes| {
-        if bytes > 174 {
+        if bytes > 450 {
             Err(RuntimeError::Overflow)
         } else {
             Ok(())

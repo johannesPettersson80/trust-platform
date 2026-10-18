@@ -18,20 +18,20 @@ impl EngineState<'_> {
                 .strings
                 .get(declaration.name_idx as usize)
                 .ok_or_else(|| RuntimeError::InvalidExecutionState)?;
-            let value = self
-                .data
-                .construction
-                .retained_globals
-                .get(&id)
-                .cloned()
-                .unwrap_or(Value::Null);
-            self.set_global(name.clone(), value);
+            let value = self.data.construction.retained_globals.get(&id).cloned();
+            // A global that owns cells holds its declared default from the moment the cell store is
+            // reserved (R3): writing the empty value over it would erase that default. The `Value` store
+            // names the global with `Null` until its initializer runs.
+            if value.is_none() && self.holds_cells() && prepared.global_cells(id).is_some() {
+                continue;
+            }
+            self.set_global(name.clone(), value.unwrap_or(Value::Null));
         }
         // Reserve all persistent identities before executing any default. This does
         // not expose uninitialized members through the initializer visibility view.
         for (index, root) in prepared.roots.entries.iter().enumerate() {
             if let Some(pou) = root.template_pou_id {
-                self.data.construction.roots[index] = Some(self.reserve_instance(pou, None)?);
+                self.data.construction.roots[index] = Some(self.reserve_root_instance(index, pou)?);
             }
         }
         for (index, root) in prepared.roots.entries.iter().enumerate() {
@@ -50,11 +50,9 @@ impl EngineState<'_> {
                             .flatten()
                     })
                     .ok_or_else(|| RuntimeError::InvalidExecutionState)?;
-                self.data
-                    .storage
-                    .get_instance_mut(derived)
-                    .ok_or_else(|| RuntimeError::InvalidExecutionState)?
-                    .parent = Some(instance);
+                if !self.set_instance_parent(derived, Some(instance)) {
+                    return Err(RuntimeError::InvalidExecutionState);
+                }
                 self.data
                     .construction
                     .claimed_roots
@@ -107,16 +105,55 @@ impl EngineState<'_> {
         Ok(())
     }
 
+    /// Reserve an instance of template `pou` owned by the activation `lifetime`, or a persistent instance
+    /// when `lifetime` is `None`. A persistent instance has a construction root (C1-9d2b-1, R5): the cell
+    /// store places it in its root's range, so a persistent instance without a root is refused there
+    /// (see [`Self::reserve_root_instance`]).
     pub(in crate::vm::engine) fn reserve_instance(
         &mut self,
         pou: u32,
         lifetime: Option<FrameId>,
+    ) -> Result<InstanceId, RuntimeError> {
+        self.reserve_instance_at(pou, lifetime, None)
+    }
+
+    /// Reserve the persistent instance the construction root at index `root` holds, of template `pou`
+    /// (R2, R5): on the cell store it is recorded in the root's own range, with an identity from the
+    /// store's one counter.
+    pub(in crate::vm::engine) fn reserve_root_instance(
+        &mut self,
+        root: usize,
+        pou: u32,
+    ) -> Result<InstanceId, RuntimeError> {
+        self.reserve_instance_at(pou, None, Some(root))
+    }
+
+    fn reserve_instance_at(
+        &mut self,
+        pou: u32,
+        lifetime: Option<FrameId>,
+        root: Option<usize>,
     ) -> Result<InstanceId, RuntimeError> {
         self.charge_work_units(1)?;
         self.charge_constructed_value()?;
         let name = self.prepared.vm.pou_name(pou).ok_or_else(|| {
             invalid_bytecode(smol_str::SmolStr::new_static("unknown instance template"))
         })?;
+        // A persistent instance on the cell store lives in its root's range. An instance with no owner and
+        // no root has no range to live in, so it is refused before an identity is issued (R5): the
+        // construction paths that create one are the parent of an instance that has no inheritance-parent
+        // root and a retained object that no root of the replacement names. The `Value` store has no range
+        // to fill and keeps both.
+        let persistent_cells = self.holds_cells() && lifetime.is_none();
+        if persistent_cells && root.is_none() {
+            return Err(RuntimeError::InitFailed {
+                owner: name.into(),
+                variable: smol_str::SmolStr::new_static("<instance>"),
+                error: smol_str::SmolStr::new_static(
+                    "a persistent instance without a construction root has no cell range",
+                ),
+            });
+        }
         // Preflight every owned default before issuing an instance identity.
         // A rejected clone must not strand an instance or its lifetime metadata.
         let prepared = self.prepared;
@@ -129,26 +166,31 @@ impl EngineState<'_> {
                 self.before_value_clone(value)?;
             }
         }
-        let (bytes, _) = self
-            .data
-            .storage
-            .instance_insertion_demand()
-            .ok_or_else(|| RuntimeError::Overflow)?;
+        // A persistent instance of the cell store is recorded in its table, which takes no array growth.
+        let bytes = if persistent_cells {
+            0
+        } else {
+            self.data
+                .storage
+                .instance_insertion_demand()
+                .ok_or_else(|| RuntimeError::Overflow)?
+                .0
+        };
         self.charge_allocation_bytes(bytes)?;
         // The lifetime check's visited set is reserved for the live instance count; it grows here,
         // once per created instance, never during a scan of an unchanged program (spec 34 MEM-09).
         let live_instances = self
-            .data
-            .storage
-            .instances()
-            .len()
+            .live_instance_count()
             .checked_add(1)
             .ok_or(RuntimeError::Overflow)?;
         self.data
             .resources
             .bookkeeping
             .reserve_lifetime_visited(live_instances)?;
-        let instance = self.try_create_instance(name)?;
+        let instance = match root {
+            Some(index) => self.create_root_instance(index, pou, name)?,
+            None => self.try_create_instance(name)?,
+        };
         // Each fallible metadata insertion is charged before mutation. If any
         // step fails, the newly issued instance is not exposed or stranded.
         let metadata = (|| {
@@ -183,6 +225,12 @@ impl EngineState<'_> {
             self.data.construction.instance_templates.remove(&instance);
             self.data.lifetimes.instance_lifetimes.remove(&instance);
             return Err(error);
+        }
+        // The members of a persistent instance on the cell store hold their declared defaults and
+        // constants from the moment the store was constructed (R3), and writing the empty value over them
+        // would erase them. The `Value` store and a per-call instance name every member here.
+        if persistent_cells {
+            return Ok(instance);
         }
         for &id in prepared.declarations(StorageOwner::Instance, Some(pou)) {
             let declaration = &prepared.layout.entries[id as usize];
@@ -257,12 +305,7 @@ impl EngineState<'_> {
             else {
                 break;
             };
-            let parent = match self
-                .data
-                .storage
-                .get_instance(current)
-                .and_then(|instance| instance.parent)
-            {
+            let parent = match self.instance_parent(current).ok().flatten() {
                 Some(parent) => parent,
                 None => {
                     let owner = self
@@ -271,12 +314,12 @@ impl EngineState<'_> {
                         .instance_lifetimes
                         .get(&current)
                         .flatten();
+                    // A persistent instance on the cell store has no range for a parent that no
+                    // inheritance-parent root names, so `reserve_instance` refuses it there (R5).
                     let parent = self.reserve_instance(parent_pou, owner)?;
-                    self.data
-                        .storage
-                        .get_instance_mut(current)
-                        .ok_or_else(|| RuntimeError::InvalidExecutionState)?
-                        .parent = Some(parent);
+                    if !self.set_instance_parent(current, Some(parent)) {
+                        return Err(RuntimeError::InvalidExecutionState);
+                    }
                     parent
                 }
             };
@@ -303,12 +346,7 @@ impl EngineState<'_> {
         {
             return Ok(());
         }
-        if let Some(parent) = self
-            .data
-            .storage
-            .get_instance(instance)
-            .and_then(|instance| instance.parent)
-        {
+        if let Some(parent) = self.instance_parent(instance).ok().flatten() {
             self.initialize_instance(parent, intrinsic)?;
         }
         let pou = *self
@@ -447,11 +485,7 @@ impl EngineState<'_> {
             if self.data.construction.instance_templates.get(&id) == Some(&template) {
                 return Ok(Some(id));
             }
-            instance = self
-                .data
-                .storage
-                .get_instance(id)
-                .and_then(|value| value.parent);
+            instance = self.instance_parent(id).ok().flatten();
         }
         Err(RuntimeError::InvalidExecutionState)
     }
@@ -551,7 +585,11 @@ impl EngineState<'_> {
         );
         match declared.owner {
             StorageOwner::Global => {
-                StoreMutate::set_global(&mut routed, name, value);
+                // The cell store refuses a value its declared type does not hold; the `Value` store
+                // stores every name it is given.
+                if !StoreMutate::set_global(&mut routed, name, value) {
+                    return Err(RuntimeError::InvalidExecutionState);
+                }
             }
             StorageOwner::Instance => {
                 let instance = instance.ok_or_else(|| RuntimeError::InvalidExecutionState)?;
@@ -740,12 +778,13 @@ impl EngineState<'_> {
                 self.charge_allocation_bytes(8 * core::mem::size_of::<InstanceId>())?;
                 self.charge_sorted_growth(visited.insertion_demand(*instance))?;
                 visited.insert(*instance)?;
-                let data = self
-                    .data
-                    .storage
-                    .get_instance(*instance)
+                let members = self
+                    .instance_member_count(*instance)
                     .ok_or_else(|| RuntimeError::InvalidExecutionState)?;
-                if let Some(parent) = data.parent {
+                if let Some(parent) = self
+                    .instance_parent(*instance)
+                    .map_err(|_| RuntimeError::InvalidExecutionState)?
+                {
                     self.collect_owned_instance_graph(
                         &Value::Instance(parent),
                         depth + 1,
@@ -753,10 +792,8 @@ impl EngineState<'_> {
                     )?;
                 }
                 // Each member is read through its slot, in declaration order.
-                for slot in 0..data.variables.len() {
+                for slot in 0..members {
                     let view = self
-                        .data
-                        .storage
                         .read_slot(MemoryLocation::Instance(*instance), slot)
                         .map_err(|_| RuntimeError::InvalidExecutionState)?;
                     self.collect_owned_member(view, depth + 1, visited)?;

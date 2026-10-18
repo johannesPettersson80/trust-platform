@@ -596,7 +596,7 @@ impl StoreAccess for RuntimeState<'_> {
 }
 
 /// The store one engine state reads through, borrowed for one call (C1-9b).
-enum Routed<'a> {
+pub(super) enum Routed<'a> {
     /// Today's `Value` storage.
     Values(&'a VariableStorage),
     /// The cell arm, read through the prepared module that places its cells.
@@ -627,7 +627,116 @@ pub(super) fn routed_mut_fields<'a>(
 ) -> RoutedMut<'a> {
     match store {
         EngineStore::Values => RoutedMut::Values(storage),
-        EngineStore::Cells(arm) => RoutedMut::Cells(CellWriter::new(prepared, arm)),
+        EngineStore::Cells(arm) => RoutedMut::Cells(CellWriter::new(prepared, arm, storage)),
+    }
+}
+
+impl RoutedMut<'_> {
+    /// Create the persistent instance of template `pou` that the construction root at index `root`
+    /// holds, and answer its identity (C1-9d2b-1, R2). The `Value` store issues the identity as it always
+    /// did; the cell arm records the instance in its root's range, from the store's one counter.
+    pub(super) fn create_root_instance(
+        &mut self,
+        root: usize,
+        pou: u32,
+        type_name: &str,
+    ) -> Result<InstanceId, RuntimeError> {
+        match self {
+            RoutedMut::Values(store) => StoreMutate::try_create_instance(&mut **store, type_name),
+            RoutedMut::Cells(writer) => writer.create_persistent_instance(root, pou, type_name),
+        }
+    }
+
+    /// Give the instance `child` the parent `parent`, or none; `false` when `child` does not exist.
+    pub(super) fn set_instance_parent(
+        &mut self,
+        child: InstanceId,
+        parent: Option<InstanceId>,
+    ) -> bool {
+        match self {
+            RoutedMut::Values(store) => store
+                .get_instance_mut(child)
+                .map(|record| record.parent = parent)
+                .is_some(),
+            RoutedMut::Cells(writer) => writer.set_instance_parent(child, parent),
+        }
+    }
+}
+
+impl EngineState<'_> {
+    /// Whether the engine holds its globals and persistent instances in cells.
+    pub(super) fn holds_cells(&self) -> bool {
+        matches!(self.data.store, EngineStore::Cells(_))
+    }
+
+    /// Create the persistent instance of the construction root at index `root` (C1-9d2b-1, R2).
+    pub(super) fn create_root_instance(
+        &mut self,
+        root: usize,
+        pou: u32,
+        type_name: &str,
+    ) -> Result<InstanceId, RuntimeError> {
+        routed_mut(&mut *self.data, self.prepared).create_root_instance(root, pou, type_name)
+    }
+
+    /// Give the instance `child` the parent `parent`, or none; `false` when `child` does not exist.
+    pub(super) fn set_instance_parent(
+        &mut self,
+        child: InstanceId,
+        parent: Option<InstanceId>,
+    ) -> bool {
+        routed_mut(&mut *self.data, self.prepared).set_instance_parent(child, parent)
+    }
+
+    /// The number of live instances, persistent and per-call (specification 34 MEM-09).
+    pub(super) fn live_instance_count(&self) -> usize {
+        let per_call = self.data.storage.instances().len();
+        match &self.data.store {
+            EngineStore::Values => per_call,
+            EngineStore::Cells(arm) => arm.persistent_count().saturating_add(per_call),
+        }
+    }
+
+    /// The number of members `instance` holds, or `None` when no such instance exists.
+    pub(super) fn instance_member_count(&self, instance: InstanceId) -> Option<usize> {
+        match self.data.routed(self.prepared) {
+            Routed::Values(store) => store
+                .get_instance(instance)
+                .map(|data| data.variables.len()),
+            Routed::Cells(reader) => reader.instance_member_count(instance),
+        }
+    }
+
+    /// The declared name of member `ordinal` of `instance`, in declaration order.
+    pub(super) fn instance_member_name(
+        &self,
+        instance: InstanceId,
+        ordinal: usize,
+    ) -> Option<SmolStr> {
+        match self.data.routed(self.prepared) {
+            Routed::Values(store) => store
+                .get_instance(instance)?
+                .variables
+                .get_index(ordinal)
+                .map(|(name, _)| name.clone()),
+            Routed::Cells(reader) => reader
+                .instance_member_name(instance, ordinal)
+                .map(SmolStr::new),
+        }
+    }
+
+    /// The view of member `ordinal` of `instance`, in declaration order.
+    pub(super) fn instance_member_view(
+        &self,
+        instance: InstanceId,
+        ordinal: usize,
+    ) -> Option<ValueView<'_>> {
+        match self.data.routed(self.prepared) {
+            Routed::Values(store) => store
+                .read_slot(MemoryLocation::Instance(instance), ordinal)
+                .ok(),
+            Routed::Cells(reader) => reader.instance_member_view(instance, ordinal),
+        }
     }
 }
 
@@ -760,11 +869,12 @@ impl RuntimeState<'_> {
 }
 
 impl EngineData {
-    /// The store the engine reads through: the arm `EngineStore` holds.
-    fn routed<'a>(&'a self, prepared: &'a PreparedModule) -> Routed<'a> {
+    /// The store the engine reads through: the arm `EngineStore` holds, with the `Value` half the arm
+    /// shares with the engine (locals and per-call instances).
+    pub(super) fn routed<'a>(&'a self, prepared: &'a PreparedModule) -> Routed<'a> {
         match &self.store {
             EngineStore::Values => Routed::Values(&self.storage),
-            EngineStore::Cells(arm) => Routed::Cells(CellReader::new(prepared, arm)),
+            EngineStore::Cells(arm) => Routed::Cells(CellReader::new(prepared, arm, &self.storage)),
         }
     }
 }

@@ -2,18 +2,21 @@
 //!
 //! [`crate::memory::regions::CellStorage`] is the store the engine switches to in C1-9d. Its
 //! construction reads the declarations and the prepared layouts, charges the bytes of the persistent
-//! region (its cells, its reference records, its text buffers and its reference table) through the
-//! construction allowance, and only then reserves them, once. Each persistent root gets its own cell
-//! range (O8), and each text leaf occurrence of a global, of every array element and of every root gets
-//! its own buffer (O10). Construction then writes every declared leaf's initial value into its cells
-//! (R2). Until C1-9d the engine keeps running on [`crate::memory::VariableStorage`], does not construct
-//! this store, and only the tests read these regions.
+//! region (its cells, its reference records, its text buffers, its reference table, its range tables and
+//! the leaf lists the construction builds) through the construction allowance, and only then reserves the
+//! region, once. Each persistent root gets its own cell range (O8), and each text leaf occurrence of a
+//! global, of every array element and of every root gets its own buffer (O10). Construction then writes
+//! every declared leaf's initial value into its cells (R2), with the date/time profile of the engine
+//! that constructs it (C1-9d2b-1). The engine constructs this store when it is asked to
+//! (`vm::engine`) and otherwise keeps running on [`crate::memory::VariableStorage`].
 
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 
-use crate::bytecode::{StorageOwner, TypeData, TypeEntry, TypeKind, BYTECODE_MAX_TYPE_NESTING};
+use crate::bytecode::{
+    StorageOwner, StorageRole, TypeData, TypeEntry, TypeKind, BYTECODE_MAX_TYPE_NESTING,
+};
 use crate::error::RuntimeError;
 use crate::memory::cells::{write_value_in, Cell, CellStore, ReferenceTable};
 use crate::memory::layout::{CellRange, LayoutRegion, TextLeaf};
@@ -85,14 +88,22 @@ impl CellRegions {
     }
 
     /// Write every declared leaf's initial value into its cells (R2): the declaration's constant when
-    /// it has one, else the default of its type. A leaf whose value only construction can give (an
-    /// instance, which the engine creates) keeps its empty cells.
+    /// it has one, else the default of its type under `profile`, the date/time profile of the engine
+    /// that constructs the store. A leaf whose value only construction can give (an instance, which the
+    /// engine creates) keeps its empty cells.
     fn write_initial_values(
         &mut self,
         prepared: &PreparedModule,
+        profile: DateTimeProfile,
         initials: &[Initial],
     ) -> Result<(), RuntimeError> {
         let (persistent, text, references) = self.split_mut();
+        let mut defaults = DefaultWriter {
+            prepared,
+            profile,
+            text,
+            references,
+        };
         for initial in initials {
             let cells = persistent
                 .cells_mut(initial.range)
@@ -109,20 +120,12 @@ impl CellRegions {
                         initial.type_id,
                         value,
                         prepared,
-                        text,
-                        Some(&mut *references),
+                        defaults.text,
+                        Some(&mut *defaults.references),
                         initial.range.start,
                     )?;
                 }
-                None => write_default(
-                    cells,
-                    initial.type_id,
-                    prepared,
-                    text,
-                    references,
-                    initial.range.start,
-                    0,
-                )?,
+                None => defaults.write(cells, initial.type_id, initial.range.start, 0)?,
             }
         }
         Ok(())
@@ -130,12 +133,12 @@ impl CellRegions {
 }
 
 /// The bounded value store's cells (specification 34 §6.2): the regions, the activation half and
-/// the identities. C1-9a builds it only through [`CellStorage::construct`]; the engine constructs it
-/// and charges it from C1-9d, when it switches (O18).
+/// the identities. It is built only through [`CellStorage::construct`]; the engine constructs and
+/// charges it when it builds the cell arm (O18; C1-9d2b-1), and switches to it by default in C1-9d3.
 #[derive(Debug, Default)]
 #[allow(
     dead_code,
-    reason = "the engine reads the activation and identity halves from C1-9d; C1-9a only constructs the store"
+    reason = "the engine reads the activation half from C1-9d3; until then the engine's Value half holds the activations"
 )]
 pub struct CellStorage {
     regions: CellRegions,
@@ -145,11 +148,12 @@ pub struct CellStorage {
 
 impl CellStorage {
     /// Build the persistent region of `prepared` for `generation` (specification 34 §6.2; O18) and
-    /// write its declared initial values (R2).
+    /// write its declared initial values (R2), with the default date/time profile.
     ///
     /// Before anything is reserved, `charge` receives the bytes the region takes: its cells and
-    /// reference records as [`CellStore::reservation_bytes`] counts them, its text buffers' bytes and
-    /// its reference table's bytes. A refused charge returns its error, and nothing is reserved.
+    /// reference records as [`CellStore::reservation_bytes`] counts them, its text buffers' bytes, its
+    /// reference table's bytes, its `globals` and `roots` range tables and the leaf lists the
+    /// construction builds (R6). A refused charge returns its error, and nothing is reserved.
     ///
     /// # Errors
     ///
@@ -160,6 +164,22 @@ impl CellStorage {
         generation: Generation,
         charge: impl FnOnce(usize) -> Result<(), RuntimeError>,
     ) -> Result<Self, RuntimeError> {
+        Self::construct_with_profile(prepared, generation, DateTimeProfile::default(), charge)
+    }
+
+    /// [`CellStorage::construct`] with the date/time profile of the engine that constructs the store:
+    /// the default of a `DATE` or `DATE_AND_TIME` leaf is the profile's epoch (specification 34 §6.2;
+    /// R3).
+    ///
+    /// # Errors
+    ///
+    /// As [`CellStorage::construct`].
+    pub(crate) fn construct_with_profile(
+        prepared: &PreparedModule,
+        generation: Generation,
+        profile: DateTimeProfile,
+        charge: impl FnOnce(usize) -> Result<(), RuntimeError>,
+    ) -> Result<Self, RuntimeError> {
         let extent = PersistentExtent::of(prepared)?;
         let reference_count =
             u32::try_from(extent.references.len()).map_err(|_| RuntimeError::Overflow)?;
@@ -167,9 +187,11 @@ impl CellStorage {
             .ok_or(RuntimeError::Overflow)?;
         let table_bytes = ReferenceTable::reservation_bytes(extent.references.len())
             .ok_or(RuntimeError::Overflow)?;
+        let bookkeeping_bytes = extent.bookkeeping_bytes()?;
         let bytes = cell_bytes
             .checked_add(extent.text_bytes()?)
             .and_then(|bytes| bytes.checked_add(table_bytes))
+            .and_then(|bytes| bytes.checked_add(bookkeeping_bytes))
             .ok_or(RuntimeError::Overflow)?;
         charge(bytes)?;
         let mut regions = CellRegions {
@@ -179,7 +201,7 @@ impl CellStorage {
             text: TextStore::reserve(&extent.texts)?,
             references: ReferenceTable::reserve(extent.references)?,
         };
-        regions.write_initial_values(prepared, &extent.initials)?;
+        regions.write_initial_values(prepared, profile, &extent.initials)?;
         Ok(Self {
             regions,
             activations: ActivationStore::default(),
@@ -244,11 +266,16 @@ impl PersistentExtent {
                 .checked_add(range.cells)
                 .ok_or(RuntimeError::Overflow)?;
             leaves.add_value(prepared, type_id, range.start, 0)?;
-            leaves.initials.push(Initial {
-                range,
-                type_id,
-                constant: declaration.default_const_idx,
-            });
+            // A function static is initialized by its function's static action when the resource first
+            // starts, and again by its first call after a restart. Until then it is empty, as the `Value`
+            // store's `Null` slot is, so it keeps its empty cells.
+            if declaration.role != StorageRole::Static {
+                leaves.initials.push(Initial {
+                    range,
+                    type_id,
+                    constant: declaration.default_const_idx,
+                });
+            }
         }
 
         let mut roots: Vec<Option<CellRange>> = alloc::vec![None; prepared.roots.entries.len()];
@@ -298,7 +325,55 @@ impl PersistentExtent {
             bytes.checked_add(capacity).ok_or(RuntimeError::Overflow)
         })
     }
+
+    /// The bytes of the tables the region keeps and of the lists construction builds while it walks the
+    /// layouts (specification 34 §6.2; R6, O18): one range entry per STORAGE_LAYOUT declaration in the
+    /// `globals` table and one per CONSTRUCTION_ROOTS record in the `roots` table, which the region keeps,
+    /// and the transient text-leaf, reference-leaf and initial-value lists. They are memory the
+    /// construction holds, so the charge counts them with the cells before anything is reserved. Each
+    /// entry has the same size on every target, which the assertions below state.
+    fn bookkeeping_bytes(&self) -> Result<usize, RuntimeError> {
+        let tables = self
+            .globals
+            .len()
+            .checked_add(self.roots.len())
+            .and_then(|entries| entries.checked_mul(RANGE_ENTRY_BYTES));
+        let lists = self
+            .texts
+            .len()
+            .checked_mul(TEXT_LEAF_BYTES)
+            .and_then(|texts| {
+                self.references
+                    .len()
+                    .checked_mul(REFERENCE_LEAF_BYTES)
+                    .and_then(|references| texts.checked_add(references))
+            })
+            .and_then(|leaves| {
+                self.initials
+                    .len()
+                    .checked_mul(INITIAL_VALUE_BYTES)
+                    .and_then(|initials| leaves.checked_add(initials))
+            });
+        tables
+            .zip(lists)
+            .and_then(|(tables, lists)| tables.checked_add(lists))
+            .ok_or(RuntimeError::Overflow)
+    }
 }
+
+/// The bytes of one entry of the `globals` and `roots` range tables (R6).
+const RANGE_ENTRY_BYTES: usize = 12;
+/// The bytes of one entry of the transient text-leaf list (R6).
+const TEXT_LEAF_BYTES: usize = 8;
+/// The bytes of one entry of the transient reference-leaf list (R6): a cell index, a `u32`.
+const REFERENCE_LEAF_BYTES: usize = 4;
+/// The bytes of one entry of the transient initial-value list (R6).
+const INITIAL_VALUE_BYTES: usize = 24;
+
+// The entries have the sizes the specification states on every target, since none holds a pointer.
+const _: () = assert!(core::mem::size_of::<Option<CellRange>>() == RANGE_ENTRY_BYTES);
+const _: () = assert!(core::mem::size_of::<TextLeaf>() == TEXT_LEAF_BYTES);
+const _: () = assert!(core::mem::size_of::<Initial>() == INITIAL_VALUE_BYTES);
 
 /// A declared leaf whose initial value construction writes (R2): its cells, its type and the constant
 /// its declaration names, when it names one.
@@ -340,15 +415,20 @@ impl Leaves {
                 .type_layout(type_id)
                 .ok_or(RuntimeError::TypeMismatch)?
                 .cells;
-            self.initials.push(Initial {
-                range: CellRange {
-                    region: LayoutRegion::Persistent,
-                    start: offset_of(base, offset)?,
-                    cells,
-                },
-                type_id,
-                constant: declaration.default_const_idx,
-            });
+            // A native-state slot has no declared default: its native import gives it a value on first
+            // use, and until then it is empty, as the `Value` store's `Null` slot is. It keeps its empty
+            // cells, as an instance leaf does.
+            if declaration.role != StorageRole::NativeState {
+                self.initials.push(Initial {
+                    range: CellRange {
+                        region: LayoutRegion::Persistent,
+                        start: offset_of(base, offset)?,
+                        cells,
+                    },
+                    type_id,
+                    constant: declaration.default_const_idx,
+                });
+            }
             offset = offset.checked_add(cells).ok_or(RuntimeError::Overflow)?;
         }
         Ok(offset)
@@ -418,105 +498,103 @@ impl Leaves {
     }
 }
 
-/// Write the default of the `TYPE_TABLE` type `type_id` into `cells`, the cells of one value of it that
-/// starts at `cell_start` (R2). A structure and an array are written leaf by leaf, so no whole default
-/// value is built. A type whose value only construction can give, an instance, or a type C1-15 places,
-/// an overlapping structure or a union, keeps its cells as they are.
-fn write_default(
-    cells: &mut [Cell],
-    type_id: u32,
-    prepared: &PreparedModule,
-    text: &mut TextStore,
-    references: &mut ReferenceTable,
-    cell_start: u32,
-    depth: usize,
-) -> Result<(), RuntimeError> {
-    if depth > BYTECODE_MAX_TYPE_NESTING {
-        return Err(RuntimeError::TypeMismatch);
-    }
-    let entry = prepared
-        .vm
-        .types
-        .entries
-        .get(type_id as usize)
-        .ok_or(RuntimeError::TypeMismatch)?;
-    match &entry.data {
-        TypeData::Alias { target_type_id } => write_default(
-            cells,
-            *target_type_id,
-            prepared,
-            text,
-            references,
-            cell_start,
-            depth + 1,
-        ),
-        TypeData::Struct { fields } if entry.kind != TypeKind::OverlappingStruct => {
-            let layout = layout_of(prepared, type_id)?;
-            for (member, field) in layout.members.iter().zip(fields) {
-                let member_cells = layout_of(prepared, field.type_id)?.cells;
-                write_default(
-                    part(cells, member.offset, member_cells)?,
-                    field.type_id,
-                    prepared,
-                    text,
-                    references,
-                    offset_of(cell_start, member.offset)?,
-                    depth + 1,
-                )?;
-            }
-            Ok(())
+/// What a default is written with: the prepared layouts, the engine's date/time profile and the region's
+/// text buffers and reference table.
+struct DefaultWriter<'a> {
+    prepared: &'a PreparedModule,
+    profile: DateTimeProfile,
+    text: &'a mut TextStore,
+    references: &'a mut ReferenceTable,
+}
+
+impl DefaultWriter<'_> {
+    /// Write the default of the `TYPE_TABLE` type `type_id` into `cells`, the cells of one value of it
+    /// that starts at `cell_start` (R2). A structure and an array are written leaf by leaf, so no whole
+    /// default value is built. A type whose value only construction can give, an instance, or a type
+    /// C1-15 places, an overlapping structure or a union, keeps its cells as they are.
+    fn write(
+        &mut self,
+        cells: &mut [Cell],
+        type_id: u32,
+        cell_start: u32,
+        depth: usize,
+    ) -> Result<(), RuntimeError> {
+        if depth > BYTECODE_MAX_TYPE_NESTING {
+            return Err(RuntimeError::TypeMismatch);
         }
-        TypeData::Array { elem_type_id, .. } => {
-            let layout = layout_of(prepared, type_id)?;
-            let Some(array) = &layout.array else {
-                return Err(RuntimeError::TypeMismatch);
-            };
-            // An `ARRAY[*]` has no cells of its own, so there is no element to write.
-            if array.stride == 0 {
-                return Ok(());
+        let prepared = self.prepared;
+        let entry = prepared
+            .vm
+            .types
+            .entries
+            .get(type_id as usize)
+            .ok_or(RuntimeError::TypeMismatch)?;
+        match &entry.data {
+            TypeData::Alias { target_type_id } => {
+                self.write(cells, *target_type_id, cell_start, depth + 1)
             }
-            for element in 0..layout.cells / array.stride {
-                let offset = element
-                    .checked_mul(array.stride)
-                    .ok_or(RuntimeError::Overflow)?;
-                write_default(
-                    part(cells, offset, array.stride)?,
-                    *elem_type_id,
+            TypeData::Struct { fields } if entry.kind != TypeKind::OverlappingStruct => {
+                let layout = layout_of(prepared, type_id)?;
+                for (member, field) in layout.members.iter().zip(fields) {
+                    let member_cells = layout_of(prepared, field.type_id)?.cells;
+                    self.write(
+                        part(cells, member.offset, member_cells)?,
+                        field.type_id,
+                        offset_of(cell_start, member.offset)?,
+                        depth + 1,
+                    )?;
+                }
+                Ok(())
+            }
+            TypeData::Array { elem_type_id, .. } => {
+                let layout = layout_of(prepared, type_id)?;
+                let Some(array) = &layout.array else {
+                    return Err(RuntimeError::TypeMismatch);
+                };
+                // An `ARRAY[*]` has no cells of its own, so there is no element to write.
+                if array.stride == 0 {
+                    return Ok(());
+                }
+                for element in 0..layout.cells / array.stride {
+                    let offset = element
+                        .checked_mul(array.stride)
+                        .ok_or(RuntimeError::Overflow)?;
+                    self.write(
+                        part(cells, offset, array.stride)?,
+                        *elem_type_id,
+                        offset_of(cell_start, offset)?,
+                        depth + 1,
+                    )?;
+                }
+                Ok(())
+            }
+            _ => match default_leaf(prepared, self.profile, entry)? {
+                Some(value) => write_value_in(
+                    cells,
+                    type_id,
+                    &value,
                     prepared,
-                    text,
-                    references,
-                    offset_of(cell_start, offset)?,
-                    depth + 1,
-                )?;
-            }
-            Ok(())
+                    self.text,
+                    Some(&mut *self.references),
+                    cell_start,
+                ),
+                None => Ok(()),
+            },
         }
-        _ => match default_leaf(prepared, entry)? {
-            Some(value) => write_value_in(
-                cells,
-                type_id,
-                &value,
-                prepared,
-                text,
-                Some(&mut *references),
-                cell_start,
-            ),
-            None => Ok(()),
-        },
     }
 }
 
 /// The default value of a leaf type: a scalar, a text, an enumeration's first variant, a null
-/// reference, or a subrange's lower bound (IEC 61131-3 defaults, as construction gives them). `None`
-/// for an instance and for a type the cells place later (C1-15).
+/// reference, or a subrange's lower bound (IEC 61131-3 defaults, as construction gives them). A `DATE`
+/// or `DATE_AND_TIME` defaults to the epoch of `profile`. `None` for an instance and for a type the cells
+/// place later (C1-15).
 fn default_leaf(
     prepared: &PreparedModule,
+    profile: DateTimeProfile,
     entry: &TypeEntry,
 ) -> Result<Option<Value>, RuntimeError> {
     Ok(match &entry.data {
-        TypeData::Primitive { prim_id, .. } => {
-            Some(scalar::default(*prim_id, DateTimeProfile::default())?)
-        }
+        TypeData::Primitive { prim_id, .. } => Some(scalar::default(*prim_id, profile)?),
         TypeData::Subrange {
             base_type_id,
             lower,
@@ -594,7 +672,7 @@ fn offset_of(base: u32, relative: u32) -> Result<u32, RuntimeError> {
 
 /// The own cells of `pou`'s template: none for a POU without a template, which has no own variables
 /// and no parent (O7).
-fn own_cells(prepared: &PreparedModule, pou: u32) -> u32 {
+pub(crate) fn own_cells(prepared: &PreparedModule, pou: u32) -> u32 {
     prepared
         .instance_template_cells(pou)
         .map_or(0, |template| template.range.cells)
