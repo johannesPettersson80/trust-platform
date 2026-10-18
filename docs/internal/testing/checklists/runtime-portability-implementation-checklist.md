@@ -43,9 +43,15 @@ C — Bounded operation (M3), shared by both chips:
     - Follow-up: clear the debugger's frame and variable handles on resume, so a client that
       reuses handles from an earlier pause gets an error rather than the current pause's activation
       with that number.
-- [ ] C3 Fixed diagnostics and fault records: bounded, allocation-free, readable after a fault.
-  (18 Oct: C3-1a, the fixed-size fault record, is committed in `d3d0e58e2`; C3-1b, the engine's
-  fault latch with its time-wrap decision, runs in this worktree.)
+- [x] C3 Fixed diagnostics and fault records: bounded, allocation-free, readable after a fault.
+  (Done 18 Oct: C3-1a, the fixed-size fault record, `d3d0e58e2`; C3-1b, the engine's latch with the
+  first failing instruction's site, the task and the logical time in seconds and milliseconds, in a
+  56-byte record, `3ab3c040b`; C3-2, the event store and the fault holder keep the record with the
+  error's own message payload, shared without allocating, and `faults` and `events.tail` render
+  today's text byte for byte, `71273f41a`; each with its focused check green. A stored event is 96
+  bytes, 96,000 for the 1,000-event store (D-C3-2); the chips' measured RAM goes to the owner with
+  the S1b-5 bench. A chip keeps the cause of a panic or watchdog reset in its reset record,
+  `f904c8949` on `feat/chip-control-link`.)
 - [ ] C4 Import and admission bounds (17 Oct evening: C4-1, the deployment record, is committed in `0cb9710b9`. 17 Oct: C4-2 done. Every built-in function and FB has a contract, and admission refuses a missing or mismatched import by name with `runtime_import_unsupported`. Open: C4-1 deployment record, C4-3 demand, C4-4 descriptor), and capability and deployment records (including the
   HOST-02 deployment-level limit record).
 - [ ] C5 Persistence (18 Oct, day: C5-3b, the persister in the device runner (capture at the pre-output sample, one step between scans, the stop save before Stopped, a latched failure that fails the next scan before outputs), is written in s1b-retain; its second round gives the codec a bare-payload decoder and keeps a warm start from rewriting an unchanged checkpoint. 18 Oct: C5-2b, the shared due rule and the allocation-free capture of STRN v3
