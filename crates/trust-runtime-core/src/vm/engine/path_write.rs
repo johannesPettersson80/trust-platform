@@ -1,9 +1,11 @@
 //! Charge copy-on-write backing storage before changing a field or element.
+//!
+//! A write is charged for what the program writes. A field or element write copies no structure,
+//! so the engine's detach of shared storage is bookkeeping and is not charged (TIME-08).
 use super::*;
 use crate::memory::view::StoreAccess;
 use crate::memory::MemoryLocation;
 use crate::value::{array_offset_i64, RefSegment};
-use alloc::sync::Arc;
 
 impl EngineState<'_> {
     pub(super) fn charge_storage_path_write<S: StoreAccess>(
@@ -15,7 +17,7 @@ impl EngineState<'_> {
         input: &Value,
     ) -> Result<(), RuntimeError> {
         // Ordinary scalar root replacement retains the original constant-cost
-        // path. Only structured physical writes need detached backing/COW work.
+        // path. Only structured physical writes need layout work.
         if path.is_empty() && !matches!(input, Value::Struct(_)) {
             return Ok(());
         }
@@ -23,7 +25,7 @@ impl EngineState<'_> {
             .read_slot(location, offset)
             .map_err(|_| RuntimeError::NullReference)?;
         let root = storage.borrow(&view).ok_or(RuntimeError::NullReference)?;
-        self.charge_path_write_inner(storage, root, path, input, false, 0)
+        self.charge_path_write_inner(storage, root, path, input, 0)
     }
 
     pub(super) fn charge_path_write(
@@ -32,7 +34,7 @@ impl EngineState<'_> {
         path: &[RefSegment],
         input: &Value,
     ) -> Result<(), RuntimeError> {
-        self.charge_path_write_inner(&self.data.storage, root, path, input, false, 0)
+        self.charge_path_write_inner(&self.data.storage, root, path, input, 0)
     }
 
     fn charge_path_write_inner<S: StoreAccess>(
@@ -41,7 +43,6 @@ impl EngineState<'_> {
         root: &Value,
         path: &[RefSegment],
         input: &Value,
-        ancestor_cloned: bool,
         depth: usize,
     ) -> Result<(), RuntimeError> {
         if let Value::Struct(structure) = root {
@@ -56,30 +57,12 @@ impl EngineState<'_> {
             if let Some(cost) = structure.physical_write_cost(path)? {
                 self.charge_work_units(cost.work)?;
                 self.charge_allocation_bytes(cost.allocation)?;
-                let shared = self.charge_structure_copy(structure, ancestor_cloned)?;
-                let input_cloned = path.is_empty()
-                    && matches!(input, Value::Struct(value) if Arc::strong_count(value) > 1);
-                if input_cloned && let Value::Struct(input) = input {
-                    // commit moves fields from a unique input; a shared input clones
-                    // only its field map, not its old immutable physical backing.
-                    let mut bytes = input
-                        .fields()
-                        .len()
-                        .checked_mul(4 * core::mem::size_of::<(smol_str::SmolStr, Value)>())
-                        .ok_or(RuntimeError::Overflow)?;
-                    for value in input.fields().values() {
-                        bytes = bytes
-                            .checked_add(self.value_clone_charge(value, 0)?)
-                            .ok_or(RuntimeError::Overflow)?;
-                    }
-                    self.charge_allocation_bytes(bytes)?;
-                }
                 if let Some(children) = structure.physical_affected_children(path) {
                     for child in children {
                         if let Some(suffix) = child.strip_prefix(path) {
-                            self.charge_physical_child_copy(input, suffix, input_cloned, depth)?;
+                            validate_physical_child(input, suffix, depth)?;
                         } else {
-                            self.charge_physical_child_copy(root, child, shared, depth)?;
+                            validate_physical_child(root, child, depth)?;
                         }
                     }
                 }
@@ -94,18 +77,15 @@ impl EngineState<'_> {
         }
         match (root, segment) {
             (Value::Struct(structure), RefSegment::Field(name)) => {
-                // A cloned ancestor increments descendant Arc counts even when the
-                // original descendant currently has one strong owner.
-                let shared = self.charge_structure_copy(structure, ancestor_cloned)?;
                 let field = structure.field(name).ok_or(RuntimeError::NullReference)?;
-                self.charge_path_write_inner(storage, field, rest, input, shared, depth + 1)
+                self.charge_path_write_inner(storage, field, rest, input, depth + 1)
             }
             (Value::Instance(instance), RefSegment::Field(name)) => {
                 let view = storage
                     .read_instance_field(*instance, name)
                     .map_err(|_| RuntimeError::NullReference)?;
                 let field = storage.borrow(&view).ok_or(RuntimeError::NullReference)?;
-                self.charge_path_write_inner(storage, field, rest, input, false, depth + 1)
+                self.charge_path_write_inner(storage, field, rest, input, depth + 1)
             }
             (Value::Array(array), RefSegment::Index(indices)) => {
                 let offset = array_offset_i64(array.dimensions(), indices)
@@ -114,90 +94,12 @@ impl EngineState<'_> {
                     .elements()
                     .get(offset)
                     .ok_or(RuntimeError::NullReference)?;
-                self.charge_path_write_inner(
-                    storage,
-                    element,
-                    rest,
-                    input,
-                    ancestor_cloned,
-                    depth + 1,
-                )
+                self.charge_path_write_inner(storage, element, rest, input, depth + 1)
             }
             (Value::String(text), RefSegment::Index(_)) => self.charge_string_path_write(text),
             (Value::WString(text), RefSegment::Index(_)) => self.charge_string_path_write(text),
             _ => Err(RuntimeError::NullReference),
         }
-    }
-
-    fn charge_structure_copy(
-        &self,
-        structure: &Arc<crate::value::StructValue>,
-        ancestor_cloned: bool,
-    ) -> Result<bool, RuntimeError> {
-        let shared = ancestor_cloned || Arc::strong_count(structure) > 1;
-        if shared {
-            let mut bytes = core::mem::size_of::<crate::value::StructValue>()
-                .checked_add(2 * core::mem::size_of::<usize>())
-                .and_then(|bytes| bytes.checked_add(structure.physical_byte_len()))
-                .and_then(|bytes| {
-                    structure
-                        .fields()
-                        .len()
-                        .checked_mul(4 * core::mem::size_of::<(smol_str::SmolStr, Value)>())
-                        .and_then(|fields| bytes.checked_add(fields))
-                })
-                .ok_or(RuntimeError::Overflow)?;
-            for value in structure.fields().values() {
-                bytes = bytes
-                    .checked_add(self.value_clone_charge(value, 0)?)
-                    .ok_or(RuntimeError::Overflow)?;
-            }
-            self.charge_allocation_bytes(bytes)?;
-        } else if Arc::weak_count(structure) > 0 {
-            // Dissociating a weak observer moves the value into a new Arc but
-            // does not duplicate its existing owned fields/backing.
-            self.charge_allocation_bytes(
-                core::mem::size_of::<crate::value::StructValue>()
-                    + 2 * core::mem::size_of::<usize>(),
-            )?;
-        }
-        Ok(shared)
-    }
-
-    /// Charge each affected structure exactly once. Ancestor COW propagates
-    /// sharing, but unrelated siblings/descendants never allocate for this write.
-    fn charge_physical_child_copy(
-        &self,
-        mut value: &Value,
-        path: &[RefSegment],
-        mut copied: bool,
-        depth: usize,
-    ) -> Result<(), RuntimeError> {
-        for (index, segment) in path.iter().enumerate() {
-            if depth + index >= crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
-                return Err(RuntimeError::TypeMismatch);
-            }
-            value = match (value, segment) {
-                (Value::Struct(structure), RefSegment::Field(name)) => {
-                    copied |= Arc::strong_count(structure) > 1;
-                    structure.field(name).ok_or(RuntimeError::TypeMismatch)?
-                }
-                (Value::Array(array), RefSegment::Index(indices)) => {
-                    let offset = array_offset_i64(array.dimensions(), indices)
-                        .ok_or(RuntimeError::TypeMismatch)?;
-                    array
-                        .elements()
-                        .get(offset)
-                        .ok_or(RuntimeError::TypeMismatch)?
-                }
-                _ => return Err(RuntimeError::TypeMismatch),
-            };
-        }
-        let Value::Struct(structure) = value else {
-            return Err(RuntimeError::TypeMismatch);
-        };
-        self.charge_structure_copy(structure, copied)?;
-        Ok(())
     }
 
     fn charge_string_path_write(&self, text: &str) -> Result<(), RuntimeError> {
@@ -210,6 +112,38 @@ impl EngineState<'_> {
     }
 }
 
+/// Walks the path of a physical child to the structure it names. The walk charges nothing: a
+/// child's copy-on-write detach is bookkeeping (TIME-08), so this only checks the path.
+fn validate_physical_child(
+    mut value: &Value,
+    path: &[RefSegment],
+    depth: usize,
+) -> Result<(), RuntimeError> {
+    for (index, segment) in path.iter().enumerate() {
+        if depth + index >= crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        value = match (value, segment) {
+            (Value::Struct(structure), RefSegment::Field(name)) => {
+                structure.field(name).ok_or(RuntimeError::TypeMismatch)?
+            }
+            (Value::Array(array), RefSegment::Index(indices)) => {
+                let offset = array_offset_i64(array.dimensions(), indices)
+                    .ok_or(RuntimeError::TypeMismatch)?;
+                array
+                    .elements()
+                    .get(offset)
+                    .ok_or(RuntimeError::TypeMismatch)?
+            }
+            _ => return Err(RuntimeError::TypeMismatch),
+        };
+    }
+    match value {
+        Value::Struct(_) => Ok(()),
+        _ => Err(RuntimeError::TypeMismatch),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -219,9 +153,10 @@ mod tests {
         call::{bindings::VmWriteTarget, context::CallContext},
         VmTrap,
     };
+    use alloc::sync::Arc;
 
     #[test]
-    fn output_copyback_charges_shared_struct_backing_before_any_partial_commit() {
+    fn output_copyback_into_a_shared_aggregate_charges_no_detach() {
         let prepared = PreparedModule::from_bytes(
             include_bytes!(
                 "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
@@ -274,10 +209,10 @@ mod tests {
             runtime_instance: None,
             instance_owner: None,
         };
-        let error = state
+        // The snapshot shares the aggregate Arc. The member write detaches that shared storage,
+        // which the program does not copy (TIME-08), so the 1024 spare bytes admit both writes.
+        state
             .with_output_transaction(&mut frame, |state, frame| {
-                // The snapshot shares the aggregate Arc; only the member write needs
-                // its large owned array copied. Reserve too little for that operation.
                 state
                     .data
                     .resources
@@ -286,21 +221,14 @@ mod tests {
                 VmWriteTarget::from_reference(&first).write(state, frame, Value::DInt(70))?;
                 VmWriteTarget::from_reference(&second).write(state, frame, Value::DInt(90))
             })
-            .unwrap_err();
-        assert!(matches!(
-            error,
-            VmTrap::Runtime(RuntimeError::ExecutionLimit {
-                kind: crate::error::ExecutionLimitKind::AllocationBytes,
-                ..
-            })
-        ));
+            .unwrap();
         assert_eq!(
             state.data.storage.get_global("first_probe"),
-            Some(&Value::DInt(7))
+            Some(&Value::DInt(70))
         );
         assert_eq!(
             state.data.storage.read_by_ref_ref(&second),
-            Some(&Value::DInt(9))
+            Some(&Value::DInt(90))
         );
     }
 

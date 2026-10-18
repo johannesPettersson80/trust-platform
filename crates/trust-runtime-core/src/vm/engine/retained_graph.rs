@@ -1,10 +1,10 @@
 //! Transactional transfer of live retained globals into replacement storage.
 use super::*;
 use crate::bytecode::{StorageOwner, StorageRole, TypeData};
+use crate::memory::layout::CELL_BYTES;
 use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::memory::MemoryLocation;
 use alloc::sync::Arc;
-use smol_str::SmolStr;
 
 struct RetainedGraph<'s, 'p> {
     source: &'s EngineState<'p>,
@@ -15,18 +15,12 @@ struct RetainedGraph<'s, 'p> {
     root_indices: BTreeMap<u32, Vec<u32>>,
 }
 
-fn index_marks(
-    target: &EngineState<'_>,
-    marks: &LifecycleMarks,
-) -> Result<BTreeMap<u32, Vec<u32>>, RuntimeError> {
+fn index_marks(marks: &LifecycleMarks) -> Result<BTreeMap<u32, Vec<u32>>, RuntimeError> {
     let mut index: BTreeMap<u32, Vec<u32>> = BTreeMap::new();
     for (declaration, owner) in marks.iter() {
         let Some(owner) = owner else {
             continue;
         };
-        target.charge_allocation_bytes(
-            core::mem::size_of::<(InstanceId, Vec<u32>)>() * 4 + 2 * core::mem::size_of::<u32>(),
-        )?;
         let declarations = index.entry(owner.0).or_default();
         declarations
             .try_reserve(1)
@@ -45,8 +39,8 @@ impl EngineState<'_> {
             source,
             identities: BTreeMap::new(),
             copied: BTreeSet::new(),
-            initialized: index_marks(self, &source.data.construction.initialized_declarations)?,
-            once: index_marks(self, &source.data.construction.once)?,
+            initialized: index_marks(&source.data.construction.initialized_declarations)?,
+            once: index_marks(&source.data.construction.once)?,
             root_indices: BTreeMap::new(),
         };
         for (index, (old, new)) in source
@@ -58,12 +52,7 @@ impl EngineState<'_> {
             .enumerate()
         {
             if let (Some(old), Some(new)) = (old, new) {
-                self.charge_allocation_bytes(core::mem::size_of::<(InstanceId, InstanceId)>() * 4)?;
                 graph.identities.insert(old.0, new.0);
-                self.charge_allocation_bytes(
-                    core::mem::size_of::<(InstanceId, Vec<usize>)>() * 4
-                        + 2 * core::mem::size_of::<usize>(),
-                )?;
                 let indices = graph.root_indices.entry(new.0).or_default();
                 indices.try_reserve(1).map_err(|_| RuntimeError::Overflow)?;
                 indices.push(root_index(index)?);
@@ -87,8 +76,8 @@ impl EngineState<'_> {
                 .storage
                 .borrow(&view)
                 .ok_or(RuntimeError::NullReference)?;
+            // `value` charges the copy once (TIME-08); the owned copy is not charged again.
             let value = graph.value(self, declaration.type_id, value, 0)?;
-            self.charge_allocation_bytes(self.value_clone_charge(&value, 0)?)?;
             let declaration_index = root_index(index)?;
             let (growth_bytes, _) = self
                 .data
@@ -173,27 +162,9 @@ impl RetainedGraph<'_, '_> {
                 }
             }
             Value::Struct(structure) => {
-                // Arc clone alone is cheap, but remapping must never mutate source state.
-                if Arc::strong_count(structure) > 1 || Arc::weak_count(structure) > 0 {
-                    target.charge_allocation_bytes(
-                        core::mem::size_of::<crate::value::StructValue>()
-                            .checked_add(2 * core::mem::size_of::<usize>())
-                            .and_then(|bytes| bytes.checked_add(structure.physical_byte_len()))
-                            .and_then(|bytes| {
-                                structure
-                                    .fields()
-                                    .len()
-                                    .checked_mul(core::mem::size_of::<(SmolStr, Value)>() * 4)
-                                    .and_then(|fields| bytes.checked_add(fields))
-                            })
-                            .ok_or(RuntimeError::Overflow)?,
-                    )?;
-                    for field in structure.fields().values() {
-                        target.charge_allocation_bytes(
-                            target.value_clone_charge(field, depth + 1)?,
-                        )?;
-                    }
-                }
+                // The copy is charged once, by `value`, for each copied leaf (TIME-08), so the
+                // remap adds no charge. Arc::make_mut detaches shared storage, so remapping never
+                // mutates source state.
                 let type_id = resolved_type.ok_or(RuntimeError::TypeMismatch)?;
                 let structure = Arc::make_mut(structure);
                 structure.remap_retained_identities(|name, old| {
@@ -250,19 +221,18 @@ impl RetainedGraph<'_, '_> {
                 .get(&old)
                 .ok_or(RuntimeError::NullReference)?;
             let new = target.reserve_instance(pou, None)?;
-            target.charge_allocation_bytes(core::mem::size_of::<(InstanceId, InstanceId)>() * 4)?;
             self.identities.insert(old.0, new.0);
             new
         };
         if self.copied.contains(&old.0) {
             return Ok(new);
         }
-        target.charge_allocation_bytes(core::mem::size_of::<InstanceId>() * 4)?;
         self.copied.insert(old.0);
+        // Four cells for each copied variable entry; each value's copy is charged by `value`.
         target.charge_allocation_bytes(
             data.variables
                 .len()
-                .checked_mul(core::mem::size_of::<Value>() * 4)
+                .checked_mul(4 * CELL_BYTES)
                 .ok_or(RuntimeError::Overflow)?,
         )?;
         // Reserve every field before recursion so cycles can bind native/private slots too.
@@ -307,7 +277,6 @@ impl RetainedGraph<'_, '_> {
             .get_instance_mut(new)
             .ok_or(RuntimeError::NullReference)?
             .parent = parent;
-        target.charge_allocation_bytes(core::mem::size_of::<InstanceId>() * 4)?;
         target.charge_sorted_growth(
             target
                 .data
@@ -344,7 +313,6 @@ impl RetainedGraph<'_, '_> {
         }
         if let Some(indices) = self.root_indices.get(&new.0) {
             for &index in indices {
-                target.charge_allocation_bytes(core::mem::size_of::<usize>() * 4)?;
                 target.data.construction.claimed_roots.insert(index);
             }
         }
@@ -423,6 +391,8 @@ impl RetainedGraph<'_, '_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::string::String;
+    use smol_str::SmolStr;
 
     #[test]
     fn retained_import_marker_refusal_precedes_global_and_retained_publication() {
@@ -922,21 +892,6 @@ mod tests {
     }
     #[test]
     fn compact_retained_indexes_preserve_global_separation_full_ids_and_declaration_order() {
-        let prepared = PreparedModule::from_bytes(
-            include_bytes!(
-                "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
-            ),
-            crate::vm::PreparationLimits::default(),
-        )
-        .unwrap();
-        let mut target_data =
-            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
-                .unwrap();
-        let target = EngineState::borrow(
-            &mut target_data,
-            &prepared,
-            &super::super::services::LOGICAL_ONLY,
-        );
         let mut marks = LifecycleMarks::default();
         marks
             .insert((u16::MAX as u32, Some(InstanceId(u32::MAX))))
@@ -944,7 +899,7 @@ mod tests {
         marks.insert((1, Some(InstanceId(0)))).unwrap();
         marks.insert((0, None)).unwrap();
         marks.insert((0, Some(InstanceId(u32::MAX)))).unwrap();
-        let index = index_marks(&target, &marks).unwrap();
+        let index = index_marks(&marks).unwrap();
         assert_eq!(index.keys().copied().collect::<Vec<_>>(), [0, u32::MAX]);
         assert_eq!(index[&0], [1]);
         assert_eq!(index[&u32::MAX], [0, u16::MAX as u32]);
@@ -952,5 +907,61 @@ mod tests {
             marks.contains(&(0, None)).unwrap(),
             "indexing must not consume source marks"
         );
+    }
+
+    /// Spec 34 TIME-08 copy: an imported retained global is charged its copy once. A WSTRING of
+    /// 64 units costs 64 x 2 = 128 bytes, and the same import of an empty WSTRING differs only by
+    /// that copy. Charging the copy twice (once by `value`, once more after the import) would give
+    /// 256.
+    #[test]
+    fn import_retained_global_charges_its_copy_once() {
+        let mut prepared = PreparedModule::from_bytes(
+            include_bytes!("../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc"),
+            crate::vm::PreparationLimits::default(),
+        )
+        .unwrap();
+        let (declaration, name) = prepared
+            .layout
+            .entries
+            .iter()
+            .enumerate()
+            .find(|(_, entry)| {
+                entry.owner == StorageOwner::Global && entry.role == StorageRole::Variable
+            })
+            .map(|(index, entry)| (index, prepared.vm.strings[entry.name_idx as usize].clone()))
+            .expect("GPIO fixture has a global variable");
+        // A WSTRING declaration (primitive id 25) for the retained global.
+        let wstring_type = u32::try_from(prepared.vm.types.entries.len()).unwrap();
+        prepared.vm.types.entries.push(crate::bytecode::TypeEntry {
+            kind: crate::bytecode::TypeKind::Primitive,
+            name_idx: None,
+            data: TypeData::Primitive {
+                prim_id: 25,
+                max_length: 0,
+            },
+        });
+        prepared.layout.entries[declaration].retain = 1;
+        prepared.layout.entries[declaration].type_id = Some(wstring_type);
+        let imported_bytes = |value: Value| -> usize {
+            let mut source_data =
+                EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+            source_data.storage.set_global(name.clone(), value);
+            let source = EngineState::borrow(&mut source_data, &prepared, &services::LOGICAL_ONLY);
+            let mut target_data =
+                EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+            target_data.construction.initialized_declarations = Default::default();
+            target_data.resources.construction_bytes.set(0);
+            target_data
+                .resources
+                .work_budget
+                .reset(prepared.limits.max_work);
+            let mut target =
+                EngineState::borrow(&mut target_data, &prepared, &services::LOGICAL_ONLY);
+            target.import_retained_globals(&source).unwrap();
+            target.data.resources.construction_bytes.get()
+        };
+        let empty = imported_bytes(Value::WString(String::new()));
+        let copied = imported_bytes(Value::WString("A".repeat(64)));
+        assert_eq!(copied - empty, 128);
     }
 }

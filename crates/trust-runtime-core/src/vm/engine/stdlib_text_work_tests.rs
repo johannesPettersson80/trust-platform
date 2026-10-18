@@ -38,7 +38,7 @@ fn concat_args() -> [VmNativeArg; 2] {
 }
 
 #[test]
-fn concat_charges_its_arguments_then_one_unit_and_one_value_for_its_result() {
+fn concat_charges_its_arguments_then_one_unit_and_its_result_bytes() {
     let prepared = PreparedModule::from_bytes(
         include_bytes!("../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc"),
         crate::vm::PreparationLimits::default(),
@@ -56,12 +56,9 @@ fn concat_charges_its_arguments_then_one_unit_and_one_value_for_its_result() {
     assert_eq!(value, Value::String("abcdefghijklmnop".into()));
     // TIME-08: 16 units for the two argument bytes, then one unit for the new result.
     assert_eq!(state.data.resources.work_budget.remaining(), 83);
-    // Each STRING argument binds one Value; the new result costs one Value plus its 16 bytes.
-    let value_bytes = core::mem::size_of::<Value>();
-    assert_eq!(
-        state.data.resources.construction_bytes.get(),
-        3 * value_bytes + 16
-    );
+    // Each 8-byte STRING argument copies its 8 bytes, and the new 16-byte result costs its 16
+    // bytes (TIME-08): 8 + 8 + 16 = 32.
+    assert_eq!(state.data.resources.construction_bytes.get(), 32);
 }
 
 #[test]
@@ -90,11 +87,8 @@ fn text_result_refused_by_its_unit_is_discarded() {
             limit: 16,
         })
     ));
-    // Only the argument Values were admitted before the refused result.
-    assert_eq!(
-        state.data.resources.construction_bytes.get(),
-        2 * core::mem::size_of::<Value>()
-    );
+    // Only the two 8-byte argument copies were admitted before the refused result: 8 + 8 = 16.
+    assert_eq!(state.data.resources.construction_bytes.get(), 16);
 }
 
 #[test]
@@ -105,9 +99,9 @@ fn text_result_refused_by_its_bytes_is_discarded() {
     )
     .unwrap();
     let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
-    let value_bytes = core::mem::size_of::<Value>();
-    // Two argument Values fit; the result needs one more Value and 16 bytes, one byte too many.
-    prepared.limits.max_construction_bytes = 3 * value_bytes + 15;
+    // The two 8-byte arguments fit (8 + 8 = 16 bytes); the 16-byte result is one byte too many
+    // for a limit of 31.
+    prepared.limits.max_construction_bytes = 31;
     data.resources.construction_bytes.set(0);
     data.resources.work_budget.reset(100);
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
@@ -123,10 +117,38 @@ fn text_result_refused_by_its_bytes_is_discarded() {
             used,
             requested,
             limit,
-        }) if used == 2 * value_bytes && requested == value_bytes + 16 && limit == 3 * value_bytes + 15
+        }) if used == 16 && requested == 16 && limit == 31
     ));
-    assert_eq!(
-        state.data.resources.construction_bytes.get(),
-        2 * value_bytes
-    );
+    assert_eq!(state.data.resources.construction_bytes.get(), 16);
+}
+
+/// Spec 34 TIME-08, standard-library text: a WSTRING result is charged its copy allocation, two
+/// bytes per UTF-16 code unit, and each WSTRING argument pays its own copy first.
+#[test]
+fn a_wstring_result_charges_two_bytes_per_utf16_unit() {
+    let prepared = PreparedModule::from_bytes(
+        include_bytes!("../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc"),
+        crate::vm::PreparationLimits::default(),
+    )
+    .unwrap();
+    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    data.resources.construction_bytes.set(0);
+    data.resources.work_budget.reset(100);
+    let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    let name = SmolStr::new("CONCAT");
+    let mut frame = empty_frame();
+    // "a" plus U+1F600 is 5 UTF-8 bytes and 3 UTF-16 units; "b" is 1 byte and 1 unit.
+    let args = [
+        expression(Value::WString("a\u{1F600}".into())),
+        expression(Value::WString("b".into())),
+    ];
+    let value =
+        dispatch_native_stdlib_call(&mut state, &mut frame, &name, &name, None, &args).unwrap();
+    assert_eq!(value, Value::WString("a\u{1F600}b".into()));
+    // Work: each WSTRING argument copy pays its unit (2), the text bytes before the body (5 + 1
+    // = 6), and the result its unit (1): 9 units, so 100 - 9 = 91 remain.
+    assert_eq!(state.data.resources.work_budget.remaining(), 91);
+    // Allocation: the argument copies, 3 units x 2 = 6 bytes and 1 unit x 2 = 2 bytes, then the
+    // result's 4 units x 2 = 8 bytes: 6 + 2 + 8 = 16.
+    assert_eq!(state.data.resources.construction_bytes.get(), 16);
 }

@@ -3,6 +3,7 @@ use super::*;
 use crate::bytecode::{StorageOwner, StorageRole};
 use crate::cycle::{sort_ready_tasks_by_priority, ReadyTask};
 use crate::fault::NO_TASK;
+use crate::memory::layout::CELL_BYTES;
 use crate::memory::view::StoreAccess;
 use crate::retain::capture::RetainCapture;
 use crate::retain::codec::{decode_snapshot_payload_bytes, PayloadWriter};
@@ -289,11 +290,10 @@ impl EngineState<'_> {
         value: &Value,
         name_bytes: usize,
     ) -> Result<usize, RuntimeError> {
+        // A retained entry costs four cells of allocation (TIME-08 retained-value snapshot row).
         self.value_clone_charge(value, 0)?
             .checked_add(name_bytes)
-            .and_then(|bytes| {
-                bytes.checked_add(4 * core::mem::size_of::<(smol_str::SmolStr, Value)>())
-            })
+            .and_then(|bytes| bytes.checked_add(4 * CELL_BYTES))
             .ok_or_else(|| RuntimeError::Overflow)
     }
 

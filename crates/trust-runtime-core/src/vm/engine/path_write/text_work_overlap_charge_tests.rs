@@ -81,7 +81,7 @@ fn two_leaves() -> Value {
 
 #[test]
 fn single_leaf_physical_write_charges_the_formula_value() {
-    // 446 units and 4 + size_of::<(usize, Value)>() bytes, as worked out in the overlap tests.
+    // 446 units and 4 + 16 = 20 bytes (one cell for the leaf entry), as worked out in the overlap tests.
     let prepared = fixture();
     let services = &super::super::services::LOGICAL_ONLY;
     let mut data = EngineState::construct_data(&prepared, 0, services).unwrap();
@@ -106,15 +106,12 @@ fn single_leaf_physical_write_charges_the_formula_value() {
     state.data.resources.work_budget.reset(446);
     state.charge_path_write(&root, &path, &value).unwrap();
     assert_eq!(state.data.resources.work_budget.remaining(), 0);
-    assert_eq!(
-        state.data.resources.construction_bytes.get(),
-        4 + core::mem::size_of::<(usize, Value)>()
-    );
+    assert_eq!(state.data.resources.construction_bytes.get(), 20);
 }
 
 #[test]
 fn whole_structure_physical_write_charges_the_formula_value() {
-    // 979 units and 8 + 2 × size_of::<(usize, Value)>() bytes. The input has no layout, so it
+    // 979 units and 8 + 2 × 16 = 40 bytes. The input has no layout, so it
     // is not a shared-layout assignment that would be free.
     let prepared = fixture();
     let services = &super::super::services::LOGICAL_ONLY;
@@ -139,15 +136,12 @@ fn whole_structure_physical_write_charges_the_formula_value() {
     state.data.resources.work_budget.reset(979);
     state.charge_path_write(&root, &[], &input).unwrap();
     assert_eq!(state.data.resources.work_budget.remaining(), 0);
-    assert_eq!(
-        state.data.resources.construction_bytes.get(),
-        8 + 2 * core::mem::size_of::<(usize, Value)>()
-    );
+    assert_eq!(state.data.resources.construction_bytes.get(), 40);
 }
 
 #[test]
 fn hundred_field_physical_write_charges_the_formula_value() {
-    // 693 units and 4 + size_of::<(usize, Value)>() bytes for "f050" among 100 DWORD leaves.
+    // 693 units and 4 + 16 = 20 bytes for "f050" among 100 DWORD leaves.
     let prepared = fixture();
     let services = &super::super::services::LOGICAL_ONLY;
     let mut data = EngineState::construct_data(&prepared, 0, services).unwrap();
@@ -175,8 +169,5 @@ fn hundred_field_physical_write_charges_the_formula_value() {
     state.data.resources.work_budget.reset(693);
     state.charge_path_write(&root, &path, &value).unwrap();
     assert_eq!(state.data.resources.work_budget.remaining(), 0);
-    assert_eq!(
-        state.data.resources.construction_bytes.get(),
-        4 + core::mem::size_of::<(usize, Value)>()
-    );
+    assert_eq!(state.data.resources.construction_bytes.get(), 20);
 }

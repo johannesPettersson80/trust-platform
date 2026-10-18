@@ -1,6 +1,7 @@
 //! Typed access between cooperative cycles, without exposing mutable storage.
 use super::*;
 use crate::bytecode::{AccessBindingEntry, StorageRole};
+use crate::memory::layout::CELL_BYTES;
 use crate::memory::view::{PreparedWrite, StoreAccess, StoreMutate};
 use crate::value::{
     read_partial_access, write_partial_access, PartialAccess, RefSegment, ValueRefView,
@@ -78,8 +79,8 @@ impl EngineState<'_> {
                 (Value::WString(text), RefSegment::Index(_)) => text.len(),
                 _ => return Err(RuntimeError::NullReference),
             };
+            // The character is a scalar copy: it allocates nothing (TIME-08).
             self.charge_work_units(text_length)?;
-            self.charge_allocation_bytes(core::mem::size_of::<Value>())?;
             self.check_entry_deadline()?;
             crate::value::materialize_value_path(parent, core::slice::from_ref(last))
                 .ok_or(RuntimeError::NullReference)?
@@ -283,34 +284,26 @@ impl EngineState<'_> {
 
         let mut reference =
             self.persistent_io_reference(declaration.ref_idx.ok_or(RuntimeError::TypeMismatch)?)?;
-        let length = reference
-            .path
-            .len()
-            .checked_add(path.len())
-            .ok_or(RuntimeError::Overflow)?;
-        let bytes = if length > reference.path.capacity() {
-            length
-                .checked_mul(core::mem::size_of::<RefSegment>())
-                .ok_or(RuntimeError::Overflow)?
-        } else {
-            0
-        };
         if !path.is_empty() {
-            self.charge_allocation(bytes)?;
             reference
                 .path
                 .try_reserve_exact(path.len())
                 .map_err(|_| RuntimeError::Overflow)?;
         }
         for segment in path {
-            let allocation = match segment {
-                RefSegment::Field(_) => 0,
-                RefSegment::Index(indices) => indices
-                    .len()
-                    .checked_mul(core::mem::size_of::<i64>())
-                    .ok_or(RuntimeError::Overflow)?,
+            // TIME-08: an added segment and each of its subscripts cost one cell each, whatever
+            // the capacity of the path's storage.
+            let cells: usize = match segment {
+                RefSegment::Field(_) => 1,
+                RefSegment::Index(indices) => {
+                    indices.len().checked_add(1).ok_or(RuntimeError::Overflow)?
+                }
             };
-            self.charge_allocation(allocation)?;
+            self.charge_allocation(
+                cells
+                    .checked_mul(CELL_BYTES)
+                    .ok_or(RuntimeError::Overflow)?,
+            )?;
             let segment = match segment {
                 RefSegment::Field(name) => RefSegment::Field(name.clone()),
                 RefSegment::Index(indices) => {

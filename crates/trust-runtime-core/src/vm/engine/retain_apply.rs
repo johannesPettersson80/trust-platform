@@ -2,6 +2,7 @@
 use super::*;
 use crate::bytecode::{InitializationStage, StorageOwner, StorageRole, TypeData};
 use crate::collections::OrderedMap;
+use crate::memory::layout::CELL_BYTES;
 use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::retain::{value_is_retainable, RetainSnapshot};
 use crate::value::{ArrayValue, StructValue};
@@ -103,11 +104,8 @@ impl EngineState<'_> {
                 continue;
             }
             let name = &prepared.vm.strings[declaration.name_idx as usize];
-            self.charge_allocation_bytes(cost_sum(&[
-                name.len(),
-                core::mem::size_of::<(SmolStr, (u32, Option<InstanceId>))>() * 4,
-            ])?)?;
-            // Label comparison is bookkeeping (TIME-08); its overflow guard stays.
+            // The destination index entry is bookkeeping (TIME-08) and is not charged. The label
+            // comparison is bookkeeping too; its overflow guard stays.
             cost_sum(&[
                 name.len(),
                 12 * (destinations.len().max(1).ilog2() as usize + 1),
@@ -132,12 +130,7 @@ impl EngineState<'_> {
             for &id in prepared.declarations(StorageOwner::Instance, root.template_pou_id) {
                 let declaration = &prepared.layout.entries[id as usize];
                 let name = &prepared.vm.strings[declaration.name_idx as usize];
-                self.charge_allocation_bytes(cost_sum(&[
-                    program.len(),
-                    name.len(),
-                    10,
-                    core::mem::size_of::<(SmolStr, (u32, Option<InstanceId>))>() * 4,
-                ])?)?;
+                // The program-scoped index entry is bookkeeping (TIME-08) and is not charged.
                 cost_sum(&[
                     program.len(),
                     name.len(),
@@ -161,7 +154,7 @@ impl EngineState<'_> {
             if entry.stage == InitializationStage::Default
                 && let Some(declaration) = entry.declaration_idx
             {
-                self.charge_allocation_bytes(core::mem::size_of::<(u32, u32)>() * 4)?;
+                // The initializer index entry is bookkeeping (TIME-08) and is not charged.
                 actions
                     .entry(declaration)
                     .or_insert(entry.context_initializer_idx.unwrap_or(index as u32));
@@ -181,16 +174,7 @@ impl EngineState<'_> {
         let prepared = self.prepared;
         let mut journal: Vec<(Option<InstanceId>, SmolStr, Value)> = Vec::new();
         let mut events = Vec::new();
-        self.charge_allocation_bytes(
-            snapshot
-                .values()
-                .len()
-                .checked_mul(
-                    core::mem::size_of::<(Option<InstanceId>, SmolStr, Value)>()
-                        + core::mem::size_of::<RetainApplyEvent>(),
-                )
-                .ok_or(RuntimeError::Overflow)?,
-        )?;
+        // The journal and event vectors are bookkeeping (TIME-08): they are reserved, not charged.
         journal
             .try_reserve_exact(snapshot.values().len())
             .map_err(|_| RuntimeError::Overflow)?;
@@ -324,6 +308,15 @@ struct MigrationContext<'a, 'p> {
     instance: Option<InstanceId>,
 }
 impl MigrationContext<'_, '_> {
+    /// One cell for a copied leaf field or element of a migrated structure or array. A compound
+    /// child allocates through its own leaves, so it adds none here (TIME-08 copy allocation).
+    fn charge_copied_leaf(&mut self, value: &Value) -> Result<(), RuntimeError> {
+        if !matches!(value, Value::Array(_) | Value::Struct(_)) {
+            self.engine.charge_allocation_bytes(CELL_BYTES)?;
+        }
+        Ok(())
+    }
+
     fn migrate(&mut self, ty: u32, value: &Value, depth: usize) -> Result<Value, RuntimeError> {
         self.charge_work(1)?;
         if depth > crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
@@ -364,17 +357,13 @@ impl MigrationContext<'_, '_> {
                     return Err(RuntimeError::TypeMismatch);
                 }
                 let element = *elem_type_id;
-                self.charge_allocation(cost_sum(&[
-                    core::mem::size_of::<ArrayValue>(),
-                    cost_array::<(i64, i64)>(dims.len())?,
-                    cost_array::<Value>(array.elements().len())?,
-                ])?)?;
                 let dims = dims.clone();
                 let mut values = Vec::new();
                 values
                     .try_reserve_exact(array.elements().len())
                     .map_err(|_| RuntimeError::Overflow)?;
                 for value in array.elements() {
+                    self.charge_copied_leaf(value)?;
                     values.push(self.migrate(element, value, depth + 1)?);
                 }
                 Ok(Value::Array(Box::new(ArrayValue::from_canonical_parts(
@@ -396,15 +385,7 @@ impl MigrationContext<'_, '_> {
                     .name_idx
                     .map(|id| self.engine.prepared.vm.strings[id as usize].clone())
                     .unwrap_or_default();
-                self.charge_allocation(cost_array::<crate::bytecode::Field>(fields.len())?)?;
                 let fields = fields.clone();
-                self.charge_allocation(cost_sum(&[
-                    core::mem::size_of::<StructValue>(),
-                    2 * core::mem::size_of::<usize>(),
-                    cost_array::<(SmolStr, Value)>(fields.len())?
-                        .checked_mul(4)
-                        .ok_or(RuntimeError::Overflow)?,
-                ])?)?;
                 let mut values = OrderedMap::default();
                 values
                     .try_reserve(fields.len())
@@ -422,6 +403,7 @@ impl MigrationContext<'_, '_> {
                         .iter()
                         .find(|(key, _)| key.eq_ignore_ascii_case(&name))
                     {
+                        self.charge_copied_leaf(value)?;
                         self.migrate(field.type_id, value, depth + 1)?
                     } else if let Some(recipe) = self.member_recipe(ty, index as u32) {
                         self.evaluate_recipe(recipe)?
@@ -575,9 +557,4 @@ fn cost_sum(values: &[usize]) -> Result<usize, RuntimeError> {
     values.iter().try_fold(0usize, |total, value| {
         total.checked_add(*value).ok_or(RuntimeError::Overflow)
     })
-}
-fn cost_array<T>(count: usize) -> Result<usize, RuntimeError> {
-    count
-        .checked_mul(core::mem::size_of::<T>())
-        .ok_or(RuntimeError::Overflow)
 }

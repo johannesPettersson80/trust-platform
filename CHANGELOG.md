@@ -6,6 +6,16 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- The work and memory a program's copies cost are now counted by what the program copies, the
+  same on every computer and chip (specification 34 TIME-08). Copying a number or other scalar
+  costs no memory; a STRING costs its bytes, a WSTRING two bytes per character unit, and a
+  structure or an array 16 bytes per field or element, and one work unit for each structure,
+  array, field and element, however the runtime shares the value internally. Before, a scalar copy
+  was counted as a full value (32 bytes on a chip), so a long loop on a chip could stop with a
+  memory-limit fault although it allocated nothing; and the counts differed between 32- and
+  64-bit machines. A program near its work or memory limit may now be refused at a different
+  point.
+
 - `[runtime.events] capacity` in `runtime.toml` sets how many events the event store keeps
   (1 to 1,000,000; 1,000 by default on a computer), as PLC vendors size their diagnostic buffer
   per device. `status` reports it as `event_capacity`, and a chip receives it in its deployment

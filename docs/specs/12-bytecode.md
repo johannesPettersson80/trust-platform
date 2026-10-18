@@ -2364,10 +2364,11 @@ initializers or fills missing members with defaults. A failed assignment leaves
 the destination unchanged. Recursive traversal and copied values consume the
 admitted work/allocation limits, and reference lifetime checks remain mandatory.
 
-Partial field/element writes charge any copy-on-write structure backing and owned
-array fields copied by that operation before mutation, including newly shared
-children after an ancestor copy. String-element replacement charges its character
-buffer and replacement text. These failures retain their budget/deadline error;
+Partial field/element writes charge nothing for the copy-on-write detach of shared structure
+backing or for owned array fields that the operation detaches, including newly shared children
+after an ancestor copy: a field write copies no structure in the program, so the detach is engine
+bookkeeping (spec 34 TIME-08). String-element replacement charges its character buffer and
+replacement text. These failures retain their budget/deadline error;
 a multi-output copyback failure restores every destination in that output group.
 
 The source-free runtime enforces STORAGE_LAYOUT constant declarations at every

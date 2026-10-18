@@ -1,5 +1,6 @@
 //! Destination-indexed upper bounds for the actual patch, alias and nested-backing work.
 use super::*;
+use crate::memory::layout::CELL_BYTES;
 
 pub(crate) struct PhysicalWriteCost {
     pub(crate) work: usize,
@@ -25,7 +26,7 @@ impl StructValue {
             .checked_add(
                 candidates
                     .len()
-                    .checked_mul(core::mem::size_of::<(usize, Value)>())
+                    .checked_mul(CELL_BYTES)
                     .ok_or(RuntimeError::Overflow)?,
             )
             .ok_or(RuntimeError::Overflow)?;
@@ -91,7 +92,8 @@ impl StructValue {
                     Some(Value::Enum(v)) => v.type_name().len(),
                     _ => 0,
                 };
-                allocation = add(allocation, core::mem::size_of::<super::super::EnumValue>())?;
+                // The enumeration value is one cell, plus the names measured below.
+                allocation = add(allocation, CELL_BYTES)?;
                 allocation = add(allocation, name)?;
                 allocation = add(allocation, type_len)?;
             }
@@ -175,96 +177,10 @@ impl PhysicalLayout {
                 bytes = add(bytes, type_len)?;
             }
         }
-        // Fresh outer backing can still publish an alias into a shared canonical
-        // child. Copying its Arc propagates sharing to nested child Arcs.
-        for &i in &self.child_path_order {
-            let child = &self.children[i];
-            let mut shared = false;
-            for length in 1..=child.path.len() {
-                if let Some(Value::Struct(value)) = read_struct_path(value, &child.path[..length]) {
-                    shared |= Arc::strong_count(value) > 1;
-                }
-            }
-            if shared && let Some(Value::Struct(child)) = read_struct_path(value, &child.path) {
-                bytes = add(bytes, structure_copy_bytes(child)?)?;
-            } else if let Some(Value::Struct(child)) = read_struct_path(value, &child.path)
-                && Arc::weak_count(child) > 0
-            {
-                bytes = add(
-                    bytes,
-                    core::mem::size_of::<StructValue>() + 2 * core::mem::size_of::<usize>(),
-                )?;
-            }
-        }
+        // Children that are shared or observed are not copied here: a copy-on-write detach is
+        // bookkeeping and charges nothing, and a copy charges each of its leaves (TIME-08).
         Ok(bytes)
     }
-}
-
-fn structure_copy_bytes(value: &StructValue) -> Result<usize, RuntimeError> {
-    let mut bytes = add(
-        core::mem::size_of::<StructValue>() + 2 * core::mem::size_of::<usize>(),
-        value.physical_byte_len(),
-    )?;
-    bytes = add(
-        bytes,
-        value
-            .fields
-            .len()
-            .checked_mul(4 * core::mem::size_of::<(SmolStr, Value)>())
-            .ok_or(RuntimeError::Overflow)?,
-    )?;
-    for value in value.fields.values() {
-        bytes = add(bytes, owned_copy_bytes(value, 0)?)?;
-    }
-    Ok(bytes)
-}
-
-fn owned_copy_bytes(value: &Value, depth: usize) -> Result<usize, RuntimeError> {
-    if depth > crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
-        return Err(RuntimeError::TypeMismatch);
-    }
-    let mut bytes = core::mem::size_of::<Value>();
-    match value {
-        Value::WString(value) => bytes = add(bytes, value.len())?,
-        Value::Enum(_) => bytes = add(bytes, core::mem::size_of::<super::super::EnumValue>())?,
-        Value::Array(value) => {
-            bytes = add(bytes, core::mem::size_of::<super::super::ArrayValue>())?;
-            bytes = add(
-                bytes,
-                value
-                    .dimensions()
-                    .len()
-                    .checked_mul(core::mem::size_of::<(i64, i64)>())
-                    .ok_or(RuntimeError::Overflow)?,
-            )?;
-            for value in value.elements() {
-                bytes = add(bytes, owned_copy_bytes(value, depth + 1)?)?;
-            }
-        }
-        Value::Reference(Some(value)) => {
-            bytes = add(
-                bytes,
-                value
-                    .path
-                    .len()
-                    .checked_mul(core::mem::size_of::<RefSegment>())
-                    .ok_or(RuntimeError::Overflow)?,
-            )?;
-            for part in &value.path {
-                if let RefSegment::Index(indices) = part {
-                    bytes = add(
-                        bytes,
-                        indices
-                            .len()
-                            .checked_mul(core::mem::size_of::<i64>())
-                            .ok_or(RuntimeError::Overflow)?,
-                    )?;
-                }
-            }
-        }
-        _ => {}
-    }
-    Ok(bytes)
 }
 
 fn add(a: usize, b: usize) -> Result<usize, RuntimeError> {

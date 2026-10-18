@@ -160,3 +160,30 @@ fn two_ready_tasks_keep_the_single_invocation_boundary() {
         Value::Int(1)
     );
 }
+
+/// Spec 34 TIME-08: a scalar copy allocates nothing, so a scan of 100,000 scalar copies is not
+/// refused by the per-scan allocation allowance of a chip (247,580 bytes). Under the old charge of
+/// one `Value` per scalar copy (32 bytes on the C6, 40 bytes on x86_64) the allowance ran out at
+/// iteration 7,737 on the C6 (247,580 / 32 rounded up) or 6,190 on x86_64 (247,580 / 40 rounded
+/// up), so 100,000 iterations catch that charge.
+#[test]
+fn a_scalar_copy_charges_no_allocation() {
+    let bytes = artifact(&scheduled(
+        "PROGRAM Main VAR Spin : DINT; I : DINT; END_VAR \
+         FOR I := DINT#1 TO DINT#100000 DO Spin := Spin + DINT#1; END_FOR; END_PROGRAM",
+    ));
+    let limits = PreparationLimits {
+        max_construction_bytes: 247_580,
+        max_work: usize::MAX / 2,
+        ..Default::default()
+    };
+    let prepared = PreparedModule::from_bytes(&bytes, limits).expect("admit the artifact");
+    let mut state = prepared.instantiate(0).expect("instantiate the program");
+    state
+        .execute_cycle(Duration::from_millis(10))
+        .expect("100,000 scalar copies allocate nothing");
+    assert_eq!(
+        program_field(state.storage(), "Plant", "Spin"),
+        Value::DInt(100_000)
+    );
+}

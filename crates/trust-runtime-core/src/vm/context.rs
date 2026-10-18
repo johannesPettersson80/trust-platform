@@ -24,10 +24,10 @@ pub trait ReferenceContext {
         Ok(())
     }
 
-    /// Charge a STRING or WSTRING result of a native call as a new value: one work
-    /// unit plus its allocation of `size_of::<Value>()` and `bytes` (spec 34 TIME-08,
-    /// TEXT). Compositions without a work allowance charge nothing.
-    fn charge_text_result(&self, _bytes: usize) -> Result<(), crate::error::RuntimeError> {
+    /// Charge a STRING or WSTRING result of a native call as a new value: one work unit plus
+    /// its copy allocation (spec 34 TIME-08, TEXT): the UTF-8 bytes of a STRING, two bytes per
+    /// UTF-16 code unit of a WSTRING. Compositions without a work allowance charge nothing.
+    fn charge_text_result(&self, _result: &Value) -> Result<(), crate::error::RuntimeError> {
         Ok(())
     }
 

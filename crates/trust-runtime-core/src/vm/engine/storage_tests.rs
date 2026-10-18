@@ -64,10 +64,11 @@ fn dynamic_multidimensional_reference_growth_is_charged_before_allocation() {
     data.resources.work_budget.reset(100);
     let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
     let frames = crate::vm::FrameStack::default();
-    // TIME-08: the new segment and its subscript cost one unit each, with their own bytes.
+    // TIME-08: the new segment and its subscript cost one unit each, and one 16-byte cell each.
     let partial =
         crate::vm::dispatch_refs::dynamic_ref_index(&state, &frames, reference, 1).unwrap();
-    let first = core::mem::size_of::<crate::value::RefSegment>() + core::mem::size_of::<i64>();
+    // A new segment and its subscript are two cells of 16 bytes: 2 x 16 = 32.
+    let first = 32;
     assert_eq!(state.data.resources.construction_bytes.get(), first);
     assert_eq!(state.data.resources.work_budget.remaining(), 98);
     let pointer = partial.path.as_ptr();
@@ -78,11 +79,8 @@ fn dynamic_multidimensional_reference_growth_is_charged_before_allocation() {
         complete.path,
         vec![crate::value::RefSegment::Index(vec![1, 2])]
     );
-    // TIME-08: the trailing subscript costs one unit and one i64, not a copy of the earlier one.
-    assert_eq!(
-        state.data.resources.construction_bytes.get(),
-        first + core::mem::size_of::<i64>()
-    );
+    // TIME-08: the trailing subscript costs one unit and one cell, not a copy of the earlier one.
+    assert_eq!(state.data.resources.construction_bytes.get(), first + 16);
     assert_eq!(state.data.resources.work_budget.remaining(), 97);
 
     let mut partial = complete;
@@ -100,7 +98,7 @@ fn dynamic_multidimensional_reference_growth_is_charged_before_allocation() {
         .into_runtime_error();
     assert!(matches!(error, RuntimeError::ExecutionLimit {
         kind: crate::error::ExecutionLimitKind::AllocationBytes, requested, ..
-    } if requested == core::mem::size_of::<i64>()));
+    } if requested == 16));
     assert_eq!(
         state.data.resources.construction_bytes.get(),
         prepared.limits.max_construction_bytes
@@ -129,8 +127,6 @@ fn equal_length_reference_paths_charge_the_same_whatever_their_capacity() {
     data.resources.work_budget.reset(100);
     let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
     let frames = crate::vm::FrameStack::default();
-    let segment = core::mem::size_of::<crate::value::RefSegment>();
-    let subscript = core::mem::size_of::<i64>();
 
     // Two empty paths with different starting capacities each add a segment and its subscript.
     for capacity in [0, 8] {
@@ -141,10 +137,7 @@ fn equal_length_reference_paths_charge_the_same_whatever_their_capacity() {
         let next = crate::vm::dispatch_refs::dynamic_ref_index(&state, &frames, root, 1).unwrap();
         assert_eq!(next.path, vec![crate::value::RefSegment::Index(vec![1])]);
         assert_eq!(state.data.resources.work_budget.remaining(), 98);
-        assert_eq!(
-            state.data.resources.construction_bytes.get(),
-            segment + subscript
-        );
+        assert_eq!(state.data.resources.construction_bytes.get(), 32);
     }
 
     // Two one-segment paths with different subscript capacities each add one subscript.
@@ -159,7 +152,7 @@ fn equal_length_reference_paths_charge_the_same_whatever_their_capacity() {
             crate::vm::dispatch_refs::dynamic_ref_index(&state, &frames, partial, 2).unwrap();
         assert_eq!(next.path, vec![crate::value::RefSegment::Index(vec![1, 2])]);
         assert_eq!(state.data.resources.work_budget.remaining(), 99);
-        assert_eq!(state.data.resources.construction_bytes.get(), subscript);
+        assert_eq!(state.data.resources.construction_bytes.get(), 16);
     }
 }
 
@@ -196,10 +189,7 @@ fn borrowed_dynamic_field_materialization_charges_the_new_owned_path() {
         next.path,
         vec![crate::value::RefSegment::Field("field".into())]
     );
-    assert_eq!(
-        state.data.resources.construction_bytes.get(),
-        core::mem::size_of::<crate::value::RefSegment>()
-    );
+    assert_eq!(state.data.resources.construction_bytes.get(), 16);
     assert!(reference.path.is_empty());
     state
         .data
@@ -257,8 +247,8 @@ fn reference_address_clones_are_charged_before_copying_a_static_path() {
     )
     .unwrap();
     assert_eq!(reference.path, path);
-    let bytes = 3 * core::mem::size_of::<crate::value::RefSegment>() + core::mem::size_of::<i64>();
-    assert_eq!(state.data.resources.construction_bytes.get(), bytes);
+    // TIME-08 COPY: 3 path segments and 1 subscript, one 16-byte cell each: 4 x 16 = 64 bytes.
+    assert_eq!(state.data.resources.construction_bytes.get(), 64);
     // TIME-08 COPY: materializing the static address copies 3 path segments and
     // 1 index = 4 units; the REF instruction's own unit is charged by dispatch.
     assert_eq!(state.data.resources.work_budget.remaining(), 60);

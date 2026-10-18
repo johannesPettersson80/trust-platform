@@ -1,6 +1,7 @@
 use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
+use crate::memory::layout::CELL_BYTES;
 use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::memory::{MemoryLocation, VariableStorage};
 use crate::value::{
@@ -312,10 +313,10 @@ pub fn dynamic_ref_field_borrowed(
             runtime
                 .before_reference_path_clone(reference.as_view())
                 .map_err(VmTrap::Runtime)?;
-            // TIME-08: the added field segment costs one unit and its own bytes, as the
-            // owned path in `reserve_reference_segment` does.
+            // TIME-08: the added field segment costs one unit and one cell, as the owned path
+            // in `reserve_reference_segment` does.
             runtime
-                .before_reference_path_growth(core::mem::size_of::<RefSegment>(), 1)
+                .before_reference_path_growth(CELL_BYTES, 1)
                 .map_err(VmTrap::Runtime)?;
             let capacity = reference
                 .path
@@ -366,10 +367,10 @@ pub fn dynamic_ref_index(
                     upper,
                 }));
             }
-            // TIME-08: the added subscript costs one unit and its own bytes, whatever the
-            // capacity of the trailing index vector.
+            // TIME-08: the added subscript costs one unit and one cell, whatever the capacity
+            // of the trailing index vector.
             runtime
-                .before_reference_path_growth(core::mem::size_of::<i64>(), 1)
+                .before_reference_path_growth(CELL_BYTES, 1)
                 .map_err(VmTrap::Runtime)?;
             if let Some(RefSegment::Index(indices)) = reference.path.last_mut() {
                 indices
@@ -421,17 +422,17 @@ pub fn dynamic_ref_index(
 }
 
 /// Admit one new owned path segment that carries `subscripts` subscripts, then reserve its
-/// slot. Each added segment and each added subscript costs one unit and its own bytes,
-/// whatever the path vector's capacity (spec 34 TIME-08).
+/// slot. Each added segment and each added subscript costs one unit and one cell, whatever the
+/// path vector's capacity (spec 34 TIME-08).
 fn reserve_reference_segment(
     runtime: &impl ReferenceContext,
     reference: &mut ValueRef,
     subscripts: usize,
 ) -> Result<(), VmTrap> {
     let subscript_bytes = subscripts
-        .checked_mul(core::mem::size_of::<i64>())
+        .checked_mul(CELL_BYTES)
         .ok_or_else(|| RuntimeError::Overflow)?;
-    let bytes = core::mem::size_of::<RefSegment>()
+    let bytes = CELL_BYTES
         .checked_add(subscript_bytes)
         .ok_or_else(|| RuntimeError::Overflow)?;
     let work = subscripts

@@ -1569,34 +1569,58 @@ The reviewed stack dispatcher checks its elapsed deadline at entry and each 32 o
 **TIME-08. Work-unit cost model.** The work allowance measures what the PLC
 program does, not how the engine does it. It implements TIME-02 as follows:
 
-Text sizes are counted in UTF-8 bytes (B, the stored length of the whole text);
-a byte count is an upper bound of the character count.
+Text sizes for work are counted in UTF-8 bytes (B, the stored length of the whole text);
+a byte count is an upper bound of the character count. The allocation of a copy is counted
+by the copy allocation rule below the table.
 
 | Work | Charge |
 |---|---|
 | Executed original bytecode instruction | 1 unit, identical in the stack, register and tier-1 executors |
-| Copying an array | 1 unit for the array plus 1 per element, at every nesting level |
-| Copying a reference value | 1 unit plus 1 per path segment and 1 per subscript; creating a reference from a static address charges only its segments and subscripts (its instruction is the base unit) |
-| Extending a reference by a dynamic index or field | 1 unit and the allocation of one element per added segment and per added subscript (a new index segment with its subscript adds 2 units), whatever the capacity of the path's storage |
-| Copying a WSTRING or an enumeration value | 1 unit |
-| Copying a STRING value, a null reference or an instance identity | nothing: STRING text is shared and the others are fixed-size; the copy's allocation is still charged |
+| Copying an array | one rule for arrays and structures: 1 unit for each array and each structure in the copied value, plus 1 for each of its elements or fields, at every nesting level; each leaf then pays its own row's charge below; allocation as in the copy allocation rule |
+| Copying a reference value | 1 unit plus 1 per path segment and 1 per subscript; creating a reference from a static address charges only its segments and subscripts (its instruction is the base unit); allocation as in the copy allocation rule |
+| Extending a reference by a dynamic index or field | 1 unit and one cell (16 bytes) of allocation per added segment and per added subscript (a new index segment with its subscript adds 2 units and 32 bytes), whatever the capacity of the path's storage |
+| Copying a WSTRING or an enumeration value | 1 unit; allocation as in the copy allocation rule |
+| Copying a STRING value | nothing: its bytes are charged where it is stored (normalization), and its allocation by the copy allocation rule |
+| Copying a null reference or an instance identity | nothing, and no allocation: both are fixed-size |
 | Binding a VAR_IN_OUT argument | nothing beyond the call's instructions: IEC passes it by reference, and the engine's private snapshot and copy-back are call-transaction bookkeeping |
-| Copying a structure | nothing for the shared structure; copy-on-write detach charges its fields as copies |
-| Normalizing a STRING/WSTRING as it is stored | 2 units per byte of the value, truncated or not; every STRING/WSTRING is bounded, 80 without a declared length |
+| Copying a structure | the same rule as copying an array: 1 unit for each array and each structure in the copied value, plus 1 for each of its fields or elements, at every nesting level; each leaf then pays its own row's charge below; allocation as in the copy allocation rule, which counts each copied leaf field. A copy-on-write detach of shared storage charges nothing, because a field write copies no structure in the program |
+| Each entry of a retained-value map (a snapshot entry keyed by its name, or a copied instance variable) | the copy of its value, the bytes of its name where it has one, and four cells (64 bytes) of entry allocation |
+| Normalizing a STRING/WSTRING as it is stored | 2 units per byte of the value, truncated or not; every STRING/WSTRING is bounded, 80 without a declared length; a cut allocates its kept prefix by the copy allocation rule (its UTF-8 bytes for a STRING, two bytes per UTF-16 code unit for a WSTRING), and a rebuilt structure charges nothing beyond the text rows, its copy having been charged at the load |
 | Checking that a bounded text value is canonical (construction and retain checks, a structure's canonical pass) | 1 unit per byte |
 | Reading one character, `s[i]` | in a program, 2 units per byte of the whole text after the parent value's copy; through a host cycle access, 1 unit per byte |
 | Creating a reference to a dynamic character index | 1 unit per byte of the text |
 | Writing one character | 3 units per byte of the whole text plus 12, and 16 allocation bytes per byte plus 64, before the commit |
 | Coercing a supplied initializer value | 1 unit per constructed node, plus 1 per byte of a STRING/WSTRING and 4 for a CHAR/WCHAR; a bounded text value then pays its canonical check |
 | Copying a type name for an interface attempt | 1 unit per byte of the name |
-| Standard-library or conversion call with STRING/WSTRING arguments | 1 unit per byte of those arguments before the body runs; a text result is then charged as a new value, 1 unit and its bytes of allocation |
+| Standard-library or conversion call with STRING/WSTRING arguments | each argument is copied by its own row first; then 1 unit per UTF-8 byte of those arguments before the body runs; a text result is then charged as a new value, 1 unit and its allocation by the copy allocation rule (its UTF-8 bytes for a STRING, two bytes per UTF-16 code unit for a WSTRING) |
 | Write through a `STRUCT OVERLAP` physical layout | the layout write cost below, before any backing byte changes |
 | Lifetime check of a value that can hold references or instances | 1 unit per node visited |
 | Constructing a value during construction or initialization | 1 unit per constructed node |
 | `SIZEOF` of a value | 1 unit per value node visited, plus 1 per byte of text and 1 per array dimension; an array visits its first element only |
 | `SIZEOF` of a type | 1 unit plus its nesting depth per type node visited, an alias and its target each being a node, plus 1 per array dimension |
 | Other native and standard-library calls | their argument binding as above; a body without text charges nothing beyond the call |
-| Any other value operation on a scalar | nothing beyond its instruction |
+| Any other value operation on a scalar, including copying one | nothing beyond its instruction, and no allocation |
+
+**Copy allocation.** A copy's allocation depends only on the value copied, never on how the
+engine shares or stores it, so a copy is charged the same whether its storage is shared or not.
+A cell is 16 bytes (MEM-10). The rule is:
+
+- a scalar value, an enumeration value, a null reference or an instance identity allocates
+  nothing;
+- a STRING allocates 1 byte per UTF-8 byte of its text; a WSTRING allocates 2 bytes per UTF-16
+  code unit of its text, which is its stored form;
+- a reference allocates one cell per path segment and one cell per subscript;
+- a structure or an array allocates one cell for each copied leaf field or element, counted
+  through nested structures and arrays, where a leaf is a field or element that is neither a
+  structure nor an array. A leaf also allocates its own copy as above, so a STRING leaf allocates
+  one cell and its bytes.
+
+**Worked example.** The structure STRUCT{a: INT; b: STRUCT{c: DINT; d: BOOL}; e: ARRAY[1..3] OF
+INT} copies three structures and arrays (the outer structure, b and e) and eight fields and
+elements (a, b, e, c, d and the three elements of e): 3 + 8 = 11 units of work. Its leaves are a,
+c, d and the three elements of e, six leaves, so it allocates 6 x 16 = 96 bytes. The array
+ARRAY[1..2] OF ARRAY[1..3] OF INT costs 3 + 8 = 11 units by the same rule. A copy of an INT costs
+nothing and allocates nothing.
 
 **`STRUCT OVERLAP` write cost.** Let w be a path's work (segments, plus the bytes of
 its field names, plus its subscripts), P the bytes spanned by the selected bit
@@ -1608,19 +1632,20 @@ leaf whose bits intersect the write including aliases, 192 + its w (and 2 per
 enumeration member); for each selected child, its bit count plus 2·its w; for each
 affected child, its overlapping bit count plus its w. A write of the whole structure, or of children,
 also charges the selected bit span, and the whole structure once more with its
-field count. Its allocation is P bytes plus one leaf entry per affected leaf
-(and, per affected enumeration leaf, the enumeration value with its longest
-member and type names). A write that selects no leaf or child, or a whole-structure
+field count. Its allocation is P bytes plus one cell (16 bytes) per affected leaf entry
+(and, per affected enumeration leaf, one more cell for the enumeration value, plus the bytes of
+its longest member and type names). A write that selects no leaf or child, or a whole-structure
 assignment from a value sharing the same layout, charges no layout cost. These
 are upper bounds of the writer's work, so a write never runs uncharged.
 
 Engine bookkeeping is part of the instruction's unit and is never charged
 separately: index, name and member lookups; owner, root and reference-candidate
 resolution; path-segment resolution; writability, staging and visibility checks;
-lifecycle markers; call-transaction snapshots (VAR_IN_OUT copy-in and rollback
+lifecycle markers; copy-on-write detach of shared structure storage; call-transaction snapshots (VAR_IN_OUT copy-in and rollback
 journal values); assignment normalization passes other than the text rows above;
 canonical field matching; activation-registry records; type-structure comparisons;
-process-image sampling and publication (a sampled bounded STRING/WSTRING value still
+retained-value migration indexes, journals and event vectors, and retained identity and root
+maps; process-image sampling and publication (a sampled bounded STRING/WSTRING value still
 pays its normalization); and scheduler ordering. Each is bounded by admitted metadata, by
 the admitted type of the value it handles, or by a value already charged when it
 was produced, so its cost per instruction stays bounded. A call-transaction

@@ -128,10 +128,10 @@ fn literal_frame_defaults_match_the_declaration_action() {
     // TIME-08 COPY: a scalar copy is admitted without work; an owned text copy
     // charges one unit plus its payload. Each literal has its declaration's
     // type, as admission requires of every default constant.
-    let value_bytes = core::mem::size_of::<Value>();
+    // A scalar copy allocates nothing; the WSTRING of 64 UTF-16 code units allocates 2 bytes each.
     for (literal, wstring, work, bytes) in [
-        (Value::Int(7), false, 0, value_bytes),
-        (Value::WString("A".repeat(64)), true, 1, value_bytes + 64),
+        (Value::Int(7), false, 0, 0),
+        (Value::WString("A".repeat(64)), true, 1, 128),
     ] {
         let (mut prepared, id) = if wstring {
             with_primitive(25)
@@ -276,7 +276,8 @@ fn direct_defaults_refuse_at_every_limit_like_the_declaration_action() {
     let constant = limited.vm.consts.len() as u32;
     limited.vm.consts.push(Value::WString("A".repeat(64)));
     limited.layout.entries[declaration].default_const_idx = Some(constant);
-    limited.limits.max_construction_bytes = core::mem::size_of::<Value>() + 63;
+    // One byte below the copy's demand of 64 UTF-16 code units x 2 bytes (TIME-08).
+    limited.limits.max_construction_bytes = 2 * 64 - 1;
     let direct = apply_with_limits(&base, &limited, id, true, 64);
     assert_eq!(direct, apply_with_limits(&base, &limited, id, false, 64));
     assert!(direct.result.is_err());

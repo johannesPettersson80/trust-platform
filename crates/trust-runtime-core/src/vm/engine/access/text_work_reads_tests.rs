@@ -186,8 +186,9 @@ fn dynamic_character_index_reference_charges_the_text_bytes_and_its_new_segment(
 
 #[test]
 fn program_wstring_parent_copy_charges_its_bytes_with_its_unit() {
-    // The WSTRING parent copy of "αβγ" costs 1 unit and allocates one Value plus its 6 bytes.
-    // The character read itself allocates nothing, so the allocation counter ends there.
+    // The WSTRING parent copy of "αβγ" costs 1 unit and allocates 2 bytes per UTF-16 code unit:
+    // three units (each Greek letter is one unit) of 2 bytes, 6 bytes in all. The character read
+    // itself is a scalar copy and allocates nothing (TIME-08).
     let prepared = PreparedModule::from_bytes(
         include_bytes!("../../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc"),
         crate::vm::PreparationLimits::default(),
@@ -206,8 +207,5 @@ fn program_wstring_parent_copy_charges_its_bytes_with_its_unit() {
         .unwrap();
     assert_eq!(value, Value::WChar(0x03B2));
     assert_eq!(state.data.resources.work_budget.remaining(), 0);
-    assert_eq!(
-        state.data.resources.construction_bytes.get(),
-        core::mem::size_of::<Value>() + 6
-    );
+    assert_eq!(state.data.resources.construction_bytes.get(), 6);
 }
