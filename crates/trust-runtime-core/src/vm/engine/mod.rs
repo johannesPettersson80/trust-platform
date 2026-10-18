@@ -58,6 +58,7 @@ pub use reconfiguration::ResourceReconfiguration;
 mod retained_graph;
 mod scratch;
 mod services;
+mod store_access;
 pub use api::RuntimeState;
 #[cfg(feature = "std")]
 pub use owned::OwnedRuntimeState;
