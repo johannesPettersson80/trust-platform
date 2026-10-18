@@ -3180,8 +3180,14 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   budgets a 16 KiB window at its top, below esp-hal 1.2.2's `_stack_start` (0x4086E610, a constant
   that inspection pins), with F401's 2 KiB minimum headroom, so the boards' heap and
   stack evidence is directly comparable. Exceeding the window fails the run although the region
-  has room. Interrupts use the same stack on RISC-V, so the window includes them. The allocator
-  serves two heap regions on the C6: the 72 KiB arena and the boot loader's reclaimed RAM.
+  has room. The window ends where static data and RAM-resident code end, so a layout whose region
+  cannot hold it lets the boot-time stack paint overwrite the allocator's own state: the linker
+  script asserts `_stack_start - _stack_end` is at least the 16 KiB window plus a 4 KiB margin, and
+  `build-firmware esp32c6` reads the linked `.stack` region, reports it with its margin above the
+  window, and fails below that margin. Keeping only the scan's hot path in RAM leaves the region
+  about 8 KiB of margin above the window. Interrupts use the same stack on RISC-V, so the window
+  includes them. The allocator serves two heap regions on the C6: the 72 KiB arena and the boot
+  loader's reclaimed RAM.
 - **Code placement.** Executed from flash through the 32 KB cache, one task activation retired
   188,838 instructions in about 1.77 M cycles (11.07 ms, over the 10 ms period): the core stalled
   on code fetches. Scan-time code therefore executes from HP SRAM. The firmware enables esp-hal's
