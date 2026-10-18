@@ -19,6 +19,10 @@ critical-section = "1.2.0"
 trust-runtime-core.workspace = true
 trust-runtime-services.workspace = true
 
+# The shared reset record the adapter keeps in persistent RTC fast memory, so the C6 and the F407
+# store the same record.
+trust-platform-memory.workspace = true
+
 # The host test tests/chip_file.rs compares the profile with chips/esp32c6.toml. A dev-dependency
 # is resolved only for this workspace's own tests, never for a firmware build.
 [dev-dependencies]

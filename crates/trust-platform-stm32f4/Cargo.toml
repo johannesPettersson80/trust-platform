@@ -16,6 +16,9 @@ stm32f407 = ["stm32f4xx-hal/stm32f407", "stm32f4/stm32f407"]
 stm32f4xx-hal = { version = "=0.23.0", default-features = false }
 stm32f4 = { version = "=0.16.0", default-features = false, features = ["critical-section", "rt"] }
 cortex-m = { version = "=0.7.9", features = ["critical-section-single-core"] }
+# The shared reset record the F407 keeps in the RTC backup registers, so both chips store the
+# same record.
+trust-platform-memory.workspace = true
 
 # The host test tests/chip_file.rs compares the chip table with chips/stm32f407.toml. A
 # dev-dependency is resolved only for this workspace's own tests, never for a firmware build.

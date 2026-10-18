@@ -6731,6 +6731,7 @@ dependencies = [
  "esp-hal",
  "esp-storage",
  "trust-chips",
+ "trust-platform-memory",
  "trust-runtime-core",
  "trust-runtime-services",
 ]
@@ -6739,6 +6740,7 @@ dependencies = [
 name = "trust-platform-memory"
 version = "0.24.75"
 dependencies = [
+ "crc32fast",
  "critical-section",
  "embedded-alloc",
 ]
@@ -6751,6 +6753,7 @@ dependencies = [
  "stm32f4",
  "stm32f4xx-hal",
  "trust-chips",
+ "trust-platform-memory",
 ]
 
 [[package]]

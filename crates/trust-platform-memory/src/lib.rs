@@ -1,6 +1,7 @@
 //! Bounded heap and stack measurement shared by the truST board compositions: the
 //! measured allocator, the main-stack window, and the measurement interfaces a board
-//! supplies. A board composition owns its memory map and wiring.
+//! supplies. A board composition owns its memory map and wiring. The fixed-size reset
+//! record a chip keeps in its persistent memory lives in [`reset`].
 #![no_std]
 
 /// Measurement interfaces a board composition provides to the shared runtime. The
@@ -36,4 +37,5 @@ pub mod board {
 }
 
 pub mod memory;
+pub mod reset;
 pub mod stack;

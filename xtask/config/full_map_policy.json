@@ -91,6 +91,22 @@
       "rationale": "The C6 adapter implements the runner's ProcessIo port over esp-hal, reports its driver health through the shared status records, and moves its USB control port's bytes through the shared line link; the shared no_std crate resolves for the chip build and for the host build of its USB FIFO servicing (usb_service, tests/usb_service.rs)."
     },
     {
+      "from": "trust-platform-esp32",
+      "to": "trust-platform-memory",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability S1b-4b2 (reset record)",
+      "rationale": "The C6 adapter keeps the shared fixed-size reset record in persistent RTC fast memory and re-exports its cause and record types; the bare-metal memory crate holds the record codec and depends on no runtime or compiler."
+    },
+    {
+      "from": "trust-platform-stm32f4",
+      "to": "trust-platform-memory",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability S1b-4b2 (reset record)",
+      "rationale": "The F407 adapter keeps the same fixed-size reset record in the RTC backup registers, so both chips report the same cause; the memory crate holds the record codec and depends on no runtime or compiler."
+    },
+    {
       "from": "trust-esp32c6-reference",
       "to": "trust-board-fixture",
       "kind": "normal",
@@ -2766,63 +2782,63 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 39,
-        "owner": "runtime portability M2E board/firmware",
-        "invariant": "Callers give the allocator one region, once, before any allocation; the region is valid, aligned and owned by nothing else for the program's lifetime (documented Safety contract).",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 42,
-        "owner": "runtime portability M2E board/firmware",
-        "invariant": "Forwards the caller's init contract unchanged to the inner LlffHeap; the composition's arena is exclusively owned by the allocator.",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 59,
-        "owner": "runtime portability M2E board/firmware",
-        "invariant": "MeasuredHeap delegates to the critical-section protected LlffHeap over the composition's private 72 KiB arena; instrumentation uses relaxed atomics and never allocates or panics.",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 60,
-        "owner": "runtime portability M2E board/firmware",
-        "invariant": "GlobalAlloc layout contract is inherited; allocation forwards the unchanged layout and records failure/live/peak counts.",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
+        "line": 55,
+        "owner": "runtime portability S1b-4b2 (two heap regions)",
+        "invariant": "Callers give the allocator up to two regions, once, before any allocation; each non-empty region is valid, aligned and owned by nothing else for the program's lifetime (documented Safety contract).",
+        "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
+        "review_date": "2026-10-18"
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
         "line": 62,
-        "owner": "runtime portability M2E board/firmware",
-        "invariant": "Forwarded allocation uses the caller-supplied valid Layout; a null pointer is retained as allocation-failure evidence.",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
+        "owner": "runtime portability S1b-4b2 (two heap regions)",
+        "invariant": "Forwards the caller's init contract unchanged to one inner LlffHeap per region; each composition arena is exclusively owned by the allocator.",
+        "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
+        "review_date": "2026-10-18"
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 74,
-        "owner": "runtime portability M2E board/firmware",
+        "line": 116,
+        "owner": "runtime portability S1b-4b2 (two heap regions)",
+        "invariant": "MeasuredHeap delegates to one critical-section protected LlffHeap per composition region; instrumentation uses relaxed atomics and never allocates or panics.",
+        "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-memory/src/memory.rs",
+        "line": 117,
+        "owner": "runtime portability S1b-4b2 (two heap regions)",
+        "invariant": "GlobalAlloc layout contract is inherited; allocation tries the regions in order, forwards the unchanged layout to each, and records failure/live/peak counts.",
+        "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-memory/src/memory.rs",
+        "line": 121,
+        "owner": "runtime portability S1b-4b2 (two heap regions)",
+        "invariant": "Forwarded allocation uses the caller-supplied valid Layout; a null pointer from one region makes the next region try, and a null pointer from every region is retained as allocation-failure evidence.",
+        "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-memory/src/memory.rs",
+        "line": 137,
+        "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "GlobalAlloc caller owns the pointer/layout allocation pair; deallocation preserves the pair and exposes no alias.",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
+        "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
+        "review_date": "2026-10-18"
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 76,
-        "owner": "runtime portability M2E board/firmware",
-        "invariant": "Underlying deallocation receives the exact pointer and Layout supplied by the allocator caller.",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
+        "line": 141,
+        "owner": "runtime portability S1b-4b2 (two heap regions)",
+        "invariant": "Underlying deallocation receives the exact pointer and Layout supplied by the allocator caller, routed to the region whose recorded bounds contain the pointer.",
+        "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
+        "review_date": "2026-10-18"
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 144,
+        "line": 209,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Interrupts are masked by the critical section; writes paint only aligned addresses of the composition's 16 KiB stack window below the sampled stack pointer minus a 256-byte guard.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -2830,7 +2846,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 168,
+        "line": 233,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Aligned volatile reads stay inside the composition's 16 KiB stack window; the reported watermark is measured evidence, not a worst-case proof.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -2838,7 +2854,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 204,
+        "line": 269,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the Cortex-M MSP register only (nomem, nostack, preserves_flags); no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -2846,7 +2862,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 221,
+        "line": 286,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Copies the RISC-V stack pointer register only (nomem, nostack, preserves_flags); no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -2926,7 +2942,39 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/reset.rs",
-        "line": 148,
+        "line": 172,
+        "owner": "runtime portability S1b-4b2 (reset record)",
+        "invariant": "`words` addresses the RECORD_WORDS-word RTC-fast RECORD static, so every volatile load stays inside it and takes the value from RTC memory.",
+        "test_evidence": "The shared record codec is proven by cargo test -p trust-platform-memory (a_reset_record_survives_a_reset_and_is_read_once, a_damaged_reset_record_is_no_record); the RTC statics are exercised only by the chip build and the planned C6 bench run.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/reset.rs",
+        "line": 183,
+        "owner": "runtime portability S1b-4b2 (reset record)",
+        "invariant": "`base` addresses the RECORD_WORDS-word RTC-fast RECORD static, so every volatile store stays inside it; only ResetControl writes the record, in program order.",
+        "test_evidence": "The shared record codec is proven by cargo test -p trust-platform-memory (a_reset_record_survives_a_reset_and_is_read_once, a_damaged_reset_record_is_no_record); the RTC statics are exercised only by the chip build and the planned C6 bench run.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/reset.rs",
+        "line": 189,
+        "owner": "runtime portability S1b-4b2 (reset record)",
+        "invariant": "BOOT_COUNT is a one-word RTC-fast `u32` static; the volatile load reads it from RTC memory.",
+        "test_evidence": "The shared record codec is proven by cargo test -p trust-platform-memory (the_boot_counter_increments_once_per_boot); the RTC static is exercised only by the chip build and the planned C6 bench run.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/reset.rs",
+        "line": 194,
+        "owner": "runtime portability S1b-4b2 (reset record)",
+        "invariant": "BOOT_COUNT is a one-word RTC-fast `u32` static; the volatile store keeps it in RTC memory.",
+        "test_evidence": "The shared record codec is proven by cargo test -p trust-platform-memory (the_boot_counter_increments_once_per_boot); the RTC static is exercised only by the chip build and the planned C6 bench run.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/reset.rs",
+        "line": 209,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "The index is bounds-checked against the two-word RTC-fast COOKIE static; only ResetControl writes it, in program order.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -2934,7 +2982,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/reset.rs",
-        "line": 156,
+        "line": 217,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Both loads stay inside the two-word RTC-fast COOKIE static; volatile, so the value comes from RTC memory.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -2966,7 +3014,7 @@
       },
       {
         "path": "firmware/trust-esp32c6-reference/src/memory.rs",
-        "line": 32,
+        "line": 34,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Called exactly once before any allocation on a single core; the private 72 KiB HEAP_MEMORY static is exclusively owned by the allocator.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -2990,7 +3038,7 @@
       },
       {
         "path": "firmware/trust-stm32f407/src/memory.rs",
-        "line": 21,
+        "line": 22,
         "owner": "runtime portability STM32F407 (T3)",
         "invariant": "Initialization occurs once before any allocation and transfers the linker-resident private 72 KiB aligned arena to the allocator.",
         "test_evidence": "Planned F407 frozen thumbv7em build and DISC1 bench run: identity, crystal measurement, safe GPIO, deliberate watchdog reset, heap accounting and stack headroom; hardware evidence remains unrun.",

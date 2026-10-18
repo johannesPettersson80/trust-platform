@@ -25,10 +25,18 @@ pub static HEAP: MeasuredHeap = MeasuredHeap::empty();
 
 /// Give the allocator its region and paint the stack window. Call once, first in `main`:
 /// esp-riscv-rt does not paint the stack at reset, so the paint must precede the first
-/// measurement.
+/// measurement. The main heap is today's 72 KiB arena; S1b-5 adds the reclaimed region as the
+/// optional second region.
 pub fn initialize() {
     // SAFETY: called exactly once before any allocation, on a single core. The private static is
-    // exclusively owned by the allocator for the whole boot.
-    unsafe { HEAP.init(core::ptr::addr_of_mut!(HEAP_MEMORY) as usize, HEAP_BYTES) };
+    // exclusively owned by the allocator for the whole boot; this slice covers exactly that static
+    // and nothing else reaches it.
+    unsafe {
+        let region = core::slice::from_raw_parts_mut(
+            core::ptr::addr_of_mut!(HEAP_MEMORY) as *mut u8,
+            HEAP_BYTES,
+        );
+        HEAP.init(region, None);
+    }
     TargetMemory::new(&HEAP, STACK_WINDOW).paint_inactive_stack();
 }

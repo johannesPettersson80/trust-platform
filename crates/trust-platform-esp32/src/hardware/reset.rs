@@ -11,6 +11,7 @@ use esp_hal::{
     time::Duration,
     timer::timg::{MwdtStage, MwdtStageAction, TimerGroup, Wdt},
 };
+use trust_platform_memory::reset::{self, ResetCause, ResetRecord, ResetStore, RECORD_WORDS};
 use trust_runtime_core::ports::{HardwareWatchdog, TimeSpan};
 
 /// Largest accepted MWDT0 stage-0 interval in milliseconds.
@@ -131,6 +132,66 @@ impl ResetControl {
         } else {
             Err(BoardError::ResetCookie)
         }
+    }
+
+    /// Write the record a panic or watchdog path leaves for the next boot: the cause, the panic
+    /// location when there is one, and the boot counter. It is kept in RTC fast memory next to the
+    /// cookie and survives the same MWDT0 and USB-Serial/JTAG resets.
+    pub fn write_reset_record(&mut self, cause: ResetCause, text: &str) {
+        reset::write_record(self, cause, text);
+    }
+
+    /// Read the record the previous boot left, with its cause and text, and clear it, so a cause is
+    /// reported once. A damaged record reads as `None`, never as a cause.
+    pub fn take_reset_record(&mut self) -> Option<ResetRecord> {
+        reset::take_record(self)
+    }
+
+    /// Count this boot in RTC memory and return the new boot counter the next record is stamped
+    /// with.
+    pub fn note_boot(&mut self) -> u32 {
+        reset::note_boot(self)
+    }
+}
+
+/// The reset record words in RTC fast memory, which survive MWDT0 and USB-Serial/JTAG resets. Kept
+/// apart from [`COOKIE`], whose two words stay the D.2 phase marker.
+#[esp_hal::ram(unstable(rtc_fast, persistent))]
+static mut RECORD: [u32; RECORD_WORDS] = [0; RECORD_WORDS];
+/// The boot counter in RTC fast memory, next to the record.
+#[esp_hal::ram(unstable(rtc_fast, persistent))]
+static mut BOOT_COUNT: u32 = 0;
+
+impl ResetStore for ResetControl {
+    fn record_words(&self) -> [u32; RECORD_WORDS] {
+        let words = (&raw const RECORD).cast::<u32>();
+        let mut out = [0u32; RECORD_WORDS];
+        for (index, word) in out.iter_mut().enumerate() {
+            // SAFETY: `words` addresses the RECORD_WORDS-word RECORD static, so every load stays
+            // inside it, and the volatile load takes the value from RTC memory.
+            *word = unsafe { read_volatile(words.add(index)) };
+        }
+        out
+    }
+
+    fn set_record_words(&mut self, words: [u32; RECORD_WORDS]) {
+        let base = (&raw mut RECORD).cast::<u32>();
+        for (index, &word) in words.iter().enumerate() {
+            // SAFETY: `base` addresses the RECORD_WORDS-word RECORD static, so every store stays
+            // inside it. Only `ResetControl` writes the record, and volatile stores keep the words
+            // in RTC memory in program order.
+            unsafe { write_volatile(base.add(index), word) };
+        }
+    }
+
+    fn boot_count(&self) -> u32 {
+        // SAFETY: `BOOT_COUNT` is a `u32` static and the volatile load reads it from RTC memory.
+        unsafe { read_volatile(&raw const BOOT_COUNT) }
+    }
+
+    fn set_boot_count(&mut self, count: u32) {
+        // SAFETY: `BOOT_COUNT` is a `u32` static and the volatile store keeps it in RTC memory.
+        unsafe { write_volatile(&raw mut BOOT_COUNT, count) };
     }
 }
 
