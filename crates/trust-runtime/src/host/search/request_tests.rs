@@ -51,6 +51,38 @@ fn deadline_defaults_to_10_s_and_rejects_above_60_s() {
 }
 
 #[test]
+fn ads_scope_ports_default_merge_and_reject_invalid() {
+    // Specification 11, "Communication discovery scope and symbol browsing": an absent ADS port
+    // list is the default; duplicates merge; the list sorts; an invalid value is a request error
+    // that names it, never a silent drop.
+    assert_eq!(
+        check(json!({})).expect("default ports").ads_ports,
+        vec![301, 501, 851, 852, 853, 854]
+    );
+    assert_eq!(
+        check(json!({ "ads_ports": [851, 301, 851] }))
+            .expect("merged ports")
+            .ads_ports,
+        vec![301, 851]
+    );
+    assert_eq!(
+        check(json!({ "ads_ports": [] }))
+            .expect("an explicit empty list")
+            .ads_ports,
+        Vec::<u16>::new()
+    );
+    for bad in [json!(0), json!(65536), json!("852"), json!(501.5)] {
+        let error = check(json!({ "ads_ports": [bad] }))
+            .expect_err("an invalid ADS port must be a request error");
+        assert!(matches!(error, SearchError::Invalid(_)), "bad={bad}");
+        assert!(
+            error.to_string().contains(&bad.to_string()),
+            "the error must name {bad}: {error}"
+        );
+    }
+}
+
+#[test]
 fn unknown_request_keys_are_rejected() {
     for params in [
         json!({ "deadline": 5000 }),

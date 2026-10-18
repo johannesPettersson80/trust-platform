@@ -321,6 +321,8 @@ fn accessors_empty_opcua_lifecycle_reset_clears_projection_and_hash() {
 fn accessors_unconfigured_ads_has_no_active_device_snapshot() {
     let runtime = Runtime::new();
     let target = TargetIdentity {
+        os_version: None,
+        fingerprint: None,
         name: Some("PLC".to_string()),
         ip: "192.0.2.10".to_string(),
         ams_net_id: "1.2.3.4.5.6".to_string(),

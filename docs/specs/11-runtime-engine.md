@@ -1160,6 +1160,28 @@ connect/read-only operations and returns the stable warning that active write
 probes are unsupported. Timeout defaults to 150 ms and is clamped to the
 closed 1 through 2,000 ms range; malformed timeout types are request errors.
 
+ADS discovery takes an ordered list of ADS ports in `scope.ads_ports` for
+`comm.discover` and in the `ads_ports` member of a search request. Without it
+the ports are 301, 501, 851, 852, 853, and 854; duplicates are merged and the
+list is sorted in ascending order. A port that is not an integer from 1 through
+65,535 is a request error that names the value; the list never drops a value
+silently. Every ADS find is probed on those ports with the symbol browse that
+`comm.browse_symbols` runs, and the ports of one device are probed one after
+the other, because they share the device's route; different devices are probed
+at the same time. A port answers when its symbol tree is not empty, when its
+route status is `ok`, or when its error code is `symbol_upload_unsupported` or
+`empty_symbol_table`; any other error, or no answer, does not answer. An ADS
+result carries the answering ports in ascending order as `responding_ads_ports`
+and their browse results as `ads_port_browse_results`, each entry naming
+`port`, `tree`, `routeMissing`, and, when present, `routePlan` and `error`. Its
+`ams_port` is its own port when that port answered, otherwise the first
+answering port, otherwise its own port, otherwise 851. A find without an
+answering port is kept with a warning that no ADS port answered, instead of
+being hidden. Probing starts no new port once the search deadline has passed.
+An identified ADS target keeps its OS version and its fingerprint and the port
+that answered, not always 851. The ADS identify round is bounded by the
+requested timeout, and in a search by the search deadline.
+
 Protocol aliases are deterministic: Modbus hyphen/underscore forms select
 `modbus_tcp`; OPC UA server and client aliases remain distinct; MQTT broker
 selects `mqtt`; ADS client and TwinCAT select `ads`; and truST/runtime/mDNS
@@ -1355,7 +1377,7 @@ that the runtime does not keep answers `search_not_found`.
 | Modbus TCP (`modbus_tcp`) | Modbus servers and their unit IDs | A directed host or a subnet of at most `/24`, probed in parallel; FC43/14 identification; unit ID 1, or a requested range within 1–247 |
 | MQTT (`mqtt`) | Brokers | mDNS `_mqtt._tcp.local.` and directed hosts; a TLS handshake on port 8883 |
 | OPC UA (`opcua`) | Servers and their endpoints | Local discovery servers (FindServers), mDNS `_opcua-tcp._tcp.local.`, and GetEndpoints for every server found |
-| EtherCAT (`ethercat`) | SubDevices on a bus adapter of the runtime's computer | A bus scan that reads each SubDevice's identity without bringing the bus to OP |
+| EtherCAT (`ethercat`) | SubDevices on a bus adapter of the runtime's computer | A bus scan that reads each SubDevice's identity in PRE-OP with the process data mapped, without bringing the bus to SAFE-OP or OP; without a named adapter it scans the computer's up, non-loopback network adapters |
 | GPIO (`gpio`) | Chips and lines of the runtime's computer | The Linux GPIO character device |
 | Serial (`serial`) | Serial ports, and on request Modbus RTU devices on one port | Port listing; a Modbus RTU scan over requested unit IDs, baud rates, and parity |
 | USB (`usb`) | Supported chips with or without truST, debug probes, and USB-serial adapters | The USB device list; nothing is written or reset |
@@ -1377,6 +1399,30 @@ address or subnet, Modbus TCP probes the `/24` of each private IPv4 address
 `discovery.interfaces` allows, or of every interface when that list is empty or
 the search runs on the tool's computer. `comm.discover` keeps its rule of the
 first such interface.
+
+MQTT brokers and OPC UA servers are also found through what they announce. A
+search browses `_mqtt._tcp.local.` and `_opcua-tcp._tcp.local.` until it ends,
+and reports an announced service only when the protocol's own probe answers it:
+an MQTT broker at its announced address and port, and an OPC UA server asked
+with GetEndpoints at `opc.tcp://<address>:<port><path>`, where `<path>` is the
+service's `path` TXT entry and `/` when it names none. Such a find's `source` is
+`mdns`; a service that does not answer is a warning that names it, not a device.
+
+An OPC UA search also asks a local discovery server for `FindServers`: this
+computer's own at `opc.tcp://localhost:4840`, and that of each known address at
+port 4840 unless the address names one, and then asks every discovery URL of
+every server that answers with GetEndpoints. Such a find's `source` is `lds`. A
+discovery server that does not answer is passed over in silence for this
+computer's own and is a warning for a known address.
+
+**GPIO.** The GPIO source lists the lines of every GPIO chip of the runtime's
+computer through the Linux GPIO character devices (`/dev/gpiochip*`). Each line
+is reported by its chip, the chip's label, its offset within that chip, its
+name, its consumer, whether it is in use, and its direction. On a kernel
+without GPIO character devices it falls back to the sysfs interface
+(`/sys/bus/gpio/devices`, then `/sys/class/gpio`), which reports the chip, the
+chip's label, the line and its direction where the kernel gives them, and every
+line from that fallback carries a warning that says so.
 
 **USB and serial.** The USB source lists the USB devices from the descriptors
 that the operating system already holds: sysfs on Linux, IOKit on macOS, and on
@@ -1425,9 +1471,13 @@ serial port's `params` are `{"port": "<name>"}`, and those of a USB device that
 runs or may run truST are `{"control_endpoint": "usb://<serial number>"}`.
 
 **Safety.** A search only reads. It never writes a device value, never changes
-a device's state, and never resets a board. EtherCAT identification keeps the
-bus below OP, and it refuses an adapter that a running EtherCAT driver of the
-runtime owns; the driver's own live view of that bus is reported instead. A
+a device's state, and never resets a board. EtherCAT identification maps the
+process data in PRE-OP and never brings the bus to SAFE-OP or OP, so no output
+changes, and it refuses an adapter that a running EtherCAT driver of the
+runtime owns: nothing on that adapter is scanned, and the driver's own live view
+of that bus is reported instead. That refusal is complete: when the adapter of a
+running EtherCAT driver cannot be determined, no EtherCAT adapter is scanned and
+a warning says why. A
 Modbus RTU scan refuses a serial port that a configured driver owns. A fieldbus
 scan (EtherCAT, Modbus RTU) runs only when the request sets
 `confirm_fieldbus_scan = true`; tools ask the user first.
@@ -1456,11 +1506,12 @@ with its source and confidence, its identity, and its `last_seen` time.
   security policy and mode, including endpoints truST cannot use (marked
   unsupported), and the SHA-256 fingerprint of the server certificate;
 - EtherCAT: for each SubDevice its position, alias address, vendor ID, product
-  code, revision, and serial number, and the device of the project's ESI files
-  that matches it, when one does;
+  code, revision, and serial number, its name, and the bus's mapped input and
+  output byte counts, and the device of the project's ESI files that matches it,
+  when one does;
 - MQTT: the protocol version accepted, and whether login and TLS are needed;
 - GPIO: chip name and label, the line offset within its chip, the line name,
-  and whether the line is in use;
+  its consumer, whether the line is in use, and its direction;
 - USB: vendor and product ID, maker, product name, serial number, what the
   device is (a supported chip's boot loader or USB controller, a debug probe, a
   USB-serial adapter or device, or a truST runtime) and its name, such as
@@ -1529,7 +1580,12 @@ for that driver instance: later reads and writes return the visible
 `ethercat hardware unavailable until driver rebuild` error without another
 allocation attempt or retry window. Recovery requires constructing a new
 driver instance. This terminal rule prevents an unavailable adapter from
-causing unbounded allocation, retry, or scan-cycle delay. `adapter = "mock"`
+causing unbounded allocation, retry, or scan-cycle delay. An identification
+opens at most one process-data storage per adapter for the whole process and
+reuses it for every later scan of that adapter, so repeated searches allocate no
+further storage. Every one of those scans re-enumerates the bus on that
+adapter's main device, so a device added after an earlier scan is found by the
+next. `adapter = "mock"`
 proves deterministic software behavior only and is not evidence that physical
 EtherCAT hardware is available or production-ready.
 
@@ -5555,9 +5611,11 @@ The web setup surface uses the explicitly selected bundle root, otherwise the
 current directory. A derived default resource name is the final path component
 with every non-ASCII-alphanumeric character replaced by `_`; a missing
 component uses `trust-plc`. Existing valid `runtime.toml` and project
-`io.toml` values take precedence over platform defaults. Setup need remains
-true while runtime configuration is absent or neither project nor system I/O
-configuration exists.
+`io.toml` values take precedence over platform defaults. Where setup chooses
+the I/O driver itself, the platform default is `gpio` on a Raspberry Pi and on
+the supported chips (specification 34, TARGET-01), and `loopback` on every other
+computer (owner decision O26). Setup need remains true while runtime
+configuration is absent or neither project nor system I/O configuration exists.
 
 I/O mutation accepts either a nonempty ordered `drivers` list or the legacy
 single `driver`, with the list taking precedence when present. Driver names are

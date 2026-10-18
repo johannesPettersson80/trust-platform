@@ -2,6 +2,8 @@ use super::*;
 
 fn target(ip: &str, ams_net_id: &str, ams_port: u16) -> TargetIdentity {
     TargetIdentity {
+        os_version: None,
+        fingerprint: None,
         name: None,
         ip: ip.to_string(),
         ams_net_id: ams_net_id.to_string(),

@@ -54,6 +54,8 @@ fn ads_status(state: AdsConnectionStatusState) -> AdsStatusReport {
         connections: vec![AdsConnectionStatus {
             name: "line".to_string(),
             target: Some(TargetIdentity {
+                os_version: None,
+                fingerprint: None,
                 name: None,
                 ip: "192.0.2.10".to_string(),
                 ams_net_id: "5.23.91.12.1.1".to_string(),

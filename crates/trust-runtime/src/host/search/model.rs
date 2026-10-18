@@ -399,17 +399,33 @@ pub struct OpcuaIdentity {
     pub certificate_sha256: Option<String>,
 }
 
-/// An EtherCAT SubDevice's identity.
+/// An EtherCAT SubDevice's identity (specification 11, "Identity").
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct EthercatIdentity {
     /// The bus adapter.
     pub adapter: String,
     /// Its slot on the bus.
     pub slot: u16,
-    /// Its model.
+    /// Its configured station address.
+    pub configured_address: u16,
+    /// Its alias address.
+    pub alias: u16,
+    /// Its name.
     pub model: String,
     /// Its channel count.
     pub channels: u16,
+    /// Its vendor ID.
+    pub vendor_id: u32,
+    /// Its product code.
+    pub product_id: u32,
+    /// Its revision.
+    pub revision: u32,
+    /// Its serial number.
+    pub serial: u32,
+    /// The bus's mapped input bytes.
+    pub input_bytes: usize,
+    /// The bus's mapped output bytes.
+    pub output_bytes: usize,
 }
 
 /// A GPIO line's identity.

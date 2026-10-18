@@ -1,12 +1,13 @@
 //! MQTT (specification 11, "comm.discover" and "Sources"). A probe sends a clean-session CONNECT
 //! and reads the CONNACK: an accepted session proves MQTT, a refused one is likely MQTT, and the
-//! TLS port or a broker without an answer only proves the port. Brokers are probed only at known
-//! addresses: `discover` probes one for `comm.discover` or for a search, and `search` probes each
-//! known address of a search.
+//! TLS port or a broker without an answer only proves the port. Brokers are probed at known
+//! addresses and at the ones that announce `_mqtt._tcp.local.` over mDNS: `discover` probes one
+//! for `comm.discover` or for a search, and `search` probes each known address of a search and
+//! then listens to the announcements until the search ends.
 
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
@@ -15,6 +16,7 @@ use crate::connectors::DiscoveryConfidence;
 use super::super::model::{Identity, MqttIdentity, ProtocolFind, SourceId};
 use super::super::runner::SourceSink;
 use super::find::{address_key, confidence, find, text, FindSink};
+use super::mdns_services::{self, AnnouncedProtocol};
 use super::probe::{connect, DiscoveryProbeOutcome};
 use super::report::{millis, sanitize_id, CandidateSink, Deadline, DiscoverCandidate};
 use super::scope::{authority_host_and_port, resolve_authority_all, timeout, DiscoverScope};
@@ -49,21 +51,7 @@ pub(crate) fn discover(
             break;
         }
         if let Some(outcome) = probe_mqtt(target, deadline.bound(timeout)) {
-            let broker = target.to_string();
-            sink.found(DiscoverCandidate {
-                id: format!("mqtt:{}", sanitize_id(broker.as_str())),
-                label: format!("MQTT broker {broker}"),
-                source: outcome.source,
-                confidence: outcome.confidence,
-                params: json!({
-                    "broker": broker,
-                    "tls": target.port() == MQTTS_PORT,
-                    "allow_insecure_remote": target.port() != MQTTS_PORT && !target.ip().is_loopback(),
-                    "auth_required": outcome.auth_required,
-                    "probe_detail": outcome.detail,
-                }),
-                warnings: outcome.warnings,
-            });
+            sink.found(mqtt_candidate(target, outcome));
             accepted = true;
         }
     }
@@ -71,6 +59,28 @@ pub(crate) fn discover(
         sink.warn("No MQTT broker accepted a TCP connection at the requested target.".to_string());
     }
     Ok(())
+}
+
+/// The candidate of the broker at `target` whose probe answered `outcome`.
+pub(super) fn mqtt_candidate(
+    target: SocketAddr,
+    outcome: DiscoveryProbeOutcome,
+) -> DiscoverCandidate {
+    let broker = target.to_string();
+    DiscoverCandidate {
+        id: format!("mqtt:{}", sanitize_id(broker.as_str())),
+        label: format!("MQTT broker {broker}"),
+        source: outcome.source,
+        confidence: outcome.confidence,
+        params: json!({
+            "broker": broker,
+            "tls": target.port() == MQTTS_PORT,
+            "allow_insecure_remote": target.port() != MQTTS_PORT && !target.ip().is_loopback(),
+            "auth_required": outcome.auth_required,
+            "probe_detail": outcome.detail,
+        }),
+        warnings: outcome.warnings,
+    }
 }
 
 fn mqtt_targets(
@@ -291,7 +301,8 @@ fn read_remaining_length(stream: &mut TcpStream) -> Result<usize, std::io::Error
     ))
 }
 
-/// MQTT in a search: each known address, one after another.
+/// MQTT in a search: each known address, and then the brokers that announce `_mqtt._tcp.local.`
+/// until the search ends (specification 11, "Sources").
 pub(super) fn search(context: &SourceContext, sink: &SourceSink) {
     for host in &context.hosts {
         if sink.ended() {
@@ -307,9 +318,16 @@ pub(super) fn search(context: &SourceContext, sink: &SourceSink) {
             sink.warn(format!("{host}: {error}"));
         }
     }
+    mdns_services::search(AnnouncedProtocol::Mqtt, sink);
 }
 
-fn mqtt_find(candidate: DiscoverCandidate) -> ProtocolFind {
+/// How long one announced broker's probe may wait: the search's own probe of a broker, cut to the
+/// deadline of the search.
+pub(super) fn mqtt_probe_timeout(sink: &SourceSink) -> Duration {
+    Deadline::at(Instant::now() + sink.remaining()).bound(MQTT_PROBE)
+}
+
+pub(super) fn mqtt_find(candidate: DiscoverCandidate) -> ProtocolFind {
     let broker = text(&candidate.params, "broker").unwrap_or_default();
     let tls = candidate
         .params

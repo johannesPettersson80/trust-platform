@@ -2800,6 +2800,8 @@ fn connected_ads_status() -> crate::ads::diagnostics::AdsStatusReport {
         connections: vec![crate::ads::diagnostics::AdsConnectionStatus {
             name: "line1".to_string(),
             target: Some(crate::ads::diagnostics::TargetIdentity {
+                os_version: None,
+                fingerprint: None,
                 name: Some("TwinCAT".to_string()),
                 ip: "192.168.77.20".to_string(),
                 ams_net_id: "5.23.91.12.1.1".to_string(),

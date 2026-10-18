@@ -1,5 +1,6 @@
 //! ADS onboarding control-plane engine.
 
+pub mod browse;
 pub mod discover;
 pub mod doctor;
 pub mod errors;

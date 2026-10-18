@@ -331,6 +331,8 @@ fn ads_status_summary(overall: AdsStatusOverall) -> String {
 
 fn target_identity_from_route(route: &AdsRoute) -> crate::ads::diagnostics::TargetIdentity {
     crate::ads::diagnostics::TargetIdentity {
+        os_version: None,
+        fingerprint: None,
         name: Some(route.name.clone()),
         ip: route.host.clone(),
         ams_net_id: route.target_net_id.0.clone(),
@@ -746,6 +748,8 @@ mod tests {
 
     fn target() -> crate::ads::diagnostics::TargetIdentity {
         crate::ads::diagnostics::TargetIdentity {
+            os_version: None,
+            fingerprint: None,
             name: None,
             ip: "192.168.10.5".to_string(),
             ams_net_id: "5.23.91.12.1.1".to_string(),

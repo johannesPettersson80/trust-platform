@@ -61,15 +61,43 @@ pub fn is_raspberry_pi_hint() -> bool {
     is_raspberry_pi().unwrap_or(false)
 }
 
-fn detect_default_driver(backend: Option<SmolStr>) -> Result<(String, toml::Value), RuntimeError> {
-    if is_raspberry_pi()? {
-        let params = build_gpio_params(backend)?;
-        return Ok(("gpio".to_string(), params));
+/// The platform a system setup runs on (specification 11, "Runtime web setup and I/O projection
+/// contract"; owner decision O26).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SetupPlatform {
+    /// A Raspberry Pi.
+    RaspberryPi,
+    /// A supported chip (specification 34, TARGET-01).
+    Chip,
+    /// Any other Linux, macOS or Windows computer.
+    Other,
+}
+
+/// The default I/O driver a system setup chooses by itself (specification 11; owner decision
+/// O26): `gpio` on a Raspberry Pi and on the supported chips, and `loopback` on every other
+/// computer.
+#[must_use]
+pub fn default_io_driver(platform: SetupPlatform) -> &'static str {
+    match platform {
+        SetupPlatform::RaspberryPi | SetupPlatform::Chip => "gpio",
+        SetupPlatform::Other => "loopback",
     }
-    Ok((
-        "loopback".to_string(),
-        toml::Value::Table(toml::map::Map::new()),
-    ))
+}
+
+fn detect_platform() -> Result<SetupPlatform, RuntimeError> {
+    if cfg!(target_os = "none") {
+        return Ok(SetupPlatform::Chip);
+    }
+    if is_raspberry_pi()? {
+        return Ok(SetupPlatform::RaspberryPi);
+    }
+    Ok(SetupPlatform::Other)
+}
+
+fn detect_default_driver(backend: Option<SmolStr>) -> Result<(String, toml::Value), RuntimeError> {
+    let driver = default_io_driver(detect_platform()?);
+    let params = build_driver_params(driver, backend)?;
+    Ok((driver.to_string(), params))
 }
 
 fn build_driver_params(
@@ -217,4 +245,19 @@ fn is_raspberry_pi() -> Result<bool, RuntimeError> {
         }
     }
     Ok(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn setup_default_driver_follows_the_decided_rule() {
+        // Specification 11, "Runtime web setup and I/O projection contract", and owner decision
+        // O26: the default driver is `gpio` on a Raspberry Pi and on the supported chips
+        // (specification 34, TARGET-01), and `loopback` on every other computer.
+        assert_eq!(default_io_driver(SetupPlatform::RaspberryPi), "gpio");
+        assert_eq!(default_io_driver(SetupPlatform::Chip), "gpio");
+        assert_eq!(default_io_driver(SetupPlatform::Other), "loopback");
+    }
 }

@@ -1486,6 +1486,8 @@ fn artifact_kind_for_format(format: AdsRouteArtifactFormat) -> RouteArtifactKind
 
 fn target_identity(ip: String, ams_net_id: String, ams_port: u16) -> TargetIdentity {
     TargetIdentity {
+        os_version: None,
+        fingerprint: None,
         name: None,
         ip,
         ams_net_id,

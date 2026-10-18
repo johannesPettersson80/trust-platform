@@ -27,6 +27,7 @@ fn runtime_facts(discovery: &Arc<DiscoveryState>, runtime_id: &str) -> RuntimeFa
         discovery_enabled: true,
         discovery_interfaces: Vec::new(),
         runtime_id: SmolStr::new(runtime_id),
+        owned_adapters: Vec::new(),
     }
 }
 
