@@ -51,6 +51,9 @@ where
         } else {
             self.take_boundary();
         }
+        // A boundary that is due again as soon as it is taken, as after a scan that overran its
+        // interval, lets the link answer one request before the next boundary (see `serve_link`).
+        self.request_grant = self.boundary_due();
     }
 
     /// The boundary of a running or paused program, as trust-runtime's scan thread begins each

@@ -53,6 +53,8 @@ fn output_led(reply: &Value) -> &Value {
 fn a_queued_output_write_reaches_the_image_before_the_outputs_are_written() {
     let fixture = Fixture::board_probe();
     let mut runner = fixture.runner();
+    // The first scan, due at power-on, runs before a request that arrives then (STATE-08).
+    fixture.pass_at(&mut runner, 0);
     let reply = fixture.call_at(&mut runner, 0, &io_write(1, "%QX0.0", "TRUE"));
     assert_eq!(reply["result"], json!({"status": "queued"}));
     fixture.pass_at(&mut runner, 10);
@@ -80,6 +82,8 @@ fn a_queued_output_write_reaches_the_image_before_the_outputs_are_written() {
 fn a_force_holds_across_scans_until_it_is_released() {
     let fixture = Fixture::board_probe();
     let mut runner = fixture.runner();
+    // The first scan, due at power-on, runs before a request that arrives then (STATE-08).
+    fixture.pass_at(&mut runner, 0);
     let reply = fixture.call_at(&mut runner, 0, &io_force(1, "%QX0.0", "TRUE"));
     assert_eq!(reply["result"], json!({"status": "forced"}));
 
@@ -114,6 +118,8 @@ fn a_force_holds_across_scans_until_it_is_released() {
 fn a_refused_write_becomes_a_write_rejected_event() {
     let fixture = Fixture::board_probe();
     let mut runner = fixture.runner();
+    // The first scan, due at power-on, runs before a request that arrives then (STATE-08).
+    fixture.pass_at(&mut runner, 0);
     let reply = fixture.call_at(
         &mut runner,
         0,
@@ -125,20 +131,27 @@ fn a_refused_write_becomes_a_write_rejected_event() {
     );
     assert_eq!(reply["result"], json!({"status": "queued"}));
 
+    // The queued write reaches the scan at 10 ms, the first scan with a cycle start after it.
+    fixture.pass_at(&mut runner, 10);
     let events = fixture.call(&mut runner, &json!({"id": 2, "type": "events.tail"}));
     assert_eq!(
         events["result"]["events"],
         json!([
-            {"type": "cycle_end", "cycle": 0, "time_ns": 0},
-            {"type": "cycle_start", "cycle": 0, "time_ns": 0},
+            {"type": "cycle_end", "cycle": 1, "time_ns": 10_000_000},
+            {"type": "task_end", "name": "Scan", "priority": 0, "time_ns": 10_000_000},
+            {"type": "task_start", "name": "Scan", "priority": 0, "time_ns": 10_000_000},
+            {"type": "cycle_start", "cycle": 1, "time_ns": 10_000_000},
             {
                 "type": "write_rejected",
                 "target": "probe_depth",
                 "error": "type mismatch",
-                "time_ns": 0,
+                "time_ns": 10_000_000,
             },
+            {"type": "cycle_end", "cycle": 0, "time_ns": 0},
+            {"type": "cycle_start", "cycle": 0, "time_ns": 0},
         ]),
-        "the refused write is reported at the cycle start, before the scan's cycle_start event"
+        "the refused write is reported at the cycle start of the scan at 10 ms, before that scan's \
+         cycle_start event"
     );
 }
 
@@ -153,6 +166,8 @@ fn safe_state_and_restart_clear_the_queues_and_forces() {
     let fixture = Fixture::board_probe();
     fixture.script.borrow_mut().fault_policy = FaultPolicy::SafeHalt;
     let mut runner = fixture.runner();
+    // The first scan, due at power-on, runs before a request that arrives then (STATE-08).
+    fixture.pass_at(&mut runner, 0);
     let _ = fixture.call_at(&mut runner, 0, &io_force(1, "%QX0.0", "TRUE"));
     let _ = fixture.call_at(&mut runner, 1, &io_write(2, "%IX0.0", "TRUE"));
     assert_eq!(
@@ -174,7 +189,9 @@ fn safe_state_and_restart_clear_the_queues_and_forces() {
         "the fault's safe state cleared the force"
     );
 
-    let _ = fixture.call_at(&mut runner, 20, &restart(3, "warm"));
+    // Sent before the faulted wait's poll at 20 ms, which takes it. A request that arrives at a
+    // due poll waits for the poll (STATE-08).
+    let _ = fixture.call_at(&mut runner, 15, &restart(3, "warm"));
     fixture.pass_at(&mut runner, 30);
     assert_eq!(runner.resource_state(), ResourceState::Running);
     assert_eq!(

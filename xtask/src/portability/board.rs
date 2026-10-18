@@ -124,7 +124,9 @@ impl BoardProfile {
             flash_kib: 8192,
             scan_cycle_bound: cycles_per_scan(cpu_hz),
             heap_bytes: 72 * 1024,
-            stack_window_bytes: 16 * 1024,
+            // Specification 34, D.2: 24 KiB, because the measured 15.7 KiB high-water left less
+            // than the 2 KiB headroom in the 16 KiB window of S1b-5b2.
+            stack_window_bytes: 24 * 1024,
             stack_headroom_bytes: 2 * 1024,
             boot_banner_lines: 64,
             button_pressed_high: false,
@@ -258,7 +260,9 @@ mod tests {
         assert_eq!(c6.flash_kib, 8192);
         assert_eq!(c6.scan_cycle_bound, 1_600_000);
         assert_eq!(c6.heap_bytes, 72 * 1024);
-        assert_eq!(c6.stack_peak_bound(), 14_336);
+        // Specification 34 D.2: a 24 KiB window less its 2 KiB headroom, 22 KiB.
+        assert_eq!(c6.stack_window_bytes, 24 * 1024);
+        assert_eq!(c6.stack_peak_bound(), 22 * 1024);
         assert_eq!(c6.boot_banner_lines, 64);
         assert_eq!(c6.image_capacity_bytes, 0x1F0000);
         assert_eq!(c6.application_bytes, 6112 * 1024);

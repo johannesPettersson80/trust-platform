@@ -75,6 +75,8 @@ fn capabilities_answers_the_chips_descriptor_and_its_last_reset() {
     };
     let fixture = Fixture::board_probe();
     let mut runner = fixture.runner_with(platform);
+    // The first scan is due at power-on and goes before any request (STATE-08).
+    fixture.pass_at(&mut runner, 0);
     let reply = fixture.call(&mut runner, &json!({"id": 1, "type": "capabilities"}));
     assert_eq!(reply["ok"], json!(true));
     assert_eq!(
