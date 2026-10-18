@@ -17,9 +17,10 @@ use smol_str::SmolStr;
 /// The longest text a field holds: the maximum of its 1-byte length.
 const MAX_TEXT_BYTES: usize = 255;
 /// Section 7's bytes before its variable parts: the resource name's length byte, the cycle
-/// interval, control, the log level, retain, the watchdog, the fault policy, the task overrides'
-/// presence byte, and the counts that start the I/O drivers and the safe state.
-const FIXED_BYTES: usize = 1 + 8 + 2 + 1 + (1 + 8) + (1 + 8 + 1 + 1) + 1 + 1 + 2 + 2;
+/// interval, control, the log level, the event-store capacity, retain, the watchdog, the fault
+/// policy, the task overrides' presence byte, and the counts that start the I/O drivers and the
+/// safe state.
+const FIXED_BYTES: usize = 1 + 8 + 2 + 1 + 4 + (1 + 8) + (1 + 8 + 1 + 1) + 1 + 1 + 2 + 2;
 /// The fewest bytes one task override takes: its name, interval, priority, single input and
 /// program count, each name one byte long.
 const TASK_OVERRIDE_MIN_BYTES: usize = 1 + 1 + 8 + 1 + 1 + 2 + 1 + 1;
@@ -78,6 +79,7 @@ impl Configuration {
         out.push(u8::from(self.control_debug_enabled));
         out.push(self.control_mode as u8);
         out.push(self.log_level as u8);
+        out.extend_from_slice(&self.event_capacity.to_le_bytes());
         out.push(retain_mode_code(self.retain_mode));
         out.extend_from_slice(&self.retain_save_interval.as_nanos().to_le_bytes());
         out.push(u8::from(self.watchdog.enabled));
@@ -114,6 +116,9 @@ pub(super) fn read(reader: &mut Reader<'_>) -> Result<Configuration, Error> {
         5 => LogLevel::Trace,
         _ => return Err(Error::Field("a log level")),
     };
+    // Any four-byte value: 0 is the device's default and the rest is the requested capacity
+    // (specification 34 §5.1.1; the device's maximum is admission's, not the decoder's).
+    let event_capacity = reader.u32()?;
     let retain_mode = match reader.u8()? {
         0 => RetainMode::None,
         1 => RetainMode::File,
@@ -147,6 +152,7 @@ pub(super) fn read(reader: &mut Reader<'_>) -> Result<Configuration, Error> {
         control_debug_enabled,
         control_mode,
         log_level,
+        event_capacity,
         retain_mode,
         retain_save_interval,
         watchdog,

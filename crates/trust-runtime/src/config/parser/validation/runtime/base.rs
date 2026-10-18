@@ -38,6 +38,21 @@ fn validate_base_sections(cfg: &RuntimeToml) -> Result<(), RuntimeError> {
             "runtime.retain.save_interval_ms must be >= 1".into(),
         ));
     }
+    if let Some(capacity) = cfg
+        .runtime
+        .events
+        .as_ref()
+        .and_then(|events| events.capacity)
+        && !(EVENT_STORE_CAPACITY_MIN..=EVENT_STORE_CAPACITY_MAX).contains(&capacity)
+    {
+        return Err(RuntimeError::InvalidConfig(
+            format!(
+                "runtime.events.capacity must be {EVENT_STORE_CAPACITY_MIN} to \
+                 {EVENT_STORE_CAPACITY_MAX}"
+            )
+            .into(),
+        ));
+    }
     if cfg.runtime.watchdog.timeout_ms == 0 {
         return Err(RuntimeError::InvalidConfig(
             "runtime.watchdog.timeout_ms must be >= 1".into(),

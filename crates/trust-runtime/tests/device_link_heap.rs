@@ -209,6 +209,10 @@ impl RecordsPort for FullStore {
         None
     }
 
+    fn event_capacity(&self) -> Option<usize> {
+        Some(EVENT_STORE_CAPACITY)
+    }
+
     fn read_events<R>(&self, read: impl FnOnce(&VecDeque<RuntimeEvent>) -> R) -> Option<R> {
         Some(read(&self.events))
     }

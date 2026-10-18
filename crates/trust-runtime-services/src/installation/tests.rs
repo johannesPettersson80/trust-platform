@@ -244,12 +244,12 @@ fn a_program_too_large_for_the_slot_is_refused_with_its_numbers() {
     // check that is off by one or that drops the numbers.
     let record = record_of(PROGRAM);
     let record_bytes = record.encode().expect("the record encodes");
-    // The record is 338 bytes: header 12, seven section headers 56, the seven sections
-    // 108 + 8 + 88 + 16 + 4 + 4 + 38, and the CRC 4 (specification 34 §5.1.1).
-    assert_eq!(record_bytes.len(), 338);
-    // The program is 12 bytes, so the pair needs 350 bytes of the slot; one byte less refuses.
+    // The record is 342 bytes: header 12, seven section headers 56, the seven sections
+    // 108 + 8 + 88 + 16 + 4 + 4 + 42, and the CRC 4 (specification 34 §5.1.1).
+    assert_eq!(record_bytes.len(), 342);
+    // The program is 12 bytes, so the pair needs 354 bytes of the slot; one byte less refuses.
     let needed = u64::try_from(PROGRAM.len() + record_bytes.len()).expect("a small pair");
-    assert_eq!(needed, 350);
+    assert_eq!(needed, 354);
     let container = encode(PROGRAM, &record_bytes).expect("the container encodes");
     assert_eq!(
         admit(&container, &chip(needed - 1)),

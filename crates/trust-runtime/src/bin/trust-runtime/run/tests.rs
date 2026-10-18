@@ -29,6 +29,7 @@ fn bundle_with_backend(
             control_debug_enabled: true,
             control_mode: trust_runtime::config::ControlMode::Debug,
             log_level: smol_str::SmolStr::new("info"),
+            event_capacity: None,
             retain_mode: trust_runtime::watchdog::RetainMode::None,
             retain_path: None,
             retain_save_interval: trust_runtime::value::Duration::from_millis(1000),

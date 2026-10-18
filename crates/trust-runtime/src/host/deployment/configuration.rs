@@ -80,6 +80,7 @@ fn from_runtime(
             crate::config::ControlMode::Debug => ControlMode::Debug,
         },
         log_level: log_level(&runtime.log_level)?,
+        event_capacity: event_capacity(runtime.event_capacity)?,
         retain_mode: runtime.retain_mode,
         retain_save_interval: runtime.retain_save_interval,
         watchdog: runtime.watchdog,
@@ -120,6 +121,20 @@ fn log_level(level: &str) -> Result<LogLevel, RuntimeError> {
             "runtime.toml: runtime.log.level '{level}' is not a level the deployment record's \
              configuration section holds"
         ))),
+    }
+}
+
+/// `runtime.events.capacity` as section 7's four bytes: 0 when the project sets none, so the
+/// device keeps its own default (specification 34 §5.1.1).
+fn event_capacity(capacity: Option<usize>) -> Result<u32, RuntimeError> {
+    match capacity {
+        Some(capacity) => u32::try_from(capacity).map_err(|_| {
+            invalid(format!(
+                "runtime.toml: runtime.events.capacity {capacity} is outside the four bytes the \
+                 deployment record's configuration section holds"
+            ))
+        }),
+        None => Ok(0),
     }
 }
 

@@ -15,6 +15,7 @@ impl RuntimeToml {
             execution_backend,
             control,
             log,
+            events,
             retain,
             watchdog,
             fault,
@@ -98,6 +99,7 @@ impl RuntimeToml {
             control_debug_enabled: parsed_control.debug_enabled,
             control_mode: parsed_control.mode,
             log_level: SmolStr::new(log.level),
+            event_capacity: events.and_then(|events| events.capacity),
             retain_mode: parsed_retain_mode,
             retain_path,
             retain_save_interval: parse_runtime_duration_millis(

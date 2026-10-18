@@ -2,6 +2,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use rand::TryRng;
 use smol_str::SmolStr;
+use trust_runtime_services::events::store_event;
 use trust_runtime_services::ports::AuditRecord;
 
 use super::{ControlAuditEvent, ControlState};
@@ -36,16 +37,25 @@ pub(super) fn record_audit(state: &ControlState, record: AuditRecord<'_>) -> Opt
     };
     if let Some(sender) = &state.audit_tx
         && let Err(err) = sender.send(event)
+        && let Some(capacity) = state
+            .settings
+            .lock()
+            .ok()
+            .map(|settings| settings.event_capacity)
         && let Ok(mut events) = state.events.lock()
     {
-        events.push_back(crate::debug::RuntimeEvent::AuditDropped {
-            request_id: record.request_id,
-            request_type: record.request_type,
-            error: err.to_string(),
-            time: Some(crate::value::Duration::from_millis(
-                timestamp_ms.min(i64::MAX as u128) as i64,
-            )),
-        });
+        store_event(
+            &mut events,
+            crate::debug::RuntimeEvent::AuditDropped {
+                request_id: record.request_id,
+                request_type: record.request_type,
+                error: err.to_string(),
+                time: Some(crate::value::Duration::from_millis(
+                    timestamp_ms.min(i64::MAX as u128) as i64,
+                )),
+            },
+            capacity,
+        );
     }
     Some(event_id)
 }

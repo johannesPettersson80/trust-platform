@@ -1,6 +1,6 @@
 // The product event store keeps the newest runtime events for `events.tail` and `faults`; its
 // bound is shared runtime code (spec 34 ARCH-11, specification 11 event store).
-use trust_runtime_services::events::store_event;
+use trust_runtime_services::events::{store_event, EVENT_STORE_CAPACITY};
 
 #[allow(clippy::too_many_arguments)]
 pub fn run_runtime(
@@ -98,7 +98,12 @@ pub fn run_runtime(
     );
 
     let metadata = Arc::new(Mutex::new(runtime.metadata_snapshot()));
-    let events = Arc::new(Mutex::new(VecDeque::new()));
+    // The event store of the project's `runtime.events.capacity`, the computer's default when the
+    // project sets none (specification 11, the event store).
+    let event_capacity = bundle.as_ref().map_or(EVENT_STORE_CAPACITY, |bundle| {
+        bundle.runtime.event_store_capacity()
+    });
+    let events = Arc::new(Mutex::new(VecDeque::with_capacity(event_capacity + 1)));
     {
         let events = events.clone();
         let (event_tx, event_rx) = std::sync::mpsc::channel();
@@ -108,7 +113,7 @@ pub fn run_runtime(
             for event in event_rx {
                 log_runtime_event(&event_logger, &event);
                 if let Ok(mut guard) = events.lock() {
-                    store_event(&mut guard, event);
+                    store_event(&mut guard, event, event_capacity);
                 }
             }
         });

@@ -73,6 +73,50 @@ params = {}
     .to_string()
 }
 
+/// [`runtime_toml`] with an additional `[runtime.events]` body.
+fn runtime_toml_with_events(body: &str) -> String {
+    format!("{}\n[runtime.events]\n{body}\n", runtime_toml())
+}
+
+#[test]
+fn event_capacity_is_read_from_runtime_toml_and_defaults_to_1000() {
+    // Specification 11, the event store: `runtime.events.capacity` sets the newest events the
+    // store keeps, and a computer keeps 1,000 when the project sets none. Wrong behaviour caught:
+    // the setting is ignored (always 1,000), or its value is not used at all.
+    let configured =
+        parse_runtime_toml_from_text(&runtime_toml_with_events("capacity = 200"), "runtime.toml")
+            .expect("a capacity in range is accepted");
+    assert_eq!(configured.event_capacity, Some(200));
+    assert_eq!(configured.event_store_capacity(), 200);
+
+    let absent = parse_runtime_toml_from_text(&runtime_toml(), "runtime.toml")
+        .expect("a project without an events section is accepted");
+    assert_eq!(absent.event_capacity, None);
+    assert_eq!(absent.event_store_capacity(), 1_000);
+}
+
+#[test]
+fn an_event_capacity_outside_its_range_is_a_configuration_error() {
+    // Specification 11, the event store: the setting is an integer from 1 through 1,000,000, and
+    // another value or type is a configuration error. Wrong behaviour caught: 0 or 1,000,001
+    // silently taking the default, or a string being parsed as a number.
+    for capacity in ["0", "1000001"] {
+        let err = validate_runtime_toml_text(&runtime_toml_with_events(&format!(
+            "capacity = {capacity}"
+        )))
+        .expect_err("an out-of-range capacity is refused");
+        assert!(
+            err.to_string()
+                .contains("runtime.events.capacity must be 1 to 1000000"),
+            "capacity {capacity}: {err}"
+        );
+    }
+
+    let err = validate_runtime_toml_text(&runtime_toml_with_events(r#"capacity = "many""#))
+        .expect_err("a string capacity is refused");
+    assert!(err.to_string().contains("runtime.toml"), "{err}");
+}
+
 #[test]
 fn runtime_schema_rejects_unknown_keys() {
     let text = format!("{}\n[runtime.extra]\nflag = true\n", runtime_toml());

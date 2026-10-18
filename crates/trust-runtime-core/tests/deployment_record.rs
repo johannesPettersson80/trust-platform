@@ -159,9 +159,9 @@ fn a_record_round_trips_through_the_version_1_layout() {
     );
     let lengths: Vec<usize> = parts.iter().map(|part| part.2.len()).collect();
     let names: usize = record.imports.iter().map(|import| import.name.len()).sum();
-    // Section 7 is the empty configuration: its 38 bytes, the resource name's length byte
+    // Section 7 is the empty configuration: its 42 bytes, the resource name's length byte
     // included. Its layout is pinned byte by byte in `deployment_configuration.rs`.
-    assert_eq!(lengths, [108, 8, 88, 16, 4 + 2 * 16, 4 + 3 * 4 + names, 38]);
+    assert_eq!(lengths, [108, 8, 88, 16, 4 + 2 * 16, 4 + 3 * 4 + names, 42]);
 
     // Section 1: program SHA-256 and length, STBC version and flags, the two identities.
     let application = &parts[0].2;

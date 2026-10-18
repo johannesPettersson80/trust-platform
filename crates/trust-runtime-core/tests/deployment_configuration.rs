@@ -19,12 +19,13 @@ use trust_runtime_core::watchdog::{FaultPolicy, RetainMode, WatchdogAction, Watc
 const CONFIGURATION_SECTION: u16 = 7;
 
 /// Section 7's payload of [`small_configuration`], byte by byte.
-const PAYLOAD: [u8; 67] = [
+const PAYLOAD: [u8; 71] = [
     3, b'R', b'E', b'S', // the resource name, `RES`
     0x80, 0x96, 0x98, 0, 0, 0, 0, 0, // the cycle interval, 10,000,000 ns
     0, // control.debug_enabled
     1, // control.mode: production
     3, // log.level: info
+    0, 0, 0, 0, // events.capacity: 0, the device's default
     0, // retain.mode: none
     0, 0, 0, 0, 0, 0, 0, 0, // retain.save_interval_ms
     0, // watchdog.enabled
@@ -79,6 +80,7 @@ fn small_configuration() -> Configuration {
         control_debug_enabled: false,
         control_mode: ControlMode::Production,
         log_level: LogLevel::Info,
+        event_capacity: 0,
         retain_mode: RetainMode::None,
         retain_save_interval: Duration::ZERO,
         watchdog: WatchdogPolicy {
@@ -112,6 +114,7 @@ fn full_configuration() -> Configuration {
         control_debug_enabled: true,
         control_mode: ControlMode::Debug,
         log_level: LogLevel::Trace,
+        event_capacity: 200,
         retain_mode: RetainMode::File,
         retain_save_interval: Duration::from_millis(1_000),
         watchdog: WatchdogPolicy {
@@ -262,6 +265,33 @@ fn the_configuration_section_round_trips() {
 }
 
 #[test]
+fn section_7_carries_the_event_capacity() {
+    // Specification 34 §5.1.1, section 7: the event-store capacity is a 4-byte field, 0 meaning
+    // the device's default (specification 11, `runtime.events.capacity`). Wrong behaviour caught:
+    // the capacity is dropped from the section, written in another width, or 0 is read back as
+    // something other than the device's default.
+    for capacity in [0_u32, 200] {
+        let mut configuration = full_configuration();
+        configuration.event_capacity = capacity;
+        // The four bytes after the resource name, the cycle interval, the control bytes and the
+        // log level: every field before them is fixed-width.
+        let at = 1 + configuration.resource_name.len() + 8 + 2 + 1;
+        let record = record_with(configuration);
+        let bytes = record.encode().expect("section 7 encodes the capacity");
+        let parts = sections(&bytes);
+        let payload = &parts
+            .iter()
+            .find(|part| part.0 == CONFIGURATION_SECTION)
+            .expect("the record has section 7")
+            .2;
+        assert_eq!(u32_at(payload, at), capacity);
+        let decoded = DeploymentRecord::decode(&bytes).expect("the record decodes");
+        assert_eq!(decoded.configuration.event_capacity, capacity);
+        assert_eq!(decoded, record);
+    }
+}
+
+#[test]
 fn the_configuration_section_has_the_specified_bytes() {
     let record = record_with(small_configuration());
     let bytes = record.encode().expect("section 7 encodes");
@@ -273,9 +303,9 @@ fn the_configuration_section_has_the_specified_bytes() {
         .expect("the record has section 7");
     assert_eq!(id, CONFIGURATION_SECTION);
     assert_eq!(reserved, 0, "its reserved field is 0");
-    assert_eq!(payload.len(), PAYLOAD.len(), "67 bytes");
+    assert_eq!(payload.len(), PAYLOAD.len(), "71 bytes");
     assert_eq!(payload, PAYLOAD);
-    // The payload's own length and the record's length agree with the 67 bytes.
+    // The payload's own length and the record's length agree with the 71 bytes.
     assert_eq!(record.encoded_len(), bytes.len());
 }
 
@@ -293,32 +323,32 @@ fn a_configuration_with_a_bad_code_flag_bit_or_text_is_refused() {
     // A code outside its list.
     rejected_field(13, 3, "a control mode");
     rejected_field(14, 6, "a log level");
-    rejected_field(15, 2, "a retain mode");
-    rejected_field(33, 4, "a watchdog action");
-    rejected_field(34, 0, "a watchdog hang action");
-    rejected_field(35, 0, "a fault policy");
-    rejected_field(36, 2, "the task overrides");
-    rejected_field(49, 4, "an I/O address");
-    rejected_field(50, 6, "an I/O address");
+    rejected_field(19, 2, "a retain mode");
+    rejected_field(37, 4, "a watchdog action");
+    rejected_field(38, 0, "a watchdog hang action");
+    rejected_field(39, 0, "a fault policy");
+    rejected_field(40, 2, "the task overrides");
+    rejected_field(53, 4, "an I/O address");
+    rejected_field(54, 6, "an I/O address");
     // A flag other than 0 or 1.
     rejected_field(12, 2, "the control debug flag");
-    rejected_field(44, 2, "the driver enabled flag");
-    rejected_field(63, 2, "the GPIO output invert flag");
-    rejected_field(64, 2, "the GPIO output initial flag");
+    rejected_field(48, 2, "the driver enabled flag");
+    rejected_field(67, 2, "the GPIO output invert flag");
+    rejected_field(68, 2, "the GPIO output initial flag");
     // A bit above 7, and a bit with a size other than X.
-    rejected_field(55, 8, "an I/O address");
+    rejected_field(59, 8, "an I/O address");
     let mut wide = PAYLOAD.to_vec();
-    wide[50] = 3; // the size W
-    wide[55] = 1; // its bit, which only X may set
+    wide[54] = 3; // the size W
+    wide[59] = 1; // its bit, which only X may set
     assert_eq!(refused_payload(&wide), Error::Field("an I/O address"));
     // An empty name where the section requires one, and an empty line.
-    rejected_field(39, 0, "a driver name");
-    rejected_field(56, 0, "a GPIO line");
+    rejected_field(43, 0, "a driver name");
+    rejected_field(60, 0, "a GPIO line");
     // A text that is not UTF-8.
     rejected_field(1, 0xFF, "the resource name");
     // A payload the counts do not fit, and a payload of another length.
     assert_eq!(
-        refused_payload(&payload_with(65, 1)),
+        refused_payload(&payload_with(69, 1)),
         Error::SectionLength(CONFIGURATION_SECTION),
         "the safe state count does not fit the payload"
     );
@@ -334,7 +364,7 @@ fn a_configuration_with_a_bad_code_flag_bit_or_text_is_refused() {
     }
     // A safe-state value: a code outside its list, and a byte above the type's width that is not 0.
     let mut entry = PAYLOAD.to_vec();
-    entry[65] = 1; // one safe-state entry
+    entry[69] = 1; // one safe-state entry
     entry.extend_from_slice(&[2, 1, 0, 0, 0, 0, 0]); // `%QX0.0`
     entry.push(2); // SINT
     entry.extend_from_slice(&[0xFE, 1, 0, 0, 0, 0, 0, 0]);
@@ -343,13 +373,13 @@ fn a_configuration_with_a_bad_code_flag_bit_or_text_is_refused() {
         Error::Field("an I/O safe-state value"),
         "a byte above the SINT's width"
     );
-    entry[74] = 16; // a value type the section has no code for
+    entry[78] = 16; // a value type the section has no code for
     assert_eq!(
         refused_payload(&entry),
         Error::Field("an I/O safe-state value")
     );
-    entry[74] = 2;
-    entry[76] = 0; // zero-extended above the SINT's width
+    entry[78] = 2;
+    entry[80] = 0; // zero-extended above the SINT's width
     let decoded = DeploymentRecord::decode(&payload_record(&entry)).expect("a zero-extended value");
     assert_eq!(
         decoded.configuration.safe_state,

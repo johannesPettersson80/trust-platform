@@ -124,6 +124,7 @@ fn build_runtime_settings(
         settings.runtime_cloud.link_preferences =
             bundle.runtime.runtime_cloud_link_preferences.clone();
         settings.realtime = bundle.runtime.realtime.clone();
+        settings.event_capacity = bundle.runtime.event_store_capacity();
     }
     settings.execution_backend = execution_backend;
     settings.execution_backend_source = execution_backend_source;

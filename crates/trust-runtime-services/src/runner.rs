@@ -53,6 +53,7 @@ pub use host::RunnerPlatform;
 pub use retain::RetainConfig;
 
 use crate::dispatch::{invalid_line, prepare_line_within, PreparedLine};
+use crate::events::EVENT_STORE_CAPACITY;
 use crate::protocol::ControlAfterResponse;
 use crate::resource::supervisor::AutomaticRestartLimiter;
 use host::RunnerHost;
@@ -125,7 +126,9 @@ where
         let frame = vec![0; link.max_frame_len()];
         let start = clock.now();
         cycle.reset_task_timing(value::Duration::ZERO);
-        let records = Records::new(clock.clone(), start);
+        // The computer's default: a chip's event-store capacity comes from its chip file, which
+        // the device reads in a later slice (specification 34, TARGET-03).
+        let records = Records::new(clock.clone(), start, EVENT_STORE_CAPACITY);
         Self {
             link,
             wait,
@@ -156,7 +159,8 @@ where
     pub fn stopped(link: L, wait: W, platform: P, clock: C, reason: SmolStr) -> Self {
         let frame = vec![0; link.max_frame_len()];
         let start = clock.now();
-        let records = Records::new(clock.clone(), start);
+        // As [`Self::new`]: the computer's default until the chip file carries the device's.
+        let records = Records::new(clock.clone(), start, EVENT_STORE_CAPACITY);
         Self {
             link,
             wait,

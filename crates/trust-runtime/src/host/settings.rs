@@ -4,6 +4,7 @@
 
 use indexmap::IndexMap;
 use smol_str::SmolStr;
+use trust_runtime_services::events::EVENT_STORE_CAPACITY;
 
 use crate::config::{
     MeshRole, RuntimeCloudLinkPreferenceRule, RuntimeCloudProfile, RuntimeCloudWanAllowRule,
@@ -20,6 +21,8 @@ pub struct RuntimeSettings {
     pub execution_backend: ExecutionBackend,
     pub execution_backend_source: ExecutionBackendSource,
     pub log_level: SmolStr,
+    /// The newest events the event store keeps (`runtime.events.capacity`, specification 11).
+    pub event_capacity: usize,
     pub watchdog: WatchdogPolicy,
     /// `runtime.watchdog.hang_action`. Applied when the resource starts, so a change needs a restart.
     pub watchdog_hang_action: HangAction,
@@ -49,6 +52,7 @@ impl RuntimeSettings {
             execution_backend: ExecutionBackend::BytecodeVm,
             execution_backend_source: ExecutionBackendSource::Default,
             log_level: base.log_level,
+            event_capacity: EVENT_STORE_CAPACITY,
             watchdog: base.watchdog,
             watchdog_hang_action: HangAction::default(),
             fault_policy: base.fault_policy,
@@ -122,6 +126,7 @@ impl RuntimeSettings {
         settings.execution_backend = config.execution_backend;
         settings.execution_backend_source = config.execution_backend_source;
         settings.watchdog_hang_action = config.watchdog_hang_action;
+        settings.event_capacity = config.event_store_capacity();
         settings.opcua = OpcUaSettings {
             enabled: config.opcua.enabled,
             listen: config.opcua.listen.clone(),

@@ -91,7 +91,7 @@ pub fn io_health_to_json(entry: &IoDriverStatus) -> serde_json::Value {
 }
 
 /// `status`: the runtime's identity, state, modes, settings, metrics, realtime posture,
-/// persistence and I/O driver health.
+/// persistence, event-store capacity and I/O driver health.
 ///
 /// A debugger hold reports `paused` unless the resource is faulted or stopped. A value that
 /// cannot be read answers `<value> unavailable`; the values are read in a fixed order, so the
@@ -130,6 +130,9 @@ where
     let Some(control_mode) = host.control_mode_label() else {
         return unavailable(id, "control mode");
     };
+    let Some(event_capacity) = host.event_capacity() else {
+        return unavailable(id, "event capacity");
+    };
     let Some(openot_persistence) = host.openot_persistence() else {
         return unavailable(id, "OpenOT persistence status");
     };
@@ -152,6 +155,7 @@ where
             "simulation_time_scale": settings.simulation_time_scale,
             "simulation_warning": settings.simulation_warning.as_str(),
             "hmi_read_only": true,
+            "event_capacity": event_capacity,
             "openot_persistence": openot_persistence,
             "metrics": metrics_json(&metrics, settings.execution_backend),
             "realtime": realtime,

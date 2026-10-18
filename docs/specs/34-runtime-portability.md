@@ -723,7 +723,7 @@ Version 1 has these seven sections, each once:
 | 4 Process image | The input, output and marker image sizes in bytes and the number of I/O bindings (4 each) |
 | 5 Tasks | The task count (2) and 2 reserved bytes, then for each task in declaration order: its interval in nanoseconds (8, signed), its priority (4) and its flags (4), of which bit 0 marks an event task (`SINGLE`) and the others are 0 |
 | 6 Imports | The import count (2) and 2 reserved bytes, then each built-in import of the program once, ordered by kind and then by name: the kind (1), 1 for a function and 2 for a function block; the name's length (1); the contract version (2, §5.2.1); the canonical uppercase name |
-| 7 Configuration | The settings a device without an operating system needs from `runtime.toml` and `io.toml` (below): the resource name, the cycle interval, control, the log level, retain, the watchdog, the fault policy, the task overrides, the I/O drivers and the safe state |
+| 7 Configuration | The settings a device without an operating system needs from `runtime.toml` and `io.toml` (below): the resource name, the cycle interval, control, the log level, retain, the watchdog, the fault policy, the event-store capacity, the task overrides, the I/O drivers and the safe state |
 
 Section 7 carries what a device without an operating system needs from the project's `runtime.toml`
 and `io.toml`: a computer reads those two files themselves at each start, and a chip never parses
@@ -736,6 +736,7 @@ its UTF-8 bytes, at most 255 bytes:
 | Cycle interval | 8, unsigned, nanoseconds |
 | Control: debug enabled, then mode | 1 (0 or 1), then 1 (1 `production`, 2 `debug`) |
 | Log level | 1 (1 `error`, 2 `warn`, 3 `info`, 4 `debug`, 5 `trace`: the names the runtime's configuration parser accepts, where `warning` is `warn`) |
+| Event-store capacity | 4, unsigned; 0 is the device's default, otherwise the newest events the store keeps (specification 11, `runtime.events.capacity`). The decoder accepts every four-byte value |
 | Retain: mode, then save interval | 1 (0 `none`, 1 `file`), then 8, nanoseconds |
 | Watchdog: enabled, timeout, action, hang action | 1 (0 or 1), then 8, nanoseconds, then 1 (1 `halt`, 2 `safe_halt`, 3 `restart`), then 1 (1 `fault`, 2 `abort`) |
 | Fault policy | 1 (1 `halt`, 2 `safe_halt`, 3 `restart`) |

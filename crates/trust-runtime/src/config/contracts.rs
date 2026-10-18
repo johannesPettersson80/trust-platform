@@ -10,6 +10,10 @@ pub struct RuntimeConfig {
     pub control_debug_enabled: bool,
     pub control_mode: ControlMode,
     pub log_level: SmolStr,
+    /// `runtime.events.capacity`: the newest events the event store keeps. `None` uses the
+    /// device's default (1,000 on a computer), so a deployment record can tell that the project
+    /// set none (specification 11, the event store).
+    pub event_capacity: Option<usize>,
     pub retain_mode: RetainMode,
     pub retain_path: Option<PathBuf>,
     pub retain_save_interval: Duration,
@@ -542,6 +546,16 @@ pub struct TaskOverride {
     pub priority: u8,
     pub programs: Vec<SmolStr>,
     pub single: Option<SmolStr>,
+}
+
+impl RuntimeConfig {
+    /// The newest events the runtime's event store keeps: `runtime.events.capacity`, or the
+    /// computer's default of 1,000 when the project sets none (specification 11, the event store).
+    #[must_use]
+    pub fn event_store_capacity(&self) -> usize {
+        self.event_capacity
+            .unwrap_or(trust_runtime_services::events::EVENT_STORE_CAPACITY)
+    }
 }
 
 #[cfg(test)]

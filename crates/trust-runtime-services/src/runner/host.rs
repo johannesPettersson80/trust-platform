@@ -170,6 +170,10 @@ impl<P, Y, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, Y, C> {
         self.records.metrics_snapshot()
     }
 
+    fn event_capacity(&self) -> Option<usize> {
+        Some(self.records.event_capacity())
+    }
+
     fn read_events<R>(&self, read: impl FnOnce(&VecDeque<RuntimeEvent>) -> R) -> Option<R> {
         self.records.read_events(read)
     }

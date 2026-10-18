@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- `[runtime.events] capacity` in `runtime.toml` sets how many events the event store keeps
+  (1 to 1,000,000; 1,000 by default on a computer), as PLC vendors size their diagnostic buffer
+  per device. `status` reports it as `event_capacity`, and a chip receives it in its deployment
+  record.
 - `trust-runtime build` now fills the deployment record's configuration section (specification 34
   §5.1.1, section 7) from the project's `runtime.toml` and `io.toml` with the runtime's own
   parsers and checks, so a chip receives the resource, cycle, control, log, retain, watchdog,

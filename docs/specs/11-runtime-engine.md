@@ -2373,11 +2373,11 @@ The status and configuration surfaces project one effective runtime state:
 
 Status, health, and task-stat projection is fail-closed and deterministic.
 `status` returns an error when runtime settings, control mode, I/O health,
-metrics, or realtime-status state is unavailable; it must not substitute
-production mode, VM defaults, an empty driver list, zero metrics, or a default
-realtime posture for an internal read failure. `tasks.stats` likewise returns
-an error when metrics are unavailable. `health` returns an error when I/O
-health or realtime status is unavailable.
+metrics, realtime-status state, or the event store's capacity is unavailable; it
+must not substitute production mode, VM defaults, an empty driver list, zero
+metrics, or a default realtime posture for an internal read failure.
+`tasks.stats` likewise returns an error when metrics are unavailable. `health`
+returns an error when I/O health or realtime status is unavailable.
 
 The aggregate `health.ok` value is true only when the resource is running,
 ready, or paused, has no resource fault, has no faulted I/O driver, and has no
@@ -2402,12 +2402,18 @@ the originating resource fault. On a link that bounds its frames, such as a
 chip's USB link, a reply longer than the frame is answered as specification 34
 PORT-05 says; a reply that fits is the same bytes as on any other link.
 
-The event store keeps the newest 1,000 events, the largest limit either
-operation accepts; a newer event displaces the oldest. A debug control with no
-event sender attached buffers events for callers that drain them directly, such
-as embedders and the debugger. That buffer keeps the newest 1,024 events, drops
-the oldest beyond that bound and counts every dropped event, so the caller can
-tell that it missed events (specification 34 §11.1).
+The event store keeps the newest `runtime.events.capacity` events, 1,000 when
+the project sets none on a computer; a device without an operating system takes
+its default from the device's chip file (specification 34, TARGET-03). The
+setting is an integer from 1 through 1,000,000 inclusive; another value or type
+is a configuration error, as for every other `runtime.toml` setting. A newer
+event displaces the oldest, and `events.tail` and `faults` answer at most what
+the store holds within their own request limits above. `status` reports the
+store's capacity as `event_capacity`. A debug control with no event sender
+attached buffers events for callers that drain them directly, such as embedders
+and the debugger. That buffer keeps the newest 1,024 events, drops the oldest
+beyond that bound and counts every dropped event, so the caller can tell that it
+missed events (specification 34 §11.1).
 
 Historian query parameters are strict objects. `historian.query` permits only
 `variable`, `since_ms`, and `limit`; `historian.alerts` permits only `limit`.

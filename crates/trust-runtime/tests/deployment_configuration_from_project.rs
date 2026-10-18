@@ -45,6 +45,9 @@ mode = "debug"
 [runtime.log]
 level = "debug"
 
+[runtime.events]
+capacity = 200
+
 [runtime.retain]
 mode = "file"
 path = "retain.dat"
@@ -167,6 +170,8 @@ fn the_configuration_section_carries_runtime_and_io_settings() {
         control_debug_enabled: true,
         control_mode: ControlMode::Debug,
         log_level: LogLevel::Debug,
+        // runtime.events.capacity = 200
+        event_capacity: 200,
         retain_mode: RetainMode::File,
         // runtime.retain.save_interval_ms = 5000
         retain_save_interval: Duration::from_millis(5_000),
@@ -237,6 +242,8 @@ fn defaults_fill_the_section_when_settings_are_absent() {
         control_debug_enabled: false,
         control_mode: ControlMode::Production,
         log_level: LogLevel::Warn,
+        // runtime.events is absent: the section carries 0, the device's default.
+        event_capacity: 0,
         retain_mode: RetainMode::None,
         // runtime.retain.save_interval_ms = 1000
         retain_save_interval: Duration::from_millis(1_000),

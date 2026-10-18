@@ -15,7 +15,7 @@ use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 
 use crate::access::{resolve_role, AccessRole, AuthFailure};
-use crate::events::RuntimeEvent;
+use crate::events::{RuntimeEvent, EVENT_STORE_CAPACITY};
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::ports::{
     AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, RecordsPort, ResourcePort,
@@ -68,11 +68,13 @@ pub(crate) struct FakeHost {
     pub(crate) actions: RefCell<Vec<Action>>,
     pub(crate) pending_restart: RefCell<Option<RestartMode>>,
     /// Values that cannot be read: `settings`, `io`, `metrics`, `realtime`, `control_mode`,
-    /// `openot`, `events` or `restart_slot`.
+    /// `openot`, `event_capacity`, `events` or `restart_slot`.
     pub(crate) unreadable: Vec<&'static str>,
     pub(crate) debug_hold: Option<&'static str>,
     pub(crate) io_drivers: Vec<IoDriverStatus>,
     pub(crate) metrics: RuntimeMetricsSnapshot,
+    /// The newest events the fake platform's event store keeps.
+    pub(crate) event_capacity: usize,
     pub(crate) realtime_errors: bool,
     pub(crate) extension_calls: RefCell<Vec<String>>,
     /// The wall clock: [`WALL_TIME_MS`], or `None` while the time is not set.
@@ -105,6 +107,7 @@ impl FakeHost {
             debug_hold: None,
             io_drivers: Vec::new(),
             metrics: RuntimeMetricsSnapshot::default(),
+            event_capacity: EVENT_STORE_CAPACITY,
             realtime_errors: false,
             extension_calls: RefCell::new(Vec::new()),
             utc_ms: Some(WALL_TIME_MS),
@@ -291,6 +294,11 @@ impl RecordsPort for FakeHost {
 
     fn metrics_snapshot(&self) -> Option<RuntimeMetricsSnapshot> {
         self.readable("metrics").then(|| self.metrics.clone())
+    }
+
+    fn event_capacity(&self) -> Option<usize> {
+        self.readable("event_capacity")
+            .then_some(self.event_capacity)
     }
 
     fn read_events<R>(&self, read: impl FnOnce(&VecDeque<RuntimeEvent>) -> R) -> Option<R> {

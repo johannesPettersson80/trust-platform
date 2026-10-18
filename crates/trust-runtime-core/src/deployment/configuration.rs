@@ -24,6 +24,9 @@ pub struct Configuration {
     pub control_mode: ControlMode,
     /// `runtime.log.level`.
     pub log_level: LogLevel,
+    /// `runtime.events.capacity`: the newest events the store keeps; 0 is the device's default
+    /// (specification 11, the event store).
+    pub event_capacity: u32,
     /// `runtime.retain.mode`.
     pub retain_mode: RetainMode,
     /// `runtime.retain.save_interval_ms`.
@@ -44,9 +47,10 @@ pub struct Configuration {
 
 impl Default for Configuration {
     /// The empty configuration: what a build writes before it fills the section, so that a record
-    /// carries a section 7 from the start. Every flag is off, every interval is 0, every enum of
-    /// this module carries its first code, the watchdog is [`WatchdogPolicy::default`] (disabled,
-    /// with `safe_halt`), and there are no task overrides, no drivers and no safe state.
+    /// carries a section 7 from the start. Every flag is off, every interval is 0, the event-store
+    /// capacity is 0 (the device's default), every enum of this module carries its first code, the
+    /// watchdog is [`WatchdogPolicy::default`] (disabled, with `safe_halt`), and there are no task
+    /// overrides, no drivers and no safe state.
     fn default() -> Self {
         Self {
             resource_name: SmolStr::new_static(""),
@@ -54,6 +58,7 @@ impl Default for Configuration {
             control_debug_enabled: false,
             control_mode: ControlMode::Production,
             log_level: LogLevel::Error,
+            event_capacity: 0,
             retain_mode: RetainMode::None,
             retain_save_interval: Duration::ZERO,
             watchdog: WatchdogPolicy::default(),

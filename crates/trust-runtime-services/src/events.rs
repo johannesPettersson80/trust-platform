@@ -125,19 +125,27 @@ pub enum RuntimeEvent {
     },
 }
 
-/// Newest runtime events the product event store keeps for `events.tail` and `faults`.
-///
-/// It is the largest limit either operation accepts.
+/// The computer's default event-store capacity: the newest runtime events the product event store
+/// keeps for `events.tail` and `faults` when the project sets none (`runtime.events.capacity`,
+/// specification 11, the event store). A device without an operating system takes its default
+/// from its chip file instead.
 pub const EVENT_STORE_CAPACITY: usize = 1_000;
+
+/// The smallest event-store capacity `runtime.events.capacity` accepts (specification 11).
+pub const EVENT_STORE_CAPACITY_MIN: usize = 1;
+
+/// The largest event-store capacity `runtime.events.capacity` accepts on a computer
+/// (specification 11).
+pub const EVENT_STORE_CAPACITY_MAX: usize = 1_000_000;
 
 /// Runtime events a debugger without an event listener buffers for direct draining.
 pub const DEBUG_EVENT_BUFFER_CAPACITY: usize = 1_024;
 
-/// Appends `event` to the product event store and drops the oldest events beyond
-/// [`EVENT_STORE_CAPACITY`].
-pub fn store_event(store: &mut VecDeque<RuntimeEvent>, event: RuntimeEvent) {
+/// Appends `event` to the product event store and drops the oldest events beyond `capacity`, the
+/// newest events the store keeps (`runtime.events.capacity`, specification 11, the event store).
+pub fn store_event(store: &mut VecDeque<RuntimeEvent>, event: RuntimeEvent, capacity: usize) {
     store.push_back(event);
-    while store.len() > EVENT_STORE_CAPACITY {
+    while store.len() > capacity {
         store.pop_front();
     }
 }

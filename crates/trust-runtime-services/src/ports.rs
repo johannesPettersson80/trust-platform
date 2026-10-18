@@ -68,8 +68,8 @@ pub trait AuditSink {
     fn record_audit(&self, record: AuditRecord<'_>) -> Option<SmolStr>;
 }
 
-/// The runtime's event store. It keeps at most
-/// [`EVENT_STORE_CAPACITY`](crate::events::EVENT_STORE_CAPACITY) events, dropping the oldest;
+/// The runtime's event store. It keeps at most the store's configured
+/// `runtime.events.capacity` events (1,000 by default on a computer), dropping the oldest;
 /// [`store_event`](crate::events::store_event) applies that bound.
 pub trait EventSink {
     /// Appends `event` as the newest event; a store that cannot be written drops it.
@@ -170,6 +170,10 @@ pub trait RecordsPort {
 
     /// A snapshot of the runtime metrics.
     fn metrics_snapshot(&self) -> Option<RuntimeMetricsSnapshot>;
+
+    /// The newest events the event store keeps (`runtime.events.capacity`, specification 11, the
+    /// event store). `None` reports a capacity that cannot be read.
+    fn event_capacity(&self) -> Option<usize>;
 
     /// Reads the event store, oldest event first.
     fn read_events<R>(&self, read: impl FnOnce(&VecDeque<RuntimeEvent>) -> R) -> Option<R>;

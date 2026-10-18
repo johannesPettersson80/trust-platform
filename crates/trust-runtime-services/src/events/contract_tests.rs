@@ -246,9 +246,22 @@ fn diagnostic_events_project_to_their_exact_json() {
 fn event_store_keeps_the_newest_1000_events_in_order() {
     let mut store = VecDeque::new();
     for index in 0..=EVENT_STORE_CAPACITY {
-        store_event(&mut store, write_rejected(index));
+        store_event(&mut store, write_rejected(index), EVENT_STORE_CAPACITY);
     }
     let expected: Vec<_> = (1..=EVENT_STORE_CAPACITY).map(write_rejected).collect();
+    assert_eq!(Vec::from(store), expected);
+}
+
+#[test]
+fn the_store_keeps_exactly_its_capacity_and_drops_the_oldest() {
+    // Specification 11, the event store: the store keeps the newest `capacity` events and a newer
+    // event displaces the oldest. Wrong behaviour caught: a store that keeps every event it is
+    // given, or one that drops the newest instead of the oldest.
+    let mut store = VecDeque::new();
+    for index in 0..5 {
+        store_event(&mut store, write_rejected(index), 3);
+    }
+    let expected: Vec<_> = (2..5).map(write_rejected).collect();
     assert_eq!(Vec::from(store), expected);
 }
 

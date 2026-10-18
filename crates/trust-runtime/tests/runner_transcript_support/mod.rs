@@ -45,7 +45,7 @@ use trust_runtime_core::value::Duration;
 use trust_runtime_core::vm::PreparedModule;
 use trust_runtime_services::access::{AccessRole, AuthFailure};
 use trust_runtime_services::dispatch::prepare_line;
-use trust_runtime_services::events::store_event;
+use trust_runtime_services::events::{store_event, EVENT_STORE_CAPACITY};
 use trust_runtime_services::ports::{
     AccessPort, AuditRecord, AuditSink, ExtensionDispatch, StatusPort,
 };
@@ -331,7 +331,7 @@ impl HostComposition {
         });
         let mut store = self.state.events.lock().expect("event store");
         for event in self.scan_events.drain(..) {
-            store_event(&mut store, event);
+            store_event(&mut store, event, EVENT_STORE_CAPACITY);
         }
         self.completed += 1;
     }
