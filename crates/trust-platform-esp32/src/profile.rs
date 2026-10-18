@@ -1,10 +1,13 @@
 //! Fixed ESP32-C6-DevKitC-1 profile: the D.2 constants and the pure decisions built on them.
 use crate::cookie::{ResetCookie, WATCHDOG_PHASE};
+use crate::program_flash::SLOT_BYTES;
 use trust_runtime_core::bytecode::BytecodeVersion;
 use trust_runtime_core::deployment::{
     Capabilities, DeviceDescriptor, NumericContract, RequestedLimits, SchedulingProfile,
     TimingEvidence,
 };
+use trust_runtime_services::link::DEVICE_FRAME_LEN;
+use trust_runtime_services::transfer::TransferSession;
 
 /// CPU clock from `CpuClock::max()` on ESP32-C6 (160 MHz); the PCCR rate matches it.
 pub const CPU_HZ: u32 = 160_000_000;
@@ -54,6 +57,10 @@ pub const FLASH_ERASE_BYTES: u32 = 4 * 1024;
 /// The most bytes one checkpoint step programs between two scans: one 256-byte flash page, so a
 /// step takes a few milliseconds (specification 34 §10).
 pub const CHECKPOINT_STEP_BYTES: usize = 256;
+/// The most bytes one step of an install programs or reads back between two passes of the loop: one
+/// 256-byte flash page, as a checkpoint step. An erase of one 4 KiB unit, up to about 0.4 s, is the
+/// longest step (specification 34 §11.2 and D.2).
+pub const PROGRAM_STEP_BYTES: usize = 256;
 
 /// The device descriptor admission reads for the C6 (specification 34 §5.1.1, COMPAT-02 and
 /// TARGET-03): the STBC versions it prepares, its scheduling profile and numeric contract, its
@@ -64,8 +71,10 @@ pub const CHECKPOINT_STEP_BYTES: usize = 256;
 /// its maxima with the chip's firmware"), so those maxima are trust-runtime's hosted maxima until
 /// the chip file names them; the host test `the_device_descriptor_matches_the_chip_file` pins
 /// that, the application slot and the event store. The event store's default and maximum are the
-/// `[events]` table of `chips/esp32c6.toml` (200 and 200). The C6 has no wall clock until slice
-/// T6, so it supplies no capability and admission refuses a program that calls `CURRENT_DT`.
+/// `[events]` table of `chips/esp32c6.toml` (200 and 200). The application slot is one program slot
+/// of the program store, not the whole `application` region: an install writes one slot (specification
+/// 34 §5.1). The C6 has no wall clock until slice T6, so it supplies no capability and admission
+/// refuses a program that calls `CURRENT_DT`.
 pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
     bytecode_versions: &[
         BytecodeVersion::SOURCE_FREE_V2,
@@ -96,10 +105,27 @@ pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
     // bench allows more.
     event_store_default: 200,
     event_store_max: 200,
-    // The `[layout] application` region of `chips/esp32c6.toml`: the flash from `STBC_OFFSET` to
-    // the two checkpoint slots (owner decision O7).
-    application_slot_bytes: Some(STBC_BYTES as u64),
+    // One of the two program slots of `chips/esp32c6.toml` (`application_a` and `application_b`, the
+    // halves of the `application` region that the owner gave the program, decision O7): an install
+    // writes one slot, so a program and its record can be no longer than that (specification 34 §5.1.1
+    // step 8).
+    application_slot_bytes: Some(SLOT_BYTES as u64),
 };
+
+/// The transfer session of the boot that counted `boot` resets (specification 34, PORT-05). A transfer
+/// id carries the boot number in its high 32 bits, so an id of an earlier boot never names a transfer
+/// of this one. The boot number is the chip's boot counter, which the reset record keeps in persistent
+/// RTC fast memory (`BOOT_COUNT` of `hardware/reset.rs`): it rises by one at every reset (a watchdog
+/// reset, a USB-Serial/JTAG reset or a software reset) and survives it, and it starts again at power-on,
+/// when the host's session ended with the power.
+///
+/// An upload takes at most one program slot, since a larger container can never be installed, and a
+/// reply is held to the frame the link moves, so a reply longer than a frame is refused as it is
+/// without a session (PORT-05).
+#[must_use]
+pub fn transfer_session(boot: u32) -> TransferSession {
+    TransferSession::new(boot, SLOT_BYTES as usize, DEVICE_FRAME_LEN)
+}
 
 /// BOOT button GPIO: a strapping pin that is read only after boot, active low.
 pub const BUTTON_GPIO: u8 = 9;

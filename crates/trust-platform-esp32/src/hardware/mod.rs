@@ -214,6 +214,23 @@ impl Board {
         Ok(checkpoint)
     }
 
+    /// A second handle on the checkpoint slots, which the resource loop only reads: the retained-value
+    /// check of an install reads the newest checkpoint through it (specification 11 §6.7.1, decision
+    /// G13), while the handle of [`Board::take_checkpoint_flash`] belongs to the installed program's
+    /// cycle. It may be taken at any point after the board is taken.
+    ///
+    /// # Errors
+    ///
+    /// [`BoardError::Checkpoint`] when the slots' geometry cannot hold the checkpoint log.
+    pub fn checkpoint_reader(&self) -> Result<Box<dyn CheckpointFlash>, BoardError> {
+        let reader = self
+            .flash
+            .checkpoint_reader()
+            .map_err(BoardError::Checkpoint)?;
+        let reader: Box<dyn CheckpointFlash> = Box::new(reader);
+        Ok(reader)
+    }
+
     /// The chip's program slots (specification 34 §5.1), handed out once. They share the flash with
     /// the checkpoint slots and with [`Board::read_application`].
     ///

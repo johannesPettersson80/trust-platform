@@ -18,11 +18,13 @@ use trust_runtime_core::value::Value;
 use super::cycle::ResourceCycle;
 use super::debugger::ChipDebug;
 use super::engine::EngineLiveValues;
+use super::install::InstallState;
 use super::program::Program;
 use super::state::{Records, ResourceCell};
 use crate::access::{AccessRole, AuthFailure};
 use crate::capabilities::LastReset;
 use crate::events::RuntimeEvent;
+use crate::installation::Admitted;
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use crate::live_values::queues::{ForcedSnapshot, ForcedVarTarget, PendingVarTarget};
 use crate::live_values::var_requests::VariableQueuePort;
@@ -30,7 +32,8 @@ use crate::live_values::RequestQueueFull;
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::ports::{
     AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl,
-    ProgramIdentities, RecordsPort, ResourcePort, StatusPort, TransferSessionError,
+    ProgramIdentities, ProgramIdentity, RecordsPort, ResourcePort, StatusPort,
+    TransferSessionError,
 };
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::resource::commands::{CommandClass, CommandSendError};
@@ -78,7 +81,8 @@ pub trait RunnerPlatform:
 
     /// The transfer session the platform keeps for the transfer operations (specification 34,
     /// PORT-05). A platform without one keeps the default, and the transfer operations are then
-    /// unsupported on it.
+    /// unsupported on it, unless the device gave its loop a session of its own
+    /// ([`Runner::with_transfers`](crate::runner::Runner::with_transfers)), which the loop uses first.
     ///
     /// # Errors
     ///
@@ -129,6 +133,8 @@ pub(super) struct RunnerHost<'a, P, C> {
     pub(super) resource: &'a ResourceCell,
     pub(super) records: &'a Records<C>,
     pub(super) debug: &'a ChipDebug,
+    /// The transfers, the program store and the install the loop keeps.
+    pub(super) install: &'a InstallState,
 }
 
 impl<P: RunnerPlatform, C> AccessPort for RunnerHost<'_, P, C> {
@@ -300,15 +306,36 @@ impl<P: RunnerPlatform, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, C> 
         self.records.read_events(read)
     }
 
+    /// The loop's own session when the device gave it one, else the platform's.
     fn with_transfers<R>(
         &self,
         use_session: impl FnOnce(&mut TransferSession) -> R,
     ) -> Result<R, TransferSessionError> {
-        self.platform.with_transfers(use_session)
+        if self.install.keeps_transfers() {
+            self.install.with_transfers(use_session)
+        } else {
+            self.platform.with_transfers(use_session)
+        }
     }
 
     fn program_identities(&self) -> Option<ProgramIdentities> {
         self.platform.program_identities()
+    }
+
+    /// Whether the device gave its loop a program store (specification 34 §11.2).
+    fn has_program_store(&self) -> bool {
+        self.install.has_store()
+    }
+
+    /// The retained-value check of an install, read from the newest checkpoint (decision G13).
+    fn check_retained_values(&self, admitted: &Admitted<'_>) -> Result<(), RuntimeError> {
+        self.install.check_retained(admitted)
+    }
+
+    /// Begins the stepped commit of the checked container; the loop writes the `installed` reply
+    /// when the last step is done (specification 34 §11.2, PORT-05).
+    fn commit_program(&self, container: &[u8]) -> Result<ProgramIdentity, String> {
+        self.install.begin(container)
     }
 }
 

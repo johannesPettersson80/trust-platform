@@ -12,7 +12,7 @@ use trust_platform_esp32::program_flash::{
     FlashOwner, ProgramSlots, SLOT_A_OFFSET, SLOT_BYTES, SLOT_B_OFFSET,
 };
 use trust_runtime_core::ports::ProgramFlash;
-use trust_runtime_core::retain::checkpoint::{FlashError, Slot};
+use trust_runtime_core::retain::checkpoint::{CheckpointFlash, FlashError, Slot};
 
 /// One flash operation that reached the recording fake: a read or a program of `len` bytes at
 /// `address`, or the erase of the unit at `address`.
@@ -303,4 +303,40 @@ fn each_region_is_handed_out_once() {
         "the checkpoint slots are handed out once"
     );
     assert_eq!(owner.read_application(&mut [0; 4]), Ok(()));
+}
+
+/// The retained-value check of an install reads the newest checkpoint through a second handle on the
+/// checkpoint slots (specification 11 §6.7.1, decision G13; specification 34 §10.1), because the
+/// writing handle belongs to the installed program's cycle. Both handles are the one flash: a word
+/// programmed through the writer at offset 8 of checkpoint slot B, at flash address 0x7F_C008, reads
+/// back through the reader, and the reader can be taken again after the writer and the program slots
+/// were handed out. Catches a reader over another flash, or at another slot's address, which would
+/// read an erased log and let every install past the check.
+#[test]
+fn the_checkpoint_reader_reads_what_the_checkpoint_handle_wrote() {
+    let mut owner = FlashOwner::new(RamFlash::erased());
+    let mut writer = owner
+        .take_checkpoint()
+        .expect("the checkpoint slots have a geometry")
+        .expect("the checkpoint slots are handed out");
+    let _program = owner
+        .take_program()
+        .expect("the program slots have a geometry")
+        .expect("the program slots are handed out");
+    let mut reader = owner
+        .checkpoint_reader()
+        .expect("the checkpoint slots have a geometry");
+
+    writer
+        .program(Slot::B, 8, b"TRCK")
+        .expect("checkpoint slot B is erased, so the word programs");
+    let mut word = [0_u8; 4];
+    reader
+        .read(Slot::B, 8, &mut word)
+        .expect("the reader reads slot B");
+    assert_eq!(&word, b"TRCK");
+    assert!(
+        owner.checkpoint_reader().is_ok(),
+        "a reader can be taken again"
+    );
 }

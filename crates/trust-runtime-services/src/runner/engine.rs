@@ -72,8 +72,9 @@ use crate::live_values::var_requests::VariableQueuePort;
 use crate::live_values::RequestQueueFull;
 use crate::status::IoDriverStatus;
 
-/// The only resource a source-free composition admits (spec 34 §5.2).
-const RESOURCE_INDEX: usize = 0;
+/// The only resource a source-free composition admits (spec 34 §5.2). The retained-value check of an
+/// install builds the new program's resource with it.
+pub(super) const RESOURCE_INDEX: usize = 0;
 
 /// What the deployment configures for the installed program besides its code (specification
 /// 34, §5.1 and TARGET-08).

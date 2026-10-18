@@ -3,8 +3,8 @@
 //!
 //! [`check`] runs the checks that read the container alone, before any write: the container and its
 //! record, their admission against the device, the retained values, and a dry-run preparation with
-//! the admitted limits. [`begin`] runs them for a chip's store. The transfer hands over only a
-//! complete container.
+//! the admitted limits. [`begin`] runs them for a chip's store, and [`start`] begins the commit of a
+//! container that [`check`] has passed. The transfer hands over only a complete container.
 //! [`Install::step`] then commits the container one step per call, so the loop serves its link
 //! between steps (STATE-08). The steps erase the units the container needs, program the payloads,
 //! the header and the first half of the magic, read back what was programmed, and program the second
@@ -15,7 +15,7 @@ use alloc::vec::Vec;
 use core::fmt;
 use core::ops::Range;
 
-use trust_runtime_core::deployment::DeviceDescriptor;
+use trust_runtime_core::deployment::{DeploymentRecord, DeviceDescriptor};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::ProgramStore;
 use trust_runtime_core::retain::checkpoint::{FlashError, FlashGeometry, Slot};
@@ -45,8 +45,13 @@ pub enum InstallError {
     /// The container, its record or its admission is refused (specification 34 §5.1, §5.1.1).
     Admission(AdmissionError),
     /// The new program cannot restore the retained values of the running one (specification 11
-    /// §6.7.1). The check that refused is the hook the caller passed.
+    /// §6.7.1): the warm start refuses them, or the checkpoint they come from is damaged. The check
+    /// that refused is the hook the caller passed.
     Retain(RuntimeError),
+    /// The retained-value check could not be carried out, for example because the new program could
+    /// not be built to try its warm start (specification 11 §6.7.1; decision G13). The text is the
+    /// check's own error: it does not claim that retained values cannot be restored.
+    RetainCheck(RuntimeError),
     /// The dry-run preparation exceeds the admitted limits: `insufficient memory`, with its numbers
     /// (DEPLOY-04).
     InsufficientMemory {
@@ -80,6 +85,9 @@ impl fmt::Display for InstallError {
             Self::Admission(error) => fmt::Display::fmt(error, formatter),
             Self::Retain(error) => {
                 write!(formatter, "the retained values cannot be restored: {error}")
+            }
+            Self::RetainCheck(error) => {
+                write!(formatter, "the retained-value check could not run: {error}")
             }
             Self::InsufficientMemory {
                 program_bytes,
@@ -193,14 +201,38 @@ impl Cursor {
 /// The [`InstallError`] of the first check that refuses. Nothing has been written when it returns.
 pub fn begin(
     store: &mut ProgramStore,
-    mut container: Vec<u8>,
+    container: Vec<u8>,
     device: &DeviceDescriptor,
     retain_check: impl FnOnce(&Admitted<'_>) -> Result<(), RuntimeError>,
+) -> Result<Install, InstallError> {
+    let checked = check(&container, device, retain_check)?;
+    start(store, container, checked)
+}
+
+/// Begins the commit of `container`, a complete `TRSTA002` container that [`check`] has passed, and
+/// returns the commit that writes it. `checked` is what [`check`] found of it, or [`Checked::of`]
+/// reads from it again.
+///
+/// This is [`begin`] without the checks, for a caller that ran them in an earlier step: the loop of a
+/// device runs them in the request that carried the container and begins the commit right after
+/// (specification 34 §11.2). Nothing has been written when it returns. The store's committed
+/// containers are ordered, and the container takes the next install sequence and the slot that does
+/// not hold the newest committed container, or slot A when none is committed.
+///
+/// # Errors
+///
+/// [`InstallError::SlotTooSmall`] when the container is longer than a slot,
+/// [`InstallError::Scan`] when the committed containers cannot be ordered and
+/// [`InstallError::SequenceExhausted`] when the newest sequence cannot count higher.
+pub fn start(
+    store: &mut ProgramStore,
+    mut container: Vec<u8>,
+    checked: Checked,
 ) -> Result<Install, InstallError> {
     let Checked {
         program_bytes,
         program_sha256,
-    } = check(&container, device, retain_check)?;
+    } = checked;
     let geometry = store.flash.geometry();
     let slot_len = geometry.slot_len();
     let Some(container_len) = u32::try_from(container.len())
@@ -249,12 +281,38 @@ pub struct Checked {
     pub program_sha256: [u8; 32],
 }
 
+impl Checked {
+    /// What [`check`] found of `container`, read from the container again without the checks: its
+    /// program's length and the SHA-256 its record names. For a caller that ran [`check`] on the
+    /// container in an earlier step and begins the commit with [`start`].
+    ///
+    /// # Errors
+    ///
+    /// [`InstallError::Admission`] when the container or its record cannot be read, which a container
+    /// that passed [`check`] does not do.
+    pub fn of(container: &[u8]) -> Result<Self, InstallError> {
+        let sequenced = installation::decode_sequenced(container)
+            .map_err(|error| InstallError::Admission(AdmissionError::Container(error)))?;
+        let record = DeploymentRecord::decode(sequenced.installed.record)
+            .map_err(|error| InstallError::Admission(AdmissionError::Record(error)))?;
+        Ok(Self {
+            program_bytes: sequenced.installed.program.len(),
+            program_sha256: record.application.program_sha256,
+        })
+    }
+}
+
 /// The checks that read the container alone, before any write, in the order of specification 34
 /// §11.2 (design S4 §2.2): the container and its record, their admission against `device`
 /// (specification 34 §5.1.1, DEPLOY-04), the retained values, and a dry-run preparation with the
 /// admitted limits. The dry run's result is dropped. Every runtime runs these checks in this order
 /// with the same texts; the platform supplies `retain_check`, the check of specification 11 §6.7.1
 /// (decision G13), which is given the admitted program.
+///
+/// An error of `retain_check` that is a retained-value error (the checkpoint or the retain file is
+/// damaged, or the warm start refuses a value) is [`InstallError::Retain`]; any other error means
+/// that the check could not be carried out, for example because the new program could not be built,
+/// and is [`InstallError::RetainCheck`] with its own text.
 ///
 /// # Errors
 ///
@@ -266,7 +324,7 @@ pub fn check(
 ) -> Result<Checked, InstallError> {
     let SequencedAdmitted { admitted, .. } =
         installation::admit_sequenced(container, device).map_err(InstallError::Admission)?;
-    retain_check(&admitted).map_err(InstallError::Retain)?;
+    retain_check(&admitted).map_err(retain_refusal)?;
     let program_bytes = admitted.program.len();
     let program_sha256 = admitted.record.application.program_sha256;
     PreparedModule::from_bytes(admitted.program, admitted.limits)
@@ -275,6 +333,22 @@ pub fn check(
         program_bytes,
         program_sha256,
     })
+}
+
+/// The refusal of the retained-value check: a retained-value error is the retained values that cannot
+/// be restored, and any other error is a check that could not run (decision G13).
+fn retain_refusal(error: RuntimeError) -> InstallError {
+    if matches!(
+        error,
+        RuntimeError::RetainStore(_)
+            | RuntimeError::RetainCorruption(_)
+            | RuntimeError::RetainMigration(_)
+            | RuntimeError::RetainSubrangeViolation { .. }
+    ) {
+        InstallError::Retain(error)
+    } else {
+        InstallError::RetainCheck(error)
+    }
 }
 
 /// The dry run's refusal. A program that needs more than the admitted preparation limits is
@@ -338,6 +412,18 @@ fn padded(bytes: &[u8], program_unit: u32) -> Vec<u8> {
 }
 
 impl Install {
+    /// The identity the commit gives the program once it is committed: the install sequence it
+    /// took, the program's SHA-256 and its length. It is known when the commit begins, so the reply
+    /// of an install can be written before the last step is done (specification 34 §11.2).
+    #[must_use]
+    pub fn identity(&self) -> Committed {
+        Committed {
+            sequence: self.sequence,
+            program_sha256: self.program_sha256,
+            program_bytes: self.program_bytes,
+        }
+    }
+
     /// Advances the commit by one step: one erase unit, at most one budget of programmed or
     /// read-back bytes, or the commit point. A step that fails ends the install, which the caller
     /// drops, and the previous program stays selected.

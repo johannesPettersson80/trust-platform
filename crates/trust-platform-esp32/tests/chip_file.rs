@@ -11,6 +11,7 @@ use trust_platform_esp32::profile::{
     numeric_profile_ok, CHIP_ID, CPU_HZ, DEVICE_DESCRIPTOR, FACTORY_OFFSET, FLASH_KIB,
     RESET_POWER_ON, RESET_USB, RESET_WATCHDOG, STBC_BYTES, STBC_OFFSET,
 };
+use trust_platform_esp32::program_flash::SLOT_BYTES;
 use trust_platform_esp32::{Platform, ResetCause, ResetRecord};
 use trust_runtime_core::deployment::{ControlMode, DeviceDescriptor};
 use trust_runtime_services::capabilities::{self, LastReset, ResetCauseName};
@@ -76,18 +77,23 @@ fn the_bench_module_flash_holds_the_whole_layout() {
     assert!(end <= u64::from(FLASH_KIB) * 1024);
 }
 
-/// The device descriptor admission reads is the chip file's application region and its `[events]`
-/// table; the maxima for the preparation limits are trust-runtime's hosted maxima because
+/// The device descriptor admission reads is the chip file's program slot and its `[events]` table;
+/// the maxima for the preparation limits are trust-runtime's hosted maxima because
 /// `chips/esp32c6.toml` names none yet (specification 34 §5.1.1: "Appendix H gains the keys for
-/// its maxima with the chip's firmware"). Catches a slot that is not the chip's application region
-/// (for example the 16 KiB bench bundle), an event store that is not the chip file's, and maxima
-/// that were invented instead of taken from the chip file or from trust-runtime.
+/// its maxima with the chip's firmware"). Catches a slot that is not the chip's program slot (for
+/// example the 16 KiB bench bundle), an event store that is not the chip file's, and maxima that
+/// were invented instead of taken from the chip file or from trust-runtime.
 #[test]
 fn the_device_descriptor_matches_the_chip_file() {
     let file = chip_file();
     assert_eq!(
         DEVICE_DESCRIPTOR.application_slot_bytes,
-        Some(file.layout.application.bytes())
+        Some(
+            file.layout
+                .application_a
+                .expect("the ESP32-C6 names its program slots")
+                .bytes()
+        )
     );
     assert_eq!(
         DEVICE_DESCRIPTOR.event_store_default,
@@ -99,21 +105,63 @@ fn the_device_descriptor_matches_the_chip_file() {
     assert_eq!(DEVICE_DESCRIPTOR.maxima, DeviceDescriptor::hosted().maxima);
 }
 
-/// The `capabilities` reply of the chip's descriptor carries the chip file's application slot and
+/// The device offers one program slot, not the whole application region (specification 34 §5.1 and
+/// §5.1.1 step 8; Appendix H.2): an install writes one of the two slots `application_a` and
+/// `application_b` of the chip file, each `kib = 3056`, 3,056 x 1,024 = 3,129,344 bytes, and the two
+/// together are the 6,112 KiB `application` region. A program and its record that fit the region but
+/// not a slot could never be installed. Catches a descriptor that still offers the region
+/// (6,258,688 bytes), which admission would grant to a container that no slot can take.
+#[test]
+fn the_device_descriptor_offers_one_slot() {
+    let file = chip_file();
+    let slot_a = file
+        .layout
+        .application_a
+        .expect("the ESP32-C6 names slot A");
+    let slot_b = file
+        .layout
+        .application_b
+        .expect("the ESP32-C6 names slot B");
+    assert_eq!(slot_a.bytes(), 3_129_344);
+    assert_eq!(slot_b.bytes(), 3_129_344);
+    assert_eq!(
+        slot_a.bytes() + slot_b.bytes(),
+        file.layout.application.bytes(),
+        "the two slots are the application region"
+    );
+    assert_eq!(DEVICE_DESCRIPTOR.application_slot_bytes, Some(3_129_344));
+    assert_ne!(
+        DEVICE_DESCRIPTOR.application_slot_bytes,
+        Some(file.layout.application.bytes()),
+        "the descriptor does not offer the whole region"
+    );
+    assert_eq!(
+        DEVICE_DESCRIPTOR.application_slot_bytes,
+        Some(u64::from(SLOT_BYTES)),
+        "and it is the slot the program store writes"
+    );
+}
+
+/// The `capabilities` reply of the chip's descriptor carries the chip file's program slot and
 /// event store (specification 34 §5.1.1 and TARGET-03; specification 11, the runtime device
-/// capabilities contract). The slot is `kib = 6112` of `[layout] application`, 6112 x 1024 bytes;
+/// capabilities contract). The slot is `kib = 3056` of `[layout] application_a`, 3056 x 1024 bytes;
 /// the event store is the file's `[events]` table. The reply is rendered from the descriptor by the
 /// shared services, so the rendered fields are compared with the file and with literals worked out
-/// by hand here. Catches a slot in another unit or region (the 16 KiB bench bundle), an event store
-/// that is the computer's 1,000, and an unbounded maximum written as a number instead of `null`.
+/// by hand here. Catches a slot in another unit or region (the 16 KiB bench bundle, or the whole
+/// 6,112 KiB region), an event store that is the computer's 1,000, and an unbounded maximum written
+/// as a number instead of `null`.
 #[test]
 fn the_capabilities_reply_of_the_chip_carries_the_chip_file_slot_and_event_store() {
     let file = chip_file();
     let reply = capabilities::descriptor_json(&DEVICE_DESCRIPTOR, None);
-    assert_eq!(reply["application_slot_bytes"], json!(6_258_688_u64));
+    assert_eq!(reply["application_slot_bytes"], json!(3_129_344_u64));
     assert_eq!(
         reply["application_slot_bytes"],
-        json!(file.layout.application.bytes())
+        json!(file
+            .layout
+            .application_a
+            .expect("the ESP32-C6 names its program slots")
+            .bytes())
     );
     assert_eq!(
         reply["event_store_default"],

@@ -339,8 +339,9 @@ where
         self.end();
     }
 
-    /// The program has ended, as trust-runtime's process ends at a stop: it has no boundary, and
-    /// the queued commands and a pending restart are dropped.
+    /// The program has ended, as a `shutdown` ends it on every runtime, a computer's trust-runtime
+    /// included: the runtime stays reachable in the Stopped state (specification 34, STATE-08), the
+    /// program has no boundary, and the queued commands and a pending restart are dropped.
     fn end(&mut self) {
         self.shell.set_stop_requested(false);
         self.next_boundary = None;

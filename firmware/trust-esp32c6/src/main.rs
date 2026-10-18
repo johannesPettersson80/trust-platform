@@ -2,17 +2,19 @@
 //! application, on the C6 adapter (design §1.1 and §1.2, specification 34).
 //!
 //! Boot order (design §1.1, R1): the hardware first (peripherals, clock, the reset reason and the
-//! reset record read once, this boot counted); then the installed application (its header read,
-//! only its total length copied into the heap, and `installation::admit` against the C6's
-//! descriptor); then the record's GPIO lines claimed by pin name, each output driven to its
-//! initial value before it becomes an output; then the program prepared, instantiated and started
-//! (with `mode = "file"`, warm from the newest committed checkpoint); then the runner serves the
-//! control link over USB.
+//! reset record read once, this boot counted); then the program store and the installed application
+//! (the header of each of the two program slots read, the committed container with the highest
+//! install sequence read once, and admitted against the C6's descriptor); then the record's GPIO
+//! lines claimed by pin name, each output driven to its initial value before it becomes an output;
+//! then the program prepared, instantiated and started (with `mode = "file"`, warm from the newest
+//! committed checkpoint); then the runner serves the control link over USB.
 //!
 //! With no valid application, or one the device refuses, the same loop runs Stopped and serves the
-//! link with the refusal's text (design §1.1, R2). A panic drives every configured output to its
-//! safe level, writes the cause and location into the reset record, and resets the chip; it never
-//! writes to the link (R4).
+//! link with the refusal's text (design §1.1, R2). The loop is given the transfer session of the boot
+//! and the program store in either case, so that a program can be installed over the link: the install
+//! commits in steps in the Stopped state (specification 34 §11.2), and the next boot selects it. A
+//! panic drives every configured output to its safe level, writes the cause and location into the
+//! reset record, and resets the chip; it never writes to the link (R4).
 #![no_std]
 #![no_main]
 
@@ -32,13 +34,15 @@ use smol_str::SmolStr;
 use trust_platform_esp32::process_io::{bind_lines, GpioIo};
 use trust_platform_esp32::{
     emergency_halt,
-    profile::{DEVICE_DESCRIPTOR, STBC_BYTES},
+    profile::{transfer_session, DEVICE_DESCRIPTOR, PROGRAM_STEP_BYTES, STBC_BYTES},
     Board, Monotonic, Platform, UsbLink, Wait, Watchdog,
 };
 use trust_runtime_core::deployment::{Configuration, ControlMode};
 use trust_runtime_core::error::RuntimeError;
-use trust_runtime_core::ports::{CheckpointStorage, MonotonicClock, MonotonicInstant};
-use trust_runtime_core::retain::checkpoint::CheckpointIdentity;
+use trust_runtime_core::ports::{
+    CheckpointStorage, MonotonicClock, MonotonicInstant, ProgramStore,
+};
+use trust_runtime_core::retain::checkpoint::{CheckpointFlash, CheckpointIdentity};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::value::Duration;
 use trust_runtime_core::vm::{PreparedModule, RetainApplyEvent};
@@ -46,12 +50,14 @@ use trust_runtime_core::watchdog::RetainMode;
 use trust_runtime_services::capabilities::LastReset;
 use trust_runtime_services::chip::platform::status_settings;
 use trust_runtime_services::chip::process_io::record_lines;
+use trust_runtime_services::installation::Admitted;
 use trust_runtime_services::runner::engine::{
     device_limits, CycleSettings, DeviceMemory, DeviceServices, EngineCycle,
 };
 use trust_runtime_services::runner::{
-    EngineLiveValues, ResourceCycle, RetainConfig, RetainSource, Runner,
+    check_retained_values, EngineLiveValues, ResourceCycle, RetainConfig, RetainSource, Runner,
 };
+use trust_runtime_services::transfer::TransferSession;
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -76,23 +82,45 @@ fn main() -> ! {
     let last_reset =
         Platform::<Watchdog>::boot_last_reset(reset_reason, previous_record, boot_count);
 
-    // The installed application, admitted before any state exists.
-    let admitted = application::read_and_admit(&mut board);
-    let wait_alarm = board.take_wait_alarm();
-    let admitted = match admitted {
-        Ok(admitted) => admitted,
-        Err(reason) => stop(board, wait_alarm, last_reset, reason),
+    // The program store: the flash of the two program slots, which the boot reads and an install
+    // writes (specification 34 §5.1). The loop is given it, and a second handle on the checkpoint
+    // slots for the install's retained-value check, whether or not a program runs.
+    let Ok(program_flash) = board.take_program_flash() else {
+        emergency_halt("program-flash");
     };
-    let program = admitted.program;
+    let mut store = ProgramStore {
+        flash: program_flash,
+        program_budget: PROGRAM_STEP_BYTES,
+    };
+
+    // The installed application: the committed container with the highest install sequence,
+    // admitted before any state exists.
+    let installed = application::boot(&mut store);
+    let wait_alarm = board.take_wait_alarm();
+    let Ok(checkpoint_reader) = board.checkpoint_reader() else {
+        emergency_halt("checkpoint-reader");
+    };
+    // The transfers of this boot carry the boot count in their ids, so an id of an earlier boot never
+    // names a transfer of this one (specification 34, PORT-05).
+    let installing = Installing {
+        transfers: transfer_session(boot_count),
+        store,
+        checkpoints: checkpoint_reader,
+    };
+    let booted = match installed {
+        Ok(booted) => booted,
+        Err(reason) => stop(board, wait_alarm, installing, last_reset, reason),
+    };
+    let program = booted.program;
     // The identity every checkpoint of this program carries (specification 34 §10.1).
-    let identity = admitted.record.checkpoint_identity();
-    let config = admitted.record.configuration;
+    let identity = booted.record.checkpoint_identity();
+    let config = booted.record.configuration;
 
     // The record's GPIO lines, claimed by pin name, each output driven to its initial value
     // before it becomes an output (design §1.1, R1).
     let (gpio_inputs, gpio_outputs) = match record_lines(&config, "C6") {
         Ok(lines) => lines,
-        Err(reason) => stop(board, wait_alarm, last_reset, reason),
+        Err(reason) => stop(board, wait_alarm, installing, last_reset, reason),
     };
     let claimed = board.claim_lines(&gpio_inputs, &gpio_outputs);
     let lines = match claimed {
@@ -100,6 +128,7 @@ fn main() -> ! {
         Err(error) => stop(
             board,
             wait_alarm,
+            installing,
             last_reset,
             format!("the installed application's GPIO lines cannot be claimed: {error}"),
         ),
@@ -114,37 +143,42 @@ fn main() -> ! {
         stop(
             board,
             wait_alarm,
+            installing,
             last_reset,
             String::from("the installed application's watchdog timeout is outside the C6's range"),
         );
     }
 
     // The chip's checkpoint flash, which the platform hands to the installed program (specification
-    // 34 §10.1). It is taken after the application is read, which uses the same flash driver.
+    // 34 §10.1). It shares the flash driver with the program store, so it is taken after the boot read.
     let checkpoint_flash = match board.take_checkpoint_flash() {
         Ok(checkpoint_flash) => checkpoint_flash,
         Err(error) => stop(
             board,
             wait_alarm,
+            installing,
             last_reset,
             format!("the chip's checkpoint flash is not available: {error:?}"),
         ),
     };
 
-    // Prepare the program with the limits its region and the heap allow (design §1.1).
+    // Prepare the program with the limits its region and the heap allow (design §1.1). The container
+    // was released at the boot: the program's bytes are freed as soon as it is prepared.
     let limits = device_limits(DeviceMemory {
         region_bytes: STBC_BYTES,
         heap_bytes: memory::HEAP.capacity(),
     });
-    let prepared = match PreparedModule::from_bytes(program, limits) {
+    let prepared = match PreparedModule::from_bytes(&program, limits) {
         Ok(prepared) => prepared,
         Err(error) => stop(
             board,
             wait_alarm,
+            installing,
             last_reset,
             format!("the installed application cannot be prepared: {error}"),
         ),
     };
+    drop(program);
     let prepared: &'static PreparedModule = Box::leak(Box::new(prepared));
 
     // The Live Values of the installed program, for the `io.*`, `set` and `var.*` operations over
@@ -154,6 +188,7 @@ fn main() -> ! {
         Err(error) => stop(
             board,
             wait_alarm,
+            installing,
             last_reset,
             format!("the installed application's Live Values cannot be prepared: {error}"),
         ),
@@ -211,18 +246,23 @@ fn main() -> ! {
                 wait_alarm: Some(alarm),
                 runtime_id: parts.runtime_id.clone(),
             },
+            installing,
             last_reset,
             reason,
         ),
     };
-    let mut runner = Box::new(Runner::new(
-        UsbLink::bind(),
-        Wait::new(alarm),
-        cycle,
-        platform,
-        clock,
-        event_capacity(&config),
-    ));
+    let mut runner = Box::new(
+        Runner::new(
+            UsbLink::bind(),
+            Wait::new(alarm),
+            cycle,
+            platform,
+            clock,
+            event_capacity(&config),
+        )
+        .with_transfers(installing.transfers)
+        .with_program_store(installing.store, retained_check(installing.checkpoints)),
+    );
     // The boot's warm start dropped or migrated retained values: the runner records them as a
     // restart's events are recorded, at the program's time zero.
     runner.record_boot_retain_events(boot_events);
@@ -253,23 +293,47 @@ impl Parts {
     }
 }
 
+/// What the loop installs a program with (specification 34 §5.1 and §11.2): the transfer session of
+/// this boot, the program store, and a second handle on the checkpoint slots that the install's
+/// retained-value check reads. The loop is given all three, whether or not a program runs.
+struct Installing {
+    transfers: TransferSession,
+    store: ProgramStore,
+    checkpoints: Box<dyn CheckpointFlash>,
+}
+
+/// The install's retained-value check over the checkpoint slots (specification 11 §6.7.1, decision
+/// G13): the warm start of the admitted program with the newest checkpoint, which only reads the
+/// slots. It is built here, in the firmware, so that its code is generated beside the engine's.
+fn retained_check(
+    mut checkpoints: Box<dyn CheckpointFlash>,
+) -> impl FnMut(&Admitted<'_>) -> Result<(), RuntimeError> {
+    move |admitted| check_retained_values(&mut *checkpoints, admitted)
+}
+
 /// The refusal's path: extract the loop's parts and serve the link Stopped with `reason`
 /// (design §1.1, R2).
 fn stop(
     board: Board,
     wait_alarm: Option<esp_hal::timer::systimer::Alarm<'static>>,
+    installing: Installing,
     last_reset: LastReset,
     reason: String,
 ) -> ! {
     let mut parts = Parts::take(board, wait_alarm);
     parts.watchdog.start();
-    serve_stopped(parts, last_reset, reason)
+    serve_stopped(parts, installing, last_reset, reason)
 }
 
 /// Runs the resource loop without a program: the resource is Stopped, the loop serves the link
 /// and feeds the hardware watchdog, and `restart` is refused with `reason` (design §1.1, R2). The
-/// caller has started the watchdog.
-fn serve_stopped(mut parts: Parts, last_reset: LastReset, reason: String) -> ! {
+/// loop takes installs over the link. The caller has started the watchdog.
+fn serve_stopped(
+    mut parts: Parts,
+    installing: Installing,
+    last_reset: LastReset,
+    reason: String,
+) -> ! {
     let Some(alarm) = parts.wait_alarm.take() else {
         emergency_halt("wait-alarm");
     };
@@ -294,7 +358,9 @@ fn serve_stopped(mut parts: Parts, last_reset: LastReset, reason: String) -> ! {
             parts.clock,
             SmolStr::from(reason),
             default_event_capacity(),
-        ),
+        )
+        .with_transfers(installing.transfers)
+        .with_program_store(installing.store, retained_check(installing.checkpoints)),
     );
     let _ = runner.run();
     emergency_halt("runner-stopped")

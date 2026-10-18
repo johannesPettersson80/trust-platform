@@ -33,12 +33,19 @@
 //! wait a restart comes before the stop. `shutdown` stops the program as trust-runtime stops it,
 //! and the device stays reachable and keeps serving the link; a `restart` of a program that has
 //! ended takes effect at once and starts it as a new trust-runtime process would.
+//!
+//! A device that stores its program in flash gives the loop a transfer session and a program store
+//! ([`Runner::with_transfers`], [`Runner::with_program_store`]). A `program.install` then commits in
+//! steps, one in each pass while the resource is Stopped, and its `installed` reply is the one reply
+//! in flight until the last step is done: the loop reads no request from its link meanwhile
+//! (specification 34 §11.2 and PORT-05; the install state is in `install.rs`).
 
 mod cycle;
 mod debugger;
 pub mod engine;
 mod hold;
 mod host;
+mod install;
 mod observer;
 mod program;
 mod retain;
@@ -46,13 +53,15 @@ mod shell;
 mod state;
 mod supervision;
 
+use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::{
-    ControlLink, MonotonicClock, MonotonicInstant, PortError, RunnerWait, TimeSpan, WakeReason,
+    ControlLink, MonotonicClock, MonotonicInstant, PortError, ProgramStore, RunnerWait, TimeSpan,
+    WakeReason,
 };
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value;
@@ -62,10 +71,13 @@ pub use cycle::{resource_tasks, ResourceCycle, RetainSource, TaskDescriptor};
 pub use engine::EngineLiveValues;
 pub use hold::HoldHandle;
 pub use host::RunnerPlatform;
+pub use install::check_retained_values;
 pub use retain::RetainConfig;
 
+use crate::installation::Admitted;
 use crate::protocol::ControlAfterResponse;
 use crate::resource::supervisor::AutomaticRestartLimiter;
+use crate::transfer::TransferSession;
 use program::Program;
 use shell::Shell;
 use state::{Records, ResourceCell};
@@ -229,6 +241,37 @@ where
     }
 }
 
+impl<L, W, Y, P, C> Runner<L, W, Y, P, C> {
+    /// Gives the loop the transfer session of this boot, which the transfer operations use (specification
+    /// 34, PORT-05). A device builds it with the boot number it keeps across resets, so that a transfer
+    /// id of an earlier boot never names a transfer of this one.
+    ///
+    /// Without a session of its own the loop uses the platform's ([`RunnerPlatform::with_transfers`]).
+    #[must_use]
+    pub fn with_transfers(self, session: TransferSession) -> Self {
+        self.shell.install.set_transfers(session);
+        self
+    }
+
+    /// Gives the loop the device's program store, which `program.install` commits to in steps
+    /// (specification 34 §5.1 and §11.2), and the device's retained-value check of an install (decision
+    /// G13): the warm start of the admitted program with the newest checkpoint, which refuses the install
+    /// before any byte is written. A device whose checkpoints are in a checkpoint flash builds the check
+    /// with [`check_retained_values`], over a handle on the slots that it only reads. The loop answers
+    /// `program.install` with `unsupported request` until it is given a store.
+    #[must_use]
+    pub fn with_program_store(
+        self,
+        store: ProgramStore,
+        retained_check: impl FnMut(&Admitted<'_>) -> Result<(), RuntimeError> + 'static,
+    ) -> Self {
+        self.shell
+            .install
+            .set_store(store, Box::new(retained_check));
+        self
+    }
+}
+
 impl<L, W, Y, P, C> Runner<L, W, Y, P, C>
 where
     L: ControlLink,
@@ -272,15 +315,20 @@ where
         }
     }
 
-    /// One pass of the loop: it reads the wake token, serves the requests that have arrived up to a
-    /// due boundary, takes the program's boundary when it is due, advances a pending retained
-    /// checkpoint by one step, does the platform's idle work, feeds the hardware watchdog and waits
-    /// until the next boundary or a wake (PORT-03).
+    /// One pass of the loop: it reads the wake token, advances a pending install by one step, serves
+    /// the requests that have arrived up to a due boundary, takes the program's boundary when it is
+    /// due, advances a pending retained checkpoint by one step, does the platform's idle work, feeds
+    /// the hardware watchdog and waits until the next boundary or a wake (PORT-03).
     ///
     /// The wait never outlasts the watchdog's feed interval, so the loop feeds it in every state,
     /// also while the program is stopped, paused or faulted (TIME-04). A pass that served
     /// [`FRAMES_PER_PASS`] requests, or that held a request back for a due boundary, returns
     /// without waiting.
+    ///
+    /// While an install commits (specification 34 §11.2), its reply is the one reply in flight
+    /// (PORT-05): the pass serves no request, takes its one step before it serves the link, and
+    /// returns without waiting, so the next pass takes the next step. The pass that reads the
+    /// install's request writes no byte of it; the passes after it take one step each.
     ///
     /// # Errors
     ///
@@ -291,13 +339,14 @@ where
             return Err(failure);
         }
         let token = self.shell.wake_token();
+        self.shell.step_install();
         let more_frames = self.serve_link();
         self.supervise();
         self.step_retain();
         self.shell.idle();
         self.shell.feed();
         self.fault_on_shell_defect();
-        if more_frames {
+        if more_frames || self.shell.install_pending() {
             return Ok(WakeReason::Event);
         }
         let liveness = self.clock.now().saturating_add(self.shell.feed_interval());
@@ -392,6 +441,9 @@ mod hold_contract_tests;
 
 #[cfg(test)]
 mod hold_link_contract_tests;
+
+#[cfg(test)]
+mod install_contract_tests;
 
 #[cfg(test)]
 mod link_contract_tests;

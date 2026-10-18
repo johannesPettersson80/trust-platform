@@ -231,6 +231,8 @@ struct LinkState {
     /// it reaches the loop, in the order they arrive.
     incoming: VecDeque<(Vec<u8>, PeerClass, Duration)>,
     replies: Vec<String>,
+    /// How many times the loop has polled the link for a request.
+    polls: u32,
 }
 
 /// The control link: the test queues request frames and takes the replies.
@@ -279,6 +281,11 @@ impl TestLink {
             .map(|reply| serde_json::from_str(reply).expect("every reply is one JSON object"))
             .collect()
     }
+
+    /// How many times the loop has polled the link for a request since the link was built.
+    pub(crate) fn polls(&self) -> u32 {
+        self.state.borrow().polls
+    }
 }
 
 impl ControlLink for TestLink {
@@ -288,6 +295,7 @@ impl ControlLink for TestLink {
 
     fn poll_frame(&mut self, buffer: &mut [u8]) -> Option<LinkFrame> {
         let mut state = self.state.borrow_mut();
+        state.polls += 1;
         let now = self.clock.now().since_origin();
         if state.incoming.front().is_none_or(|(_, _, at)| *at > now) {
             return None;

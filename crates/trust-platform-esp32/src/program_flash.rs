@@ -195,6 +195,19 @@ impl<R: RawFlash> FlashOwner<R> {
         Ok(Some(checkpoint))
     }
 
+    /// A second handle on the checkpoint slots, for reading the newest checkpoint while the handle
+    /// that writes them belongs to the installed program's cycle. It can be taken at any time, and as
+    /// often as the caller needs it. The loop that holds it only reads through it: the retained-value
+    /// check of an install (specification 11 §6.7.1, decision G13) reads the newest checkpoint with
+    /// it, also when no program runs.
+    ///
+    /// # Errors
+    ///
+    /// [`CheckpointError::Geometry`] when the flash geometry cannot hold the checkpoint log.
+    pub fn checkpoint_reader(&self) -> Result<SlotFlash<SharedFlash<R>>, CheckpointError> {
+        SlotFlash::new(self.flash.clone())
+    }
+
     /// Reads the first `buffer.len()` bytes of the installed application, which begin at slot A.
     /// The boot reads them until it selects the newest committed slot itself (specification 34
     /// §5.1, boot selection).

@@ -32,8 +32,9 @@ pub(super) struct ResourceCell {
     /// of the last pause or resume among them, which decides the state.
     queued: Cell<usize>,
     last_command: Cell<Option<RunningCommandEffect>>,
-    /// The program has ended, as trust-runtime's process ends at a stop: the queue is closed, and
-    /// a restart starts the program as a new process would.
+    /// The program has ended, as a `shutdown` ends it on every runtime: the runtime stays reachable
+    /// in the Stopped state (specification 34, STATE-08), the queue is closed, and a restart starts
+    /// the program as a new trust-runtime process would.
     ended: Cell<bool>,
 }
 

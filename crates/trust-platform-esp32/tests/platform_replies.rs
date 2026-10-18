@@ -53,9 +53,11 @@ fn platform() -> Platform<()> {
 /// 3.0 (`bytecode::BytecodeVersion`), the cooperative resource profile, numeric contract 1, unqualified
 /// timing and no capability (the C6 has no wall clock until slice T6). Its maxima are the 64 MiB artifact
 /// and 1,024 call levels, and every other limit is `null`. Its event store holds 200 events by default and
-/// at most 200, and its application slot is 6,112 KiB (`chips/esp32c6.toml`, `[events]` and `[layout]`).
-/// Catches a field renamed, a maximum written as a number instead of `null`, a slot or event store of
-/// another chip, and a reset that is not the power-on one.
+/// at most 200, and its application slot is one program slot, 3,056 KiB = 3,129,344 bytes
+/// (`chips/esp32c6.toml`, `[events]` and `[layout] application_a`; specification 34 §5.1.1: an install
+/// writes one of the two slots). Catches a field renamed, a maximum written as a number instead of
+/// `null`, a slot or event store of another chip, a slot that is the whole 6,112 KiB region, and a
+/// reset that is not the power-on one.
 #[test]
 fn the_c6_capabilities_reply_is_the_bytes_the_chip_gives_today() {
     let reply = capabilities::capabilities(7, &platform());
@@ -85,7 +87,7 @@ fn the_c6_capabilities_reply_is_the_bytes_the_chip_gives_today() {
                 },
                 "event_store_default": 200,
                 "event_store_max": 200,
-                "application_slot_bytes": 6_258_688,
+                "application_slot_bytes": 3_129_344,
                 "last_reset": { "cause": "power_on", "text": "", "boot_count": 1 },
             },
         })

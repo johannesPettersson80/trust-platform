@@ -27,12 +27,21 @@
 //! it does nothing, raises the shell's fault ([`Shell::take_fault`]), and the loop faults the
 //! resource with `InvalidExecutionState` at its next check. A `RefCell` panic would be a firmware
 //! fault on a device (specification 34, STATE-05).
+//!
+//! # An install in progress
+//!
+//! The request that begins a stepped install (`program.install`, specification 34 §11.2) is answered
+//! when its commit ends, not when the request is served. [`Shell::serve`] holds the reply the
+//! dispatcher built, [`Shell::step_install`] advances the commit by one step in each pass and writes
+//! the reply when it ends, and [`Shell::next_frame`] hands the loop no request in between: the reply
+//! is the one reply in flight (specification 34, PORT-05).
 
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 
+use serde::Deserialize;
 use trust_runtime_core::ports::{
     ControlLink, HardwareWatchdog, LinkFrame, MonotonicClock, MonotonicInstant, PeerClass,
     PortError, RunnerWait, TimeSpan, WakeReason, WakeToken,
@@ -40,6 +49,7 @@ use trust_runtime_core::ports::{
 
 use super::debugger::ChipDebug;
 use super::host::{ProgramView, RunnerHost};
+use super::install::{InstallState, Step};
 use super::state::{Records, ResourceCell};
 use super::RunnerPlatform;
 use crate::dispatch::{invalid_line, prepare_line_within, PreparedLine};
@@ -73,6 +83,8 @@ pub(super) struct Shell<L, W, P, C> {
     pub(super) resource: ResourceCell,
     pub(super) records: Records<C>,
     pub(super) debug: ChipDebug,
+    /// The transfers, the program store and the install that runs.
+    pub(super) install: InstallState,
     pub(super) clock: C,
     #[cfg(test)]
     pub(super) probe: RefCell<Option<alloc::boxed::Box<HoldProbe>>>,
@@ -109,6 +121,7 @@ where
             resource,
             records,
             debug: ChipDebug::new(),
+            install: InstallState::default(),
             clock,
             #[cfg(test)]
             probe: RefCell::new(None),
@@ -212,8 +225,13 @@ where
     }
 
     /// The request to answer next: the one held back for a due boundary, which goes first, else the
-    /// next frame the link has received.
+    /// next frame the link has received. None while an install's reply is pending: that reply is the
+    /// one reply in flight, so the loop reads no request until it is written (specification 34,
+    /// PORT-05). The requests that arrive meanwhile wait in the link.
     pub(super) fn next_frame(&self) -> Option<LinkFrame> {
+        if self.install.reply_pending() {
+            return None;
+        }
         if let Some(held) = self.held.take() {
             return Some(held);
         }
@@ -235,18 +253,68 @@ where
     /// leaves. A reply the link cannot deliver is lost, as trust-runtime loses a reply to a
     /// connection that has closed; so is one that does not fit a frame even as the error that
     /// replaces a longer reply.
+    ///
+    /// A request that began a stepped install is not answered yet: the reply the dispatcher built is
+    /// held, and [`Self::step_install`] writes it when the commit ends (specification 34 §11.2).
     pub(super) fn serve(
         &self,
         received: LinkFrame,
         program: &dyn ProgramView,
     ) -> Option<ControlAfterResponse> {
         let prepared = self.answer(received, program)?;
-        if prepared.response.len() <= self.max_frame_len {
+        if self.install.take_began() {
+            if !self
+                .install
+                .hold_reply(self.request_id(received), prepared.response)
+            {
+                self.fault.set(true);
+            }
+            return prepared.after_response;
+        }
+        self.send(&prepared.response);
+        prepared.after_response
+    }
+
+    /// Sends `response`, one reply, when it fits a frame.
+    fn send(&self, response: &str) {
+        if response.len() <= self.max_frame_len {
             self.update(&self.link, |link| {
-                let _ = link.send_frame(prepared.response.as_bytes());
+                let _ = link.send_frame(response.as_bytes());
             });
         }
-        prepared.after_response
+    }
+
+    /// The request number of the request line `received`, which the dispatcher has read as a request:
+    /// the number its reply carries. A line that cannot be read again has number 0, as a request that
+    /// cannot be read does (specification 11 §6.8.1).
+    fn request_id(&self, received: LinkFrame) -> u64 {
+        let LinkFrame::Frame { len, .. } = received else {
+            return 0;
+        };
+        let Ok(frame) = self.frame.try_borrow() else {
+            self.fault.set(true);
+            return 0;
+        };
+        frame
+            .get(..len)
+            .and_then(|bytes| core::str::from_utf8(bytes).ok())
+            .and_then(|line| serde_json::from_str::<RequestNumber>(line).ok())
+            .map_or(0, |request| request.id)
+    }
+
+    /// Advances the install that runs by one step, and writes its reply when the commit ends: the
+    /// `installed` reply, or the failure of the step that failed (specification 34 §11.2).
+    pub(super) fn step_install(&self) {
+        match self.install.step() {
+            Step::Idle | Step::Running => {}
+            Step::Finished(Some(reply)) => self.send(&reply),
+            Step::Finished(None) | Step::InUse => self.fault.set(true),
+        }
+    }
+
+    /// Whether an install's reply is pending: its commit runs, and the loop reads no request.
+    pub(super) fn install_pending(&self) -> bool {
+        self.install.reply_pending()
     }
 
     /// The reply to one received frame, at most one frame long. A frame longer than the link
@@ -276,6 +344,7 @@ where
             resource: &self.resource,
             records: &self.records,
             debug: &self.debug,
+            install: &self.install,
         };
         Some(prepare_line_within(line, &host, client.as_deref(), max_len))
     }
@@ -312,6 +381,13 @@ where
             && self.frame.try_borrow_mut().is_ok()
             && self.debug.is_free()
     }
+}
+
+/// The request number of a request line: the one member of the request envelope that the reply of an
+/// install needs again, because the reply is written after the request is served.
+#[derive(Deserialize)]
+struct RequestNumber {
+    id: u64,
 }
 
 fn too_long(max_len: usize) -> PreparedLine {
