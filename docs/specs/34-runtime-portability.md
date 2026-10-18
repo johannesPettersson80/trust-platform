@@ -1493,7 +1493,7 @@ Use static composition where convenient. Borrowed trait objects are also accepta
 - **Frame size.** A link declares the longest frame it moves, in bytes and without the line end, the same in both directions. Every chip's USB link moves frames of up to 8,192 bytes. trust-runtime's own sockets have no such bound.
 - **Oversized request.** A request longer than the frame is dropped together with every byte up to its line feed. It is answered once, in its place among the replies, with `invalid request: request longer than <frame> bytes`, id 0 and no audit record; the requests after it are served as usual.
 - **Oversized reply.** No runtime cuts a reply. Requests and replies longer than a link's frame shall travel in parts on every runtime, with the transfer of program loading (§11.2 step 5, DEPLOY-02), each part within the frame. Until then a reply longer than the frame is replaced by `reply longer than <frame> bytes`, with the request's id and audit record id: the request was served and is audited as served, and the work after the reply, such as the stop after `shutdown`, still takes place. `events.tail` and `faults` write their reply one event at a time into a buffer of the frame's size and stop at its end, so a chip never builds a reply longer than its frame; a reply that fits is byte for byte the reply trust-runtime writes.
-- **One reply in flight.** The link sends one reply at a time. While a reply is being sent the link gives the control loop no further request, so the loop ends its pass and waits until the link wakes it; a busy link never delays a due cycle (STATE-08). Bytes that arrive while the receive buffer is full stay with the hardware, which stops accepting more (USB flow control); no byte is lost.
+- **One reply in flight.** The link sends one reply at a time. While a reply is being sent the link gives the control loop no further request, so the loop ends its pass and waits until the link wakes it, and while the link still holds reply bytes it has not handed to its hardware the loop waits no longer than a millisecond, so a reply in flight is driven to its end within a millisecond per packet without depending on the link's interrupts; a busy link never delays a due cycle (STATE-08). Bytes that arrive while the receive buffer is full stay with the hardware, which stops accepting more (USB flow control); no byte is lost.
 - **A host that stops reading.** A reply that has made no progress for at least 1 second, as the loop sees when it polls the link, is dropped and counted, and the link takes requests again. Bytes of it that the hardware already holds cannot be withdrawn, so the next reply starts with an extra line feed: the stale fragment then ends as a line that is not a JSON reply, and the next reply is whole.
 - **A new host session**, such as a USB bus reset, drops the reply being sent and any partly received request, so a new session never receives an old reply. A reply dropped part-way is repaired as above.
 - **Counters.** The link counts the requests it handed to the loop, the oversized requests, the replies sent, the replies dropped by the stall rule and by a new session, the replies it refused, the times its receive buffer was full and the host sessions. The operation that reports them is decided with the runtime descriptor (COMPAT-02).
@@ -3154,7 +3154,10 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   record lost, so one USB connection serves flashing, reset and capture. The ROM and the
   second-stage bootloader print about 30 non-record lines at every boot. The C6 verifier profile
   admits printable non-record lines only before each boot's first IDENTITY record, at most 64 per
-  boot, and reports their count. A non-record line anywhere else fails the run.
+  boot, and reports their count. A non-record line anywhere else fails the run. The same port
+  carries the control link (specification 34, PORT-05), and a watchdog core reset does not reset
+  the USB-Serial/JTAG peripheral, so the firmware clears its CDC-ACM FIFOs and interrupt state as
+  it binds the link at boot, and the link answers after any reset the firmware survives.
 - **Supervision.** `esp_hal::init` disables the RTC and timer-group watchdogs. The firmware arms
   MWDT0 (TIMG0), stage 0 resetting the system, with F401's 4,000 ms interval. After the deliberately
   withheld feed the chip reports reset reason 0x07 (`CoreMwdt0`; the ROM prints
@@ -3180,8 +3183,14 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   budgets a 16 KiB window at its top, below esp-hal 1.2.2's `_stack_start` (0x4086E610, a constant
   that inspection pins), with F401's 2 KiB minimum headroom, so the boards' heap and
   stack evidence is directly comparable. Exceeding the window fails the run although the region
-  has room. Interrupts use the same stack on RISC-V, so the window includes them. The allocator
-  serves two heap regions on the C6: the 72 KiB arena and the boot loader's reclaimed RAM.
+  has room. The window ends where static data and RAM-resident code end, so a layout whose region
+  cannot hold it lets the boot-time stack paint overwrite the allocator's own state: the linker
+  script asserts `_stack_start - _stack_end` is at least the 16 KiB window plus a 4 KiB margin, and
+  `build-firmware esp32c6` reads the linked `.stack` region, reports it with its margin above the
+  window, and fails below that margin. Keeping only the scan's hot path in RAM leaves the region
+  about 8 KiB of margin above the window. Interrupts use the same stack on RISC-V, so the window
+  includes them. The allocator serves two heap regions on the C6: the 72 KiB arena and the boot
+  loader's reclaimed RAM.
 - **Code placement.** Executed from flash through the 32 KB cache, one task activation retired
   188,838 instructions in about 1.77 M cycles (11.07 ms, over the 10 ms period): the core stalled
   on code fetches. Scan-time code therefore executes from HP SRAM. The firmware enables esp-hal's

@@ -2,11 +2,13 @@
 //! interrupt glue that moves bytes between the peripheral's 64-byte FIFOs and the shared
 //! [`DeviceLineLink`], and the [`ControlLink`] the device runner polls.
 //!
-//! The packet interrupt drains the OUT FIFO into the link, the IN FIFO's empty interrupt refills
-//! it 64 bytes at a time, and a bus reset starts a new host session. The interrupt and the runner
-//! enter the one link through the one critical section below, so no byte moves twice. Nothing here
-//! calls esp-hal's blocking `write` or `flush`, which spin while no host reads (design §2.2): the
-//! link only ever moves bytes the peripheral's FIFOs hold or take now.
+//! The packet interrupt drains the OUT FIFO into the link, the reply in flight is written into the
+//! IN FIFO 64 bytes at a time whenever its free state shows room (the runner's own pass continues
+//! it too, so a lost empty event cannot stall a reply), and a bus reset starts a new host session.
+//! The interrupt and the runner enter the one link through the one critical section below, so no
+//! byte moves twice. Nothing here calls esp-hal's blocking `write` or `flush`, which spin while no
+//! host reads (design §2.2): the link only ever moves bytes the peripheral's FIFOs hold or take
+//! now.
 
 use core::cell::RefCell;
 
@@ -99,6 +101,15 @@ impl UsbFifo for UsbRegs {
     }
 
     #[ram]
+    fn in_fifo_free(&mut self) -> bool {
+        USB_DEVICE::regs()
+            .ep1_conf()
+            .read()
+            .serial_in_ep_data_free()
+            .bit_is_set()
+    }
+
+    #[ram]
     fn write_in(&mut self, bytes: &[u8]) -> usize {
         let regs = USB_DEVICE::regs();
         let mut written = 0;
@@ -143,6 +154,25 @@ impl UsbFifo for UsbRegs {
             w
         });
     }
+
+    #[ram]
+    fn discard_out(&mut self) {
+        // Read the OUT FIFO dry through the same path the pass uses and drop the bytes: they are
+        // the tail of a request the session a reset ended never finished (specification 34,
+        // PORT-05). The FIFO holds one packet, so `FIFO_BYTES` drains it.
+        let mut dropped = [0u8; FIFO_BYTES];
+        let _ = self.read_out(&mut dropped);
+    }
+
+    #[ram]
+    fn flush_in(&mut self) {
+        // `WR_DONE` marks whatever the IN FIFO holds done, so the hardware hands it to the host
+        // and the FIFO frees for the next reply; with an empty FIFO it sends the zero-length
+        // packet that ends a full one, as the write path flushes too.
+        USB_DEVICE::regs()
+            .ep1_conf()
+            .modify(|_, w| w.wr_done().set_bit());
+    }
 }
 
 /// The C6's control link: the interrupt glue above and the runner's
@@ -152,14 +182,21 @@ pub struct UsbLink {
 }
 
 impl UsbLink {
-    /// Binds the USB-Serial/JTAG interrupt to the link, clears its events, and enables the
-    /// packet-received and bus-reset interrupts.
+    /// Binds the USB-Serial/JTAG interrupt to the link: the peripheral's FIFOs are first brought
+    /// to a known state, then its events are cleared, then the packet-received and bus-reset
+    /// interrupts are enabled.
     ///
     /// Call once, after [`Board::take`](super::Board::take): the console driver that takes the
     /// same peripheral disables its interrupts as it is built.
     #[must_use]
     pub fn bind() -> Self {
         let regs = USB_DEVICE::regs();
+        // Bring the peripheral to a known state first. A watchdog core reset, the reset a hang
+        // ends in, does not reset the USB-Serial/JTAG peripheral, so an earlier session's
+        // half-received request may still sit in the OUT FIFO and its half-sent reply in the IN
+        // FIFO. Both are cleared here, before any interrupt moves them into the link
+        // (specification 34, PORT-05).
+        usb_service::bring_up(&mut UsbRegs);
         // No event of an earlier session starts a pass. The IN FIFO's empty interrupt is enabled
         // by `send_frame` while a reply is unsent and disabled once nothing is unsent (design
         // §2.2), so it starts disabled.
@@ -193,6 +230,10 @@ impl ControlLink for UsbLink {
             // asking for them; the loop takes them here, once it has room, and asks again.
             let _ = usb_service::drain_out(&mut fifo, &mut link);
             fifo.set_out_packet_enabled(true);
+            // The runner's own pass continues the reply in flight whenever the IN FIFO can take
+            // bytes, so a reply never waits for an empty event the peripheral failed to raise
+            // (specification 34, PORT-05).
+            usb_service::resume_reply(&mut fifo, &mut link);
             link.poll_frame(buffer, now_instant())
         })
     }
@@ -203,10 +244,18 @@ impl ControlLink for UsbLink {
             let mut link = LINK.borrow_ref_mut(cs);
             link.send_frame(frame, now_instant())
                 .map_err(refused_error)?;
-            // The reply is unsent: the IN FIFO's empty interrupt writes it 64 bytes at a time.
+            // The reply is unsent; a servicing pass writes it 64 bytes at a time whenever the FIFO
+            // can take bytes, and the empty interrupt makes it sooner.
             fifo.set_in_empty_enabled(true);
             Ok(())
         })
+    }
+
+    fn sending(&self) -> bool {
+        // The runner services the link at least once a millisecond while this is true, so the
+        // reply in flight reaches its end even when the peripheral raises no empty event
+        // (specification 34, PORT-05).
+        critical_section::with(|cs| LINK.borrow_ref(cs).reply_in_flight())
     }
 }
 

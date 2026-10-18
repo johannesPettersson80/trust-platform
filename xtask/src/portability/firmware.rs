@@ -10,6 +10,8 @@ use trust_chips::{Catalog, ChipFile, Family};
 pub(super) struct Firmware {
     /// The chip the command was given, written into the build report.
     pub name: String,
+    /// The chip's family, which selects the chip's link-time guards.
+    pub family: Family,
     /// Firmware crate directory, relative to the repository root.
     pub firmware_dir: String,
     pub target: String,
@@ -39,6 +41,7 @@ impl Firmware {
     fn for_chip(chip: &ChipFile) -> Self {
         Self {
             name: chip.identity.name.clone(),
+            family: chip.identity.family,
             firmware_dir: chip.firmware.crate_dir.clone(),
             target: chip.processor.rust_target.clone(),
             bin: chip.firmware.bin.clone(),

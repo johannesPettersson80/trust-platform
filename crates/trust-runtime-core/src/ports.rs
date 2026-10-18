@@ -250,6 +250,16 @@ pub trait ControlLink {
     /// The [`PortError`] of a reply the link could not deliver, for example to a peer that has
     /// gone.
     fn send_frame(&mut self, frame: &[u8]) -> Result<(), PortError>;
+
+    /// Whether the link still holds reply bytes it has not handed to its hardware.
+    ///
+    /// While this is true the resource loop services the link at least once a millisecond, so a
+    /// reply in flight is driven to its end without depending on the link's interrupts
+    /// (specification 34, PORT-05). A link that hands every reply to its hardware inside
+    /// [`Self::send_frame`] keeps the default.
+    fn sending(&self) -> bool {
+        false
+    }
 }
 
 /// The checkpoint store a platform supplies to the installed program's cycle (specification 34

@@ -4,7 +4,9 @@
 
 use core::{cell::Cell, time::Duration};
 
-use trust_platform_esp32::usb_service::{drain_out, service, Pending, UsbFifo, FIFO_BYTES};
+use trust_platform_esp32::usb_service::{
+    bring_up, drain_out, service, Pending, UsbFifo, FIFO_BYTES,
+};
 use trust_runtime_core::ports::{LinkFrame, MonotonicInstant, PeerClass, WakeSignal};
 use trust_runtime_services::link::DeviceLineLink;
 
@@ -80,6 +82,17 @@ impl UsbFifo for FakeFifo {
         read
     }
 
+    /// Drops every byte the host sent that is still in the OUT FIFO, as the chip's FIFO access
+    /// register does when it is read dry.
+    fn discard_out(&mut self) {
+        self.out.clear();
+    }
+
+    fn in_fifo_free(&mut self) -> bool {
+        // Room the host's last read left, as the chip's `SERIAL_IN_EP_DATA_FREE` reports it.
+        self.in_fifo.len() < self.in_room
+    }
+
     fn write_in(&mut self, bytes: &[u8]) -> usize {
         // One FIFO of bytes at most, and only into the room the host's last read left.
         let room = self.in_room.saturating_sub(self.in_fifo.len());
@@ -87,6 +100,12 @@ impl UsbFifo for FakeFifo {
         self.in_fifo.extend_from_slice(&bytes[..written]);
         self.done += 1;
         written
+    }
+
+    /// Empties the IN FIFO, as the chip's `WR_DONE` flush frees whatever it held.
+    fn flush_in(&mut self) {
+        self.in_fifo.clear();
+        self.done += 1;
     }
 
     fn set_in_empty_enabled(&mut self, enabled: bool) {
@@ -253,6 +272,54 @@ fn the_in_fifo_is_filled_64_bytes_at_a_time_then_its_interrupt_is_disabled() {
     assert!(!fifo.in_empty_enabled);
 }
 
+/// A reply in flight is continued by the next servicing pass even when the IN-empty event is lost
+/// and the FIFO already reports room.
+///
+/// Specification 34, PORT-05: the link answers after any reset the peripheral survives, and a reply
+/// is sent whole into the 64-byte IN FIFO. The wrong behaviour: filling the IN FIFO only when the
+/// IN-empty event arrives, so a reply whose empty event the peripheral failed to raise (the state
+/// a watchdog core reset leaves: the FIFO free, the raw empty bit clear) waits forever and the host
+/// gets no reply.
+#[test]
+fn a_lost_in_empty_event_does_not_stall_the_pending_reply() {
+    // A reply longer than one FIFO, so it takes more than one packet.
+    let reply: &[u8] = b"{\"id\":3,\"result\":\"01234567890123456789012345678901234567890123456789012345678901234567890123456789\"}";
+    assert_eq!(reply.len(), 100);
+    let mut link = DeviceLineLink::new(PeerClass::Local);
+    assert_eq!(link.send_frame(reply, now()), Ok(()));
+    // A reply frame ends with a line feed (PORT-05).
+    assert_eq!(link.unsent().len(), 101);
+
+    // The IN-empty event was lost: nothing is pending, yet the FIFO is empty and free.
+    let mut fifo = FakeFifo {
+        in_empty_enabled: true,
+        ..FakeFifo::default()
+    };
+    let wake = Wake::default();
+
+    service(&mut fifo, &mut link, &wake);
+
+    // The pass sent the first packet without the event; the rest of the reply is still unsent.
+    assert_eq!(fifo.in_fifo, reply[..64].to_vec());
+    assert_eq!(fifo.done, 1);
+    assert_eq!(link.unsent().len(), 37);
+    assert!(fifo.in_empty_enabled);
+
+    // The host took the first packet; the empty event is still lost.
+    fifo.in_fifo.clear();
+
+    service(&mut fifo, &mut link, &wake);
+
+    // The pass sent the rest of the reply whole.
+    let mut expected = reply[64..].to_vec();
+    expected.push(b'\n');
+    assert_eq!(fifo.in_fifo, expected);
+    assert_eq!(fifo.done, 2);
+    assert_eq!(link.unsent().len(), 0);
+    // Nothing is unsent: the empty interrupt is disabled until the next reply.
+    assert!(!fifo.in_empty_enabled);
+}
+
 /// A bus reset starts a new host session: the reply in flight and any partly received request are
 /// dropped.
 ///
@@ -334,4 +401,73 @@ fn a_request_and_its_reply_cross_the_link_whole() {
     assert_eq!(link.unsent().len(), 0);
     // One wake for the packet and one for the reply, as design §2.2 counts every event.
     assert_eq!(wake.count(), 2);
+}
+
+/// Binding discards the bytes an earlier session left in the OUT FIFO, so a half line the host
+/// sent before a reset is dropped silently and never joins the line it sends after.
+///
+/// Specification 34, PORT-05, line framing: a request is the bytes before a line feed. The wrong
+/// behaviour: keeping the stale OUT bytes, so the next request is one longer line that begins with
+/// `sta` and the client's `health` is never answered as `health`; and reporting the discarded
+/// fragment as an oversized or joined request, which no client asked for.
+#[test]
+fn bind_discards_the_out_fifo_and_the_next_whole_line_is_answered() {
+    let mut fifo = FakeFifo {
+        // The tail of a request the host sent while the core was halted.
+        out: b"sta".to_vec(),
+        ..FakeFifo::default()
+    };
+
+    bring_up(&mut fifo);
+
+    // The fragment is gone, and the link was told nothing of it: nothing is reported for it.
+    assert_eq!(fifo.out, Vec::<u8>::new());
+    let mut link = DeviceLineLink::new(PeerClass::Local);
+    let mut buffer = [0u8; DeviceLineLink::MAX_FRAME_LEN];
+    assert_eq!(link.poll_frame(&mut buffer, now()), None);
+
+    // The host's next whole line follows in the FIFO and reaches the link as exactly its bytes.
+    fifo.out.extend_from_slice(b"health\n");
+    fifo.pending.out_packet = true;
+    let wake = Wake::default();
+    service(&mut fifo, &mut link, &wake);
+
+    assert_eq!(
+        link.poll_frame(&mut buffer, now()),
+        Some(LinkFrame::Frame {
+            len: 6,
+            peer: PeerClass::Local
+        })
+    );
+    assert_eq!(&buffer[..6], b"health");
+}
+
+/// Binding empties the IN FIFO, so a reply the earlier session half sent is not the head of the
+/// next reply.
+///
+/// Specification 34, PORT-05: a reply is one JSON object followed by a line feed, whole. The
+/// wrong behaviour: leaving the stale IN bytes, so the next reply the host receives is the stale
+/// fragment followed by the new reply and parses as neither.
+#[test]
+fn bind_empties_the_in_fifo_before_the_next_reply() {
+    let mut fifo = FakeFifo {
+        in_fifo: b"{\"id\":9,\"resu".to_vec(),
+        ..FakeFifo::default()
+    };
+
+    bring_up(&mut fifo);
+
+    assert_eq!(fifo.in_fifo, Vec::<u8>::new());
+
+    let mut link = DeviceLineLink::new(PeerClass::Local);
+    let wake = Wake::default();
+    assert_eq!(
+        link.send_frame(b"{\"id\":0,\"result\":\"ok\"}", now()),
+        Ok(())
+    );
+    fifo.pending.in_empty = true;
+    service(&mut fifo, &mut link, &wake);
+
+    assert_eq!(fifo.in_fifo, b"{\"id\":0,\"result\":\"ok\"}\n".to_vec());
+    assert_eq!(link.unsent().len(), 0);
 }

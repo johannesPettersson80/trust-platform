@@ -14,6 +14,7 @@
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
+use trust_runtime_core::deployment::ControlMode;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::ports::{HardwareWatchdog, TimeSpan, WallClock};
@@ -42,21 +43,25 @@ pub struct Platform<W> {
     resource_name: SmolStr,
     settings: StatusSettings,
     debug_enabled: bool,
+    /// `runtime.control.mode` of the installed application's deployment record (specification 34
+    /// §5.1.1, section 7): the mode `status` reports and the path `pause` and `resume` take.
+    control_mode: ControlMode,
     /// The Live Values the runner applies at its cycle phases and the `io.*`, `set` and `var.*`
     /// operations answer from (specification 11, "Live Values"; specification 34 §4.3.1).
     live: EngineLiveValues,
 }
 
 impl<W> Platform<W> {
-    /// A platform over `watchdog` that reports `resource_name`, the runtime `settings` and
-    /// whether the debug surface is `debug_enabled`, with the Live Values `live` of the installed
-    /// program, or [`EngineLiveValues::empty`] for a chip without one.
+    /// A platform over `watchdog` that reports `resource_name`, the runtime `settings`, whether
+    /// the debug surface is `debug_enabled` and the record's `control_mode`, with the Live Values
+    /// `live` of the installed program, or [`EngineLiveValues::empty`] for a chip without one.
     #[must_use]
     pub fn new(
         watchdog: W,
         resource_name: SmolStr,
         settings: StatusSettings,
         debug_enabled: bool,
+        control_mode: ControlMode,
         live: EngineLiveValues,
     ) -> Self {
         Self {
@@ -64,6 +69,7 @@ impl<W> Platform<W> {
             resource_name,
             settings,
             debug_enabled,
+            control_mode,
             live,
         }
     }
@@ -150,6 +156,11 @@ impl<W: HardwareWatchdog> HardwareWatchdog for Platform<W> {
 impl<W: HardwareWatchdog> RunnerPlatform for Platform<W> {
     fn live_values(&self) -> &EngineLiveValues {
         &self.live
+    }
+
+    /// The installed application's record carries the mode (specification 34 §5.1.1, section 7).
+    fn control_mode(&self) -> ControlMode {
+        self.control_mode
     }
 }
 

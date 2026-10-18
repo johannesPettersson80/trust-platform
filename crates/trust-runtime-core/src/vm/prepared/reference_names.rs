@@ -1,15 +1,16 @@
-//! Read-only hosted labels derived from admitted persistent references.
+//! Read-only labels derived from admitted persistent references, on every target.
 use super::PreparedModule;
 use crate::{bytecode::StorageOwner, error::RuntimeError, value::RefSegment, vm::module::VmRef};
-use alloc::{string::String, vec::Vec};
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use core::fmt::Write;
 use smol_str::SmolStr;
 
 impl PreparedModule {
     /// Render a persistent reference as its declared root/member/index path.
     /// This tooling operation runs outside the control path and never treats an
-    /// artifact instance identity as a live storage identity.
-    #[cfg(feature = "std")]
+    /// artifact instance identity as a live storage identity. It needs `alloc`
+    /// only, so a device without `std` names its bindings as trust-runtime does.
     pub fn persistent_reference_name(&self, index: u32) -> Result<SmolStr, RuntimeError> {
         let mut current = index;
         let mut parts = Vec::new();
@@ -117,5 +118,62 @@ impl PreparedModule {
             }
         }
         Err(RuntimeError::InvalidExecutionState)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::bytecode::StorageOwner;
+    use crate::io_address::IoAddress;
+    use crate::vm::{PreparationLimits, PreparedModule};
+
+    /// The board probe: the resource global `probe_depth` and the program `Plant`, whose member
+    /// `led` binds `%QX0.0` (`crates/trust-runtime/tests/fixtures/portability/f401/gpio.st`).
+    const GPIO: &[u8] =
+        include_bytes!("../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc");
+
+    #[test]
+    fn persistent_reference_names_need_no_std() {
+        // Specification 34 §4.3.1 with specification 11, "Live Values": a device names each
+        // process-image binding by its declared root/member path, exactly as trust-runtime does,
+        // and the name resolver needs `alloc` only, never `std`. Catches a build that gates the
+        // resolver on `std`, which leaves a chip's `io.list` without binding names, as the C6
+        // bench's firmware did.
+        let prepared = PreparedModule::from_bytes(GPIO, PreparationLimits::default())
+            .expect("the board probe is admitted");
+        let global = prepared
+            .storage_declarations()
+            .iter()
+            .find(|declaration| {
+                declaration.owner == StorageOwner::Global
+                    && prepared
+                        .strings()
+                        .get(declaration.name_idx as usize)
+                        .is_some_and(|name| name.as_str() == "probe_depth")
+            })
+            .and_then(|declaration| declaration.ref_idx)
+            .expect("the fixture binds its global probe_depth to a reference");
+        let led = IoAddress::parse("%QX0.0").expect("a valid image address");
+        let member = prepared
+            .io_bindings()
+            .iter()
+            .find(|binding| binding.address == led)
+            .map(|binding| binding.ref_idx)
+            .expect("the fixture binds its instance member led to %QX0.0");
+
+        assert_eq!(
+            prepared
+                .persistent_reference_name(global)
+                .expect("the global reference is declared")
+                .as_str(),
+            "probe_depth"
+        );
+        assert_eq!(
+            prepared
+                .persistent_reference_name(member)
+                .expect("the instance member reference is declared")
+                .as_str(),
+            "Plant.led"
+        );
     }
 }

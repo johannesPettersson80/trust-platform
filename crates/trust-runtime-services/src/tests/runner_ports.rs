@@ -578,6 +578,23 @@ impl Fixture {
         runner
     }
 
+    /// A loop that has just started the program with `link` in place of the test link, with the
+    /// test platform; what the loop asked of the program at power-on is taken already.
+    ///
+    /// A test that drives the link itself, for example one whose reply the loop must finish,
+    /// builds its loop with this.
+    pub(crate) fn runner_with_link<L>(
+        &self,
+        link: L,
+    ) -> Runner<L, TestWait, ScriptedCycle<'_>, TestPlatform, TestClock>
+    where
+        L: ControlLink,
+    {
+        let runner = self.start_with_link(link, TestPlatform::default(), EVENT_STORE_CAPACITY);
+        let _ = self.take_calls();
+        runner
+    }
+
     /// A loop that has just started the program with an event store of `event_capacity`, with the
     /// test platform; what the loop asked of the program at power-on is taken already.
     pub(crate) fn runner_with_capacity(&self, event_capacity: usize) -> TestRunner<'_> {
@@ -598,9 +615,24 @@ impl Fixture {
     /// event store of `event_capacity`.
     pub(crate) fn power_on_with_capacity(
         &self,
-        mut platform: TestPlatform,
+        platform: TestPlatform,
         event_capacity: usize,
     ) -> TestRunner<'_> {
+        self.start_with_link(self.link.clone(), platform, event_capacity)
+    }
+
+    /// The program started on the shared engine cycle with the script's settings, as the
+    /// composition starts it at power-on, and the loop built over `link` at the clock's current
+    /// time with an event store of `event_capacity`.
+    fn start_with_link<L>(
+        &self,
+        link: L,
+        mut platform: TestPlatform,
+        event_capacity: usize,
+    ) -> Runner<L, TestWait, ScriptedCycle<'_>, TestPlatform, TestClock>
+    where
+        L: ControlLink,
+    {
         // The runner applies the Live Values of the prepared program, so the platform answers the
         // control requests from the same queues and snapshot.
         platform.live_values = Rc::clone(&self.live);
@@ -621,7 +653,7 @@ impl Fixture {
             script: Rc::clone(&self.script),
         };
         Runner::new(
-            self.link.clone(),
+            link,
             self.wait.clone(),
             cycle,
             platform,

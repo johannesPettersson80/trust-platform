@@ -2,6 +2,7 @@
 use super::firmware::Firmware;
 use anyhow::{ensure, Context, Result};
 use std::{env, fs, path::Path, process::Command};
+use trust_chips::Family;
 
 pub(super) fn firmware(root: &Path, firmware: &Firmware, report: &str) -> Result<()> {
     let root = root.canonicalize()?;
@@ -91,6 +92,13 @@ pub(super) fn firmware(root: &Path, firmware: &Firmware, report: &str) -> Result
     );
     configuration["artifacts"] =
         artifacts.retain(std::str::from_utf8(&output.stdout)?, &firmware.bin)?;
+    // The C6's boot-time stack paint reaches static data above the stack window, so the same rule
+    // the linker guard asserts is checked here from the linked sections (specification 34, D.2).
+    if firmware.family == Family::Esp32 {
+        let image = fs::read(&artifacts.elf).context("read linked firmware for the stack guard")?;
+        let sections = super::elf::allocated_sections(&image)?;
+        configuration["stack"] = super::elf::c6_stack_region(&sections)?;
+    }
     configuration["status"] = "linked".into();
     super::write_report(report, configuration)
 }
