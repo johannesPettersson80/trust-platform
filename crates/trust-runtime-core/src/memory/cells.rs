@@ -9,8 +9,11 @@
 //! its region's text buffers (C1-7) or its reference records. A
 //! [`CellStore`](crate::memory::cells::CellStore) owns one region: it reserves the region's cells
 //! and its reference records once from the prepared layouts and never grows. Nothing reads the
-//! store at run time yet; C1-6b converts `Value`s into cells and back, and C1-9 switches the engine
-//! onto them.
+//! store at run time yet: [`write_value`](crate::memory::cells::write_value) and
+//! [`read_value`](crate::memory::cells::read_value) convert a `Value` of a prepared type into its
+//! layout's cells and back (C1-6b), and C1-9 switches the engine onto them.
+
+mod convert;
 
 use alloc::vec::Vec;
 
@@ -19,6 +22,8 @@ use crate::error::RuntimeError;
 use crate::memory::layout::{CellRange, LayoutRegion, CELL_BYTES};
 use crate::memory::{Generation, InstanceId};
 use crate::vm::{PreparedModule, VmTrap};
+
+pub use convert::{cell_offset, read_value, write_value};
 
 /// One cell of the bounded value store (specification 34 §6.2, MEM-10; design "Cells").
 ///
@@ -152,12 +157,25 @@ impl RefRecord {
 
 /// One region's cells and reference records (design "Regions").
 ///
-/// The store reserves both once and never grows: every accessor answers `None` outside the
-/// reserved region and allocates nothing.
-#[derive(Debug, Default)]
+/// The store reserves both once and never grows, and it belongs to one [`LayoutRegion`]: every
+/// accessor answers `None` outside the reserved region and outside that region's cells, and
+/// allocates nothing.
+#[derive(Debug)]
 pub struct CellStore {
+    region: LayoutRegion,
     cells: Vec<Cell>,
     references: Vec<RefRecord>,
+}
+
+impl Default for CellStore {
+    /// The empty persistent region: no cells and no reference records.
+    fn default() -> Self {
+        Self {
+            region: LayoutRegion::Persistent,
+            cells: Vec::new(),
+            references: Vec::new(),
+        }
+    }
 }
 
 impl CellStore {
@@ -176,16 +194,34 @@ impl CellStore {
             )
     }
 
-    /// Reserve a region of `cells` cells and `references` reference records, all [`Cell::Null`] and
-    /// [`RefRecord::NULL`] (specification 34 §6.2, MEM-10).
+    /// Reserve a persistent region of `cells` cells and `references` reference records, all
+    /// [`Cell::Null`] and [`RefRecord::NULL`] (specification 34 §6.2, MEM-10).
     ///
-    /// Both vectors are reserved exactly once. A refused reservation is refused as the other
-    /// construction reservations are.
+    /// [`CellStore::reserve_in`] reserves a region of another [`LayoutRegion`]. Both vectors are
+    /// reserved exactly once. A refused reservation is refused as the other construction
+    /// reservations are.
     pub fn reserve(cells: u32, references: u32) -> Result<Self, RuntimeError> {
+        Self::reserve_in(LayoutRegion::Persistent, cells, references)
+    }
+
+    /// Reserve a region of `region` of `cells` cells and `references` reference records, all
+    /// [`Cell::Null`] and [`RefRecord::NULL`] (specification 34 §6.2, MEM-10; design "Regions").
+    ///
+    /// The store holds `region`: [`CellStore::cells`] and [`CellStore::cells_mut`] answer `None`
+    /// for a range of another region, because a cell index means a cell of the region its store
+    /// reserved.
+    pub fn reserve_in(
+        region: LayoutRegion,
+        cells: u32,
+        references: u32,
+    ) -> Result<Self, RuntimeError> {
         let refused = |_| VmTrap::BudgetExceeded.into_runtime_error();
         let cell_count = usize::try_from(cells).map_err(|_| RuntimeError::Overflow)?;
         let record_count = usize::try_from(references).map_err(|_| RuntimeError::Overflow)?;
-        let mut store = Self::default();
+        let mut store = Self {
+            region,
+            ..Self::default()
+        };
         store.cells.try_reserve_exact(cell_count).map_err(refused)?;
         store
             .references
@@ -245,15 +281,27 @@ impl CellStore {
         (self.cells.capacity(), self.references.capacity())
     }
 
+    /// The region this store's cells are reserved in (design "Regions").
+    #[must_use]
+    pub fn region(&self) -> LayoutRegion {
+        self.region
+    }
+
     /// The cells of `range`, or `None` when `range` leaves this region.
     #[must_use]
     pub fn cells(&self, range: CellRange) -> Option<&[Cell]> {
+        if range.region != self.region {
+            return None;
+        }
         self.cells.get(cell_span(range)?)
     }
 
     /// The cells of `range`, or `None` when `range` leaves this region.
     #[must_use]
     pub fn cells_mut(&mut self, range: CellRange) -> Option<&mut [Cell]> {
+        if range.region != self.region {
+            return None;
+        }
         self.cells.get_mut(cell_span(range)?)
     }
 

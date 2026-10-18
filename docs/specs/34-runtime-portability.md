@@ -1064,6 +1064,16 @@ bytes a store takes are its cells at 16 bytes each plus its reference records, s
 charges them before reserving. Nothing reads the store at run time yet, so stored values, outputs and
 faults are unchanged.
 
+**Value conversion.** An engineering write converts a `Value` of a prepared type into its layout's
+cells — checking the whole value before it writes a cell and allocating nothing, keeping every
+scalar's exact bits, every enumeration's TYPE_TABLE type and value, and every structure member, array
+element and nested compound at its layout offset — and refuses, leaving the cells as they were, a
+value whose kind, members, bounds, element count or slice length does not match the type, a text leaf
+(C1-7), a non-null reference (C1-9) and a `STRUCT OVERLAP` or union (C1-15), while a read materializes
+the same `Value` again and a member-and-index path resolves to its cell offset through the same
+layout (C1-10); nothing calls the conversion at run time yet, so stored values, outputs and faults
+are unchanged.
+
 **MEM-11.** Document scalar slots, compound regions, frame/local/temporary reuse, initialization scratch, and copy/drop ownership. Select one bounded representation for hosts and MCUs with application-sized capacities. Scope A/B may retain `SmolStr`/`IndexMap`/`Arc` values under a bounded bring-up heap on F401/C6, recording every remaining scan allocation and refcount/destruction cost; this cannot qualify ARCH-05. Implement measured narrow storage improvements before first hardware evidence where needed. Complete atomic-reference-count retirement and bounded compound copying in M3; only then require optional C3/IMC support. Avoid a throwaway value model solely to pass M1. Retain failed fit evidence and the mandatory fixture. [R24, R30, R31]
 
 ### 6.2.1 B-R3 live storage and footprint refinement
