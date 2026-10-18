@@ -7,40 +7,58 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
-**18 October, about 16:30 (lead).** The STM32 target is the STM32U5A9 on the owner's Riverdi
-panel (17 October; the F407 code stays). All work is local; nothing is pushed. Agents: Claude
-Haiku by default (owner, 18 October: lowest suitable cost); the free opencode models that still
-answer (LongCat 2.5 preview, Nemotron 3 Ultra) are on trial on S4-1 and S3d-3. Owner questions
-open: O2 (what the debugger shows after a faulted scan, `~/projects/.artifacts/s3/decisions.md`)
-and Q11 (when an install may commit, `~/projects/.artifacts/s4/decisions.md`). Lanes:
+**18 October, evening (lead).** All work is local; nothing is pushed. Agents: Claude Haiku
+(owner, 18 October: "continue with haiku"). The free opencode models proved unusable, and one
+session that kept running after its client was killed collided with S3d-3. Owner questions open:
+Q11 (installs only while stopped?) and O2 (the debugger after a faulted scan). A Beckhoff and
+CODESYS research report is running for both. The C6 is connected; the Riverdi U5A9 board comes
+later. Lanes:
 
-- c6 `feat/board-runtime` (integration): `217f62db3` merges feat/devices-connections (V7: the
-  trust-devices engine and views, trust-runtime-client, D3 and D5; 13 conflicts; the C6 reports
-  `platform` `esp32c6`, `runtime_id` `esp32c6-<USB serial>`, `program_control` `keeps_control`),
-  checks c6/merge-dev-2 and merge-dev-4 green (28 steps, VS Code 615 passing); `0712c7a57` merges
-  feat/chip-control-link (C5-4 and D1), check c6/merge-s1b-4 green (30 steps, VS Code 615).
-- s1b `feat/chip-control-link`: C5-4 `686fb52d1`, the C6's RETAIN in its checkpoint flash (bench
-  `~/projects/.artifacts/runtime-portability-c6/c54-bench/result.md`: 27 of 27; 20 resets at random
-  times recovered, at most 9 scans, one save interval, behind; the stop save keeps the last value;
-  shutdown to Stopped 153 ms). D1 `8af90f5ee` (security): a web deployment is checked against the
-  installed signature policy and keyring. S4 design `~/projects/.artifacts/s4/design.md` with its
-  decisions; running: S4-1 (transfers in parts), on the free LongCat model.
-- live-values `feat/live-values`: S3d-1 `c9635b1cf` (A01: a breakpoint in a FOR, WHILE, REPEAT, IF
-  or CASE body stops in the body; spec 13's hook contract), S3d-2 `12d7227c5` (the statement index,
-  parity 5,091 offsets, no difference). Running: S3d-3 (no storage copy per statement), on the
-  free Nemotron 3 Ultra model. Next: the LINE_TABLE decoder's fail-closed span check, S3d-4/5, the
-  merge into this branch, S3d-6 to S3d-9, S3c.
-- engine-init `feat/engine-init`: C1-P0 `4b9374671` (charges by what a copy copies, full
-  trust-runtime suite green), C1-P1 `2bd282970` (scalar and identity reads; `CycleAccess::storage()`
-  stays for C1-9d). Running: C1-P3 (ReferenceContext's store type). Then C1-9a to C1-9e.
-- u5a9 `feat/u5a9-runtime` (new, from c6 `cccce685c`): S1b-8u-1 `236140d92` (the chip file, the
-  shared STM32 crate, the U5 adapter's chip table, pins and clock; spec 34 revision 0.33). Next:
-  S1b-8u-2a (the OTG_HS CDC link), 8u-2b (clock, wait, wake), 8u-3, S1b-9u (firmware, bench).
-- devices `feat/devices-connections`: D5 `307ad8471` merged into c6. Next: C4, C5b, C6, C7, D4, D6,
-  D7.
-- Found on the C6: a loop costs about 390 us per iteration at opt-level "z" (half the time in ROM
-  memcpy); a higher opt-level does not fit the 512 KB SRAM; measured again at C1-9e
-  (`~/projects/.artifacts/bounded-c/followups.md`).
+- c6 `feat/board-runtime` (integration):
+  - `26d151171` merges feat/u5a9-runtime.
+  - `36bfdc8b8` merges feat/chip-control-link (S4-1 to S4-3a). The joining fixes: spec 11's role
+    table; the ControlState transfer session in two devices tests; base64 in both firmware locks;
+    the U5A9 lock tracked; the U5A9 platform, runtime ID and program control.
+  - Checks green on the merge: clippy over the changed crates, both chip lanes, u5, and the C6
+    and U5A9 firmware builds; the services 514 and runtime vertical tests pass.
+- s1b `feat/chip-control-link`:
+  - S4-1 `691b68d2c`: transfers in parts.
+  - S4-2a `1fc02be87`: the two-slot store and TRSTA002. A slot whose magic is valid but whose
+    header is damaged counts as not committed; the owner was told.
+  - S4-2b `ad3b03dee`: the reload rules in the services.
+  - S4-3a `7074517f6`: the transfer operations, `bytecode.reload {transfer}`, `program.active`
+    and the reply head.
+  - Next: S4-3b `program.install` (after Q11), S4-4 (the computer adapter), S4-5 and S4-6 (the
+    C6 flash and firmware, with a bench), S4-7.
+- live-values `feat/live-values`:
+  - S3d-3 `3ea55d9a6`: the debugger reads the last completed scan, with no copy per statement.
+  - S3d-4 `d3c5249ba`: the breakpoint matching and the hit rule are shared.
+  - Running: S3d-5's finish (run control in the services). Then the merge into this branch, and
+    S3d-6 to S3d-9.
+- engine-init `feat/engine-init`:
+  - C1-P3 `0ed6e9ea2`.
+  - C1-9a `1a0de68a5`: the cell store, charged before it is reserved.
+  - C1-9b `434f4fd18`: cell reads through the seam.
+  - Running: C1-9c (cell writes, and a root's range covering its inheritance chain). Then C1-9d,
+    the switch, and C1-9e.
+- u5a9 `feat/u5a9-runtime`:
+  - S1b-8u-2a `e77dbb563`: USB.
+  - 8u-2b `0f2c3ccef`: the wait, and the PHY set up as ST's driver does.
+  - 8u-3a `17c25d101`: flash, checkpoint and reset, with each chip's flag bits.
+  - 8u-3b `ebbbf184e`: watchdog, GPIO and the memory map, with a 32 KiB stack.
+  - 9u-a `9e5d0e471`: the firmware, 830,816 B flash.
+  - 9u-b `e24409ffc`: inspect, which the real image passes, and the CI gate.
+  - `ea48ec321`: the firmware lock.
+  - Next: S1b-9u-c (move the platform, process-I/O, watchdog-rule and ELF-reader copies into
+    shared code, after the lanes meet here). Then the bench, when the board is here.
+- devices `feat/devices-connections`:
+  - C4b `5678f9aee`: mesh peers and cloud presence.
+  - C7 `ba25b90ab`: the Discover view.
+  - D4 `257737d40`: the Discover pane.
+  - C7b-1 `3ee59fdc9`: the old pane's actions, headings, notes and help.
+  - Running: C4c, the TwinCAT route list from the `ads` crate's `adstool route list`, unproven
+    until a real TwinCAT run; its follow-up decodes Windows-1252.
+  - Next: C7b-2, D4b, C5b, C6, D6, D7.
 
 Open top-level items: 57.
 
