@@ -894,7 +894,9 @@ their key/value payload plus four pointer-sized link/control words; actual bucke
 capacity and allocator node occupancy are excluded. Temporary instance-owner
 sets are bounded by the number of reference instructions in each actual POU
 body. Expanded constants are additionally charged before vector/map reservations
-and scalar/string copies. Work charges serialized bytes, actual metadata/body
+and scalar/string copies. The statement index that a LINE_TABLE builds for debugging (specification 12
+§6.13; SERVICE-06) is charged before it is reserved, at 104 bytes per statement and 76 bytes per POU that owns
+one, as upper bounds for the 64-bit layout. Work charges serialized bytes, actual metadata/body
 visits, lookup comparisons and expanded constant visits. These cumulative logical charges are deliberately
 conservative admission metrics, not allocator peak, RSS, elapsed time or WCET;
 allocator overhead, error diagnostics and native stack still require measured

@@ -258,6 +258,38 @@ package "ControlServer (IPC)" as controlServer #LightCoral {
     sharedDispatch --> debugEndpoints : other operations through the host port
 }
 
+' ============================================================
+' A DEVICE'S HOLD (trust-runtime-services runner/)
+' The same decisions, taken inside the engine's statement hook of a chip. The scan's
+' native frames stay on the stack while it is held, so the hold runs a pass of its own
+' (serve the link, idle work, watchdog feed, wait) instead of the loop's run_pass().
+' ============================================================
+package "trust-runtime-services\nrunner/ (a device's hold)" as chipHold #PaleGreen {
+    component "DeviceServices\non_statement_with_frame_checked()\none check while debugging is off;\nthe LINE_TABLE names the statement starts" as chipHook
+    component "ChipDebug (debugger.rs)\nthe fields RunControl borrows,\nbreakpoints, cycle suppression,\nthe last stop" as chipDebug
+    component "hold pass (hold.rs)\nserve up to 8 requests, idle(),\nfeed the watchdog, wait: one feed\ninterval, 1 ms while a reply is in flight;\nhold_started() / hold_ended()" as holdPass
+    component "Shell (shell.rs)\nlink, wait, platform, receive buffer,\nresource state, records, debugger;\neach RefCell is borrowed by one leaf\noperation at a time" as chipShell
+    component "Runner::run_pass()\nbetween scans; Runner::scan() holds\nno RefCell guard across run_scan()" as chipRunner
+
+    chipHook --> chipDebug : at_statement()
+    chipDebug --> runControl : boundary(), take_pending_stop(),\nholds_here()
+    chipHook --> holdPass : hold() until the debugger\nreleases the scan
+    holdPass --> chipDebug : holds_here() after each pass
+    holdPass --> chipShell : serve, idle, feed, wait
+    chipRunner --> chipShell : serve, idle, feed, wait
+    chipShell --> sharedDispatch : prepare_line_within():\nstatus, health, pause, resume,\nshutdown while held
+}
+
+note right of holdPass
+    A hold ends at resume, at a step's
+    own boundary or at a stop request
+    (shutdown). Time, the cycle watchdog,
+    a new host session and a missing
+    debugger do not end it. It runs no
+    boundary: no scan starts, no output
+    is committed, no retain step runs.
+end note
+
 remoteSession -down-> controlServer : JSON IPC (debug.*)
 controlBridge -down-> controlServer : JSON IPC (debug.*)
 

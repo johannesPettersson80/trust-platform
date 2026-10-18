@@ -424,27 +424,9 @@ pub(super) fn decode_line_table(
         let start_column = reader.read_u32()?;
         let end_line = reader.read_u32()?;
         let end_column = reader.read_u32()?;
-        // §6.13: the code span is non-empty and its end is exclusive.
-        if start_code_offset >= end_code_offset {
-            return Err(BytecodeError::section_static(
-                "LINE_TABLE statement code span is empty",
-            ));
-        }
         if file_index as usize >= files.len() {
             return Err(BytecodeError::section_static(
                 "LINE_TABLE statement file index is outside the file table",
-            ));
-        }
-        // §6.13: the positions are 1-based and the source span reconstructs a
-        // half-open byte range, so its end is strictly after its start.
-        if start_line == 0 || end_line == 0 || start_column == 0 || end_column == 0 {
-            return Err(BytecodeError::section_static(
-                "LINE_TABLE statement position is not 1-based",
-            ));
-        }
-        if (start_line, start_column) >= (end_line, end_column) {
-            return Err(BytecodeError::section_static(
-                "LINE_TABLE statement source span is empty",
             ));
         }
         statements.push(LineStatement {
@@ -463,8 +445,10 @@ pub(super) fn decode_line_table(
             "LINE_TABLE has trailing bytes",
         ));
     }
-    // §6.13: the decoder refuses an entry that breaks the order or a shared start
-    // whose spans do not nest.
+    // §6.13: the decoder refuses an entry whose spans are empty, reversed or not
+    // 1-based, an entry that breaks the order, a shared start whose spans do not nest,
+    // and crossing code spans; the validator applies the same rule to a source-built
+    // container.
     let table = LineTable { files, statements };
     table.check_statement_order()?;
     Ok(table)

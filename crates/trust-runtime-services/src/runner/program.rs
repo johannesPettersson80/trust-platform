@@ -6,13 +6,14 @@ use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
-use trust_runtime_core::ports::MonotonicInstant;
+use trust_runtime_core::ports::{MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::value::Duration;
 use trust_runtime_core::vm::{CycleHooks, RetainApplyEvent};
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
 use super::cycle::{ResourceCycle, RetainSource, TaskDescriptor};
+use super::hold::HoldHandle;
 use crate::status::IoDriverStatus;
 
 /// The program the loop runs, or the reason a device has none: its application region holds no
@@ -73,6 +74,14 @@ impl<Y: ResourceCycle> ResourceCycle for Program<Y> {
         }
     }
 
+    fn held_time(&self) -> TimeSpan {
+        match self {
+            Self::Installed(cycle) => cycle.held_time(),
+            // A missing program runs no scan, so no scan is held.
+            Self::Missing(_) => TimeSpan::ZERO,
+        }
+    }
+
     fn run_scan(
         &mut self,
         now: Duration,
@@ -126,6 +135,12 @@ impl<Y: ResourceCycle> ResourceCycle for Program<Y> {
         match self {
             Self::Installed(cycle) => cycle.io_drivers(),
             Self::Missing(_) => Vec::new(),
+        }
+    }
+
+    fn attach_hold(&mut self, hold: HoldHandle) {
+        if let Self::Installed(cycle) = self {
+            cycle.attach_hold(hold);
         }
     }
 }

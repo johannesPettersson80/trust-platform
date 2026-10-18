@@ -9,6 +9,8 @@ use trust_runtime_core::bytecode::{
     InitializerIndex, LineFile, LineStatement, LineTable, Section, SectionData, SectionId,
     StorageLayout, HEADER_FLAG_CRC32, LINE_TABLE_SECTION_ID,
 };
+use trust_runtime_core::debug::StatementSpan;
+use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::value::{Duration, Value};
 use trust_runtime_core::vm::{PreparationLimits, PreparedModule};
 
@@ -518,4 +520,211 @@ fn a_module_without_a_line_table_still_runs() {
         state.storage().get_instance_var(*plant, "phase"),
         Some(&Value::Int(1))
     );
+}
+
+/// A POU-1 statement in file 0: its code span `[code_span.0, code_span.1)` and its 1-based
+/// source span from `source_start` up to `source_end` (specification 12 §6.13).
+fn statement(
+    code_span: (u32, u32),
+    source_start: (u32, u32),
+    source_end: (u32, u32),
+) -> LineStatement {
+    LineStatement {
+        pou_id: 1,
+        start_code_offset: code_span.0,
+        end_code_offset: code_span.1,
+        file_index: 0,
+        start_line: source_start.0,
+        start_column: source_start.1,
+        end_line: source_end.0,
+        end_column: source_end.1,
+    }
+}
+
+/// The two-statement fixture with a body of three NOPs and the given statements, so a test can
+/// lay out spans that cross. Its DEBUG_MAP keeps the fixture's statement starts at code offsets 0
+/// and 1, which agree with statements that start there.
+fn three_nop_module(statements: Vec<LineStatement>) -> BytecodeModule {
+    let mut module = source_free_two_statement_module(BytecodeVersion::SOURCE_FREE);
+    let Some(SectionData::PouBodies(bodies)) = module.section_mut(SectionId::PouBodies) else {
+        panic!("fixture POU bodies")
+    };
+    bodies.push(0x00);
+    let Some(SectionData::PouIndex(index)) = module.section_mut(SectionId::PouIndex) else {
+        panic!("fixture POU index")
+    };
+    index.entries[0].code_length = 3;
+    let Some(table) = module.line_table_mut() else {
+        panic!("fixture LINE_TABLE")
+    };
+    table.statements = statements;
+    module
+}
+
+#[test]
+fn a_line_table_with_crossing_or_reversed_spans_is_refused() {
+    // Specification 12 §6.13: the code span and the source span of a statement run forwards
+    // and are non-empty, and the code spans of one POU nest or touch but never overlap without
+    // nesting. The spans [0, 2) and [1, 3) overlap, and neither contains the other, so an index
+    // that answers both statements at offset 1 is wrong.
+    let crossing = three_nop_module(vec![
+        statement((0, 2), (1, 1), (2, 1)),
+        statement((1, 3), (2, 1), (3, 1)),
+    ]);
+    assert_refused(&crossing, "LINE_TABLE statement code spans cross");
+
+    // Specification 12 §6.13: a code span that ends before it starts is reversed, not empty.
+    let reversed_code = three_nop_module(vec![
+        statement((0, 1), (1, 1), (2, 1)),
+        statement((2, 1), (2, 1), (3, 1)),
+    ]);
+    assert_refused(&reversed_code, "LINE_TABLE statement code span is reversed");
+
+    // Specification 12 §6.13: a source span that ends before it starts is reversed as well.
+    let reversed_source = three_nop_module(vec![
+        statement((0, 1), (1, 1), (2, 1)),
+        statement((1, 2), (3, 2), (2, 1)),
+    ]);
+    assert_refused(
+        &reversed_source,
+        "LINE_TABLE statement source span is reversed",
+    );
+
+    // Specification 12 §6.13: a statement nested in another may end with it, and that is not a
+    // crossing. The fixture's DEBUG_MAP agrees with these two starts, so the table is accepted.
+    let nested = three_nop_module(vec![
+        statement((0, 3), (1, 1), (3, 1)),
+        statement((1, 3), (2, 1), (3, 1)),
+    ]);
+    let bytes = nested.encode().expect("encode the nested pair");
+    BytecodeModule::decode(&bytes)
+        .expect("decode the nested pair")
+        .validate()
+        .expect("a nested pair is accepted");
+}
+
+#[test]
+fn a_prepared_module_keeps_the_statement_starts_of_its_line_table() {
+    // Specification 12 §6.13: each statement entry names the statement that starts at its code
+    // offset, with its source span. The fixture's statements start at offsets 0 and 1 of POU 1
+    // and span 1:1-1:2 and 2:1-2:2 of file 0. An index that drops the table answers none, and one
+    // that pairs an offset with another statement's span answers the wrong span here.
+    let module = source_free_two_statement_module(BytecodeVersion::SOURCE_FREE);
+    let prepared = PreparedModule::from_decoded(&module, PreparationLimits::default())
+        .expect("prepare the two-statement fixture");
+    assert!(prepared.has_statement_index());
+    assert_eq!(
+        prepared.statement_start(1, 0),
+        Some(StatementSpan {
+            file_index: 0,
+            start: (1, 1),
+            end: (1, 2),
+        })
+    );
+    assert_eq!(
+        prepared.statement_start(1, 1),
+        Some(StatementSpan {
+            file_index: 0,
+            start: (2, 1),
+            end: (2, 2),
+        })
+    );
+    // Specification 12 §6.13: the fixture has no POU 2, so no statement starts there.
+    assert_eq!(prepared.statement_start(2, 0), None);
+}
+
+#[test]
+fn statement_start_is_none_inside_a_statement() {
+    // Specification 12 §6.13: a statement starts at its first instruction only. The one
+    // statement here spans both NOPs of the body, [0, 2), so offset 1 lies inside it and starts
+    // nothing. An index that answers the containing statement at every offset gives its span at
+    // offset 1.
+    let mut module = source_free_two_statement_module(BytecodeVersion::SOURCE_FREE);
+    let Some(table) = module.line_table_mut() else {
+        panic!("fixture LINE_TABLE")
+    };
+    table.statements.truncate(1);
+    table.statements[0].end_code_offset = 2;
+    table.statements[0].end_line = 2;
+    table.statements[0].end_column = 2;
+    let Some(SectionData::DebugMap(map)) = module.section_mut(SectionId::DebugMap) else {
+        panic!("fixture DEBUG_MAP")
+    };
+    map.entries.truncate(1);
+    let prepared = PreparedModule::from_decoded(&module, PreparationLimits::default())
+        .expect("prepare the one-statement fixture");
+    assert!(prepared.statement_start(1, 0).is_some());
+    assert_eq!(prepared.statement_start(1, 1), None);
+}
+
+#[test]
+fn the_index_is_charged_before_it_is_reserved() {
+    // Specification 34 (preparation charges): the statement index is charged to the preparation
+    // budget before it is reserved. The fixture's two statements in one POU take 2 x 104 + 76 =
+    // 284 bytes of index at most, and the artifact's LINE_TABLE adds at least that much to the
+    // same artifact without one. An allowance one byte short of the total refuses the artifact
+    // with PreparationLimit, and the exact total admits it.
+    let with_table = source_free_two_statement_module(BytecodeVersion::SOURCE_FREE)
+        .encode()
+        .expect("encode the fixture");
+    let mut without = source_free_two_statement_module(BytecodeVersion::SOURCE_FREE);
+    without
+        .sections
+        .retain(|section| !matches!(section.data, SectionData::LineTable(_)));
+    let without_table = without
+        .encode()
+        .expect("encode the fixture without a table");
+    let total = PreparedModule::from_bytes(&with_table, PreparationLimits::default())
+        .expect("prepare the fixture")
+        .preparation_usage()
+        .bytes;
+    let table_free = PreparedModule::from_bytes(&without_table, PreparationLimits::default())
+        .expect("prepare the fixture without a table")
+        .preparation_usage()
+        .bytes;
+    assert!(total - table_free >= 2 * 104 + 76);
+    let short = PreparationLimits {
+        max_preparation_bytes: total - 1,
+        ..PreparationLimits::default()
+    };
+    assert!(matches!(
+        PreparedModule::from_bytes(&with_table, short),
+        Err(RuntimeError::PreparationLimit)
+    ));
+    let exact = PreparationLimits {
+        max_preparation_bytes: total,
+        ..PreparationLimits::default()
+    };
+    assert!(PreparedModule::from_bytes(&with_table, exact).is_ok());
+}
+
+#[test]
+fn an_artifact_without_a_line_table_has_no_index() {
+    // Specification 12 §6.13: LINE_TABLE is optional, and an artifact without one prepares as
+    // before. Preparation keeps no statement index, so a debugging request can tell that the
+    // artifact has no statement starts and answer the rebuild error rather than an empty answer.
+    // A LINE_TABLE with no statements is still a LINE_TABLE: its index exists and starts nothing.
+    let mut module = source_free_two_statement_module(BytecodeVersion::SOURCE_FREE);
+    module
+        .sections
+        .retain(|section| !matches!(section.data, SectionData::LineTable(_)));
+    let prepared = PreparedModule::from_decoded(&module, PreparationLimits::default())
+        .expect("prepare the artifact without a table");
+    assert!(!prepared.has_statement_index());
+    assert_eq!(prepared.statement_start(1, 0), None);
+
+    let mut empty = source_free_two_statement_module(BytecodeVersion::SOURCE_FREE);
+    let Some(table) = empty.line_table_mut() else {
+        panic!("fixture LINE_TABLE")
+    };
+    table.files.clear();
+    table.statements.clear();
+    let Some(SectionData::DebugMap(map)) = empty.section_mut(SectionId::DebugMap) else {
+        panic!("fixture DEBUG_MAP")
+    };
+    map.entries.clear();
+    let prepared = PreparedModule::from_decoded(&empty, PreparationLimits::default())
+        .expect("prepare the empty table");
+    assert!(prepared.has_statement_index());
+    assert_eq!(prepared.statement_start(1, 0), None);
 }

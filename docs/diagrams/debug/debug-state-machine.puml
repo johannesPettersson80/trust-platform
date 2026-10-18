@@ -66,6 +66,11 @@ note right of debug
     (debug/run.rs). trust-runtime keeps the
     Mutex and the Condvar: a Paused scan waits
     there while RunControl says it holds.
+    A chip keeps the same fields in ChipDebug
+    (runner/debugger.rs): a Paused scan runs
+    the hold pass (runner/hold.rs), which serves
+    the link and feeds the watchdog until
+    RunControl says it no longer holds.
 end note
 
 Configured --> Running : start_runner()\n(no pause_after_launch)

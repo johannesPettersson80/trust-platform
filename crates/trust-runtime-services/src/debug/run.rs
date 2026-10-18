@@ -25,6 +25,20 @@ pub enum StopReason {
     Entry,
 }
 
+impl StopReason {
+    /// The stable wire label of the reason: how `status` names a debugger hold and how a stop
+    /// names its cause (specification 13, "Stopped Events").
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Breakpoint => "breakpoint",
+            Self::Step => "step",
+            Self::Pause => "pause",
+            Self::Entry => "entry",
+        }
+    }
+}
+
 /// Whether the scan runs or the debugger holds it (specification 13, "Pause").
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RunMode {
@@ -637,6 +651,18 @@ mod tests {
         running.run().retire_observations();
         assert_eq!(running.mode, RunMode::Running);
         assert_eq!(running.pending, None);
+    }
+
+    #[test]
+    fn a_stop_reason_has_the_wire_label_of_its_cause() {
+        // Specification 13, "Stopped Events": the reason is `breakpoint` for an active breakpoint,
+        // `step` for a stepping command, `pause` for an explicit pause and `entry` for a stop on
+        // entry. Wrong behaviour caught: a swapped or renamed label, which tells a client that a
+        // pause was a breakpoint.
+        assert_eq!(StopReason::Breakpoint.label(), "breakpoint");
+        assert_eq!(StopReason::Step.label(), "step");
+        assert_eq!(StopReason::Pause.label(), "pause");
+        assert_eq!(StopReason::Entry.label(), "entry");
     }
 
     #[test]

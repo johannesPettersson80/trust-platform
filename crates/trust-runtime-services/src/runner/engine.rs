@@ -23,14 +23,16 @@
 //! scan, at the same points as trust-runtime's hosted cycle.
 //!
 //! The state is single-owner and holds no lock: a device's runner and its platform are one thread,
-//! so a shared [`Rc`](alloc::rc::Rc) takes the place of trust-runtime's `DebugControl` lock. A
+//! so a shared [`Rc`] takes the place of trust-runtime's `DebugControl` lock. A
 //! refused write is reported through the runner's record store as a `WriteRejected` event, as
 //! trust-runtime reports it.
 
+mod held_time;
 mod limits;
 mod process_io;
 mod services;
 
+use alloc::rc::Rc;
 use alloc::string::ToString;
 use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
@@ -40,7 +42,7 @@ use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::io_image::PreparedIoBinding;
 use trust_runtime_core::memory::{Generation, InstanceId, IoArea};
-use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
+use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::{RestartMode, RetainSnapshot};
 use trust_runtime_core::value::{Duration, Value};
 use trust_runtime_core::vm::{
@@ -53,6 +55,7 @@ pub use process_io::ProcessIo;
 pub use services::DeviceServices;
 
 use super::cycle::{resource_tasks, ResourceCycle, RetainSource, TaskDescriptor};
+use super::hold::HoldHandle;
 use super::retain::{RetainConfig, RetainStore};
 use super::state::Records;
 use crate::events::RuntimeEvent;
@@ -170,6 +173,22 @@ impl<'a, C: MonotonicClock, I: ProcessIo> EngineCycle<'a, C, I> {
     }
 }
 
+impl<C: MonotonicClock, I: ProcessIo> EngineCycle<'static, C, I> {
+    /// Lets the debugger hold this program's scans at the first instruction of each statement
+    /// (specification 13, "Safe Points"; specification 34, STATE-07).
+    ///
+    /// The statement starts come from the prepared module's `LINE_TABLE` (specification 12 §6.13),
+    /// which the execution services keep for the rest of the boot, so the module and the services
+    /// are `'static` as a firmware keeps them. A module without a `LINE_TABLE` has no statement
+    /// start, and no scan of it is held. The statement hook costs one check per instruction while
+    /// the platform does not enable debugging.
+    #[must_use]
+    pub fn with_debugger(self) -> Self {
+        self.services.attach_statements(self.prepared);
+        self
+    }
+}
+
 impl<C: MonotonicClock, I: ProcessIo> ResourceCycle for EngineCycle<'_, C, I> {
     fn tasks(&self) -> Vec<TaskDescriptor> {
         resource_tasks(self.prepared, RESOURCE_INDEX)
@@ -187,6 +206,10 @@ impl<C: MonotonicClock, I: ProcessIo> ResourceCycle for EngineCycle<'_, C, I> {
         self.settings.fault_policy
     }
 
+    fn held_time(&self) -> TimeSpan {
+        self.services.held_time()
+    }
+
     /// The deadline is armed for this scan only, so a stop's or a fault's safe outputs are
     /// never refused by an expired one.
     fn run_scan(
@@ -195,14 +218,19 @@ impl<C: MonotonicClock, I: ProcessIo> ResourceCycle for EngineCycle<'_, C, I> {
         deadline: Option<MonotonicInstant>,
         observer: &mut dyn CycleHooks,
     ) -> Result<(), RuntimeError> {
+        let services = self.services;
+        services.arm(deadline);
+        services.scan_begins();
         let mut hooks = ScanHooks {
             io: &mut self.io,
             retain: self.retain.as_mut(),
             observer,
+            // The health of the drivers is published only while a debugger can hold the scan.
+            drivers: services.driver_health_cell(),
         };
-        self.services.arm(deadline);
         let result = self.state.execute_cycle_with_hooks(now, &mut hooks);
-        self.services.arm(None);
+        services.arm(None);
+        services.scan_ends();
         result
     }
 
@@ -274,6 +302,10 @@ impl<C: MonotonicClock, I: ProcessIo> ResourceCycle for EngineCycle<'_, C, I> {
     fn io_drivers(&self) -> Vec<IoDriverStatus> {
         self.io.driver_health()
     }
+
+    fn attach_hold(&mut self, hold: HoldHandle) {
+        self.services.attach_hold(hold);
+    }
 }
 
 /// The engine hooks of one scan: the process I/O at its phases, the retained capture at the
@@ -286,6 +318,10 @@ struct ScanHooks<'h, 'o, I> {
     io: &'h mut I,
     retain: Option<&'h mut RetainStore>,
     observer: &'h mut (dyn CycleHooks + 'o),
+    /// Where the health of the drivers is published after the inputs are read, so that a hold,
+    /// which cannot reach the process I/O inside the scan, reports it (specification 34,
+    /// STATE-07). None unless a debugger can hold the scan.
+    drivers: Option<&'h Cell<Vec<IoDriverStatus>>>,
 }
 
 impl<I: ProcessIo> CycleHooks for ScanHooks<'_, '_, I> {
@@ -312,7 +348,12 @@ impl<I: ProcessIo> CycleHooks for ScanHooks<'_, '_, I> {
     ) -> Result<(), RuntimeError> {
         self.observer.on_phase(phase, access)?;
         match phase {
-            CyclePhase::BeforeInputSample => self.io.read_inputs(access.inputs_mut()?)?,
+            CyclePhase::BeforeInputSample => {
+                self.io.read_inputs(access.inputs_mut()?)?;
+                if let Some(drivers) = self.drivers {
+                    drivers.set(self.io.driver_health());
+                }
+            }
             CyclePhase::BeforeOutputSample => {
                 if let Some(retain) = self.retain.as_mut() {
                     retain.capture(access)?;
@@ -332,9 +373,18 @@ impl<I: ProcessIo> CycleHooks for ScanHooks<'_, '_, I> {
 /// The Live Values of one device: the pending writes and active forces the platform queues, and
 /// the I/O snapshot the runner publishes.
 ///
-/// The composing platform holds it behind an [`Rc`](alloc::rc::Rc) shared with the runner. It is
-/// single-owner, so it holds no lock; a chip keeps it for the rest of the boot.
+/// A handle: a clone shares the queues and the snapshot with the original. The platform keeps one
+/// and answers the control requests from it, and the resource loop takes a clone when it starts,
+/// so a scan applies the queues without borrowing the platform, which a debugger hold needs for
+/// its idle work and its watchdog feed (specification 34, STATE-07). It is single-owner, so it
+/// holds no lock; a chip keeps it for the rest of the boot.
+#[derive(Clone)]
 pub struct EngineLiveValues {
+    inner: Rc<LiveInner>,
+}
+
+/// The state that the handles of one [`EngineLiveValues`] share.
+struct LiveInner {
     /// The pending writes and active forces the control requests queue.
     queues: RefCell<LiveValueQueues<()>>,
     /// The installation generation an instance-targeted request is resolved in.
@@ -355,12 +405,14 @@ impl EngineLiveValues {
     #[must_use]
     pub fn empty() -> Self {
         Self {
-            queues: RefCell::new(LiveValueQueues::new()),
-            generation: Cell::new(Generation::FIRST),
-            names: RetainedNames::default(),
-            bindings: Vec::new(),
-            binding_names: Vec::new(),
-            published: RefCell::new(None),
+            inner: Rc::new(LiveInner {
+                queues: RefCell::new(LiveValueQueues::new()),
+                generation: Cell::new(Generation::FIRST),
+                names: RetainedNames::default(),
+                bindings: Vec::new(),
+                binding_names: Vec::new(),
+                published: RefCell::new(None),
+            }),
         }
     }
 
@@ -386,12 +438,14 @@ impl EngineLiveValues {
             return Err(RuntimeError::InvalidExecutionState);
         }
         Ok(Self {
-            queues: RefCell::new(LiveValueQueues::new()),
-            generation: Cell::new(Generation::FIRST),
-            names,
-            bindings,
-            binding_names,
-            published: RefCell::new(None),
+            inner: Rc::new(LiveInner {
+                queues: RefCell::new(LiveValueQueues::new()),
+                generation: Cell::new(Generation::FIRST),
+                names,
+                bindings,
+                binding_names,
+                published: RefCell::new(None),
+            }),
         })
     }
 
@@ -399,23 +453,23 @@ impl EngineLiveValues {
     /// and a restart (specification 11 §6.9.2). The published snapshot stays, as trust-runtime
     /// keeps it.
     pub fn clear(&self) {
-        self.queues.borrow_mut().clear();
+        self.inner.queues.borrow_mut().clear();
     }
 
     /// The published I/O snapshot of the last completed scan, updated in place.
     fn publish(&self, access: &mut CycleAccess<'_, '_>, scan: u64) -> Result<(), RuntimeError> {
-        let needs_build = self.published.borrow().is_none();
+        let needs_build = self.inner.published.borrow().is_none();
         if needs_build {
             let snapshot = self.build_snapshot();
-            *self.published.borrow_mut() = Some(snapshot);
+            *self.inner.published.borrow_mut() = Some(snapshot);
         }
-        let mut published = self.published.borrow_mut();
+        let mut published = self.inner.published.borrow_mut();
         let Some(snapshot) = published.as_mut() else {
             return Err(RuntimeError::InvalidExecutionState);
         };
         snapshot.scan = Some(scan);
         snapshot.forced.clear();
-        for (address, _) in &self.queues.borrow().forced_io {
+        for (address, _) in &self.inner.queues.borrow().forced_io {
             snapshot.forced.push(address.clone());
         }
         // The entries were laid out in binding order, so the same order updates their values
@@ -423,7 +477,7 @@ impl EngineLiveValues {
         let mut inputs = 0;
         let mut outputs = 0;
         let mut memory = 0;
-        for binding in &self.bindings {
+        for binding in &self.inner.bindings {
             let value = match access.read_image(&binding.address) {
                 Ok(raw) => match binding.codec.decode(raw) {
                     Ok(value) => IoSnapshotValue::Value(value),
@@ -457,7 +511,7 @@ impl EngineLiveValues {
     /// The snapshot of every admitted binding, with the value of each entry not sampled yet.
     fn build_snapshot(&self) -> IoSnapshot {
         let mut snapshot = IoSnapshot::default();
-        for (binding, name) in self.bindings.iter().zip(&self.binding_names) {
+        for (binding, name) in self.inner.bindings.iter().zip(&self.inner.binding_names) {
             let entry = IoSnapshotEntry {
                 name: name.clone(),
                 address: binding.address.clone(),
@@ -494,32 +548,34 @@ fn binding_type_name(binding: &PreparedIoBinding) -> Option<SmolStr> {
 
 impl IoQueuePort for EngineLiveValues {
     fn io_snapshot(&self) -> IoSnapshotRead {
-        match &*self.published.borrow() {
+        match &*self.inner.published.borrow() {
             Some(snapshot) => IoSnapshotRead::Published(snapshot.clone()),
             None => IoSnapshotRead::Missing,
         }
     }
 
     fn enqueue_io_write(&self, address: IoAddress, value: Value) -> Result<(), RequestQueueFull> {
-        self.queues
+        self.inner
+            .queues
             .borrow_mut()
             .try_enqueue_io_write(address, value)
     }
 
     fn force_io(&self, address: IoAddress, value: Value) -> Result<(), RequestQueueFull> {
-        self.queues
+        self.inner
+            .queues
             .borrow_mut()
             .try_upsert_forced_io(address, value)
     }
 
     fn release_io(&self, address: &IoAddress) {
-        self.queues.borrow_mut().release_io(address);
+        self.inner.queues.borrow_mut().release_io(address);
     }
 }
 
 impl VariableQueuePort for EngineLiveValues {
     fn generation(&self) -> Generation {
-        self.generation.get()
+        self.inner.generation.get()
     }
 
     fn enqueue_var_write(
@@ -527,29 +583,33 @@ impl VariableQueuePort for EngineLiveValues {
         target: PendingVarTarget,
         value: Value,
     ) -> Result<(), RequestQueueFull> {
-        self.queues.borrow_mut().try_upsert_var_write(target, value)
+        self.inner
+            .queues
+            .borrow_mut()
+            .try_upsert_var_write(target, value)
     }
 
     fn force_var(&self, target: ForcedVarTarget, value: Value) -> Result<(), RequestQueueFull> {
-        self.queues
+        self.inner
+            .queues
             .borrow_mut()
             .try_upsert_forced_var(target, value)
     }
 
     fn release_global(&self, name: &str) {
-        self.queues.borrow_mut().clear_forced_vars(
+        self.inner.queues.borrow_mut().clear_forced_vars(
             |target| matches!(target, ForcedVarTarget::Global(current) if current.as_str() == name),
         );
     }
 
     fn release_retain(&self, name: &str) {
-        self.queues.borrow_mut().clear_forced_vars(
+        self.inner.queues.borrow_mut().clear_forced_vars(
             |target| matches!(target, ForcedVarTarget::Retain(current) if current.as_str() == name),
         );
     }
 
     fn release_instance(&self, instance: InstanceId, name: &str) {
-        self.queues.borrow_mut().clear_forced_vars(|target| {
+        self.inner.queues.borrow_mut().clear_forced_vars(|target| {
             matches!(
                 target,
                 ForcedVarTarget::Instance(_, current_id, current_name)
@@ -559,7 +619,7 @@ impl VariableQueuePort for EngineLiveValues {
     }
 
     fn forced_snapshot(&self) -> ForcedSnapshot {
-        self.queues.borrow().forced_snapshot()
+        self.inner.queues.borrow().forced_snapshot()
     }
 }
 
@@ -622,23 +682,23 @@ impl<C: MonotonicClock> CycleHooks for LiveValuesHooks<'_, '_, C> {
         let live = self.live;
         match phase {
             CyclePhase::CycleStart => {
-                let mut queues = live.queues.borrow_mut();
+                let mut queues = live.inner.queues.borrow_mut();
                 apply::cycle_start(
                     &mut *queues,
-                    &live.names,
+                    &live.inner.names,
                     access,
                     self,
                     |_access, _target, _value| Err(RuntimeError::ReferenceLifetime),
                 )?;
             }
             CyclePhase::BeforeInputSample => {
-                let mut queues = live.queues.borrow_mut();
-                apply::io_writes_and_forces(&mut *queues, &live.names, access, self)?;
+                let mut queues = live.inner.queues.borrow_mut();
+                apply::io_writes_and_forces(&mut *queues, &live.inner.names, access, self)?;
             }
             CyclePhase::AfterOutputSample => {
                 {
-                    let mut queues = live.queues.borrow_mut();
-                    apply::forces(&mut *queues, &live.names, access, self)?;
+                    let mut queues = live.inner.queues.borrow_mut();
+                    apply::forces(&mut *queues, &live.inner.names, access, self)?;
                 }
                 live.publish(access, self.scan)?;
             }

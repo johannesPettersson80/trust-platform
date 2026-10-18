@@ -72,6 +72,13 @@ loop for each statement
         hook -> hook : publish the halted state
         hook -> stopThread : emit DebugStop(Step, threadId)\n(generation ok)
         hook -> hook : cvar.wait() [BLOCKS]\n(the hold: Mutex + Condvar only)
+        note right
+            On a chip the hold is the hold pass of
+            the resource loop (runner/hold.rs): it
+            serves the link, runs the idle work,
+            feeds the watchdog and waits, until
+            RunControl says the scan is released.
+        end note
     else continue
         hook --> runtime : return
     end

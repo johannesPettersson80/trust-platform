@@ -22,20 +22,23 @@ pub struct LineTable {
 }
 
 impl LineTable {
-    /// Check the statement ordering and nesting rule of §6.13.
+    /// Check the statement rules of §6.13 that the decoder and the validator share.
     ///
     /// A source-built container reaches validation without the decoder, so the
-    /// decoder and the validator share this one rule. Entries ascend by `pou_id`,
-    /// then `start_code_offset`, then descending `end_code_offset`, and two entries
-    /// that share a start must nest (the later span inside the earlier one).
+    /// decoder and the validator share this one rule. Every statement's code span and
+    /// source span run forwards and are non-empty, and its positions are 1-based.
+    /// Entries ascend by `pou_id`, then `start_code_offset`, then descending
+    /// `end_code_offset`, and two entries that share a start must nest (the later
+    /// span inside the earlier one). The code spans of one POU never cross: they
+    /// nest, or one ends where the next starts.
     ///
     /// # Errors
     ///
-    /// Returns the §6.13 section fault when an entry breaks the order or a shared
-    /// start does not nest.
+    /// Returns the §6.13 section fault that names the first rule an entry breaks.
     pub fn check_statement_order(&self) -> Result<(), BytecodeError> {
         let mut previous: Option<&LineStatement> = None;
         for statement in &self.statements {
+            check_statement_spans(statement)?;
             if let Some(previous) = previous {
                 if (statement.pou_id, statement.start_code_offset)
                     < (previous.pou_id, previous.start_code_offset)
@@ -55,8 +58,77 @@ impl LineTable {
             }
             previous = Some(statement);
         }
+        let code_spans = self.statements.iter().map(|statement| {
+            (
+                statement.pou_id,
+                statement.start_code_offset,
+                statement.end_code_offset,
+            )
+        });
+        if spans_cross(code_spans) {
+            return Err(BytecodeError::section_static(
+                "LINE_TABLE statement code spans cross",
+            ));
+        }
         Ok(())
     }
+}
+
+/// The span rules of one statement (spec 12 §6.13): its code span and its source span
+/// each run forwards and are non-empty, and every position is 1-based.
+fn check_statement_spans(statement: &LineStatement) -> Result<(), BytecodeError> {
+    if statement.start_code_offset >= statement.end_code_offset {
+        return Err(BytecodeError::section_static(
+            if statement.start_code_offset == statement.end_code_offset {
+                "LINE_TABLE statement code span is empty"
+            } else {
+                "LINE_TABLE statement code span is reversed"
+            },
+        ));
+    }
+    if statement.start_line == 0
+        || statement.end_line == 0
+        || statement.start_column == 0
+        || statement.end_column == 0
+    {
+        return Err(BytecodeError::section_static(
+            "LINE_TABLE statement position is not 1-based",
+        ));
+    }
+    let start = (statement.start_line, statement.start_column);
+    let end = (statement.end_line, statement.end_column);
+    if start >= end {
+        return Err(BytecodeError::section_static(if start == end {
+            "LINE_TABLE statement source span is empty"
+        } else {
+            "LINE_TABLE statement source span is reversed"
+        }));
+    }
+    Ok(())
+}
+
+/// Whether two spans of one group cross: they overlap, and neither contains the other
+/// (spec 12 §6.13). The spans ascend by start, and at an equal start descend by end. A
+/// span that ends where the next one starts only touches it.
+fn spans_cross<G: PartialEq + Copy, P: Ord + Copy>(spans: impl Iterator<Item = (G, P, P)>) -> bool {
+    // The ends of the spans that still hold the current start, innermost last. A nested
+    // span ends no later than the span around it, so the innermost end is the smallest.
+    let mut open: Vec<P> = Vec::new();
+    let mut group: Option<G> = None;
+    for (this_group, start, end) in spans {
+        if group != Some(this_group) {
+            open.clear();
+            group = Some(this_group);
+        }
+        while open.last().is_some_and(|&innermost| innermost <= start) {
+            open.pop();
+        }
+        if open.last().is_some_and(|&innermost| end > innermost) {
+            return true;
+        }
+        open.push(end);
+    }
+    false
 }
 
 /// One source file's label (spec 12 §6.13).
