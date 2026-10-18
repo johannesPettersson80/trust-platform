@@ -27,3 +27,4 @@ include!("tests/resource_queue_bounds.rs");
 include!("tests/config_set_lock_order.rs");
 include!("tests/capabilities.rs");
 include!("tests/search.rs");
+include!("tests/debug_line_table_parity.rs");

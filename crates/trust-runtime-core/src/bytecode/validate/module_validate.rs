@@ -185,6 +185,9 @@ impl BytecodeModuleView<'_> {
             let file_strings = debug_strings.unwrap_or(strings);
             validate_debug_map(file_strings, &tables, debug_map, &mut budget)?;
         }
+        budget.temporary(|budget| {
+            validate_line_table_section(self, &tables, pou_bodies, debug_strings, budget)
+        })?;
         if self.version.is_source_free() {
             construction::validate_construction(
                 self,
@@ -200,6 +203,31 @@ impl BytecodeModuleView<'_> {
             module_call_depth(&tables, construction_layout, pou_bodies, &mut budget)?;
         Ok(budget.stats)
     }
+}
+
+/// Check the LINE_TABLE section when the container carries one (spec 12 §6.13).
+///
+/// A line table resolves its labels in DEBUG_STRING_TABLE, so a container carrying
+/// one requires that section; its statements are checked against POU_BODIES and
+/// against the DEBUG_MAP statement entries.
+fn validate_line_table_section(
+    module: &BytecodeModuleView<'_>,
+    tables: &ValidationContext<'_>,
+    bodies: &[u8],
+    debug_strings: Option<&StringTable>,
+    budget: &mut ValidationBudget,
+) -> Result<(), BytecodeError> {
+    let Some(line_table) = module.line_table() else {
+        return Ok(());
+    };
+    let file_strings = debug_strings.ok_or_else(|| {
+        BytecodeError::MissingSection(smol_str::SmolStr::new_static("DEBUG_STRING_TABLE"))
+    })?;
+    let debug_map = match module.section(SectionId::DebugMap) {
+        Some(SectionData::DebugMap(map)) => Some(map),
+        _ => None,
+    };
+    validate_line_table(tables, bodies, line_table, file_strings, debug_map, budget)
 }
 
 fn validate_container_records(
@@ -218,27 +246,28 @@ fn validate_container_records(
             return Err(RejectionReason::ReservedConstructionSectionFlags.into());
         }
         let expected = match &section.data {
-            SectionData::StringTable(_) => Some(SectionId::StringTable),
-            SectionData::DebugStringTable(_) => Some(SectionId::DebugStringTable),
-            SectionData::TypeTable(_) => Some(SectionId::TypeTable),
-            SectionData::ConstPool(_) => Some(SectionId::ConstPool),
-            SectionData::RefTable(_) => Some(SectionId::RefTable),
-            SectionData::PouIndex(_) => Some(SectionId::PouIndex),
+            SectionData::StringTable(_) => Some(SectionId::StringTable.as_raw()),
+            SectionData::DebugStringTable(_) => Some(SectionId::DebugStringTable.as_raw()),
+            SectionData::TypeTable(_) => Some(SectionId::TypeTable.as_raw()),
+            SectionData::ConstPool(_) => Some(SectionId::ConstPool.as_raw()),
+            SectionData::RefTable(_) => Some(SectionId::RefTable.as_raw()),
+            SectionData::PouIndex(_) => Some(SectionId::PouIndex.as_raw()),
             SectionData::PouBodies(bytes) => {
                 if bytes.len() > crate::bytecode::BYTECODE_MAX_CONTAINER_BYTES {
                     return Err(BytecodeError::from(RejectionReason::CodePositionOverflow));
                 }
-                Some(SectionId::PouBodies)
+                Some(SectionId::PouBodies.as_raw())
             }
-            SectionData::ResourceMeta(_) => Some(SectionId::ResourceMeta),
-            SectionData::IoMap(_) => Some(SectionId::IoMap),
-            SectionData::DebugMap(_) => Some(SectionId::DebugMap),
-            SectionData::VarMeta(_) => Some(SectionId::VarMeta),
-            SectionData::RetainInit(_) => Some(SectionId::RetainInit),
-            SectionData::StorageLayout(_) => Some(SectionId::StorageLayout),
-            SectionData::ConstructionRoots(_) => Some(SectionId::ConstructionRoots),
-            SectionData::Initializers(_) => Some(SectionId::Initializers),
-            SectionData::AccessBindings(_) => Some(SectionId::AccessBindings),
+            SectionData::ResourceMeta(_) => Some(SectionId::ResourceMeta.as_raw()),
+            SectionData::IoMap(_) => Some(SectionId::IoMap.as_raw()),
+            SectionData::DebugMap(_) => Some(SectionId::DebugMap.as_raw()),
+            SectionData::VarMeta(_) => Some(SectionId::VarMeta.as_raw()),
+            SectionData::RetainInit(_) => Some(SectionId::RetainInit.as_raw()),
+            SectionData::LineTable(_) => Some(LINE_TABLE_SECTION_ID),
+            SectionData::StorageLayout(_) => Some(SectionId::StorageLayout.as_raw()),
+            SectionData::ConstructionRoots(_) => Some(SectionId::ConstructionRoots.as_raw()),
+            SectionData::Initializers(_) => Some(SectionId::Initializers.as_raw()),
+            SectionData::AccessBindings(_) => Some(SectionId::AccessBindings.as_raw()),
             SectionData::Raw(bytes) => {
                 if bytes.len() > crate::bytecode::BYTECODE_MAX_CONTAINER_BYTES {
                     return Err(BytecodeError::InvalidHeader(smol_str::SmolStr::new_static(
@@ -248,9 +277,20 @@ fn validate_container_records(
                 None
             }
         };
-        let known = SectionId::from_raw(section.id)
-            .filter(|id| module.version.is_source_free() || id.as_raw() < 0x000D);
-        if expected.map(SectionId::as_raw) != known.map(SectionId::as_raw) {
+        // §5 standardizes 0x0001-0x000C in a 1.x container; §11.5 standardizes the
+        // construction sections 0x000D-0x0010 and the optional LINE_TABLE 0x0011 for
+        // the source-free versions. A section's payload must match its id.
+        let known = if module.version.is_source_free() && section.id == LINE_TABLE_SECTION_ID {
+            Some(LINE_TABLE_SECTION_ID)
+        } else {
+            SectionId::from_raw(section.id)
+                .filter(|id| {
+                    module.version.is_source_free()
+                        || id.as_raw() < SectionId::StorageLayout.as_raw()
+                })
+                .map(SectionId::as_raw)
+        };
+        if expected != known {
             return Err(BytecodeError::from(RejectionReason::SectionPayloadMismatch));
         }
         if expected.is_some() {

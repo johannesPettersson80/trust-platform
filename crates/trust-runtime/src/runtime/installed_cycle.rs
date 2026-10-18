@@ -80,6 +80,13 @@ impl Runtime {
         match result {
             Ok(()) => {
                 if let Some(debug) = self.debug_control() {
+                    // The completed scan is the state reads answer from until the next one ends
+                    // (specification 11 section 6.13.1). A faulted scan publishes nothing.
+                    debug.publish_completed_scan(
+                        self.state.storage(),
+                        self.current_time(),
+                        self.prepared().storage_abi(),
+                    );
                     debug.push_runtime_event(RuntimeEvent::CycleEnd {
                         cycle: self.cycle_counter,
                         time: now,

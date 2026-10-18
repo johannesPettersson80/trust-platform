@@ -1,7 +1,7 @@
 impl<'a> BytecodeEncoder<'a> {
     pub(super) fn build_pou_index_and_bodies(
         &mut self,
-    ) -> Result<(PouIndex, Vec<u8>, Vec<DebugEntry>), BytecodeError> {
+    ) -> Result<(PouIndex, Vec<u8>, EmittedStatements), BytecodeError> {
         if let (Some(sources), Some(paths)) = (self.sources, self.paths)
             && sources.len() != paths.len()
         {
@@ -12,7 +12,7 @@ impl<'a> BytecodeEncoder<'a> {
 
         let mut entries = Vec::new();
         let mut bodies = Vec::new();
-        let mut debug_entries = Vec::new();
+        let mut statements = EmittedStatements::default();
         let mut offset: usize = 0;
 
         for program in self.programs().values() {
@@ -59,18 +59,18 @@ impl<'a> BytecodeEncoder<'a> {
             if self.authoring.is_some() {
                 self.construction.contexts.insert(id, ctx.clone());
             }
-            let (code, local_debug) = self.emit_pou_body(&mut ctx, id, &program.body)?;
+            let (code, local_statements) = self.emit_pou_body(&mut ctx, id, &program.body)?;
             let entry = self.pou_entry_program(program, id)?;
             append_emitted_pou(
                 entry,
                 local_ref_start,
                 local_ref_count,
                 code,
-                local_debug,
+                local_statements,
                 &mut EmittedPouBuffers {
                     entries: &mut entries,
                     bodies: &mut bodies,
-                    debug_entries: &mut debug_entries,
+                    statements: &mut statements,
                     offset: &mut offset,
                 },
             )?;
@@ -104,7 +104,7 @@ impl<'a> BytecodeEncoder<'a> {
             if self.authoring.is_some() {
                 self.construction.contexts.insert(id, ctx.clone());
             }
-            let (code, local_debug) = self.emit_pou_body(&mut ctx, id, &fb.body)?;
+            let (code, local_statements) = self.emit_pou_body(&mut ctx, id, &fb.body)?;
             let entry = self.pou_entry_function_block(
                 fb,
                 id,
@@ -115,11 +115,11 @@ impl<'a> BytecodeEncoder<'a> {
                 local_ref_start,
                 local_ref_count,
                 code,
-                local_debug,
+                local_statements,
                 &mut EmittedPouBuffers {
                     entries: &mut entries,
                     bodies: &mut bodies,
-                    debug_entries: &mut debug_entries,
+                    statements: &mut statements,
                     offset: &mut offset,
                 },
             )?;
@@ -160,18 +160,18 @@ impl<'a> BytecodeEncoder<'a> {
             if self.authoring.is_some() {
                 self.construction.contexts.insert(id, ctx.clone());
             }
-            let (code, local_debug) = self.emit_pou_body(&mut ctx, id, &func.body)?;
+            let (code, local_statements) = self.emit_pou_body(&mut ctx, id, &func.body)?;
             let entry = self.pou_entry_function(func, id)?;
             append_emitted_pou(
                 entry,
                 local_ref_start,
                 local_ref_count,
                 code,
-                local_debug,
+                local_statements,
                 &mut EmittedPouBuffers {
                     entries: &mut entries,
                     bodies: &mut bodies,
-                    debug_entries: &mut debug_entries,
+                    statements: &mut statements,
                     offset: &mut offset,
                 },
             )?;
@@ -218,7 +218,7 @@ impl<'a> BytecodeEncoder<'a> {
                     &mut EmittedPouBuffers {
                         entries: &mut entries,
                         bodies: &mut bodies,
-                        debug_entries: &mut debug_entries,
+                        statements: &mut statements,
                         offset: &mut offset,
                     },
                 )?;
@@ -238,14 +238,14 @@ impl<'a> BytecodeEncoder<'a> {
                     &mut EmittedPouBuffers {
                         entries: &mut entries,
                         bodies: &mut bodies,
-                        debug_entries: &mut debug_entries,
+                        statements: &mut statements,
                         offset: &mut offset,
                     },
                 )?;
             }
         }
 
-        Ok((PouIndex { entries }, bodies, debug_entries))
+        Ok((PouIndex { entries }, bodies, statements))
     }
 
     fn emit_method_entry(
@@ -294,14 +294,14 @@ impl<'a> BytecodeEncoder<'a> {
         if self.authoring.is_some() {
             self.construction.contexts.insert(id, ctx.clone());
         }
-        let (code, local_debug) = self.emit_pou_body(&mut ctx, id, &method.body)?;
+        let (code, local_statements) = self.emit_pou_body(&mut ctx, id, &method.body)?;
         let entry = self.pou_entry_method(method, owner_id, id)?;
         append_emitted_pou(
             entry,
             local_ref_start,
             local_ref_count,
             code,
-            local_debug,
+            local_statements,
             emitted,
         )
     }
@@ -336,7 +336,7 @@ impl<'a> BytecodeEncoder<'a> {
 struct EmittedPouBuffers<'a> {
     entries: &'a mut Vec<PouEntry>,
     bodies: &'a mut Vec<u8>,
-    debug_entries: &'a mut Vec<DebugEntry>,
+    statements: &'a mut EmittedStatements,
     offset: &'a mut usize,
 }
 
@@ -345,12 +345,12 @@ fn append_emitted_pou(
     local_ref_start: u32,
     local_ref_count: u32,
     code: Vec<u8>,
-    mut local_debug: Vec<DebugEntry>,
+    mut local_statements: EmittedStatements,
     emitted: &mut EmittedPouBuffers<'_>,
 ) -> Result<(), BytecodeError> {
     let code_offset = to_u32(*emitted.offset, "POU code offset")?;
     let code_length = to_u32(code.len(), "POU code length")?;
-    update_debug_offsets(&mut local_debug, code_offset)?;
+    rebase_statement_offsets(&mut local_statements.statements, code_offset)?;
 
     entry.code_offset = code_offset;
     entry.code_length = code_length;
@@ -358,21 +358,14 @@ fn append_emitted_pou(
     entry.local_ref_count = local_ref_count;
     emitted.entries.push(entry);
 
-    emitted.debug_entries.extend(local_debug);
+    emitted
+        .statements
+        .statements
+        .extend(local_statements.statements);
     emitted.bodies.extend_from_slice(&code);
     *emitted.offset = emitted
         .offset
         .checked_add(code.len())
         .ok_or_else(|| BytecodeError::InvalidSection("POU body overflow".into()))?;
-    Ok(())
-}
-
-fn update_debug_offsets(entries: &mut [DebugEntry], code_offset: u32) -> Result<(), BytecodeError> {
-    for entry in entries {
-        entry.code_offset = entry
-            .code_offset
-            .checked_add(code_offset)
-            .ok_or_else(|| BytecodeError::InvalidSection("debug code offset overflow".into()))?;
-    }
     Ok(())
 }

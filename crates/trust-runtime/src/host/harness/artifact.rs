@@ -1,7 +1,9 @@
 //! Source/context association around supplied artifacts, never replacement bodies.
 use super::{build, CompileError, SourceFile};
 use crate::{
-    bytecode::{BytecodeMetadata, BytecodeModule, BytecodeVersion, SectionData, SectionId},
+    bytecode::{
+        BytecodeMetadata, BytecodeModule, BytecodeVersion, Section, SectionData, SectionId,
+    },
     Runtime,
 };
 use smol_str::SmolStr;
@@ -138,14 +140,24 @@ pub(super) fn build_runtime(
 /// Source locations are certified only when every semantic byte/record matches.
 /// File labels may change when a bundle moves; index counts and source positions
 /// remain exact, and the metadata records the explicit corresponding labels.
+///
+/// LINE_TABLE is optional (specification 12 §6.13): an artifact written before it existed is
+/// the same program, so it is compared only when both sides carry one. Every other section
+/// must match, as before.
 fn equivalent_source_artifact(expected: &BytecodeModule, supplied: &BytecodeModule) -> bool {
-    expected.version == supplied.version
+    let line_tables_agree = match (expected.line_table(), supplied.line_table()) {
+        (Some(expected), Some(supplied)) => expected == supplied,
+        _ => true,
+    };
+    let expected_sections = sections_but_line_table(&expected.sections);
+    let supplied_sections = sections_but_line_table(&supplied.sections);
+    line_tables_agree
+        && expected.version == supplied.version
         && expected.flags == supplied.flags
-        && expected.sections.len() == supplied.sections.len()
-        && expected
-            .sections
+        && expected_sections.len() == supplied_sections.len()
+        && expected_sections
             .iter()
-            .zip(&supplied.sections)
+            .zip(&supplied_sections)
             .all(|(a, b)| {
                 a.id == b.id
                     && a.flags == b.flags
@@ -156,6 +168,14 @@ fn equivalent_source_artifact(expected: &BytecodeModule, supplied: &BytecodeModu
                         _ => a.data == b.data,
                     }
             })
+}
+
+/// The sections that every source-identity comparison requires, LINE_TABLE left out.
+fn sections_but_line_table(sections: &[Section]) -> Vec<&Section> {
+    sections
+        .iter()
+        .filter(|section| !matches!(section.data, SectionData::LineTable(_)))
+        .collect()
 }
 
 fn select_resource(
@@ -204,4 +224,66 @@ pub fn configured_resource(
     Err(CompileError::new(format!(
         "resource '{name}' not found in supplied bytecode"
     )))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::harness::CompileSession;
+
+    #[test]
+    fn artifact_without_line_table_keeps_its_source_association_and_statement_index_path() {
+        // Specification 12 §6.13: LINE_TABLE is optional, so a 2.0/3.0 artifact written before it
+        // existed is the same program. Its source association survives, and its breakpoints still
+        // resolve through the statement index, as specification 13 "Source Mapping" describes.
+        let source = "PROGRAM Main\nVAR\nx : INT;\nEND_VAR\nx := 1;\nEND_PROGRAM\n";
+        let session =
+            CompileSession::from_sources(vec![SourceFile::with_path("src/main.st", source)]);
+        let module = session
+            .build_bytecode_module()
+            .expect("the compiler builds the module");
+        assert!(
+            module.line_table().is_some(),
+            "the compiler writes LINE_TABLE for source-built modules"
+        );
+        let mut before_line_table = module.clone();
+        before_line_table
+            .sections
+            .retain(|section| !matches!(section.data, SectionData::LineTable(_)));
+        assert!(before_line_table.line_table().is_none());
+
+        let stripped = session
+            .build_runtime_from_bytecode(&before_line_table, None)
+            .expect("the artifact without LINE_TABLE installs");
+        let stripped_metadata = stripped.metadata_snapshot();
+        let file_id = stripped_metadata
+            .source_file_id("src/main.st")
+            .expect("the source file has an id");
+        assert!(
+            stripped_metadata.line_table().is_none(),
+            "without LINE_TABLE the installation resolves through its statement index"
+        );
+        assert!(
+            stripped.statement_locations(file_id).is_some(),
+            "the source association survives the missing LINE_TABLE"
+        );
+        // Hand-derived from the source: `x := 1;` is 0-based line 4 and starts at column 0.
+        let expected = Some((4, 0));
+        let resolved = stripped
+            .resolve_breakpoint_position(source, file_id, 4, 0)
+            .map(|(_, line, column)| (line, column));
+        assert_eq!(resolved, expected, "statement-index answer");
+
+        let built = session
+            .build_runtime()
+            .expect("the same sources build with LINE_TABLE");
+        assert!(
+            built.metadata_snapshot().line_table().is_some(),
+            "with LINE_TABLE the installation resolves through the table"
+        );
+        let resolved = built
+            .resolve_breakpoint_position(source, file_id, 4, 0)
+            .map(|(_, line, column)| (line, column));
+        assert_eq!(resolved, expected, "table answer");
+    }
 }

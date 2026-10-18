@@ -34,7 +34,20 @@ pub fn run_runtime(
         controller: simulation_controller,
     } = simulation;
 
-    let debug = runtime.enable_debug();
+    // The debugger is attached for every run so that `config.set` can enable it later. The
+    // configured `runtime.control.debug_enabled` is the initial value of the switch that both the
+    // debugger's hook and the control state read, so the setting decides whether the hook runs
+    // (specification 11 section 6.9).
+    let debug_enabled = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(
+        bundle
+            .as_ref()
+            .map(|bundle| bundle.runtime.control_debug_enabled)
+            .unwrap_or(true),
+    ));
+    // Attached the way `enable_debug` attaches a control, but with the shared switch.
+    let debug = trust_runtime::debug::DebugControl::new()
+        .with_enabled_flag(std::sync::Arc::clone(&debug_enabled));
+    runtime.set_debug_control(debug.clone());
     let metrics = Arc::new(Mutex::new(RuntimeMetrics::new()));
     if let Ok(mut guard) = metrics.lock() {
         guard.set_execution_backend(selected_execution_backend);
@@ -326,12 +339,7 @@ pub fn run_runtime(
         resource_name: resource_name.clone(),
         runtime_id: runtime_id.clone(),
         io_health: io_health.clone(),
-        debug_enabled: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(
-            bundle
-                .as_ref()
-                .map(|bundle| bundle.runtime.control_debug_enabled)
-                .unwrap_or(true),
-        )),
+        debug_enabled,
         debug_variables: Arc::new(Mutex::new(trust_runtime::debug::DebugVariableHandles::new())),
         hmi_live: Arc::new(Mutex::new(
             hmi_persistence

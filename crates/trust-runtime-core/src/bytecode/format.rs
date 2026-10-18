@@ -14,6 +14,8 @@ mod pou;
 pub use pou::*;
 mod resource_io_debug;
 pub use resource_io_debug::*;
+mod line_table;
+pub use line_table::*;
 
 mod construction;
 pub use construction::*;

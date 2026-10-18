@@ -96,6 +96,7 @@ impl Runtime {
             statement_index: self.statement_index.clone(),
             source_text_index: self.source_text_index.clone(),
             source_label_index: self.source_label_index.clone(),
+            line_table: None,
         }
     }
 

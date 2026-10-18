@@ -9,32 +9,32 @@ impl<'a> BytecodeEncoder<'a> {
         else_if: &[(crate::program_model::Expr, Vec<crate::program_model::Stmt>)],
         else_block: &[crate::program_model::Stmt],
         code: &mut Vec<u8>,
-        debug_entries: &mut Vec<DebugEntry>,
+        statements: &mut EmittedStatements,
     ) -> Result<bool, BytecodeError> {
         let code_start = code.len();
-        let debug_start = debug_entries.len();
+        let debug_start = statements.len();
         if !expr_supported(condition) {
             code.truncate(code_start);
-            debug_entries.truncate(debug_start);
+            statements.truncate(debug_start);
             return Ok(false);
         }
         for (cond, _) in else_if {
             if !expr_supported(cond) {
                 code.truncate(code_start);
-                debug_entries.truncate(debug_start);
+                statements.truncate(debug_start);
                 return Ok(false);
             }
         }
         if !self.emit_expr(ctx, condition, code)? {
             code.truncate(code_start);
-            debug_entries.truncate(debug_start);
+            statements.truncate(debug_start);
             return Ok(false);
         }
         let mut end_jumps = Vec::new();
         let mut jump_false = self.emit_jump_placeholder(code, 0x04);
-        if let Err(err) = self.emit_block(ctx, pou_id, then_block, code, debug_entries) {
+        if let Err(err) = self.emit_block(ctx, pou_id, then_block, code, statements) {
             code.truncate(code_start);
-            debug_entries.truncate(debug_start);
+            statements.truncate(debug_start);
             return Err(err);
         }
         if !else_if.is_empty() || !else_block.is_empty() {
@@ -45,22 +45,22 @@ impl<'a> BytecodeEncoder<'a> {
         for (cond, block) in else_if {
             if !self.emit_expr(ctx, cond, code)? {
                 code.truncate(code_start);
-                debug_entries.truncate(debug_start);
+                statements.truncate(debug_start);
                 return Ok(false);
             }
             jump_false = self.emit_jump_placeholder(code, 0x04);
-            if let Err(err) = self.emit_block(ctx, pou_id, block, code, debug_entries) {
+            if let Err(err) = self.emit_block(ctx, pou_id, block, code, statements) {
                 code.truncate(code_start);
-                debug_entries.truncate(debug_start);
+                statements.truncate(debug_start);
                 return Err(err);
             }
             end_jumps.push(self.emit_jump_placeholder(code, 0x02));
             next_start = code.len();
             self.patch_jump(code, jump_false, next_start)?;
         }
-        if let Err(err) = self.emit_block(ctx, pou_id, else_block, code, debug_entries) {
+        if let Err(err) = self.emit_block(ctx, pou_id, else_block, code, statements) {
             code.truncate(code_start);
-            debug_entries.truncate(debug_start);
+            statements.truncate(debug_start);
             return Err(err);
         }
         let end = code.len();
@@ -82,18 +82,18 @@ impl<'a> BytecodeEncoder<'a> {
         )],
         else_block: &[crate::program_model::Stmt],
         code: &mut Vec<u8>,
-        debug_entries: &mut Vec<DebugEntry>,
+        statements: &mut EmittedStatements,
     ) -> Result<bool, BytecodeError> {
         let code_start = code.len();
-        let debug_start = debug_entries.len();
+        let debug_start = statements.len();
         if !expr_supported(selector) {
             code.truncate(code_start);
-            debug_entries.truncate(debug_start);
+            statements.truncate(debug_start);
             return Ok(false);
         }
         if !self.emit_expr(ctx, selector, code)? {
             code.truncate(code_start);
-            debug_entries.truncate(debug_start);
+            statements.truncate(debug_start);
             return Ok(false);
         }
         let mut end_jumps = Vec::new();
@@ -105,7 +105,7 @@ impl<'a> BytecodeEncoder<'a> {
                         code.push(0x11);
                         if !self.emit_const_value(value, code)? {
                             code.truncate(code_start);
-                            debug_entries.truncate(debug_start);
+                            statements.truncate(debug_start);
                             return Ok(false);
                         }
                         code.push(0x50);
@@ -115,7 +115,7 @@ impl<'a> BytecodeEncoder<'a> {
                         code.push(0x11);
                         if !self.emit_const_value(&Value::LInt(*lower), code)? {
                             code.truncate(code_start);
-                            debug_entries.truncate(debug_start);
+                            statements.truncate(debug_start);
                             return Ok(false);
                         }
                         code.push(0x55);
@@ -123,7 +123,7 @@ impl<'a> BytecodeEncoder<'a> {
                         code.push(0x11);
                         if !self.emit_const_value(&Value::LInt(*upper), code)? {
                             code.truncate(code_start);
-                            debug_entries.truncate(debug_start);
+                            statements.truncate(debug_start);
                             return Ok(false);
                         }
                         code.push(0x53);
@@ -139,9 +139,9 @@ impl<'a> BytecodeEncoder<'a> {
                 self.patch_jump(code, jump, branch_start)?;
             }
             code.push(0x12);
-            if let Err(err) = self.emit_block(ctx, pou_id, block, code, debug_entries) {
+            if let Err(err) = self.emit_block(ctx, pou_id, block, code, statements) {
                 code.truncate(code_start);
-                debug_entries.truncate(debug_start);
+                statements.truncate(debug_start);
                 return Err(err);
             }
             end_jumps.push(self.emit_jump_placeholder(code, 0x02));
@@ -149,9 +149,9 @@ impl<'a> BytecodeEncoder<'a> {
             self.patch_jump(code, skip_branch, next_check)?;
         }
         code.push(0x12);
-        if let Err(err) = self.emit_block(ctx, pou_id, else_block, code, debug_entries) {
+        if let Err(err) = self.emit_block(ctx, pou_id, else_block, code, statements) {
             code.truncate(code_start);
-            debug_entries.truncate(debug_start);
+            statements.truncate(debug_start);
             return Err(err);
         }
         let end = code.len();

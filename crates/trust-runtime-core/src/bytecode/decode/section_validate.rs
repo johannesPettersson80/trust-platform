@@ -10,11 +10,11 @@ pub(super) fn validate_section_entries(
     budget.charge(0, entries.len())?;
     // The standard currently defines IDs 1..=16. Unknown extension IDs are not
     // deduplicated; retain the STBC 1.x interpretation of later standard IDs.
+    // §11.5 adds LINE_TABLE `0x0011` to the source-free versions, where it is
+    // standardized too.
     let mut standardized_ids = 0u32;
     for entry in entries {
-        if SectionId::from_raw(entry.id).is_some()
-            && (version.is_source_free() || entry.id < SectionId::StorageLayout.as_raw())
-        {
+        if crate::bytecode::is_standardized_section_id(version, entry.id) {
             let mask = 1u32 << entry.id;
             if standardized_ids & mask != 0 {
                 return Err(BytecodeError::section_diagnostic(
@@ -118,15 +118,25 @@ mod tests {
             BytecodeVersion::SOURCE_FREE
         )
         .is_ok());
+        // §11.5 standardizes LINE_TABLE `0x0011` in the source-free versions, so a
+        // duplicate is refused there even though `SectionId` has no variant for it.
+        assert!(matches!(
+            check(
+                &[
+                    entry(LINE_TABLE_SECTION_ID, 0),
+                    entry(LINE_TABLE_SECTION_ID, 0)
+                ],
+                BytecodeVersion::SOURCE_FREE
+            ),
+            Err(BytecodeError::InvalidSection(_))
+        ));
+        // §5 standardizes only 0x0001-0x000C for 1.x, so `0x000D` (STORAGE_LAYOUT)
+        // and `0x0011` (LINE_TABLE) stay unknown optional extensions of §4.2 and a
+        // duplicate is accepted there as before.
         let legacy = BytecodeVersion { major: 1, minor: 1 };
-        assert!(check(
-            &[
-                entry(SectionId::StorageLayout.as_raw(), 0),
-                entry(SectionId::StorageLayout.as_raw(), 0)
-            ],
-            legacy
-        )
-        .is_ok());
+        for id in [SectionId::StorageLayout.as_raw(), LINE_TABLE_SECTION_ID] {
+            assert!(check(&[entry(id, 0), entry(id, 0)], legacy).is_ok());
+        }
     }
 
     #[test]

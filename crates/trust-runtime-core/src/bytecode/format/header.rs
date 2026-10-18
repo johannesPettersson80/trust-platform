@@ -127,6 +127,22 @@ pub struct Section {
     pub data: SectionData,
 }
 
+/// Whether a wire identifier names a standardized section in `version`'s id space.
+///
+/// Spec 12 §5 standardizes `0x0001`-`0x000C` for 1.x; §11.5 standardizes the
+/// mandatory construction sections `0x000D`-`0x0010` and the optional LINE_TABLE
+/// `0x0011` for the source-free versions 2.0 and 3.0. A 1.x container keeps every
+/// later id, `0x000D` included, as an unknown optional extension of §4.2.
+#[must_use]
+pub fn is_standardized_section_id(version: BytecodeVersion, id: u16) -> bool {
+    if id == LINE_TABLE_SECTION_ID {
+        return version.is_source_free();
+    }
+    SectionId::from_raw(id).is_some_and(|known| {
+        version.is_source_free() || known.as_raw() < SectionId::StorageLayout.as_raw()
+    })
+}
+
 /// Decoded section payload, or preserved bytes for an unknown extension.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SectionData {
@@ -154,6 +170,8 @@ pub enum SectionData {
     VarMeta(VarMeta),
     /// Retain Init record.
     RetainInit(RetainInit),
+    /// LINE_TABLE record; source-free containers 2.0/3.0 only (spec 12 §6.13).
+    LineTable(LineTable),
     /// STBC 2.0 storage declaration templates.
     StorageLayout(StorageLayout),
     /// STBC 2.0 persistent construction roots.

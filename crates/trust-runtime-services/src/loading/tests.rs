@@ -3,8 +3,9 @@
 //!
 //! The flash is the C6's: 4-byte program units, 4 KiB erase units and two slots of 3,056 KiB, the
 //! halves of the 6,112 KiB `application` region of `chips/esp32c6.toml`. The installed program is
-//! the fixture `program-v2.stbc`, 6,164 bytes, which prepares with the default limits. Its record is
-//! 342 bytes, so the container is 6,566 bytes (60 + 6,164 + 342) and takes two 4 KiB erase units.
+//! the fixture `program-v2.stbc`, 6,412 bytes with its line table, which prepares with the default
+//! limits. Its record is 342 bytes, so the container is 6,814 bytes (60 + 6,412 + 342) and takes
+//! two 4 KiB erase units.
 
 use alloc::boxed::Box;
 use alloc::rc::Rc;
@@ -405,7 +406,7 @@ fn an_erased_store_selects_no_program() {
 #[test]
 fn an_install_refused_by_admission_writes_no_byte() {
     // Specification 34 §5.1.1 and DEPLOY-04: a program the device's application slot cannot hold is
-    // refused before any write. The program and its record need 6,506 bytes (6,164 + 342) and the
+    // refused before any write. The program and its record need 6,754 bytes (6,412 + 342) and the
     // device has 100. Catches a write that starts before admission.
     let (flash, mut store) = erased_store();
     let small = DeviceDescriptor {
@@ -417,7 +418,7 @@ fn an_install_refused_by_admission_writes_no_byte() {
         refused.err(),
         Some(InstallError::Admission(AdmissionError::Deployment(
             RuntimeError::DeploymentRefused(AdmissionRefusal::ApplicationSlot {
-                needed: 6506,
+                needed: 6754,
                 available: 100,
             })
         )))
