@@ -28,13 +28,15 @@ use super::lifecycle::Owner;
 use super::list;
 use super::runtimes;
 use super::types::{
-    Action, Computer, Connection, Emphasis, HoverCard, Inspector, ItemId, Look, Op, Pill, Row,
-    Section, Tone, UiOp,
+    Action, BrowseKind, Computer, Connection, Emphasis, HoverCard, Inspector, ItemId, Look, Op,
+    Pane, Pill, Row, Section, Tone, UiOp,
 };
 use crate::gather::Gathered;
 use crate::inputs::Facts;
+use crate::panes::browse as browse_pane;
 use crate::panes::forms::{self, Catalog, CatalogProtocol, FormRequest};
 use crate::request::IoValue;
+use crate::texts::browse as browse_texts;
 use crate::texts::connections as texts;
 use crate::texts::graph;
 use crate::topology::{self, Endpoint, Topology};
@@ -389,7 +391,14 @@ fn inspector(
             tone: shown.dot,
             live: shown.live,
         }),
-        primary: actions(endpoint, owning, schema, &shown.id, form.as_ref()),
+        primary: actions(
+            endpoint,
+            owning,
+            schema,
+            &shown.id,
+            &shown.name,
+            form.as_ref(),
+        ),
         secondary: vec![focus(&shown.id)],
         sections,
         edit: form.as_ref().map(forms::form_id),
@@ -467,12 +476,13 @@ fn focus(id: &ItemId) -> Action {
 
 /// The inspector's larger actions (specification 25 §5.13): `Edit settings` while the catalog
 /// describes the protocol, `Test` while the connection's runtime or the catalog says it can be
-/// tested, and `Diagnose` for an ADS client.
+/// tested, `Diagnose` for an ADS client, and the browse that the protocol offers, last.
 fn actions(
     endpoint: &Endpoint,
     owning: &Owning,
     schema: Option<&CatalogProtocol>,
     id: &ItemId,
+    name: &str,
     form: Option<&FormRequest>,
 ) -> Vec<Action> {
     let protocol = endpoint.protocol.trim();
@@ -539,7 +549,46 @@ fn actions(
             rust("connection.diagnose", payload(None)),
         ));
     }
+    if let Some(browse) = browse_action(endpoint, owning, id, name) {
+        actions.push(browse);
+    }
     actions
+}
+
+/// The browse that the protocol offers the connection (`browseAction`, `W/browseActions.ts:18-35`):
+/// `Manage tags` (the old ADS inspector's label), `Browse channels`, `Browse nodes` or
+/// `Choose globals`. A remote browse needs its runtime to have answered; the globals are the
+/// project's own and always open.
+fn browse_action(endpoint: &Endpoint, owning: &Owning, id: &ItemId, name: &str) -> Option<Action> {
+    let capability = browse_pane::capability(endpoint.protocol.trim())?;
+    let label = match capability.kind {
+        BrowseKind::AdsTags => browse_texts::ENTRY_TAGS,
+        BrowseKind::Channels => browse_texts::ENTRY_CHANNELS,
+        BrowseKind::Nodes => browse_texts::ENTRY_NODES,
+        BrowseKind::Expose => browse_texts::ENTRY_GLOBALS,
+    };
+    let op = Op::Ui {
+        ui: UiOp::Open {
+            pane: Pane::Browse {
+                request: json!({
+                    "source": { "connection": id.as_str(), "connection_name": name },
+                    "kind": capability.wire_kind,
+                    "trust_server_certificate": false,
+                }),
+            },
+        },
+    };
+    Some(if capability.local {
+        action("browse", label, Emphasis::Secondary, op)
+    } else {
+        needs_runtime(
+            "browse",
+            label,
+            browse_texts::NOT_BROWSED,
+            owning.answers,
+            op,
+        )
+    })
 }
 
 /// The names of the client connections that a connection's settings list.

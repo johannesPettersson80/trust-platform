@@ -104,7 +104,9 @@ pub struct AddDialog {
     pub discover: Action,
     /// Its help.
     pub discover_help: String,
-    /// `Found on the network`: the session's last search.
+    /// The heading of the finds: `Found on the network` (Rust's text, specification 25 §5.14).
+    pub found_heading: String,
+    /// The finds of the session's last search.
     pub found: Vec<FoundEntry>,
     /// The `Runtimes` group, first.
     pub runtimes: AddGroup,
@@ -118,6 +120,8 @@ pub struct AddDialog {
     /// Why the catalog is missing.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub catalog_state: Option<String>,
+    /// The accessible name of the close button.
+    pub close_label: String,
 }
 
 /// A runtime named in a dialog or a form.
@@ -254,6 +258,9 @@ pub struct FormField {
     pub label: String,
     /// Whether it is required.
     pub required: bool,
+    /// The mark a required field carries, from Rust's texts; absent for an optional field.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub required_mark: Option<String>,
     /// What it holds.
     pub kind: FieldKind,
     /// Its value: the current one, the default or the prefill, chosen by Rust.
@@ -274,6 +281,9 @@ pub struct FormField {
     /// The example shown while it is empty.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub placeholder: Option<String>,
+    /// Whether the form forgets this field's value after a Save that Rust answers, such as a
+    /// username or password typed for one request. Other values stay, so a refused Save keeps them.
+    pub forget_after_post: bool,
 }
 
 /// What a field holds.
@@ -532,30 +542,61 @@ pub struct CompareView {
 pub struct BrowseView {
     /// Its identity.
     pub id: String,
+    /// Its breadcrumb: `Devices & Connections`.
+    pub breadcrumb: String,
     /// Its title.
     pub title: String,
-    /// Its subtitle.
+    /// Its subtitle: the connection's name.
     pub subtitle: String,
     /// What it browses.
     pub kind: BrowseKind,
     /// Whether the browse still runs: true from the first answer until the origin has answered
     /// (design §1.5, line 381).
     pub loading: bool,
-    /// The tree.
+    /// The accessible name of its close button.
+    pub close_label: String,
+    /// The word of the mark on a leaf that the project already has.
+    pub added_label: String,
+    /// The tooltip of a leaf's access word: the template `{access} on the device`, which the
+    /// webview fills with the access word.
+    pub access_tooltip: String,
+    /// The accessible name of a leaf's Added mark: the template `Already added: {path}`, which the
+    /// webview fills with the leaf's path.
+    pub added_aria_label: String,
+    /// The search box, while the tree or the ports are there to search.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub search: Option<SearchBox>,
+    /// What the pane shows instead of its tree: the loading, empty or error text.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub empty_text: Option<String>,
+    /// The tree of an OPC UA, `EtherCAT` or exposed-globals browse.
     pub tree: Vec<TreeNode>,
-    /// The ADS ports.
+    /// The ADS ports, in port order.
     pub ports: Vec<AdsPortCard>,
     /// The suggested ADS ports.
     pub port_suggestions: Vec<FieldOption>,
     /// Their help.
     pub port_help: String,
+    /// The typed ADS port: its toggle, its field and its browse action.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub port_input: Option<PortInput>,
+    /// The ADS port summary line, such as `2 ADS ports`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub port_summary: Option<String>,
+    /// The connection's details, shown under a disclosure.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<Details>,
     /// What failed.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<ErrorBox>,
-    /// `Add`.
-    pub add: AddButton,
+    /// `Add`; an ADS pane adds its tags with their own ticks and has none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub add: Option<AddButton>,
     /// The write toggle.
     pub write_toggle: Toggle,
+    /// The label of the button that closes the pane in its footer, when the pane has one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub done_label: Option<String>,
     /// The result of the last action.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notice: Option<Notice>,
@@ -592,8 +633,15 @@ pub struct TreeNode {
     pub access: Option<String>,
     /// Whether it can be ticked.
     pub selectable: bool,
+    /// The accessible name of its tick box, such as `Select MAIN.Counter`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub select_label: Option<String>,
     /// Whether the project already has it.
     pub added: bool,
+    /// What ticking or unticking it does: an ADS tag's `ads.tags_set`, `ticked` while it is not in
+    /// the project and `unticked` once it is.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action: Option<Action>,
     /// Its children.
     pub children: Vec<TreeNode>,
 }
@@ -603,10 +651,13 @@ pub struct TreeNode {
 pub struct AdsPortCard {
     /// The port.
     pub port: u16,
-    /// Its title.
+    /// Its title, such as `ADS port 851`.
     pub title: String,
-    /// Its state.
+    /// Its state, such as `2 tags` or `Loading…`.
     pub state_text: String,
+    /// The text of its body when no tree is drawn: loading, not loaded, or no tags.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub empty_text: Option<String>,
     /// Its tags.
     pub tags: Vec<TreeNode>,
     /// The route help of a port whose route is missing.
@@ -650,6 +701,8 @@ pub struct ErrorBox {
 pub struct AddButton {
     /// Its text.
     pub label: String,
+    /// Its text with the number of ticked symbols: `{count}` stands for the number.
+    pub counted_label: String,
     /// Whether it can be chosen.
     pub enabled: bool,
     /// Why it cannot.
@@ -657,6 +710,9 @@ pub struct AddButton {
     pub reason: Option<String>,
     /// Why it cannot while nothing is ticked.
     pub no_selection_reason: String,
+    /// What choosing it does: `browse.add` with the pane's own request; the webview adds the ticked
+    /// keys and the write toggle as its values (specification 25 §5.4 and §11.2).
+    pub action: Action,
 }
 
 /// A toggle of a browse pane.
@@ -669,4 +725,38 @@ pub struct Toggle {
     /// Why it cannot.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+}
+
+/// The search box of a browse pane (specification 25 §5.4; the old panels' search, word for word).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SearchBox {
+    /// The text the empty box shows.
+    pub placeholder: String,
+    /// The text shown when nothing matches.
+    pub no_match: String,
+}
+
+/// The typed ADS port of a browse pane: its toggle, its field and the action that browses the typed
+/// port (specification 25 §5.4 and its lines 880-883).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct PortInput {
+    /// The toggle's text while the field is hidden.
+    pub show_label: String,
+    /// The toggle's text while the field is shown.
+    pub hide_label: String,
+    /// The field's label.
+    pub label: String,
+    /// The text the empty field shows.
+    pub placeholder: String,
+    /// `Browse this port`: a `browse.port` action that takes the typed text as its `port` value.
+    pub browse: Action,
+}
+
+/// The details of a connection, under a disclosure.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Details {
+    /// The disclosure's text.
+    pub summary: String,
+    /// The facts.
+    pub rows: Vec<Row>,
 }

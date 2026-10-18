@@ -140,10 +140,15 @@ fn a_browse_view_says_it_is_loading() {
 
     let first = open(panel.session("dc-test", Instant::now()), &request);
     assert!(first.loading, "the first poll loads");
-    assert!(!first.add.enabled);
+    assert!(
+        first.add.is_none(),
+        "an ADS pane has no Add button: each tag is ticked on its own"
+    );
+    assert_eq!(first.ports[0].state_text, "Loading…");
     assert_eq!(
-        first.add.reason.as_deref(),
-        Some("Wait for browse results before adding tags.")
+        first.ports[0].empty_text.as_deref(),
+        Some("Loading tags…"),
+        "the loading card says its tags are loading, in Rust's words"
     );
 
     wait_for_browse(&mut panel);

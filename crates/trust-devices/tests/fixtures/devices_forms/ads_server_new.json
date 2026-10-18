@@ -40,16 +40,19 @@
           "kind": "boolean",
           "value": true,
           "options": [],
-          "help": "Expose selected truST globals over ADS."
+          "help": "Expose selected truST globals over ADS.",
+          "forget_after_post": false
         },
         {
           "id": "listen",
           "label": "Listen IP",
           "required": true,
+          "required_mark": " *",
           "kind": "text",
           "value": "127.0.0.1",
           "options": [],
-          "help": "Local IP address where TwinCAT/ADS clients connect. Wildcard binds are rejected."
+          "help": "Local IP address where TwinCAT/ADS clients connect. Wildcard binds are rejected.",
+          "forget_after_post": false
         },
         {
           "id": "ams_net_id",
@@ -58,16 +61,19 @@
           "kind": "text",
           "value": "",
           "options": [],
-          "help": "Runtime AMS Net ID. Empty derives it from an IPv4 listen address."
+          "help": "Runtime AMS Net ID. Empty derives it from an IPv4 listen address.",
+          "forget_after_post": false
         },
         {
           "id": "ads_port",
           "label": "ADS port",
           "required": true,
+          "required_mark": " *",
           "kind": "number",
           "value": 851,
           "options": [],
-          "help": "Logical ADS port."
+          "help": "Logical ADS port.",
+          "forget_after_post": false
         },
         {
           "id": "insecure_transport",
@@ -76,7 +82,8 @@
           "kind": "boolean",
           "value": true,
           "options": [],
-          "help": "Required acknowledgement for plain ADS server transport."
+          "help": "Required acknowledgement for plain ADS server transport.",
+          "forget_after_post": false
         },
         {
           "id": "writes_enabled",
@@ -85,7 +92,8 @@
           "kind": "boolean",
           "value": false,
           "options": [],
-          "help": "Allow writes only for symbols also listed in writable."
+          "help": "Allow writes only for symbols also listed in writable.",
+          "forget_after_post": false
         },
         {
           "id": "expose",
@@ -106,7 +114,8 @@
             "item_kind": "text",
             "item_template": "global.*",
             "properties": []
-          }
+          },
+          "forget_after_post": false
         },
         {
           "id": "writable",
@@ -125,7 +134,8 @@
             "item_kind": "text",
             "item_template": "",
             "properties": []
-          }
+          },
+          "forget_after_post": false
         },
         {
           "id": "allow_unpinned_clients",
@@ -134,7 +144,8 @@
           "kind": "boolean",
           "value": false,
           "options": [],
-          "help": "Lab override for clients without source IP/CIDR pins. Keep disabled in production."
+          "help": "Lab override for clients without source IP/CIDR pins. Keep disabled in production.",
+          "forget_after_post": false
         },
         {
           "id": "clients",
@@ -185,7 +196,8 @@
                 ]
               }
             ]
-          }
+          },
+          "forget_after_post": false
         }
       ]
     },
@@ -196,64 +208,78 @@
           "id": "max_symbols",
           "label": "Max symbols",
           "required": true,
+          "required_mark": " *",
           "kind": "number",
           "value": 4096,
           "options": [],
-          "help": "Maximum exposed symbol count."
+          "help": "Maximum exposed symbol count.",
+          "forget_after_post": false
         },
         {
           "id": "max_clients",
           "label": "Max clients",
           "required": true,
+          "required_mark": " *",
           "kind": "number",
           "value": 32,
           "options": [],
-          "help": "Maximum simultaneous ADS clients."
+          "help": "Maximum simultaneous ADS clients.",
+          "forget_after_post": false
         },
         {
           "id": "max_subscriptions_per_client",
           "label": "Max subscriptions per client",
           "required": true,
+          "required_mark": " *",
           "kind": "number",
           "value": 1024,
           "options": [],
-          "help": "Per-client notification subscription cap."
+          "help": "Per-client notification subscription cap.",
+          "forget_after_post": false
         },
         {
           "id": "max_total_subscriptions",
           "label": "Max total subscriptions",
           "required": true,
+          "required_mark": " *",
           "kind": "number",
           "value": 8192,
           "options": [],
-          "help": "Global notification subscription cap."
+          "help": "Global notification subscription cap.",
+          "forget_after_post": false
         },
         {
           "id": "max_frame_bytes",
           "label": "Max frame bytes",
           "required": true,
+          "required_mark": " *",
           "kind": "number",
           "value": 1048576,
           "options": [],
-          "help": "Maximum ADS frame payload bytes."
+          "help": "Maximum ADS frame payload bytes.",
+          "forget_after_post": false
         },
         {
           "id": "max_sumup_items",
           "label": "Max sum-up items",
           "required": true,
+          "required_mark": " *",
           "kind": "number",
           "value": 256,
           "options": [],
-          "help": "Maximum items in ADS sum-up requests."
+          "help": "Maximum items in ADS sum-up requests.",
+          "forget_after_post": false
         },
         {
           "id": "max_write_bytes",
           "label": "Max write bytes",
           "required": true,
+          "required_mark": " *",
           "kind": "number",
           "value": 262144,
           "options": [],
-          "help": "Maximum write payload bytes."
+          "help": "Maximum write payload bytes.",
+          "forget_after_post": false
         }
       ]
     }

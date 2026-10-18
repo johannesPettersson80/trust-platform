@@ -67,9 +67,16 @@ pub(crate) fn tags_set(session: &Session, request: &ActRequest) -> ActReply {
         .and_then(Value::as_bool)
         .unwrap_or(false);
     let offline_add = matches!(writes, Writes::Project) && !ticked.is_empty();
+    // A failed import or removal: its notice in this pane, with the port's own message.
+    let failed = |reason: Option<&str>, offline: bool| {
+        failure(&pane, texts::ads_tags_failed(port, reason), offline)
+    };
 
     let mut added = 0usize;
     let mut generated = None;
+    // Whether the runtime must restart before the change is used (`restartRequired`,
+    // `W/AdsMultiPortTagBrowser.tsx:559`).
+    let mut restart = false;
     if !ticked.is_empty() {
         let params = import_params(
             &route_name,
@@ -84,32 +91,30 @@ pub(crate) fn tags_set(session: &Session, request: &ActRequest) -> ActReply {
             Ok(report) if applied(&report) => {
                 added = selected_count(&report, ticked.len());
                 generated = generated_path(&report);
+                restart = true;
             }
-            Ok(report) => {
-                return failure(
-                    &pane,
-                    texts::ads_tags_failed(reason_of(&report)),
-                    offline_add,
-                );
-            }
-            Err(reason) => {
-                return failure(&pane, texts::ads_tags_failed(Some(&reason)), offline_add);
-            }
+            Ok(report) => return failed(reason_of(&report), offline_add),
+            Err(reason) => return failed(Some(&reason), offline_add),
         }
     }
     let mut removed = 0usize;
     if !unticked.is_empty() {
         let params = remove_params(&target, &unticked);
         match send(request, &writes, "ads.import_symbols.remove", &params) {
-            Ok(report) if applied(&report) => removed = removed_count(&report),
-            Ok(report) => return failure(&pane, texts::ads_tags_failed(reason_of(&report)), false),
-            Err(reason) => return failure(&pane, texts::ads_tags_failed(Some(&reason)), false),
+            Ok(report) if applied(&report) => {
+                removed = removed_count(&report);
+                restart |= report.get("restart_required").and_then(Value::as_bool) == Some(true);
+            }
+            Ok(report) => return failed(reason_of(&report), false),
+            Err(reason) => return failed(Some(&reason), false),
         }
     }
-    let mut notice = super::notice(
+    let detail = restart.then(|| browse_texts::ADS_RESTART.to_owned());
+    let mut notice = super::notice_line(
         Tone::Ok,
         &pane,
         texts::ads_tags_notice(added, removed, port),
+        detail,
     );
     if offline_add {
         notice.actions.push(start_runtime());
@@ -319,11 +324,14 @@ fn generated_path(report: &Value) -> Option<String> {
         .map(str::to_owned)
 }
 
-/// The trimmed, non-empty paths at `key` of the values.
+/// The trimmed, non-empty paths at `key`: the action's payload when it names them there, else its
+/// values. A tick posts its one path in the payload (design §4.3 B8, D5b R2).
 fn paths_of(request: &ActRequest, key: &str) -> Vec<String> {
     request
-        .values
+        .op
+        .payload
         .get(key)
+        .or_else(|| request.values.get(key))
         .and_then(Value::as_array)
         .into_iter()
         .flatten()

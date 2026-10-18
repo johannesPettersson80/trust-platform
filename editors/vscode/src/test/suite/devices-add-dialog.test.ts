@@ -452,4 +452,42 @@ suite("Devices & Connections Add dialog", () => {
       await rendered.unmount();
     }
   });
+
+  test("the_found_heading_and_the_close_label_are_the_views_own", async () => {
+    // Specification 25 §5.14 and design D5b R5: the `Found on the network` heading (`AddDialog.tsx:124`) and
+    // the close button's name come from the view. The copy below changes both and adds one find, so a
+    // component that keeps its own literal shows the wrong words.
+    const copy = JSON.parse(JSON.stringify(addOf("search_and_filter")));
+    copy.found_heading = "Seen on the line";
+    copy.close_label = "Dismiss";
+    copy.found = [
+      {
+        card: "card:plc-1",
+        title: "Line PLC",
+        rows: [],
+        action: {
+          id: "add",
+          label: "Add",
+          enabled: true,
+          emphasis: "primary",
+          op: { kind: "rust", action: "runtime.adopt", payload: {} },
+        },
+      },
+    ];
+    const rendered = await renderDialog(copy);
+    try {
+      assert.strictEqual(
+        rendered.container.querySelector('[data-role="add-found-heading"]').textContent,
+        "Seen on the line",
+        "the heading is the view's own text",
+      );
+      assert.strictEqual(
+        rendered.container.querySelector('[data-role="add-close"]').getAttribute("aria-label"),
+        "Dismiss",
+        "the close button's name is the view's own text",
+      );
+    } finally {
+      await rendered.unmount();
+    }
+  });
 });

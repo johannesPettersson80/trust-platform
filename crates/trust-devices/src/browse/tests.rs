@@ -20,10 +20,17 @@ use crate::session::Sessions;
 use crate::targets::{Target, TargetOrigin};
 use crate::test_project::TempFolder;
 use crate::view::tests::fixtures as fx;
-use crate::view::types::{BrowseKind, BrowseView, Connection, DevicesView, Runtime, TreeNode};
+use crate::view::types::{
+    AddButton, BrowseKind, BrowseView, Connection, DevicesView, Runtime, TreeNode,
+};
 
 /// The token that the extension stored for a runtime's control endpoint.
 const TOKEN: &str = "token-1";
+
+/// The Add button of a pane that has one.
+fn add_button(view: &BrowseView) -> &AddButton {
+    view.add.as_ref().expect("a pane with an Add button")
+}
 
 // ---- the tests' inputs (design §4.3 B8) ----
 
@@ -590,9 +597,9 @@ fn a_browse_answers_loading_first_and_the_tree_in_a_later_poll() {
     let first = open(panel.session("dc-test", Instant::now()), &request);
     assert_eq!(first.tree, Vec::<TreeNode>::new(), "the first poll loads");
     assert_eq!(first.error, None);
-    assert!(!first.add.enabled);
+    assert!(!add_button(&first).enabled);
     assert_eq!(
-        first.add.reason.as_deref(),
+        add_button(&first).reason.as_deref(),
         Some("Wait for browse results before adding tags.")
     );
 
@@ -602,8 +609,8 @@ fn a_browse_answers_loading_first_and_the_tree_in_a_later_poll() {
     assert_eq!(second.tree.len(), 1, "the later poll has the tree");
     assert_eq!(second.tree[0].key, "ns=2;i=1");
     assert_eq!(second.tree[0].name, "Temperature");
-    assert!(second.add.enabled);
-    assert_eq!(second.add.reason, None);
+    assert!(add_button(&second).enabled);
+    assert_eq!(add_button(&second).reason, None);
 }
 
 #[test]
@@ -680,4 +687,5 @@ fn an_older_seq_never_replaces_a_newer_browse() {
 }
 
 mod ads;
+mod port;
 mod projection;

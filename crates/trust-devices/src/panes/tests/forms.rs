@@ -6,8 +6,8 @@ use serde_json::{json, Map, Value};
 
 use super::add::{library, without_words};
 use crate::panes::forms::{
-    coerce_submission, connection_form, form_id, visible, Catalog, EditedConnection, FormInputs,
-    FormRequest,
+    coerce_submission, connection_form, form_id, route_login_form, visible, Catalog,
+    EditedConnection, FormInputs, FormRequest, RouteForm,
 };
 use crate::view::types::{
     Action, FieldError, FieldKind, Form, FormField, ItemId, ListEditor, Op, RuntimeRef,
@@ -563,4 +563,29 @@ fn form_identity_follows_protocol_runtime_and_prefill() {
     );
     assert_ne!(first, other);
     assert!(first.starts_with("modbus_tcp@runtime:local~"));
+}
+
+/// Catches a route login that keeps its password after a post, and an MQTT form that forgets a
+/// password which a refused Save would then lose.
+#[test]
+fn only_a_route_login_is_forgotten_after_a_post() {
+    let route = RouteForm {
+        pane: "browse:ads".to_owned(),
+        runtime: "runtime:local".to_owned(),
+        route_name: "PLC_ROUTE".to_owned(),
+        target: json!({ "ip": "192.168.10.20" }),
+        local: json!({}),
+    };
+    let login = route_login_form(&route);
+    assert!(field(&login, "username").forget_after_post);
+    assert!(field(&login, "password").forget_after_post);
+    let mqtt = new_form(&catalog(), "mqtt", true);
+    assert_eq!(field(&mqtt, "password").kind, FieldKind::Secret);
+    assert!(
+        mqtt.sections
+            .iter()
+            .flat_map(|section| &section.fields)
+            .all(|field| !field.forget_after_post),
+        "an MQTT form keeps every value after a post"
+    );
 }

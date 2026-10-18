@@ -352,3 +352,29 @@ pub(super) fn configured_project() -> Value {
         "links": [], "shared": [], "external": [],
     })
 }
+
+/// The control endpoint that `configured_project` names for its runtime `RESOURCE`.
+pub(super) const CONFIGURED_CONTROL: &str = "unix:///tmp/trust-runtime-line1.sock";
+
+/// The project whose runtime `RESOURCE` is not running, configured with the protocols that browse:
+/// ADS, `EtherCAT` and an OPC UA client, which are remote, and an OPC UA server, which is local.
+pub(super) fn stopped_browsable_project() -> ProjectInputs {
+    let mut configured = configured_project();
+    configured["hosts"][0]["runtimes"][0]["endpoints"] = json!([
+        configured_endpoint("ads", "ADS PLC"),
+        configured_endpoint("ethercat", "EtherCAT bus"),
+        configured_endpoint("opcua_client", "OPC UA client"),
+        configured_endpoint("opcua", "OPC UA server"),
+    ]);
+    project(configured)
+}
+
+/// An endpoint that the project configures on `RESOURCE`, which is not running.
+fn configured_endpoint(protocol: &str, name: &str) -> Value {
+    json!({
+        "id": format!("endpoint:RESOURCE:{protocol}"), "kind": "field", "protocol": protocol,
+        "name": name, "role": "owned_driver", "health": "configured_policy",
+        "detail": "Configured in io.toml; runtime is not running.", "owned": true,
+        "supports_test": false, "source": "config",
+    })
+}

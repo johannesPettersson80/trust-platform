@@ -612,6 +612,29 @@
                         "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpwbGMtZ2F0ZXdheSIsbnVsbCwicGxjIiwidGNwOi8vMTkyLjE2OC4xMC4yMDo1NjgwIl0"
                       }
                     }
+                  },
+                  {
+                    "id": "browse",
+                    "label": "Choose globals",
+                    "enabled": true,
+                    "emphasis": "secondary",
+                    "op": {
+                      "kind": "ui",
+                      "ui": {
+                        "kind": "open",
+                        "pane": {
+                          "kind": "browse",
+                          "request": {
+                            "kind": "symbols",
+                            "source": {
+                              "connection": "trust-fleet-v1:WyJlbmRwb2ludCIsImhvc3Q6cGxjLWdhdGV3YXkiLG51bGwsInBsYyIsImVuZHBvaW50OnBsYzphZHNfc2VydmVyIiwidGNwOi8vMTkyLjE2OC4xMC4yMDo1NjgwIl0",
+                              "connection_name": "ADS server"
+                            },
+                            "trust_server_certificate": false
+                          }
+                        }
+                      }
+                    }
                   }
                 ],
                 "secondary": [
@@ -1104,6 +1127,7 @@
       }
     },
     "discover_help": "Scan first when hardware is already on the network.",
+    "found_heading": "Found on the network",
     "found": [],
     "runtimes": {
       "label": "Runtimes",
@@ -1225,7 +1249,8 @@
     },
     "groups": [],
     "quick_starts": [],
-    "catalog_state": "No device or connection types are available."
+    "catalog_state": "No device or connection types are available.",
+    "close_label": "Close"
   },
   "list": {
     "columns": [

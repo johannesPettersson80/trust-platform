@@ -141,6 +141,7 @@ pub(crate) fn empty_add_dialog() -> AddDialog {
             op: open(Pane::Discover),
         },
         discover_help: texts::DISCOVER_HELP.to_owned(),
+        found_heading: texts::FOUND_ON_THE_NETWORK.to_owned(),
         found: Vec::new(),
         runtimes: AddGroup {
             label: texts::RUNTIMES_GROUP.to_owned(),
@@ -151,6 +152,7 @@ pub(crate) fn empty_add_dialog() -> AddDialog {
         advanced_toggle: None,
         quick_starts: Vec::new(),
         catalog_state: None,
+        close_label: texts::ADD_DIALOG_CLOSE.to_owned(),
     }
 }
 

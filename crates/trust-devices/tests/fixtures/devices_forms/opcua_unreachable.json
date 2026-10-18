@@ -40,7 +40,8 @@
           "kind": "boolean",
           "value": true,
           "options": [],
-          "help": "Read selected nodes from an external OPC UA server."
+          "help": "Read selected nodes from an external OPC UA server.",
+          "forget_after_post": false
         },
         {
           "id": "config_path",
@@ -49,16 +50,19 @@
           "kind": "text",
           "value": "opcua_client.toml",
           "options": [],
-          "help": "Project-relative OPC UA client connection file."
+          "help": "Project-relative OPC UA client connection file.",
+          "forget_after_post": false
         },
         {
           "id": "poll_interval_ms",
           "label": "OPC UA poll interval (ms)",
           "required": true,
+          "required_mark": " *",
           "kind": "number",
           "value": 250,
           "options": [],
-          "help": "How often truST reads selected OPC UA nodes. Lower values reduce latency but use more CPU and network traffic."
+          "help": "How often truST reads selected OPC UA nodes. Lower values reduce latency but use more CPU and network traffic.",
+          "forget_after_post": false
         },
         {
           "id": "connections",
@@ -77,7 +81,8 @@
             "item_kind": "text",
             "item_template": null,
             "properties": []
-          }
+          },
+          "forget_after_post": false
         }
       ]
     }

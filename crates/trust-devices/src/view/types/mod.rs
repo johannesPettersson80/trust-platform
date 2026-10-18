@@ -476,9 +476,9 @@ pub use graph::{
 pub use panes::ListProperty;
 pub use panes::{
     AddButton, AddDialog, AddEntry, AddGroup, AdsPortCard, AdvancedToggle, BrowseKind, BrowseView,
-    CardProtocol, CompareView, DeviceCard, DiscoverView, ErrorBox, FieldKind, FieldOption,
+    CardProtocol, CompareView, Details, DeviceCard, DiscoverView, ErrorBox, FieldKind, FieldOption,
     FieldbusOffer, Form, FormField, FormSection, FoundEntry, GhostTile, InstallStep, InstallView,
-    ListEditor, OnlyChoice, OriginChoice, Progress, QuickStart, RouteHelp, RuntimeChoice,
-    RuntimeRef, SourceRow, StepState, TargetsInput, Toggle, TreeNode, UsbItem, UsbTray,
-    VisibleWhen,
+    ListEditor, OnlyChoice, OriginChoice, PortInput, Progress, QuickStart, RouteHelp,
+    RuntimeChoice, RuntimeRef, SearchBox, SourceRow, StepState, TargetsInput, Toggle, TreeNode,
+    UsbItem, UsbTray, VisibleWhen,
 };

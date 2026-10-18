@@ -624,6 +624,29 @@
                         "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDp0cnVzdC1waSIsbnVsbCwicnVudGltZS1hIiwidGNwOi8vMTkyLjE2OC43Ny4xMDo1NjgwIl0"
                       }
                     }
+                  },
+                  {
+                    "id": "browse",
+                    "label": "Choose globals",
+                    "enabled": true,
+                    "emphasis": "secondary",
+                    "op": {
+                      "kind": "ui",
+                      "ui": {
+                        "kind": "open",
+                        "pane": {
+                          "kind": "browse",
+                          "request": {
+                            "kind": "symbols",
+                            "source": {
+                              "connection": "trust-fleet-v1:WyJlbmRwb2ludCIsImhvc3Q6dHJ1c3QtcGkiLG51bGwsInJ1bnRpbWUtYSIsImVuZHBvaW50OnJ1bnRpbWUtYTpvcGN1YSIsInRjcDovLzE5Mi4xNjguNzcuMTA6NTY4MCJd",
+                              "connection_name": "OPC UA server"
+                            },
+                            "trust_server_certificate": false
+                          }
+                        }
+                      }
+                    }
                   }
                 ],
                 "secondary": [
@@ -778,6 +801,29 @@
                         "connection": "trust-fleet-v1:WyJlbmRwb2ludCIsImhvc3Q6dHJ1c3QtcGkiLG51bGwsInJ1bnRpbWUtYSIsImVuZHBvaW50OnJ1bnRpbWUtYTphZHNfc2VydmVyIiwidGNwOi8vMTkyLjE2OC43Ny4xMDo1NjgwIl0",
                         "protocol": "ads_server",
                         "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDp0cnVzdC1waSIsbnVsbCwicnVudGltZS1hIiwidGNwOi8vMTkyLjE2OC43Ny4xMDo1NjgwIl0"
+                      }
+                    }
+                  },
+                  {
+                    "id": "browse",
+                    "label": "Choose globals",
+                    "enabled": true,
+                    "emphasis": "secondary",
+                    "op": {
+                      "kind": "ui",
+                      "ui": {
+                        "kind": "open",
+                        "pane": {
+                          "kind": "browse",
+                          "request": {
+                            "kind": "symbols",
+                            "source": {
+                              "connection": "trust-fleet-v1:WyJlbmRwb2ludCIsImhvc3Q6dHJ1c3QtcGkiLG51bGwsInJ1bnRpbWUtYSIsImVuZHBvaW50OnJ1bnRpbWUtYTphZHNfc2VydmVyIiwidGNwOi8vMTkyLjE2OC43Ny4xMDo1NjgwIl0",
+                              "connection_name": "ADS server"
+                            },
+                            "trust_server_certificate": false
+                          }
+                        }
                       }
                     }
                   }
@@ -995,6 +1041,29 @@
                         "connection": "trust-fleet-v1:WyJlbmRwb2ludCIsImhvc3Q6dHJ1c3QtcGkiLG51bGwsInJ1bnRpbWUtYSIsImVuZHBvaW50OnJ1bnRpbWUtYTphZHMiLCJ0Y3A6Ly8xOTIuMTY4Ljc3LjEwOjU2ODAiXQ",
                         "protocol": "ads",
                         "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDp0cnVzdC1waSIsbnVsbCwicnVudGltZS1hIiwidGNwOi8vMTkyLjE2OC43Ny4xMDo1NjgwIl0"
+                      }
+                    }
+                  },
+                  {
+                    "id": "browse",
+                    "label": "Manage tags",
+                    "enabled": true,
+                    "emphasis": "secondary",
+                    "op": {
+                      "kind": "ui",
+                      "ui": {
+                        "kind": "open",
+                        "pane": {
+                          "kind": "browse",
+                          "request": {
+                            "kind": "symbols",
+                            "source": {
+                              "connection": "trust-fleet-v1:WyJlbmRwb2ludCIsImhvc3Q6dHJ1c3QtcGkiLG51bGwsInJ1bnRpbWUtYSIsImVuZHBvaW50OnJ1bnRpbWUtYTphZHMiLCJ0Y3A6Ly8xOTIuMTY4Ljc3LjEwOjU2ODAiXQ",
+                              "connection_name": "ADS client"
+                            },
+                            "trust_server_certificate": false
+                          }
+                        }
                       }
                     }
                   }
@@ -1519,6 +1588,7 @@
       }
     },
     "discover_help": "Scan first when hardware is already on the network.",
+    "found_heading": "Found on the network",
     "found": [],
     "runtimes": {
       "label": "Runtimes",
@@ -2035,7 +2105,8 @@
           }
         }
       }
-    ]
+    ],
+    "close_label": "Close"
   },
   "list": {
     "columns": [

@@ -39,7 +39,7 @@ use crate::view::types::{ActReply, FieldError, HostEffect, Notice, PendingAction
 pub use runtimes::{Fleet, SystemFleet};
 
 /// The closed set of actions a view may offer (design §1.4.1).
-const CLOSED_ACTIONS: [&str; 33] = [
+const CLOSED_ACTIONS: [&str; 34] = [
     "runtime.connect",
     "runtime.disconnect",
     "runtime.program_start",
@@ -69,6 +69,7 @@ const CLOSED_ACTIONS: [&str; 33] = [
     "form.open",
     "form.validate",
     "browse.add",
+    "browse.port",
     "ads.tags_set",
     "ads.route_add",
     "search.ignore",
@@ -110,6 +111,7 @@ pub fn act_with(session: &mut Session, request: &ActRequest, fleet: &dyn Fleet) 
         "connection.opcua_add" => plans::opcua_add(session, request),
         "connection.ads_add" => plans::ads_add(session, request),
         "browse.add" => crate::browse::add(session, request),
+        "browse.port" => crate::browse::typed_port(session, request),
         "ads.tags_set" => ads_tags::tags_set(session, request),
         "ads.route_add" => ads::route_add(session, request),
         action if CLOSED_ACTIONS.contains(&action) => error(

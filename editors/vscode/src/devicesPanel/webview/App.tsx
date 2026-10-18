@@ -8,12 +8,16 @@
 // the host keeps them for the project (specification 25 §5.11, D2), it opens the Add dialog from the
 // `ui` op that `+ Add`, a runtime's `Add connection` slot and its menu carry (§5.14), and it opens
 // and closes the form pane from the host's replies, so a result appears in the pane that started it
-// (§5.13, D3).
+// (§5.13, D3). It opens a browse pane from the `ui` op a browse carries and draws the ADS tag browser or
+// the browse tree that Rust's view says; every action goes through one handler, which carries out the
+// `ui` ops and posts the rest with the values their pane gives (design §4.5 D5 and D5b).
 
 import React from "react";
 
 import { AddDialog as AddDialogPane } from "./AddDialog";
 import type { AddDialog } from "./addTypes";
+import { AdsTagBrowser } from "./AdsTagBrowser";
+import { BrowsePane } from "./BrowsePane";
 import { Canvas } from "./Canvas";
 import { ContextMenu } from "./ContextMenu";
 import { FormView, formPaneName, type FormValues } from "./FormView";
@@ -24,9 +28,11 @@ import { ListView } from "./ListView";
 import type { Point } from "./layout";
 import { appStyle, bodyStyle, formPaneStyle } from "./styles";
 import { addPaneStyle } from "./styles/addDialog";
+import { browsePaneStyle } from "./styles/browse";
 import { Toolbar } from "./Toolbar";
 import type {
   Action,
+  BrowseView,
   DevicesView,
   Inspector as InspectorModel,
   PanelView,
@@ -48,38 +54,43 @@ type CanvasGraph = Pick<
 type ShellView = DevicesView & CanvasGraph & { add?: AddDialog };
 
 /** The one open right-hand pane: the inspector of an item, a runtime's right-click menu, the issues
- * list, the Add dialog, or the form a `form.open` reply opened. */
+ * list, the Add dialog, a browse pane, or the form a `form.open` reply opened. */
 type OpenPane =
   | { kind: "inspector"; id: string }
   | { kind: "menu"; id: string; x: number; y: number }
   | { kind: "issues" }
   | { kind: "add" }
+  | { kind: "browse" }
   | { kind: "form"; form: Form };
 
-/** The part of an action's `op` the shell reads: the `ui` pane it opens (design §2.1). */
-interface UiOp {
-  /** The op's kind: `rust`, `host` or `ui`. */
-  kind: string;
-  /** The change of the webview's own view, when the op is a `ui` one. */
-  ui?: { kind?: string; pane?: { kind?: string } };
+/** Whether an action's `ui` op opens the pane `pane` in the panel's own view (design §2.1). */
+function opensPane(action: Action, pane: string): boolean {
+  const op = action.op;
+  return op.kind === "ui" && op.ui.kind === "open" && op.ui.pane?.kind === pane;
 }
 
 /** Whether an action opens the Add dialog in the panel's own view (specification 25 §5.14). */
 function opensAddDialog(action: Action): boolean {
-  const op = (action as { op?: UiOp }).op;
-  return op?.kind === "ui" && op.ui?.kind === "open" && op.ui.pane?.kind === "add";
+  return opensPane(action, "add");
+}
+
+/** Whether an action closes the open pane in the panel's own view (`ui` op `close_inspector`). */
+function closesPane(action: Action): boolean {
+  return action.op.kind === "ui" && action.op.ui.kind === "close_inspector";
 }
 
 /**
  * The pane name Rust gives the pane that started an action, so a notice, a pending action and a
  * `close_pane` are routed to it (`actions/mod.rs` `pane`, specification 25 §5.13).
  */
-function paneName(pane: OpenPane): string {
+function paneName(pane: OpenPane, browseId: string | undefined): string {
   switch (pane.kind) {
     case "inspector":
       return `inspector:${pane.id}`;
     case "form":
       return formPaneName(pane.form);
+    case "browse":
+      return browseId ?? pane.kind;
     default:
       return pane.kind;
   }
@@ -133,6 +144,7 @@ export function App({
   post,
   positions,
   reply,
+  browse,
 }: {
   /** The view model, as Rust returned it. */
   view: ShellView;
@@ -140,6 +152,11 @@ export function App({
   post: (message: unknown) => void;
   /** The item positions the host kept for the project, drawn over the layout (design §4.5 D2). */
   positions?: Record<string, Point>;
+  /**
+   * The browse view the host last answered for `trust-lsp.devicesBrowse` (design §1.4.1): the browse
+   * pane draws it once a browse is open (specification 25 §5.4, design §4.5 D5).
+   */
+  browse?: BrowseView;
   /**
    * The latest reply to an action, which the host hands on unchanged (design §1.4.1): a `form`
    * opens in the right-hand pane, a `notice` goes to the pane it names, `close_pane` closes the
@@ -150,27 +167,32 @@ export function App({
 }) {
   const [pane, setPane] = React.useState<OpenPane | undefined>(undefined);
   const [panelView, setPanelView] = React.useState<PanelView>("topology");
-  const onAction = React.useCallback(
-    (action: Action) => {
-      post({ type: "action", action });
-    },
-    [post],
-  );
-  // The Add dialog is the panel's own pane: `+ Add`, a runtime's `Add connection` slot and its
-  // menu's `Add device or connection…` carry the `ui` op that opens it (specification 25 §5.14).
+  // Whether a Rust or host action is awaiting its reply: the browse pane's ticks and `Add` wait for it.
+  const [awaiting, setAwaiting] = React.useState(false);
+  // Every action the panel offers goes through here (specification 25 §5.13 and §5.14). The `ui` ops
+  // are carried out by the shell: the Add dialog and the browse pane open, and `close_inspector` closes
+  // the open pane and is never posted. A `ui` op posts no values. A Rust or host action posts with the
+  // values its pane gives it: a form's typed values (J07, §5.4), a browse's ticked keys or typed port.
   const chooseAction = React.useCallback(
-    (action: Action) => {
+    (action: Action, values?: FormValues) => {
       if (opensAddDialog(action)) {
         setPane({ kind: "add" });
       }
-      onAction(action);
-    },
-    [onAction],
-  );
-  // A form's button carries the values the user typed, as the form keeps them (J07; §5.4).
-  const onFormAction = React.useCallback(
-    (action: Action, values: FormValues) => {
-      post({ type: "action", action, values });
+      if (opensPane(action, "browse")) {
+        setPane({ kind: "browse" });
+      }
+      if (closesPane(action)) {
+        setPane(undefined);
+        return;
+      }
+      if (action.op.kind === "ui" || values === undefined) {
+        post({ type: "action", action });
+      } else {
+        post({ type: "action", action, values });
+      }
+      if (action.op.kind !== "ui") {
+        setAwaiting(true);
+      }
     },
     [post],
   );
@@ -222,10 +244,15 @@ export function App({
   // A reply opens the form it carries, or closes the pane that started the action; a notice and a
   // pending action are drawn by the pane they name (specification 25 §5.13, design §1.4.1). The
   // effect runs once per reply, because the host hands each reply on as a new object.
+  // The browse pane is named by its view's own identity, which its actions name in their notices.
+  const browseId = browse?.id;
+  const browseIdRef = React.useRef(browseId);
+  browseIdRef.current = browseId;
   React.useEffect(() => {
     if (reply === undefined) {
       return;
     }
+    setAwaiting(false);
     if (reply.form !== undefined) {
       setPane({ kind: "form", form: reply.form });
       return;
@@ -237,10 +264,16 @@ export function App({
           return undefined;
         }
         // Close the pane the action started in; a reply that names none closes the open pane.
-        return started === undefined || paneName(current) === started ? undefined : current;
+        return started === undefined || paneName(current, browseIdRef.current) === started
+          ? undefined
+          : current;
       });
     }
   }, [reply]);
+
+  // The result of a browse action is drawn in the browse pane it names (specification 25 §5.13).
+  const browseNotice =
+    browse !== undefined && reply?.notice?.pane === browse.id ? reply.notice : undefined;
 
   const inspectorId = pane?.kind === "inspector" ? pane.id : undefined;
   const inspector = inspectorId === undefined ? undefined : inspectorFor(view, inspectorId);
@@ -294,6 +327,27 @@ export function App({
             <AddDialogPane dialog={view.add} onAction={chooseAction} onClose={close} />
           </aside>
         )}
+        {pane?.kind === "browse" && browse !== undefined && (
+          <aside key="browse" data-role="browse-pane" style={browsePaneStyle}>
+            {browse.kind === "ads_tags" ? (
+              <AdsTagBrowser
+                browse={browse}
+                notice={browseNotice}
+                busy={awaiting}
+                onAction={chooseAction}
+                onClose={close}
+              />
+            ) : (
+              <BrowsePane
+                browse={browse}
+                notice={browseNotice}
+                busy={awaiting}
+                onAction={chooseAction}
+                onClose={close}
+              />
+            )}
+          </aside>
+        )}
         {form !== undefined && (
           <aside key={form.id} data-role="form-pane" style={formPaneStyle}>
             <FormView
@@ -301,7 +355,7 @@ export function App({
               notice={reply?.notice}
               pending={reply?.pending}
               onValues={ignoreFormValues}
-              onAction={onFormAction}
+              onAction={chooseAction}
             />
           </aside>
         )}

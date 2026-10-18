@@ -3,6 +3,7 @@
 //! and pin the rules of specification 25 §5.1, §5.5, §5.11 and §5.12. `golden` writes and
 //! byte-compares the views that the webview's render tests read.
 
+mod browse_entry;
 mod computers;
 mod connections;
 mod devices;

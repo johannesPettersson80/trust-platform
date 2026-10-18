@@ -941,6 +941,7 @@
       }
     },
     "discover_help": "Scan first when hardware is already on the network.",
+    "found_heading": "Found on the network",
     "found": [],
     "runtimes": {
       "label": "Runtimes",
@@ -1062,7 +1063,8 @@
     },
     "groups": [],
     "quick_starts": [],
-    "catalog_state": "No device or connection types are available."
+    "catalog_state": "No device or connection types are available.",
+    "close_label": "Close"
   },
   "list": {
     "columns": [

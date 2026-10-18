@@ -77,7 +77,7 @@ export function AddDialog({
         <span data-role="add-title" title={dialog.title} style={addTitleStyle}>
           {dialog.title}
         </span>
-        <button type="button" data-role="add-close" aria-label="Close" onClick={onClose} style={addCloseStyle}>
+        <button type="button" data-role="add-close" aria-label={dialog.close_label} onClick={onClose} style={addCloseStyle}>
           ✕
         </button>
       </header>
@@ -121,7 +121,7 @@ export function AddDialog({
         {dialog.found.length > 0 && (
           <section data-role="add-found" style={sectionStyle}>
             <h3 data-role="add-found-heading" style={sectionHeadingStyle}>
-              Found on the network
+              {dialog.found_heading}
             </h3>
             {dialog.found.map((entry) => (
               <Found key={entry.card} entry={entry} onAction={onAction} />

@@ -16,7 +16,12 @@ use crate::browse::open;
 use crate::fake_runtime::FakeRuntime;
 use crate::targets::TargetOrigin;
 use crate::view::tests::fixtures as fx;
-use crate::view::types::{Op, Pane, TreeNode, UiOp};
+use crate::view::types::{AddButton, BrowseView, Op, Pane, TreeNode, UiOp};
+
+/// The Add button of a pane that has one.
+fn add_button(view: &BrowseView) -> &AddButton {
+    view.add.as_ref().expect("a pane with an Add button")
+}
 
 #[test]
 fn opcua_leaves_keep_their_raw_node_ids() {
@@ -227,18 +232,21 @@ fn add_button_reasons_ladder() {
     let request = browse_request(&body);
 
     let loading = open(panel.session("dc-test", Instant::now()), &request);
-    assert!(!loading.add.enabled);
+    assert!(!add_button(&loading).enabled);
     assert_eq!(
-        loading.add.reason.as_deref(),
+        add_button(&loading).reason.as_deref(),
         Some("Wait for browse results before adding tags.")
     );
 
     wait_for_browse(&mut panel);
     let ready = open(panel.session("dc-test", Instant::now()), &request);
-    assert!(ready.add.enabled, "a loaded tree can be added from");
-    assert_eq!(ready.add.reason, None);
+    assert!(
+        add_button(&ready).enabled,
+        "a loaded tree can be added from"
+    );
+    assert_eq!(add_button(&ready).reason, None);
     assert_eq!(
-        ready.add.no_selection_reason,
+        add_button(&ready).no_selection_reason,
         "Select at least one symbol to add."
     );
 
@@ -247,9 +255,9 @@ fn add_button_reasons_ladder() {
         &opcua_params("opc.tcp://line:4840"),
         answer("opcua_client", "nodes", json!([])),
     );
-    assert!(!empty.add.enabled);
+    assert!(!add_button(&empty).enabled);
     assert_eq!(
-        empty.add.reason.as_deref(),
+        add_button(&empty).reason.as_deref(),
         Some("No symbols are available to add.")
     );
 
@@ -258,9 +266,9 @@ fn add_button_reasons_ladder() {
         &opcua_params("opc.tcp://line:4840"),
         failed_answer("auth_required"),
     );
-    assert!(!failed.add.enabled);
+    assert!(!add_button(&failed).enabled);
     assert_eq!(
-        failed.add.reason.as_deref(),
+        add_button(&failed).reason.as_deref(),
         Some("Resolve the browse error before adding tags.")
     );
 }

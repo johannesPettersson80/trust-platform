@@ -49,6 +49,23 @@ export function formPaneName(form: Form): string {
   return `form:${form.id}`;
 }
 
+/**
+ * The values with the fields that Rust marks `forget_after_post` emptied: a route login's user name and
+ * password are typed for one request, so they are not kept after it was posted. The other values stay, so
+ * a refused Save keeps them (specification 25 §5.4 and §5.9).
+ */
+function forgetAfterPost(form: Form, values: FormValues): FormValues {
+  const next: FormValues = { ...values };
+  for (const section of form.sections) {
+    for (const field of section.fields) {
+      if (field.forget_after_post) {
+        next[field.id] = "";
+      }
+    }
+  }
+  return next;
+}
+
 /** A value as the text an input shows: an absent or null value is empty. */
 function textValue(value: unknown): string {
   if (value === undefined || value === null) {
@@ -123,7 +140,7 @@ export function FormView({
   /** Called with the values whenever they change, and once when they start. */
   onValues: (values: FormValues) => void;
   /** Called with a chosen button, and the values typed so far, unchanged. */
-  onAction?: (action: Action, values: FormValues) => void;
+  onAction?: (action: Action, values?: FormValues) => void;
 }) {
   const [values, setValues] = React.useState<FormValues>(() => initialValues(form));
   const [startedId, setStartedId] = React.useState(form.id);
@@ -144,6 +161,16 @@ export function FormView({
   React.useEffect(() => {
     setEditedSinceNotice(false);
   }, [notice]);
+  // A Rust button posts its action with the values typed so far, once per click, and then the fields that
+  // Rust marks to forget start empty again. A `ui` button is carried out by the shell and posts no values.
+  const choose = (action: Action) => {
+    if (action.op.kind !== "rust") {
+      onAction?.(action);
+      return;
+    }
+    onAction?.(action, values);
+    setValues((current) => forgetAfterPost(form, current));
+  };
   const change = (id: string, value: unknown) => {
     setValues({ ...values, [id]: value });
     setEditedSinceNotice(true);
@@ -182,7 +209,7 @@ export function FormView({
             <InspectorAction
               key={choice.id}
               action={choice.action}
-              onAction={(chosen) => onAction?.(chosen, values)}
+              onAction={choose}
             />
           ))}
         </div>
@@ -232,7 +259,7 @@ export function FormView({
                 <InspectorAction
                   key={action.id}
                   action={action}
-                  onAction={(chosen) => onAction?.(chosen, values)}
+                  onAction={choose}
                 />
               ))}
             </div>
@@ -244,7 +271,7 @@ export function FormView({
           <InspectorAction
             key={action.id}
             action={action}
-            onAction={(chosen) => onAction?.(chosen, values)}
+            onAction={choose}
           />
         ))}
       </div>
@@ -271,9 +298,9 @@ function Field({
         <span data-role="field-label" style={fieldLabelStyle}>
           {field.label}
         </span>
-        {field.required ? (
+        {field.required_mark !== undefined ? (
           <span data-role="field-required" style={fieldRequiredStyle}>
-            {" *"}
+            {field.required_mark}
           </span>
         ) : null}
       </div>

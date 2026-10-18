@@ -86,6 +86,24 @@ impl BrowseCache {
             .and_then(|slot| slot.answer.clone())
     }
 
+    /// Every browse of this session whose key starts with `prefix` and ends in a port, with that
+    /// port's finished answer, or `None` while its run is out (design §3.3 J55): the ports a pane
+    /// shows besides its own.
+    pub(crate) fn answers_under(
+        &self,
+        prefix: &str,
+    ) -> Vec<(u16, Option<Result<Browsed, String>>)> {
+        let mut answers: Vec<(u16, Option<Result<Browsed, String>>)> = lock(&self.slots.slots)
+            .iter()
+            .filter_map(|(key, slot)| {
+                let port = key.strip_prefix(prefix)?.parse::<u16>().ok()?;
+                Some((port, slot.answer.clone()))
+            })
+            .collect();
+        answers.sort_by_key(|(port, _)| *port);
+        answers
+    }
+
     /// Whether any browse run is still out, so a test can wait for the next poll's answer.
     #[cfg(test)]
     pub(crate) fn asking(&self) -> bool {

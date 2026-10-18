@@ -5,6 +5,7 @@
 // TypeScript. Only the fields the panel reads are mirrored here (design §4.5 D1 and D2); fields that
 // the small test views omit are optional.
 
+import type { FieldOption } from "./formTypes";
 import type { Point } from "./layout";
 
 /** The whole panel, as far as the shell mirrors it. */
@@ -44,8 +45,9 @@ export interface ViewSwitch {
 }
 
 /**
- * An action that an item offers. Only the fields the panel draws are mirrored; the action's `op`
- * travels back to the extension untouched.
+ * An action that an item offers. The panel draws the fields below and posts the whole action back
+ * unchanged; the webview reads `op` only to choose the pane a choice opens, and to send the login of
+ * `Create route` with its own action (design §2.1).
  */
 export interface Action {
   /** Stable within the item, such as `add`. */
@@ -60,7 +62,15 @@ export interface Action {
   emphasis: Emphasis;
   /** The confirmation of a two-step action. */
   confirm?: Confirm;
+  /** What choosing it does (design §2.1, `Op`). */
+  op: Op;
 }
+
+/** What choosing an action does (design §2.1, `Op`): Rust's action, a VS Code call, or a view change. */
+export type Op =
+  | { kind: "rust"; action: string; payload: unknown }
+  | { kind: "host"; effect: { kind: string } }
+  | { kind: "ui"; ui: { kind: string; pane?: { kind: string } } };
 
 /** How strongly an action is drawn. */
 export type Emphasis = "primary" | "secondary" | "danger" | "quiet";
@@ -383,4 +393,183 @@ export interface PositionsMessage {
   type: "positions";
   /** Each dragged item's position, by its identity. */
   positions: Record<string, Point>;
+}
+
+/** The kind of a browse pane, as Rust names it (panes.rs `BrowseKind`). */
+export type BrowseKind = "nodes" | "channels" | "expose" | "ads_tags";
+
+/**
+ * A browse pane, which `trust-lsp.devicesBrowse` returns as `browse` (panes.rs `BrowseView`). Rust
+ * gives the tree, the ADS port cards, the search box, the typed port and every text; the webview
+ * keeps only the tick boxes, the write toggle, the search text and the open disclosures.
+ */
+export interface BrowseView {
+  /** Its identity: `browse:<protocol>`. */
+  id: string;
+  /** Its breadcrumb, above the title. */
+  breadcrumb: string;
+  /** Its title. */
+  title: string;
+  /** Its subtitle: the connection's name. */
+  subtitle: string;
+  /** What it browses. */
+  kind: BrowseKind;
+  /** Whether the browse still runs. */
+  loading: boolean;
+  /** The accessible name of the close button. */
+  close_label: string;
+  /** The word of the mark on a leaf that the project already has. */
+  added_label: string;
+  /** The tooltip of a leaf's access word: `{access} on the device`, with `{access}` replaced here. */
+  access_tooltip: string;
+  /** The accessible name of a leaf's Added mark: `Already added: {path}`, with `{path}` replaced here. */
+  added_aria_label: string;
+  /** The search box, while there is a tree or the ports to search. */
+  search?: SearchBox;
+  /** What the pane shows instead of its tree: loading, failure or an empty tree. */
+  empty_text?: string;
+  /** The tree of an OPC UA, EtherCAT or exposed-globals browse. */
+  tree: TreeNode[];
+  /** The ADS port cards, in port order. */
+  ports: AdsPortCard[];
+  /** The suggested ADS ports, each with its name. */
+  port_suggestions: FieldOption[];
+  /** The help under the port suggestions. */
+  port_help: string;
+  /** The typed ADS port: its toggle, its field and the action that browses it. */
+  port_input?: PortInput;
+  /** The ADS port summary line. */
+  port_summary?: string;
+  /** The connection's details, under a disclosure. */
+  details?: Details;
+  /** What failed. */
+  error?: ErrorBox;
+  /** `Add`; an ADS pane adds its tags with their own ticks and has none. */
+  add?: AddButton;
+  /** The write toggle. */
+  write_toggle: Toggle;
+  /** The label of the footer button that closes an ADS pane. */
+  done_label?: string;
+}
+
+/** The search box of a browse pane (panes.rs `SearchBox`). */
+export interface SearchBox {
+  /** The text the empty box shows. */
+  placeholder: string;
+  /** The text shown when nothing matches. */
+  no_match: string;
+}
+
+/** The typed ADS port (panes.rs `PortInput`). */
+export interface PortInput {
+  /** The toggle's text while the field is hidden. */
+  show_label: string;
+  /** The toggle's text while the field is shown. */
+  hide_label: string;
+  /** The field's label. */
+  label: string;
+  /** The text the empty field shows. */
+  placeholder: string;
+  /** `Browse this port`: it posts the typed text as its `port` value. */
+  browse: Action;
+}
+
+/** The connection's details, under a disclosure (panes.rs `Details`). */
+export interface Details {
+  /** The disclosure's text. */
+  summary: string;
+  /** The facts. */
+  rows: Row[];
+}
+
+/** A node of a browse tree (panes.rs `TreeNode`). */
+export interface TreeNode {
+  /** Its identity in the selection. */
+  key: string;
+  /** Its name. */
+  name: string;
+  /** Its path. */
+  path: string;
+  /** Its type. */
+  type_label?: string;
+  /** `read/write` or `read-only`; absent for a group. */
+  access?: string;
+  /** Whether it can be ticked. */
+  selectable: boolean;
+  /** The accessible name of its tick box, such as `Select MAIN.Counter`. */
+  select_label?: string;
+  /** Whether the project already has it. */
+  added: boolean;
+  /** What ticking or unticking it posts (an ADS tag's `ads.tags_set`). */
+  action?: Action;
+  /** Its children. */
+  children: TreeNode[];
+}
+
+/** An ADS port of the tag browser (panes.rs `AdsPortCard`). */
+export interface AdsPortCard {
+  /** The port. */
+  port: number;
+  /** Its title, such as `ADS port 851`. */
+  title: string;
+  /** Its state, such as `2 tags` or `Loading…`. */
+  state_text: string;
+  /** The text of its body when no tree is drawn. */
+  empty_text?: string;
+  /** Its tags. */
+  tags: TreeNode[];
+  /** The route help of a port whose route is missing. */
+  route?: RouteHelp;
+  /** What failed on this port. */
+  error?: ErrorBox;
+  /** Browses this port, when its tags are not loaded yet. */
+  browse?: Action;
+}
+
+/** The help of a missing `TwinCAT` route (panes.rs `RouteHelp`). */
+export interface RouteHelp {
+  /** The text. */
+  text: string;
+  /** The help lines. */
+  help: string[];
+  /** One copy action per generated route file. */
+  artifacts: Action[];
+  /** `Create route`: it opens the login form. */
+  create_route: Action;
+}
+
+/** A failure in a pane, with its one recovery action (panes.rs `ErrorBox`). */
+export interface ErrorBox {
+  /** What failed. */
+  title: string;
+  /** Why. */
+  detail: string;
+  /** The recovery action. */
+  recovery?: Action;
+}
+
+/** The `Add` button of a browse pane (panes.rs `AddButton`). */
+export interface AddButton {
+  /** Its text. */
+  label: string;
+  /** Its text with the number of ticked symbols: `{count}` stands for the number. */
+  counted_label: string;
+  /** Whether it can be chosen. */
+  enabled: boolean;
+  /** Why it cannot. */
+  reason?: string;
+  /** Why it cannot while nothing is ticked. */
+  no_selection_reason: string;
+  /** What choosing it posts: `browse.add`, with the ticked keys and the write toggle as values. */
+  action: Action;
+}
+
+/** A toggle of a browse pane (panes.rs `Toggle`). */
+export interface Toggle {
+  /** Its text. */
+  label: string;
+  /** Whether it can be changed. */
+  enabled: boolean;
+  /** Why it cannot. */
+  reason?: string;
 }

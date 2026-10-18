@@ -1,0 +1,117 @@
+{
+  "access_tooltip": "{access} on the device",
+  "add": {
+    "action": {
+      "emphasis": "primary",
+      "enabled": true,
+      "id": "add",
+      "label": "Add nodes",
+      "op": {
+        "action": "browse.add",
+        "kind": "rust",
+        "payload": {
+          "pane": "browse:opcua_client",
+          "request": {
+            "kind": "nodes",
+            "seq": 3,
+            "session": "dc-golden",
+            "source": {
+              "connection": "endpoint:line",
+              "connection_name": "Line"
+            },
+            "trust_server_certificate": false
+          }
+        }
+      }
+    },
+    "counted_label": "Add nodes ({count})",
+    "enabled": true,
+    "label": "Add nodes",
+    "no_selection_reason": "Select at least one symbol to add."
+  },
+  "added_aria_label": "Already added: {path}",
+  "added_label": "Added",
+  "breadcrumb": "Devices & Connections",
+  "close_label": "Close",
+  "id": "browse:opcua_client",
+  "kind": "nodes",
+  "loading": false,
+  "port_help": "",
+  "port_suggestions": [],
+  "ports": [],
+  "search": {
+    "no_match": "No matching symbols.",
+    "placeholder": "Search symbols"
+  },
+  "subtitle": "Line",
+  "title": "Browse OPC UA nodes",
+  "tree": [
+    {
+      "added": false,
+      "children": [
+        {
+          "access": "read/write",
+          "added": true,
+          "children": [],
+          "key": "ns=2;s=Line.Speed",
+          "name": "Speed",
+          "path": "Line.Speed",
+          "select_label": "Select Line.Speed",
+          "selectable": true,
+          "type_label": "Double"
+        },
+        {
+          "access": "read-only",
+          "added": false,
+          "children": [],
+          "key": "ns=2;s=Line.Count",
+          "name": "Count",
+          "path": "Line.Count",
+          "select_label": "Select Line.Count",
+          "selectable": true,
+          "type_label": "Int32"
+        },
+        {
+          "added": false,
+          "children": [
+            {
+              "access": "read-only",
+              "added": false,
+              "children": [],
+              "key": "ns=2;s=Line.Alarms.Fault",
+              "name": "Fault",
+              "path": "Line.Alarms.Fault",
+              "select_label": "Select Line.Alarms.Fault",
+              "selectable": true,
+              "type_label": "Boolean"
+            },
+            {
+              "access": "read/write",
+              "added": false,
+              "children": [],
+              "key": "n:Line.Alarms.Anonymous",
+              "name": "Anonymous",
+              "path": "Line.Alarms.Anonymous",
+              "selectable": false,
+              "type_label": "String"
+            }
+          ],
+          "key": "n:Line.Alarms",
+          "name": "Alarms",
+          "path": "Line.Alarms",
+          "selectable": false,
+          "type_label": "Folder"
+        }
+      ],
+      "key": "n:Line",
+      "name": "Line",
+      "path": "Line",
+      "selectable": false,
+      "type_label": "Folder"
+    }
+  ],
+  "write_toggle": {
+    "enabled": true,
+    "label": "Allow writes (default: read-only)"
+  }
+}

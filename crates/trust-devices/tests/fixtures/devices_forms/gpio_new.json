@@ -37,6 +37,7 @@
           "id": "backend",
           "label": "Backend",
           "required": true,
+          "required_mark": " *",
           "kind": "choice",
           "value": "libgpiod",
           "options": [
@@ -49,7 +50,8 @@
               "label": "sysfs"
             }
           ],
-          "help": "Linux GPIO access backend. libgpiod uses the kernel GPIO character device; sysfs is available for legacy hosts."
+          "help": "Linux GPIO access backend. libgpiod uses the kernel GPIO character device; sysfs is available for legacy hosts.",
+          "forget_after_post": false
         },
         {
           "id": "chip",
@@ -62,7 +64,8 @@
           "visible_when": {
             "field": "backend",
             "equals": "libgpiod"
-          }
+          },
+          "forget_after_post": false
         },
         {
           "id": "sysfs_base",
@@ -75,7 +78,8 @@
           "visible_when": {
             "field": "backend",
             "equals": "sysfs"
-          }
+          },
+          "forget_after_post": false
         },
         {
           "id": "inputs",
@@ -119,7 +123,8 @@
                 "alternatives": []
               }
             ]
-          }
+          },
+          "forget_after_post": false
         },
         {
           "id": "outputs",
@@ -163,7 +168,8 @@
                 "alternatives": []
               }
             ]
-          }
+          },
+          "forget_after_post": false
         }
       ]
     }

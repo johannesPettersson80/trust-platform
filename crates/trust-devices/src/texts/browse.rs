@@ -217,3 +217,116 @@ pub const ADD_DID_NOT_DECODE: &str = "The action did not name the browse request
 pub fn add_did_not_decode(error: &str) -> String {
     format!("The browse request did not decode: {error}")
 }
+
+// ---- the pane's chrome, search, typed port and footer. They are the words of the two panels this
+// pane replaces: `networkCanvas/webview/AdsMultiPortTagBrowser.tsx` for ADS and `BrowseTagsPanel.tsx`
+// for OPC UA, EtherCAT and the exposed globals (specification 25 §5.4). ----
+
+/// The breadcrumb above a browse pane's title (`AdsMultiPortTagBrowser.tsx:240`).
+pub const BREADCRUMB: &str = "Devices & Connections";
+/// The mark on a leaf that the project already has (`AdsMultiPortTagBrowser.tsx:212`).
+pub const ADDED_LABEL: &str = "Added";
+/// The write toggle of an ADS pane, which writes only the tags it adds (`AdsMultiPortTagBrowser.tsx:376`).
+pub const ALLOW_WRITES_NEW_TAGS: &str = "Allow writes for newly added tags";
+/// The footer button that closes an ADS pane (`AdsMultiPortTagBrowser.tsx:379`).
+pub const DONE: &str = "Done";
+/// The search box of an OPC UA, `EtherCAT` or expose pane (`BrowseTagsPanel.tsx:243`).
+pub const SEARCH_SYMBOLS: &str = "Search symbols";
+/// The search box of an ADS pane (`AdsMultiPortTagBrowser.tsx:258`).
+pub const SEARCH_TAGS: &str = "Search tags on all ADS ports";
+/// What a symbol search shows when nothing matches (`BrowseTagsPanel.tsx:298`).
+pub const NO_MATCH_SYMBOLS: &str = "No matching symbols.";
+/// What a tag search shows on a port with no match (`AdsMultiPortTagBrowser.tsx:298`).
+pub const NO_MATCH_TAGS: &str = "No matching tags on this port.";
+/// The body of a pane whose browse still runs (`BrowseTagsPanel.tsx:290`).
+pub const LOADING_SYMBOLS: &str = "Loading symbols…";
+/// The body of an ADS port card whose browse still runs (`AdsMultiPortTagBrowser.tsx:294`).
+pub const LOADING_TAGS: &str = "Loading tags…";
+/// The body of an ADS port whose tags are not loaded yet (`AdsMultiPortTagBrowser.tsx:303`).
+pub const NOT_LOADED_TAGS: &str = "Tags have not been loaded from this port yet.";
+/// The body of a pane whose origin answered an empty tree (`BrowseTagsPanel.tsx:305`).
+pub const NO_SYMBOLS_FOUND: &str = "No symbols found.";
+/// The body of an ADS port whose tree is empty (`AdsMultiPortTagBrowser.tsx:314`).
+pub const NO_TAGS_ON_PORT: &str = "This ADS port has no browsable tags.";
+/// The body of a pane whose browse failed, under its error box (`BrowseTagsPanel.tsx:288`).
+pub const RESOLVE_ERROR_ABOVE: &str = "Resolve the browse error above, then browse again.";
+/// The disclosure that shows the connection's details (`AdsMultiPortTagBrowser.tsx:249`).
+pub const CONNECTION_DETAILS: &str = "Connection details";
+/// The accessible name of a browse pane's close button (`BrowseTagsPanel.tsx:199`).
+pub const CLOSE: &str = "Close";
+/// The label of the AMS Net ID row (`AdsMultiPortTagBrowser.tsx:251`).
+pub const AMS_NET_ID: &str = "AMS Net ID";
+/// The label of the host row (`AdsMultiPortTagBrowser.tsx:252`).
+pub const HOST: &str = "Host";
+/// The AMS Net ID of a target that names none (`adsTargetPort.ts:46`).
+pub const UNKNOWN_AMS_NET_ID: &str = "Unknown AMS Net ID";
+/// The host of a target that names none (`AdsMultiPortTagBrowser.tsx:518`).
+pub const UNKNOWN_HOST: &str = "Unknown";
+/// The toggle that shows the typed port (`AdsMultiPortTagBrowser.tsx:328`).
+pub const PORT_INPUT_SHOW: &str = "Advanced: browse another ADS port";
+/// The toggle that hides the typed port (`AdsMultiPortTagBrowser.tsx:328`).
+pub const PORT_INPUT_HIDE: &str = "Hide advanced";
+/// The label of the typed port's field (`AdsMultiPortTagBrowser.tsx:333`).
+pub const PORT_INPUT_LABEL: &str = "ADS port";
+/// The placeholder of the typed port's field (`AdsMultiPortTagBrowser.tsx:341`).
+pub const PORT_INPUT_PLACEHOLDER: &str = "851";
+/// The button that browses the typed port (`AdsMultiPortTagBrowser.tsx:361`).
+pub const BROWSE_THIS_PORT: &str = "Browse this port";
+/// Why the typed port cannot be browsed yet: the old button was disabled while a browse ran
+/// (`AdsMultiPortTagBrowser.tsx:351`).
+pub const PORT_WAIT: &str = "Wait for the current browse to finish.";
+/// Why a typed ADS port is refused: it is not a whole number (`adsTargetPort.ts:15`).
+pub const ENTER_WHOLE_PORT: &str = "Enter a whole-number ADS port from 1 to 65535.";
+/// What an ADS import that changed tags says about the runtime (`AdsMultiPortTagBrowser.tsx:559`).
+pub const ADS_RESTART: &str = "Start or restart the simulator to use the new tags.";
+
+// ---- the connection inspector's browse entry (`W/browseActions.ts:18-35`) and the tooltip and
+// accessible name of a browse leaf ----
+
+/// The inspector's entry to the ADS tag browser (`W/browseActions.ts:21`).
+pub const ENTRY_TAGS: &str = "Manage tags";
+/// The inspector's entry to the `EtherCAT` channel browser (`W/browseActions.ts:23`).
+pub const ENTRY_CHANNELS: &str = "Browse channels";
+/// The inspector's entry to the OPC UA node browser (`W/browseActions.ts:27`).
+pub const ENTRY_NODES: &str = "Browse nodes";
+/// The inspector's entry to the picker of the globals a server exposes (`W/browseActions.ts:31`).
+pub const ENTRY_GLOBALS: &str = "Choose globals";
+/// The tooltip of a leaf's access, such as `read/write`; `{access}` stands for the access word.
+pub const ACCESS_TOOLTIP: &str = "{access} on the device";
+/// The accessible name of a leaf's Added mark; `{path}` stands for the leaf's path.
+pub const ADDED_ARIA_LABEL: &str = "Already added: {path}";
+
+/// The text of `Add` with the number of ticked symbols: `{count}` stands for the number, which the
+/// webview fills in while it is non-zero (`BrowseTagsPanel.tsx:347`).
+#[must_use]
+pub fn add_with_count(label: &str) -> String {
+    format!("{label} ({{count}})")
+}
+
+/// The accessible name of a leaf's tick box (`BrowseTagsPanel.tsx:167`,
+/// `AdsMultiPortTagBrowser.tsx:200`).
+#[must_use]
+pub fn select_label(path: &str) -> String {
+    format!("Select {path}")
+}
+
+/// The ADS port summary line (`AdsMultiPortTagBrowser.tsx:149-151`): the responding ports when the
+/// target reports any, else the count of the ports shown.
+#[must_use]
+pub fn port_summary(responding: &[u16], ports: usize) -> String {
+    if responding.is_empty() {
+        let noun = if ports == 1 { "port" } else { "ports" };
+        return format!("{ports} ADS {noun}");
+    }
+    let noun = if responding.len() == 1 {
+        "port"
+    } else {
+        "ports"
+    };
+    let list = responding
+        .iter()
+        .map(u16::to_string)
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("{} responding ADS {noun}: {list}", responding.len())
+}

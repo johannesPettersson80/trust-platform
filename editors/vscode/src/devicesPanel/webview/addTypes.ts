@@ -18,7 +18,9 @@ export interface AddDialog {
   discover: Action;
   /** Its help. */
   discover_help: string;
-  /** `Found on the network`: the session's last search. */
+  /** The heading of the finds, `Found on the network` (Rust's text). */
+  found_heading: string;
+  /** The finds of the session's last search. */
   found: FoundEntry[];
   /** The `Runtimes` group, first. */
   runtimes: AddGroup;
@@ -30,6 +32,8 @@ export interface AddDialog {
   quick_starts: QuickStart[];
   /** Why the catalog is missing; drawn as the dialog's notice in place of the groups. */
   catalog_state?: string;
+  /** The accessible name of the close button (Rust's text). */
+  close_label: string;
 }
 
 /** A group of the add dialog (panes.rs `AddGroup`). */

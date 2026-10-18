@@ -15,13 +15,15 @@
 
 mod cache;
 mod plan;
+pub(crate) mod port;
 mod run;
 
 pub(crate) use cache::BrowseCache;
 pub(crate) use plan::add;
+pub(crate) use port::typed_port;
 pub(crate) use run::{target_port, Browsed, BrowsedError, BrowsedNode};
 
-use crate::panes::browse;
+use crate::panes::browse::{self, CachedPort};
 use crate::request::BrowseRequest;
 use crate::session::Session;
 use crate::view::types::BrowseView;
@@ -39,6 +41,7 @@ pub fn open(session: &Session, request: &BrowseRequest) -> BrowseView {
     let answer = session
         .browse()
         .open(&resolved.key, request.seq, move || run::execute(&work));
+    let cached = cached_ports(session, &resolved);
     browse::view(
         browse::Browse {
             kind: resolved.kind,
@@ -48,9 +51,23 @@ pub fn open(session: &Session, request: &BrowseRequest) -> BrowseView {
             runtime: resolved.runtime.as_ref(),
             port: resolved.port,
             request,
+            cached: &cached,
         },
         answer.as_ref(),
     )
+}
+
+/// The other ADS ports of this connection that the session has browsed (design §3.3 J55): the card
+/// of a port that `browse.port` started appears on the pane's next poll, as the old panel's merged
+/// ports did (`W/AdsMultiPortTagBrowser.tsx:275-318`). Other kinds show no other port.
+fn cached_ports(session: &Session, resolved: &run::Resolved) -> Vec<CachedPort> {
+    if resolved.kind != crate::view::types::BrowseKind::AdsTags {
+        return Vec::new();
+    }
+    let Some((prefix, _port)) = resolved.key.rsplit_once('|') else {
+        return Vec::new();
+    };
+    session.browse().answers_under(&format!("{prefix}|"))
 }
 
 #[cfg(test)]

@@ -98,6 +98,37 @@ async function render(
   };
 }
 
+// The golden view of the project whose runtime is stopped and has browsable protocols, as Rust serialized it.
+function stoppedBrowsesView(): any {
+  const extensionRoot = path.resolve(__dirname, "..", "..", "..");
+  const file = path.resolve(
+    extensionRoot,
+    "..",
+    "..",
+    "crates",
+    "trust-devices",
+    "tests",
+    "fixtures",
+    "devices_view",
+    "stopped_browses.json",
+  );
+  return JSON.parse(fs.readFileSync(file, "utf8"));
+}
+
+/** The connection named `name` of a golden view. */
+function connectionNamed(view: any, name: string): any {
+  for (const computer of view.computers) {
+    for (const runtime of computer.runtimes) {
+      for (const connection of runtime.connections) {
+        if (connection.name === name) {
+          return connection;
+        }
+      }
+    }
+  }
+  throw new Error(`a connection named ${name}`);
+}
+
 // An action with the fields the inspector draws (mod.rs `Action`). Each test overrides only what it
 // is about, so its expected values stay visible.
 function action(overrides: Record<string, unknown>): Record<string, unknown> {
@@ -541,6 +572,65 @@ suite("Devices & Connections panel inspector", () => {
       assert.strictEqual(fontWeight("focus"), "500", "a quiet action is drawn lightly");
       assert.strictEqual(fontWeight("test"), "500", "a secondary action is drawn lightly");
       assert.strictEqual(fontWeight("remove"), "500", "a danger action is drawn lightly");
+    } finally {
+      await rendered.unmount();
+    }
+  });
+
+  test("the_browse_entry_posts_its_open_action_unchanged", async () => {
+    const Inspector = loadComponent("Inspector");
+    // stopped_browses: the OPC UA server serves its globals from this project, so its `Choose globals` entry is
+    // open without a runtime and posts the action Rust gave, unchanged (design D5c R10). A wrong implementation
+    // posts a copy without its request, or posts nothing.
+    const view = stoppedBrowsesView();
+    const server = connectionNamed(view, "OPC UA server");
+    const entry = server.inspector.primary.find((action: any) => action.id === "browse");
+    assert.ok(entry, "the server offers its browse");
+    const posted: unknown[] = [];
+    const rendered = await render(Inspector, {
+      inspector: server.inspector,
+      onAction: (action: unknown) => {
+        posted.push(action);
+      },
+      onClose: () => undefined,
+    });
+    try {
+      const button = rendered.container.querySelector(
+        '[data-action="browse"] [data-role="action-button"]',
+      );
+      assert.strictEqual(button.textContent, "Choose globals", "the entry says what it opens");
+      assert.strictEqual(button.disabled, false, "the project's own globals open without a runtime");
+      await act(async () => {
+        button.click();
+      });
+      assert.deepStrictEqual(posted, [entry], "the entry posts its open action unchanged");
+    } finally {
+      await rendered.unmount();
+    }
+  });
+
+  test("a_disabled_remote_browse_says_why_it_waits", async () => {
+    const Inspector = loadComponent("Inspector");
+    // stopped_browses: the ADS PLC needs its runtime, which is stopped. Its entry is disabled and shows the reason
+    // in the words of Rust (design D5c R10). A wrong implementation enables the entry, or drops the reason.
+    const ads = connectionNamed(stoppedBrowsesView(), "ADS PLC");
+    const rendered = await render(Inspector, {
+      inspector: ads.inspector,
+      onAction: () => undefined,
+      onClose: () => undefined,
+    });
+    try {
+      const cell = rendered.container.querySelector('[data-action="browse"]');
+      const button = cell.querySelector('[data-role="action-button"]');
+      const reason = "Start or connect the runtime, then Browse again to load symbols.";
+      assert.strictEqual(button.textContent, "Manage tags", "the entry says what it browses");
+      assert.strictEqual(button.disabled, true, "a remote browse waits for its runtime");
+      assert.strictEqual(
+        cell.querySelector('[data-role="action-reason"]').textContent,
+        reason,
+        "the reason is shown as text",
+      );
+      assert.strictEqual(button.getAttribute("title"), reason, "the reason is the tooltip");
     } finally {
       await rendered.unmount();
     }

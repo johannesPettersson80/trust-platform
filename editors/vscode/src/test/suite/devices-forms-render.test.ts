@@ -473,4 +473,117 @@ suite("Devices & Connections form view", () => {
       await rendered.unmount();
     }
   });
+
+  test("a_rust_button_posts_its_values_once_and_keeps_the_mqtt_password", async () => {
+    const FormView = loadFormView();
+    // mqtt_new: Save is a Rust action, so it posts the typed values once (specification 25 §5.4; design D5b
+    // R7). The password is not one that Rust makes the form forget (design D5c R12), so it stays after the
+    // post. A wrong implementation empties every secret after a post, or posts the values twice.
+    const posted: unknown[][] = [];
+    const rendered = await render(FormView, {
+      form: form("mqtt_new"),
+      onValues: () => undefined,
+      onAction: (...args: unknown[]) => posted.push(args),
+    });
+    try {
+      const container = rendered.container;
+      await type(
+        rendered,
+        container.querySelector('[data-role="field-input"][data-field="password"]'),
+        "s3cret",
+      );
+      const save = [...container.querySelectorAll('[data-role="action-button"]')].find(
+        (button: any) => button.textContent === "Save",
+      );
+      await act(async () => {
+        save.click();
+      });
+      assert.strictEqual(posted.length, 1, "Save posts once per click");
+      assert.deepStrictEqual(posted[0][0], form("mqtt_new").buttons[0], "Save posts its own action");
+      assert.strictEqual(
+        (posted[0][1] as any).password,
+        "s3cret",
+        "the typed secret goes with the Rust action",
+      );
+      assert.strictEqual(
+        container.querySelector('[data-role="field-input"][data-field="password"]').value,
+        "s3cret",
+        "the password stays in the form after the post",
+      );
+    } finally {
+      await rendered.unmount();
+    }
+  });
+
+  test("a_refused_save_keeps_the_mqtt_password", async () => {
+    const FormView = loadFormView();
+    // mqtt_new: Rust refuses the Save and answers with a notice in the form's own pane. The password the user
+    // typed is still in the form, so the user can correct the settings and Save again (design D5c R12). A
+    // wrong implementation empties the password after the post.
+    const rendered = await render(FormView, {
+      form: form("mqtt_new"),
+      onValues: () => undefined,
+      onAction: () => undefined,
+    });
+    try {
+      const container = rendered.container;
+      await type(
+        rendered,
+        container.querySelector('[data-role="field-input"][data-field="password"]'),
+        "s3cret",
+      );
+      const save = [...container.querySelectorAll('[data-role="action-button"]')].find(
+        (button: any) => button.textContent === "Save",
+      );
+      await act(async () => {
+        save.click();
+      });
+      await rendered.update({
+        form: form("mqtt_new"),
+        onValues: () => undefined,
+        onAction: () => undefined,
+        notice: {
+          pane: "form:mqtt_new",
+          tone: "error",
+          text: "The broker refused these settings.",
+          field_errors: [],
+          actions: [],
+        },
+      });
+      assert.strictEqual(
+        container.querySelector('[data-role="field-input"][data-field="password"]').value,
+        "s3cret",
+        "a refused Save keeps the password",
+      );
+    } finally {
+      await rendered.unmount();
+    }
+  });
+
+  test("a_ui_button_posts_no_values", async () => {
+    const FormView = loadFormView();
+    // Cancel is a `ui` op: the shell carries it out and posts no values (design D5b R7). A wrong
+    // implementation sends the typed values with it.
+    const posted: unknown[][] = [];
+    const rendered = await render(FormView, {
+      form: form("mqtt_new"),
+      onValues: () => undefined,
+      onAction: (...args: unknown[]) => posted.push(args),
+    });
+    try {
+      const cancel = [...rendered.container.querySelectorAll('[data-role="action-button"]')].find(
+        (button: any) => button.textContent === "Cancel",
+      );
+      await act(async () => {
+        cancel.click();
+      });
+      assert.deepStrictEqual(
+        posted,
+        [[form("mqtt_new").buttons[1]]],
+        "Cancel is posted alone, with no values",
+      );
+    } finally {
+      await rendered.unmount();
+    }
+  });
 });

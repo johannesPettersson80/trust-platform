@@ -346,3 +346,6 @@ pub const RUNTIME_TEMPLATE: &str = "Template";
 pub const TEMPLATE_SIMULATOR: &str = "Simulator (no hardware)";
 /// The template with loopback I/O.
 pub const TEMPLATE_EMPTY: &str = "Empty (loopback I/O)";
+
+/// The mark that a required field carries after its label (`FormView.tsx`, the old `" *"`).
+pub const REQUIRED_MARK: &str = " *";

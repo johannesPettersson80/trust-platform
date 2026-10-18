@@ -170,9 +170,9 @@ pub fn ads_tags_notice(added: usize, removed: usize, port: u16) -> String {
 
 /// Why `ads.tags_set` failed, with the origin's reason when it gave one (design §3.3 I19 and I21).
 #[must_use]
-pub fn ads_tags_failed(reason: Option<&str>) -> String {
+pub fn ads_tags_failed(port: u16, reason: Option<&str>) -> String {
     let reason = reason.unwrap_or("check the ADS connection and try again.");
-    format!("Could not change the ADS tags: {reason}")
+    format!("Could not change the ADS tags of ADS port {port}: {reason}")
 }
 
 /// `tag` or `tags` for `count` (`tagLabel`, `NC/adsTagBatch.ts:127-136`).

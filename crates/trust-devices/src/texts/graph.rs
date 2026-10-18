@@ -523,6 +523,10 @@ pub const NO_DEVICES_HINT: &str = "Use + Add to add one, or Discover to scan the
 pub const SEARCH_PLACEHOLDER: &str = "Search devices, connections, signals, issues";
 /// The title of the add dialog (specification 25 §5.4).
 pub const ADD_DIALOG_TITLE: &str = "Add device or connection";
+/// The heading of the finds of the last search in the add dialog (`AddDialog.tsx:124`).
+pub const FOUND_ON_THE_NETWORK: &str = "Found on the network";
+/// The accessible name of the add dialog's close button (`AddDialog.tsx`).
+pub const ADD_DIALOG_CLOSE: &str = "Close";
 /// The search entry of the add dialog (specification 25 §5.14).
 pub const DISCOVER_DEVICES_AND_RUNTIMES: &str = "Discover devices and runtimes";
 /// Its help (specification 25 §5.14).

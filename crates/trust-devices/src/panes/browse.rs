@@ -1,5 +1,5 @@
-//! The browse panes' projection (design §4.3 B8; specification 25 §5.4 and §11.2): from the typed
-//! answer of the origin that owns the connection, the named connection and what it already has,
+//! The browse panes' projection (design §4.3 B8 and D5b; specification 25 §5.4 and §11.2): from the
+//! typed answer of the origin that owns the connection, the named connection and what it already has,
 //! to the contract's [`BrowseView`](crate::view::types::BrowseView).
 //!
 //! This module is pure: it reads no socket, file or clock. The rules it holds are the ported
@@ -8,9 +8,11 @@
 //! - [`capability`]: which protocol offers a browse, and of what kind (`W/browseActions.ts:18-35`).
 //! - the tree projection: the raw protocol identity of a leaf, its access label, and whether the
 //!   connection already has it (`W/opcuaClientModel.ts:81-106`; specification 25 §11.2).
-//! - the `Add` button and the write toggle: the ladder of reasons it cannot be chosen
-//!   (`W/BrowseTagsPanel.tsx:95-153`).
+//! - the `Add` button: its action (`browse.add` with the pane's own request) and the ladder of
+//!   reasons it cannot be chosen (`W/BrowseTagsPanel.tsx:95-153`).
 //! - the error box: one human title, one recovery (`W/opcuaClientModel.ts:157-203`).
+//! - the search box, the connection's details and the typed port: their texts come from
+//!   [`texts::browse`](crate::texts::browse), which keeps the words of the panels they replace.
 //! - the ADS tag browser's ports: `ads`, one card per ADS port.
 
 mod ads;
@@ -22,9 +24,13 @@ use crate::browse::{Browsed, BrowsedError, BrowsedNode};
 use crate::request::BrowseRequest;
 use crate::texts::browse as texts;
 use crate::view::types::{
-    Action, AddButton, BrowseKind, BrowseView, Emphasis, ErrorBox, ItemId, Op, Pane, Toggle,
-    TreeNode, UiOp,
+    Action, AddButton, BrowseKind, BrowseView, Details, Emphasis, ErrorBox, ItemId, Op, Pane,
+    PortInput, Row, SearchBox, Toggle, TreeNode, UiOp,
 };
+
+/// The other ports of the same connection that the session has browsed: each port, with its answer
+/// once the run finished, or `None` while it runs (design §1.5; specification 25 §5.4).
+pub(crate) type CachedPort = (u16, Option<Result<Browsed, String>>);
 
 /// What one browse pane is projected from: the named connection and the request that opened it.
 #[derive(Debug, Clone, Copy)]
@@ -43,6 +49,8 @@ pub(crate) struct Browse<'a> {
     pub(crate) port: u16,
     /// The request that opened the pane.
     pub(crate) request: &'a BrowseRequest,
+    /// The other ports of this connection that the session holds (design §3.3 J55).
+    pub(crate) cached: &'a [CachedPort],
 }
 
 /// What a protocol offers as a browse (`browseAction`, `W/browseActions.ts:18-35`).
@@ -136,17 +144,6 @@ pub(crate) fn view(data: Browse<'_>, answer: Option<&Result<Browsed, String>>) -
         _ => Vec::new(),
     };
     let reason = ladder(answer);
-    let add = AddButton {
-        label: add_label(data.kind).to_owned(),
-        enabled: reason.is_none(),
-        reason: reason.clone(),
-        no_selection_reason: texts::NO_SELECTION.to_owned(),
-    };
-    let write_toggle = Toggle {
-        label: texts::ALLOW_WRITES.to_owned(),
-        enabled: add.enabled,
-        reason,
-    };
     let (ports, port_suggestions, port_help) = if tags {
         (
             ads::ports(&data, answer),
@@ -156,19 +153,44 @@ pub(crate) fn view(data: Browse<'_>, answer: Option<&Result<Browsed, String>>) -
     } else {
         (Vec::new(), Vec::new(), String::new())
     };
+    let responding = ads::responding_ports(data.params);
+    let write_toggle = if tags {
+        Toggle {
+            label: texts::ALLOW_WRITES_NEW_TAGS.to_owned(),
+            enabled: true,
+            reason: None,
+        }
+    } else {
+        Toggle {
+            label: texts::ALLOW_WRITES.to_owned(),
+            enabled: reason.is_none(),
+            reason: reason.clone(),
+        }
+    };
     BrowseView {
         id: pane_id(data.protocol),
+        breadcrumb: texts::BREADCRUMB.to_owned(),
         title: title(data.kind).to_owned(),
         subtitle: data.name.to_owned(),
         kind: data.kind,
         loading: answer.is_none(),
+        close_label: texts::CLOSE.to_owned(),
+        added_label: texts::ADDED_LABEL.to_owned(),
+        access_tooltip: texts::ACCESS_TOOLTIP.to_owned(),
+        added_aria_label: texts::ADDED_ARIA_LABEL.to_owned(),
+        search: search(tags, answer),
+        empty_text: empty_text(tags, answer),
         tree,
+        port_summary: tags.then(|| texts::port_summary(&responding, ports.len())),
         ports,
         port_suggestions,
         port_help,
+        port_input: tags.then(|| port_input(&data, answer.is_none())),
+        details: tags.then(|| details(&data)),
         error,
-        add,
+        add: (!tags).then(|| add_button(&data, reason)),
         write_toggle,
+        done_label: tags.then(|| texts::DONE.to_owned()),
         notice: None,
     }
 }
@@ -177,8 +199,10 @@ pub(crate) fn view(data: Browse<'_>, answer: Option<&Result<Browsed, String>>) -
 #[must_use]
 pub(crate) fn failure(request: &BrowseRequest, kind: BrowseKind, error: ErrorBox) -> BrowseView {
     let reason = texts::RESOLVE_ERROR.to_owned();
+    let tags = kind == BrowseKind::AdsTags;
     BrowseView {
         id: format!("browse:{}", request.source.connection().unwrap_or_default()),
+        breadcrumb: texts::BREADCRUMB.to_owned(),
         title: title(kind).to_owned(),
         subtitle: request
             .source
@@ -187,22 +211,46 @@ pub(crate) fn failure(request: &BrowseRequest, kind: BrowseKind, error: ErrorBox
             .to_owned(),
         kind,
         loading: false,
+        close_label: texts::CLOSE.to_owned(),
+        added_label: texts::ADDED_LABEL.to_owned(),
+        access_tooltip: texts::ACCESS_TOOLTIP.to_owned(),
+        added_aria_label: texts::ADDED_ARIA_LABEL.to_owned(),
+        search: None,
+        empty_text: None,
         tree: Vec::new(),
         ports: Vec::new(),
         port_suggestions: Vec::new(),
         port_help: String::new(),
+        port_input: None,
+        port_summary: None,
+        details: None,
         error: Some(error),
-        add: AddButton {
+        add: (!tags).then(|| AddButton {
             label: add_label(kind).to_owned(),
+            counted_label: texts::add_with_count(add_label(kind)),
             enabled: false,
             reason: Some(reason.clone()),
             no_selection_reason: texts::NO_SELECTION.to_owned(),
-        },
+            // Disabled, so the action is never posted: it carries no request.
+            action: Action {
+                id: "add".to_owned(),
+                label: add_label(kind).to_owned(),
+                enabled: false,
+                reason: Some(reason.clone()),
+                emphasis: Emphasis::Primary,
+                confirm: None,
+                op: Op::Rust {
+                    action: "browse.add".to_owned(),
+                    payload: Value::Null,
+                },
+            },
+        }),
         write_toggle: Toggle {
             label: texts::ALLOW_WRITES.to_owned(),
             enabled: false,
             reason: Some(reason),
         },
+        done_label: tags.then(|| texts::DONE.to_owned()),
         notice: None,
     }
 }
@@ -221,7 +269,150 @@ fn ladder(answer: Option<&Result<Browsed, String>>) -> Option<String> {
     }
 }
 
-/// The error box of the origin's answer, or `None` while it runs or answered a tree.
+/// The `Add` button of an OPC UA, `EtherCAT` or expose pane: its label, its counted label, its reason
+/// and the `browse.add` action that adds the ticked keys (specification 25 §5.4 and §11.2).
+fn add_button(data: &Browse<'_>, reason: Option<String>) -> AddButton {
+    let label = add_label(data.kind).to_owned();
+    let enabled = reason.is_none();
+    AddButton {
+        counted_label: texts::add_with_count(&label),
+        action: Action {
+            id: "add".to_owned(),
+            label: label.clone(),
+            enabled,
+            reason: reason.clone(),
+            emphasis: Emphasis::Primary,
+            confirm: None,
+            op: Op::Rust {
+                action: "browse.add".to_owned(),
+                payload: json!({ "pane": pane_id(data.protocol), "request": request_body(data) }),
+            },
+        },
+        label,
+        enabled,
+        reason,
+        no_selection_reason: texts::NO_SELECTION.to_owned(),
+    }
+}
+
+/// The search box: an ADS pane always has one; another pane has one once its origin answered a tree
+/// (`W/BrowseTagsPanel.tsx:241`).
+fn search(tags: bool, answer: Option<&Result<Browsed, String>>) -> Option<SearchBox> {
+    if tags {
+        return Some(SearchBox {
+            placeholder: texts::SEARCH_TAGS.to_owned(),
+            no_match: texts::NO_MATCH_TAGS.to_owned(),
+        });
+    }
+    match answer {
+        Some(Ok(browsed)) if browsed.error.is_none() => Some(SearchBox {
+            placeholder: texts::SEARCH_SYMBOLS.to_owned(),
+            no_match: texts::NO_MATCH_SYMBOLS.to_owned(),
+        }),
+        _ => None,
+    }
+}
+
+/// What a pane shows instead of its tree: its loading, its failure or its empty tree
+/// (`W/BrowseTagsPanel.tsx:287-306`). An ADS pane shows its text per port instead.
+fn empty_text(tags: bool, answer: Option<&Result<Browsed, String>>) -> Option<String> {
+    if tags {
+        return None;
+    }
+    match answer {
+        None => Some(texts::LOADING_SYMBOLS.to_owned()),
+        Some(Err(_)) => Some(texts::RESOLVE_ERROR_ABOVE.to_owned()),
+        Some(Ok(browsed)) if browsed.error.is_some() => Some(texts::RESOLVE_ERROR_ABOVE.to_owned()),
+        Some(Ok(browsed)) if browsed.tree.is_empty() => Some(texts::NO_SYMBOLS_FOUND.to_owned()),
+        Some(Ok(_)) => None,
+    }
+}
+
+/// The typed ADS port: its toggle and field texts, and `Browse this port`, which posts the typed text
+/// as its `port` value and is disabled while the pane's own browse runs (`AdsMultiPortTagBrowser.tsx:
+/// 322-364`).
+fn port_input(data: &Browse<'_>, loading: bool) -> PortInput {
+    PortInput {
+        show_label: texts::PORT_INPUT_SHOW.to_owned(),
+        hide_label: texts::PORT_INPUT_HIDE.to_owned(),
+        label: texts::PORT_INPUT_LABEL.to_owned(),
+        placeholder: texts::PORT_INPUT_PLACEHOLDER.to_owned(),
+        browse: Action {
+            id: "browse_port".to_owned(),
+            label: texts::BROWSE_THIS_PORT.to_owned(),
+            enabled: !loading,
+            reason: loading.then(|| texts::PORT_WAIT.to_owned()),
+            emphasis: Emphasis::Primary,
+            confirm: None,
+            op: Op::Rust {
+                action: "browse.port".to_owned(),
+                payload: json!({ "pane": pane_id(data.protocol), "request": request_body(data) }),
+            },
+        },
+    }
+}
+
+/// The connection's details: its AMS Net ID and its host (`AdsMultiPortTagBrowser.tsx:248-254`).
+fn details(data: &Browse<'_>) -> Details {
+    Details {
+        summary: texts::CONNECTION_DETAILS.to_owned(),
+        rows: vec![
+            plain_row(
+                texts::AMS_NET_ID,
+                present_text(data.params, &["ams_net_id", "target_net_id"])
+                    .unwrap_or_else(|| texts::UNKNOWN_AMS_NET_ID.to_owned()),
+            ),
+            plain_row(
+                texts::HOST,
+                present_text(data.params, &["host", "ip"])
+                    .unwrap_or_else(|| texts::UNKNOWN_HOST.to_owned()),
+            ),
+        ],
+    }
+}
+
+/// A row without a tone, a copy button or a full width.
+fn plain_row(label: &str, value: String) -> Row {
+    Row {
+        label: label.to_owned(),
+        value,
+        tone: None,
+        wide: false,
+        copy: None,
+    }
+}
+
+/// The trimmed text of the first of `keys` that is present (not null) in `params`, when it is a
+/// non-empty string: the reading of `target.a ?? target.b` in the panel this replaces.
+pub(super) fn present_text(params: &Map<String, Value>, keys: &[&str]) -> Option<String> {
+    let value = keys
+        .iter()
+        .find_map(|key| params.get(*key).filter(|value| !value.is_null()))?;
+    value
+        .as_str()
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .map(str::to_owned)
+}
+
+/// The `devicesBrowse` body of the pane's own request, as the panel sends it (design §1.4.1): the
+/// session, the number, the source, the kind, the port and the trust flag. The host facts are left
+/// out, as the webview leaves them out of a request.
+fn request_body(data: &Browse<'_>) -> Value {
+    let mut body = json!({
+        "session": data.request.session,
+        "seq": data.request.seq,
+        "source": source_body(data),
+        "kind": data.request.kind,
+        "trust_server_certificate": data.request.trust_server_certificate,
+    });
+    if let Some(port) = data.request.port {
+        body["port"] = json!(port);
+    }
+    body
+}
+
+/// One error box for a browse's error (`error_box`), or `None` while it runs or answered a tree.
 fn error_box(data: &Browse<'_>, answer: Option<&Result<Browsed, String>>) -> Option<ErrorBox> {
     match answer {
         Some(Ok(browsed)) => browsed.error.as_ref().map(|error| classify(data, error)),
@@ -297,8 +488,8 @@ fn trust_recovery(data: &Browse<'_>) -> Action {
 }
 
 /// The recovery that reopens the connection's form with the failed target filled in
-/// (`onEditBrowseCredentials`, `W/NetworkCanvasApp.tsx:519-533`; specification 25 §5.4 and
-/// §5.13:709-711). `None` when the pane knows no runtime to open the form on.
+/// (`onEditBrowseCredentials`, `W/NetworkCanvasApp.tsx:519-533`; specification 25 §5.4 and §5.13:709-711).
+/// `None` when the pane knows no runtime to open the form on.
 fn credentials_recovery(data: &Browse<'_>) -> Option<Action> {
     let runtime = data.runtime?;
     let mut prefill = data.params.clone();
@@ -369,25 +560,28 @@ fn project_tree(nodes: &[BrowsedNode], data: &Browse<'_>) -> Vec<TreeNode> {
 /// names or paths stay distinct (specification 25 §11.2; `W/opcuaClientModel.ts:81-106`).
 fn project_node(node: &BrowsedNode, data: &Browse<'_>) -> TreeNode {
     let leaf = node.children.is_empty();
+    let selectable = leaf && (data.kind != BrowseKind::Nodes || node.node_id.is_some());
     TreeNode {
         key: node.key().to_owned(),
         name: node.name.clone(),
         path: node.path.clone(),
         type_label: node.data_type.clone().or_else(|| node.type_label.clone()),
         access: if leaf { access_of(node) } else { None },
-        selectable: leaf && (data.kind != BrowseKind::Nodes || node.node_id.is_some()),
+        selectable,
+        select_label: selectable.then(|| texts::select_label(&node.path)),
         added: if leaf {
             added(node, data.kind, data.params)
         } else {
             false
         },
+        action: None,
         children: project_tree(&node.children, data),
     }
 }
 
 /// A leaf's access label: `read/write` when the origin reported it writable, else `read-only`; a
 /// group, or a leaf without the flag, carries none (specification 25 §5.4).
-fn access_of(node: &BrowsedNode) -> Option<String> {
+pub(super) fn access_of(node: &BrowsedNode) -> Option<String> {
     match node.writable {
         Some(true) => Some("read/write".to_owned()),
         Some(false) => Some("read-only".to_owned()),

@@ -6,7 +6,8 @@ use trust_runtime_client::{AuthFailure, TargetProbe};
 
 use super::fixtures::{
     answered, configured_project, endpoint, gathered, host, managed, no_project, probed, project,
-    report, request, runtime, status, with_simulator, NOW_MS, SIMULATOR,
+    report, request, runtime, status, stopped_browsable_project, unanswered, with_simulator,
+    CONFIGURED_CONTROL, NOW_MS, SIMULATOR,
 };
 use crate::gather::{ManagedState, TargetReport};
 use crate::request::{HostFacts, IoValue, RunMode};
@@ -31,6 +32,7 @@ pub(super) fn all() -> Vec<(&'static str, DevicesView)> {
         ("ads_server", ads_server()),
         ("ethercat_with_subdevices", ethercat()),
         ("unreachable_peer", unreachable_peer()),
+        ("stopped_browses", stopped_browses()),
         (
             "connections_and_connector_status",
             super::graph_scenarios::connections_and_connector_status(),
@@ -306,6 +308,16 @@ fn peer_with(runtime: Value) -> DevicesView {
                 vec![runtime],
             ),
         )],
+        host(RunMode::Simulate, ""),
+    )
+}
+
+/// The project's runtime is stopped and has browsable protocols: the remote browses wait for it,
+/// and the project's own globals open at once.
+fn stopped_browses() -> DevicesView {
+    view(
+        stopped_browsable_project(),
+        vec![unanswered(TargetOrigin::Configured, CONFIGURED_CONTROL)],
         host(RunMode::Simulate, ""),
     )
 }

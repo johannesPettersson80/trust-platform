@@ -61,6 +61,8 @@ export interface FormField {
   label: string;
   /** Whether it is required. */
   required: boolean;
+  /** The mark a required field carries after its label (Rust's text); absent for an optional field. */
+  required_mark?: string;
   /** What it holds. */
   kind: FieldKind;
   /** Its value: the current one, the default or the prefill, chosen by Rust. */
@@ -77,6 +79,8 @@ export interface FormField {
   list?: ListEditor;
   /** The example shown while it is empty. */
   placeholder?: string;
+  /** Whether Rust makes the form forget this value after a post: a route login's user name and password. */
+  forget_after_post: boolean;
 }
 
 /** What a field holds (panes.rs `FieldKind`). */

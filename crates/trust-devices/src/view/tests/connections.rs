@@ -375,6 +375,8 @@ fn ads_client_view_lists_devices_ports_and_status() {
             ("edit", "Edit advanced settings", true),
             ("test", "Test", true),
             ("diagnose", "Diagnose", true),
+            // The browse entry (design D5c R10): the ADS client browses its tags once its runtime answered.
+            ("browse", "Manage tags", true),
         ]
     );
 

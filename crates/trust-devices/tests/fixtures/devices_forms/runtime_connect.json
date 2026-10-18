@@ -13,11 +13,13 @@
           "id": "endpoint",
           "label": "Runtime address",
           "required": true,
+          "required_mark": " *",
           "kind": "text",
           "value": "",
           "options": [],
           "help": "Host name or IP plus port. Advanced: tcp://host:port or unix:///path/to/socket.",
-          "placeholder": "10.0.0.5:5680"
+          "placeholder": "10.0.0.5:5680",
+          "forget_after_post": false
         },
         {
           "id": "token",
@@ -27,7 +29,8 @@
           "value": "",
           "options": [],
           "help": "Paste the token configured for that runtime. Leave this empty when the runtime does not require one. VS Code stores it securely and never shows it on the canvas.",
-          "placeholder": "Optional"
+          "placeholder": "Optional",
+          "forget_after_post": false
         }
       ]
     }

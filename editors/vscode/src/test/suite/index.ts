@@ -74,6 +74,8 @@ export function run(): Promise<void> {
   require("./devices-keyboard.test");
   require("./devices-readability.test");
   require("./devices-add-dialog.test");
+  require("./devices-browse-render.test");
+  require("./devices-ads-tag-browser.test");
 
   return new Promise((resolve, reject) => {
     const runner = mocha.run((failures: number) => {

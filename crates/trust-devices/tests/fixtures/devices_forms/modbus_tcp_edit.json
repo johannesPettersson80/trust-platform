@@ -17,51 +17,62 @@
           "id": "address",
           "label": "Device address",
           "required": true,
+          "required_mark": " *",
           "kind": "text",
           "value": "192.168.1.50:502",
           "options": [],
-          "help": "IP address and TCP port of the Modbus device."
+          "help": "IP address and TCP port of the Modbus device.",
+          "forget_after_post": false
         },
         {
           "id": "unit_id",
           "label": "Unit ID",
           "required": true,
+          "required_mark": " *",
           "kind": "number",
           "value": 1,
           "options": [],
-          "help": "Modbus unit/server id."
+          "help": "Modbus unit/server id.",
+          "forget_after_post": false
         },
         {
           "id": "input_start",
           "label": "Input start register",
           "required": true,
+          "required_mark": " *",
           "kind": "number",
           "value": 0,
           "options": [],
-          "help": "First input register read by the runtime."
+          "help": "First input register read by the runtime.",
+          "forget_after_post": false
         },
         {
           "id": "output_start",
           "label": "Output start register",
           "required": true,
+          "required_mark": " *",
           "kind": "number",
           "value": 0,
           "options": [],
-          "help": "First output register written by the runtime."
+          "help": "First output register written by the runtime.",
+          "forget_after_post": false
         },
         {
           "id": "timeout_ms",
           "label": "Timeout",
           "required": true,
+          "required_mark": " *",
           "kind": "number",
           "value": 500,
           "options": [],
-          "help": "Request timeout in milliseconds."
+          "help": "Request timeout in milliseconds.",
+          "forget_after_post": false
         },
         {
           "id": "on_error",
           "label": "On error",
           "required": true,
+          "required_mark": " *",
           "kind": "choice",
           "value": "warn",
           "options": [
@@ -78,7 +89,8 @@
               "label": "Ignore"
             }
           ],
-          "help": "Runtime behavior when the driver cannot read or write."
+          "help": "Runtime behavior when the driver cannot read or write.",
+          "forget_after_post": false
         }
       ]
     }

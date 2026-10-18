@@ -40,12 +40,14 @@
           "kind": "boolean",
           "value": true,
           "options": [],
-          "help": "Enable Mesh / Zenoh transport."
+          "help": "Enable Mesh / Zenoh transport.",
+          "forget_after_post": false
         },
         {
           "id": "role",
           "label": "Role",
           "required": true,
+          "required_mark": " *",
           "kind": "choice",
           "value": "peer",
           "options": [
@@ -62,16 +64,19 @@
               "label": "router"
             }
           ],
-          "help": "Mesh role for this runtime."
+          "help": "Mesh role for this runtime.",
+          "forget_after_post": false
         },
         {
           "id": "listen",
           "label": "Listen address",
           "required": true,
+          "required_mark": " *",
           "kind": "text",
           "value": "0.0.0.0:5200",
           "options": [],
-          "help": "Mesh listen address."
+          "help": "Mesh listen address.",
+          "forget_after_post": false
         },
         {
           "id": "connect",
@@ -90,7 +95,8 @@
             "item_kind": "text",
             "item_template": "",
             "properties": []
-          }
+          },
+          "forget_after_post": false
         },
         {
           "id": "tls",
@@ -99,7 +105,8 @@
           "kind": "boolean",
           "value": false,
           "options": [],
-          "help": "Use TLS for mesh transport."
+          "help": "Use TLS for mesh transport.",
+          "forget_after_post": false
         },
         {
           "id": "auth_token",
@@ -108,7 +115,8 @@
           "kind": "secret",
           "value": null,
           "options": [],
-          "help": "Optional shared token for peers that require mesh authentication."
+          "help": "Optional shared token for peers that require mesh authentication.",
+          "forget_after_post": false
         },
         {
           "id": "publish",
@@ -127,7 +135,8 @@
             "item_kind": "text",
             "item_template": "",
             "properties": []
-          }
+          },
+          "forget_after_post": false
         },
         {
           "id": "subscribe",
@@ -136,7 +145,8 @@
           "kind": "object",
           "value": {},
           "options": [],
-          "help": "Mapping of remote topic to local variable path."
+          "help": "Mapping of remote topic to local variable path.",
+          "forget_after_post": false
         }
       ]
     },
@@ -147,10 +157,12 @@
           "id": "zenohd_version",
           "label": "Zenohd version",
           "required": true,
+          "required_mark": " *",
           "kind": "text",
           "value": "1.7.2",
           "options": [],
-          "help": "Expected zenohd version for managed deployments."
+          "help": "Expected zenohd version for managed deployments.",
+          "forget_after_post": false
         },
         {
           "id": "plugin_versions",
@@ -159,7 +171,8 @@
           "kind": "object",
           "value": {},
           "options": [],
-          "help": "Optional plugin version pins."
+          "help": "Optional plugin version pins.",
+          "forget_after_post": false
         }
       ]
     }

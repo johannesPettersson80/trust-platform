@@ -1885,6 +1885,7 @@
       }
     },
     "discover_help": "Scan first when hardware is already on the network.",
+    "found_heading": "Found on the network",
     "found": [],
     "runtimes": {
       "label": "Runtimes",
@@ -2401,7 +2402,8 @@
           }
         }
       }
-    ]
+    ],
+    "close_label": "Close"
   },
   "list": {
     "columns": [

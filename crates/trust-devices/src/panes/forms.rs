@@ -325,6 +325,7 @@ fn form_field(field: &CatalogField, value: Value) -> FormField {
         id: field.id.clone(),
         label: field.label.clone(),
         required: field.required,
+        required_mark: field.required.then(|| texts::REQUIRED_MARK.to_owned()),
         kind,
         value,
         options: field
@@ -344,6 +345,7 @@ fn form_field(field: &CatalogField, value: Value) -> FormField {
         visible_when: field.visible_when.clone(),
         list,
         placeholder: None,
+        forget_after_post: false,
     }
 }
 
@@ -587,20 +589,26 @@ pub fn route_login_form(route: &RouteForm) -> Form {
         sections: vec![FormSection {
             heading: None,
             fields: vec![
-                setup_field(
-                    "username",
-                    texts::TWINCAT_USERNAME,
-                    FieldKind::Text,
-                    "",
-                    texts::TWINCAT_LOGIN_HELP,
-                ),
-                setup_field(
-                    "password",
-                    texts::TWINCAT_PASSWORD,
-                    FieldKind::Secret,
-                    "",
-                    texts::TWINCAT_LOGIN_HELP,
-                ),
+                FormField {
+                    forget_after_post: true,
+                    ..setup_field(
+                        "username",
+                        texts::TWINCAT_USERNAME,
+                        FieldKind::Text,
+                        "",
+                        texts::TWINCAT_LOGIN_HELP,
+                    )
+                },
+                FormField {
+                    forget_after_post: true,
+                    ..setup_field(
+                        "password",
+                        texts::TWINCAT_PASSWORD,
+                        FieldKind::Secret,
+                        "",
+                        texts::TWINCAT_LOGIN_HELP,
+                    )
+                },
             ],
         }],
         buttons: vec![
@@ -688,6 +696,7 @@ fn connect_fields() -> Vec<FormField> {
         ),
         FormField {
             required: false,
+            required_mark: None,
             ..setup_field(
                 "token",
                 texts::RUNTIME_TOKEN,
@@ -737,6 +746,7 @@ fn setup_field(id: &str, label: &str, kind: FieldKind, placeholder: &str, help: 
         id: id.to_owned(),
         label: label.to_owned(),
         required: true,
+        required_mark: Some(texts::REQUIRED_MARK.to_owned()),
         kind,
         value: Value::String(String::new()),
         options: Vec::new(),
@@ -745,5 +755,6 @@ fn setup_field(id: &str, label: &str, kind: FieldKind, placeholder: &str, help: 
         visible_when: None,
         list: None,
         placeholder: Some(placeholder.to_owned()).filter(|text| !text.is_empty()),
+        forget_after_post: false,
     }
 }

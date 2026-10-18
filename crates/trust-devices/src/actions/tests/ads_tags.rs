@@ -502,3 +502,105 @@ fn tags_set_refuses_another_connection_and_writes_nothing() {
         "nothing reached the runtime"
     );
 }
+
+/// A runtime that answers the import and the removal of one tag, as a running runtime does.
+fn import_and_remove_script() -> Script {
+    Script::running()
+        .answer(
+            "ads.import_symbols.apply",
+            Reply::Result(json!({
+                "schema_version": 1, "applied": true, "lifecycle_effect": "restart_required",
+                "connection_name": "line1", "selected_count": 2, "candidate_count": 5,
+                "generated_path": "/project/src/generated/ads_generated.st",
+                "message": "Selected ADS symbols were written to ads.toml, cached snapshot, and generated ST.",
+            })),
+        )
+        .answer(
+            "ads.import_symbols.remove",
+            Reply::Result(json!({
+                "schema_version": 1, "applied": true, "matched": true, "removed_count": 1,
+                "restart_required": true, "files_written": ["ads.toml"],
+                "message": "Removed 1 ADS tag.",
+            })),
+        )
+}
+
+#[test]
+fn a_payload_names_the_ticked_and_unticked_paths_and_tags_set_reads_them() {
+    // Design D5b R2: a tick posts `ads.tags_set` with its paths in the payload, and the action reads
+    // them from there as it reads the batch's values (`ticked` imports, `unticked` removes). The same
+    // two requests as the values form reach the owning runtime, with the same notice. A wrong
+    // implementation reads the payload's names from the values only, so a tick imports nothing.
+    let runtime = FakeRuntime::start(import_and_remove_script());
+    let topology = ads_topology(
+        "connected",
+        &ads_params("192.168.10.5", "5.23.91.12.1.1", 851),
+    );
+    let (mut panel, view) = seen(inputs(None), vec![answered_target(&runtime, topology)]);
+    let session = panel.session("dc-test", Instant::now());
+    let owner = named(&view, "line").id.as_str().to_owned();
+    let connection = connection_id(&view, "line", "ads");
+    let mut set = request(
+        "ads.tags_set",
+        json!({
+            "pane": "browse:ads", "runtime": owner, "connection": connection, "port": 851,
+            "ticked": ["MAIN.Temperature", "GVL.Setpoint"], "unticked": ["GVL.Old"],
+        }),
+    );
+    set.values.insert("writable".to_owned(), json!(false));
+    set.host
+        .tokens
+        .insert(runtime.endpoint.clone(), Token::new(TOKEN));
+
+    let reply = act(session, set);
+
+    assert!(reply.ok);
+    assert_eq!(
+        reply.notice.as_ref().map(|notice| notice.text.as_str()),
+        Some("Added 2 ADS tags and removed 1 ADS tag from ADS port 851.")
+    );
+    let applied = requests_of(&runtime, "ads.import_symbols.apply");
+    assert_eq!(applied.len(), 1, "one import reached the owning runtime");
+    assert_eq!(
+        applied[0]["params"]["symbols"],
+        json!(["MAIN.Temperature", "GVL.Setpoint"])
+    );
+    let removed = requests_of(&runtime, "ads.import_symbols.remove");
+    assert_eq!(removed.len(), 1, "one removal reached the owning runtime");
+    assert_eq!(removed[0]["params"]["paths"], json!(["GVL.Old"]));
+}
+
+#[test]
+fn an_applied_change_says_the_simulator_must_restart_to_use_the_tags() {
+    // Specification 25 §5.4 and the old panel's `restartRequired` line, "Start or restart the simulator
+    // to use the new tags." (`W/AdsMultiPortTagBrowser.tsx:559`): an applied import says it in the
+    // notice's second line, so the engineer knows the tags are not live yet. A wrong implementation
+    // drops the line, or says it for a change that was refused.
+    let runtime = FakeRuntime::start(import_and_remove_script());
+    let topology = ads_topology(
+        "connected",
+        &ads_params("192.168.10.5", "5.23.91.12.1.1", 851),
+    );
+    let (mut panel, view) = seen(inputs(None), vec![answered_target(&runtime, topology)]);
+    let session = panel.session("dc-test", Instant::now());
+    let owner = named(&view, "line").id.as_str().to_owned();
+    let connection = connection_id(&view, "line", "ads");
+    let mut set = request(
+        "ads.tags_set",
+        json!({
+            "pane": "browse:ads", "runtime": owner, "connection": connection, "port": 851,
+            "ticked": ["MAIN.Temperature"],
+        }),
+    );
+    set.host
+        .tokens
+        .insert(runtime.endpoint.clone(), Token::new(TOKEN));
+
+    let reply = act(session, set);
+
+    assert!(reply.ok);
+    assert_eq!(
+        reply.notice.and_then(|notice| notice.detail),
+        Some("Start or restart the simulator to use the new tags.".to_owned())
+    );
+}

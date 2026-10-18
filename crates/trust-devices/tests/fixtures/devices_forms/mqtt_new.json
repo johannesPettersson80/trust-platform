@@ -37,10 +37,12 @@
           "id": "broker",
           "label": "Broker",
           "required": true,
+          "required_mark": " *",
           "kind": "text",
           "value": "127.0.0.1:1883",
           "options": [],
-          "help": "MQTT broker host and port."
+          "help": "MQTT broker host and port.",
+          "forget_after_post": false
         },
         {
           "id": "client_id",
@@ -49,25 +51,30 @@
           "kind": "text",
           "value": "",
           "options": [],
-          "help": "Optional MQTT client id. Empty lets the runtime choose one."
+          "help": "Optional MQTT client id. Empty lets the runtime choose one.",
+          "forget_after_post": false
         },
         {
           "id": "topic_in",
           "label": "Input topic",
           "required": true,
+          "required_mark": " *",
           "kind": "text",
           "value": "trust/io/in",
           "options": [],
-          "help": "Topic used for incoming process values."
+          "help": "Topic used for incoming process values.",
+          "forget_after_post": false
         },
         {
           "id": "topic_out",
           "label": "Output topic",
           "required": true,
+          "required_mark": " *",
           "kind": "text",
           "value": "trust/io/out",
           "options": [],
-          "help": "Topic used for outgoing process values."
+          "help": "Topic used for outgoing process values.",
+          "forget_after_post": false
         },
         {
           "id": "username",
@@ -76,7 +83,8 @@
           "kind": "text",
           "value": "",
           "options": [],
-          "help": "Broker username. Use together with password."
+          "help": "Broker username. Use together with password.",
+          "forget_after_post": false
         },
         {
           "id": "password",
@@ -85,7 +93,8 @@
           "kind": "secret",
           "value": null,
           "options": [],
-          "help": "Broker password. Existing saved passwords are not shown here."
+          "help": "Broker password. Existing saved passwords are not shown here.",
+          "forget_after_post": false
         },
         {
           "id": "tls",
@@ -94,7 +103,8 @@
           "kind": "boolean",
           "value": false,
           "options": [],
-          "help": "Use TLS for the MQTT connection."
+          "help": "Use TLS for the MQTT connection.",
+          "forget_after_post": false
         },
         {
           "id": "allow_insecure_remote",
@@ -103,30 +113,36 @@
           "kind": "boolean",
           "value": false,
           "options": [],
-          "help": "Required when using a non-TLS broker that is not local."
+          "help": "Required when using a non-TLS broker that is not local.",
+          "forget_after_post": false
         },
         {
           "id": "reconnect_ms",
           "label": "Reconnect delay",
           "required": true,
+          "required_mark": " *",
           "kind": "number",
           "value": 500,
           "options": [],
-          "help": "Delay between reconnect attempts in milliseconds."
+          "help": "Delay between reconnect attempts in milliseconds.",
+          "forget_after_post": false
         },
         {
           "id": "keep_alive_s",
           "label": "Keepalive",
           "required": true,
+          "required_mark": " *",
           "kind": "number",
           "value": 5,
           "options": [],
-          "help": "MQTT keepalive in seconds."
+          "help": "MQTT keepalive in seconds.",
+          "forget_after_post": false
         },
         {
           "id": "on_error",
           "label": "On error",
           "required": true,
+          "required_mark": " *",
           "kind": "choice",
           "value": "fault",
           "options": [
@@ -143,7 +159,8 @@
               "label": "Ignore"
             }
           ],
-          "help": "Runtime behavior when the MQTT broker is unreachable or no fresh message is available."
+          "help": "Runtime behavior when the MQTT broker is unreachable or no fresh message is available.",
+          "forget_after_post": false
         }
       ]
     },
@@ -157,7 +174,8 @@
           "kind": "text",
           "value": "",
           "options": [],
-          "help": "CA certificate path when TLS is enabled."
+          "help": "CA certificate path when TLS is enabled.",
+          "forget_after_post": false
         },
         {
           "id": "tls_client_cert_path",
@@ -166,7 +184,8 @@
           "kind": "text",
           "value": "",
           "options": [],
-          "help": "Client certificate path for mTLS."
+          "help": "Client certificate path for mTLS.",
+          "forget_after_post": false
         },
         {
           "id": "tls_client_key_path",
@@ -175,7 +194,8 @@
           "kind": "text",
           "value": "",
           "options": [],
-          "help": "Client key path for mTLS."
+          "help": "Client key path for mTLS.",
+          "forget_after_post": false
         },
         {
           "id": "tls_alpn",
@@ -194,7 +214,8 @@
             "item_kind": "text",
             "item_template": "",
             "properties": []
-          }
+          },
+          "forget_after_post": false
         }
       ]
     }

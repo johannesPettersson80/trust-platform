@@ -1,17 +1,20 @@
-//! The ADS tag browser's projection (design §4.3 B8 and §3.3 J40, J46, J54, J55, J57, J58 and
-//! J59; specification 25 §5.4 and its lines 878-883): one card per ADS port with its tags, its
+//! The ADS tag browser's projection (design §4.3 B8 and D5b, and §3.3 J40, J46, J54, J55, J57, J58
+//! and J59; specification 25 §5.4 and its lines 878-883): one card per ADS port with its tags, its
 //! state and its own error, the port suggestions and their help, the route help of a port whose
-//! route is missing with its `Create route`, and the `added` flags of the tags the project's ADS
-//! configuration already has.
+//! route is missing with its `Create route`, the `added` flags of the tags the project's ADS
+//! configuration already has, and the action that ticking each tag posts.
 //!
 //! Every rule here is a ported TypeScript behaviour, named per function:
 //!
 //! - `ports`: the port view model and the `Added` reconciliation
 //!   (`W/AdsMultiPortTagBrowser.tsx:73-145, 386-512`).
 //! - `classify`: a typed ADS error to its human text (`W/browseErrorModel.ts:13-55`).
-//! - `route_help`: the route-warning text switch (`W/BrowseTagsPanel.tsx:57, 70-74, 154-158`).
+//! - `route_help`: the route help of a port whose route is missing (`W/AdsMultiPortTagBrowser.tsx:
+//!   521-551`).
 //! - `added`: a tag the project's ADS configuration already has
 //!   (`W/useDiscoverPane.ts:132-146`; `NC/adsTagBatch.ts:69-87`).
+//! - `tick_action`: the `ads.tags_set` that ticking a tag posts (`W/AdsMultiPortTagBrowser.tsx:
+//!   163-182`, `onAddTags` and `onRemoveTag`).
 
 use serde_json::{json, Map, Value};
 
@@ -25,8 +28,8 @@ use crate::view::types::{
     TreeNode, UiOp,
 };
 
-/// What one port's card is drawn from: the browse this pane ran, the device's own evidence, or
-/// nothing yet.
+/// What one port's card is drawn from: the browse this pane ran, the session's browse of that port,
+/// the device's own evidence, or nothing yet.
 #[derive(Clone, Copy)]
 enum Answer<'a> {
     /// This port's browse still runs.
@@ -52,8 +55,9 @@ pub(super) fn suggestions() -> Vec<FieldOption> {
 }
 
 /// One card per ADS port, in ascending port order: the ports the target reports or finds evidence
-/// for, plus the port this browse read, each with its tags, its state text and its own error or
-/// route help (design §3.3 J55 and J57; `adsPortViews`, `W/AdsMultiPortTagBrowser.tsx:386-443`).
+/// for, the ports this session has browsed, plus the port this browse read, each with its tags, its
+/// state text and its own error or route help (design §3.3 J55 and J57; `adsPortViews`,
+/// `W/AdsMultiPortTagBrowser.tsx:386-443`).
 #[must_use]
 pub(super) fn ports(
     data: &Browse<'_>,
@@ -62,6 +66,7 @@ pub(super) fn ports(
     let browse_evidence = evidence(data.params);
     let mut ports = responding_ports(data.params);
     ports.extend(browse_evidence.iter().map(|(port, _)| *port));
+    ports.extend(data.cached.iter().map(|(port, _)| *port));
     ports.extend(target_port(data.params));
     ports.push(data.port);
     ports.sort_unstable();
@@ -72,7 +77,9 @@ pub(super) fn ports(
         .collect()
 }
 
-/// One port's card (design §3.3 J55; `W/AdsMultiPortTagBrowser.tsx:275-318`).
+/// One port's card (design §3.3 J55; `W/AdsMultiPortTagBrowser.tsx:275-318`). The port this pane
+/// read answers from `answer`; another port answers from the session's browse of it, when there is
+/// one, and else from the device's evidence.
 fn card(
     data: &Browse<'_>,
     answer: Option<&Result<Browsed, String>>,
@@ -85,6 +92,12 @@ fn card(
             Some(Err(message)) => Answer::Failed(message.as_str()),
             Some(Ok(browsed)) => Answer::Browsed(browsed),
         }
+    } else if let Some((_, cached)) = data.cached.iter().find(|(candidate, _)| *candidate == port) {
+        match cached {
+            None => Answer::Loading,
+            Some(Err(message)) => Answer::Failed(message.as_str()),
+            Some(Ok(browsed)) => Answer::Browsed(browsed),
+        }
     } else {
         evidence
             .iter()
@@ -92,8 +105,28 @@ fn card(
             .map_or(Answer::NotBrowsed, |(_, browsed)| Answer::Browsed(browsed))
     };
     let tags = match state {
-        Answer::Browsed(browsed) => browse_tree(&browsed.tree, port, data.params),
+        Answer::Browsed(browsed) => browse_tree(&browsed.tree, port, data),
         Answer::Loading | Answer::Failed(_) | Answer::NotBrowsed => Vec::new(),
+    };
+    let route = match state {
+        Answer::Browsed(browsed) => browsed
+            .route
+            .as_ref()
+            .filter(|route| route.missing)
+            .map(|route| route_help(port, route.plan.as_ref(), data)),
+        Answer::Loading | Answer::Failed(_) | Answer::NotBrowsed => None,
+    };
+    let empty_text = match state {
+        Answer::Loading => Some(texts::LOADING_TAGS),
+        Answer::NotBrowsed => Some(texts::NOT_LOADED_TAGS),
+        Answer::Failed(_) => None,
+        Answer::Browsed(browsed) => {
+            if route.is_some() || browsed.error.is_some() || !tags.is_empty() {
+                None
+            } else {
+                Some(texts::NO_TAGS_ON_PORT)
+            }
+        }
     };
     AdsPortCard {
         port,
@@ -104,15 +137,9 @@ fn card(
                 texts::tag_count(leaf_count(&tags))
             }
         },
+        empty_text: empty_text.map(str::to_owned),
         tags,
-        route: match state {
-            Answer::Browsed(browsed) => browsed
-                .route
-                .as_ref()
-                .filter(|route| route.missing)
-                .map(|route| route_help(port, route.plan.as_ref(), data)),
-            Answer::Loading | Answer::Failed(_) | Answer::NotBrowsed => None,
-        },
+        route,
         error: match state {
             Answer::Failed(message) => Some(ErrorBox {
                 title: texts::browse_failed(data.protocol),
@@ -311,7 +338,8 @@ fn evidence(params: &Map<String, Value>) -> Vec<(u16, Browsed)> {
 
 /// The ports a find reported in `responding_ads_ports` (`respondingAdsPorts`,
 /// `NC/adsDiscoveryPorts.ts:38-48`).
-fn responding_ports(params: &Map<String, Value>) -> Vec<u16> {
+#[must_use]
+pub(super) fn responding_ports(params: &Map<String, Value>) -> Vec<u16> {
     params
         .get("responding_ads_ports")
         .and_then(Value::as_array)
@@ -330,31 +358,70 @@ fn port_of(value: &Value) -> Option<u16> {
         .filter(|port| *port >= 1)
 }
 
-/// The projected tags of `nodes`, with the key that tells the ports apart and the `added` flag of
-/// each leaf (design §3.3 J55 and J57; `selectionKey`, `W/AdsMultiPortTagBrowser.tsx:460-462`).
-fn browse_tree(nodes: &[BrowsedNode], port: u16, params: &Map<String, Value>) -> Vec<TreeNode> {
+/// The projected tags of `nodes`, with the key that tells the ports apart, the `added` flag of each
+/// leaf and the action that ticking it posts (design §3.3 J55 and J57; `selectionKey`,
+/// `W/AdsMultiPortTagBrowser.tsx:460-462`).
+fn browse_tree(nodes: &[BrowsedNode], port: u16, data: &Browse<'_>) -> Vec<TreeNode> {
     let mut tree: Vec<TreeNode> = nodes
         .iter()
-        .map(|node| project_node(node, port, params))
+        .map(|node| project_node(node, port, data))
         .collect();
     sort_tree(&mut tree);
     tree
 }
 
 /// One projected tag: its selection key keeps the port, its access label comes from the origin's
-/// writable flag, and its `added` flag tells whether the project already has it.
-fn project_node(node: &BrowsedNode, port: u16, params: &Map<String, Value>) -> TreeNode {
+/// writable flag, its `added` flag tells whether the project already has it, and its action is the
+/// one ticking it posts.
+fn project_node(node: &BrowsedNode, port: u16, data: &Browse<'_>) -> TreeNode {
     let leaf = node.children.is_empty();
+    let is_added = leaf && added(&node.path, port, data.params);
+    let action = if leaf {
+        tick_action(data, port, node, is_added)
+    } else {
+        None
+    };
     TreeNode {
         key: format!("{port}:{}", node.key()),
         name: node.name.clone(),
         path: node.path.clone(),
         type_label: node.data_type.clone().or_else(|| node.type_label.clone()),
         access: if leaf { access_of(node) } else { None },
-        selectable: leaf,
-        added: leaf && added(&node.path, port, params),
-        children: browse_tree(&node.children, port, params),
+        selectable: action.is_some(),
+        select_label: action.as_ref().map(|_| texts::select_label(&node.path)),
+        added: is_added,
+        action,
+        children: browse_tree(&node.children, port, data),
     }
+}
+
+/// The action that ticking or unticking an ADS tag posts (specification 25 §5.4; design §4.3 B7):
+/// `ads.tags_set` at the card's runtime, connection and port, with the tag's path as `ticked` while
+/// the project does not have it, and as `unticked` once it does. A pane that browses a found device
+/// has no connection to import into, so its tags carry no action and cannot be ticked.
+fn tick_action(data: &Browse<'_>, port: u16, node: &BrowsedNode, is_added: bool) -> Option<Action> {
+    let runtime = data.runtime?;
+    let connection = data.request.source.connection()?;
+    let key = if is_added { "unticked" } else { "ticked" };
+    let mut payload = json!({
+        "pane": pane_id(data.protocol),
+        "runtime": runtime.0,
+        "connection": connection,
+        "port": port,
+    });
+    payload[key] = json!([node.path]);
+    Some(Action {
+        id: format!("{port}:{}", node.key()),
+        label: texts::select_label(&node.path),
+        enabled: true,
+        reason: None,
+        emphasis: Emphasis::Quiet,
+        confirm: None,
+        op: Op::Rust {
+            action: "ads.tags_set".to_owned(),
+            payload,
+        },
+    })
 }
 
 /// `tree` in lexicographic name order at every level, as ADS browsing orders groups and leaves
