@@ -2,7 +2,7 @@
 use super::super::super::construction::values::construct_intrinsic_value;
 use super::*;
 use crate::bytecode::{InitializationStage, InitializationTrigger};
-use crate::memory::view::{StoreAccess, StoreMutate};
+use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
 use crate::memory::MemoryLocation;
 
 impl EngineState<'_> {
@@ -694,6 +694,25 @@ impl EngineState<'_> {
         Ok(())
     }
 
+    /// The owned instances of one stored member (C1-9d1): an instance, or the walk of an aggregate
+    /// value. An aggregate of cells is not walked yet, so it is refused.
+    fn collect_owned_member(
+        &self,
+        view: ValueView<'_>,
+        depth: usize,
+        visited: &mut InstanceSet,
+    ) -> Result<(), RuntimeError> {
+        match view.instance()? {
+            Some(instance) => {
+                self.collect_owned_instance_graph(&Value::Instance(instance), depth, visited)
+            }
+            None => match view.borrowed_value() {
+                Some(value) => self.collect_owned_instance_graph(value, depth, visited),
+                None => Err(RuntimeError::InvalidExecutionState),
+            },
+        }
+    }
+
     fn collect_owned_instance_graph(
         &self,
         value: &Value,
@@ -731,12 +750,7 @@ impl EngineState<'_> {
                         .storage
                         .read_slot(MemoryLocation::Instance(*instance), slot)
                         .map_err(|_| RuntimeError::InvalidExecutionState)?;
-                    let value = self
-                        .data
-                        .storage
-                        .borrow(&view)
-                        .ok_or_else(|| RuntimeError::InvalidExecutionState)?;
-                    self.collect_owned_instance_graph(value, depth + 1, visited)?;
+                    self.collect_owned_member(view, depth + 1, visited)?;
                 }
             }
             Value::Array(array) => {

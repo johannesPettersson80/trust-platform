@@ -5,14 +5,16 @@ use crate::value::Value;
 
 use super::BuiltinExecContext;
 
-/// Borrow one instance variable's stored value through the store-access seam.
+/// The stored `Value` of one instance variable. The built-in executors hold the `Value` store, so
+/// the view always holds its `Value` (C1-9d1); the other built-in modules still read it this way.
 pub(super) fn instance_var<'a>(
     storage: &'a VariableStorage,
     instance_id: InstanceId,
     name: &str,
 ) -> Option<&'a Value> {
-    let view = storage.read_instance_var(instance_id, name)?;
-    storage.borrow(&view)
+    storage
+        .read_instance_var(instance_id, name)?
+        .borrowed_value()
 }
 
 pub(super) fn read_bool(
@@ -20,9 +22,12 @@ pub(super) fn read_bool(
     instance_id: InstanceId,
     name: &str,
 ) -> Result<bool, RuntimeError> {
-    match instance_var(ctx.storage, instance_id, name) {
-        Some(Value::Bool(value)) => Ok(*value),
-        Some(Value::Null) | None => Ok(false),
+    let Some(view) = ctx.storage.read_instance_var(instance_id, name) else {
+        return Ok(false);
+    };
+    match view.scalar()? {
+        Some(Value::Bool(value)) => Ok(value),
+        Some(Value::Null) => Ok(false),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
@@ -33,9 +38,13 @@ pub(super) fn get_or_init_bool(
     name: &str,
     default: bool,
 ) -> Result<bool, RuntimeError> {
-    match instance_var(ctx.storage, instance_id, name) {
-        Some(Value::Bool(value)) => Ok(*value),
-        Some(Value::Null) | None => {
+    let current = match ctx.storage.read_instance_var(instance_id, name) {
+        Some(view) => view.scalar()?,
+        None => Some(Value::Null),
+    };
+    match current {
+        Some(Value::Bool(value)) => Ok(value),
+        Some(Value::Null) => {
             ctx.storage
                 .write_instance_var(instance_id, name, Value::Bool(default));
             Ok(default)
@@ -59,9 +68,10 @@ pub(super) fn read_value(
     instance_id: InstanceId,
     name: &str,
 ) -> Result<Value, RuntimeError> {
-    instance_var(ctx.storage, instance_id, name)
-        .cloned()
-        .ok_or(RuntimeError::TypeMismatch)
+    ctx.storage
+        .read_instance_var(instance_id, name)
+        .ok_or(RuntimeError::TypeMismatch)?
+        .materialize()
 }
 
 pub(super) fn read_value_or_null(

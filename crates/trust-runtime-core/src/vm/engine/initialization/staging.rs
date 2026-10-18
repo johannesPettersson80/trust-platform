@@ -7,41 +7,33 @@ use crate::value::ValueRef;
 
 /// The value a seed copies: the configuration action's selected reference, or the
 /// value the declaration's global, instance variable or lexical frame local holds
-/// (specification 34 MEM-09).
-fn seed_source_value<'a, S: StoreAccess>(
-    storage: &'a S,
-    configured: Option<&'a ValueRef>,
+/// (specification 34 MEM-09). It is copied out of storage, as the seed needs an owned value.
+fn seed_source_value<S: StoreAccess>(
+    storage: &S,
+    configured: Option<&ValueRef>,
     name: &str,
     owner: StorageOwner,
     instance: Option<InstanceId>,
-    frame_value: Option<&'a Value>,
-) -> Result<&'a Value, RuntimeError> {
+    frame_value: Option<&Value>,
+) -> Result<Value, RuntimeError> {
     if let Some(reference) = configured {
         let view = storage
             .read_reference(reference.as_view())
             .map_err(|_| RuntimeError::InvalidExecutionState)?;
-        return storage
-            .borrow(&view)
-            .ok_or(RuntimeError::InvalidExecutionState);
+        return view.materialize();
     }
     match owner {
-        StorageOwner::Global => {
-            let view = storage
-                .read_global(name)
-                .ok_or(RuntimeError::InvalidExecutionState)?;
-            storage
-                .borrow(&view)
-                .ok_or(RuntimeError::InvalidExecutionState)
-        }
-        StorageOwner::Instance => {
-            let view = instance
-                .and_then(|id| storage.read_instance_var(id, name))
-                .ok_or(RuntimeError::InvalidExecutionState)?;
-            storage
-                .borrow(&view)
-                .ok_or(RuntimeError::InvalidExecutionState)
-        }
-        StorageOwner::Frame => frame_value.ok_or(RuntimeError::InvalidExecutionState),
+        StorageOwner::Global => storage
+            .read_global(name)
+            .ok_or(RuntimeError::InvalidExecutionState)?
+            .materialize(),
+        StorageOwner::Instance => instance
+            .and_then(|id| storage.read_instance_var(id, name))
+            .ok_or(RuntimeError::InvalidExecutionState)?
+            .materialize(),
+        StorageOwner::Frame => frame_value
+            .cloned()
+            .ok_or(RuntimeError::InvalidExecutionState),
     }
 }
 
@@ -140,9 +132,8 @@ impl EngineState<'_> {
         let mut visited_count = 0usize;
         let mut backups_charged = 0usize;
         let value = (|| -> Result<Value, RuntimeError> {
-            self.owned_value_instances(type_id, value, &mut pending, 0)?;
-            self.charge_allocation_bytes(self.value_clone_charge(value, 0)?)?;
-            let value = value.clone();
+            self.owned_value_instances(type_id, &value, &mut pending, 0)?;
+            self.charge_allocation_bytes(self.value_clone_charge(&value, 0)?)?;
             while let Some(raw_id) = pending.pop() {
                 let id = InstanceId(raw_id);
                 // Charge the sorted growth a set growing on demand would make, so the reused
@@ -189,13 +180,19 @@ impl EngineState<'_> {
                             .data
                             .storage
                             .read_slot(MemoryLocation::Instance(id), declaration.slot as usize)
-                        && let Some(value) = self.data.storage.borrow(&view)
                     {
+                        let value = view
+                            .borrowed_value()
+                            .ok_or(RuntimeError::InvalidExecutionState)?;
                         self.owned_value_instances(type_id, value, &mut pending, 0)?;
                     }
                 }
-                // The record's count is metadata; each value is read through its slot.
-                let count = data.variables.len();
+                // The members are the template's declarations: the record holds exactly these
+                // (C1-9d1, R2). Each value is read through its slot.
+                let count = self
+                    .prepared
+                    .declarations(StorageOwner::Instance, Some(template))
+                    .len();
                 let mut charge = count
                     .checked_mul(core::mem::size_of::<(smol_str::SmolStr, Value)>() * 4)
                     .ok_or(RuntimeError::Overflow)?;
@@ -205,13 +202,8 @@ impl EngineState<'_> {
                         .storage
                         .read_slot(MemoryLocation::Instance(id), slot)
                         .map_err(|_| RuntimeError::InvalidExecutionState)?;
-                    let value = self
-                        .data
-                        .storage
-                        .borrow(&view)
-                        .ok_or(RuntimeError::InvalidExecutionState)?;
                     charge = charge
-                        .checked_add(self.value_clone_charge(value, 0)?)
+                        .checked_add(self.view_clone_charge(&view)?)
                         .ok_or(RuntimeError::Overflow)?;
                 }
                 self.charge_allocation_bytes(charge)?;

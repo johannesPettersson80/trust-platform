@@ -3,9 +3,9 @@ use super::{
     is_current_location, is_vm_local_sentinel, peek_vm_reference, read_vm_reference,
     write_vm_reference,
 };
-use crate::memory::view::{StoreAccess, StoreMutate};
+use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
 use crate::vm::call::context::{CallContext, RegisterValueOpKind};
-use crate::vm::{materialize_borrowed_value, VmFrame, VmTrap};
+use crate::vm::{VmFrame, VmTrap};
 use crate::{
     error::RuntimeError,
     memory::{Generation, InstanceId, MemoryLocation},
@@ -49,24 +49,29 @@ impl VmFbOutSource {
         runtime
             .check_reference_read(reference)
             .map_err(VmTrap::Runtime)?;
-        Ok(self.read(runtime))
+        match self.read(runtime) {
+            Some(view) => view
+                .borrowed_value()
+                .map(Some)
+                .ok_or_else(|| VmTrap::Runtime(RuntimeError::InvalidExecutionState)),
+            None => Ok(None),
+        }
     }
 
     /// Borrow the bound storage value; callers must perform required policy checks.
-    pub fn read<'a>(&'a self, runtime: &'a impl CallContext) -> Option<&'a Value> {
-        let view = match self {
+    pub fn read<'a>(&'a self, runtime: &'a impl CallContext) -> Option<ValueView<'a>> {
+        match self {
             Self::Direct {
                 instance_id,
                 offset,
             } => runtime
                 .storage()
                 .read_slot(MemoryLocation::Instance(*instance_id), *offset)
-                .ok()?,
+                .ok(),
             Self::Reference(reference) => {
-                runtime.storage().read_reference(reference.as_view()).ok()?
+                runtime.storage().read_reference(reference.as_view()).ok()
             }
-        };
-        runtime.storage().borrow(&view)
+        }
     }
 }
 
@@ -179,13 +184,16 @@ impl VmWriteTarget {
         &self,
         runtime: &'a impl CallContext,
         caller_frame: &'a VmFrame,
-    ) -> Result<&'a Value, VmTrap> {
+    ) -> Result<ValueView<'a>, VmTrap> {
         runtime
             .check_reference_read(self.reference_view(caller_frame, runtime.storage().generation()))
             .map_err(VmTrap::Runtime)?;
         match self {
-            Self::CallerLocalDirect { offset } => {
-                caller_frame.locals.get(*offset).ok_or_else(|| {
+            Self::CallerLocalDirect { offset } => caller_frame
+                .locals
+                .get(*offset)
+                .map(ValueView::Value)
+                .ok_or_else(|| {
                     VmTrap::InvalidNativeCall(
                         format!(
                             "local reference offset {} out of range for VM frame (locals={})",
@@ -194,26 +202,20 @@ impl VmWriteTarget {
                         )
                         .into(),
                     )
-                })
-            }
+                }),
             Self::DirectStorage { location, offset }
                 if is_current_location(*location, caller_frame) =>
             {
                 caller_frame
                     .locals
                     .get(*offset)
+                    .map(ValueView::Value)
                     .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))
             }
-            Self::DirectStorage { location, offset } => {
-                let view = runtime
-                    .storage()
-                    .read_slot(*location, *offset)
-                    .map_err(|_| VmTrap::Runtime(RuntimeError::NullReference))?;
-                runtime
-                    .storage()
-                    .borrow(&view)
-                    .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))
-            }
+            Self::DirectStorage { location, offset } => runtime
+                .storage()
+                .read_slot(*location, *offset)
+                .map_err(|_| VmTrap::Runtime(RuntimeError::NullReference)),
             Self::Reference(reference) => peek_vm_reference(runtime, caller_frame, reference),
         }
     }
@@ -235,15 +237,16 @@ impl VmWriteTarget {
         match self {
             Self::Reference(reference) => read_vm_reference(runtime, caller_frame, reference),
             Self::CallerLocalDirect { .. } | Self::DirectStorage { .. } => {
-                let value = {
-                    let value = self.peek(runtime, caller_frame)?;
-                    runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
-                    let (value, cloned) = materialize_borrowed_value(value);
-                    if cloned {
-                        runtime.record_value_op(RegisterValueOpKind::ReadReference);
-                    }
-                    value
-                };
+                let (value, cloned) = self
+                    .peek(runtime, caller_frame)?
+                    .materialize_flagged()
+                    .map_err(VmTrap::Runtime)?;
+                runtime
+                    .before_value_clone(&value)
+                    .map_err(VmTrap::Runtime)?;
+                if cloned {
+                    runtime.record_value_op(RegisterValueOpKind::ReadReference);
+                }
                 Ok(value)
             }
         }
@@ -265,11 +268,11 @@ impl VmWriteTarget {
             Self::Reference(_) => crate::vm::diagnostic_timing::CopyReadKind::Reference,
         });
         match self.peek(runtime, caller_frame) {
-            Ok(value) => {
+            Ok(view) => {
+                let (value, cloned) = view.materialize_flagged().map_err(VmTrap::Runtime)?;
                 runtime
-                    .before_transaction_snapshot(value)
+                    .before_transaction_snapshot(&value)
                     .map_err(VmTrap::Runtime)?;
-                let (value, cloned) = materialize_borrowed_value(value);
                 if cloned {
                     runtime.record_value_op(RegisterValueOpKind::ReadReference);
                 }
@@ -372,7 +375,7 @@ impl VmFbFieldBinding {
     pub fn read_checked<'a>(
         &'a self,
         runtime: &'a impl CallContext,
-    ) -> Result<Option<&'a Value>, VmTrap> {
+    ) -> Result<Option<ValueView<'a>>, VmTrap> {
         let reference = match self {
             Self::Direct {
                 instance_id,
@@ -392,20 +395,19 @@ impl VmFbFieldBinding {
     }
 
     /// Borrow the bound storage value; callers must perform required policy checks.
-    pub fn read<'a>(&'a self, runtime: &'a impl CallContext) -> Option<&'a Value> {
-        let view = match self {
+    pub fn read<'a>(&'a self, runtime: &'a impl CallContext) -> Option<ValueView<'a>> {
+        match self {
             Self::Direct {
                 instance_id,
                 offset,
             } => runtime
                 .storage()
                 .read_slot(MemoryLocation::Instance(*instance_id), *offset)
-                .ok()?,
+                .ok(),
             Self::Reference(reference) => {
-                runtime.storage().read_reference(reference.as_view()).ok()?
+                runtime.storage().read_reference(reference.as_view()).ok()
             }
-        };
-        runtime.storage().borrow(&view)
+        }
     }
 
     pub(super) fn check_write(
@@ -439,7 +441,12 @@ impl VmFbFieldBinding {
         value: Value,
     ) -> Result<bool, VmTrap> {
         let value = match self.read(runtime) {
-            Some(target) => normalize_assignment_for_target(target, value),
+            Some(view) => {
+                let target = view
+                    .borrowed_value()
+                    .ok_or_else(|| VmTrap::Runtime(RuntimeError::InvalidExecutionState))?;
+                normalize_assignment_for_target(target, value)
+            }
             None => value,
         };
         let (location, offset, path, capacity) = match self {

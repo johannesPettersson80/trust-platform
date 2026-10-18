@@ -2,7 +2,7 @@
 use super::*;
 use crate::bytecode::{AccessBindingEntry, StorageRole};
 use crate::memory::layout::CELL_BYTES;
-use crate::memory::view::{PreparedWrite, StoreAccess, StoreMutate};
+use crate::memory::view::{PreparedWrite, StoreAccess, StoreMutate, ValueView};
 use crate::value::{
     read_partial_access, write_partial_access, PartialAccess, RefSegment, ValueRefView,
 };
@@ -32,13 +32,29 @@ impl EngineState<'_> {
             .storage
             .read_path(reference.location, reference.offset, prefix)
             .map_err(|_| RuntimeError::NullReference)?;
-        let parent = self
-            .data
-            .storage
-            .borrow(&view)
-            .ok_or(RuntimeError::NullReference)?;
-        crate::value::materialize_value_path(parent, core::slice::from_ref(last))
+        crate::vm::dispatch_refs::materialize_segment(&view, last)?
             .ok_or(RuntimeError::NullReference)
+    }
+
+    /// The allocation of one copy of the stored `view`, after its work is charged (TIME-08). A `Value`
+    /// view charges what `value_clone_charge` charges; a cell view charges the cells' own copy charge,
+    /// which is the same work and allocation (C1-9d1).
+    pub(in crate::vm::engine) fn view_clone_charge(
+        &self,
+        view: &ValueView<'_>,
+    ) -> Result<usize, RuntimeError> {
+        match view {
+            ValueView::Value(value) => self.value_clone_charge(value, 0),
+            ValueView::Cells {
+                cells,
+                range,
+                type_id,
+            } => {
+                let charge = cells.copy_charge(*range, *type_id, 0)?;
+                self.charge_work_units(charge.work)?;
+                Ok(charge.allocation)
+            }
+        }
     }
 
     pub(super) fn read_checked_reference(
@@ -48,16 +64,11 @@ impl EngineState<'_> {
         self.check_management_destination(reference.as_view())?;
         self.check_read(reference.as_view())?;
         let value = if let Ok(view) = self.data.storage.read_reference(reference.as_view()) {
-            let stored = self
-                .data
-                .storage
-                .borrow(&view)
-                .ok_or(RuntimeError::NullReference)?;
-            self.charge_allocation_bytes(self.value_clone_charge(stored, 0)?)?;
+            self.charge_allocation_bytes(self.view_clone_charge(&view)?)?;
             self.check_entry_deadline()?;
-            stored.clone()
+            view.materialize()?
         } else {
-            // STRING/WSTRING elements are scalar CHAR/WCHAR values, not borrowed
+            // STRING/WSTRING elements are scalar CHAR/WCHAR values, not stored
             // Values. Resolve only their parent, without cloning its backing text.
             let (last, prefix) = reference
                 .path
@@ -68,21 +79,15 @@ impl EngineState<'_> {
                 .storage
                 .read_path(reference.location, reference.offset as usize, prefix)
                 .map_err(|_| RuntimeError::NullReference)?;
-            let parent = self
-                .data
-                .storage
-                .borrow(&view)
-                .ok_or(RuntimeError::NullReference)?;
-            // Reading one character scans the text up to its index: TEXT (TIME-08).
-            let text_length = match (parent, last) {
-                (Value::String(text), RefSegment::Index(_)) => text.len(),
-                (Value::WString(text), RefSegment::Index(_)) => text.len(),
-                _ => return Err(RuntimeError::NullReference),
+            let RefSegment::Index(indices) = last else {
+                return Err(RuntimeError::NullReference);
             };
+            // Reading one character scans the text up to its index: TEXT (TIME-08).
+            let text_length = view.text_utf8_len()?.ok_or(RuntimeError::NullReference)?;
             // The character is a scalar copy: it allocates nothing (TIME-08).
             self.charge_work_units(text_length)?;
             self.check_entry_deadline()?;
-            crate::value::materialize_value_path(parent, core::slice::from_ref(last))
+            view.text_element(indices)?
                 .ok_or(RuntimeError::NullReference)?
         };
         self.check_entry_deadline()?;

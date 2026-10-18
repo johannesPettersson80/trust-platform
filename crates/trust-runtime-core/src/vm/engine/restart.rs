@@ -71,21 +71,19 @@ impl EngineState<'_> {
                 };
                 let new = self.data.construction.roots[root_index]
                     .ok_or(RuntimeError::InvalidExecutionState)?;
-                if let Some(view) = source.data.storage.read_instance_var(old, name)
-                    && let Some(value) = source.data.storage.borrow(&view)
-                {
-                    self.check_retention_walk(value, 0)?;
-                    if value_is_retainable(value) {
-                        self.restore_program_value(new, name, value)?;
+                if let Some(view) = source.data.storage.read_instance_var(old, name) {
+                    let value = view.materialize()?;
+                    self.check_retention_walk(&value, 0)?;
+                    if value_is_retainable(&value) {
+                        self.restore_program_value(new, name, &value)?;
                     }
                 }
                 for &phase_id in source.prepared.edge_declarations(index as u32) {
                     let phase = &source.prepared.layout.entries[phase_id as usize];
                     let phase_name = &source.prepared.vm.strings[phase.name_idx as usize];
-                    if let Some(view) = source.data.storage.read_instance_var(old, phase_name)
-                        && let Some(value) = source.data.storage.borrow(&view)
-                    {
-                        self.restore_program_value(new, phase_name, value)?;
+                    if let Some(view) = source.data.storage.read_instance_var(old, phase_name) {
+                        let value = view.materialize()?;
+                        self.restore_program_value(new, phase_name, &value)?;
                     }
                 }
             }

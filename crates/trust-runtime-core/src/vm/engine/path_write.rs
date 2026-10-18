@@ -3,7 +3,7 @@
 //! A write is charged for what the program writes. A field or element write copies no structure,
 //! so the engine's detach of shared storage is bookkeeping and is not charged (TIME-08).
 use super::*;
-use crate::memory::view::StoreAccess;
+use crate::memory::view::{StoreAccess, ValueView};
 use crate::memory::MemoryLocation;
 use crate::value::{array_offset_i64, RefSegment};
 
@@ -21,10 +21,9 @@ impl EngineState<'_> {
         if path.is_empty() && !matches!(input, Value::Struct(_)) {
             return Ok(());
         }
-        let view = storage
+        let root = storage
             .read_slot(location, offset)
             .map_err(|_| RuntimeError::NullReference)?;
-        let root = storage.borrow(&view).ok_or(RuntimeError::NullReference)?;
         self.charge_path_write_inner(storage, root, path, input, 0)
     }
 
@@ -34,18 +33,24 @@ impl EngineState<'_> {
         path: &[RefSegment],
         input: &Value,
     ) -> Result<(), RuntimeError> {
-        self.charge_path_write_inner(&self.data.storage, root, path, input, 0)
+        self.charge_path_write_inner(&self.data.storage, ValueView::Value(root), path, input, 0)
     }
 
+    /// The charge of a write to `path` inside the value `root` (C1-9d1). A `Value` root walks as it
+    /// always has, including the physical layout of a structure; a cell root walks its members and
+    /// elements through the view. Both charge the same numbers for the same value.
     fn charge_path_write_inner<S: StoreAccess>(
         &self,
         storage: &S,
-        root: &Value,
+        root: ValueView<'_>,
         path: &[RefSegment],
         input: &Value,
         depth: usize,
     ) -> Result<(), RuntimeError> {
-        if let Value::Struct(structure) = root {
+        let Some(value) = root.borrowed_value() else {
+            return self.charge_cell_path_write(storage, root, path, input, depth);
+        };
+        if let Value::Struct(structure) = value {
             let layout = structure.physical_layout();
             let path = layout
                 .as_ref()
@@ -62,7 +67,7 @@ impl EngineState<'_> {
                         if let Some(suffix) = child.strip_prefix(path) {
                             validate_physical_child(input, suffix, depth)?;
                         } else {
-                            validate_physical_child(root, child, depth)?;
+                            validate_physical_child(value, child, depth)?;
                         }
                     }
                 }
@@ -75,17 +80,22 @@ impl EngineState<'_> {
         if depth >= crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
             return Err(RuntimeError::TypeMismatch);
         }
-        match (root, segment) {
+        match (value, segment) {
             (Value::Struct(structure), RefSegment::Field(name)) => {
                 let field = structure.field(name).ok_or(RuntimeError::NullReference)?;
-                self.charge_path_write_inner(storage, field, rest, input, depth + 1)
+                self.charge_path_write_inner(
+                    storage,
+                    ValueView::Value(field),
+                    rest,
+                    input,
+                    depth + 1,
+                )
             }
             (Value::Instance(instance), RefSegment::Field(name)) => {
                 let view = storage
                     .read_instance_field(*instance, name)
                     .map_err(|_| RuntimeError::NullReference)?;
-                let field = storage.borrow(&view).ok_or(RuntimeError::NullReference)?;
-                self.charge_path_write_inner(storage, field, rest, input, depth + 1)
+                self.charge_path_write_inner(storage, view, rest, input, depth + 1)
             }
             (Value::Array(array), RefSegment::Index(indices)) => {
                 let offset = array_offset_i64(array.dimensions(), indices)
@@ -94,19 +104,73 @@ impl EngineState<'_> {
                     .elements()
                     .get(offset)
                     .ok_or(RuntimeError::NullReference)?;
-                self.charge_path_write_inner(storage, element, rest, input, depth + 1)
+                self.charge_path_write_inner(
+                    storage,
+                    ValueView::Value(element),
+                    rest,
+                    input,
+                    depth + 1,
+                )
             }
-            (Value::String(text), RefSegment::Index(_)) => self.charge_string_path_write(text),
-            (Value::WString(text), RefSegment::Index(_)) => self.charge_string_path_write(text),
+            (Value::String(text), RefSegment::Index(_)) => {
+                self.charge_string_path_write(text.len())
+            }
+            (Value::WString(text), RefSegment::Index(_)) => {
+                self.charge_string_path_write(text.len())
+            }
             _ => Err(RuntimeError::NullReference),
         }
     }
 
-    fn charge_string_path_write(&self, text: &str) -> Result<(), RuntimeError> {
+    /// The cell form of [`Self::charge_path_write_inner`] (C1-9d1): the same steps over the members,
+    /// elements and text that the view reads. A cell structure has no physical layout (C1-15).
+    fn charge_cell_path_write<S: StoreAccess>(
+        &self,
+        storage: &S,
+        root: ValueView<'_>,
+        path: &[RefSegment],
+        input: &Value,
+        depth: usize,
+    ) -> Result<(), RuntimeError> {
+        let Some((segment, rest)) = path.split_first() else {
+            return Ok(());
+        };
+        if depth >= crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        match segment {
+            RefSegment::Field(_) if root.is_struct() => {
+                let field = root
+                    .walk(core::slice::from_ref(segment))
+                    .ok_or(RuntimeError::NullReference)?;
+                self.charge_path_write_inner(storage, field, rest, input, depth + 1)
+            }
+            RefSegment::Field(name) => {
+                let instance = root.instance()?.ok_or(RuntimeError::NullReference)?;
+                let view = storage
+                    .read_instance_field(instance, name)
+                    .map_err(|_| RuntimeError::NullReference)?;
+                self.charge_path_write_inner(storage, view, rest, input, depth + 1)
+            }
+            RefSegment::Index(_) if root.array_dimensions().is_some() => {
+                let element = root
+                    .walk(core::slice::from_ref(segment))
+                    .ok_or(RuntimeError::NullReference)?;
+                self.charge_path_write_inner(storage, element, rest, input, depth + 1)
+            }
+            RefSegment::Index(_) => match root.text_utf8_len()? {
+                Some(length) => self.charge_string_path_write(length),
+                None => Err(RuntimeError::NullReference),
+            },
+        }
+    }
+
+    /// The charge of one element write into a text of `length` UTF-8 bytes.
+    fn charge_string_path_write(&self, length: usize) -> Result<(), RuntimeError> {
         // write_string_element collects Unicode scalars, then builds new UTF-8;
         // STRING also copies that result into SmolStr. Include vector growth and
         // the replacement scalar's possible UTF-8 expansion before either allocation.
-        let units = text.len().checked_add(4).ok_or(RuntimeError::Overflow)?;
+        let units = length.checked_add(4).ok_or(RuntimeError::Overflow)?;
         self.charge_work_units(units.checked_mul(3).ok_or(RuntimeError::Overflow)?)?;
         self.charge_allocation_bytes(units.checked_mul(16).ok_or(RuntimeError::Overflow)?)
     }

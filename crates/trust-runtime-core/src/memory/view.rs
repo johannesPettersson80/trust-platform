@@ -21,7 +21,10 @@ use super::{
 use crate::error::RuntimeError;
 use crate::memory::cell_access::{CellPatch, CellsView};
 use crate::memory::layout::CellRange;
-use crate::value::{read_value_path_borrowed, RefSegment, Value, ValueRef, ValueRefView};
+use crate::value::{
+    read_string_element, read_value_path_borrowed, single_string_index, RefSegment, Value,
+    ValueRef, ValueRefView,
+};
 use crate::vm::VmTrap;
 use smol_str::SmolStr;
 
@@ -110,6 +113,214 @@ impl<'a> ValueView<'a> {
                 range,
                 type_id,
             } => cells.materialize(range, type_id),
+        }
+    }
+
+    /// The owned `Value` of this view, and whether copying it cloned a payload: `false` for a scalar, a
+    /// structure, an instance or `Null`, as `vm::materialize_borrowed_value` reports (C1-9d1).
+    pub(crate) fn materialize_flagged(&self) -> Result<(Value, bool), RuntimeError> {
+        match *self {
+            Self::Value(value) => Ok(crate::vm::materialize_borrowed_value(value)),
+            Self::Cells { .. } => {
+                let value = self.materialize()?;
+                let cloned = !matches!(
+                    value,
+                    Value::Bool(_)
+                        | Value::SInt(_)
+                        | Value::Int(_)
+                        | Value::DInt(_)
+                        | Value::LInt(_)
+                        | Value::USInt(_)
+                        | Value::UInt(_)
+                        | Value::UDInt(_)
+                        | Value::ULInt(_)
+                        | Value::Real(_)
+                        | Value::LReal(_)
+                        | Value::Byte(_)
+                        | Value::Word(_)
+                        | Value::DWord(_)
+                        | Value::LWord(_)
+                        | Value::Time(_)
+                        | Value::LTime(_)
+                        | Value::Date(_)
+                        | Value::LDate(_)
+                        | Value::Tod(_)
+                        | Value::LTod(_)
+                        | Value::Dt(_)
+                        | Value::Ldt(_)
+                        | Value::Char(_)
+                        | Value::WChar(_)
+                        | Value::Struct(_)
+                        | Value::Instance(_)
+                        | Value::Null
+                );
+                Ok((value, cloned))
+            }
+        }
+    }
+
+    /// The scalar this view holds, copied without allocation (S, C1-9d1): a scalar or `Null`. `None`
+    /// for a value that owns storage (text, array, structure, enumeration, reference, instance), which
+    /// the caller materializes or walks.
+    pub(crate) fn scalar(&self) -> Result<Option<Value>, RuntimeError> {
+        match *self {
+            Self::Value(value) => Ok(match value {
+                Value::Bool(_)
+                | Value::SInt(_)
+                | Value::Int(_)
+                | Value::DInt(_)
+                | Value::LInt(_)
+                | Value::USInt(_)
+                | Value::UInt(_)
+                | Value::UDInt(_)
+                | Value::ULInt(_)
+                | Value::Real(_)
+                | Value::LReal(_)
+                | Value::Byte(_)
+                | Value::Word(_)
+                | Value::DWord(_)
+                | Value::LWord(_)
+                | Value::Time(_)
+                | Value::LTime(_)
+                | Value::Date(_)
+                | Value::LDate(_)
+                | Value::Tod(_)
+                | Value::LTod(_)
+                | Value::Dt(_)
+                | Value::Ldt(_)
+                | Value::Char(_)
+                | Value::WChar(_)
+                | Value::Null => Some(value.clone()),
+                Value::String(_)
+                | Value::WString(_)
+                | Value::Array(_)
+                | Value::Struct(_)
+                | Value::Enum(_)
+                | Value::Reference(_)
+                | Value::Instance(_) => None,
+            }),
+            Self::Cells {
+                cells,
+                range,
+                type_id,
+            } => cells.scalar(range, type_id),
+        }
+    }
+
+    /// The instance this view holds (S, C1-9d1): an instance value, or the instance cell of a function
+    /// block or interface. `None` for any other value.
+    pub(crate) fn instance(&self) -> Result<Option<InstanceId>, RuntimeError> {
+        match *self {
+            Self::Value(value) => Ok(match value {
+                Value::Instance(instance) => Some(*instance),
+                _ => None,
+            }),
+            Self::Cells {
+                cells,
+                range,
+                type_id,
+            } => cells.instance(range, type_id),
+        }
+    }
+
+    /// The UTF-8 length of the text this view holds (C1-9d1): the bytes of a `STRING`, and the UTF-8
+    /// length of a `WSTRING`'s code units (TIME-08 counts UTF-8). `None` for any other value.
+    pub(crate) fn text_utf8_len(&self) -> Result<Option<usize>, RuntimeError> {
+        match *self {
+            Self::Value(value) => Ok(match value {
+                Value::String(text) => Some(text.len()),
+                Value::WString(text) => Some(text.len()),
+                _ => None,
+            }),
+            Self::Cells {
+                cells,
+                range,
+                type_id,
+            } => cells.text_utf8_len(range, type_id),
+        }
+    }
+
+    /// Whether this view holds a structure (C1-9d1).
+    pub(crate) fn is_struct(&self) -> bool {
+        match *self {
+            Self::Value(value) => matches!(value, Value::Struct(_)),
+            Self::Cells { cells, type_id, .. } => cells.is_struct(type_id),
+        }
+    }
+
+    /// Whether this view holds a structure that declares a member named `name` (C1-9d1).
+    pub(crate) fn has_field(&self, name: &str) -> bool {
+        match *self {
+            Self::Value(value) => match value {
+                Value::Struct(structure) => structure.contains_field(name),
+                _ => false,
+            },
+            Self::Cells { cells, type_id, .. } => cells.has_field(type_id, name),
+        }
+    }
+
+    /// The declared bounds of each dimension of the array this view holds (C1-9d1), or `None` for any
+    /// other value.
+    pub(crate) fn array_dimensions(&self) -> Option<&'a [(i64, i64)]> {
+        match *self {
+            Self::Value(value) => match value {
+                Value::Array(array) => Some(array.dimensions()),
+                _ => None,
+            },
+            Self::Cells { cells, type_id, .. } => cells.array_dimensions(type_id),
+        }
+    }
+
+    /// Whether this view holds a text: `Some(false)` for a `STRING`, `Some(true)` for a `WSTRING`, and
+    /// `None` for any other value (C1-9d1).
+    pub(crate) fn text_is_wide(&self) -> Option<bool> {
+        match *self {
+            Self::Value(value) => match value {
+                Value::String(_) => Some(false),
+                Value::WString(_) => Some(true),
+                _ => None,
+            },
+            Self::Cells { cells, type_id, .. } => cells.text_is_wide(type_id),
+        }
+    }
+
+    /// The view of the member or element `path` names inside this view (C1-9d1), or `None` when a step
+    /// names no value. A `Value` view walks as [`read_value_path_borrowed`] does, so a structure's
+    /// physical path is canonical; a text is not walked here (see [`ValueView::text_element`]).
+    pub(crate) fn walk(&self, path: &[RefSegment]) -> Option<Self> {
+        match *self {
+            Self::Value(value) => read_value_path_borrowed(value, path).map(Self::borrowed),
+            Self::Cells { .. } => path
+                .iter()
+                .try_fold(*self, |view, segment| view.member(segment)),
+        }
+    }
+
+    /// The character that `indices` select in the text this view holds (C1-9d1, T): a `CHAR` of a
+    /// `STRING` or a `WCHAR` of a `WSTRING`, as `materialize_value_path` synthesizes it. `None` when the
+    /// selection names no character or the view holds no text. A cell `WSTRING` is UTF-16 and has no
+    /// UTF-8 text to read, so its characters are refused until the cell arm reads them (C1-9d2).
+    pub(crate) fn text_element(&self, indices: &[i64]) -> Result<Option<Value>, RuntimeError> {
+        let Some(index) = single_string_index(indices) else {
+            return Ok(None);
+        };
+        match *self {
+            Self::Value(value) => Ok(match value {
+                Value::String(text) => read_string_element(text.as_str(), index, false).ok(),
+                Value::WString(text) => read_string_element(text.as_str(), index, true).ok(),
+                _ => None,
+            }),
+            Self::Cells {
+                cells,
+                range,
+                type_id,
+            } => match cells.text_is_wide(type_id) {
+                Some(false) => Ok(cells
+                    .string_text(range, type_id)
+                    .and_then(|text| read_string_element(text, index, false).ok())),
+                Some(true) => Err(RuntimeError::InvalidExecutionState),
+                None => Ok(None),
+            },
         }
     }
 }
@@ -267,30 +478,9 @@ pub trait StoreAccess {
 
     /// Borrow the stored leaf a view names, without copying it.
     ///
-    /// This is the C1-8 compatibility read: it hands out a `&`[`Value`] into
-    /// today's `Value`-tree storage, which the C1-9 cell store cannot serve. C1-9
-    /// removes it by moving every caller to view-based reads and charges. The
-    /// C1-8a callers are `read_storage_path` and `read_storage_slot` in
-    /// `vm::dispatch_refs` and `charge_storage_path_write` in
-    /// `vm::engine::path_write` (C1-8a note §4); the C1-8b callers are
-    /// `peek_vm_reference_path` and `write_vm_reference` in `vm::call::bindings`,
-    /// `VmFbOutSource::read`, `VmFbFieldBinding::read` and `VmWriteTarget::peek` in
-    /// `vm::call::bindings::targets`, `EdgeInputTransaction::begin` in `vm::edge`,
-    /// `snapshot_root` in `vm::engine::output_transaction`, and the instance read
-    /// helper in `stdlib::fbs::instance`; the C1-8c callers are `read_named_bool`,
-    /// `execute_task_fb` and `commit_configuration_target` in `vm::engine::io`,
-    /// `binding_patch` in `vm::engine::io::staging`, `read_checked_reference` in
-    /// `vm::engine::access`, `execute_program_root` and `fill_retained_payload`
-    /// in `vm::engine::cycle`, `seed_source_value` and the owned-instance walk of
-    /// `initializer_seed` in `vm::engine::initialization::staging`,
-    /// `collect_owned_instance_graph` in `vm::engine::initialization::construction`,
-    /// `charge_path_write_inner` in `vm::engine::path_write`,
-    /// `import_retained_globals` and `RetainedGraph::instance` in
-    /// `vm::engine::retained_graph`, `restore_retained_program_values` in
-    /// `vm::engine::restart`, and `require_serializable_retained_values` and
-    /// `apply_retained_inner` in `vm::engine::retain_apply`. The engine reads the stored
-    /// value through this for its copy charge and step-into decisions while today's
-    /// storage is a `Value` tree.
+    /// This is the C1-8 compatibility read, and the only caller left is the retained encoder's
+    /// reads of retained values (`vm::engine::cycle`, C1-9d1 row 11), which keeps this `&Value` path
+    /// until the cell encoder lands (C1-9d2, P2). Every other engine read goes through the view.
     fn borrow<'a>(&'a self, view: &ValueView<'a>) -> Option<&'a Value>;
 
     /// The owned `Value` of a view; the only allocating read.

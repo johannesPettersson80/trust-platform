@@ -6,6 +6,12 @@ use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::memory::MemoryLocation;
 use alloc::sync::Arc;
 
+/// The declared name of the layout entry `declaration` (C1-9d1).
+fn member_name(prepared: &PreparedModule, declaration: u32) -> &SmolStr {
+    let entry = &prepared.layout.entries[declaration as usize];
+    &prepared.vm.strings[entry.name_idx as usize]
+}
+
 struct RetainedGraph<'s, 'p> {
     source: &'s EngineState<'p>,
     identities: BTreeMap<u32, u32>,
@@ -66,18 +72,14 @@ impl EngineState<'_> {
                 continue;
             }
             let name = &source.prepared.vm.strings[declaration.name_idx as usize];
-            let view = source
-                .data
-                .storage
-                .read_global(name)
-                .ok_or(RuntimeError::NullReference)?;
             let value = source
                 .data
                 .storage
-                .borrow(&view)
-                .ok_or(RuntimeError::NullReference)?;
+                .read_global(name)
+                .ok_or(RuntimeError::NullReference)?
+                .materialize()?;
             // `value` charges the copy once (TIME-08); the owned copy is not charged again.
-            let value = graph.value(self, declaration.type_id, value, 0)?;
+            let value = graph.value(self, declaration.type_id, &value, 0)?;
             let declaration_index = root_index(index)?;
             let (growth_bytes, _) = self
                 .data
@@ -228,15 +230,27 @@ impl RetainedGraph<'_, '_> {
             return Ok(new);
         }
         self.copied.insert(old.0);
+        // The members are the template's declarations, in declaration order: the record holds exactly
+        // these (C1-9d1, R2), so the count and the names come from the layout, not the record's map.
+        let pou = *source
+            .data
+            .construction
+            .instance_templates
+            .get(&old)
+            .ok_or(RuntimeError::NullReference)?;
+        let members = source
+            .prepared
+            .declarations(StorageOwner::Instance, Some(pou));
         // Four cells for each copied variable entry; each value's copy is charged by `value`.
         target.charge_allocation_bytes(
-            data.variables
+            members
                 .len()
                 .checked_mul(4 * CELL_BYTES)
                 .ok_or(RuntimeError::Overflow)?,
         )?;
         // Reserve every field before recursion so cycles can bind native/private slots too.
-        for name in data.variables.keys() {
+        for &declaration in members {
+            let name = member_name(source.prepared, declaration);
             if target.data.storage.read_instance_var(new, name).is_none() {
                 target
                     .data
@@ -245,26 +259,26 @@ impl RetainedGraph<'_, '_> {
             }
         }
         let parent = data.parent;
-        let names = data.variables.keys().cloned().collect::<Vec<_>>();
-        for name in names {
-            let view = source
-                .data
-                .storage
-                .read_instance_var(old, &name)
-                .ok_or(RuntimeError::NullReference)?;
+        for &declaration in members {
+            let name = member_name(source.prepared, declaration);
             let old_value = source
                 .data
                 .storage
-                .borrow(&view)
-                .ok_or(RuntimeError::NullReference)?;
+                .read_instance_var(old, name)
+                .ok_or(RuntimeError::NullReference)?
+                .materialize()?;
             // Type metadata is identical in the mapped candidate. Charge its
             // fresh restart budget, never the source state's previous scan fuel.
-            let ty = match target.ref_for_instance(new, &name) {
+            let ty = match target.ref_for_instance(new, name) {
                 Some(reference) => target.reference_type(reference.as_view())?,
                 None => None,
             };
-            let value = self.value(target, ty, old_value, depth + 1)?;
-            if !target.data.storage.write_instance_var(new, name, value) {
+            let value = self.value(target, ty, &old_value, depth + 1)?;
+            if !target
+                .data
+                .storage
+                .write_instance_var(new, name.clone(), value)
+            {
                 return Err(RuntimeError::NullReference);
             }
         }

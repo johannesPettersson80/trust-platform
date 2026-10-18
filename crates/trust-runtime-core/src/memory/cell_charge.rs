@@ -9,15 +9,16 @@
 )]
 
 use super::{
-    primitive_of, resolve_entry, CellReader, CellsView, Target, STRING_PRIMITIVE, WSTRING_PRIMITIVE,
+    is_instance, member_name, primitive_of, resolve_entry, CellReader, CellsView, Target,
+    STRING_PRIMITIVE, WSTRING_PRIMITIVE,
 };
 use crate::bytecode::{TypeData, TypeKind, BYTECODE_MAX_TYPE_NESTING};
 use crate::error::RuntimeError;
 use crate::memory::cells::Cell;
 use crate::memory::layout::{CellRange, CELL_BYTES};
 use crate::memory::regions::CellRegions;
-use crate::memory::MemoryLocation;
-use crate::value::RefSegment;
+use crate::memory::{InstanceId, MemoryLocation};
+use crate::value::{RefSegment, Value};
 use crate::vm::PreparedModule;
 
 impl CellsView<'_> {
@@ -298,5 +299,102 @@ impl CellReader<'_> {
             }));
         }
         Ok(None)
+    }
+}
+
+/// The facts of a cell range that the engine's walks read without a `Value` (specification 34 §6.2,
+/// MEM-10; C1-9d1). Each answers what the `Value` form answers in [`crate::memory::view::ValueView`].
+impl<'a> CellsView<'a> {
+    /// The scalar of the cells at `range`, a value of `type_id`: a primitive other than a text, copied
+    /// without allocation. `None` for any other type.
+    pub(crate) fn scalar(
+        self,
+        range: CellRange,
+        type_id: u32,
+    ) -> Result<Option<Value>, RuntimeError> {
+        match primitive_of(self.prepared, type_id) {
+            None | Some(STRING_PRIMITIVE | WSTRING_PRIMITIVE) => Ok(None),
+            Some(_) => self.materialize(range, type_id).map(Some),
+        }
+    }
+
+    /// The instance the cells at `range` hold: the instance cell of a function block or an interface.
+    pub(crate) fn instance(
+        self,
+        range: CellRange,
+        type_id: u32,
+    ) -> Result<Option<InstanceId>, RuntimeError> {
+        if !is_instance(self.prepared, type_id) {
+            return Ok(None);
+        }
+        let cells = self
+            .regions
+            .persistent()
+            .cells(range)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        Ok(match cells.first() {
+            Some(Cell::Instance(instance)) => Some(*instance),
+            _ => None,
+        })
+    }
+
+    /// The UTF-8 length of the text leaf at `range`: its bytes for a `STRING`, the UTF-8 length of its
+    /// code units for a `WSTRING` (TIME-08). `None` for any other type.
+    pub(crate) fn text_utf8_len(
+        self,
+        range: CellRange,
+        type_id: u32,
+    ) -> Result<Option<usize>, RuntimeError> {
+        let Some(prim_id @ (STRING_PRIMITIVE | WSTRING_PRIMITIVE)) =
+            primitive_of(self.prepared, type_id)
+        else {
+            return Ok(None);
+        };
+        text_utf8_length(self.regions, range, prim_id)
+            .map(Some)
+            .ok_or(RuntimeError::InvalidExecutionState)
+    }
+
+    /// Whether `type_id` is a text: `Some(false)` for a `STRING`, `Some(true)` for a `WSTRING` and `None`
+    /// for any other type (C1-9d1).
+    pub(crate) fn text_is_wide(self, type_id: u32) -> Option<bool> {
+        match primitive_of(self.prepared, type_id)? {
+            STRING_PRIMITIVE => Some(false),
+            WSTRING_PRIMITIVE => Some(true),
+            _ => None,
+        }
+    }
+
+    /// Whether `type_id` is a structure, which owns one cell range per member (the layout of the
+    /// `Value` structure). An overlapping structure is refused by the cell charge (C1-15).
+    pub(crate) fn is_struct(self, type_id: u32) -> bool {
+        resolve_entry(self.prepared, type_id)
+            .is_some_and(|(_, entry)| matches!(entry.data, TypeData::Struct { .. }))
+    }
+
+    /// Whether `type_id` is a structure that declares a member named `name`, as the `Value` structure
+    /// does by its field names.
+    pub(crate) fn has_field(self, type_id: u32, name: &str) -> bool {
+        let Some((resolved, entry)) = resolve_entry(self.prepared, type_id) else {
+            return false;
+        };
+        if !matches!(entry.data, TypeData::Struct { .. }) {
+            return false;
+        }
+        self.prepared.type_layout(resolved).is_some_and(|layout| {
+            layout
+                .members
+                .iter()
+                .any(|member| member_name(self.prepared, member.name_idx) == Some(name))
+        })
+    }
+
+    /// The declared bounds of each dimension of the array type `type_id`, `None` for any other type.
+    pub(crate) fn array_dimensions(self, type_id: u32) -> Option<&'a [(i64, i64)]> {
+        let (_, entry) = resolve_entry(self.prepared, type_id)?;
+        match &entry.data {
+            TypeData::Array { dims, .. } => Some(dims.as_slice()),
+            _ => None,
+        }
     }
 }

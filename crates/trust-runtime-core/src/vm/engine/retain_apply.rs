@@ -49,10 +49,8 @@ impl EngineState<'_> {
         {
             let declaration = &self.prepared.layout.entries[id as usize];
             let name = &self.prepared.vm.strings[declaration.name_idx as usize];
-            if let Some(view) = self.data.storage.read_global(name)
-                && let Some(value) = self.data.storage.borrow(&view)
-            {
-                check(value)?;
+            if let Some(view) = self.data.storage.read_global(name) {
+                check(&view.materialize()?)?;
             }
         }
         for (index, root) in self.prepared.roots.entries.iter().enumerate() {
@@ -70,10 +68,8 @@ impl EngineState<'_> {
             {
                 let declaration = &self.prepared.layout.entries[id as usize];
                 let name = &self.prepared.vm.strings[declaration.name_idx as usize];
-                if let Some(view) = self.data.storage.read_instance_var(instance, name)
-                    && let Some(value) = self.data.storage.borrow(&view)
-                {
-                    check(value)?;
+                if let Some(view) = self.data.storage.read_instance_var(instance, name) {
+                    check(&view.materialize()?)?;
                 }
             }
         }
@@ -211,13 +207,8 @@ impl EngineState<'_> {
                     None => self.data.storage.read_global(name),
                 }
                 .ok_or(RuntimeError::InvalidExecutionState)?;
-                let old = self
-                    .data
-                    .storage
-                    .borrow(&view)
-                    .ok_or(RuntimeError::InvalidExecutionState)?;
-                self.charge_allocation_bytes(self.value_clone_charge(old, 0)?)?;
-                journal.push((instance, name.clone(), old.clone()));
+                self.charge_allocation_bytes(self.view_clone_charge(&view)?)?;
+                journal.push((instance, name.clone(), view.materialize()?));
                 let action = *indexes
                     .actions
                     .get(&id)

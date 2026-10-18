@@ -1,7 +1,7 @@
 //! Output copy-back journals only physical destination slots.
 use super::destinations::Key;
 use super::*;
-use crate::memory::view::{StoreAccess, StoreMutate};
+use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
 use crate::memory::MemoryLocation;
 use crate::value::ValueRefView;
 use crate::vm::VmTrap;
@@ -29,7 +29,7 @@ impl EngineState<'_> {
         // neither the work allowance nor the cumulative allocation charge admits them
         // (spec 34 TIME-08). The detached value needs no temporary heap collection.
         // Insertion can still refuse allocation, in which case the destination is untouched.
-        let saved = root.clone();
+        let saved = root.materialize()?;
         self.data
             .resources
             .output_journal
@@ -84,21 +84,17 @@ impl EngineState<'_> {
         &'s self,
         frame: Option<&'s VmFrame>,
         key: Key,
-    ) -> Result<&'s Value, RuntimeError> {
+    ) -> Result<ValueView<'s>, RuntimeError> {
         if frame.is_some_and(|frame| key.0 == MemoryLocation::Local(frame.reference_frame_id())) {
             return frame
                 .and_then(|frame| frame.locals.get(key.1))
+                .map(ValueView::Value)
                 .ok_or(RuntimeError::NullReference);
         }
-        let view = self
-            .data
-            .storage
-            .read_slot(key.0, key.1)
-            .map_err(|_| RuntimeError::NullReference)?;
         self.data
             .storage
-            .borrow(&view)
-            .ok_or(RuntimeError::NullReference)
+            .read_slot(key.0, key.1)
+            .map_err(|_| RuntimeError::NullReference)
     }
 
     /// Resolve input destinations in their original order, then copy each root once into
@@ -148,7 +144,7 @@ impl EngineState<'_> {
         for &key in keys.iter() {
             let root = self.snapshot_root(None, key)?;
             // Keys are unique and sorted; reserved capacity covers every append.
-            saved.insert(key, root.clone())?;
+            saved.insert(key, root.materialize()?)?;
         }
         Ok(())
     }
@@ -180,7 +176,7 @@ impl EngineState<'_> {
                     .checked_add(active_bytes)
                     .ok_or(RuntimeError::Overflow)?,
             )?;
-            saved.insert(key, root.clone())?;
+            saved.insert(key, root.materialize()?)?;
         }
         Ok(())
     }
