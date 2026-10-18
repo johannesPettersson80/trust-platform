@@ -1,5 +1,6 @@
 //! Composition services used by the shared reference and execution paths.
 
+use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::memory::{MemoryLocation, VariableStorage};
 use crate::value::{RefSegment, Value};
 
@@ -7,6 +8,11 @@ use crate::value::{RefSegment, Value};
 /// Legacy hosts obtain type information from HIR; source-free execution uses the
 /// prepared artifact. Reference traversal itself has one shared implementation.
 pub trait ReferenceContext {
+    /// The store the composition's variables live in, reached only through the
+    /// store-access seam (specification 34 §6.2, MEM-10). A hosted composition uses
+    /// [`VariableStorage`].
+    type Store: StoreAccess + StoreMutate;
+
     /// Prepared candidate references for a dynamic target, in wire order.
     /// None retains full discovery for legacy or temporary modules. An empty
     /// slice means the prepared module has no candidate for this storage slot.
@@ -121,9 +127,9 @@ pub trait ReferenceContext {
         })
     }
     /// Borrow the composition's shared storage.
-    fn storage(&self) -> &VariableStorage;
+    fn storage(&self) -> &Self::Store;
     /// Access internal storage after the shared policy checks.
-    fn storage_mut(&mut self) -> &mut VariableStorage;
+    fn storage_mut(&mut self) -> &mut Self::Store;
     /// Commit a value already normalized and lifetime-checked by the shared store path.
     /// Preserve operational failures; false means only an invalid storage target. `capacity` is
     /// the declared string capacity of the target element write, in UTF-8 bytes for `STRING` and

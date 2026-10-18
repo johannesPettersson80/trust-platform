@@ -72,6 +72,8 @@ impl DerefMut for LegacyRegisterFixtureContext<'_> {
     }
 }
 impl ReferenceContext for LegacyRegisterFixtureContext<'_> {
+    type Store = VariableStorage;
+
     fn normalize_assignment(
         &self,
         module: &VmModule,
@@ -206,6 +208,14 @@ impl CallContext for LegacyRegisterFixtureContext<'_> {
     }
     fn check_builtin_call(&self, id: InstanceId) -> Result<(), RuntimeError> {
         CallContext::check_builtin_call(self.runtime, id)
+    }
+    fn execute_builtin_fb(
+        &mut self,
+        now: Duration,
+        instance_id: InstanceId,
+        kind: crate::stdlib::fbs::BuiltinFbKind,
+    ) -> Result<(), RuntimeError> {
+        CallContext::execute_builtin_fb(self.runtime, now, instance_id, kind)
     }
     fn try_execute_optimized(
         &mut self,

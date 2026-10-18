@@ -1,4 +1,5 @@
 use super::*;
+use crate::memory::view::StoreAccess;
 
 pub fn read_register_ref(
     registers: &[Value],

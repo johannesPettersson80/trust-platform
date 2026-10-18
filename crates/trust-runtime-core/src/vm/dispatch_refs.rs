@@ -3,7 +3,7 @@ use smol_str::SmolStr;
 use crate::error::RuntimeError;
 use crate::memory::layout::CELL_BYTES;
 use crate::memory::view::{StoreAccess, StoreMutate};
-use crate::memory::{MemoryLocation, VariableStorage};
+use crate::memory::MemoryLocation;
 use crate::value::{
     materialize_value_path, read_value_path_borrowed, single_ref_index, string_element_position,
     RefSegment, Value, ValueRef,
@@ -37,8 +37,8 @@ pub fn load_ref(
 }
 
 /// Borrow the stored leaf at a path in `storage` through the store-access seam.
-fn read_storage_path<'a>(
-    storage: &'a VariableStorage,
+fn read_storage_path<'a, S: StoreAccess>(
+    storage: &'a S,
     location: MemoryLocation,
     offset: usize,
     path: &[RefSegment],
@@ -48,8 +48,8 @@ fn read_storage_path<'a>(
 }
 
 /// Borrow a stored whole slot through the store-access seam.
-fn read_storage_slot(
-    storage: &VariableStorage,
+fn read_storage_slot<S: StoreAccess>(
+    storage: &S,
     location: MemoryLocation,
     offset: usize,
 ) -> Result<&Value, VmTrap> {

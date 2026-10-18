@@ -16,7 +16,7 @@
 use super::{EngineState, RuntimeState};
 use crate::error::RuntimeError;
 use crate::memory::view::{PreparedWrite, StoreAccess, StoreMutate, ValueView};
-use crate::memory::{InstanceData, InstanceId, MemoryLocation};
+use crate::memory::{Generation, InstanceData, InstanceId, MemoryLocation};
 use crate::value::{RefSegment, Value, ValueRef, ValueRefView};
 use crate::vm::VmTrap;
 use smol_str::SmolStr;
@@ -120,6 +120,40 @@ impl StoreAccess for EngineState<'_> {
         self.data
             .storage
             .prepare_write(location, offset, path, value)
+    }
+
+    #[inline]
+    fn generation(&self) -> Generation {
+        self.data.storage.generation()
+    }
+
+    #[inline]
+    fn instance_type_name(&self, instance: InstanceId) -> Option<&SmolStr> {
+        self.data.storage.instance_type_name(instance)
+    }
+
+    #[inline]
+    fn instance_parent(&self, instance: InstanceId) -> Result<Option<InstanceId>, VmTrap> {
+        self.data.storage.instance_parent(instance)
+    }
+
+    #[inline]
+    fn ref_for_instance_recursive(&self, instance: InstanceId, name: &str) -> Option<ValueRef> {
+        self.data.storage.ref_for_instance_recursive(instance, name)
+    }
+
+    #[inline]
+    fn resolved_instance_field_ref(&self, instance: InstanceId, name: &str) -> Option<ValueRef> {
+        self.data
+            .storage
+            .resolved_instance_field_ref(instance, name)
+    }
+
+    #[inline]
+    fn declared_instance_field_offset(&self, instance: InstanceId, name: &str) -> Option<usize> {
+        self.data
+            .storage
+            .declared_instance_field_offset(instance, name)
     }
 }
 
@@ -292,5 +326,36 @@ impl StoreAccess for RuntimeState<'_> {
         value: &Value,
     ) -> Result<Option<PreparedWrite>, RuntimeError> {
         self.storage().prepare_write(location, offset, path, value)
+    }
+
+    #[inline]
+    fn generation(&self) -> Generation {
+        self.storage().generation()
+    }
+
+    #[inline]
+    fn instance_type_name(&self, instance: InstanceId) -> Option<&SmolStr> {
+        self.storage().instance_type_name(instance)
+    }
+
+    #[inline]
+    fn instance_parent(&self, instance: InstanceId) -> Result<Option<InstanceId>, VmTrap> {
+        self.storage().instance_parent(instance)
+    }
+
+    #[inline]
+    fn ref_for_instance_recursive(&self, instance: InstanceId, name: &str) -> Option<ValueRef> {
+        self.storage().ref_for_instance_recursive(instance, name)
+    }
+
+    #[inline]
+    fn resolved_instance_field_ref(&self, instance: InstanceId, name: &str) -> Option<ValueRef> {
+        self.storage().resolved_instance_field_ref(instance, name)
+    }
+
+    #[inline]
+    fn declared_instance_field_offset(&self, instance: InstanceId, name: &str) -> Option<usize> {
+        self.storage()
+            .declared_instance_field_offset(instance, name)
     }
 }

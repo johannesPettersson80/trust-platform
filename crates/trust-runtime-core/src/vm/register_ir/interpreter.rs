@@ -1,4 +1,5 @@
 use super::*;
+use crate::memory::view::StoreAccess;
 
 #[cfg(feature = "test-support")]
 pub fn build_register_pou_result(
@@ -116,13 +117,13 @@ pub(super) fn execute_register_block_interpreted_slice(
                 let self_instance = frame.runtime_instance.ok_or_else(|| {
                     VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()
                 })?;
-                let instance = runtime
+                let super_instance = runtime
                     .storage()
-                    .get_instance(self_instance)
-                    .ok_or_else(|| VmTrap::NullReference.into_runtime_error())?;
-                let super_instance = instance.parent.ok_or_else(|| {
-                    VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()
-                })?;
+                    .instance_parent(self_instance)
+                    .map_err(VmTrap::into_runtime_error)?
+                    .ok_or_else(|| {
+                        VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()
+                    })?;
                 write_register(registers, *dest, Value::Instance(super_instance))?;
             }
             RegisterInstr::LoadSelfFieldDynamic { field_idx, dest } => {

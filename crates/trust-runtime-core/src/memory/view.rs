@@ -15,7 +15,9 @@
 //! tree). Each method forwards to the same storage function the engine calls today
 //! (C1-8a note §3), so no result, trap, error, charge or allocation changes.
 
-use super::{InstanceData, InstanceId, MemoryLocation, PreparedStorageWrite, VariableStorage};
+use super::{
+    Generation, InstanceData, InstanceId, MemoryLocation, PreparedStorageWrite, VariableStorage,
+};
 use crate::error::RuntimeError;
 use crate::value::{read_value_path_borrowed, RefSegment, Value, ValueRef, ValueRefView};
 use crate::vm::VmTrap;
@@ -232,6 +234,45 @@ pub trait StoreAccess {
         path: &[RefSegment],
         value: &Value,
     ) -> Result<Option<PreparedWrite>, RuntimeError>;
+
+    /// The installation generation of this store. Every reference it returns carries
+    /// it, and reference reads and writes resolve only references of this generation
+    /// (specification 34 §11.3, MEM-07).
+    ///
+    /// A C1-9 P3 forwarding method for the shared reference paths, which build references
+    /// into the store. Callers: `vm::dispatch_refs`, `vm::call::bindings::targets`.
+    fn generation(&self) -> Generation;
+
+    /// The declared type name of `instance`, or `None` when no such instance exists.
+    ///
+    /// A C1-9 P3 forwarding method for the shared call and reference paths. Callers:
+    /// `vm::call`, `vm::reference_attempt`.
+    fn instance_type_name(&self, instance: InstanceId) -> Option<&SmolStr>;
+
+    /// The parent of `instance`, which `SUPER` names: `Ok(None)` when it has no parent,
+    /// and `NullReference` when no such instance exists (specification 34 §6.2, MEM-10).
+    ///
+    /// A C1-9 P3 forwarding method for the `SUPER` instructions. Callers: `vm::dispatch`,
+    /// `vm::register_ir`.
+    fn instance_parent(&self, instance: InstanceId) -> Result<Option<InstanceId>, VmTrap>;
+
+    /// The reference to field `name` of `instance`, searched through its inheritance
+    /// chain, in this store's generation.
+    ///
+    /// A C1-9 P3 forwarding method. Callers: `vm::dispatch`, `vm::call::bindings::targets`.
+    fn ref_for_instance_recursive(&self, instance: InstanceId, name: &str) -> Option<ValueRef>;
+
+    /// The reference to field `name` of `instance`: the field the instance declares,
+    /// else an inherited one, in this store's generation.
+    ///
+    /// A C1-9 P3 forwarding method. Callers: `vm::dispatch_refs`, `vm::register_ir`.
+    fn resolved_instance_field_ref(&self, instance: InstanceId, name: &str) -> Option<ValueRef>;
+
+    /// The position of field `name` among the fields `instance` declares itself, or
+    /// `None` when it declares no such field.
+    ///
+    /// A C1-9 P3 forwarding method. Callers: `vm::call::bindings::targets`.
+    fn declared_instance_field_offset(&self, instance: InstanceId, name: &str) -> Option<usize>;
 }
 
 /// Publishes a prepared write, or restores a saved slot, with `&mut self`.
@@ -452,6 +493,38 @@ impl StoreAccess for VariableStorage {
     ) -> Result<Option<PreparedWrite>, RuntimeError> {
         self.prepare_by_ref_parts_write(location, offset, path, value)
             .map(|prepared| prepared.map(PreparedWrite))
+    }
+
+    #[inline]
+    fn generation(&self) -> Generation {
+        self.generation()
+    }
+
+    #[inline]
+    fn instance_type_name(&self, instance: InstanceId) -> Option<&SmolStr> {
+        self.get_instance(instance).map(|data| &data.type_name)
+    }
+
+    #[inline]
+    fn instance_parent(&self, instance: InstanceId) -> Result<Option<InstanceId>, VmTrap> {
+        self.get_instance(instance)
+            .map(|data| data.parent)
+            .ok_or(VmTrap::NullReference)
+    }
+
+    #[inline]
+    fn ref_for_instance_recursive(&self, instance: InstanceId, name: &str) -> Option<ValueRef> {
+        self.ref_for_instance_recursive(instance, name)
+    }
+
+    #[inline]
+    fn resolved_instance_field_ref(&self, instance: InstanceId, name: &str) -> Option<ValueRef> {
+        self.resolved_instance_field_ref(instance, name)
+    }
+
+    #[inline]
+    fn declared_instance_field_offset(&self, instance: InstanceId, name: &str) -> Option<usize> {
+        self.declared_instance_field_offset(instance, name)
     }
 }
 

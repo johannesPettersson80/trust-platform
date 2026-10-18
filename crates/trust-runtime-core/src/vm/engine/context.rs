@@ -17,6 +17,8 @@ use crate::value::{write_value_path, RefSegment};
 mod owner_tests;
 
 impl ReferenceContext for EngineState<'_> {
+    type Store = VariableStorage;
+
     fn dynamic_reference_candidates(
         &self,
         module: &super::super::module::VmModule,
@@ -575,6 +577,19 @@ impl CallContext for EngineState<'_> {
         } else {
             Err(RuntimeError::StagingViolation)
         }
+    }
+    fn execute_builtin_fb(
+        &mut self,
+        now: Duration,
+        instance_id: InstanceId,
+        kind: crate::stdlib::fbs::BuiltinFbKind,
+    ) -> Result<(), RuntimeError> {
+        crate::stdlib::fbs::execute_builtin_in_storage(
+            &mut self.data.storage,
+            now,
+            instance_id,
+            kind,
+        )
     }
 }
 

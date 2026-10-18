@@ -1,4 +1,5 @@
 use crate::bytecode::{TypeData, TypeKind};
+use crate::memory::view::StoreAccess;
 use crate::value::Value;
 
 use super::dispatch_refs::dynamic_ref_type;
@@ -78,10 +79,10 @@ fn apply_interface_attempt(
     let Value::Instance(instance_id) = value else {
         return Ok(Value::Null);
     };
-    let Some(instance) = runtime.storage().get_instance(instance_id) else {
+    let Some(type_name) = runtime.storage().instance_type_name(instance_id) else {
         return Ok(Value::Null);
     };
-    let type_name = instance.type_name.as_str();
+    let type_name = type_name.as_str();
     // TIME-08: copying the type name for the attempt still costs one unit per byte.
     runtime
         .before_reference_path_growth(type_name.len(), type_name.len())
@@ -489,6 +490,8 @@ mod tests {
     }
 
     impl ReferenceContext for AttemptContext {
+        type Store = VariableStorage;
+
         fn before_reference_path_growth(
             &self,
             _bytes: usize,

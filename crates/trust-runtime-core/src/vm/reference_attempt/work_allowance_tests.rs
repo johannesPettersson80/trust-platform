@@ -56,6 +56,8 @@ impl AttemptContext {
 }
 
 impl ReferenceContext for AttemptContext {
+    type Store = VariableStorage;
+
     fn before_reference_path_growth(&self, _bytes: usize, work: usize) -> Result<(), RuntimeError> {
         self.budget.charge(work).map(|_| ())
     }

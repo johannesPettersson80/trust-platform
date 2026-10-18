@@ -61,6 +61,8 @@ mod tests {
         storage: crate::memory::VariableStorage,
     }
     impl ReferenceContext for TypeDiscovery<'_> {
+        type Store = crate::memory::VariableStorage;
+
         fn dynamic_reference_candidates(
             &self,
             module: &VmModule,

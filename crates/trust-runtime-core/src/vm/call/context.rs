@@ -226,6 +226,15 @@ pub trait CallContext: ReferenceContext {
     ) -> Result<(), RuntimeError>;
     /// Admit native state mutation, including hidden function-block slots.
     fn check_builtin_call(&self, instance_id: InstanceId) -> Result<(), RuntimeError>;
+    /// Run a built-in function block against the composition's own storage (spec 34
+    /// MEM-09; census C3, C7). The composition owns the storage, so it supplies the store
+    /// here, and the shared call path needs no concrete `VariableStorage`.
+    fn execute_builtin_fb(
+        &mut self,
+        now: Duration,
+        instance_id: InstanceId,
+        kind: crate::stdlib::fbs::BuiltinFbKind,
+    ) -> Result<(), RuntimeError>;
     /// An optional prepared hosted optimization; None selects the common stack loop.
     #[allow(clippy::too_many_arguments)]
     fn try_execute_optimized(
