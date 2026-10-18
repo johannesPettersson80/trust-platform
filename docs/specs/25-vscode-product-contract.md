@@ -85,7 +85,10 @@ package, or end-to-end evidence.
   primary action.
 - A selected stopped runtime disables every runtime-origin scan. EtherCAT and
   GPIO use the reason
-  `Start or connect a runtime before scanning EtherCAT or GPIO.`
+  `Start or connect a runtime before scanning EtherCAT or GPIO.`; every other
+  scan from it uses `Start or connect {runtime} before scanning from it.`, with
+  the runtime's name. With `This computer` selected, EtherCAT and GPIO are
+  disabled with `Choose a running runtime for EtherCAT or GPIO scans.`
 - Adopting a discovered runtime MUST retain its discovered label, refresh the
   fleet topology, and select and focus the adopted runtime node.
 

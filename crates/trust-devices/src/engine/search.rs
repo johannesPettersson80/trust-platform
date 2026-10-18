@@ -9,13 +9,18 @@ use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use trust_runtime::search::{SearchError, SearchHost, SearchRequest, SearchState, SearchStatus};
-use trust_runtime_client::{ControlClient, ControlEndpoint, RESPONSE_LINE_LIMIT};
+use trust_runtime::search::{
+    SearchError, SearchHost, SearchRequest, SearchState, SearchStatus, SourceId,
+};
+use trust_runtime_client::{ControlClient, ControlEndpoint, ControlError, RESPONSE_LINE_LIMIT};
 
 use super::handoff::Handoff;
 use super::{lock, DevicesEngine, OwnedSearch, Panel, ReplyError, ANSWER_WAIT, CONTROL_TIMEOUT};
 use crate::request::{HostFacts, Token};
 use crate::session::Session;
+use crate::texts::discover as texts;
+use crate::view::discover::{self, RuntimeOrigin, Scan};
+use crate::view::types::DiscoverView;
 
 /// One `trust-lsp.devicesSearch` request (design §1.4.1): one command with the verb `start`,
 /// `status` or `cancel`, mirroring `comm.search.*`.
@@ -138,6 +143,10 @@ pub struct SearchReply {
     /// Why the request could not run.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<ReplyError>,
+    /// The Discover pane's view of the status: its cards, source rows and scan choices (specification
+    /// 25 §2); absent for a reply without a status.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub discover: Option<Box<DiscoverView>>,
     /// The body of a `status` answer, whose every member this reply holds (design §1.4.1).
     #[serde(flatten)]
     pub status: Map<String, Value>,
@@ -206,6 +215,25 @@ impl SearchReply {
             ..Self::default()
         }
     }
+
+    /// The status of a runtime whose truST version is older than this search: it cannot search, so
+    /// every source is skipped with the update it needs (design §1.4.1; specification 34 TARGET-05).
+    #[must_use]
+    fn update_needed() -> Self {
+        let reason = texts::update_needed(env!("CARGO_PKG_VERSION"));
+        let sources: Vec<Value> = SourceId::ALL
+            .iter()
+            .map(|source| json!({ "id": source, "state": "skipped", "reason": reason }))
+            .collect();
+        let mut status = Map::new();
+        status.insert("state".to_owned(), json!("done"));
+        status.insert("sources".to_owned(), Value::Array(sources));
+        status.insert("devices".to_owned(), json!([]));
+        Self {
+            status,
+            ..Self::default()
+        }
+    }
 }
 
 /// The answer of a search request that the registry refused.
@@ -254,6 +282,12 @@ impl Forward {
         self.kind == "comm.search.start"
     }
 
+    /// Whether the request reads a search's status or starts one, which an older runtime answers
+    /// as unsupported.
+    fn is_search_read(&self) -> bool {
+        matches!(self.kind, "comm.search.start" | "comm.search.status")
+    }
+
     /// Asks the runtime. Every wait is bounded by `CONTROL_TIMEOUT`, so a silent runtime ends the
     /// request on its own thread, never in the panel's session.
     fn ask(&self) -> SearchReply {
@@ -273,6 +307,13 @@ impl Forward {
         };
         match client.request(self.kind, Some(self.params.clone())) {
             Ok(body) => SearchReply::from_body(self.kind, body),
+            // A runtime older than this search does not know its requests (specification 34
+            // TARGET-05).
+            Err(ControlError::Refused { error, .. })
+                if self.is_search_read() && error.starts_with("unsupported request") =>
+            {
+                SearchReply::update_needed()
+            }
             Err(error) => SearchReply::failed("runtime_unreachable", error.to_string()),
         }
     }
@@ -280,13 +321,69 @@ impl Forward {
 
 impl DevicesEngine {
     /// One search (design §1.4.1): on this computer in the language-server process, or inside the
-    /// runtime the session showed under the request's origin.
+    /// runtime the session showed under the request's origin. A reply that carries a status also
+    /// carries the Discover view of it, of the whole search even for a poll with `since`.
     #[must_use]
     pub fn search(&self, call: &SearchCall) -> SearchReply {
-        match &call.origin {
+        let reply = match &call.origin {
             SearchOrigin::ThisHost => self.search_here(call),
             SearchOrigin::Runtime(item) => self.search_at_runtime(call, item),
+        };
+        if call.verb == SearchVerb::Status && call.since.is_some() {
+            return self.with_whole_discover(call, reply);
         }
+        self.with_discover(call, reply)
+    }
+
+    /// A poll with `since` lists only the devices that changed after its cursor (specification 11,
+    /// "One search"), while the pane keeps one card per device of the whole search (specification 25
+    /// §2). So the Discover view of such a reply is projected from the whole status, which the search
+    /// answers without `since`.
+    fn with_whole_discover(&self, call: &SearchCall, reply: SearchReply) -> SearchReply {
+        if reply.error.is_some() {
+            return reply;
+        }
+        let whole = self.search(&SearchCall {
+            since: None,
+            ..call.clone()
+        });
+        match whole.error {
+            None => SearchReply {
+                discover: whole.discover,
+                ..reply
+            },
+            Some(_) => whole,
+        }
+    }
+
+    /// Adds the Discover view to a reply that carries a status (specification 25 §2): the cards,
+    /// the source rows and the scan choices that the pane draws from it.
+    fn with_discover(&self, call: &SearchCall, reply: SearchReply) -> SearchReply {
+        if reply.error.is_some() || reply.status.is_empty() {
+            return reply;
+        }
+        let runtimes = self.runtime_origins(call);
+        let scan = match &call.origin {
+            SearchOrigin::ThisHost => Scan::ThisHost,
+            SearchOrigin::Runtime(item) => Scan::Runtime(item.clone()),
+        };
+        match discover::project(&reply.status, &scan, &runtimes, super::now_millis()) {
+            Ok(view) => SearchReply {
+                discover: Some(Box::new(view)),
+                ..reply
+            },
+            Err(error) => SearchReply::failed("search_status_unreadable", error.to_string()),
+        }
+    }
+
+    /// The runtimes the panel offers as origins of the search, each with whether it is ready
+    /// (specification 25 §2): the ones the session's last view showed, read against the panel's
+    /// last gather.
+    fn runtime_origins(&self, call: &SearchCall) -> Vec<RuntimeOrigin> {
+        let panel = self.panel(&call.session, Instant::now());
+        let mut shown = lock(&panel);
+        let known = shown.session(Instant::now()).runtimes().to_vec();
+        discover::runtime_origins(&known, shown.gathered.as_ref(), &call.host)
     }
 
     /// One search of this computer (design §1.4.1), through the registry of this process.

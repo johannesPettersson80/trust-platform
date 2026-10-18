@@ -20,6 +20,7 @@ pub(crate) mod chips;
 mod computers;
 mod connections;
 mod devices;
+pub(crate) mod discover;
 pub mod health;
 mod issues;
 pub(crate) mod lifecycle;

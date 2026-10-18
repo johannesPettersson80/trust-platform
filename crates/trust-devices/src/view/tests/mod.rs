@@ -7,6 +7,7 @@ mod browse_entry;
 mod computers;
 mod connections;
 mod devices;
+mod discover;
 pub(crate) mod fixtures;
 mod golden;
 mod graph_scenarios;
