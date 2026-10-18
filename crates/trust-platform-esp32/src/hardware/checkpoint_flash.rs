@@ -10,7 +10,7 @@
 use esp_storage::FlashStorage;
 use trust_runtime_core::retain::checkpoint::FlashError;
 
-use crate::checkpoint::RawFlash;
+use crate::checkpoint::{program_whole_units, read_whole_units, RawFlash};
 use crate::profile::{CHECKPOINT_STEP_BYTES, FLASH_ERASE_BYTES};
 
 /// The bytes one transfer moves: one program page, which is also the most a checkpoint step programs.
@@ -20,30 +20,22 @@ const PAGE_BYTES: usize = CHECKPOINT_STEP_BYTES;
 #[repr(C, align(4))]
 struct Page([u8; PAGE_BYTES]);
 
+// `esp-storage` reads and programs whole 4-byte words only (`READ_SIZE` and `WRITE_SIZE`), so a
+// transfer of any length goes through the whole-unit helpers: an installed container of 3,871 bytes
+// could not be read before (bench, 18 October 2026).
 impl RawFlash for FlashStorage<'_> {
     fn read_at(&mut self, address: u32, bytes: &mut [u8]) -> Result<(), FlashError> {
         let mut page = Page([0; PAGE_BYTES]);
-        let mut at = address;
-        for part in bytes.chunks_mut(PAGE_BYTES) {
-            let buffer = &mut page.0[..part.len()];
-            self.read_nor(at, buffer).map_err(|_| FlashError::Read)?;
-            part.copy_from_slice(buffer);
-            at = next_address(at, part.len(), FlashError::Read)?;
-        }
-        Ok(())
+        read_whole_units(address, bytes, &mut page.0, |at, buffer| {
+            self.read_nor(at, buffer).map_err(|_| FlashError::Read)
+        })
     }
 
     fn program_at(&mut self, address: u32, bytes: &[u8]) -> Result<(), FlashError> {
         let mut page = Page([0; PAGE_BYTES]);
-        let mut at = address;
-        for part in bytes.chunks(PAGE_BYTES) {
-            let buffer = &mut page.0[..part.len()];
-            buffer.copy_from_slice(part);
-            self.write_nor(at, buffer)
-                .map_err(|_| FlashError::Program)?;
-            at = next_address(at, part.len(), FlashError::Program)?;
-        }
-        Ok(())
+        program_whole_units(address, bytes, &mut page.0, |at, buffer| {
+            self.write_nor(at, buffer).map_err(|_| FlashError::Program)
+        })
     }
 
     fn erase_at(&mut self, address: u32) -> Result<(), FlashError> {
@@ -52,12 +44,4 @@ impl RawFlash for FlashStorage<'_> {
             .ok_or(FlashError::Erase)?;
         self.erase(address, end).map_err(|_| FlashError::Erase)
     }
-}
-
-/// The address `len` bytes after `at`, or `error` when it cannot be formed.
-fn next_address(at: u32, len: usize, error: FlashError) -> Result<u32, FlashError> {
-    u32::try_from(len)
-        .ok()
-        .and_then(|len| at.checked_add(len))
-        .ok_or(error)
 }

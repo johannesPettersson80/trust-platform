@@ -122,7 +122,7 @@ fn main() -> ! {
         Ok(lines) => lines,
         Err(reason) => stop(board, wait_alarm, installing, last_reset, reason),
     };
-    let claimed = board.claim_lines(&gpio_inputs, &gpio_outputs);
+    let claimed = board.claim_lines(&gpio_inputs, &gpio_outputs, &config);
     let lines = match claimed {
         Ok(lines) => lines,
         Err(error) => stop(

@@ -22,24 +22,34 @@ board comes later. Lanes:
   - `d297b39ab` merges devices (C4b to C7c). Its fix lists the STM32U5A9 among the Add dialog's
     chips, one entry per chip file (spec 25); D4b disables the Discover cards while a posted
     action awaits its reply.
-  - Next: merge u5a9 (9u-c), s1b (S4-5, S4-3b, S4-8), live-values (S3d-6, S3d-7) and engine-init
-    (C1-P0 to C1-9d), with one combined merge check.
+  - Merged the same night: u5a9 `919e04141` (9u-c), live-values `98d6b34b1` (S3d-6, S3d-7a,
+    S3d-7b), s1b `5375cadbf` (S4-5, S4-3b, S4-8; S4-8's explicit exit moved into S3d-7b's runner
+    shell) and engine-init `c76679610` (C1-P0 to C1-9d2a). The combined merge check passed:
+    Clippy over eight crates with the chip lanes, the core, services (596), runtime library
+    (4,018), the runtime vertical with the S4-8 and hold tests, devices (244), register-IR,
+    trust-debug (120), and both firmware builds. The merged C6 image leaves 29,472 B of stack
+    against the 24 KiB window (D.2).
 - s1b `feat/chip-control-link`:
   - S4-5 `47d220404`: the C6's two program slots and one owner for its flash, bench-booted.
   - S4-3b `cac0db67b`: `program.install` only while stopped, with the retained-values check
     (G13) before any write, on computers.
-  - Running: S4-8, a computer's `shutdown` keeps the runtime up in Stopped. Next: S4-6 (the C6
-    firmware's stepped commit, with a bench), S4-7.
+  - S4-8 `eba57328a`: a computer's `shutdown` keeps trust-runtime up in Stopped; the explicit
+    exit `shutdown {"exit": true}`; the web deploy and rollback only while Stopped.
+  - Running: S4-6, the C6's stepped commit, its retained-value check and boot selection. Then the
+    bench (lead) and S4-7.
 - live-values `feat/live-values`:
   - S3d-6 `74c0319ae`: the chip's cycle deadline and active time leave out debugger holds.
   - S3d-7a `ca66b077c`: the statement index on the prepared module.
-  - Running: S3d-7b, the chip's statement hook and hold pass. Next: S3d-8 (the debug operations),
-    S3d-9 (the C6 bench), S3d-3c (the unwound frames' locals at a fault).
+  - S3d-7b `206e62604`: the chip's statement hook and hold pass, with one shared runner shell.
+  - Running: S3d-8, the debug operations on the shared dispatcher. Next: S3d-9 (the C6 bench),
+    S3d-3c (the unwound frames' locals at a fault).
 - engine-init `feat/engine-init`:
   - C1-9a to C1-9d1, then C1-9d2a `d1b05007e`: the last stored-value uses read through views,
     and `CycleAccess::storage()` is removed.
-  - Running: C1-9d2b-1, the cell store's construction complete. Next: d2b-2 (the retain encoder
-    over cells, the entry floor), d3 (the switch), C1-9e (the differential test, PERF-01).
+  - C1-9d2b-1 `1550fde74`: the engine constructs the cell store, with the Values arm's initial
+    values on every fixture (a differential test after construction and restarts).
+  - Running: C1-9d2b-2, the retain encoder over cells, the entry floor and the instance table.
+    Next: d3 (the switch), C1-9e (the differential test, PERF-01).
 - u5a9 `feat/u5a9-runtime`: 9u-c `619364e74` shares the chip platform, the process image, the
   watchdog rule and the ELF reader; the C6 bench passed with it. Next: the bench, when the board
   is here.
@@ -49,7 +59,8 @@ board comes later. Lanes:
     confirmation, Ignore and remembered choices.
   - C7c `7e5672053`: advertised protocols scanned through `comm.discover`, the tag browser after
     `Add to canvas`, and `trust-runtime discover --project` reading `devices.toml`.
-  - Next: C6a (identify), C6b (compare), C5b (Bluetooth and the Modbus RTU scan), D6, D7.
+  - Running: C6a, `identify` in the shared services. Next: C6b (compare), the panel's program
+    Start and Stop for computers (S4-8), C5b (Bluetooth and the Modbus RTU scan), D6, D7.
 - Builder disk, 18 October night: the VS Code tests had built into a `target/` inside two check
   copies on the root disk (26 GB), which was down to 5.6 GB free. Both were removed with two idle
   validation targets; the check script now builds the extension tests' binaries into the leased

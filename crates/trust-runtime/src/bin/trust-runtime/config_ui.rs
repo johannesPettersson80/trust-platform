@@ -53,8 +53,10 @@ pub fn run_ide_serve(project: Option<PathBuf>, listen: String) -> anyhow::Result
         );
     }
 
+    // The cause is kept in the message: the command line prints only an error's outermost text, and
+    // an invalid `runtime.toml` must be named before the server starts.
     let announcement = ide_serve_announcement(project_root.as_path(), listen.as_str())
-        .context("resolve standalone IDE announcement")?;
+        .map_err(|error| anyhow::anyhow!("resolve standalone IDE announcement: {error:#}"))?;
     let resource_name = announcement.as_ref().map_or_else(
         || SmolStr::new("config-ui"),
         |item| item.runtime_name.clone(),

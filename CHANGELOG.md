@@ -6,6 +6,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Fixed: on the ESP32-C6 a firmware panic drove every configured output low before the chip
+  reset, whatever `[[io.safe_state]]` named. It now drives each output to its safe value, as the
+  STM32U5A9 and the stop and fault paths do.
 - Changed: `shutdown` on a computer now stops the PLC program and keeps `trust-runtime` running
   in the Stopped state, as it does on a chip, and as CODESYS and TwinCAT keep their runtime up
   while the application is stopped. The control server, the web UI and the other services stay up,
@@ -19,7 +22,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Changed: a program install now works only while the PLC program is stopped, on every runtime. The
   web deployment (`POST /api/deploy`) and the web rollback (`POST /api/rollback`) answer
   `resource_not_running`, as `program.install` does, while the program runs, and change nothing;
-  stop the program with `shutdown` first, install, and `restart`. The web IDE's Deploy button shows that refusal while the program runs.
+  stop the program with `shutdown` first, install, and `restart`. The web IDE's Deploy button
+  shows that refusal while the program runs.
 - Security: a web deployment (`/api/deploy`) is now checked against the signature policy of the
   project's installed `runtime.toml`. Before, the check read `[runtime.deploy] require_signed` and
   `keyring_path` from the `runtime.toml` the deployment itself carried, so a deployment could turn

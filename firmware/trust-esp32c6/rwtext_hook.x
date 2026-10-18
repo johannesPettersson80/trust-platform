@@ -23,10 +23,10 @@
 *(.text.*18trust_runtime_core2vm7helpers*)
 *(.text.*18trust_runtime_core2vm17reference_attempt*)
 *(.text.*18trust_runtime_core2vm5stack*)
-/* The value operations a scan evaluates: the value model, references, text and conversion, and the
- * admitted physical view of overlapping structures. The physical-layout Builder
- * (`value::overlap::layout`, `prepare_layouts` and its walkers) is preparation-only and stays in
- * flash. */
+/* The value operations a scan evaluates: the value model, references, text and conversion. The
+ * physical view of overlapping structures (`value::overlap`, about 18 KB) runs from flash: only a
+ * program with a STRUCT OVERLAP uses it, and the RAM it held is the margin the stack guard and the
+ * slices after S4-6 need (18 October 2026; spec 34 D.2). */
 *(.text.*18trust_runtime_core5value5types*)
 *(.text.*18trust_runtime_core5value9reference*)
 *(.text.*18trust_runtime_core5value10float_text*)
@@ -36,27 +36,6 @@
 *(.text.*18trust_runtime_core5value14partial_access*)
 *(.text.*18trust_runtime_core5value8datetime*)
 *(.text.*18trust_runtime_core5value11storage_abi*)
-*(.text.*18trust_runtime_core5value7overlap10checkpoint*)
-*(.text.*18trust_runtime_core5value7overlap5index*)
-*(.text.*18trust_runtime_core5value7overlap6writer*)
-*(.text.*18trust_runtime_core5value7overlap4cost*)
-*(.text.*18trust_runtime_core5value7overlap6scalar*)
-*(.text.*18trust_runtime_core5value7overlap9read_bits*)
-*(.text.*18trust_runtime_core5value7overlap10write_bits*)
-*(.text.*18trust_runtime_core5value7overlap13compare_paths*)
-*(.text.*18trust_runtime_core5value7overlap9path_work*)
-*(.text.*18trust_runtime_core5value7overlap11path_suffix*)
-*(.text.*18trust_runtime_core5value7overlap15struct_path_mut*)
-*(.text.*18trust_runtime_core5value7overlap16read_struct_path*)
-*(.text.*18trust_runtime_core5value7overlap21write_struct_path_raw*)
-*(.text.*18trust_runtime_core5value7overlap11index_order*)
-*(.text.*18trust_runtime_core5value7overlap10sort_order*)
-*(.text.*18trust_runtime_core5value7overlap*14PhysicalLayout*)
-*(.text.*18trust_runtime_core5value7overlap*13PhysicalValue*)
-*(.text.*18trust_runtime_core5value7overlap*11Enumeration*)
-*(.text.*18trust_runtime_core5value7overlap*4Leaf*)
-*(.text.*18trust_runtime_core5value7overlap*5Child*)
-*(.text.*18trust_runtime_core5value7overlap*5types11StructValue*)
 *(.text.*18trust_runtime_core6stdlib*)
 *(.text.*18trust_runtime_core13program_model*)
 *(.text.*18trust_runtime_core8io_image*)
@@ -119,7 +98,8 @@
 *(.text.*18trust_runtime_core2vm6engine*6borrow*)
 *(.text.*18trust_runtime_core2vm6engine*21engineering_operation*)
 
-/* The allocator, the critical section the link and the wait share, and the ROM's floating point. */
+/* The allocator and the critical section the link and the wait share. The transcendental math of
+ * `libm` (SIN, EXP, SQRT and their kin, about 18 KB) runs from flash for the same margin; the
+ * arithmetic of REAL and LREAL is the ROM's soft float. */
 *(.text.*14embedded_alloc* .text.*21linked_list_allocator*)
 *(.text.*16critical_section* .text.*8esp_sync*)
-*(.text.*4libm4math*)

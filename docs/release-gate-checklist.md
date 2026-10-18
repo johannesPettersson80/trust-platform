@@ -6,6 +6,7 @@ Legend: `[ ]` pending, `[x]` complete.
 - [x] Rust format gate is enforced.
 - [x] Rust clippy gate is enforced.
 - [x] Rust test gate is enforced.
+- [x] The firmware of every chip in `chips/` is built and its image checked on every change (`gate-firmware-<chip>`).
 - [x] VS Code extension lint and compile gates are enforced.
 - [x] VS Code extension integration tests run with `ST_LSP_TEST_SERVER`.
 - [x] Neovim and Zed editor integration smoke gate is enforced (`scripts/check_editor_integration_smoke.sh`).
