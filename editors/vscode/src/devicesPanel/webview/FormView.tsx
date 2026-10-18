@@ -4,9 +4,10 @@
 // choices; this component draws them in order and keeps what the user types. It decides no label
 // and no value. It evaluates one rule, for display only: a field's declared `visible_when`
 // predicate, which hides the field while the user types and which Rust evaluates again on submit
-// (§5.9). It draws the notice of its own pane, the fields its notice refused, and the form's
+// (§5.9). It draws the notice of its own pane, the fields its notice refused, the runtimes a new
+// connection can be saved to (each choice's own action reopens the form on it), and the form's
 // buttons, and it draws the notice and its field errors as stale after the user edits a field
-// (§5.9, J09).
+// (§5.9, §5.14, J09).
 
 import React from "react";
 
@@ -96,13 +97,15 @@ function isVisible(field: FormField, values: FormValues): boolean {
 }
 
 /**
- * Draws a form's header, its sections in order and every field, then its notice and its buttons, and
- * reports the values the user types. The values start from each field's value and are kept until the
- * form's `id` changes: a new form with the same `id` keeps them, another `id` starts again from its
- * values (J07). Every change is reported through `onValues`, keyed by field `id`, each as typed.
- * Choosing a button reports it, with the values typed so far, through `onAction` unchanged. It draws
- * only the notice and the pending action that name its own pane (§5.13), and, after the user edits a
- * field, it hides the stale notice and its field errors until the next notice (§5.9, J09).
+ * Draws a form's header, the runtimes a new connection can be saved to, its sections in order and
+ * every field, then its notice and its buttons, and reports the values the user types. The values
+ * start from each field's value and are kept until the form's `id` changes: a new form with the
+ * same `id` keeps them, another `id` starts again from its values (J07). Every change is reported
+ * through `onValues`, keyed by field `id`, each as typed. Choosing a button or a runtime choice
+ * reports it, with the values typed so far, through `onAction` unchanged (specification 25 §5.14).
+ * It draws only the notice and the pending action that name its own pane (§5.13), and, after the
+ * user edits a field, it hides the stale notice and its field errors until the next notice (§5.9,
+ * J09).
  */
 export function FormView({
   form,
@@ -173,6 +176,17 @@ export function FormView({
           </div>
         )}
       </header>
+      {form.runtime_choices.length > 0 && (
+        <div data-role="form-runtime-choices" style={formButtonsStyle}>
+          {form.runtime_choices.map((choice) => (
+            <InspectorAction
+              key={choice.id}
+              action={choice.action}
+              onAction={(chosen) => onAction?.(chosen, values)}
+            />
+          ))}
+        </div>
+      )}
       {form.sections.map((section, index) => (
         <section
           key={section.heading ?? `section-${index}`}

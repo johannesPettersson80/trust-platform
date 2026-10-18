@@ -468,6 +468,7 @@ pub use panes::{
     AddButton, AddDialog, AddEntry, AddGroup, AdsPortCard, AdvancedToggle, BrowseKind, BrowseView,
     CardProtocol, CompareView, DeviceCard, DiscoverView, ErrorBox, FieldKind, FieldOption,
     FieldbusOffer, Form, FormField, FormSection, FoundEntry, GhostTile, InstallStep, InstallView,
-    ListEditor, OnlyChoice, OriginChoice, Progress, QuickStart, RouteHelp, RuntimeRef, SourceRow,
-    StepState, TargetsInput, Toggle, TreeNode, UsbItem, UsbTray, VisibleWhen,
+    ListEditor, OnlyChoice, OriginChoice, Progress, QuickStart, RouteHelp, RuntimeChoice,
+    RuntimeRef, SourceRow, StepState, TargetsInput, Toggle, TreeNode, UsbItem, UsbTray,
+    VisibleWhen,
 };

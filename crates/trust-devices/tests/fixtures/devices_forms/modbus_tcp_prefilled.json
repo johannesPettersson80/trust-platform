@@ -12,7 +12,22 @@
   "runtime_choices": [
     {
       "id": "runtime:local",
-      "name": "Simulator"
+      "name": "Simulator",
+      "action": {
+        "id": "runtime:local",
+        "label": "Simulator",
+        "enabled": true,
+        "emphasis": "secondary",
+        "op": {
+          "kind": "rust",
+          "action": "form.open",
+          "payload": {
+            "form": "modbus_tcp@runtime:local~f36970d12c317300",
+            "protocol": "modbus_tcp",
+            "runtime": "runtime:local"
+          }
+        }
+      }
     }
   ],
   "sections": [

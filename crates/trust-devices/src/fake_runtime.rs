@@ -30,6 +30,10 @@ pub(crate) enum Reply {
 pub(crate) struct Script {
     replies: BTreeMap<String, Reply>,
     delay: Duration,
+    /// Whether the runtime treats this client as an untrusted remote plain-TCP one, so that a secret
+    /// over it is refused, as the real runtime does off the loopback (specification 11 §6.9.7). The
+    /// fake listens on the loopback, so a script that needs the refusal sets this.
+    untrusted_channel: bool,
 }
 
 impl Script {
@@ -61,6 +65,15 @@ impl Script {
     #[must_use]
     pub(crate) fn delayed(mut self, delay: Duration) -> Self {
         self.delay = delay;
+        self
+    }
+
+    /// The script of a runtime that sees this client as an untrusted remote plain-TCP one, so that
+    /// the secrets of a communication request are refused, as the real runtime does off the
+    /// loopback (specification 11 §6.9.7).
+    #[must_use]
+    pub(crate) fn untrusted_channel(mut self) -> Self {
+        self.untrusted_channel = true;
         self
     }
 }
@@ -174,7 +187,12 @@ fn serve(stream: TcpStream, script: &Script, seen: &Mutex<Vec<Value>>) {
             Some(Reply::Silent) => continue,
             // A `comm.apply` answers as the real runtime does, unless the script overrode it.
             None if kind == "comm.apply" => {
-                json!({"id": id, "ok": true, "result": comm_apply_answer(&request)}).to_string()
+                json!({"id": id, "ok": true, "result": comm_apply_answer(&request, script.untrusted_channel)}).to_string()
+            }
+            // A `comm.test` answers as the real runtime does for its network-free branches, unless
+            // the script overrode it.
+            None if kind == "comm.test" => {
+                json!({"id": id, "ok": true, "result": comm_test_answer(&request, script.untrusted_channel)}).to_string()
             }
             None => json!({"id": id, "ok": false, "error": format!("unsupported request {kind}")})
                 .to_string(),
@@ -187,11 +205,15 @@ fn serve(stream: TcpStream, script: &Script, seen: &Mutex<Vec<Value>>) {
 /// The result of a `comm.apply`, shaped as the runtime answers it: the protocol it wrote, the
 /// lifecycle effect, its message and the `instance_id` of the connection it wrote
 /// (specification 11 §6.8.1a; `crates/trust-runtime/src/control/comm_handlers/apply.rs`, which
-/// B7c1 made answer the written connection's ID).
-fn comm_apply_answer(request: &Value) -> Value {
+/// B7c1 made answer the written connection's ID). A secret over an untrusted channel is refused in
+/// the runtime's own blocked shape, with the same field and message (specification 11 §6.9.7).
+fn comm_apply_answer(request: &Value, untrusted: bool) -> Value {
     let params = &request["params"];
     let protocol = params["protocol"].as_str().unwrap_or_default();
     let action = params["action"].as_str().unwrap_or("upsert");
+    if untrusted && secret_values_present(&params["params"]) {
+        return blocked_apply_answer(protocol, action);
+    }
     let instance_id = params["instance_id"]
         .as_str()
         .map(str::to_owned)
@@ -214,4 +236,95 @@ fn comm_apply_answer(request: &Value) -> Value {
         "instance_id": instance_id,
         "field_errors": [],
     })
+}
+
+/// The blocked `comm.apply` answer of a secret over an untrusted channel, as the real runtime's
+/// `blocked_response` gives it (`comm_handlers/apply.rs`, specification 11 §6.9.7).
+fn blocked_apply_answer(protocol: &str, action: &str) -> Value {
+    json!({
+        "schema_version": 1,
+        "protocol": protocol,
+        "driver": "",
+        "action": action,
+        "applied": false,
+        "lifecycle_effect": "blocked",
+        "message": "Configuration was not applied. Fix the highlighted fields and try again.",
+        "instance_id": null,
+        "field_errors": [{ "field": "password", "message": SECRET_REFUSAL }],
+    })
+}
+
+/// The result of a `comm.test`, shaped as the real runtime answers its network-free branches
+/// (specification 25 §5.10; `crates/trust-runtime/src/control/comm_handlers/probe.rs`): a secret
+/// over an untrusted channel is blocked, `simulated` and `loopback` need no network, `ethercat` and
+/// `gpio` need hardware health, and any other protocol is probed over the network, which a test
+/// does not reach, so it answers as a protocol without a test.
+fn comm_test_answer(request: &Value, untrusted: bool) -> Value {
+    let params = &request["params"];
+    let protocol = params["protocol"]
+        .as_str()
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+    if untrusted && secret_values_present(&params["params"]) {
+        let mut answer = comm_test_result(&protocol, true, false, "Connection test was blocked.");
+        answer["field_errors"] = json!([{ "field": "password", "message": SECRET_REFUSAL }]);
+        return answer;
+    }
+    let (supported, ok, detail) = match protocol.as_str() {
+        "simulated" | "loopback" => (
+            true,
+            true,
+            "This driver does not require a network connection test.",
+        ),
+        "ethercat" | "gpio" => (
+            false,
+            false,
+            "This driver needs runtime hardware health after restart, not a TCP connection test.",
+        ),
+        _ => (
+            false,
+            false,
+            "This protocol does not have a Communication test yet.",
+        ),
+    };
+    comm_test_result(&protocol, supported, ok, detail)
+}
+
+/// One `comm.test` answer with the fields the runtime gives it; `field_errors` is empty.
+fn comm_test_result(protocol: &str, supported: bool, ok: bool, detail: &str) -> Value {
+    json!({
+        "schema_version": 1,
+        "protocol": protocol,
+        "supported": supported,
+        "ok": ok,
+        "detail": detail,
+        "field_errors": [],
+    })
+}
+
+/// The refusal text of a secret over an untrusted runtime control channel, as the runtime writes it
+/// (`comm_handlers/apply.rs` and `comm_handlers/probe.rs`).
+const SECRET_REFUSAL: &str =
+    "Secret fields cannot be sent over an untrusted runtime control channel.";
+
+/// Whether `params` holds a non-empty secret field, as the runtime's `secret_values_present` reads
+/// it: the keys of `apply.rs`'s `is_secret_key`, at any depth.
+fn secret_values_present(params: &Value) -> bool {
+    match params {
+        Value::Object(values) => values.iter().any(|(key, value)| {
+            is_secret_key(key) && value.as_str().is_some_and(|value| !value.trim().is_empty())
+                || secret_values_present(value)
+        }),
+        Value::Array(values) => values.iter().any(secret_values_present),
+        _ => false,
+    }
+}
+
+/// Whether `key` names a secret, as the runtime's `is_secret_key` reads it.
+fn is_secret_key(key: &str) -> bool {
+    matches!(
+        key.trim().to_ascii_lowercase().as_str(),
+        "password" | "auth_token" | "token" | "secret" | "client_secret"
+    )
 }

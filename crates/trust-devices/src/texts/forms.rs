@@ -148,6 +148,28 @@ pub const TEST_NEEDS_REACHABLE: &str =
 /// Why `Apply to running runtime` is disabled.
 pub const APPLY_NEEDS_REACHABLE: &str =
     "Select a reachable online runtime before applying Communication setup.";
+/// Why a test of an OPC UA client failed: its server did not answer (specification 25 §5.10).
+pub const OPCUA_UNREACHABLE: &str =
+    "OPC UA server is not reachable. Check the endpoint URL, port, and that the server is running.";
+/// Why it failed: the server needs valid credentials.
+pub const OPCUA_AUTH_REQUIRED: &str =
+    "The OPC UA server needs valid credentials. Enter the username and password, then test again.";
+/// Why it failed: the server's certificate is not trusted.
+pub const OPCUA_CERT_UNTRUSTED: &str =
+    "The OPC UA server certificate is not trusted. Use Browse nodes and choose Trust certificate if \
+     this is the expected server.";
+/// Why it failed: the server offers neither the selected security policy nor its mode.
+pub const OPCUA_UNSUPPORTED_SECURITY: &str =
+    "The OPC UA server does not offer the selected security policy and mode. Pick a supported \
+     endpoint and test again.";
+/// Why it failed: the server denied access.
+pub const OPCUA_BROWSE_DENIED: &str =
+    "The OPC UA server denied access. Check the selected credentials and permissions.";
+/// `Diagnose`: the checks of the ADS Doctor, which this panel cannot run yet
+/// (specification 25 §5.13).
+pub const DIAGNOSE_NOT_AVAILABLE: &str =
+    "The connection's diagnosis is not available yet. The ADS Doctor checks arrive in a later \
+     release.";
 /// A form of a protocol that the catalog does not hold.
 pub const NO_NATIVE_SCHEMA: &str =
     "This runtime did not return a native setup schema for this protocol.";

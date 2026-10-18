@@ -129,6 +129,18 @@ pub struct RuntimeRef {
     pub name: String,
 }
 
+/// A runtime a form can be reopened on, with what choosing it does (specification 25 §5.14).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct RuntimeChoice {
+    /// Its identity.
+    pub id: ItemId,
+    /// Its name.
+    pub name: String,
+    /// What choosing it does: `form.open` of the same form on that runtime, with the values typed
+    /// so far.
+    pub action: Action,
+}
+
 /// A group of the add dialog.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct AddGroup {
@@ -209,8 +221,8 @@ pub struct Form {
     /// The runtime that `Save` writes to; absent for a form that adds a runtime.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub runtime: Option<RuntimeRef>,
-    /// The runtimes to choose from.
-    pub runtime_choices: Vec<RuntimeRef>,
+    /// The runtimes to choose from, which a new connection can be saved to.
+    pub runtime_choices: Vec<RuntimeChoice>,
     /// Its sections: the first without a heading, then `Advanced`.
     pub sections: Vec<FormSection>,
     /// Its buttons.

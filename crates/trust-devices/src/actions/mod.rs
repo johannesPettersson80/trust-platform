@@ -5,9 +5,9 @@
 //!
 //! - `effects`: the host-effect lists of the runtime actions.
 //! - `runtimes`: Connect, the managed lifecycle, Add host, Add runtime and Adopt.
-//! - `config`: the forms and the connection actions, `form.open`, `form.validate`, save, remove,
-//!   disable and enable. Each resolves the runtime it writes to from what the session last showed
-//!   (design §4.3 B7).
+//! - `config`: the forms and the connection actions, `form.open`, `form.validate`, save, test,
+//!   apply to running runtime, diagnose, remove, disable and enable. Each resolves the runtime it
+//!   writes to from what the session last showed (design §4.3 B7).
 //!
 //! Every notice names the pane that started the action (specification 25 §5.13). An unknown action
 //! name, or one whose payload does not decode, is an error reply naming it, never a silent no-op;
@@ -81,6 +81,9 @@ pub fn act_with(session: &mut Session, request: &ActRequest, fleet: &dyn Fleet) 
         "form.open" => config::open(session, request),
         "form.validate" => config::validate(session, request),
         "connection.save" => config::save(session, request),
+        "connection.test" => config::test(session, request),
+        "connection.apply_live" => config::apply_live(session, request),
+        "connection.diagnose" => config::diagnose(request),
         "connection.remove" => config::remove(session, request),
         "connection.disable" => config::disable(session, request),
         "connection.enable" => config::enable(session, request),

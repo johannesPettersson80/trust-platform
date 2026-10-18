@@ -19,7 +19,7 @@ use crate::targets::{Target, TargetOrigin};
 use crate::test_project::TempFolder;
 use crate::view::tests::fixtures as fx;
 use crate::view::types::{
-    Connection, DevicesView, FieldError, HostEffect, ItemId, Refresh, Runtime, Tone,
+    Connection, DevicesView, FieldError, HostEffect, ItemId, Op, Refresh, Runtime, Tone,
 };
 
 /// The project's runtime `line` on `host:line-pc`: `["runtime","host:line-pc",null,"line"]`.
@@ -233,6 +233,21 @@ fn save_of(runtime: &str) -> ActRequest {
     );
     values(&mut save);
     save
+}
+
+/// A live action (`connection.test`, `connection.apply_live`) of the `modbus_tcp` form of `runtime`
+/// with the test's values.
+fn live_of(runtime: &str, action: &str) -> ActRequest {
+    let mut live = request(
+        action,
+        json!({
+            "form": format!("modbus_tcp@{runtime}"),
+            "protocol": "modbus_tcp",
+            "runtime": runtime,
+        }),
+    );
+    values(&mut live);
+    live
 }
 
 #[test]
@@ -746,5 +761,421 @@ fn form_open_offers_the_runtimes_that_can_take_the_connection() {
         names,
         ["line", "cell1"],
         "the open project's own runtime and the runtime that answers; never cell2"
+    );
+}
+
+#[test]
+fn test_and_apply_live_need_a_reachable_runtime_with_reason() {
+    // Specification 25 §5.13 "`Test` stays visible but disabled, with its reason, while the
+    // connection's runtime does not answer" and §5.14 "`Test` and `Apply to running runtime` act on
+    // that runtime". A wrong implementation tests anyway, falls back to the open project's files, or
+    // answers with a reason of its own instead of the disabled button's.
+    let (mut panel, _view) = seen(Some(configured_topology(false)), Vec::new());
+    let session = panel.session("dc-test", Instant::now());
+    let opened = act(
+        session,
+        request(
+            "form.open",
+            json!({ "protocol": "modbus_tcp", "runtime": RUNTIME }),
+        ),
+    )
+    .form
+    .expect("form.open answers the form");
+    let reason = |id: &str| {
+        opened
+            .buttons
+            .iter()
+            .find(|button| button.id == id)
+            .and_then(|button| button.reason.clone())
+    };
+
+    let test = act(session, live_of(RUNTIME, "connection.test"));
+    assert!(!test.ok);
+    assert_eq!(
+        test.notice.as_ref().map(|notice| notice.pane.as_str()),
+        Some(PANE)
+    );
+    assert_eq!(
+        test.notice.as_ref().map(|notice| notice.text.as_str()),
+        Some("Select a reachable online runtime before testing Communication setup.")
+    );
+    assert_eq!(
+        reason("test").as_deref(),
+        test.notice.as_ref().map(|notice| notice.text.as_str()),
+        "the refusal is the disabled `Test` button's own reason"
+    );
+
+    let apply = act(session, live_of(RUNTIME, "connection.apply_live"));
+    assert!(!apply.ok);
+    assert_eq!(
+        apply.notice.as_ref().map(|notice| notice.text.as_str()),
+        Some("Select a reachable online runtime before applying Communication setup.")
+    );
+    assert_eq!(
+        reason("apply_live").as_deref(),
+        apply.notice.as_ref().map(|notice| notice.text.as_str()),
+        "the refusal is the disabled `Apply to running runtime` button's own reason"
+    );
+
+    // A remote runtime that did not answer: refused with the same reason, and never reached.
+    let silent = FakeRuntime::start(Script::running());
+    let (mut panel, view) = seen(None, vec![silent_target(&silent.endpoint, "cell1")]);
+    let session = panel.session("dc-test", Instant::now());
+    let cell = named(&view, "cell1").id.as_str().to_owned();
+
+    let refused = act(session, live_of(&cell, "connection.test"));
+
+    assert!(!refused.ok);
+    assert_eq!(
+        refused.notice.as_ref().map(|notice| notice.text.as_str()),
+        Some("Select a reachable online runtime before testing Communication setup.")
+    );
+    assert_eq!(
+        applied(&silent),
+        Vec::<Value>::new(),
+        "a runtime that does not answer is not reached"
+    );
+
+    // A runtime the session does not know: refused by name.
+    let unknown = act(
+        session,
+        live_of("trust-fleet-v1:mystery", "connection.test"),
+    );
+
+    assert!(!unknown.ok);
+    assert_eq!(
+        unknown.notice.as_ref().map(|notice| notice.text.as_str()),
+        Some(
+            "Devices & Connections has not shown the runtime trust-fleet-v1:mystery. Open the \
+             panel again and retry."
+        )
+    );
+}
+
+#[test]
+fn opcua_test_failures_have_recovery_text() {
+    // Specification 25 §5.10 "An unreachable OPC UA client test reports that the OPC UA server is
+    // not reachable and MUST NOT expose raw backend status tokens such as `BadNotConnected`", with
+    // the recovery texts the extension's `commTestMessage` already gives. A wrong implementation
+    // shows the runtime's raw backend detail, or the wrong recovery text.
+    for (code, expected) in [
+        (
+            "endpoint_unreachable",
+            "OPC UA server is not reachable. Check the endpoint URL, port, and that the server is running.",
+        ),
+        (
+            "auth_required",
+            "The OPC UA server needs valid credentials. Enter the username and password, then test again.",
+        ),
+        (
+            "cert_untrusted",
+            "The OPC UA server certificate is not trusted. Use Browse nodes and choose Trust certificate if this is the expected server.",
+        ),
+        (
+            "unsupported_security_profile",
+            "The OPC UA server does not offer the selected security policy and mode. Pick a supported endpoint and test again.",
+        ),
+        (
+            "browse_denied",
+            "The OPC UA server denied access. Check the selected credentials and permissions.",
+        ),
+    ] {
+        let failure = "OPC UA endpoint handshake failed: BadNotConnected";
+        let runtime = FakeRuntime::start(
+            script(topology_of("host:line-pc", "line", "line")).answer(
+                "comm.test",
+                Reply::Result(json!({
+                    "schema_version": 1,
+                    "protocol": "opcua_client",
+                    "supported": true,
+                    "ok": false,
+                    "detail": failure,
+                    "error": { "code": code, "message": failure },
+                    "field_errors": [],
+                })),
+            ),
+        );
+        let (mut panel, view) = seen(
+            Some(configured_topology(false)),
+            vec![project_target(&runtime)],
+        );
+        let session = panel.session("dc-test", Instant::now());
+        let item = named(&view, "line").id.as_str().to_owned();
+        let mut test = request(
+            "connection.test",
+            json!({
+                "form": format!("opcua_client@{item}"),
+                "protocol": "opcua_client",
+                "runtime": item,
+            }),
+        );
+        test.values.insert("enabled".to_owned(), json!(true));
+        test.host
+            .tokens
+            .insert(runtime.endpoint.clone(), Token::new(TOKEN));
+
+        let reply = act(session, test);
+
+        assert!(!reply.ok, "{code} fails the test");
+        assert_eq!(
+            reply.notice.as_ref().map(|notice| notice.tone),
+            Some(Tone::Error),
+            "{code}"
+        );
+        assert_eq!(
+            reply.notice.as_ref().map(|notice| notice.text.as_str()),
+            Some(expected),
+            "{code} has its own recovery text"
+        );
+        assert!(
+            !reply
+                .notice
+                .as_ref()
+                .expect("a notice")
+                .text
+                .contains("BadNotConnected"),
+            "{code} never exposes the raw backend token"
+        );
+    }
+}
+
+#[test]
+fn secret_over_plain_remote_tcp_is_refused_by_the_server() {
+    // Specification 11 §6.9.7 and decision O16: a secret over a remote plain-TCP control channel
+    // is refused by the runtime itself, which stamps the channel, and shown as the notice. A wrong
+    // implementation sends the secret anyway, shows success, or refuses it on the client, which
+    // would also refuse it on the trusted same-host channel.
+    let refusal = "Secret fields cannot be sent over an untrusted runtime control channel.";
+
+    // The runtime sees an untrusted remote plain-TCP client: both live actions are refused, and the
+    // secret did reach the runtime, which refused it.
+    let untrusted =
+        FakeRuntime::start(script(topology_of("host:line-pc", "line", "line")).untrusted_channel());
+    let (mut panel, view) = seen(
+        Some(configured_topology(false)),
+        vec![project_target(&untrusted)],
+    );
+    let session = panel.session("dc-test", Instant::now());
+    let item = named(&view, "line").id.as_str().to_owned();
+    let secret = |action: &str| {
+        let mut live = request(
+            action,
+            json!({
+                "form": format!("mqtt@{item}"),
+                "protocol": "mqtt",
+                "runtime": item,
+            }),
+        );
+        live.values
+            .insert("broker".to_owned(), json!("10.0.0.7:1883"));
+        live.values.insert("password".to_owned(), json!("s3cret"));
+        live.host
+            .tokens
+            .insert(untrusted.endpoint.clone(), Token::new(TOKEN));
+        live
+    };
+
+    for action in ["connection.apply_live", "connection.test"] {
+        let reply = act(session, secret(action));
+
+        assert!(!reply.ok, "{action}");
+        assert_eq!(
+            reply.notice.as_ref().map(|notice| notice.tone),
+            Some(Tone::Error),
+            "{action}"
+        );
+        assert_eq!(
+            reply.notice.as_ref().map(|notice| notice.text.as_str()),
+            Some(refusal),
+            "{action}"
+        );
+        assert_eq!(
+            reply
+                .notice
+                .as_ref()
+                .map(|notice| notice.field_errors.clone()),
+            Some(vec![FieldError {
+                field: "password".to_owned(),
+                message: refusal.to_owned(),
+            }]),
+            "{action} names the refused field"
+        );
+    }
+    let applied_requests = applied(&untrusted);
+    assert_eq!(applied_requests.len(), 1, "the apply reached the runtime");
+    assert_eq!(
+        applied_requests[0]["params"]["params"]["password"],
+        json!("s3cret"),
+        "the secret reached the runtime, which refused it"
+    );
+    let tested: Vec<Value> = untrusted
+        .requests()
+        .into_iter()
+        .filter(|request| request["type"] == "comm.test")
+        .collect();
+    assert_eq!(tested.len(), 1, "the test reached the runtime");
+    assert_eq!(tested[0]["params"]["params"]["password"], json!("s3cret"));
+
+    // The same secret over a trusted same-host channel is applied: the refusal is the server's
+    // channel, not the panel's own rule.
+    let trusted = FakeRuntime::start(script(topology_of("host:line-pc", "line", "line")));
+    let (mut panel, view) = seen(
+        Some(configured_topology(false)),
+        vec![project_target(&trusted)],
+    );
+    let session = panel.session("dc-test", Instant::now());
+    let item = named(&view, "line").id.as_str().to_owned();
+    let mut live = request(
+        "connection.apply_live",
+        json!({
+            "form": format!("mqtt@{item}"),
+            "protocol": "mqtt",
+            "runtime": item,
+        }),
+    );
+    live.values
+        .insert("broker".to_owned(), json!("10.0.0.7:1883"));
+    live.values.insert("password".to_owned(), json!("s3cret"));
+    live.host
+        .tokens
+        .insert(trusted.endpoint.clone(), Token::new(TOKEN));
+
+    let reply = act(session, live);
+
+    assert!(reply.ok, "a trusted same-host channel applies the secret");
+    assert_eq!(
+        reply.notice.as_ref().map(|notice| notice.text.as_str()),
+        Some("I/O configuration saved. Restart the runtime to apply it.")
+    );
+}
+
+#[test]
+fn diagnose_answers_its_text() {
+    // Specification 25 §5.13: an ADS connection offers `Test` and `Diagnose`, whose checks are the
+    // ADS Doctor's and arrive in a later slice (inventory N28). Until then `connection.diagnose`
+    // answers honestly that the diagnosis is not available, in the form's pane. A wrong
+    // implementation claims a diagnosis, or succeeds silently.
+    let (mut panel, _view) = seen(Some(configured_topology(false)), Vec::new());
+    let session = panel.session("dc-test", Instant::now());
+
+    let reply = act(
+        session,
+        request(
+            "connection.diagnose",
+            json!({ "form": FORM, "protocol": "modbus_tcp", "runtime": RUNTIME, "connection": CONNECTION }),
+        ),
+    );
+
+    assert!(!reply.ok);
+    assert_eq!(
+        reply.notice.as_ref().map(|notice| notice.pane.as_str()),
+        Some(PANE)
+    );
+    assert_eq!(
+        reply.notice.as_ref().map(|notice| notice.tone),
+        Some(Tone::Error)
+    );
+    assert_eq!(
+        reply.notice.as_ref().map(|notice| notice.text.as_str()),
+        Some(
+            "The connection's diagnosis is not available yet. The ADS Doctor checks arrive in a \
+             later release."
+        )
+    );
+}
+
+#[test]
+fn choosing_another_runtime_reopens_the_form_with_the_typed_values() {
+    // Specification 25 §5.14: the form names the runtime it writes to and offers the runtimes a new
+    // connection can be saved to; choosing one reopens the form on it with the values typed so far
+    // as its prefill. A wrong implementation draws the choice but decides nothing, reopens on the
+    // original runtime, or loses the typed values.
+    let peer = FakeRuntime::start(Script::running());
+    let (mut panel, view) = seen(
+        Some(configured_topology(false)),
+        vec![fx::answered(
+            TargetOrigin::Configured,
+            &peer.endpoint,
+            Some("cell1"),
+            fx::status("running", "admin"),
+            topology_of("host:cell-node", "cell", "cell1"),
+        )],
+    );
+    let session = panel.session("dc-test", Instant::now());
+    let cell = named(&view, "cell1").id.as_str().to_owned();
+
+    let opened = act(
+        session,
+        request(
+            "form.open",
+            json!({ "protocol": "modbus_tcp", "runtime": RUNTIME }),
+        ),
+    )
+    .form
+    .expect("form.open answers the form");
+    assert_eq!(
+        opened.owner_line, "on line",
+        "the form starts on the runtime it names"
+    );
+
+    let choice = opened
+        .runtime_choices
+        .iter()
+        .find(|choice| choice.action.id == cell)
+        .unwrap_or_else(|| panic!("the choice of cell1"));
+    assert_eq!(choice.name, "cell1", "the choice names the runtime");
+    let Op::Rust { action, payload } = &choice.action.op else {
+        panic!("a choice posts a Rust action");
+    };
+    assert_eq!(action, "form.open", "choosing reopens the form");
+    assert_eq!(
+        payload["runtime"],
+        json!(cell),
+        "the chosen runtime is the one it reopens on"
+    );
+    assert_eq!(
+        payload["form"],
+        json!(opened.id),
+        "the action names the form it came from"
+    );
+
+    // The webview posts the chosen action with the values the user typed, which the reopened form
+    // keeps as its values.
+    let mut reopen = request("form.open", payload.clone());
+    reopen
+        .values
+        .insert("address".to_owned(), json!("10.0.0.9:502"));
+    reopen.values.insert("unit_id".to_owned(), json!(7));
+
+    let reopened = act(session, reopen).form.expect("the form reopens");
+
+    assert_eq!(
+        reopened.runtime.as_ref().map(|runtime| runtime.id.as_str()),
+        Some(cell.as_str()),
+        "the reopened form writes to the chosen runtime"
+    );
+    assert_eq!(reopened.owner_line, "on cell1");
+    assert_ne!(
+        reopened.id, opened.id,
+        "a form with different values is a different form"
+    );
+    let field = |id: &str| {
+        reopened
+            .sections
+            .iter()
+            .flat_map(|section| &section.fields)
+            .find(|field| field.id == id)
+            .unwrap_or_else(|| panic!("the field {id}"))
+    };
+    assert_eq!(field("address").value, json!("10.0.0.9:502"));
+    assert_eq!(field("unit_id").value, json!(7));
+    assert_eq!(
+        reopened
+            .runtime_choices
+            .iter()
+            .map(|choice| choice.name.as_str())
+            .collect::<Vec<&str>>(),
+        ["line", "cell1"],
+        "the reopened form still offers the runtimes"
     );
 }

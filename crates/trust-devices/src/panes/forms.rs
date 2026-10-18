@@ -28,7 +28,7 @@ pub use submit::{coerce_submission, visible};
 use crate::texts::forms as texts;
 use crate::view::types::{
     Action, Confirm, Emphasis, FieldKind, FieldOption, Form, FormField, FormSection, GhostTile,
-    ItemId, ListEditor, ListProperty, Op, RuntimeRef, UiOp,
+    ItemId, ListEditor, ListProperty, Op, RuntimeChoice, RuntimeRef, UiOp,
 };
 
 // ---- opening a form ----
@@ -189,12 +189,21 @@ pub fn connection_form(protocol: &str, inputs: &FormInputs<'_>) -> Result<Form, 
         Some(connection) => (
             connection.protocol_name.clone(),
             texts::edit_breadcrumb(&connection.protocol_name),
-            vec![inputs.runtime.clone()],
+            // An edit writes to the runtime the connection belongs to, so it offers no other one.
+            Vec::new(),
         ),
         None => (
             texts::add_title(&schema.title),
             texts::ADD_FORM_BREADCRUMB.to_owned(),
-            inputs.runtime_choices.to_vec(),
+            inputs
+                .runtime_choices
+                .iter()
+                .map(|runtime| RuntimeChoice {
+                    id: runtime.id.clone(),
+                    name: runtime.name.clone(),
+                    action: choice_action(runtime, schema, &id),
+                })
+                .collect(),
         ),
     };
     Ok(Form {
@@ -216,6 +225,25 @@ pub fn connection_form(protocol: &str, inputs: &FormInputs<'_>) -> Result<Form, 
             detail: texts::GHOST_DETAIL.to_owned(),
         }),
     })
+}
+
+/// What choosing a runtime in a form does (specification 25 §5.14): `form.open` of the same form
+/// on that runtime. The panel sends the values typed so far with the action, which become the
+/// reopened form's prefill, so a chooser that changes the runtime keeps what the user typed.
+fn choice_action(runtime: &RuntimeRef, schema: &CatalogProtocol, form: &str) -> Action {
+    button(
+        runtime.id.as_str(),
+        &runtime.name,
+        Emphasis::Secondary,
+        Op::Rust {
+            action: "form.open".to_owned(),
+            payload: json!({
+                "form": form,
+                "protocol": schema.id.as_str(),
+                "runtime": runtime.id.as_str(),
+            }),
+        },
+    )
 }
 
 /// A field's value in the form: never a secret; else the edited connection's value, or the

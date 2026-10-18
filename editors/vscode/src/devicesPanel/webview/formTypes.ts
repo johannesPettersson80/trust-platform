@@ -4,7 +4,8 @@
 // every value is drawn as given and never recomputed in TypeScript. A form writes the user's
 // `io.toml`, so this mirrors exactly the JSON that `form.open` returns: `Form`, `FormSection`,
 // `FormField`, `FieldKind`, `FieldOption`, `VisibleWhen`, `ListEditor`, `ListProperty`,
-// `GhostTile` and `RuntimeRef`; and the result of an action that `trust-lsp.devicesAct` answers:
+// `GhostTile`, `RuntimeRef` and `RuntimeChoice`; and the result of an action that
+// `trust-lsp.devicesAct` answers:
 // `ActReply`, `Notice`, `FieldError`, `PendingAction` and `Refresh` (mod.rs). An absent `Option`
 // is omitted, so those fields are optional.
 
@@ -29,8 +30,11 @@ export interface Form {
   purpose?: string;
   /** The runtime that `Save` writes to; absent for a form that adds a runtime. */
   runtime?: RuntimeRef;
-  /** The runtimes to choose from. */
-  runtime_choices: RuntimeRef[];
+  /**
+   * The runtimes a new connection can be saved to; each carries what choosing it does, which
+   * reopens the form on it with the values typed so far (specification 25 §5.14).
+   */
+  runtime_choices: RuntimeChoice[];
   /** Its sections: the first without a heading, then `Advanced`. */
   sections: FormSection[];
   /** Its buttons. */
@@ -154,6 +158,20 @@ export interface RuntimeRef {
   id: string;
   /** Its name. */
   name: string;
+}
+
+/**
+ * A runtime a form can be reopened on, with what choosing it does (panes.rs `RuntimeChoice`,
+ * specification 25 §5.14). Choosing it posts its `action`, which reopens the form on that runtime
+ * with the values typed so far; the component decides nothing.
+ */
+export interface RuntimeChoice {
+  /** Its identity. */
+  id: string;
+  /** Its name. */
+  name: string;
+  /** What choosing it does: `form.open` of the same form on that runtime. */
+  action: Action;
 }
 
 /**

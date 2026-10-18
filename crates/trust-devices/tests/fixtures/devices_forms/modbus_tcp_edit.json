@@ -9,12 +9,7 @@
     "id": "runtime:local",
     "name": "Simulator"
   },
-  "runtime_choices": [
-    {
-      "id": "runtime:local",
-      "name": "Simulator"
-    }
-  ],
+  "runtime_choices": [],
   "sections": [
     {
       "fields": [

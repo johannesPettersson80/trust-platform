@@ -13,6 +13,10 @@
 //! - `connection.save`: `add`, `upsert` or `edit`; a success names the runtime's message, selects
 //!   the written connection, closes the pane and refreshes now (inventories J08, J10, J11, I41
 //!   and I42).
+//! - `connection.test` and `connection.apply_live`: `comm.test` and `comm.apply` `upsert` on the
+//!   runtime the form names, answered in the form's pane; both need a runtime that answers, and
+//!   say why the form's button is disabled when it does not (inventory I79).
+//! - `connection.diagnose`: the connection's diagnosis, which this panel cannot run yet.
 //! - `connection.remove`, `connection.disable` and `connection.enable`: the matching action for
 //!   the connection's instance ID (R4).
 //!
@@ -156,12 +160,15 @@ pub(crate) fn open(session: &Session, request: &ActRequest) -> ActReply {
             params: connection.params.clone(),
             disabled: connection.disabled,
         });
+    // A chooser reopens the form with the values typed so far as its prefill: only it posts values
+    // to `form.open`, and a payload's own prefill wins over them (specification 25 §5.14).
+    let posted = (!request.values.is_empty()).then_some(&request.values);
     let inputs = FormInputs {
         catalog,
         runtime: &runtime,
         runtime_choices: &choices,
         reachable: target.reachable(),
-        prefill: form_request.prefill.as_ref(),
+        prefill: form_request.prefill.as_ref().or(posted),
         connection: edited.as_ref(),
     };
     match forms::connection_form(&protocol, &inputs) {
@@ -197,7 +204,7 @@ pub(crate) fn validate(session: &Session, request: &ActRequest) -> ActReply {
         &target,
         apply_request(&protocol, "validate", instance_id.as_deref(), &params),
     ) {
-        Sent::Applied(answer) => super::reply(
+        Sent::Answered(answer) => super::reply(
             true,
             Some(super::notice(Tone::Ok, &pane, reply_message(&answer))),
             Vec::new(),
@@ -247,7 +254,7 @@ pub(crate) fn save(session: &Session, request: &ActRequest) -> ActReply {
         &target,
         apply_request(&protocol, action, instance_id.as_deref(), &params),
     ) {
-        Sent::Applied(answer) => {
+        Sent::Answered(answer) => {
             let effects = written_connection(request, &answer)
                 .map_or_else(Vec::new, |item| vec![effects::select(item)]);
             super::reply(
@@ -260,6 +267,153 @@ pub(crate) fn save(session: &Session, request: &ActRequest) -> ActReply {
         }
         Sent::Fields(errors) => field_errors(&pane, errors),
         Sent::Refused(message) => failure(&pane, message),
+    }
+}
+
+/// `connection.test`: converts the values and sends `comm.test` to the runtime the form names,
+/// answered in the form's pane (specification 25 §5.10 and §5.13). A failed OPC UA client test
+/// carries the server's recovery text; a runtime that does not answer is refused with the reason of
+/// the form's disabled `Test` button.
+#[must_use]
+pub(crate) fn test(session: &Session, request: &ActRequest) -> ActReply {
+    let pane = super::pane(request);
+    let Some(protocol) = protocol_of(request) else {
+        return super::error(&pane, NO_PROTOCOL);
+    };
+    let (runtime, endpoint) = match live_target(session, request, texts::TEST_NEEDS_REACHABLE) {
+        Ok(target) => target,
+        Err(message) => return super::error(&pane, &message),
+    };
+    let schema = match schema_of(runtime, &protocol) {
+        Ok(schema) => schema,
+        Err(message) => return super::error(&pane, &message),
+    };
+    let params = match coerce_submission(&schema, &request.values) {
+        Ok(params) => params,
+        Err(errors) => return field_errors(&pane, errors),
+    };
+    match send_control(
+        request,
+        &endpoint,
+        "comm.test",
+        test_request(&protocol, &params),
+    ) {
+        Sent::Answered(answer) => {
+            let ok = answer.get("ok").and_then(Value::as_bool).unwrap_or(false);
+            let tone = if ok { Tone::Ok } else { Tone::Error };
+            super::reply(
+                ok,
+                Some(super::notice(tone, &pane, test_message(&protocol, &answer))),
+                Vec::new(),
+                false,
+                Refresh::None,
+            )
+        }
+        Sent::Fields(errors) => field_errors(&pane, errors),
+        Sent::Refused(message) => failure(&pane, message),
+    }
+}
+
+/// `connection.apply_live`: converts the values and applies them to the runtime the form names with
+/// `comm.apply` `upsert`, answering the runtime's own message and refreshing now (design §4.3 B7,
+/// R2; specification 25 §5.14). A runtime that does not answer is refused with the reason of the
+/// form's disabled `Apply to running runtime` button.
+#[must_use]
+pub(crate) fn apply_live(session: &Session, request: &ActRequest) -> ActReply {
+    let pane = super::pane(request);
+    let Some(protocol) = protocol_of(request) else {
+        return super::error(&pane, NO_PROTOCOL);
+    };
+    let (runtime, endpoint) = match live_target(session, request, texts::APPLY_NEEDS_REACHABLE) {
+        Ok(target) => target,
+        Err(message) => return super::error(&pane, &message),
+    };
+    let schema = match schema_of(runtime, &protocol) {
+        Ok(schema) => schema,
+        Err(message) => return super::error(&pane, &message),
+    };
+    let params = match coerce_submission(&schema, &request.values) {
+        Ok(params) => params,
+        Err(errors) => return field_errors(&pane, errors),
+    };
+    let instance_id = instance_id(runtime, request);
+    match send_control(
+        request,
+        &endpoint,
+        "comm.apply",
+        apply_request(&protocol, "upsert", instance_id.as_deref(), &params),
+    ) {
+        Sent::Answered(answer) => super::reply(
+            true,
+            Some(super::notice(Tone::Ok, &pane, reply_message(&answer))),
+            Vec::new(),
+            false,
+            Refresh::Now,
+        ),
+        Sent::Fields(errors) => field_errors(&pane, errors),
+        Sent::Refused(message) => failure(&pane, message),
+    }
+}
+
+/// `connection.diagnose`: the connection's diagnosis. The ADS Doctor's checks arrive in a later
+/// slice, so this answers honestly that the diagnosis is not available
+/// (specification 25 §5.13; inventory N28).
+#[must_use]
+pub(crate) fn diagnose(request: &ActRequest) -> ActReply {
+    super::error(&super::pane(request), texts::DIAGNOSE_NOT_AVAILABLE)
+}
+
+/// The runtime and endpoint a live action (`Test`, `Apply to running runtime`) works on: the runtime
+/// the payload names, over its control endpoint, which answered (specification 25 §5.13). A runtime
+/// that does not answer is refused with `reason`, the text of the form's disabled button; a runtime
+/// the session does not know is refused by name (design §4.3 B7).
+fn live_target<'a>(
+    session: &'a Session,
+    request: &ActRequest,
+    reason: &str,
+) -> Result<(&'a KnownRuntime, String), String> {
+    let Some(id) = super::payload_text(&request.op.payload, "runtime") else {
+        return Err(texts::NO_RUNTIME.to_owned());
+    };
+    let Some(runtime) = session.runtime(&id) else {
+        return Err(texts::runtime_not_shown(&id));
+    };
+    let endpoint = runtime
+        .control_endpoint
+        .as_deref()
+        .map(str::trim)
+        .filter(|endpoint| !endpoint.is_empty());
+    match (runtime.answers, endpoint) {
+        (true, Some(endpoint)) => Ok((runtime, endpoint.to_owned())),
+        _ => Err(reason.to_owned()),
+    }
+}
+
+/// One `comm.test` payload, as the runtime reads it: the protocol and the connection's coerced
+/// parameters (design §1.4.2). The server stamps the credential channel itself, so none is sent.
+fn test_request(protocol: &str, params: &Map<String, Value>) -> Value {
+    json!({ "protocol": protocol, "params": params })
+}
+
+/// The text one `comm.test` answer gives, as the extension's `commTestMessage` does
+/// (specification 25 §5.10): the answer's own `detail`, except a failed OPC UA client test, whose
+/// error code names the server's recovery text; an unknown code keeps the answer's detail.
+fn test_message(protocol: &str, answer: &Value) -> String {
+    let detail = super::payload_text(answer, "detail").unwrap_or_default();
+    if protocol != "opcua_client" || answer.get("ok").and_then(Value::as_bool) == Some(true) {
+        return detail;
+    }
+    let code = answer
+        .get("error")
+        .and_then(|error| error.get("code"))
+        .and_then(Value::as_str);
+    match code {
+        Some("endpoint_unreachable") => texts::OPCUA_UNREACHABLE.to_owned(),
+        Some("auth_required") => texts::OPCUA_AUTH_REQUIRED.to_owned(),
+        Some("cert_untrusted") => texts::OPCUA_CERT_UNTRUSTED.to_owned(),
+        Some("unsupported_security_profile") => texts::OPCUA_UNSUPPORTED_SECURITY.to_owned(),
+        Some("browse_denied") => texts::OPCUA_BROWSE_DENIED.to_owned(),
+        _ => detail,
     }
 }
 
@@ -313,7 +467,7 @@ fn change(session: &Session, request: &ActRequest, action: &str, with_values: bo
         &target,
         apply_request(&protocol, action, Some(&instance_id), &params),
     ) {
-        Sent::Applied(answer) => super::reply(
+        Sent::Answered(answer) => super::reply(
             true,
             Some(super::notice(Tone::Ok, &pane, reply_message(&answer))),
             Vec::new(),
@@ -325,10 +479,10 @@ fn change(session: &Session, request: &ActRequest, action: &str, with_values: bo
     }
 }
 
-/// What one `comm.apply` answered.
+/// What one `comm.apply` or `comm.test` answered.
 enum Sent {
-    /// It was applied; the target's answer.
-    Applied(Value),
+    /// It answered; the target's own result.
+    Answered(Value),
     /// The fields were refused, and nothing was applied.
     Fields(Vec<FieldError>),
     /// The target refused the action, or it could not be reached.
@@ -338,7 +492,7 @@ enum Sent {
 /// Sends one `comm.apply` to the action's target.
 fn send(request: &ActRequest, target: &Target<'_>, params: Value) -> Sent {
     match &target.writes {
-        Writes::Endpoint(endpoint) => send_to_runtime(request, endpoint, params),
+        Writes::Endpoint(endpoint) => send_control(request, endpoint, "comm.apply", params),
         Writes::Project => send_to_project(request.project.as_deref(), params),
     }
 }
@@ -354,9 +508,10 @@ fn send_to_project(project: Option<&Path>, params: Value) -> Sent {
     }
 }
 
-/// Applies `params` to `endpoint` over the control channel, with the token the extension stored
-/// for it. Secrets on a plain channel are refused by the runtime itself (decision O16).
-fn send_to_runtime(request: &ActRequest, endpoint: &str, params: Value) -> Sent {
+/// Sends `params` to `endpoint` as the control request `entry` (`comm.apply` or `comm.test`), with
+/// the token the extension stored for it. Secrets on a plain channel are refused by the runtime
+/// itself, which stamps the channel (decision O16).
+fn send_control(request: &ActRequest, endpoint: &str, entry: &str, params: Value) -> Sent {
     let Some(address) = ControlEndpoint::parse(endpoint) else {
         return Sent::Refused(format!("{endpoint} is not a control endpoint."));
     };
@@ -368,7 +523,7 @@ fn send_to_runtime(request: &ActRequest, endpoint: &str, params: Value) -> Sent 
     if let Err(error) = client.set_timeout(REQUEST_TIMEOUT) {
         return Sent::Refused(error.to_string());
     }
-    match client.request("comm.apply", Some(params)) {
+    match client.request(entry, Some(params)) {
         Ok(answer) => classify(answer),
         Err(ControlError::Refused { error, .. }) => Sent::Refused(error),
         Err(error) => Sent::Refused(error.to_string()),
@@ -391,7 +546,7 @@ fn classify(answer: Value) -> Sent {
         })
         .collect();
     if errors.is_empty() {
-        Sent::Applied(answer)
+        Sent::Answered(answer)
     } else {
         Sent::Fields(errors)
     }

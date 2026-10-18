@@ -12,7 +12,22 @@
   "runtime_choices": [
     {
       "id": "runtime:local",
-      "name": "Simulator"
+      "name": "Simulator",
+      "action": {
+        "id": "runtime:local",
+        "label": "Simulator",
+        "enabled": true,
+        "emphasis": "secondary",
+        "op": {
+          "kind": "rust",
+          "action": "form.open",
+          "payload": {
+            "form": "opcua_client@runtime:local",
+            "protocol": "opcua_client",
+            "runtime": "runtime:local"
+          }
+        }
+      }
     }
   ],
   "sections": [
