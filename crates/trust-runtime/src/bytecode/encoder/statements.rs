@@ -1,10 +1,12 @@
 //! Statement spans collected while emitting POU bodies.
 //!
 //! Spec 12 §6.10 records where a statement starts; §6.13 additionally needs the
-//! end of its code span and of its source span, which is only known once the whole
-//! statement has been emitted. The encoder therefore records one
-//! [`PendingStatement`](self::PendingStatement) per DEBUG_MAP statement entry and
-//! fills the ends in after the statement's last instruction.
+//! end of its code span and of its source span. The source span end is the
+//! statement syntax node's own range end, known when the statement begins; the
+//! code span end is only known once the whole statement has been emitted. The
+//! encoder therefore records one [`PendingStatement`](self::PendingStatement) per
+//! DEBUG_MAP statement entry and fills the code end in after the statement's last
+//! instruction.
 
 use std::cmp::Reverse;
 
@@ -22,7 +24,8 @@ pub(super) struct PendingStatement {
     pub(super) entry: DebugEntry,
     /// Offset one past the statement's last instruction (spec 12 §6.13).
     pub(super) end_code_offset: u32,
-    /// 1-based line of the byte one past the statement's last byte.
+    /// 1-based line of the statement syntax node's range end, trailing trivia
+    /// included (spec 12 §6.13).
     pub(super) end_line: u32,
     /// 1-based byte column within that line.
     pub(super) end_column: u32,
@@ -96,8 +99,11 @@ impl<'a> BytecodeEncoder<'a> {
             .get(location.file_id as usize)
             .ok_or_else(|| BytecodeError::InvalidSection("debug source missing".into()))?;
         let (line, column) = crate::debug::location_to_line_col(source, location);
-        let source_end = statement_source_end(source, location.start, location.end)?;
-        let (end_line, end_column) = crate::debug::offset_to_line_col(source, source_end);
+        // §6.13: the recorded end is the statement syntax node's range end with its
+        // trailing trivia included, the next token's start or the end of the file,
+        // which is the span breakpoint resolution compares against (spec 13,
+        // "Source Mapping"). The lowering already holds that end in `location.end`.
+        let (end_line, end_column) = crate::debug::offset_to_line_col(source, location.end);
         let file_idx = self.file_path_index(location.file_id)?;
         let index = statements.len();
         statements.push(PendingStatement {
@@ -200,25 +206,4 @@ impl<'a> BytecodeEncoder<'a> {
             statements: line_statements,
         })
     }
-}
-
-/// One byte past a statement's last byte (spec 12 §6.13).
-///
-/// The lowering records the statement syntax node's full text range, which reaches
-/// over the trivia after the statement's last token. The span is therefore lexed
-/// and its trailing trivia dropped, so the recorded end is the exclusive end of the
-/// statement itself and not of the following whitespace or comment.
-fn statement_source_end(source: &str, start: u32, end: u32) -> Result<u32, BytecodeError> {
-    let span = source
-        .get(start as usize..end as usize)
-        .ok_or_else(|| BytecodeError::InvalidSection("debug statement span missing".into()))?;
-    let tokens = trust_syntax::lex(span);
-    let last = tokens
-        .iter()
-        .rev()
-        .find(|token| !token.kind.is_trivia())
-        .ok_or_else(|| BytecodeError::InvalidSection("debug statement span has no token".into()))?;
-    start
-        .checked_add(u32::from(last.range.end()))
-        .ok_or_else(|| BytecodeError::InvalidSection("debug statement span overflow".into()))
 }

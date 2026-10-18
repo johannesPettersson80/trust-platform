@@ -890,7 +890,7 @@ struct LineStatement {
   u32 file_index;        // index into files (DEBUG_MAP's file_idx is a DEBUG_STRING_TABLE index)
   u32 start_line;        // 1-based line of the statement's first byte
   u32 start_column;      // 1-based byte column within that line
-  u32 end_line;          // 1-based line of the byte one past the statement's last byte
+  u32 end_line;          // 1-based line of the statement syntax node's range end (trailing trivia included)
   u32 end_column;        // 1-based byte column within that line
 }
 ```
@@ -906,9 +906,9 @@ Files:
 Statements:
 
 - `pou_id` resolves in POU_INDEX and the code span lies inside that POU's body. `start_code_offset` is the offset of a decoded instruction; `end_code_offset` is the offset of a decoded instruction or the exact end of the body, and is strictly greater than `start_code_offset`.
-- `file_index` indexes `files`. `start_line`, `end_line`, `start_column` and `end_column` are 1-based, and `(end_line, end_column)` is strictly after `(start_line, start_column)` because the end is exclusive; a statement does not span two files.
-- The source span starts at the statement's first non-trivia token and ends one byte past its last byte, so the two positions reconstruct the half-open byte range that specification 13 resolves.
-- Entries are ordered by ascending `pou_id`, then ascending `start_code_offset`, then descending `end_code_offset`. Statements that share a `start_code_offset` must nest: the later entry's code span lies inside the earlier entry's, as a REPEAT and its first body statement do, or a label and the statement it owns. Entries with the same span keep the order the compiler emits them, outermost first. A code offset belongs to the innermost (last) entry whose span contains it, so a breakpoint or a step at that offset names that statement.
+- `file_index` indexes `files`. `start_line`, `end_line`, `start_column` and `end_column` are 1-based, and `(end_line, end_column)` is strictly after `(start_line, start_column)`; a statement does not span two files.
+- The source span starts at the statement's first non-trivia token and ends at the position of the statement syntax node's range end with its trailing trivia included: the next non-trivia token's start, or the end of the file. That end is the one specification 13's source mapping gives the statement and breakpoint resolution compares against, so the two positions reconstruct exactly the byte range the runtime resolves.
+- Entries are ordered by ascending `pou_id`, then ascending `start_code_offset`, then descending `end_code_offset`. Statements that share a `start_code_offset` must nest: the later entry's code span lies inside the earlier entry's, as a REPEAT and its first body statement do, or a label and the statement it owns. Entries with the same span keep the order the compiler emits them, outermost first. A code offset belongs to the innermost (last) entry whose span contains it, so a breakpoint or a step at that offset names that statement. Because the source end reaches over the trailing trivia, two statements that are not nested may touch at a boundary — the earlier entry's end equals the later entry's start — but never otherwise overlap; a nested pair still holds as one span inside the other.
 - The decoder rejects an entry that breaks the order and a shared start whose spans do not nest, instead of selecting one; a statement at a code offset is always the innermost entry that contains it.
 
 Validation and use:

@@ -109,11 +109,12 @@ fn the_compiler_writes_one_line_table_entry_per_statement() {
         "file_0"
     );
 
-    // The source spans, read off the source above: the statement's first byte and the
-    // byte one past its last byte, so an IF and a FOR end on their END_IF/END_FOR
-    // line and not on the line after it. The `;` of the IF and the FOR is outside
-    // the statement node, as it is for the lowering's own statement range, so those
-    // spans end at the keyword.
+    // The source spans, read off the source above: the statement's first byte and
+    // the statement syntax node's range end with its trailing trivia included
+    // (spec 12 §6.13). A statement that ends in `;` carries the trivia after it, so
+    // its end is the next token's start on the line below; an `IF` or a `FOR` ends
+    // at its `END_IF`/`END_FOR` keyword, because the `;` after the keyword is a token
+    // of its own and stops the trailing trivia.
     let spans: Vec<(u32, u32, u32, u32, u32, u32)> = table
         .statements
         .iter()
@@ -131,13 +132,13 @@ fn the_compiler_writes_one_line_table_entry_per_statement() {
     assert_eq!(
         spans,
         vec![
-            (main, 12, 1, 12, 11, 0), // f := TRUE;
-            (main, 13, 1, 15, 7, 0),  // IF f THEN ... END_IF
-            (main, 14, 1, 14, 8, 0),  // i := 1;
-            (main, 16, 1, 18, 8, 0),  // FOR i := 0 TO 1 DO ... END_FOR
-            (main, 17, 1, 17, 12, 0), // f := FALSE;
-            (main, 19, 1, 19, 22, 0), // i := Add(x := INT#1);
-            (add, 5, 1, 5, 18, 0),    // Add := x + INT#1;
+            (main, 12, 1, 13, 1, 0), // `f := TRUE;` then the newline, up to `IF` on line 13
+            (main, 13, 1, 15, 7, 0), // `IF f THEN ... END_IF`; the `;` is outside the node
+            (main, 14, 1, 15, 1, 0), // `i := 1;` then the newline, up to `END_IF` on line 15
+            (main, 16, 1, 18, 8, 0), // `FOR ... END_FOR`; the `;` is outside the node
+            (main, 17, 1, 18, 1, 0), // `f := FALSE;` then the newline, up to `END_FOR` on line 18
+            (main, 19, 1, 20, 1, 0), // `i := Add(x := INT#1);` then the newline, up to `END_PROGRAM`
+            (add, 5, 1, 6, 1, 0),    // `Add := x + INT#1;` then the newline, up to `END_FUNCTION`
         ]
     );
 
