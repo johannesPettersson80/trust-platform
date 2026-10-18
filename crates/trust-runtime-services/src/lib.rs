@@ -9,6 +9,7 @@
 //! surface applies at the next cycle boundary. [`ports`] names what a platform supplies.
 //! [`runner`] is the single-thread resource loop of a device without an operating system, and
 //! [`link`] the framing and reply handling of its control link over a byte stream.
+//! [`transfer`] carries a request or reply longer than the frame in parts (PORT-05).
 //! [`installation`] checks the `TRSTA001` container a chip holds its installed program in before
 //! any payload is exposed. Transports, threads, files, clocks and host state stay in the platform
 //! that composes these services.
@@ -34,6 +35,7 @@ pub mod protocol;
 pub mod resource;
 pub mod runner;
 pub mod status;
+pub mod transfer;
 
 #[cfg(test)]
 mod tests;
