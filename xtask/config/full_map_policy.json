@@ -457,6 +457,22 @@
       "status": "allowed",
       "owner": "runtime portability T3 (chip files)",
       "rationale": "A host test compares the STM32U5A9 chip table and its clock with chips/stm32u5a9.toml; a dev edge only, so no firmware build resolves the reader."
+    },
+    {
+      "from": "trust-platform-stm32u5",
+      "to": "trust-runtime-core",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+      "rationale": "The STM32U5A9 control link implements the engine's ControlLink, MonotonicClock and WakeSignal ports; the core depends on no platform crate."
+    },
+    {
+      "from": "trust-platform-stm32u5",
+      "to": "trust-runtime-services",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+      "rationale": "The control link carries the shared line link of the runtime services (framing, reply and stall rule), as the C6 adapter does; the services depend on no platform crate."
     }
   ],
   "forbidden_workspace_edges": [
@@ -3044,6 +3060,62 @@
         "invariant": "PLL1DIVR.PLL1N is a nine-bit field and takes PLL1N_FIELD (0x4F); the register is written while PLL1 is off, which is its state after reset, and before PLL1ON.",
         "test_evidence": "Host test the_n_field_holds_n_minus_one pins the field value; the register write and the PLL1 lock are proved on the bench (S1b-9u).",
         "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
+        "line": 124,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+        "invariant": "bind takes the only reference to the static mut STORAGE, after the BOUND swap has made it the first bind; the device and its allocator borrow parts of it for 'static, and nothing else reaches it.",
+        "test_evidence": "Host tests usb_descriptors pin the serial and bcdDevice values bind writes; bind itself runs only on the chip and is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
+        "line": 149,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+        "invariant": "NVIC::unmask enables OTG_HS only after bind has put the device in DEVICE, so the handler always finds it; the interrupt is the PAC's Interrupt::OTG_HS, number 73 (design §2.1).",
+        "test_evidence": "The handler and the unmask are proved on the bench (S1b-9u); the servicing pass the handler runs is host-tested (tests/usb_service.rs).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
+        "line": 158,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+        "invariant": "read_volatile reads the three words of the chip's read-only 96-bit unique ID at 0x0BFA_0700 (design §2.5), in address order, and writes nothing.",
+        "test_evidence": "The serial text the words build is host-tested (tests/usb_descriptors.rs); the read is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
+        "line": 201,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+        "invariant": "the read-modify-write touches only the RXFLVLM bit of OTG_HS GINTMSK and runs under the critical section every caller holds; the USB driver writes GINTMSK only in its enable, before the device exists.",
+        "test_evidence": "The pass that chooses the value is host-tested (tests/usb_service.rs, a_full_link_leaves_the_packet_with_the_port); the register write is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb.rs",
+        "line": 159,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+        "invariant": "the OTG_HS trait values are the chip's: the register block at 0x4204_0000, a 4 KiB FIFO of 1024 words, nine device endpoints, the 160 MHz AHB clock and the internal full-speed PHY (design §2.1 and §2.2; PAC DIEPCTL0 to DIEPCTL8).",
+        "test_evidence": "Host test the_otg_hs_block_is_at_0x4204_0000_with_4_kib_of_fifo_and_nine_endpoints pins the constants; the driver's use of them is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb.rs",
+        "line": 173,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+        "invariant": "the RCC_AHB2ENR1 read-modify-write sets only OTGEN (bit 14), the OTG_HS clock, before the USB core is configured (PAC 0.16.0 field descriptions).",
+        "test_evidence": "The clock enable is proved on the bench (S1b-9u); RM0456's USB section owns the order, which is unverified here (design §2.2).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb.rs",
+        "line": 175,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+        "invariant": "the PWR read-modify-writes set only USV (PWR_SVMCR bit 28) and USBPWREN and USBBOOSTEN (PWR_VOSR bits 19 and 20), the USB supply, before the USB core is configured (PAC 0.16.0 field descriptions).",
+        "test_evidence": "The supply sequence is proved on the bench (S1b-9u); RM0456's USB section owns the order, which is unverified here (design §2.2).",
+        "review_date": "2026-10-18"
       }
     ],
     "delegated_unsafe_path_register": [
@@ -3488,6 +3560,33 @@
         "shared_state": "the configured output pins the terminal fault path drives",
         "invariant": "Relaxed accesses order nothing but the pin mask itself: the mask is a set of drivable pins that the fault path re-reads after masking interrupts, never a publication fence for program state.",
         "test_evidence": "The chip build and the planned C6 bench run; the fault path is not exercised on the host.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path_prefix": "crates/trust-platform-stm32u5/src/usb_link.rs",
+        "primitive": "Mutex",
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+        "shared_state": "the USB device and the shared line link, entered by the OTG_HS interrupt and the runner in one critical section",
+        "invariant": "DEVICE and LINK are reached only inside critical_section::with, so the interrupt and the runner never see a half-updated device or link; bind sets DEVICE before the interrupt is unmasked.",
+        "test_evidence": "Host tests tests/usb_service.rs pin the pass both sides run; the interrupt and the link are proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path_prefix": "crates/trust-platform-stm32u5/src/usb_link.rs",
+        "primitive": "Atomic",
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+        "shared_state": "bind-once flag and the wake counter advanced by the servicing pass",
+        "invariant": "BOUND is swapped once by bind, so a second bind is refused; WAKES only grows, and the runner's wait (S1b-8u-2b) reads it.",
+        "test_evidence": "Host tests tests/usb_service.rs pin when a pass wakes (a completed request or a moved reply); the bind refusal is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path_prefix": "crates/trust-platform-stm32u5/src/usb_link.rs",
+        "primitive": "Ordering::",
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+        "shared_state": "bind-once flag and the wake counter",
+        "invariant": "AcqRel orders the bind-once swap before the storage it guards is touched; the wake advance is Release, for the wait that reads it in S1b-8u-2b.",
+        "test_evidence": "The ordering is proved on the bench with the critical sections it sits beside (S1b-9u); the host runs no interrupt.",
         "review_date": "2026-10-18"
       }
     ],

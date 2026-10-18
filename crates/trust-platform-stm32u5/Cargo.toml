@@ -15,11 +15,25 @@ stm32u5a9 = ["stm32u5/stm32u5a9"]
 [dependencies]
 trust-platform-stm32.workspace = true
 
-# The PAC and the Cortex-M crates are for the chip only; a host build never resolves them.
+# The engine's platform contracts (`ControlLink`, `MonotonicClock`, `WakeSignal`) and the shared
+# line link of the control port, as the C6 adapter has them. Both build without an operating system.
+trust-runtime-core.workspace = true
+trust-runtime-services.workspace = true
+
+# The class-agnostic USB device core and the CDC-ACM class, both MIT and from crates.io (design
+# §2.2; S1b §2.3). The servicing pass is host-tested over the class's packet interface.
+usb-device = "=0.3.2"
+usbd-serial = "=0.2.2"
+
+# The PAC, the Cortex-M crates, the OTG_HS register driver and the critical sections are for the
+# chip only; a host build never resolves them. The register driver is in `fs` mode: the internal
+# full-speed PHY (design §2.2).
 [target.'cfg(all(target_arch = "arm", target_os = "none"))'.dependencies]
 stm32u5 = { version = "=0.16.0", default-features = false, features = ["critical-section", "rt"] }
 cortex-m = { version = "=0.7.9", features = ["critical-section-single-core"] }
 cortex-m-rt = "=0.7.7"
+synopsys-usb-otg = { version = "=0.5.0", features = ["fs"] }
+critical-section = "1.2.0"
 
 # The host test tests/chip_file.rs compares the chip table with chips/stm32u5a9.toml. A dev
 # dependency is resolved only for this crate's own tests, never for a firmware build.
