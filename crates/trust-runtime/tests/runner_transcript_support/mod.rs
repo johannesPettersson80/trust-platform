@@ -38,16 +38,25 @@ use trust_runtime::settings::{
 };
 use trust_runtime::watchdog::{FaultPolicy, RetainMode, WatchdogPolicy};
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::io_address::IoAddress;
+use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::ports::{
     ControlLink, HardwareWatchdog, LinkFrame, MonotonicClock, MonotonicInstant, PeerClass,
     PortError, RunnerWait, TimeSpan, WakeReason, WakeToken, WallClock,
 };
 use trust_runtime_core::retain::{RestartMode, RetainSnapshot};
 use trust_runtime_core::value::Duration;
+use trust_runtime_core::value::Value as RuntimeValue;
 use trust_runtime_core::vm::{CycleHooks, PreparedModule, RetainApplyEvent, RuntimeState};
 use trust_runtime_services::access::{AccessRole, AuthFailure};
 use trust_runtime_services::dispatch::prepare_line;
 use trust_runtime_services::events::store_event;
+use trust_runtime_services::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
+use trust_runtime_services::live_values::queues::{
+    ForcedSnapshot, ForcedVarTarget, PendingVarTarget,
+};
+use trust_runtime_services::live_values::var_requests::VariableQueuePort;
+use trust_runtime_services::live_values::RequestQueueFull;
 use trust_runtime_services::ports::{
     AccessPort, AuditRecord, AuditSink, ExtensionDispatch, StatusPort,
 };
@@ -645,6 +654,68 @@ impl HardwareWatchdog for BoardPlatform {
     }
 
     fn feed(&mut self) {}
+}
+
+/// The device answers the Live Values operations from the host's published snapshot and queues,
+/// so its `io.*`, `set` and `var.*` answers are the host's.
+impl IoQueuePort for BoardPlatform {
+    fn io_snapshot(&self) -> IoSnapshotRead {
+        self.host.io_snapshot()
+    }
+
+    fn enqueue_io_write(
+        &self,
+        address: IoAddress,
+        value: RuntimeValue,
+    ) -> Result<(), RequestQueueFull> {
+        self.host.enqueue_io_write(address, value)
+    }
+
+    fn force_io(&self, address: IoAddress, value: RuntimeValue) -> Result<(), RequestQueueFull> {
+        self.host.force_io(address, value)
+    }
+
+    fn release_io(&self, address: &IoAddress) {
+        self.host.release_io(address);
+    }
+}
+
+impl VariableQueuePort for BoardPlatform {
+    fn generation(&self) -> Generation {
+        self.host.generation()
+    }
+
+    fn enqueue_var_write(
+        &self,
+        target: PendingVarTarget,
+        value: RuntimeValue,
+    ) -> Result<(), RequestQueueFull> {
+        self.host.enqueue_var_write(target, value)
+    }
+
+    fn force_var(
+        &self,
+        target: ForcedVarTarget,
+        value: RuntimeValue,
+    ) -> Result<(), RequestQueueFull> {
+        self.host.force_var(target, value)
+    }
+
+    fn release_global(&self, name: &str) {
+        self.host.release_global(name);
+    }
+
+    fn release_retain(&self, name: &str) {
+        self.host.release_retain(name);
+    }
+
+    fn release_instance(&self, instance: InstanceId, name: &str) {
+        self.host.release_instance(instance, name);
+    }
+
+    fn forced_snapshot(&self) -> ForcedSnapshot {
+        self.host.forced_snapshot()
+    }
 }
 
 impl RunnerPlatform for BoardPlatform {}

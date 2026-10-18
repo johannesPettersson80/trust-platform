@@ -7,13 +7,17 @@
 //! the drain order. [`apply`] owns the order in which a scan applies the queues at its cycle
 //! boundaries and how a refusal is handled. [`retained_names`] resolves a retained management
 //! label from the prepared program alone. [`io_snapshot`] holds the portable snapshot and
-//! [`io_requests`] answers the `io.*` operations from it and the queues.
+//! [`io_requests`] answers the `io.*` operations from it and the queues. [`var_requests`] answers
+//! the `set`, `var.force`, `var.unforce` and `var.forced` operations from the variable queues, and
+//! [`value_grammar`] parses the scalar value of every operation that carries one.
 
 pub mod apply;
 pub mod io_requests;
 pub mod io_snapshot;
 pub mod queues;
 pub mod retained_names;
+pub mod value_grammar;
+pub mod var_requests;
 
 pub use apply::{is_cycle_operational_error, WriteSink};
 pub use queues::{

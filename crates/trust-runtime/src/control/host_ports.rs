@@ -9,9 +9,17 @@ use std::collections::VecDeque;
 use std::sync::atomic::Ordering;
 
 use smol_str::SmolStr;
+use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::ports::WallClock;
 use trust_runtime_services::access::{AccessRole, AuthFailure};
 use trust_runtime_services::events::RuntimeEvent;
+use trust_runtime_services::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
+use trust_runtime_services::live_values::io_snapshot::IoSnapshot as PortableIoSnapshot;
+use trust_runtime_services::live_values::queues::{
+    ForcedSnapshot, ForcedVarTarget, PendingVarTarget,
+};
+use trust_runtime_services::live_values::var_requests::VariableQueuePort;
+use trust_runtime_services::live_values::RequestQueueFull;
 use trust_runtime_services::metrics::RuntimeMetricsSnapshot;
 use trust_runtime_services::ports::{
     AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, RecordsPort, ResourcePort,
@@ -23,7 +31,9 @@ use trust_runtime_services::status::{IoDriverStatus, StatusSettings};
 use crate::config::ControlMode;
 use crate::debug::ControlAction;
 use crate::error::RuntimeError;
+use crate::io::IoAddress;
 use crate::scheduler::ResourceState;
+use crate::value::Value;
 use crate::RestartMode;
 
 use super::types::debug_stop_reason_label;
@@ -174,6 +184,82 @@ impl RecordsPort for ControlState {
         let events = self.events.lock().ok()?;
         let store: &VecDeque<RuntimeEvent> = &events;
         Some(read(store))
+    }
+}
+
+impl IoQueuePort for ControlState {
+    /// The published snapshot of the host's snapshot slot. A slot that cannot be read answers
+    /// `I/O snapshot unavailable`; a slot that holds no snapshot yet answers `no snapshot
+    /// available`, as the host's `io.list` and `io.read` answer today.
+    fn io_snapshot(&self) -> IoSnapshotRead {
+        match self.io_snapshot.lock() {
+            Ok(guard) => match guard.as_ref() {
+                Some(snapshot) => IoSnapshotRead::Published(PortableIoSnapshot::from(snapshot)),
+                None => IoSnapshotRead::Missing,
+            },
+            Err(_) => IoSnapshotRead::Unavailable,
+        }
+    }
+
+    fn enqueue_io_write(&self, address: IoAddress, value: Value) -> Result<(), RequestQueueFull> {
+        self.debug.try_enqueue_io_write(address, value)
+    }
+
+    fn force_io(&self, address: IoAddress, value: Value) -> Result<(), RequestQueueFull> {
+        self.debug.try_force_io(address, value)
+    }
+
+    fn release_io(&self, address: &IoAddress) {
+        self.debug.release_io(address);
+    }
+}
+
+impl VariableQueuePort for ControlState {
+    fn generation(&self) -> Generation {
+        self.debug.generation()
+    }
+
+    fn enqueue_var_write(
+        &self,
+        target: PendingVarTarget,
+        value: Value,
+    ) -> Result<(), RequestQueueFull> {
+        match target {
+            PendingVarTarget::Global(name) => self.debug.try_enqueue_global_write(name, value),
+            PendingVarTarget::Retain(name) => self.debug.try_enqueue_retain_write(name, value),
+            PendingVarTarget::Instance(generation, instance, name) => self
+                .debug
+                .try_enqueue_instance_write(generation, instance, name, value),
+            PendingVarTarget::Local(frame, name) => {
+                self.debug.try_enqueue_local_write(frame, name, value)
+            }
+        }
+    }
+
+    fn force_var(&self, target: ForcedVarTarget, value: Value) -> Result<(), RequestQueueFull> {
+        match target {
+            ForcedVarTarget::Global(name) => self.debug.try_force_global(name, value),
+            ForcedVarTarget::Retain(name) => self.debug.try_force_retain(name, value),
+            ForcedVarTarget::Instance(generation, instance, name) => self
+                .debug
+                .try_force_instance(generation, instance, name, value),
+        }
+    }
+
+    fn release_global(&self, name: &str) {
+        self.debug.release_global(name);
+    }
+
+    fn release_retain(&self, name: &str) {
+        self.debug.release_retain(name);
+    }
+
+    fn release_instance(&self, instance: InstanceId, name: &str) {
+        self.debug.release_instance(instance, name);
+    }
+
+    fn forced_snapshot(&self) -> ForcedSnapshot {
+        self.debug.forced_snapshot()
     }
 }
 

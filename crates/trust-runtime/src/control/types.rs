@@ -1,6 +1,4 @@
-use crate::io::{IoAddress, IoSnapshot};
 use serde::Deserialize;
-use serde_json::json;
 
 // The request and response envelope is shared runtime code (spec 34 ARCH-11).
 pub(crate) use trust_runtime_services::protocol::ControlResponse;
@@ -108,32 +106,6 @@ pub(super) struct EvalParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct SetParams {
-    pub(super) target: String,
-    pub(super) value: String,
-}
-
-pub(super) enum VarTarget {
-    Global(String),
-    Retain(String),
-    Instance(u32, String),
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct VarForceParams {
-    pub(super) target: String,
-    pub(super) value: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct VarTargetParams {
-    pub(super) target: String,
-}
-
-#[derive(Debug, Deserialize)]
 pub(super) struct PairClaimParams {
     pub(super) code: String,
     pub(super) role: Option<String>,
@@ -142,127 +114,6 @@ pub(super) struct PairClaimParams {
 #[derive(Debug, Deserialize)]
 pub(super) struct PairRevokeParams {
     pub(super) id: String,
-}
-
-#[cfg_attr(
-    not(test),
-    allow(
-        dead_code,
-        reason = "the hosted snapshot's JSON moved to trust_runtime_services::live_values::io_snapshot; these items remain only for the hosted snapshot-shape tests"
-    )
-)]
-pub(super) trait IoSnapshotJson {
-    fn into_json(self) -> serde_json::Value;
-}
-
-impl IoSnapshotJson for IoSnapshot {
-    #[cfg_attr(
-        not(test),
-        allow(
-            dead_code,
-            reason = "the hosted snapshot's JSON moved to trust_runtime_services::live_values::io_snapshot; this method remains only for the hosted snapshot-shape tests"
-        )
-    )]
-    fn into_json(self) -> serde_json::Value {
-        let IoSnapshot {
-            scan,
-            forced,
-            inputs,
-            outputs,
-            memory,
-        } = self;
-        json!({
-            "scan": scan,
-            "inputs": inputs.iter().map(|entry| entry_to_json(entry, &forced)).collect::<Vec<_>>(),
-            "outputs": outputs.iter().map(|entry| entry_to_json(entry, &forced)).collect::<Vec<_>>(),
-            "memory": memory.iter().map(|entry| entry_to_json(entry, &forced)).collect::<Vec<_>>(),
-        })
-    }
-}
-
-#[cfg_attr(
-    not(test),
-    allow(
-        dead_code,
-        reason = "the hosted snapshot's JSON moved to trust_runtime_services::live_values::io_snapshot; this helper remains only for the hosted snapshot-shape tests"
-    )
-)]
-fn entry_to_json(entry: &crate::io::IoSnapshotEntry, forced: &[IoAddress]) -> serde_json::Value {
-    let mut payload = json!({
-        "name": entry.name.as_ref().map(|name| name.as_str()),
-        "address": format_address(&entry.address),
-        "value": format_snapshot_value(&entry.value),
-        "forced": forced.iter().any(|address| address == &entry.address),
-    });
-    if let Some(value_type) = entry
-        .value_type_name
-        .as_deref()
-        .or_else(|| entry.value_type.and_then(crate::io::io_value_type_name))
-    {
-        payload["valueType"] = json!(value_type);
-    }
-    if let Some(source) = &entry.source {
-        payload["source"] = json!(source.as_str());
-    }
-    payload
-}
-
-#[cfg_attr(
-    not(test),
-    allow(
-        dead_code,
-        reason = "the hosted snapshot's JSON moved to trust_runtime_services::live_values::io_snapshot; this helper remains only for the hosted snapshot-shape tests"
-    )
-)]
-fn format_snapshot_value(value: &crate::io::IoSnapshotValue) -> serde_json::Value {
-    match value {
-        crate::io::IoSnapshotValue::Value(value) => json!(format!("{value:?}")),
-        crate::io::IoSnapshotValue::Error(err) => json!({ "error": err }),
-        crate::io::IoSnapshotValue::Unresolved => json!("unresolved"),
-    }
-}
-
-#[cfg_attr(
-    not(test),
-    allow(
-        dead_code,
-        reason = "the hosted snapshot's JSON moved to trust_runtime_services::live_values::io_snapshot; this helper remains only for the hosted snapshot-shape tests"
-    )
-)]
-pub(super) fn format_address(address: &IoAddress) -> String {
-    let area = match address.area {
-        crate::memory::IoArea::Input => "I",
-        crate::memory::IoArea::Output => "Q",
-        crate::memory::IoArea::Memory => "M",
-    };
-    let size = match address.size {
-        crate::io::IoSize::Bit => "X",
-        crate::io::IoSize::Byte => "B",
-        crate::io::IoSize::Word => "W",
-        crate::io::IoSize::DWord => "D",
-        crate::io::IoSize::LWord => "L",
-        crate::io::IoSize::Bytes(_) => "B",
-    };
-    if address.wildcard {
-        return format!("%{area}{size}*");
-    }
-    let mut path = address
-        .path
-        .iter()
-        .map(|value| value.to_string())
-        .collect::<Vec<_>>()
-        .join(".");
-    if matches!(address.size, crate::io::IoSize::Bit) {
-        if !path.is_empty() {
-            path.push('.');
-        }
-        path.push_str(&address.bit.to_string());
-    }
-    if path.is_empty() {
-        format!("%{area}{size}{}", address.byte)
-    } else {
-        format!("%{area}{size}{path}")
-    }
 }
 
 /// Stable wire label of a debugger stop reason, shared by stop projections and status holds.
@@ -277,11 +128,103 @@ pub(super) fn debug_stop_reason_label(reason: crate::debug::DebugStopReason) -> 
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::io::{IoAddress, IoInterface, IoSnapshot, IoSnapshotEntry, IoSnapshotValue};
     use crate::memory::MemoryLocation;
     use crate::value::{Value, ValueRef};
+    use serde_json::json;
     use smol_str::SmolStr;
+
+    /// The hosted snapshot's JSON, for the snapshot-shape tests only: the shared
+    /// [`to_json`](trust_runtime_services::live_values::io_snapshot::IoSnapshot::to_json) answers
+    /// `io.list` and `io.read` now.
+    trait IoSnapshotJson {
+        fn into_json(self) -> serde_json::Value;
+    }
+
+    impl IoSnapshotJson for IoSnapshot {
+        fn into_json(self) -> serde_json::Value {
+            let IoSnapshot {
+                scan,
+                forced,
+                inputs,
+                outputs,
+                memory,
+            } = self;
+            json!({
+                "scan": scan,
+                "inputs": inputs.iter().map(|entry| entry_to_json(entry, &forced)).collect::<Vec<_>>(),
+                "outputs": outputs.iter().map(|entry| entry_to_json(entry, &forced)).collect::<Vec<_>>(),
+                "memory": memory.iter().map(|entry| entry_to_json(entry, &forced)).collect::<Vec<_>>(),
+            })
+        }
+    }
+
+    fn entry_to_json(
+        entry: &crate::io::IoSnapshotEntry,
+        forced: &[IoAddress],
+    ) -> serde_json::Value {
+        let mut payload = json!({
+            "name": entry.name.as_ref().map(|name| name.as_str()),
+            "address": format_address(&entry.address),
+            "value": format_snapshot_value(&entry.value),
+            "forced": forced.iter().any(|address| address == &entry.address),
+        });
+        if let Some(value_type) = entry
+            .value_type_name
+            .as_deref()
+            .or_else(|| entry.value_type.and_then(crate::io::io_value_type_name))
+        {
+            payload["valueType"] = json!(value_type);
+        }
+        if let Some(source) = &entry.source {
+            payload["source"] = json!(source.as_str());
+        }
+        payload
+    }
+
+    fn format_snapshot_value(value: &crate::io::IoSnapshotValue) -> serde_json::Value {
+        match value {
+            crate::io::IoSnapshotValue::Value(value) => json!(format!("{value:?}")),
+            crate::io::IoSnapshotValue::Error(err) => json!({ "error": err }),
+            crate::io::IoSnapshotValue::Unresolved => json!("unresolved"),
+        }
+    }
+
+    fn format_address(address: &IoAddress) -> String {
+        let area = match address.area {
+            crate::memory::IoArea::Input => "I",
+            crate::memory::IoArea::Output => "Q",
+            crate::memory::IoArea::Memory => "M",
+        };
+        let size = match address.size {
+            crate::io::IoSize::Bit => "X",
+            crate::io::IoSize::Byte => "B",
+            crate::io::IoSize::Word => "W",
+            crate::io::IoSize::DWord => "D",
+            crate::io::IoSize::LWord => "L",
+            crate::io::IoSize::Bytes(_) => "B",
+        };
+        if address.wildcard {
+            return format!("%{area}{size}*");
+        }
+        let mut path = address
+            .path
+            .iter()
+            .map(|value| value.to_string())
+            .collect::<Vec<_>>()
+            .join(".");
+        if matches!(address.size, crate::io::IoSize::Bit) {
+            if !path.is_empty() {
+                path.push('.');
+            }
+            path.push_str(&address.bit.to_string());
+        }
+        if path.is_empty() {
+            format!("%{area}{size}{}", address.byte)
+        } else {
+            format!("%{area}{size}{path}")
+        }
+    }
 
     #[test]
     fn io_snapshot_json_includes_optional_source() {

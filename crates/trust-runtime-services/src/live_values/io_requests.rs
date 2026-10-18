@@ -16,14 +16,33 @@ use trust_runtime_core::value::Value;
 
 use super::io_snapshot::IoSnapshot;
 use super::queues::RequestQueueFull;
+use super::value_grammar::parse_value;
 use crate::protocol::ControlResponse;
 
-/// The Live Values queues `io.write`, `io.force` and `io.unforce` queue into.
+/// The published I/O snapshot a platform's `io.list` and `io.read` answer from.
 ///
-/// The composing platform owns the lock around the queues and reports a refusal with
-/// [`RequestQueueFull`]; these operations own the request's parameters, the stable error texts and
-/// the reply JSON.
+/// It distinguishes a platform that has published no snapshot yet from one whose snapshot slot
+/// cannot be read, so each answers its own stable text.
+#[derive(Debug, Clone)]
+pub enum IoSnapshotRead {
+    /// The snapshot the last completed scan published.
+    Published(IoSnapshot),
+    /// The platform has not published a snapshot yet.
+    Missing,
+    /// The platform's snapshot slot could not be read.
+    Unavailable,
+}
+
+/// The Live Values I/O surface `io.list`, `io.read`, `io.write`, `io.force` and `io.unforce` use:
+/// the published snapshot and the queues.
+///
+/// The composing platform owns the snapshot slot's lock and the lock around the queues and reports
+/// a refusal with [`RequestQueueFull`]; these operations own the request's parameters, the stable
+/// error texts and the reply JSON.
 pub trait IoQueuePort {
+    /// The published I/O snapshot, or the state of the platform's snapshot slot.
+    fn io_snapshot(&self) -> IoSnapshotRead;
+
     /// Queue a one-shot I/O write.
     ///
     /// # Errors
@@ -59,19 +78,33 @@ struct IoAddressParams {
     address: String,
 }
 
-/// `io.list`: the published I/O snapshot. `None` means no snapshot has been published yet.
+/// `io.list`: the published I/O snapshot. `Missing` means no snapshot has been published yet and
+/// `Unavailable` that the platform's snapshot slot could not be read.
 #[must_use]
-pub fn io_list(id: u64, snapshot: Option<&IoSnapshot>) -> ControlResponse {
+pub fn io_list(id: u64, snapshot: IoSnapshotRead) -> ControlResponse {
     match snapshot {
-        Some(snapshot) => ControlResponse::ok(id, snapshot.to_json()),
-        None => ControlResponse::error(id, String::from("no snapshot available")),
+        IoSnapshotRead::Published(snapshot) => ControlResponse::ok(id, snapshot.to_json()),
+        IoSnapshotRead::Missing => {
+            ControlResponse::error(id, String::from("no snapshot available"))
+        }
+        IoSnapshotRead::Unavailable => {
+            ControlResponse::error(id, String::from("I/O snapshot unavailable"))
+        }
     }
 }
 
-/// `io.read`: the published snapshot under `snapshot`, or `null` when none has been published yet.
+/// `io.read`: the published snapshot, or `null` when none has been published yet.
 #[must_use]
-pub fn io_read(id: u64, snapshot: Option<&IoSnapshot>) -> ControlResponse {
-    ControlResponse::ok(id, json!({ "snapshot": snapshot.map(IoSnapshot::to_json) }))
+pub fn io_read(id: u64, snapshot: IoSnapshotRead) -> ControlResponse {
+    match snapshot {
+        IoSnapshotRead::Published(snapshot) => {
+            ControlResponse::ok(id, json!({ "snapshot": snapshot.to_json() }))
+        }
+        IoSnapshotRead::Missing => ControlResponse::ok(id, json!({ "snapshot": null })),
+        IoSnapshotRead::Unavailable => {
+            ControlResponse::error(id, String::from("I/O snapshot unavailable"))
+        }
+    }
 }
 
 /// `io.write`: queue a one-shot write of `value` to the process-image `address`.
@@ -165,21 +198,6 @@ fn eligible_address(text: &str) -> Result<IoAddress, String> {
     let address = IoAddress::parse(text).map_err(|err| err.to_string())?;
     validate_process_image_address(&address).map_err(|err| err.to_string())?;
     Ok(address)
-}
-
-/// Parse the scalar grammar of a control value: a boolean or a signed 64-bit integer.
-fn parse_value(text: &str) -> Result<Value, String> {
-    let upper = text.trim().to_ascii_uppercase();
-    if upper == "TRUE" {
-        return Ok(Value::Bool(true));
-    }
-    if upper == "FALSE" {
-        return Ok(Value::Bool(false));
-    }
-    if let Ok(value) = upper.parse::<i64>() {
-        return Ok(Value::LInt(value));
-    }
-    Err(format!("unsupported value '{text}'"))
 }
 
 #[cfg(test)]

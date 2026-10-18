@@ -55,6 +55,10 @@ impl FakeQueues {
 }
 
 impl IoQueuePort for FakeQueues {
+    fn io_snapshot(&self) -> IoSnapshotRead {
+        IoSnapshotRead::Missing
+    }
+
     fn enqueue_io_write(&self, address: IoAddress, value: Value) -> Result<(), RequestQueueFull> {
         self.queues
             .borrow_mut()
@@ -127,14 +131,30 @@ fn empty_forced() -> Vec<(IoAddress, Value)> {
 
 #[test]
 fn io_list_distinguishes_legitimate_missing_snapshot() {
-    let response = io_list(1, None);
+    let response = io_list(1, IoSnapshotRead::Missing);
     assert!(!response.ok);
     assert_eq!(response.error.as_deref(), Some("no snapshot available"));
 }
 
 #[test]
 fn io_read_exposes_legitimate_missing_snapshot_as_null() {
-    assert_eq!(result(io_read(2, None)), json!({"snapshot": null}));
+    assert_eq!(
+        result(io_read(2, IoSnapshotRead::Missing)),
+        json!({"snapshot": null})
+    );
+}
+
+#[test]
+fn io_list_and_io_read_report_an_unreadable_snapshot_slot() {
+    // A platform whose snapshot slot cannot be read answers `I/O snapshot unavailable`, never the
+    // missing-snapshot text and never an empty snapshot.
+    let listed = io_list(9, IoSnapshotRead::Unavailable);
+    assert!(!listed.ok);
+    assert_eq!(listed.error.as_deref(), Some("I/O snapshot unavailable"));
+
+    let read = io_read(10, IoSnapshotRead::Unavailable);
+    assert!(!read.ok);
+    assert_eq!(read.error.as_deref(), Some("I/O snapshot unavailable"));
 }
 
 #[test]
@@ -153,7 +173,7 @@ fn io_list_answers_the_published_snapshot_json() {
         memory: Vec::new(),
     };
     assert_eq!(
-        result(io_list(3, Some(&snapshot))),
+        result(io_list(3, IoSnapshotRead::Published(snapshot))),
         json!({
             "scan": 7,
             "inputs": [],
@@ -185,7 +205,7 @@ fn io_read_wraps_the_published_snapshot() {
         memory: Vec::new(),
     };
     assert_eq!(
-        result(io_read(4, Some(&snapshot))),
+        result(io_read(4, IoSnapshotRead::Published(snapshot))),
         json!({
             "snapshot": {
                 "scan": 8,

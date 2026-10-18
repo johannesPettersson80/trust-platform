@@ -43,6 +43,9 @@ use crate::runtime::RuntimeMetadata;
 use crate::scheduler::ResourceControl;
 use crate::security::pairing::PairingStore;
 use crate::settings::RuntimeSettings;
+// The control tests reach `Value` through `use super::*`; the library parses every control value
+// with the shared `value_grammar` instead.
+#[cfg(test)]
 use crate::value::Value;
 use crate::RestartMode;
 use notify::{Event, RecursiveMode, Watcher};
@@ -579,22 +582,6 @@ fn apply_after_response(action: Option<ControlAfterResponse>, state: &ControlSta
     if matches!(action, Some(ControlAfterResponse::StopResource)) {
         state.resource.stop();
     }
-}
-
-fn parse_value(text: &str) -> Result<Value, RuntimeError> {
-    let upper = text.trim().to_ascii_uppercase();
-    if upper == "TRUE" {
-        return Ok(Value::Bool(true));
-    }
-    if upper == "FALSE" {
-        return Ok(Value::Bool(false));
-    }
-    if let Ok(int_val) = upper.parse::<i64>() {
-        return Ok(Value::LInt(int_val));
-    }
-    Err(RuntimeError::ControlError(
-        format!("unsupported value '{text}'").into(),
-    ))
 }
 
 #[cfg(test)]

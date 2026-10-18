@@ -9,9 +9,16 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use serde_json::{json, Value};
+use smol_str::SmolStr;
+use trust_runtime_core::io_address::IoAddress;
+use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::value::Duration;
+use trust_runtime_core::value::Value as RuntimeValue;
 
 use super::*;
+use crate::live_values::io_requests::IoSnapshotRead;
+use crate::live_values::io_snapshot::IoSnapshot;
+use crate::live_values::queues::{ForcedVarTarget, PendingVarTarget};
 use crate::tests::fake_host::{FakeHost, StoredAudit, WALL_TIME_MS};
 
 const NETWORK: Option<&str> = Some("127.0.0.1:9000");
@@ -227,13 +234,155 @@ fn debug_surface_is_refused_while_debugging_is_disabled() {
 
     let mut host = FakeHost::running();
     host.debug_enabled = false;
-    let forced = dispatch_value(json!({"id": 1, "type": "io.force"}), &host, UNIX);
-    assert_eq!(forced.error.as_deref(), Some("unsupported request"));
+    let forced = dispatch_value(
+        json!({"id": 1, "type": "io.force", "params": {"address": "%QX0.0", "value": "TRUE"}}),
+        &host,
+        UNIX,
+    );
+    assert_eq!(
+        forced.result,
+        Some(json!({"status": "forced"})),
+        "io.force is answered by the shared dispatcher"
+    );
     assert!(
         host.events.borrow().is_empty(),
         "io.force is not debug surface"
     );
-    assert_eq!(*host.extension_calls.borrow(), vec!["io.force"]);
+    assert!(
+        host.extension_calls.borrow().is_empty(),
+        "io.force no longer falls through to the platform"
+    );
+}
+
+// The Live Values operations the shared dispatcher answers from the host's ports: none of them
+// reaches the platform's extension dispatch, and each lands in the state the host owns.
+
+#[test]
+fn io_list_and_io_read_answer_from_the_hosts_snapshot_slot() {
+    let host = FakeHost::running();
+    let listed = dispatch_value(json!({"id": 1, "type": "io.list"}), &host, UNIX);
+    assert_eq!(listed.error.as_deref(), Some("no snapshot available"));
+    let read = dispatch_value(json!({"id": 2, "type": "io.read"}), &host, UNIX);
+    assert_eq!(read.result, Some(json!({"snapshot": null})));
+
+    *host.io_snapshot.borrow_mut() = IoSnapshotRead::Published(IoSnapshot {
+        scan: Some(9),
+        ..IoSnapshot::default()
+    });
+    let listed = dispatch_value(json!({"id": 3, "type": "io.list"}), &host, UNIX);
+    assert_eq!(
+        listed.result,
+        Some(json!({"scan": 9, "inputs": [], "outputs": [], "memory": []})),
+        "io.list answers the host's published snapshot"
+    );
+
+    assert!(
+        host.extension_calls.borrow().is_empty(),
+        "io.list and io.read are the shared dispatcher's"
+    );
+}
+
+#[test]
+fn io_write_and_io_force_queue_in_the_hosts_io_queues() {
+    let host = FakeHost::running();
+    let written = dispatch_value(
+        json!({"id": 1, "type": "io.write", "params": {"address": "%QX0.0", "value": "TRUE"}}),
+        &host,
+        UNIX,
+    );
+    assert_eq!(written.result, Some(json!({"status": "queued"})));
+    let forced = dispatch_value(
+        json!({"id": 2, "type": "io.force", "params": {"address": "%QW0", "value": "-3"}}),
+        &host,
+        UNIX,
+    );
+    assert_eq!(forced.result, Some(json!({"status": "forced"})));
+    assert!(
+        host.extension_calls.borrow().is_empty(),
+        "io.write and io.force are the shared dispatcher's"
+    );
+
+    let queues = host.live_values.borrow();
+    assert_eq!(
+        queues.io_writes,
+        vec![(
+            IoAddress::parse("%QX0.0").expect("test address"),
+            RuntimeValue::Bool(true)
+        )]
+    );
+    assert_eq!(
+        queues.forced_io,
+        vec![(
+            IoAddress::parse("%QW0").expect("test address"),
+            RuntimeValue::LInt(-3)
+        )]
+    );
+}
+
+#[test]
+fn set_and_var_force_queue_in_the_hosts_variable_queues() {
+    let host = FakeHost::running();
+    let accepted = dispatch_value(
+        json!({"id": 1, "type": "set", "params": {"target": "global:kept", "value": "7"}}),
+        &host,
+        UNIX,
+    );
+    assert_eq!(accepted.result, Some(json!({"status": "queued"})));
+    let forced = dispatch_value(
+        json!({"id": 2, "type": "var.force", "params": {"target": "instance:7:c", "value": "TRUE"}}),
+        &host,
+        UNIX,
+    );
+    assert_eq!(forced.result, Some(json!({"status": "forced"})));
+    assert!(
+        host.extension_calls.borrow().is_empty(),
+        "set and var.force are the shared dispatcher's"
+    );
+
+    let queues = host.live_values.borrow();
+    assert_eq!(queues.pending_var_writes.len(), 1);
+    assert_eq!(
+        queues.pending_var_writes[0].target,
+        PendingVarTarget::Global(SmolStr::new("kept"))
+    );
+    assert_eq!(queues.pending_var_writes[0].value, RuntimeValue::LInt(7));
+    assert_eq!(queues.forced_vars.len(), 1);
+    assert_eq!(
+        queues.forced_vars[0].target,
+        ForcedVarTarget::Instance(Generation::FIRST, InstanceId(7), SmolStr::new("c")),
+        "a bare instance identity belongs to the generation the host reports"
+    );
+    assert_eq!(queues.forced_vars[0].value, RuntimeValue::Bool(true));
+}
+
+#[test]
+fn var_forced_projects_and_var_unforce_releases_the_hosts_forces() {
+    let host = FakeHost::running();
+    let forced = dispatch_value(
+        json!({"id": 1, "type": "var.force", "params": {"target": "retain:kept", "value": "-2"}}),
+        &host,
+        UNIX,
+    );
+    assert_eq!(forced.result, Some(json!({"status": "forced"})));
+
+    let projected = dispatch_value(json!({"id": 2, "type": "var.forced"}), &host, UNIX);
+    assert_eq!(
+        projected.result,
+        Some(json!({"vars": [{"target": "retain:kept", "value": "-2"}]}))
+    );
+
+    let released = dispatch_value(
+        json!({"id": 3, "type": "var.unforce", "params": {"target": "retain:kept"}}),
+        &host,
+        UNIX,
+    );
+    assert_eq!(released.result, Some(json!({"status": "released"})));
+    let projected = dispatch_value(json!({"id": 4, "type": "var.forced"}), &host, UNIX);
+    assert_eq!(projected.result, Some(json!({"vars": []})));
+    assert!(
+        host.extension_calls.borrow().is_empty(),
+        "var.forced and var.unforce are the shared dispatcher's"
+    );
 }
 
 #[test]

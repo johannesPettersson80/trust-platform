@@ -18,6 +18,8 @@ use trust_runtime_core::scheduler::ResourceState;
 
 use crate::access::{AccessRole, AuthFailure};
 use crate::events::RuntimeEvent;
+use crate::live_values::io_requests::IoQueuePort;
+use crate::live_values::var_requests::VariableQueuePort;
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::resource::commands::CommandSendError;
@@ -185,6 +187,8 @@ pub trait ControlHost:
     + ResourcePort
     + StatusPort
     + RecordsPort
+    + IoQueuePort
+    + VariableQueuePort
     + ExtensionDispatch
 {
 }
@@ -197,6 +201,8 @@ impl<T> ControlHost for T where
         + ResourcePort
         + StatusPort
         + RecordsPort
+        + IoQueuePort
+        + VariableQueuePort
         + ExtensionDispatch
 {
 }

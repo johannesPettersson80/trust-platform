@@ -10,12 +10,21 @@ use core::cell::{Cell, RefCell};
 use serde_json::json;
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::io_address::IoAddress;
+use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::ports::WallClock;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
+use trust_runtime_core::value::Value;
 
 use crate::access::{resolve_role, AccessRole, AuthFailure};
 use crate::events::RuntimeEvent;
+use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
+use crate::live_values::queues::{
+    ForcedSnapshot, ForcedVarTarget, LiveValueQueues, PendingVarTarget,
+};
+use crate::live_values::var_requests::VariableQueuePort;
+use crate::live_values::RequestQueueFull;
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::ports::{
     AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, RecordsPort, ResourcePort,
@@ -79,6 +88,12 @@ pub(crate) struct FakeHost {
     pub(crate) utc_ms: Option<u64>,
     /// Whether `restart` starts a stopped resource (a device without an operating system).
     pub(crate) starts_when_stopped: bool,
+    /// The Live Values queues: I/O writes, variable writes and active forces.
+    pub(crate) live_values: RefCell<LiveValueQueues<()>>,
+    /// The published I/O snapshot the shared `io.*` operations answer from.
+    pub(crate) io_snapshot: RefCell<IoSnapshotRead>,
+    /// The installation generation an instance-targeted request is resolved in.
+    pub(crate) generation: Generation,
 }
 
 impl FakeHost {
@@ -107,6 +122,9 @@ impl FakeHost {
             extension_calls: RefCell::new(Vec::new()),
             utc_ms: Some(WALL_TIME_MS),
             starts_when_stopped: false,
+            live_values: RefCell::new(LiveValueQueues::new()),
+            io_snapshot: RefCell::new(IoSnapshotRead::Missing),
+            generation: Generation::FIRST,
         }
     }
 
@@ -310,5 +328,71 @@ impl ExtensionDispatch for FakeHost {
             .r#type
             .starts_with("comm.")
             .then(|| json!({"params": request.params}))
+    }
+}
+
+impl IoQueuePort for FakeHost {
+    fn io_snapshot(&self) -> IoSnapshotRead {
+        self.io_snapshot.borrow().clone()
+    }
+
+    fn enqueue_io_write(&self, address: IoAddress, value: Value) -> Result<(), RequestQueueFull> {
+        self.live_values
+            .borrow_mut()
+            .try_enqueue_io_write(address, value)
+    }
+
+    fn force_io(&self, address: IoAddress, value: Value) -> Result<(), RequestQueueFull> {
+        self.live_values
+            .borrow_mut()
+            .try_upsert_forced_io(address, value)
+    }
+
+    fn release_io(&self, address: &IoAddress) {
+        self.live_values.borrow_mut().release_io(address);
+    }
+}
+
+impl VariableQueuePort for FakeHost {
+    fn generation(&self) -> Generation {
+        self.generation
+    }
+
+    fn enqueue_var_write(
+        &self,
+        target: PendingVarTarget,
+        value: Value,
+    ) -> Result<(), RequestQueueFull> {
+        self.live_values
+            .borrow_mut()
+            .try_upsert_var_write(target, value)
+    }
+
+    fn force_var(&self, target: ForcedVarTarget, value: Value) -> Result<(), RequestQueueFull> {
+        self.live_values
+            .borrow_mut()
+            .try_upsert_forced_var(target, value)
+    }
+
+    fn release_global(&self, name: &str) {
+        self.live_values.borrow_mut().clear_forced_vars(
+            |target| matches!(target, ForcedVarTarget::Global(current) if current.as_str() == name),
+        );
+    }
+
+    fn release_retain(&self, name: &str) {
+        self.live_values.borrow_mut().clear_forced_vars(
+            |target| matches!(target, ForcedVarTarget::Retain(current) if current.as_str() == name),
+        );
+    }
+
+    fn release_instance(&self, instance: InstanceId, name: &str) {
+        self.live_values.borrow_mut().clear_forced_vars(|target| {
+            matches!(target, ForcedVarTarget::Instance(_, current_id, current_name) if *current_id == instance && current_name.as_str() == name)
+        });
+    }
+
+    fn forced_snapshot(&self) -> ForcedSnapshot {
+        self.live_values.borrow().forced_snapshot()
     }
 }
