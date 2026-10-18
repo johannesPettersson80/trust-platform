@@ -156,6 +156,101 @@ impl PouStatements {
     }
 }
 
+/// A statement's source span as a chip keeps it: the file index of its `LINE_TABLE` entry
+/// and its half-open span of 1-based `(line, column)` positions (specification 12 §6.13).
+/// This is the form that the statement identity of specification 13 takes, without the
+/// generation the breakpoint set gives it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StatementSpan {
+    /// Index into the table's file entries.
+    pub file_index: u32,
+    /// The first position of the statement: its first line and column.
+    pub start: (u32, u32),
+    /// The position just after the statement: its end line and column.
+    pub end: (u32, u32),
+}
+
+/// The statement starts of one prepared module: its [`StatementIndex`] and the source span
+/// of every statement, by table index. A module without a `LINE_TABLE` has none.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StatementTable {
+    index: StatementIndex,
+    /// The source span of each statement, by its table index.
+    spans: Vec<StatementSpan>,
+}
+
+/// Bytes that [`StatementTable::new`] takes per statement, as an upper bound for the 64-bit
+/// layout: the span kept for the statement (20), its start and owner (8), its two segments
+/// (24), and the build's scratch (the POU grouping 16, the owner of each start 8, the two
+/// sweep events 24 and the active set 4).
+const BYTES_PER_STATEMENT: usize = 104;
+
+/// Bytes that [`StatementTable::new`] takes per POU that owns a statement, as an upper bound
+/// for the 64-bit layout: the POU's key (4) and its per-POU lists (72).
+const BYTES_PER_POU: usize = 76;
+
+// The fixed charges must cover what the build takes on every target, so admission does not
+// depend on the pointer width. The 64-bit layout is the larger one.
+const _: () = assert!(
+    core::mem::size_of::<StatementSpan>()
+        + core::mem::size_of::<(u32, &LineStatement)>()
+        + 2 * core::mem::size_of::<u32>()
+        + 2 * core::mem::size_of::<Segment>()
+        + core::mem::size_of::<(u32, u32)>()
+        + 2 * core::mem::size_of::<(u32, bool, u32)>()
+        + core::mem::size_of::<u32>()
+        <= BYTES_PER_STATEMENT
+);
+const _: () =
+    assert!(core::mem::size_of::<u32>() + core::mem::size_of::<PouStatements>() <= BYTES_PER_POU);
+
+impl StatementTable {
+    /// Build the table from `table`, which the decoder and the validator have accepted
+    /// (specification 12 §6.13).
+    #[must_use]
+    pub fn new(table: &LineTable) -> Self {
+        let spans = table
+            .statements
+            .iter()
+            .map(|statement| StatementSpan {
+                file_index: statement.file_index,
+                start: (statement.start_line, statement.start_column),
+                end: (statement.end_line, statement.end_column),
+            })
+            .collect();
+        Self {
+            index: StatementIndex::new(table),
+            spans,
+        }
+    }
+
+    /// The `(bytes, work)` that [`StatementTable::new`] takes for `table`, counted without
+    /// allocating, so that preparation charges them before the build reserves them. The
+    /// work is one unit per statement, as the budget charges records. `None` when the total
+    /// overflows.
+    #[must_use]
+    pub fn preparation_demand(table: &LineTable) -> Option<(usize, usize)> {
+        // A validated table lists each POU's statements together, so each run is one POU.
+        let pous = table
+            .statements
+            .chunk_by(|left, right| left.pou_id == right.pou_id)
+            .count();
+        let statements = table.statements.len();
+        let bytes = statements
+            .checked_mul(BYTES_PER_STATEMENT)?
+            .checked_add(pous.checked_mul(BYTES_PER_POU)?)?;
+        Some((bytes, statements))
+    }
+
+    /// The source span of the statement that starts at `code_offset` in `pou_id`, or
+    /// `None` when no statement starts there (specification 12 §6.13).
+    #[must_use]
+    pub fn statement_start(&self, pou_id: u32, code_offset: u32) -> Option<StatementSpan> {
+        let statement = self.index.statement_at_start(pou_id, code_offset)?;
+        self.spans.get(statement as usize).copied()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -255,5 +350,50 @@ mod tests {
         assert_eq!(index.statement_containing(1, 6), None);
         assert_eq!(index.statement_containing(2, 6), Some(1));
         assert_eq!(index.starts(3), &[] as &[u32]);
+    }
+
+    #[test]
+    fn statement_start_gives_the_span_of_the_innermost_statement_that_starts_there() {
+        // Specification 12 §6.13: a label (entry 0) and the statement it labels (entry 1)
+        // share the code span [0, 4), and the innermost (last) entry owns the start. Their
+        // source spans are 10:1-10:15 and 10:6-10:15, so the start at offset 0 answers the
+        // labelled statement's span. An index that keeps the first entry for a shared start
+        // answers 10:1 here, and offset 1 starts no statement.
+        let statement = |start_column| LineStatement {
+            pou_id: 1,
+            start_code_offset: 0,
+            end_code_offset: 4,
+            file_index: 0,
+            start_line: 10,
+            start_column,
+            end_line: 10,
+            end_column: 15,
+        };
+        let line_table = LineTable {
+            statements: Vec::from([statement(1), statement(6)]),
+            ..LineTable::default()
+        };
+        let statements = StatementTable::new(&line_table);
+        assert_eq!(
+            statements.statement_start(1, 0),
+            Some(StatementSpan {
+                file_index: 0,
+                start: (10, 6),
+                end: (10, 15),
+            })
+        );
+        assert_eq!(statements.statement_start(1, 1), None);
+    }
+
+    #[test]
+    fn preparation_demand_charges_the_fixed_bytes_per_statement_and_per_pou() {
+        // Three statements in two POUs: 3 x 104 + 2 x 76 = 464 bytes, and one unit of work per
+        // statement. An index that charges per statement alone gives 312, and one that charges
+        // per POU alone gives 152.
+        let line_table = table(&[(1, 0, 1), (1, 1, 2), (2, 0, 1)]);
+        assert_eq!(
+            StatementTable::preparation_demand(&line_table),
+            Some((464, 3))
+        );
     }
 }
