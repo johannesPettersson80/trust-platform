@@ -57,6 +57,14 @@ start = 0x1000_0000
 kib = 64
 dma = false
 
+# The event store the chip's heap allows: the newest events the store keeps when the project sets
+# none, and the most a project may set (specification 34, Appendix H.2 and H.4; specification 11,
+# the event store). A larger maximum waits for a measurement of the heap a program leaves on the
+# bench.
+[events]
+default_capacity = 200
+max_capacity = 200
+
 # The vectors in sector 0, the firmware in sectors 4 to 9, the application bundle in sectors 10
 # and 11 (owner decision O7), and the checkpoint slots in sectors 2 and 3. Sector 1 is unused.
 [layout]

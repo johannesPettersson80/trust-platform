@@ -39,8 +39,9 @@ The boot order is design §1.1:
    services, and the resource loop starts its task timing. The prepared module lives for the rest of
    the boot (boxed and leaked). Retain mode is `none` until the C6 checkpoint driver exists: a record
    that requests another mode is refused.
-5. **Run.** `Runner::new(link, wait, cycle, platform, clock).run()` serves the control link and runs
-   the scans.
+5. **Run.** `Runner::new(link, wait, cycle, platform, clock, event_capacity).run()` serves the
+   control link and runs the scans; the event store keeps the record's `[runtime.events] capacity`,
+   or the C6's default of 200 from `chips/esp32c6.toml` when the project sets none.
 
 With no valid installed application, or one the device refuses, the firmware still runs the same
 loop in the Stopped state and serves the link, so `status` says why and a deployment can be accepted;

@@ -736,7 +736,7 @@ its UTF-8 bytes, at most 255 bytes:
 | Cycle interval | 8, unsigned, nanoseconds |
 | Control: debug enabled, then mode | 1 (0 or 1), then 1 (1 `production`, 2 `debug`) |
 | Log level | 1 (1 `error`, 2 `warn`, 3 `info`, 4 `debug`, 5 `trace`: the names the runtime's configuration parser accepts, where `warning` is `warn`) |
-| Event-store capacity | 4, unsigned; 0 is the device's default, otherwise the newest events the store keeps (specification 11, `runtime.events.capacity`). The decoder accepts every four-byte value |
+| Event-store capacity | 4, unsigned; 0 is the device's default, otherwise the newest events the store keeps (specification 11, `runtime.events.capacity`). The decoder accepts every four-byte value; admission refuses one above the device's maximum (step 7 below) |
 | Retain: mode, then save interval | 1 (0 `none`, 1 `file`), then 8, nanoseconds |
 | Watchdog: enabled, timeout, action, hang action | 1 (0 or 1), then 8, nanoseconds, then 1 (1 `halt`, 2 `safe_halt`, 3 `restart`), then 1 (1 `fault`, 2 `abort`) |
 | Fault policy | 1 (1 `halt`, 2 `safe_halt`, 3 `restart`) |
@@ -806,7 +806,9 @@ numbers involved; nothing is constructed:
 6. Every import has a contract of the same version on the device (§5.2.1). Otherwise the
    refusal is `runtime_import_unsupported`, naming the import.
 7. No requested limit is above the device's maximum for it, for example "the record requests
-   max_call_depth 2048, the device allows at most 1024".
+   max_call_depth 2048, the device allows at most 1024"; nor is the record's section-7 event-store
+   capacity, when it is not 0, above the device's maximum, refused as "the record requests an
+   event store of 500 events, the device keeps at most 200" (0 is the device's default).
 8. On a device with an application slot, the program and its record fit in it, for example "the
    program and its record need 20480 bytes of the application slot, the device has 16384".
 
@@ -820,12 +822,14 @@ decided at the warm start, by name (specification 11 §6.7).
 
 **Device descriptor (COMPAT-02).** Admission reads from the device's descriptor the STBC versions
 it runs, its scheduling/I/O profiles, numeric contracts, timing-evidence class and capabilities,
-its maximum for each preparation limit, and the size of its application slot. A computer runs STBC
-2.0 and 3.0, `cooperative-resource-v1` and numeric contract 1, has unqualified timing evidence and
-the wall clock, allows at most a 64 MiB artifact and 1,024 call levels, and has no maximum for the
-other limits and no application slot (HOST-02). A chip's descriptor comes from its chip file
-(TARGET-03); Appendix H gains the keys for its maxima with the chip's firmware. The control
-connection serves the descriptor in a later slice.
+its maximum for each preparation limit, the event store's default capacity and maximum, and the
+size of its application slot. A computer runs STBC 2.0 and 3.0, `cooperative-resource-v1` and
+numeric contract 1, has unqualified timing evidence and the wall clock, allows at most a 64 MiB
+artifact and 1,024 call levels, keeps the newest 1,000 events by default and admits at most
+1,000,000, and has no maximum for the other limits and no application slot (HOST-02). A chip's
+descriptor comes from its chip file (TARGET-03); Appendix H gains the keys for its maxima with the
+chip's firmware, and its `[events]` table gives the chip's event-store default and maximum. The
+control connection serves the descriptor in a later slice.
 
 ### 5.2 Compiler-free preparation
 
@@ -3264,6 +3268,7 @@ KiB.
 | `[memory.flash]` | `start`, `kib`, `sectors` | `stm32f4` only: flash in the chip's address space, from address `start`, of `kib`, with its erase sectors in address order as runs `{ count, kib }`. |
 | `[memory.spi_flash]` | `erase_kib` | `esp32` only: flash on the chip's SPI flash interface, in the package or the module. Its size is the device's own and is read when truST is installed; `erase_kib` is its erase unit. |
 | `[[memory.ram]]` | `name`, `start`, `kib`, `dma` | One entry per RAM region: its name in the reference manual, its first address, its size, and whether DMA reaches it (the F407's CCM is for the CPU only). |
+| `[events]` | `default_capacity`, `max_capacity` | The newest events the chip's event store keeps when the project sets none, and the most a project may set (truST's own choice, H.4). The firmware sizes its event store with them, and admission refuses a project above the maximum (specification 11, the event store; §5.1.1 step 7). |
 | `[layout]` | `vectors` | `stm32f4` only: the vector table. |
 | | `bootloader`, `partition_table` | `esp32` only: the second-stage boot loader and the partition table. |
 | | `firmware` | The truST firmware. |
@@ -3317,12 +3322,13 @@ project that needs a component it lacks, naming the chips whose files list it (A
 ### H.4 Measured and data-sheet values
 
 A value is the manufacturer's, from the documents in `sources.documents`, or truST's own choice
-(the layout, the firmware clock, the firmware and its components), unless `[sources]` says
-otherwise. `measured` lists the values that were read on a chip, and `measured_on` says on which
-device and when. `unchecked` lists manufacturer values that the repository's records do not yet
-confirm; a reviewer checks them against the documents before a tool relies on them. An entry is a
-key path such as `identity.device_id`. A path through an array of tables names that key in every
-entry (`memory.ram.dma`); a path to a table or an array names all of it.
+(the layout, the firmware clock, the firmware and its components, and the `[events]` default and
+maximum), unless `[sources]` says otherwise. `measured` lists the values that were read on a chip,
+and `measured_on` says on which device and when. `unchecked` lists manufacturer values that the
+repository's records do not yet confirm; a reviewer checks them against the documents before a tool
+relies on them. An entry is a key path such as `identity.device_id`. A path through an array of
+tables names that key in every entry (`memory.ram.dma`); a path to a table or an array names all of
+it.
 
 ### H.5 Rules
 
@@ -3355,6 +3361,8 @@ The reader refuses a file that breaks one of these rules:
 10. `sources.documents` is not empty. Every path in `measured` and `unchecked` names a key outside
     `[sources]`, and no path is listed twice or inside another listed path. `measured_on` is given,
     and not empty, exactly when `measured` is not empty.
+11. The event store's capacities form a range: 1 <= `default_capacity` <= `max_capacity` <=
+    1,000,000.
 
 ### H.6 Where the files are read
 

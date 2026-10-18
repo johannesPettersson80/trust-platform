@@ -29,6 +29,7 @@ use trust_runtime_core::watchdog::{FaultPolicy, RetainMode, WatchdogPolicy};
 use super::engine::{device_limits, CycleSettings, DeviceServices, EngineCycle, ProcessIo};
 use super::program::Program;
 use super::{ResourceCycle, RetainConfig, RetainSource, Runner};
+use crate::events::EVENT_STORE_CAPACITY;
 use crate::status::IoDriverStatus;
 use crate::tests::runner_ports::{
     ms, Fixture, IoStep, TestClock, TestIo, TestLink, TestPlatform, TestWait, CHIP_MEMORY,
@@ -294,6 +295,7 @@ impl RetainFixture {
             cycle,
             platform,
             self.clock.clone(),
+            EVENT_STORE_CAPACITY,
         )
     }
 

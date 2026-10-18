@@ -72,8 +72,48 @@ fn a_computer_runs_source_free_stbc_with_the_engine_maxima() {
                 max_construction_work: unbounded,
                 max_call_depth: u64::try_from(VM_MAX_CALL_DEPTH).unwrap(),
             },
+            event_store_default: 1_000,
+            event_store_max: 1_000_000,
             application_slot_bytes: None,
         }
+    );
+}
+
+#[test]
+fn admission_refuses_an_event_capacity_above_the_device_maximum() {
+    // Specification 34 §5.1.1, admission step 7: the record's section-7 event-store capacity,
+    // when it is not 0, may not be above the device's maximum; 0 keeps the device's default.
+    // Catches a check that is off by one, that measures the maximum in the wrong place, or that
+    // treats 0 as a capacity above the maximum.
+    let device = DeviceDescriptor {
+        event_store_max: 200,
+        ..DeviceDescriptor::hosted()
+    };
+    let mut record = record_of(PROGRAM, PreparationLimits::default());
+    record.configuration.event_capacity = 201;
+    let reason = refusal(admit(&record, PROGRAM, &device));
+    assert_eq!(
+        reason,
+        AdmissionRefusal::EventStore {
+            requested: 201,
+            maximum: 200,
+        }
+    );
+    assert_eq!(
+        reason.to_string(),
+        "the record requests an event store of 201 events, the device keeps at most 200"
+    );
+    record.configuration.event_capacity = 200;
+    assert_eq!(
+        admit(&record, PROGRAM, &device),
+        Ok(PreparationLimits::default()),
+        "a capacity at the maximum is admitted"
+    );
+    record.configuration.event_capacity = 0;
+    assert_eq!(
+        admit(&record, PROGRAM, &device),
+        Ok(PreparationLimits::default()),
+        "0 keeps the device's default"
     );
 }
 

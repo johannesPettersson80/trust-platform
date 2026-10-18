@@ -2404,10 +2404,12 @@ PORT-05 says; a reply that fits is the same bytes as on any other link.
 
 The event store keeps the newest `runtime.events.capacity` events, 1,000 when
 the project sets none on a computer; a device without an operating system takes
-its default from the device's chip file (specification 34, TARGET-03). The
-setting is an integer from 1 through 1,000,000 inclusive; another value or type
-is a configuration error, as for every other `runtime.toml` setting. A newer
-event displaces the oldest, and `events.tail` and `faults` answer at most what
+its default and its maximum from the device's chip file (specification 34,
+TARGET-03 and Appendix H), and admission refuses a project that sets more than
+the maximum. The setting is an integer from 1 through 1,000,000 inclusive;
+another value or type is a configuration error, as for every other
+`runtime.toml` setting. A newer event displaces the oldest, and `events.tail`
+and `faults` answer at most what
 the store holds within their own request limits above. `status` reports the
 store's capacity as `event_capacity`. A debug control with no event sender
 attached buffers events for callers that drain them directly, such as embedders

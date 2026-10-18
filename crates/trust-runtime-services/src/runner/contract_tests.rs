@@ -56,6 +56,38 @@ fn power_on_runs_the_program_and_scans_on_the_cycle_beat() {
 }
 
 #[test]
+fn the_runner_keeps_the_capacity_it_is_given() {
+    // Specification 11, the event store: the store keeps the newest `runtime.events.capacity`
+    // events and `status` reports that capacity as `event_capacity` (specification 34 §5.1.1,
+    // section 7 and Appendix H, where a device without an operating system takes it from its
+    // chip). Catches a runner that ignores the capacity it is given (keeping the computer's
+    // 1,000), that reports another number than it keeps, or that drops the newest event instead
+    // of the oldest.
+    let fixture = Fixture::board_probe();
+    let mut runner = fixture.runner_with_capacity(3);
+    // The first boundary is due at once; running it at 20 ms misses the task's 10 ms activation,
+    // so the one scan records exactly five events: the cycle's start and end, the overrun, and
+    // the task's start and end.
+    fixture.pass_at(&mut runner, 20);
+    let status = fixture.call(&mut runner, &request(1, "status"));
+    assert_eq!(status["result"]["event_capacity"], json!(3));
+    let events = fixture.call(
+        &mut runner,
+        &json!({"id": 2, "type": "events.tail", "params": {"limit": 10}}),
+    );
+    assert_eq!(
+        events["result"]["events"],
+        json!([
+            {"type": "cycle_end", "cycle": 0, "time_ns": 20_000_000},
+            {"type": "task_end", "name": "Scan", "priority": 0, "time_ns": 20_000_000},
+            {"type": "task_start", "name": "Scan", "priority": 0, "time_ns": 20_000_000},
+        ]),
+        "the store keeps the newest three of the scan's five events, so the overrun and the \
+         cycle's start have been dropped"
+    );
+}
+
+#[test]
 fn requests_are_served_between_scans_without_running_a_scan() {
     let fixture = Fixture::board_probe();
     let mut runner = fixture.runner();

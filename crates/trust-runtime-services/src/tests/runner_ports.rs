@@ -26,6 +26,7 @@ use trust_runtime_core::vm::{
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
 pub(crate) use super::runner_platform::TestPlatform;
+use crate::events::EVENT_STORE_CAPACITY;
 use crate::runner::engine::{
     device_limits, CycleSettings, DeviceMemory, DeviceServices, EngineCycle, ProcessIo,
 };
@@ -567,9 +568,29 @@ impl Fixture {
         runner
     }
 
+    /// A loop that has just started the program with an event store of `event_capacity`, with the
+    /// test platform; what the loop asked of the program at power-on is taken already.
+    pub(crate) fn runner_with_capacity(&self, event_capacity: usize) -> TestRunner<'_> {
+        let runner = self.power_on_with_capacity(TestPlatform::default(), event_capacity);
+        let _ = self.take_calls();
+        runner
+    }
+
     /// The program started on the shared engine cycle with the script's settings, as the
-    /// composition starts it at power-on, and the loop built at the clock's current time.
+    /// composition starts it at power-on, and the loop built at the clock's current time, with
+    /// the computer's default event store.
     pub(crate) fn power_on(&self, platform: TestPlatform) -> TestRunner<'_> {
+        self.power_on_with_capacity(platform, EVENT_STORE_CAPACITY)
+    }
+
+    /// The program started on the shared engine cycle with the script's settings, as the
+    /// composition starts it at power-on, and the loop built at the clock's current time with an
+    /// event store of `event_capacity`.
+    pub(crate) fn power_on_with_capacity(
+        &self,
+        platform: TestPlatform,
+        event_capacity: usize,
+    ) -> TestRunner<'_> {
         let settings = {
             let script = self.script.borrow();
             CycleSettings {
@@ -592,10 +613,12 @@ impl Fixture {
             cycle,
             platform,
             self.clock.clone(),
+            event_capacity,
         )
     }
 
-    /// A loop of a device without an installed program, for `reason`, with the test platform.
+    /// A loop of a device without an installed program, for `reason`, with the test platform and
+    /// the computer's default event store.
     pub(crate) fn without_program(&self, reason: &'static str) -> TestRunner<'_> {
         Runner::stopped(
             self.link.clone(),
@@ -603,6 +626,7 @@ impl Fixture {
             TestPlatform::default(),
             self.clock.clone(),
             SmolStr::new_static(reason),
+            EVENT_STORE_CAPACITY,
         )
     }
 

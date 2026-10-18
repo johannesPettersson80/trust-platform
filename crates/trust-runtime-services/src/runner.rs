@@ -53,7 +53,6 @@ pub use host::RunnerPlatform;
 pub use retain::RetainConfig;
 
 use crate::dispatch::{invalid_line, prepare_line_within, PreparedLine};
-use crate::events::EVENT_STORE_CAPACITY;
 use crate::protocol::ControlAfterResponse;
 use crate::resource::supervisor::AutomaticRestartLimiter;
 use host::RunnerHost;
@@ -119,16 +118,23 @@ where
     /// starts its scheduler: cold, or warm with the retain checkpoint ([`ResourceCycle::restart`]).
     /// The loop keeps a receive buffer of [`ControlLink::max_frame_len`] bytes, and its records,
     /// among them the 512 durations of the latest scans, in place: a firmware keeps it in static
-    /// memory or on the main stack.
+    /// memory or on the main stack. Its event store keeps the newest `event_capacity` events
+    /// (specification 11, the event store): a device without an operating system passes its
+    /// descriptor's default, or the capacity its deployment record requests.
     #[must_use]
-    pub fn new(link: L, wait: W, mut cycle: Y, platform: P, clock: C) -> Self {
+    pub fn new(
+        link: L,
+        wait: W,
+        mut cycle: Y,
+        platform: P,
+        clock: C,
+        event_capacity: usize,
+    ) -> Self {
         let tasks = cycle.tasks();
         let frame = vec![0; link.max_frame_len()];
         let start = clock.now();
         cycle.reset_task_timing(value::Duration::ZERO);
-        // The computer's default: a chip's event-store capacity comes from its chip file, which
-        // the device reads in a later slice (specification 34, TARGET-03).
-        let records = Records::new(clock.clone(), start, EVENT_STORE_CAPACITY);
+        let records = Records::new(clock.clone(), start, event_capacity);
         Self {
             link,
             wait,
@@ -154,13 +160,20 @@ where
     /// feeds the hardware watchdog, every request answers as while Stopped, and `restart` is
     /// refused with `no installed program: <reason>` until a program is installed.
     ///
-    /// The loop keeps its receive buffer and its records as [`Self::new`] does.
+    /// The loop keeps its receive buffer and its records as [`Self::new`] does, its event store
+    /// the newest `event_capacity` events.
     #[must_use]
-    pub fn stopped(link: L, wait: W, platform: P, clock: C, reason: SmolStr) -> Self {
+    pub fn stopped(
+        link: L,
+        wait: W,
+        platform: P,
+        clock: C,
+        reason: SmolStr,
+        event_capacity: usize,
+    ) -> Self {
         let frame = vec![0; link.max_frame_len()];
         let start = clock.now();
-        // As [`Self::new`]: the computer's default until the chip file carries the device's.
-        let records = Records::new(clock.clone(), start, EVENT_STORE_CAPACITY);
+        let records = Records::new(clock.clone(), start, event_capacity);
         Self {
             link,
             wait,

@@ -17,6 +17,8 @@ pub struct ChipFile {
     pub clock: Clock,
     /// Flash and RAM.
     pub memory: Memory,
+    /// The event store the chip allows.
+    pub events: Events,
     /// What the truST firmware places where in the flash.
     pub layout: Layout,
     /// The chip's peripherals.
@@ -192,6 +194,17 @@ impl RamRegion {
     pub fn end(&self) -> u64 {
         u64::from(self.start) + self.bytes()
     }
+}
+
+/// `[events]`: the event store a device without an operating system keeps (specification 34,
+/// Appendix H.2 and H.5; specification 11, the event store).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Events {
+    /// The newest events the store keeps when the project sets none.
+    pub default_capacity: u32,
+    /// The most a project may set.
+    pub max_capacity: u32,
 }
 
 /// `[layout]`: what the truST firmware places where in the flash. Addresses are bus addresses

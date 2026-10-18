@@ -45,6 +45,14 @@ start = 0x5000_0000
 kib = 16
 dma = false
 
+# The event store the chip's heap allows: the newest events the store keeps when the project sets
+# none, and the most a project may set (specification 34, Appendix H.2 and H.4; specification 11,
+# the event store). A larger maximum waits for a measurement of the heap a program leaves on the
+# bench.
+[events]
+default_capacity = 200
+max_capacity = 200
+
 # Flash offsets: the ESP-IDF image format puts the boot loader at 0x0 and the partition table at
 # 0x8000; the rest are the partitions of partitions.csv.
 [layout]

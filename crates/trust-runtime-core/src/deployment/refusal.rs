@@ -176,6 +176,13 @@ pub enum AdmissionRefusal {
         /// The device's maximum.
         maximum: u64,
     },
+    /// The record's section-7 event-store capacity is above the device's maximum.
+    EventStore {
+        /// The events the record requests.
+        requested: u32,
+        /// The events the device's store keeps at most.
+        maximum: u32,
+    },
     /// The program and its record do not fit in the device's application slot.
     ApplicationSlot {
         /// The bytes of the program and its record.
@@ -215,6 +222,11 @@ impl fmt::Display for AdmissionRefusal {
             } => write!(
                 formatter,
                 "the record requests {limit} {requested}, the device allows at most {maximum}"
+            ),
+            Self::EventStore { requested, maximum } => write!(
+                formatter,
+                "the record requests an event store of {requested} events, the device keeps at \
+                 most {maximum}"
             ),
             Self::ApplicationSlot { needed, available } => write!(
                 formatter,

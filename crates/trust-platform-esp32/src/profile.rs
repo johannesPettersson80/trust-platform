@@ -40,14 +40,15 @@ pub const STBC_BYTES: usize = 6112 * 1024;
 
 /// The device descriptor admission reads for the C6 (specification 34 §5.1.1, COMPAT-02 and
 /// TARGET-03): the STBC versions it prepares, its scheduling profile and numeric contract, its
-/// timing evidence, no platform capability, the maxima for each preparation limit, and its
-/// application slot.
+/// timing evidence, no platform capability, the maxima for each preparation limit, its event
+/// store's default and maximum, and its application slot.
 ///
-/// Appendix H has no maxima keys for the C6 yet ("Appendix H gains the keys for its maxima with
-/// the chip's firmware"), so the maxima are trust-runtime's hosted maxima until the chip file
-/// names them; the host test `the_device_descriptor_matches_the_chip_file` pins that and the
-/// application slot. The C6 has no wall clock until slice T6, so it supplies no capability and
-/// admission refuses a program that calls `CURRENT_DT`.
+/// Appendix H has no maxima keys for the preparation limits yet ("Appendix H gains the keys for
+/// its maxima with the chip's firmware"), so those maxima are trust-runtime's hosted maxima until
+/// the chip file names them; the host test `the_device_descriptor_matches_the_chip_file` pins
+/// that, the application slot and the event store. The event store's default and maximum are the
+/// `[events]` table of `chips/esp32c6.toml` (200 and 200). The C6 has no wall clock until slice
+/// T6, so it supplies no capability and admission refuses a program that calls `CURRENT_DT`.
 pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
     bytecode_versions: &[
         BytecodeVersion::SOURCE_FREE_V2,
@@ -73,6 +74,11 @@ pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
         max_construction_work: u64::MAX,
         max_call_depth: 1_024,
     },
+    // The `[events]` table of `chips/esp32c6.toml`: the C6's event store keeps 200 events by
+    // default and admits at most 200 until a measurement of the heap a program leaves on the
+    // bench allows more.
+    event_store_default: 200,
+    event_store_max: 200,
     // The `[layout] application` region of `chips/esp32c6.toml`: the flash from `STBC_OFFSET` to
     // the two checkpoint slots (owner decision O7).
     application_slot_bytes: Some(STBC_BYTES as u64),

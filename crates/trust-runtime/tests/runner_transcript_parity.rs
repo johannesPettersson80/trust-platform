@@ -34,6 +34,7 @@ use std::time::Duration as StdDuration;
 
 use serde_json::{json, Value};
 use trust_runtime::scheduler::ResourceState;
+use trust_runtime_services::events::EVENT_STORE_CAPACITY;
 use trust_runtime_services::runner::engine::DeviceServices;
 use trust_runtime_services::runner::Runner;
 
@@ -375,6 +376,7 @@ fn the_single_thread_loop_answers_the_transcript_exactly_as_the_threaded_host() 
         cycle,
         BoardPlatform::configured_as(&host),
         clock.clone(),
+        EVENT_STORE_CAPACITY,
     );
     let mut device = Device {
         runner,

@@ -30,7 +30,9 @@ use core::time::Duration as CoreDuration;
 use smol_str::SmolStr;
 use trust_platform_esp32::process_io::GpioIo;
 use trust_platform_esp32::{
-    emergency_halt, profile::STBC_BYTES, Board, Monotonic, Platform, UsbLink, Wait, Watchdog,
+    emergency_halt,
+    profile::{DEVICE_DESCRIPTOR, STBC_BYTES},
+    Board, Monotonic, Platform, UsbLink, Wait, Watchdog,
 };
 use trust_runtime_core::deployment::{Configuration, GpioInput, GpioOutput};
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
@@ -166,6 +168,7 @@ fn main() -> ! {
         cycle,
         platform,
         clock,
+        event_capacity(&config),
     ));
     let _ = runner.run();
     emergency_halt("runner")
@@ -222,6 +225,7 @@ fn serve_stopped(mut parts: Parts, reason: String) -> ! {
             platform,
             parts.clock,
             SmolStr::from(reason),
+            default_event_capacity(),
         ),
     );
     let _ = runner.run();
@@ -256,6 +260,22 @@ fn status_settings() -> StatusSettings {
 /// is zero, which keeps the hardware watchdog at its 4 s minimum (design §2.5).
 fn cycle_timeout_ms(config: &Configuration) -> u32 {
     u32::try_from(config.watchdog.timeout.as_millis().max(0)).unwrap_or(u32::MAX)
+}
+
+/// The newest events the event store keeps: the record's section-7 capacity, or the C6's default
+/// when the record sets none (0). Admission has already refused a capacity above the chip's
+/// maximum (specification 34 §5.1.1 step 7; specification 11, the event store).
+fn event_capacity(config: &Configuration) -> usize {
+    if config.event_capacity == 0 {
+        default_event_capacity()
+    } else {
+        usize::try_from(config.event_capacity).unwrap_or(usize::MAX)
+    }
+}
+
+/// The C6's default event-store capacity, from its descriptor (`chips/esp32c6.toml`).
+fn default_event_capacity() -> usize {
+    usize::try_from(DEVICE_DESCRIPTOR.event_store_default).unwrap_or(usize::MAX)
 }
 
 /// The record's `gpio` driver lines, in `io.toml` order. A driver other than `gpio` is refused

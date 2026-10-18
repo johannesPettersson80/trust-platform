@@ -1,8 +1,8 @@
 //! Reading a chip file and checking its rules (specification 34, Appendix H.1 and H.5).
 
 use crate::model::{
-    ChipFile, Clock, Component, Family, Firmware, Flash, Fpu, Gpio, Identity, Interfaces, Layout,
-    Memory, PortPins, Processor, RamRegion, SectorRun,
+    ChipFile, Clock, Component, Events, Family, Firmware, Flash, Fpu, Gpio, Identity, Interfaces,
+    Layout, Memory, PortPins, Processor, RamRegion, SectorRun,
 };
 use crate::{sources, ChipFileError, Problem};
 
@@ -10,6 +10,8 @@ use crate::{sources, ChipFileError, Problem};
 const ADDRESS_SPACE: u64 = 1 << 32;
 /// Bytes in a KiB.
 const KIB: u64 = 1024;
+/// The most a project may set for the event store (specification 34, Appendix H.5 rule 11).
+const EVENT_CAPACITY_LIMIT: u32 = 1_000_000;
 /// The port letters of the STM32F4 family, `A` first.
 const PORT_LETTERS: &str = "ABCDEFGHIJK";
 /// The most pins a port of the STM32F4 family has.
@@ -49,7 +51,23 @@ fn check(name: &str, chip: &ChipFile, table: &toml::Table) -> Result<(), Problem
     interfaces(&chip.interfaces)?;
     gpio(family, &chip.gpio)?;
     firmware(&chip.firmware)?;
-    sources::check(&chip.sources, table)
+    sources::check(&chip.sources, table)?;
+    events(chip.events)
+}
+
+/// Rule 11: the event store's capacities form a range within 1 and 1,000,000 (specification 34,
+/// Appendix H.5).
+fn events(events: Events) -> Result<(), Problem> {
+    if events.default_capacity == 0
+        || events.default_capacity > events.max_capacity
+        || events.max_capacity > EVENT_CAPACITY_LIMIT
+    {
+        return Err(Problem::EventStoreRange {
+            default_capacity: events.default_capacity,
+            max_capacity: events.max_capacity,
+        });
+    }
+    Ok(())
 }
 
 /// A text the format requires is not empty.
