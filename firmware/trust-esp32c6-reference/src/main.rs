@@ -34,7 +34,7 @@ use trust_platform_esp32::{
     profile::{DEVICE_DESCRIPTOR, STBC_BYTES},
     Board, Monotonic, Platform, UsbLink, Wait, Watchdog,
 };
-use trust_runtime_core::deployment::{Configuration, GpioInput, GpioOutput};
+use trust_runtime_core::deployment::{Configuration, ControlMode, GpioInput, GpioOutput};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
 use trust_runtime_core::value::Duration;
@@ -173,6 +173,7 @@ fn main() -> ! {
         config.resource_name.clone(),
         status_settings(),
         config.control_debug_enabled,
+        config.control_mode,
         live,
     );
     let mut runner = Box::new(Runner::new(
@@ -229,6 +230,9 @@ fn serve_stopped(mut parts: Parts, reason: String) -> ! {
         SmolStr::new_static("Controller"),
         status_settings(),
         false,
+        // A device that has not admitted an application has no record: it reports `production`,
+        // the record's default (specification 11 §6.9).
+        ControlMode::Production,
         EngineLiveValues::empty(),
     );
     // A Stopped loop holds no cycle, so its type is named: the cycle a program would run.
@@ -271,16 +275,24 @@ fn status_settings() -> StatusSettings {
 }
 
 /// The Live Values of the installed program `prepared` (specification 11, "Live Values";
-/// specification 34 §4.3.1): its process-image bindings and its retained declarations.
-///
-/// The chip holds no std, so its bindings are unnamed: `io.list` omits their names, as the
-/// shared snapshot does for a platform that does not name them.
+/// specification 34 §4.3.1): its process-image bindings, each named by its declared root/member
+/// path as trust-runtime names it, and its retained declarations.
 ///
 /// # Errors
 ///
-/// The [`RuntimeError`] of two retained declarations that project to one label.
+/// The [`RuntimeError`] of an admitted binding whose declared name cannot be resolved, and of two
+/// retained declarations that project to one label.
 fn live_values(prepared: &PreparedModule) -> Result<EngineLiveValues, RuntimeError> {
-    EngineLiveValues::for_prepared(prepared, alloc::vec![None; prepared.io_bindings().len()])
+    let names = prepared
+        .io_bindings()
+        .iter()
+        .map(|binding| {
+            prepared
+                .persistent_reference_name(binding.ref_idx)
+                .map(Some)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    EngineLiveValues::for_prepared(prepared, names)
 }
 
 /// The cycle watchdog timeout the record configures, in whole milliseconds; a disabled watchdog

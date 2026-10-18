@@ -13,7 +13,6 @@ pub(crate) mod call_plans;
 mod indexes;
 mod layouts;
 mod metadata;
-#[cfg(feature = "std")]
 mod reference_names;
 pub(crate) use budget::PreparationBudget;
 pub use budget::PreparationUsage;

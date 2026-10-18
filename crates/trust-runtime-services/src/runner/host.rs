@@ -6,6 +6,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
+use trust_runtime_core::deployment::ControlMode;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{Generation, InstanceId};
@@ -60,6 +61,13 @@ pub trait RunnerPlatform:
     /// Work between scans, for example servicing a communication driver; the loop runs it once
     /// per pass, and it must not wait. The default does nothing.
     fn idle(&mut self) {}
+
+    /// The control mode the platform's deployment record carries (specification 34 §5.1.1,
+    /// section 7; specification 11 §6.9): `runtime.control.mode` from the record's configuration.
+    /// A platform without a deployment record reports `production`, the record's default.
+    fn control_mode(&self) -> ControlMode {
+        ControlMode::Production
+    }
 }
 
 /// The ports the dispatcher reads and acts through while the loop serves a request.
@@ -102,9 +110,12 @@ impl<P: RunnerPlatform, Y, C> WallClock for RunnerHost<'_, P, Y, C> {
     }
 }
 
-/// The loop runs in production control mode: a pause holds the scan between cycles. The debugger
-/// hold of specification 13 is not part of the loop yet.
-impl<P, Y, C> ResourcePort for RunnerHost<'_, P, Y, C> {
+/// The resource loop's own resource. The control mode comes from the platform's deployment
+/// record, so `pause` and `resume` take trust-runtime's path for that mode (specification 11
+/// §6.9): the scheduler between cycles in production, the debugger in debug. The debugger hold of
+/// specification 13 is not part of the loop yet, so a debugger request reaches the loop's empty
+/// debugger operations.
+impl<P: RunnerPlatform, Y, C> ResourcePort for RunnerHost<'_, P, Y, C> {
     fn resource_state(&self) -> ResourceState {
         self.resource.state()
     }
@@ -127,7 +138,7 @@ impl<P, Y, C> ResourcePort for RunnerHost<'_, P, Y, C> {
     }
 
     fn debug_control_mode(&self) -> bool {
-        false
+        matches!(self.platform.control_mode(), ControlMode::Debug)
     }
 
     fn debugger_pause(&self) {}
@@ -177,13 +188,17 @@ impl<P: RunnerPlatform, Y: ResourceCycle, C> StatusPort for RunnerHost<'_, P, Y,
     }
 }
 
-impl<P, Y, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, Y, C> {
+impl<P: RunnerPlatform, Y, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, Y, C> {
     fn debug_hold(&self) -> Option<&'static str> {
         None
     }
 
     fn control_mode_label(&self) -> Option<String> {
-        Some(String::from("production"))
+        let label = match self.platform.control_mode() {
+            ControlMode::Production => "production",
+            ControlMode::Debug => "debug",
+        };
+        Some(String::from(label))
     }
 
     fn metrics_snapshot(&self) -> Option<RuntimeMetricsSnapshot> {

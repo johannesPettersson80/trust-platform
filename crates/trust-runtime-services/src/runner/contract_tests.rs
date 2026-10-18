@@ -3,12 +3,13 @@
 //! the board probe program on the real engine.
 
 use serde_json::{json, Value};
+use trust_runtime_core::deployment::ControlMode;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 
 use super::RetainSource;
-use crate::tests::runner_ports::{ms, CycleCall, Fixture};
+use crate::tests::runner_ports::{ms, CycleCall, Fixture, TestPlatform};
 
 fn request(id: u64, kind: &str) -> Value {
     json!({"id": id, "type": kind})
@@ -575,4 +576,51 @@ fn a_stop_drops_the_requests_before_it_and_a_restart_after_it_starts_the_program
             scan(0)
         ]
     );
+}
+
+#[test]
+fn the_device_runner_reports_the_records_control_mode() {
+    // Specification 11 §6.9: `runtime.control.mode` defaults to `production` and can be set to
+    // `debug`, and `status` reports its lower-case name as `control_mode`. Specification 34
+    // §5.1.1, section 7: a device takes the mode from its deployment record. Catches the bench's
+    // device runner, which reported `production` for a record that sets `debug`.
+    for (mode, label) in [
+        (ControlMode::Production, "production"),
+        (ControlMode::Debug, "debug"),
+    ] {
+        let fixture = Fixture::board_probe();
+        let platform = TestPlatform {
+            control_mode: mode,
+            ..TestPlatform::default()
+        };
+        let mut runner = fixture.runner_with(platform);
+        let status = fixture.call(&mut runner, &request(1, "status"));
+        assert_eq!(status["result"]["control_mode"], json!(label), "{mode:?}");
+    }
+}
+
+#[test]
+fn a_debug_mode_pause_on_the_device_runner_acts_as_trust_runtimes() {
+    // Specification 11 §6.9: in production mode `pause` and `resume` act on the resource
+    // scheduler, so a pause holds the scan between cycles; in debug mode a pause is a debugger
+    // hold and does not pause the scheduler. The device runner routes the request by the record's
+    // mode (specification 34 §5.1.1, section 7). Catches a device runner that treats every record
+    // as production and pauses the scheduler in debug mode, as the C6 bench's firmware did.
+    for (mode, reached) in [
+        (ControlMode::Debug, ResourceState::Running),
+        (ControlMode::Production, ResourceState::Paused),
+    ] {
+        let fixture = Fixture::board_probe();
+        let platform = TestPlatform {
+            control_mode: mode,
+            ..TestPlatform::default()
+        };
+        let mut runner = fixture.runner_with(platform);
+        fixture.pass_at(&mut runner, 0);
+        let _ = fixture.take_calls();
+        let paused = fixture.call_at(&mut runner, 2, &request(1, "pause"));
+        assert_eq!(paused["result"], json!({"status": "paused"}), "{mode:?}");
+        fixture.pass_at(&mut runner, 10);
+        assert_eq!(runner.resource_state(), reached, "{mode:?}");
+    }
 }

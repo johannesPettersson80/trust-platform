@@ -14,6 +14,7 @@ use core::time::Duration;
 
 use serde_json::json;
 use smol_str::SmolStr;
+use trust_runtime_core::deployment::ControlMode;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::ports::{
@@ -56,6 +57,8 @@ pub(crate) struct TestPlatform {
     pub(crate) live_values: Rc<EngineLiveValues>,
     /// The checkpoint store the platform supplies, or `None` when it has none.
     pub(crate) checkpoint: Option<CheckpointStore>,
+    /// The control mode the platform's deployment record carries, `production` by default.
+    pub(crate) control_mode: ControlMode,
 }
 
 impl Default for TestPlatform {
@@ -71,6 +74,7 @@ impl Default for TestPlatform {
             feeds: Rc::new(Cell::new(0)),
             live_values: Rc::new(EngineLiveValues::empty()),
             checkpoint: None,
+            control_mode: ControlMode::Production,
         }
     }
 }
@@ -192,6 +196,10 @@ impl CheckpointStorage for TestPlatform {
 impl RunnerPlatform for TestPlatform {
     fn live_values(&self) -> &EngineLiveValues {
         &self.live_values
+    }
+
+    fn control_mode(&self) -> ControlMode {
+        self.control_mode
     }
 
     fn idle(&mut self) {
