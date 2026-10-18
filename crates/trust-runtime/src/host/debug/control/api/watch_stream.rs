@@ -53,7 +53,7 @@ impl DebugControl {
         state.target_thread = None;
         state.breakpoint_stops_this_cycle.clear();
         state.pending_stop = (state.mode == DebugMode::Paused).then_some(DebugStopReason::Pause);
-        state.clear_runtime_mutations();
+        state.live_values.clear();
     }
 
     /// Returns whether watch values changed since the last stop, and resets the flag.

@@ -1,35 +1,24 @@
-use crate::io::{validate_process_image_address, IoAddress};
-use serde_json::json;
+//! The host's `io.*` handlers: they answer through the shared [`io_requests`] operations, which
+//! read the host's published snapshot and queue into the host's Live Values queues
+//! (specification 34, ARCH-11).
+//!
+//! The host keeps the lock around the snapshot slot and the queue state; every parameter check,
+//! refusal, error text and reply is the shared code's.
 
-use super::types::{IoAddressParams, IoSnapshotJson, IoWriteParams};
-use super::{parse_value, ControlResponse, ControlState};
+use trust_runtime_services::live_values::io_requests::{self, IoQueuePort};
+
+use super::{ControlResponse, ControlState};
 
 #[cfg(test)]
 #[path = "io_handlers/contract_tests.rs"]
 mod contract_tests;
 
 pub(super) fn handle_io_list(id: u64, state: &ControlState) -> ControlResponse {
-    let snapshot = match state.io_snapshot.lock() {
-        Ok(guard) => guard.clone(),
-        Err(_) => return ControlResponse::error(id, "I/O snapshot unavailable".into()),
-    };
-    match snapshot {
-        Some(snapshot) => ControlResponse::ok(id, snapshot.into_json()),
-        None => ControlResponse::error(id, "no snapshot available".into()),
-    }
+    io_requests::io_list(id, state.io_snapshot())
 }
 
 pub(super) fn handle_io_read(id: u64, state: &ControlState) -> ControlResponse {
-    let snapshot = match state.io_snapshot.lock() {
-        Ok(guard) => guard.clone(),
-        Err(_) => return ControlResponse::error(id, "I/O snapshot unavailable".into()),
-    };
-    ControlResponse::ok(
-        id,
-        json!({
-            "snapshot": snapshot.map(|snap| snap.into_json())
-        }),
-    )
+    io_requests::io_read(id, state.io_snapshot())
 }
 
 pub(super) fn handle_io_write(
@@ -37,28 +26,7 @@ pub(super) fn handle_io_write(
     params: Option<serde_json::Value>,
     state: &ControlState,
 ) -> ControlResponse {
-    let params: IoWriteParams = match params {
-        Some(value) => match serde_json::from_value(value) {
-            Ok(parsed) => parsed,
-            Err(err) => return ControlResponse::error(id, format!("invalid params: {err}")),
-        },
-        None => return ControlResponse::error(id, "missing params".into()),
-    };
-    let address = match IoAddress::parse(&params.address) {
-        Ok(addr) => addr,
-        Err(err) => return ControlResponse::error(id, err.to_string()),
-    };
-    if let Err(err) = validate_process_image_address(&address) {
-        return ControlResponse::error(id, err.to_string());
-    }
-    let value = match parse_value(&params.value) {
-        Ok(value) => value,
-        Err(err) => return ControlResponse::error(id, err.to_string()),
-    };
-    if let Err(error) = state.debug.try_enqueue_io_write(address, value) {
-        return ControlResponse::error(id, error.to_string());
-    }
-    ControlResponse::ok(id, json!({"status": "queued"}))
+    io_requests::io_write(id, params, state)
 }
 
 pub(super) fn handle_io_force(
@@ -66,28 +34,7 @@ pub(super) fn handle_io_force(
     params: Option<serde_json::Value>,
     state: &ControlState,
 ) -> ControlResponse {
-    let params: IoWriteParams = match params {
-        Some(value) => match serde_json::from_value(value) {
-            Ok(parsed) => parsed,
-            Err(err) => return ControlResponse::error(id, format!("invalid params: {err}")),
-        },
-        None => return ControlResponse::error(id, "missing params".into()),
-    };
-    let address = match IoAddress::parse(&params.address) {
-        Ok(addr) => addr,
-        Err(err) => return ControlResponse::error(id, err.to_string()),
-    };
-    if let Err(err) = validate_process_image_address(&address) {
-        return ControlResponse::error(id, err.to_string());
-    }
-    let value = match parse_value(&params.value) {
-        Ok(value) => value,
-        Err(err) => return ControlResponse::error(id, err.to_string()),
-    };
-    if let Err(error) = state.debug.try_force_io(address, value) {
-        return ControlResponse::error(id, error.to_string());
-    }
-    ControlResponse::ok(id, json!({"status": "forced"}))
+    io_requests::io_force(id, params, state)
 }
 
 pub(super) fn handle_io_unforce(
@@ -95,20 +42,5 @@ pub(super) fn handle_io_unforce(
     params: Option<serde_json::Value>,
     state: &ControlState,
 ) -> ControlResponse {
-    let params: IoAddressParams = match params {
-        Some(value) => match serde_json::from_value(value) {
-            Ok(parsed) => parsed,
-            Err(err) => return ControlResponse::error(id, format!("invalid params: {err}")),
-        },
-        None => return ControlResponse::error(id, "missing params".into()),
-    };
-    let address = match IoAddress::parse(&params.address) {
-        Ok(addr) => addr,
-        Err(err) => return ControlResponse::error(id, err.to_string()),
-    };
-    if let Err(err) = validate_process_image_address(&address) {
-        return ControlResponse::error(id, err.to_string());
-    }
-    state.debug.release_io(&address);
-    ControlResponse::ok(id, json!({"status": "released"}))
+    io_requests::io_unforce(id, params, state)
 }

@@ -15,6 +15,7 @@ use crate::access::{
     is_debug_request, required_role_for_control_request, stamp_credential_channel_param, AccessRole,
 };
 use crate::events::{wall_time, RuntimeEvent};
+use crate::live_values::{io_requests, var_requests};
 use crate::ports::{AuditRecord, ControlHost};
 use crate::protocol::{ControlAfterResponse, ControlRequest, ControlResponse};
 use crate::resource::operations;
@@ -179,6 +180,15 @@ fn route<H: ControlHost>(request: &ControlRequest, host: &H) -> Option<ControlRe
         "tasks.stats" => status::task_stats(id, host),
         "events.tail" | "events" => status::events_tail(id, request.params.as_ref(), host),
         "faults" => status::faults(id, request.params.as_ref(), host),
+        "io.list" => io_requests::io_list(id, host.io_snapshot()),
+        "io.read" => io_requests::io_read(id, host.io_snapshot()),
+        "io.write" => io_requests::io_write(id, request.params.clone(), host),
+        "io.force" => io_requests::io_force(id, request.params.clone(), host),
+        "io.unforce" => io_requests::io_unforce(id, request.params.clone(), host),
+        "set" => var_requests::set(id, request.params.clone(), host),
+        "var.force" => var_requests::var_force(id, request.params.clone(), host),
+        "var.unforce" => var_requests::var_unforce(id, request.params.clone(), host),
+        "var.forced" => var_requests::var_forced(id, host),
         "pause" => operations::pause(id, host),
         "resume" => operations::resume(id, host),
         "restart" => operations::restart(id, request.params.clone(), host),

@@ -38,22 +38,32 @@ use trust_runtime::settings::{
 };
 use trust_runtime::watchdog::{FaultPolicy, RetainMode, WatchdogPolicy};
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::io_address::IoAddress;
+use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::ports::{
     ControlLink, HardwareWatchdog, LinkFrame, MonotonicClock, MonotonicInstant, PeerClass,
     PortError, RunnerWait, TimeSpan, WakeReason, WakeToken, WallClock,
 };
 use trust_runtime_core::retain::{RestartMode, RetainSnapshot};
 use trust_runtime_core::value::Duration;
+use trust_runtime_core::value::Value as RuntimeValue;
 use trust_runtime_core::vm::{CycleHooks, PreparedModule, RetainApplyEvent, RuntimeState};
 use trust_runtime_services::access::{AccessRole, AuthFailure};
 use trust_runtime_services::dispatch::prepare_line;
 use trust_runtime_services::events::store_event;
+use trust_runtime_services::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
+use trust_runtime_services::live_values::queues::{
+    ForcedSnapshot, ForcedVarTarget, PendingVarTarget,
+};
+use trust_runtime_services::live_values::var_requests::VariableQueuePort;
+use trust_runtime_services::live_values::RequestQueueFull;
 use trust_runtime_services::ports::{
     AccessPort, AuditRecord, AuditSink, ExtensionDispatch, StatusPort,
 };
 use trust_runtime_services::protocol::{ControlAfterResponse, ControlRequest, ControlResponse};
 use trust_runtime_services::runner::{
-    resource_tasks, ResourceCycle, RetainSource, Runner, RunnerPlatform, TaskDescriptor,
+    resource_tasks, EngineLiveValues, ResourceCycle, RetainSource, Runner, RunnerPlatform,
+    TaskDescriptor,
 };
 use trust_runtime_services::status::{IoDriverStatus, StatusSettings};
 
@@ -131,6 +141,7 @@ pub struct HostComposition {
     pub state: Arc<ControlState>,
     handle: ResourceHandle<StdClock>,
     runtime_events: Receiver<RuntimeEvent>,
+    io_snapshots: Receiver<trust_runtime::io::IoSnapshot>,
     live_metrics: Arc<Mutex<RuntimeMetrics>>,
     scan_events: Vec<RuntimeEvent>,
     scan_task: bool,
@@ -154,6 +165,11 @@ impl HostComposition {
         runtime.set_io_health_sink(Some(Arc::clone(&io_health)));
         let (event_tx, runtime_events) = mpsc::channel();
         debug.set_runtime_sender(event_tx);
+        // The product publishes the host's I/O snapshots to its control state from a logger
+        // thread; the test moves them into the slot at each scan boundary instead, so `io.list`
+        // and `io.read` answer the last completed scan exactly as the device's do.
+        let (io_tx, io_snapshots) = mpsc::channel();
+        debug.set_io_sender(io_tx);
         let watchdog = runtime.watchdog_policy();
         let fault_policy = runtime.fault_policy();
         let metadata = Arc::new(Mutex::new(runtime.metadata_snapshot()));
@@ -215,6 +231,7 @@ impl HostComposition {
             state: Arc::new(state),
             handle,
             runtime_events,
+            io_snapshots,
             live_metrics,
             scan_events: Vec::new(),
             scan_task: false,
@@ -333,6 +350,15 @@ impl HostComposition {
             store_event(&mut store, event);
         }
         self.completed += 1;
+        // The scan's I/O snapshot is pushed before its `cycle_end`, so draining here publishes
+        // exactly the last completed scan, as the product's snapshot thread does a scan late.
+        let mut latest = None;
+        while let Ok(snapshot) = self.io_snapshots.try_recv() {
+            latest = Some(snapshot);
+        }
+        if let Some(snapshot) = latest {
+            *self.state.io_snapshot.lock().expect("io snapshot slot") = Some(snapshot);
+        }
     }
 
     /// Waits for the stopped scan thread to end.
@@ -487,6 +513,22 @@ pub fn prepare_board_probe() -> PreparedModule {
     PreparedModule::from_bytes(GPIO, limits()).expect("the board fixture admits the board probe")
 }
 
+/// The declared name of every admitted process-image binding, in `prepared.io_bindings()` order,
+/// as trust-runtime's hosted snapshot names it.
+pub fn binding_names(prepared: &PreparedModule) -> Vec<Option<SmolStr>> {
+    prepared
+        .io_bindings()
+        .iter()
+        .map(|binding| {
+            Some(
+                prepared
+                    .persistent_reference_name(binding.ref_idx)
+                    .expect("an admitted binding has a declared name"),
+            )
+        })
+        .collect()
+}
+
 impl ResourceCycle for BoardCycle<'_> {
     fn tasks(&self) -> Vec<TaskDescriptor> {
         resource_tasks(self.prepared, 0)
@@ -562,13 +604,18 @@ impl ResourceCycle for BoardCycle<'_> {
 pub struct BoardPlatform {
     host: Arc<ControlState>,
     audits: Cell<u64>,
+    /// The device's own Live Values: the queues the runner applies and the snapshot it publishes,
+    /// so the device writes, forces and releases as trust-runtime does instead of borrowing the
+    /// host's answers.
+    live: Rc<EngineLiveValues>,
 }
 
 impl BoardPlatform {
-    pub fn configured_as(host: &HostComposition) -> Self {
+    pub fn configured_as(host: &HostComposition, live: Rc<EngineLiveValues>) -> Self {
         Self {
             host: Arc::clone(&host.state),
             audits: Cell::new(0),
+            live,
         }
     }
 }
@@ -647,7 +694,74 @@ impl HardwareWatchdog for BoardPlatform {
     fn feed(&mut self) {}
 }
 
-impl RunnerPlatform for BoardPlatform {}
+/// The device answers the Live Values operations from its own queues and published snapshot, which
+/// the runner applies and publishes, so its `io.*`, `set` and `var.*` answers are trust-runtime's
+/// without borrowing them.
+impl IoQueuePort for BoardPlatform {
+    fn io_snapshot(&self) -> IoSnapshotRead {
+        self.live.io_snapshot()
+    }
+
+    fn enqueue_io_write(
+        &self,
+        address: IoAddress,
+        value: RuntimeValue,
+    ) -> Result<(), RequestQueueFull> {
+        self.live.enqueue_io_write(address, value)
+    }
+
+    fn force_io(&self, address: IoAddress, value: RuntimeValue) -> Result<(), RequestQueueFull> {
+        self.live.force_io(address, value)
+    }
+
+    fn release_io(&self, address: &IoAddress) {
+        self.live.release_io(address);
+    }
+}
+
+impl VariableQueuePort for BoardPlatform {
+    fn generation(&self) -> Generation {
+        self.live.generation()
+    }
+
+    fn enqueue_var_write(
+        &self,
+        target: PendingVarTarget,
+        value: RuntimeValue,
+    ) -> Result<(), RequestQueueFull> {
+        self.live.enqueue_var_write(target, value)
+    }
+
+    fn force_var(
+        &self,
+        target: ForcedVarTarget,
+        value: RuntimeValue,
+    ) -> Result<(), RequestQueueFull> {
+        self.live.force_var(target, value)
+    }
+
+    fn release_global(&self, name: &str) {
+        self.live.release_global(name);
+    }
+
+    fn release_retain(&self, name: &str) {
+        self.live.release_retain(name);
+    }
+
+    fn release_instance(&self, instance: InstanceId, name: &str) {
+        self.live.release_instance(instance, name);
+    }
+
+    fn forced_snapshot(&self) -> ForcedSnapshot {
+        self.live.forced_snapshot()
+    }
+}
+
+impl RunnerPlatform for BoardPlatform {
+    fn live_values(&self) -> &EngineLiveValues {
+        &self.live
+    }
+}
 
 /// The single-thread loop of the device composition.
 pub type DeviceRunner<'a> =

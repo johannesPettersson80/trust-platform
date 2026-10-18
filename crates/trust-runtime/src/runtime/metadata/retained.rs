@@ -1,63 +1,23 @@
-//! Indexed retained-label projection; live instance identities are resolved on use.
+//! Retained-label projection over the shared Live Values module; the labels themselves are built
+//! and resolved by `trust_runtime_services::live_values::retained_names` (specification 11,
+//! "Live Values"; specification 34 §4.3.1).
 use super::{RuntimeMetadata, SmolStr, VariableStorage};
-use crate::value::{Value, ValueRef};
-use std::hash::{Hash, Hasher};
+use crate::value::ValueRef;
+use trust_runtime_services::live_values::retained_names::{self as shared, RetainedNames};
 
-#[derive(Debug, Clone)]
-pub(in crate::runtime) struct RetainedLabel(pub(in crate::runtime) SmolStr);
-#[derive(Debug, Clone)]
-pub(in crate::runtime) struct RetainedBinding {
-    pub(in crate::runtime) root: Option<SmolStr>,
-    pub(in crate::runtime) name: SmolStr,
-}
-struct LabelQuery<'a>(&'a str);
-fn hash_label(name: &str, state: &mut impl Hasher) {
-    for byte in name.bytes() {
-        state.write_u8(byte.to_ascii_uppercase());
-    }
-    state.write_u8(0xff);
-}
-impl Hash for RetainedLabel {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        hash_label(&self.0, state);
-    }
-}
-impl PartialEq for RetainedLabel {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.eq_ignore_ascii_case(&other.0)
-    }
-}
-impl Eq for RetainedLabel {}
-impl Hash for LabelQuery<'_> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        hash_label(self.0, state);
-    }
-}
-impl indexmap::Equivalent<RetainedLabel> for LabelQuery<'_> {
-    fn equivalent(&self, key: &RetainedLabel) -> bool {
-        self.0.eq_ignore_ascii_case(&key.0)
-    }
-}
-impl RetainedBinding {
-    fn resolve(&self, storage: &VariableStorage) -> Option<ValueRef> {
-        match &self.root {
-            Some(root) => {
-                let Value::Instance(id) = storage.get_global(root)? else {
-                    return None;
-                };
-                storage.ref_for_instance(*id, &self.name)
-            }
-            None => storage.ref_for_global(&self.name),
-        }
-    }
-}
+pub(crate) use trust_runtime_services::live_values::retained_names::{
+    RetainedBinding, RetainedLabel,
+};
+
 impl RuntimeMetadata {
-    /// Resolve a declared retained label without allocating or scanning other
-    /// declarations. No cached live instance ID survives a restart/replacement.
+    /// The retained labels of this installation, as the shared Live Values apply consumes them.
+    pub(crate) fn retained_names(&self) -> &RetainedNames {
+        &self.retained_bindings
+    }
+    /// Resolve a declared retained label without allocating or scanning other declarations. No
+    /// cached live instance ID survives a restart/replacement (specification 11, "Live Values").
     pub fn retained_reference(&self, storage: &VariableStorage, name: &str) -> Option<ValueRef> {
-        self.retained_bindings
-            .get(&LabelQuery(name))?
-            .resolve(storage)
+        shared::retained_reference(&self.retained_bindings, storage, name)
     }
     /// Preserve the control protocol's exact-name snapshot lookup.
     pub fn retained_reference_exact(
@@ -65,21 +25,11 @@ impl RuntimeMetadata {
         storage: &VariableStorage,
         name: &str,
     ) -> Option<ValueRef> {
-        let (label, binding) = self.retained_bindings.get_key_value(&LabelQuery(name))?;
-        (label.0.as_str() == name)
-            .then(|| binding.resolve(storage))
-            .flatten()
+        shared::retained_reference_exact(&self.retained_bindings, storage, name)
     }
     /// Project retained global/program destinations in stable declaration order.
     /// This allocating list is for presentation only, never single cycle writes.
     pub fn retained_references(&self, storage: &VariableStorage) -> Vec<(SmolStr, ValueRef)> {
-        self.retained_bindings
-            .iter()
-            .filter_map(|(label, binding)| {
-                binding
-                    .resolve(storage)
-                    .map(|reference| (label.0.clone(), reference))
-            })
-            .collect()
+        shared::retained_references(&self.retained_bindings, storage)
     }
 }

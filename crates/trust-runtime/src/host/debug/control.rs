@@ -14,6 +14,11 @@ use crate::memory::{FrameId, Generation, InstanceId};
 use crate::program_model::{Expr, LValue};
 use crate::value::Value;
 
+use trust_runtime_services::live_values::{
+    ForcedSnapshot, ForcedVarTarget, LiveValueQueues, PendingLValueWrite, PendingVarTarget,
+    PendingVarWrite, RequestQueueFull,
+};
+
 use super::breakpoints::{matches_breakpoint, BreakpointCycleKey};
 use super::hook::{DebugHook, DebugRuntimeContext};
 use super::trace::trace_debug;

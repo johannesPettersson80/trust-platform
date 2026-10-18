@@ -1,6 +1,7 @@
 //! The platform of the resource loop's contract tests: access rights with an optional control
 //! token, an audit sink that numbers its records, a wall clock that may be unset, fixed status
-//! values, one platform operation and a hardware watchdog that counts its feeds.
+//! values, one platform operation, a hardware watchdog that counts its feeds and the Live Values
+//! queues the loop answers the `io.*`, `set` and `var.*` operations from.
 
 use alloc::format;
 use alloc::rc::Rc;
@@ -11,13 +12,20 @@ use core::time::Duration;
 
 use serde_json::json;
 use smol_str::SmolStr;
+use trust_runtime_core::io_address::IoAddress;
+use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::ports::{HardwareWatchdog, TimeSpan, WallClock};
+use trust_runtime_core::value::Value;
 
 use super::runner_ports::{ms, TestWait};
 use crate::access::{resolve_role, AccessRole, AuthFailure};
+use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
+use crate::live_values::queues::{ForcedSnapshot, ForcedVarTarget, PendingVarTarget};
+use crate::live_values::var_requests::VariableQueuePort;
+use crate::live_values::RequestQueueFull;
 use crate::ports::{AccessPort, AuditRecord, AuditSink, ExtensionDispatch, StatusPort};
 use crate::protocol::{ControlRequest, ControlResponse};
-use crate::runner::RunnerPlatform;
+use crate::runner::{EngineLiveValues, RunnerPlatform};
 use crate::status::{IoDriverStatus, StatusSettings};
 
 /// The longest wait between two feeds of the hardware watchdog, unless a test sets its own.
@@ -35,6 +43,10 @@ pub(crate) struct TestPlatform {
     pub(crate) feed_interval: Duration,
     /// The watchdog's feeds; a test keeps a clone to read them.
     pub(crate) feeds: Rc<Cell<u32>>,
+    /// The Live Values the runner applies and the shared `io.*`, `set` and `var.*` operations
+    /// answer from: the queues and the published snapshot. The fixture replaces it with the one
+    /// built from the prepared board probe.
+    pub(crate) live_values: Rc<EngineLiveValues>,
 }
 
 impl Default for TestPlatform {
@@ -48,6 +60,7 @@ impl Default for TestPlatform {
             extension_calls: RefCell::new(Vec::new()),
             feed_interval: ms(FEED_INTERVAL_MS),
             feeds: Rc::new(Cell::new(0)),
+            live_values: Rc::new(EngineLiveValues::empty()),
         }
     }
 }
@@ -144,10 +157,66 @@ impl HardwareWatchdog for TestPlatform {
 }
 
 impl RunnerPlatform for TestPlatform {
+    fn live_values(&self) -> &EngineLiveValues {
+        &self.live_values
+    }
+
     fn idle(&mut self) {
         self.idle_passes.set(self.idle_passes.get() + 1);
         if let Some(wait) = &self.wake_during_idle {
             wait.wake();
         }
+    }
+}
+
+impl IoQueuePort for TestPlatform {
+    fn io_snapshot(&self) -> IoSnapshotRead {
+        self.live_values.io_snapshot()
+    }
+
+    fn enqueue_io_write(&self, address: IoAddress, value: Value) -> Result<(), RequestQueueFull> {
+        self.live_values.enqueue_io_write(address, value)
+    }
+
+    fn force_io(&self, address: IoAddress, value: Value) -> Result<(), RequestQueueFull> {
+        self.live_values.force_io(address, value)
+    }
+
+    fn release_io(&self, address: &IoAddress) {
+        self.live_values.release_io(address);
+    }
+}
+
+impl VariableQueuePort for TestPlatform {
+    fn generation(&self) -> Generation {
+        self.live_values.generation()
+    }
+
+    fn enqueue_var_write(
+        &self,
+        target: PendingVarTarget,
+        value: Value,
+    ) -> Result<(), RequestQueueFull> {
+        self.live_values.enqueue_var_write(target, value)
+    }
+
+    fn force_var(&self, target: ForcedVarTarget, value: Value) -> Result<(), RequestQueueFull> {
+        self.live_values.force_var(target, value)
+    }
+
+    fn release_global(&self, name: &str) {
+        self.live_values.release_global(name);
+    }
+
+    fn release_retain(&self, name: &str) {
+        self.live_values.release_retain(name);
+    }
+
+    fn release_instance(&self, instance: InstanceId, name: &str) {
+        self.live_values.release_instance(instance, name);
+    }
+
+    fn forced_snapshot(&self) -> ForcedSnapshot {
+        self.live_values.forced_snapshot()
     }
 }

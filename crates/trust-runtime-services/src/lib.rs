@@ -4,9 +4,11 @@
 //! [`protocol`] holds the control connection's request and response envelope, [`access`] its
 //! access rights and [`dispatch`] the request pipeline. [`status`], [`events`], [`metrics`] and
 //! [`resource`] answer the status, event and resource operations and hold the supervisor's
-//! decisions. [`ports`] names what a platform supplies. [`runner`] is the single-thread resource
-//! loop of a device without an operating system. Transports, threads, files, clocks and host
-//! state stay in the platform that composes these services.
+//! decisions. [`live_values`] holds the queues of pending writes and active forces that a control
+//! surface applies at the next cycle boundary. [`ports`] names what a platform supplies.
+//! [`runner`] is the single-thread resource loop of a device without an operating system.
+//! Transports, threads, files, clocks and host state stay in the platform that composes these
+//! services.
 
 #![no_std]
 #![forbid(unsafe_code)]
@@ -19,6 +21,7 @@ pub mod access;
 pub mod dispatch;
 pub mod events;
 pub mod execution_backend;
+pub mod live_values;
 pub mod metrics;
 pub mod ports;
 pub mod protocol;
