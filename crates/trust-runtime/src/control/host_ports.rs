@@ -25,10 +25,11 @@ use trust_runtime_services::live_values::RequestQueueFull;
 use trust_runtime_services::metrics::RuntimeMetricsSnapshot;
 use trust_runtime_services::ports::{
     AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl, RecordsPort,
-    ResourcePort, StatusPort,
+    ResourcePort, StatusPort, TransferSessionError,
 };
 use trust_runtime_services::resource::commands::CommandSendError;
 use trust_runtime_services::status::{IoDriverStatus, StatusSettings};
+use trust_runtime_services::transfer::TransferSession;
 
 use crate::config::ControlMode;
 use crate::debug::ControlAction;
@@ -233,6 +234,18 @@ impl RecordsPort for ControlState {
         let events = self.events.lock().ok()?;
         let store: &VecDeque<RuntimeEvent> = &events;
         Some(read(store))
+    }
+
+    /// The process's transfer session. A session whose lock is poisoned cannot be used, so the
+    /// transfer operations answer `transfer session unavailable`, as the other values do.
+    fn with_transfers<R>(
+        &self,
+        use_session: impl FnOnce(&mut TransferSession) -> R,
+    ) -> Result<R, TransferSessionError> {
+        match self.transfers.lock() {
+            Ok(mut session) => Ok(use_session(&mut session)),
+            Err(_) => Err(TransferSessionError::Unavailable),
+        }
     }
 }
 

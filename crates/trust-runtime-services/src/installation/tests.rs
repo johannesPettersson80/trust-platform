@@ -1,8 +1,9 @@
-//! The `TRSTA001` container's checks (specification 34 §5.1).
+//! The `TRSTA001` and `TRSTA002` containers' checks (specification 34 §5.1).
 //!
 //! The container bytes are worked out by hand: the program is `[1, 2, 3]` at offset 52, the
 //! record is `[0xaa, 0xbb]` at offset 55, the total length is 57, and the CRC-32 values are
-//! CRC-32/ISO-HDLC.
+//! CRC-32/ISO-HDLC. A `TRSTA002` container of the same payloads starts them at offset 60 and is
+//! 65 bytes long.
 
 use alloc::vec;
 use alloc::vec::Vec;
@@ -17,7 +18,10 @@ use trust_runtime_core::deployment::{
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::vm::PreparationLimits;
 
-use super::{admit, decode, encode, AdmissionError, InstallationError};
+use super::{
+    admit, committed_header, decode, decode_sequenced, encode, encode_sequenced, set_sequence,
+    AdmissionError, InstallationError, SequencedHeader,
+};
 
 /// The program `[1, 2, 3]` and the record `[0xaa, 0xbb]` in a version-1 container, byte for byte.
 ///
@@ -286,4 +290,94 @@ fn a_container_whose_record_is_unreadable_is_refused_by_the_record_step() {
         admit(&container, &chip(6112 * 1024)),
         Err(AdmissionError::Record(DeploymentRecordError::Magic))
     );
+}
+
+/// A `TRSTA002` container of `PROGRAM` and its record, written with the install sequence `sequence`.
+fn sequenced_container(sequence: u64) -> Vec<u8> {
+    let record = record_of(PROGRAM).encode().expect("the record encodes");
+    encode_sequenced(sequence, PROGRAM, &record).expect("the container encodes")
+}
+
+#[test]
+fn a_trsta002_container_holds_its_sequence_at_byte_16_and_its_payloads_from_byte_60() {
+    // Specification 34 §5.1: the install sequence is the eight bytes at offset 16, the entry count
+    // is at 24, and the payloads start at byte 60. Worked out by hand: 60 header bytes, 3 program
+    // bytes and 2 record bytes make 65 bytes. Catches a header one field too long or too short.
+    let bytes = encode_sequenced(5, &[1, 2, 3], &[0xaa, 0xbb]).expect("the container encodes");
+    assert_eq!(bytes.len(), 65);
+    assert_eq!(&bytes[0..8], b"TRSTA002");
+    assert_eq!(&bytes[16..24], &5u64.to_le_bytes());
+    assert_eq!(&bytes[24..28], &2u32.to_le_bytes());
+    assert_eq!(&bytes[60..63], &[1, 2, 3]);
+    let decoded = decode_sequenced(&bytes).expect("the container decodes");
+    assert_eq!(decoded.sequence, 5);
+    assert_eq!(decoded.installed.program, &[1, 2, 3]);
+    assert_eq!(decoded.installed.record, &[0xaa, 0xbb]);
+}
+
+#[test]
+fn the_header_crc_covers_the_sequence() {
+    // Specification 34 §5.1 and DEPLOY-03: the header CRC-32 covers the install sequence, so a
+    // sequence bit that changes fails the header check, and the container is not taken for the one
+    // written. Catches a sequence left outside the CRC, which would let a damaged slot select
+    // another sequence.
+    let mut bytes = sequenced_container(2);
+    assert_eq!(
+        decode_sequenced(&bytes)
+            .expect("the container decodes")
+            .sequence,
+        2
+    );
+    bytes[16] ^= 1;
+    assert!(matches!(
+        decode_sequenced(&bytes),
+        Err(InstallationError::HeaderChecksum)
+    ));
+}
+
+#[test]
+fn the_sequence_is_written_under_a_fresh_header_crc() {
+    // Specification 34 §5.1: the device gives each commit its sequence, written into the header
+    // under a fresh header CRC-32, so the payloads decode as before. Catches a sequence written
+    // without its CRC, which the check would refuse as a header fault.
+    let mut bytes = sequenced_container(0);
+    set_sequence(&mut bytes, 7).expect("the sequence is set");
+    let decoded = decode_sequenced(&bytes).expect("the container with sequence 7 decodes");
+    assert_eq!(decoded.sequence, 7);
+    assert_eq!(decoded.installed.program, PROGRAM);
+}
+
+#[test]
+fn a_slot_header_is_committed_only_with_its_magic_crc_and_length() {
+    // Specification 34 §5.1: a slot is committed when its magic reads TRSTA002, its header CRC-32
+    // matches and its total length lies inside the slot. The container is 65 bytes long, so a
+    // slot of 64 bytes does not hold it and a slot of 65 bytes does. Catches a length check that is
+    // off by one, or a damaged header or a version-1 magic taken for a committed container.
+    let bytes = encode_sequenced(5, &[1, 2, 3], &[0xaa, 0xbb]).expect("the container encodes");
+    let header = SequencedHeader {
+        total_len: 65,
+        sequence: 5,
+    };
+    assert_eq!(committed_header(&bytes[..60], 65), Some(header));
+    assert_eq!(committed_header(&bytes[..60], 64), None);
+    let mut damaged = bytes.clone();
+    damaged[16] ^= 1;
+    assert_eq!(committed_header(&damaged[..60], 65), None);
+    let version_one = encode(&[0; 10], &[0; 4]).expect("the container encodes");
+    assert_eq!(committed_header(&version_one[..60], 1000), None);
+}
+
+#[test]
+fn a_trsta001_container_still_reads() {
+    // Specification 34 §5.1: the firmware reads TRSTA001 until it switches to the program store, so
+    // the version-1 container still decodes to its payloads, and the version-2 reader refuses it as
+    // no program. Catches a shared layout that moves the version-1 entries, or one that takes the
+    // version-1 magic for version 2.
+    let installed = decode(&CONTAINER).expect("the hand-built container decodes");
+    assert_eq!(installed.program, &[1, 2, 3]);
+    assert_eq!(installed.record, &[0xaa, 0xbb]);
+    assert!(matches!(
+        decode_sequenced(&CONTAINER),
+        Err(InstallationError::NoProgram)
+    ));
 }

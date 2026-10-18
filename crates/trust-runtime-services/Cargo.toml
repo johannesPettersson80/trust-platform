@@ -13,6 +13,9 @@ serde = { version = "1.0.229", default-features = false, features = ["derive", "
 serde_json = { version = "1.0.152", default-features = false, features = ["alloc"] }
 indexmap.workspace = true
 smol_str = { workspace = true }
+# The standard base64 of a part's data and of a reply's data (specification 34, PORT-05), with
+# alloc only: the chips build this crate without std. The version is the one Cargo.lock locks.
+base64 = { version = "0.23.1", default-features = false, features = ["alloc"] }
 # The engine's records: resource state, restart mode, watchdog and fault policies, durations and
 # runtime errors. The workspace entry builds the core without std.
 trust-runtime-core = { workspace = true }

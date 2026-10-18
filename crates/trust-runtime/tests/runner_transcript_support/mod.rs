@@ -189,6 +189,7 @@ impl HostComposition {
             None, &sources,
         )));
         let state = ControlState {
+            transfers: trust_runtime::control::new_transfer_session(),
             debug,
             resource: handle.control(),
             metadata,

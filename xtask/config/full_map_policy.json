@@ -3174,7 +3174,7 @@
       },
       {
         "path": "firmware/trust-stm32u5a9/src/main.rs",
-        "line": 298,
+        "line": 300,
         "owner": "runtime portability STM32U5A9 (S1b-9u)",
         "invariant": "The Cortex-M exception ABI is required by cortex-m-rt. HardFault never returns: it runs the terminal fault path, which masks interrupts and resets the chip.",
         "test_evidence": "The fault path is proved on the bench (S1b-9u); no host test raises an exception.",
@@ -3222,7 +3222,7 @@
       },
       {
         "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
-        "line": 183,
+        "line": 184,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
         "invariant": "read_volatile reads the three words of the chip's read-only 96-bit unique ID at 0x0BFA_0700 (design §2.5), in address order, and writes nothing.",
         "test_evidence": "The serial text the words build is host-tested (tests/usb_descriptors.rs); the read is proved on the bench (S1b-9u).",
@@ -3230,7 +3230,7 @@
       },
       {
         "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
-        "line": 226,
+        "line": 227,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
         "invariant": "the read-modify-write touches only the RXFLVLM bit of OTG_HS GINTMSK and runs under the critical section every caller holds; the USB driver writes GINTMSK only in its enable, before the device exists.",
         "test_evidence": "The pass that chooses the value is host-tested (tests/usb_service.rs, a_full_link_leaves_the_packet_with_the_port); the register write is proved on the bench (S1b-9u).",
@@ -3262,7 +3262,7 @@
       },
       {
         "path": "crates/trust-platform-stm32u5/src/usb.rs",
-        "line": 207,
+        "line": 227,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
         "invariant": "the OTG_HS trait values are the chip's: the register block at 0x4204_0000, a 4 KiB FIFO of 1024 words, nine device endpoints, the 160 MHz AHB clock and the on-chip high-speed PHY, driven at full speed with HIGH_SPEED false (design §2.1 and §2.2; PAC DIEPCTL0 to DIEPCTL8).",
         "test_evidence": "Host test the_otg_hs_block_is_at_0x4204_0000_with_4_kib_of_fifo_and_nine_endpoints pins the constants, and tests/usb_phy.rs pins the PHY values; the driver's use of them is proved on the bench (S1b-9u).",
@@ -3270,7 +3270,7 @@
       },
       {
         "path": "crates/trust-platform-stm32u5/src/usb.rs",
-        "line": 224,
+        "line": 244,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
         "invariant": "the RCC read-modify-writes set only OTGEN (bit 14) and USBPHYCEN (bit 15) in RCC_AHB2ENR1, and SYSCFGEN (bit 1) in RCC_APB3ENR, so the OTG_HS, PHY and SYSCFG clocks run before the USB core is configured (PAC 0.16.0 field descriptions; stm32u5a9xx.h).",
         "test_evidence": "The clock enables are proved on the bench (S1b-9u); RM0456's USB section owns the order, which is unverified here (design §2.2).",
@@ -3278,7 +3278,7 @@
       },
       {
         "path": "crates/trust-platform-stm32u5/src/usb.rs",
-        "line": 228,
+        "line": 248,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
         "invariant": "the PWR read-modify-writes set only USV (PWR_SVMCR bit 28) and USBPWREN and USBBOOSTEN (PWR_VOSR bits 19 and 20), the USB supply, before the USB core is configured (PAC 0.16.0 field descriptions).",
         "test_evidence": "The supply sequence is proved on the bench (S1b-9u); RM0456's USB section owns the order, which is unverified here (design §2.2).",
@@ -3286,7 +3286,7 @@
       },
       {
         "path": "crates/trust-platform-stm32u5/src/usb.rs",
-        "line": 259,
+        "line": 279,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
         "invariant": "SYSCFG is the chip's own register block (PAC 0.16.0), and its clock is on since enable; the two writes below touch only OTGHSPHYCR, first CLKSEL and then EN, in ST's order (stm32u5xx_hal.c, lines 1002 and 1030).",
         "test_evidence": "The reference codes are host-tested (tests/usb_phy.rs, the_phy_reference_codes_are_st_s); the register writes are proved on the bench (S1b-9u).",
@@ -3294,7 +3294,7 @@
       },
       {
         "path": "crates/trust-platform-stm32u5/src/usb.rs",
-        "line": 262,
+        "line": 282,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
         "invariant": "CLKSEL takes HSE_PHY_CLKSEL, the code of the board's 16 MHz HSE (0b0011, ST's SYSCFG_OTG_HS_PHY_CLK_SELECT_1). It is a compile-time constant, so a frequency with no code does not build.",
         "test_evidence": "the_phy_reference_codes_are_st_s pins the code; the write is proved on the bench (S1b-9u).",

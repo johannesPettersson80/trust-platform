@@ -193,3 +193,47 @@ fn a_reload_claim_is_taken_or_withdrawn_exactly_once() {
     assert!(!taken.withdraw(), "a taken reload is never withdrawn");
     assert!(!taken.take(), "a reload is taken only once");
 }
+
+#[test]
+fn bytecode_reload_with_bytes_replies_exactly_as_before() {
+    // The reply of `bytecode.reload` is the same JSON on every runtime, byte for byte. The request
+    // pipeline adds a random audit id to a reply, so the handler's own reply is compared here.
+    use base64::Engine as _;
+    let harness = crate::harness::TestHarness::from_source(RELOAD_WITHDRAWAL_BEFORE)
+        .expect("compile the current program");
+    let bytes = crate::harness::bytecode_bytes_from_source(RELOAD_WITHDRAWAL_AFTER)
+        .expect("compile the replacement");
+    let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    let (state, handle) = concurrent_control_state(RELOAD_WITHDRAWAL_BEFORE, harness, None);
+    concurrent_wait_until("the scan runs", || {
+        state.resource.state() == crate::scheduler::ResourceState::Running
+    });
+
+    let reloaded =
+        super::program_handlers::handle_bytecode_reload(1, Some(json!({"bytes": encoded})), &state);
+    assert_eq!(
+        serde_json::to_string(&reloaded).expect("reply json"),
+        r#"{"id":1,"ok":true,"result":{"status":"reloaded"}}"#
+    );
+    let not_base64 =
+        super::program_handlers::handle_bytecode_reload(2, Some(json!({"bytes": "!!!"})), &state);
+    assert_eq!(
+        serde_json::to_string(&not_base64).expect("reply json"),
+        r#"{"id":2,"ok":false,"error":"invalid bytecode: Invalid symbol 33, offset 0."}"#
+    );
+    concurrent_stop_and_join(handle);
+
+    let (stopped, _commands) = resource_state_fixture(
+        crate::config::ControlMode::Production,
+        crate::scheduler::ResourceState::Stopped,
+    );
+    let refused = super::program_handlers::handle_bytecode_reload(
+        3,
+        Some(json!({"bytes": "eA=="})),
+        &stopped,
+    );
+    assert_eq!(
+        serde_json::to_string(&refused).expect("reply json"),
+        r#"{"id":3,"ok":false,"error":"resource is stopped","error_code":"resource_not_running"}"#
+    );
+}

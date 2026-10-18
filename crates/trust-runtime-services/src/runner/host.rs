@@ -28,12 +28,13 @@ use crate::live_values::var_requests::VariableQueuePort;
 use crate::live_values::RequestQueueFull;
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::ports::{
-    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl, RecordsPort,
-    ResourcePort, StatusPort,
+    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl,
+    ProgramIdentities, RecordsPort, ResourcePort, StatusPort, TransferSessionError,
 };
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::resource::commands::{CommandClass, CommandSendError};
 use crate::status::{IoDriverStatus, StatusSettings};
+use crate::transfer::TransferSession;
 
 /// What the platform supplies to the resource loop besides the link, the wait, the clock and the
 /// installed program: the access rights, the audit sink, the wall clock, the values the platform
@@ -68,6 +69,27 @@ pub trait RunnerPlatform:
     /// A platform without a deployment record reports `production`, the record's default.
     fn control_mode(&self) -> ControlMode {
         ControlMode::Production
+    }
+
+    /// The transfer session the platform keeps for the transfer operations (specification 34,
+    /// PORT-05). A platform without one keeps the default, and the transfer operations are then
+    /// unsupported on it.
+    ///
+    /// # Errors
+    ///
+    /// [`TransferSessionError::Unsupported`] when the platform keeps no session, and
+    /// [`TransferSessionError::Unavailable`] when the session cannot be locked.
+    fn with_transfers<R>(
+        &self,
+        _use_session: impl FnOnce(&mut TransferSession) -> R,
+    ) -> Result<R, TransferSessionError> {
+        Err(TransferSessionError::Unsupported)
+    }
+
+    /// The selected program and the program before it, which `program.active` reports (specification
+    /// 34 §11.2). A platform without a program store keeps the default.
+    fn program_identities(&self) -> Option<ProgramIdentities> {
+        None
     }
 }
 
@@ -239,6 +261,17 @@ impl<P: RunnerPlatform, Y, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, 
 
     fn read_events<R>(&self, read: impl FnOnce(&VecDeque<RuntimeEvent>) -> R) -> Option<R> {
         self.records.read_events(read)
+    }
+
+    fn with_transfers<R>(
+        &self,
+        use_session: impl FnOnce(&mut TransferSession) -> R,
+    ) -> Result<R, TransferSessionError> {
+        self.platform.with_transfers(use_session)
+    }
+
+    fn program_identities(&self) -> Option<ProgramIdentities> {
+        self.platform.program_identities()
     }
 }
 

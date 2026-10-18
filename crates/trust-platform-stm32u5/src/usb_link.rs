@@ -176,7 +176,8 @@ fn set_device_mode_on_hs_phy() {
 }
 
 /// The chip's 96-bit unique ID: its three words in address order (design §2.5).
-fn read_uid() -> [u32; 3] {
+#[must_use]
+pub fn read_uid() -> [u32; 3] {
     let words = UID_ADDRESS as *const u32;
     // SAFETY: 0x0BFA_0700 is the read-only unique ID of the STM32U5A9 (design §2.5), readable at any
     // time. Volatile reads keep the compiler from merging or dropping them.

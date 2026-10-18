@@ -48,6 +48,26 @@ pub fn serial_text(words: [u32; 3]) -> [u8; SERIAL_DIGITS] {
     text
 }
 
+/// The platform the U5A9 reports in `status` (specification 11, `status`): its chip name.
+pub const PLATFORM: &str = "stm32u5a9";
+
+/// The bytes of the runtime ID: the chip name, a hyphen and the 24 digits of the serial number.
+pub const RUNTIME_ID_BYTES: usize = PLATFORM.len() + 1 + SERIAL_DIGITS;
+
+/// The U5A9's stable runtime ID (specification 11, `status`): its chip name and its USB serial
+/// number, the unique ID's 24 uppercase hexadecimal digits, for example
+/// `stm32u5a9-0034002D3431471535363630`. As the C6's, it needs no stored file, stays the same across
+/// resets and differs between two chips.
+#[must_use]
+pub fn runtime_id_text(words: [u32; 3]) -> [u8; RUNTIME_ID_BYTES] {
+    let mut text = [0u8; RUNTIME_ID_BYTES];
+    let (name, rest) = text.split_at_mut(PLATFORM.len());
+    name.copy_from_slice(PLATFORM.as_bytes());
+    rest[0] = b'-';
+    rest[1..].copy_from_slice(&serial_text(words));
+    text
+}
+
 /// The `bcdDevice` of truST's version: the major version in the high byte and the minor version in
 /// the low byte, each in binary-coded decimal (USB 2.0 §9.6.1). The patch number is not part of it.
 /// `None` when the text does not start with `major.minor`, or a number is above 99 and does not fit

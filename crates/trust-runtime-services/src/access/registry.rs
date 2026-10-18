@@ -105,6 +105,11 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
     operation("io.list", RolePolicy::Fixed(AccessRole::Viewer), false),
     operation("io.read", RolePolicy::Fixed(AccessRole::Viewer), false),
     operation(
+        "program.active",
+        RolePolicy::Fixed(AccessRole::Viewer),
+        false,
+    ),
+    operation(
         "hmi.schema.get",
         RolePolicy::Fixed(AccessRole::Viewer),
         false,
@@ -229,6 +234,23 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
     operation("shutdown", RolePolicy::Fixed(AccessRole::Admin), false),
     operation(
         "bytecode.reload",
+        RolePolicy::Fixed(AccessRole::Admin),
+        false,
+    ),
+    operation(
+        "transfer.begin",
+        RolePolicy::Fixed(AccessRole::Admin),
+        false,
+    ),
+    operation("transfer.part", RolePolicy::Fixed(AccessRole::Admin), false),
+    operation(
+        "transfer.status",
+        RolePolicy::Fixed(AccessRole::Admin),
+        false,
+    ),
+    operation("transfer.get", RolePolicy::Fixed(AccessRole::Admin), false),
+    operation(
+        "transfer.abort",
         RolePolicy::Fixed(AccessRole::Admin),
         false,
     ),

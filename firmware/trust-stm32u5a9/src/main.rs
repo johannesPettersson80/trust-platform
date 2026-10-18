@@ -194,6 +194,7 @@ fn main() -> ! {
     let platform = Platform::new(
         parts.watchdog,
         config.resource_name.clone(),
+        platform::device_runtime_id(),
         status_settings(),
         config.control_debug_enabled,
         config.control_mode,
@@ -231,6 +232,7 @@ fn serve_stopped(parts: Parts, reason: String) -> ! {
     let platform = Platform::new(
         watchdog,
         SmolStr::new_static("Controller"),
+        platform::device_runtime_id(),
         status_settings(),
         false,
         // A device that has not admitted an application has no record: it reports `production`, the

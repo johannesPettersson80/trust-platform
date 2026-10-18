@@ -169,6 +169,7 @@ fn hmi_test_state_with_status_reports(
         None, &sources,
     )));
     ControlState {
+        transfers: crate::control::new_transfer_session(),
         debug,
         resource,
         metadata: Arc::new(Mutex::new(harness.runtime().metadata_snapshot())),

@@ -122,6 +122,7 @@ fn control_state(source: &str, mode: ControlMode, auth_token: Option<&str>) -> A
     )));
 
     Arc::new(ControlState {
+        transfers: trust_runtime::control::new_transfer_session(),
         debug,
         resource,
         metadata: Arc::new(Mutex::new(harness.runtime().metadata_snapshot())),
