@@ -6,6 +6,7 @@ use super::{
 };
 use crate::bytecode::{InitializationOnce, InitializerEntry, ResourceEntry};
 use crate::error::RuntimeError;
+use crate::fault::{FaultRecord, FaultSite, NO_TASK};
 use crate::memory::{FrameId, Generation, InstanceId, VariableStorage};
 use crate::task::TaskState;
 use crate::value::{DateTimeProfile, Duration, Value, ValueRef};
@@ -142,6 +143,14 @@ struct EngineData {
     resource_index: usize,
     tasks: Vec<TaskState>,
     fault: Option<RuntimeError>,
+    /// The fixed-size record latched with this fault (specification 34 MEM-05, STATE-04).
+    fault_record: Option<FaultRecord>,
+    /// Site of the innermost instruction the last dispatch entry failed at; absent when the
+    /// entry succeeded or no instruction raised the fault.
+    fault_site: Option<FaultSite>,
+    /// Task index running at this point of the cycle; [`NO_TASK`] between tasks and in
+    /// background programs.
+    task: u16,
 }
 
 /// Temporary execution context for one authoritative mutable state.
@@ -265,6 +274,9 @@ impl<'a> EngineState<'a> {
             resource,
             resource_index,
             fault: None,
+            fault_record: None,
+            fault_site: None,
+            task: NO_TASK,
         })
     }
 
@@ -399,6 +411,7 @@ impl<'a> EngineState<'a> {
             ));
         }
         self.data.now = now;
+        self.data.task = NO_TASK;
         self.data
             .resources
             .work_budget
@@ -409,9 +422,24 @@ impl<'a> EngineState<'a> {
             .check_entry_deadline()
             .and_then(|()| self.execute_cycle_inner(hooks));
         if let Err(error) = &result {
+            self.latch_fault_record(error);
             self.data.fault = Some(error.clone());
         }
         result
+    }
+
+    /// Latch the fixed-size record of a fault with the site of the failing instruction, the
+    /// task that ran and this scan's logical time (specification 34 MEM-05, STATE-04). The
+    /// record is `Copy` and built from the error by reference, so nothing is cloned and
+    /// nothing is allocated.
+    fn latch_fault_record(&mut self, error: &RuntimeError) {
+        let site = self.data.fault_site.unwrap_or(FaultSite::NONE);
+        self.data.fault_record = Some(FaultRecord::latch(
+            error,
+            site,
+            self.data.task,
+            self.data.now,
+        ));
     }
 
     fn execute_pou(&mut self, pou: u32, instance: Option<InstanceId>) -> Result<(), RuntimeError> {
@@ -430,14 +458,20 @@ impl<'a> EngineState<'a> {
         pou: u32,
         instance: Option<InstanceId>,
     ) -> Result<(), RuntimeError> {
-        super::dispatch::execute_pou_stack_for_engine_entry(
+        let mut fault_site = None;
+        let result = super::dispatch::execute_pou_stack_for_engine_entry(
             self,
             module,
             pou,
             instance,
             0,
             crate::vm::budget::ExecutionEntry::Nested,
-        )
+            &mut fault_site,
+        );
+        // Only the failing entry's site belongs to the fault: a later adapter, deadline or
+        // output failure must not inherit the last instruction a program reached.
+        self.data.fault_site = if result.is_err() { fault_site } else { None };
+        result
     }
 }
 

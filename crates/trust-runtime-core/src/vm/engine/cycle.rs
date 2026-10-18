@@ -2,6 +2,7 @@
 use super::*;
 use crate::bytecode::{StorageOwner, StorageRole};
 use crate::cycle::{sort_ready_tasks_by_priority, ReadyTask};
+use crate::fault::NO_TASK;
 use crate::retain::capture::RetainCapture;
 use crate::retain::codec::{decode_snapshot_payload_bytes, PayloadWriter};
 use crate::retain::RetainSnapshot;
@@ -67,6 +68,9 @@ impl EngineState<'_> {
         }
         sort_ready_tasks_by_priority(ready, |index| resource.tasks[index].priority);
         for entry in ready.iter() {
+            // The fault record names the task that was running (specification 34 MEM-05). A
+            // task index beyond the record's field is not an admitted one to name.
+            self.data.task = u16::try_from(entry.index).unwrap_or(NO_TASK);
             self.cycle_hook(hooks, CyclePhase::TaskStart(entry.index))?;
             let task = &resource.tasks[entry.index];
             for &name in &task.program_name_idx {
@@ -78,8 +82,11 @@ impl EngineState<'_> {
                 self.execute_task_fb(reference)?;
             }
             self.cycle_hook(hooks, CyclePhase::TaskEnd(entry.index))?;
+            self.data.task = NO_TASK;
         }
         for &name in prepared.background_programs(self.data.resource_index) {
+            // An unscheduled program runs in no task.
+            self.data.task = NO_TASK;
             self.cycle_hook(hooks, CyclePhase::BackgroundStart(name))?;
             self.begin_top_level_invocation();
             self.execute_program_root(name, hooks)?;

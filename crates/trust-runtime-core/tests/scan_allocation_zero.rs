@@ -519,7 +519,30 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// makes none from its first scan; the `initializers` fixture's own bookkeeping makes none, and its
 /// remaining calls per scan are the function and method call scratch. The first scan is left out:
 /// with `std` it may still fill the storage field caches (spec 34 MEM-09 first-use growth).
-const CEILINGS: [(&str, usize, Calls); 8] = [
+///
+/// C3-1b (spec 34 MEM-05, STATE-04) adds the corpus `faults` cases: a faulting scan latches a
+/// fixed-size record built from the error by reference, so it allocates nothing once the engine is
+/// warm. Their ceiling starts at the third scan, the one that faults; the two healthy scans before
+/// it are not the measured scan, and the healthy branch's dynamic index still allocates its
+/// reference path (census C1-3). The five cases that reach their fault inside one activation make
+/// no call: division, index, null, overflow and work. `faults/call_depth` builds four function
+/// activations before its fifth call is refused, so its ceiling records the call setup's remaining
+/// allocations (census C1, removed by the call-scratch slice), not the latch's.
+const CEILINGS: [(&str, usize, Calls); 14] = [
+    ("faults/division", 2, Calls::ZERO),
+    ("faults/index", 2, Calls::ZERO),
+    ("faults/null", 2, Calls::ZERO),
+    ("faults/overflow", 2, Calls::ZERO),
+    ("faults/work", 2, Calls::ZERO),
+    (
+        "faults/call_depth",
+        2,
+        Calls {
+            alloc: 11,
+            realloc: 0,
+            dealloc: 8,
+        },
+    ),
     ("scalar", 1, Calls::ZERO),
     ("gpio", 1, Calls::ZERO),
     ("saved/gpio", 1, Calls::ZERO),
@@ -822,7 +845,7 @@ fn listed_runs_stay_within_their_allocator_ceilings_and_every_fixture_reports_it
             Err(error) => failures.push(format!("{}: {error}", fixture.name)),
         }
     }
-    assert!(failures.is_empty(), "{}", failures.join("\n"));
+    assert_eq!(failures, Vec::<String>::new(), "failing runs");
 }
 
 /// Spec 34 ARCH-05 and MEM-04 (fault and limit paths): each fault case's scan ends with its
@@ -842,7 +865,7 @@ fn every_fault_case_ends_with_its_stable_code_and_reports_its_scans() {
             Err(error) => failures.push(format!("{}: {error}", case.name)),
         }
     }
-    assert!(failures.is_empty(), "{}", failures.join("\n"));
+    assert_eq!(failures, Vec::<String>::new(), "failing runs");
 }
 
 /// The meter counts this thread's allocator calls exactly and only while armed, and gives each

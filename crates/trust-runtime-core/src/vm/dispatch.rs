@@ -18,6 +18,7 @@ use super::module::VmModule;
 use super::reference_attempt::apply_reference_attempt;
 use super::{ensure_global_call_depth, FrameStack, OperandStack, VmTrap};
 use crate::error::RuntimeError;
+use crate::fault::FaultSite;
 use crate::memory::InstanceId;
 use crate::program_model::{BinaryOp, UnaryOp};
 use crate::value::{
@@ -55,6 +56,11 @@ pub struct ExecutionBuffers {
     /// Reusable stack-frame storage, cleared between root entries.
     pub frames: FrameStack,
     continuations: ContinuationStack,
+    /// Site of the instruction the innermost activation is handling. The dispatcher records
+    /// it at every instruction boundary, so the failing instruction's site survives the
+    /// unwinding that follows its error (specification 34 MEM-05). A cleared buffer holds no
+    /// site, so a recycled buffer never reports another entry's failure.
+    fault_site: Option<FaultSite>,
 }
 
 impl ExecutionBuffers {
@@ -63,6 +69,7 @@ impl ExecutionBuffers {
         self.operand_stack.clear();
         self.frames.clear();
         self.continuations.clear();
+        self.fault_site = None;
     }
 
     /// Bytes that `reserve` takes for `operands` operand values and `levels`
@@ -95,6 +102,7 @@ impl ExecutionBuffers {
             operand_stack: OperandStack::default(),
             frames: self.frames.grown_on_demand(),
             continuations: self.continuations.grown_on_demand(),
+            fault_site: None,
         }
     }
 }
@@ -226,6 +234,7 @@ fn execute_with_buffers(
         operand_stack,
         frames,
         continuations: _continuations,
+        fault_site,
     } = buffers;
     #[cfg(feature = "register-ir")]
     let _ = _continuations;
@@ -348,6 +357,14 @@ fn execute_with_buffers(
         if cursor.pc < frame_start || cursor.pc > frame_end {
             return Err(VmTrap::InvalidJumpTarget(cursor.pc as i64).into_runtime_error());
         }
+
+        // The instruction this activation is about to handle. Recording its site here, before
+        // any handler can fail, leaves the innermost failing instruction's site in place when
+        // its error unwinds the activation (specification 34 MEM-05).
+        *fault_site = frame_pou_id.map(|pou| FaultSite {
+            pou,
+            pc: u32::try_from(cursor.pc).unwrap_or(u32::MAX),
+        });
 
         runtime.charge_execution_work(1)?;
 

@@ -2,6 +2,7 @@
 use super::{EngineData, EngineState, ExecutionServices, PreparedModule};
 use crate::{
     error::RuntimeError,
+    fault::{FaultRecord, NO_TASK},
     memory::VariableStorage,
     retain::RestartMode,
     task::TaskState,
@@ -242,13 +243,25 @@ impl RuntimeState<'_> {
         self.data.fault.as_ref()
     }
 
-    /// Record a platform failure in the common execution fault latch.
+    /// Inspect the fixed-size record latched with the execution fault, if any
+    /// (specification 34 MEM-05, STATE-04). The record is `Copy`, so a host reads it as often
+    /// as it asks and never changes it.
+    pub fn fault_record(&self) -> Option<FaultRecord> {
+        self.data.fault_record
+    }
+
+    /// Record a platform failure in the common execution fault latch, together with its
+    /// fixed-size record.
     pub fn latch_fault(&mut self, error: RuntimeError) {
+        self.engine().latch_fault_record(&error);
         self.data.fault = Some(error);
     }
     /// Clear the existing tooling fault latch without replacing executable state.
     pub fn clear_fault(&mut self) {
         self.data.fault = None;
+        self.data.fault_record = None;
+        self.data.fault_site = None;
+        self.data.task = NO_TASK;
     }
     /// Capture an explicitly requested retained checkpoint through common policy.
     pub fn retain_snapshot(&mut self) -> Result<crate::retain::RetainSnapshot, RuntimeError> {

@@ -20,7 +20,7 @@ owner tests and approves, and only then is anything released. Nothing is done wh
 below is open.
 
 C — Bounded operation (M3), shared by both chips:
-- [ ] C1 Bounded compound storage (18 Oct: C1-3a and C1-3b are merged into this branch in
+- [ ] C1 Bounded compound storage (18 Oct, day: C1-3c2a, the per-depth call scratch, is committed in `dd2684a87` on `feat/engine-calls` (focused check engine/c13c2a green; calls 45, blocks 13, methods 12 allocations per scan); C1-3c2b, standard-library arguments and SPLIT outputs without vectors, runs there. C1-5, the prepared cell layouts with their tables charged at preparation, is committed in `1953d13e6` on `feat/engine-init` (engine-init/c15 green, with the 74 test binaries that check preparation charges); C1-6a, the 16-byte cell and the cell store, runs there. The agent check's chip lanes now deny warnings as CI's portable lane does: three items that only the hosted runtime, the register tier and the tests use were dead in a chip build and are gated in `addeee6c4` here and `78c2edc8d` on `feat/engine-calls`. 18 Oct: C1-3a and C1-3b are merged into this branch in
   `d07154f10`, checked by c6/merge1 with its rerun. 17 Oct, night: C1-3a, reservations sized to the static call depth with the depth check kept at `max_call_depth`, and C1-3b, call plans resolved at preparation, are committed in `7271a23b3` on `feat/engine-calls`, focused check engine/c13 green; calls 81, blocks 28, methods 23 allocations per scan remain for C1-3c. C1-3c1, per-depth frame payloads, runs in `trust-platform-engine`; C1-4, the bookkeeping scratch, runs in `trust-platform-engine-init` (`feat/engine-init`). Both merge into this branch after C5-2b. 17 Oct evening: C1-2, the scan scratch reservation, and STRING 80 with byte capacity and the character-write cut are committed in `0cb9710b9`, validated by focused check c6/wave1. C1-3a, reservations sized to the static call depth, runs in `~/projects/trust-platform-engine` (`feat/engine-calls`). 17 Oct: C1-1 done. `scan_allocation_zero` measures the corpus of 15 fixtures and three saved board artifacts per phase. It asserts per-run ceilings, which only go down: scalar 1 alloc per scan today, gpio 8, io 64, blocks 87, instances 148, the board main program 925 over 101 scans. Next, C1-2 scratch; 22 slices to go, see `~/projects/.artifacts/bounded-c/design.md`): retire `Arc`, `SmolStr` and `IndexMap` from bounded value and
   compound paths (MEM-06, MEM-10, MEM-11); no allocation during a scan on the chips.
 - [x] (Closed 17 Oct by C2-0 and C2-1. Builder batches c1-1 to c1-3: `checked_admission_stale_binding` and `restart_generation_stale_handles` run un-ignored and pass with `restart_generation_queued_write` and `restart_generation_online_change`; `generation_handles` passes on the std, no-std and i686 lanes; workspace Clippy with all features is clean.) C2 Real generation lifetimes (MEM-07, UPDATE-04): stale handles across a warm restart or an
@@ -44,9 +44,11 @@ C — Bounded operation (M3), shared by both chips:
       reuses handles from an earlier pause gets an error rather than the current pause's activation
       with that number.
 - [ ] C3 Fixed diagnostics and fault records: bounded, allocation-free, readable after a fault.
+  (18 Oct: C3-1a, the fixed-size fault record, is committed in `d3d0e58e2`; C3-1b, the engine's
+  fault latch with its time-wrap decision, runs in this worktree.)
 - [ ] C4 Import and admission bounds (17 Oct evening: C4-1, the deployment record, is committed in `0cb9710b9`. 17 Oct: C4-2 done. Every built-in function and FB has a contract, and admission refuses a missing or mismatched import by name with `runtime_import_unsupported`. Open: C4-1 deployment record, C4-3 demand, C4-4 descriptor), and capability and deployment records (including the
   HOST-02 deployment-level limit record).
-- [ ] C5 Persistence (18 Oct: C5-2b, the shared due rule and the allocation-free capture of STRN v3
+- [ ] C5 Persistence (18 Oct, day: C5-3b, the persister in the device runner (capture at the pre-output sample, one step between scans, the stop save before Stopped, a latched failure that fails the next scan before outputs), is written in s1b-retain; its second round gives the codec a bare-payload decoder and keeps a warm start from rewriting an unchanged checkpoint. 18 Oct: C5-2b, the shared due rule and the allocation-free capture of STRN v3
   payload bytes, is committed in `fb37c3324` (focused check c6/c52b green); C5-3a, the checkpoint
   persister in the core, runs in this worktree; C5-3b, its wiring into the device runner, follows
   in s1b. 17 Oct, night: the retain checksum gate points at the codec's new place, `276b16a9f`; C5-2b's follow-up runs. 17 Oct evening: C5-2a, the STRN v3 codec shared in the core, is committed in `c56bc3a86`; C5-2b, the shared due rule and allocation-free capture, is running. 17 Oct: C5-1 done. The checkpoint log is specified in spec 34 §10.1, with a cut at every byte of every program and erase recovering the previous checkpoint. Open: C5-2 capture, C5-3 persist, C5-4 chip drivers and bench power cuts. Policy decided: D-C5-1 in `~/projects/.artifacts/bounded-c/decisions.md`): retain variables survive a power cut through checkpoints in each chip's
@@ -452,6 +454,14 @@ etc."):
       green); C3b-2 (EtherCAT) runs there. D2a (inspector, context menu) is written; its
       correction (the runtime's own context menu, edit slots hidden while a pane is open) runs.
       Review gaps are listed in `~/projects/.artifacts/devices-v7/followups.md`.
+    - 18 Oct, day: devices wave 7 is committed in `46065fd81` (D2c, status words and looks from
+      Rust; D2b2, Tab and Enter, dragged positions posted to the host, readable long names; npm test
+      554 passing): D2 is complete, and D3a (golden forms and the list editor) runs. C3b-3 (GPIO
+      through the character devices, E35, E38 with O26) is committed in `26e41d434`: C3b is
+      complete, and C4a (MQTT and OPC UA through mDNS and FindServers) runs. B7c2 (ADS tag removal
+      in Rust, `trust-runtime comm test`) is committed in `63b02af4e`; B7b1 (form and connection
+      actions) is in its second round, so the actions resolve their runtime from the session and
+      never write to a target the extension names.
     - 18 Oct: devices wave 6 is committed in `f387ed109`: C2d (route authentication, the host
       group setting, discovery and mesh health, host IPs per O32), D2a and D2b1 (inspector, context
       menu, issues list, List view); VS Code suite 547 passing. C2 is complete. D2c (Rust gives the

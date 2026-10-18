@@ -1,15 +1,24 @@
 //! Fixed-size fault records for the core control path (specification 34 MEM-05, STATE-04).
 //!
-//! A [`FaultRecord`](crate::fault::FaultRecord) is a `Copy` value of at most 48 bytes on a
+//! A [`FaultRecord`](crate::fault::FaultRecord) is a `Copy` value of at most 56 bytes on a
 //! 32-bit target: the stable code, bounded [`FaultDetail`](crate::fault::FaultDetail) context,
 //! the first failing instruction's [`FaultSite`](crate::fault::FaultSite), the task and the
 //! logical time. Every scan-path fault is built from these values without allocating; rich
 //! names and messages are rendered outside the core control path.
+//!
+//! The record's logical time is the scan's whole seconds beside the millisecond within the
+//! second, the millisecond precision the host's fault log already reports
+//! ([`FaultRecord::latch`](crate::fault::FaultRecord::latch)).
 
 use core::fmt;
 
 use crate::error::ExecutionLimitKind;
+use crate::error::RuntimeError;
 use crate::error::StableErrorCode;
+use crate::value::Duration;
+
+/// Milliseconds in one whole second of the record's logical time.
+const MILLIS_PER_SECOND: i64 = 1_000;
 
 /// The prepared table a bounded [`FaultDetail::TableIndex`] names, which selects its text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -198,13 +207,26 @@ impl fmt::Display for FaultDetail {
 pub struct FaultSite {
     /// POU identity of the failing instruction.
     pub pou: u32,
-    /// Instruction offset inside the POU body.
+    /// Offset of the failing instruction in the prepared code section, the offset the
+    /// disassembler prints. The offset inside the POU body is this value less the POU's
+    /// `code_offset`.
     pub pc: u32,
+}
+
+impl FaultSite {
+    /// The site of a fault that no dispatched instruction raised, such as an adapter,
+    /// deadline, retain or output failure (specification 34 MEM-05). No instruction sits at
+    /// this offset: a code section that reached it would carry `u32::MAX` bytes of
+    /// instructions.
+    pub const NONE: Self = Self {
+        pou: u32::MAX,
+        pc: u32::MAX,
+    };
 }
 
 /// A fixed-size fault record (specification 34 MEM-05, STATE-04).
 ///
-/// It is `Copy` and at most 48 bytes on a 32-bit target, so an engine latches it without
+/// It is `Copy` and at most 56 bytes on a 32-bit target, so an engine latches it without
 /// cloning and without allocating.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FaultRecord {
@@ -214,31 +236,126 @@ pub struct FaultRecord {
     pub detail: FaultDetail,
     /// The first failing instruction.
     pub site: FaultSite,
-    /// Task that was running when the fault was raised.
+    /// Task that was running when the fault was raised, [`NO_TASK`] when none was.
     pub task: u16,
-    /// Logical scan time in milliseconds when the fault was raised.
-    pub logical_time: u32,
+    /// Whole seconds of the scan's logical time when the fault was raised, saturating at
+    /// `u32::MAX` (about 136 years of uptime).
+    pub logical_seconds: u32,
+    /// Milliseconds within that second, 0 through 999.
+    pub logical_millis: u16,
 }
 
+/// The task a record names when no admitted task was running: a background program, work
+/// outside a task, or a task index beyond the field (specification 34 MEM-05).
+pub const NO_TASK: u16 = u16::MAX;
+
 impl FaultRecord {
-    /// Build the record that holds a VM fault with its site, task and logical time.
+    /// Latch a failed scan: the error's stable code and bounded detail, the site of the
+    /// failing instruction, the task that ran and the scan's logical time (specification 34
+    /// MEM-05).
+    ///
+    /// The error is read by reference and never cloned, so latching a fault allocates nothing.
+    /// `now` is the scan's logical time: its whole seconds and the millisecond within the
+    /// second.
     #[must_use]
-    pub const fn from_vm_fault(
-        fault: crate::error::VmFaultDetail,
-        site: FaultSite,
-        task: u16,
-        logical_time: u32,
-    ) -> Self {
+    pub fn latch(error: &RuntimeError, site: FaultSite, task: u16, now: Duration) -> Self {
+        let (code, detail) = Self::code_and_detail(error);
+        // A logical time never runs backwards within an installation, so a negative value
+        // would be a composition defect rather than a time to publish.
+        let millis = now.as_millis().max(0);
+        let logical_seconds = u32::try_from(millis / MILLIS_PER_SECOND).unwrap_or(u32::MAX);
+        let logical_millis =
+            u16::try_from(millis.rem_euclid(MILLIS_PER_SECOND)).unwrap_or(u16::MAX);
         Self {
-            code: fault.code,
-            detail: fault.detail,
+            code,
+            detail,
             site,
             task,
-            logical_time,
+            logical_seconds,
+            logical_millis,
+        }
+    }
+
+    /// The stable code and bounded detail that render exactly as today's error does
+    /// (specification 34 MEM-05).
+    fn code_and_detail(error: &RuntimeError) -> (StableErrorCode, FaultDetail) {
+        match error {
+            RuntimeError::VmFault(fault) => (fault.code, fault.detail),
+            RuntimeError::IndexOutOfBounds {
+                index,
+                lower,
+                upper,
+            } => (
+                StableErrorCode::RuntimeIndexOutOfBounds,
+                FaultDetail::Index {
+                    index: *index,
+                    lower: *lower,
+                    upper: *upper,
+                },
+            ),
+            RuntimeError::SubrangeViolation {
+                value,
+                lower,
+                upper,
+            }
+            | RuntimeError::RetainSubrangeViolation {
+                value,
+                lower,
+                upper,
+                ..
+            } => (
+                StableErrorCode::RuntimeSubrangeViolation,
+                subrange_detail(*value, *lower, *upper),
+            ),
+            RuntimeError::ExecutionLimit {
+                kind,
+                used,
+                requested,
+                limit,
+            } => (
+                StableErrorCode::RuntimeExecutionTimeout,
+                FaultDetail::Limit {
+                    kind: *kind,
+                    used: u64::try_from(*used).unwrap_or(u64::MAX),
+                    requested: u64::try_from(*requested).unwrap_or(u64::MAX),
+                    limit: u64::try_from(*limit).unwrap_or(u64::MAX),
+                },
+            ),
+            other => (other.stable_code(), FaultDetail::None),
         }
     }
 }
 
+/// Map a 128-bit subrange violation into the record's bounded 65-bit form, the form the
+/// declared 64-bit IEC types need. A value whose three endpoints do not fit that form keeps
+/// its stable code and reports no bounded detail.
+fn subrange_detail(value: i128, lower: i128, upper: i128) -> FaultDetail {
+    let (
+        Some((value, value_negative)),
+        Some((lower, lower_negative)),
+        Some((upper, upper_negative)),
+    ) = (magnitude(value), magnitude(lower), magnitude(upper))
+    else {
+        return FaultDetail::None;
+    };
+    FaultDetail::Subrange {
+        value,
+        lower,
+        upper,
+        // Sign bits, least significant first: value, lower, upper (specification 34 MEM-05).
+        negative: u8::from(value_negative)
+            | (u8::from(lower_negative) << 1)
+            | (u8::from(upper_negative) << 2),
+    }
+}
+
+/// One endpoint of a subrange violation as an unsigned magnitude and its sign.
+fn magnitude(value: i128) -> Option<(u64, bool)> {
+    u64::try_from(value.unsigned_abs())
+        .ok()
+        .map(|magnitude| (magnitude, value.is_negative()))
+}
+
 // The bound is a product contract (specification 34 MEM-05): the record stays fixed-size on
 // every target, hosted and MCU.
-const _: () = assert!(core::mem::size_of::<FaultRecord>() <= 48);
+const _: () = assert!(core::mem::size_of::<FaultRecord>() <= 56);

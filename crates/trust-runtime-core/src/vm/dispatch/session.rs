@@ -196,18 +196,23 @@ fn drive(
             )
             .map(DispatchProgress::Stack),
             #[cfg(feature = "register-ir")]
-            Activation::Register(activation) => runtime
-                .step_register_activation(module, activation)
-                .map(|step| {
-                    DispatchProgress::Register(match step {
-                        crate::vm::register_ir::RegisterActivationStep::Call(call) => {
-                            RegisterProgress::Call(call)
-                        }
-                        crate::vm::register_ir::RegisterActivationStep::Complete(result) => {
-                            RegisterProgress::Complete(result)
-                        }
+            Activation::Register(activation) => {
+                // The register executor records no per-instruction site, so an earlier stack
+                // activation's site is not this fault's (specification 34 MEM-05).
+                buffers.fault_site = None;
+                runtime
+                    .step_register_activation(module, activation)
+                    .map(|step| {
+                        DispatchProgress::Register(match step {
+                            crate::vm::register_ir::RegisterActivationStep::Call(call) => {
+                                RegisterProgress::Call(call)
+                            }
+                            crate::vm::register_ir::RegisterActivationStep::Complete(result) => {
+                                RegisterProgress::Complete(result)
+                            }
+                        })
                     })
-                }),
+            }
         };
         let progress = match progress {
             Ok(progress) => progress,

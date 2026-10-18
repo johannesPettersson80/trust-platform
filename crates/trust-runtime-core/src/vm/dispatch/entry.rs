@@ -2,6 +2,7 @@
 use super::session;
 use super::{execute_with_buffers, ExecutionBuffers, StackProgress, VmPouStackResult};
 use crate::error::RuntimeError;
+use crate::fault::FaultSite;
 use crate::memory::InstanceId;
 use crate::value::Value;
 use crate::vm::context::ExecutionContext;
@@ -61,6 +62,7 @@ pub fn execute_pou_stack_with_parameter_presence(
         None,
         true,
         false,
+        &mut None,
     )
 }
 
@@ -92,11 +94,13 @@ pub(in crate::vm) fn execute_pou_stack_with_owned_locals(
         Some(initial_locals),
         true,
         false,
+        &mut None,
     )
 }
 
 /// Execute an engine-owned entry through the same activation pump without
-/// retaining a local snapshot that the caller cannot observe.
+/// retaining a local snapshot that the caller cannot observe. `fault_site` receives the
+/// innermost failing instruction's site when the entry fails (specification 34 MEM-05).
 pub(crate) fn execute_pou_stack_for_engine_entry(
     runtime: &mut impl ExecutionContext,
     module: &VmModule,
@@ -104,6 +108,7 @@ pub(crate) fn execute_pou_stack_for_engine_entry(
     entry_instance: Option<InstanceId>,
     depth_offset: u32,
     entry: crate::vm::budget::ExecutionEntry,
+    fault_site: &mut Option<FaultSite>,
 ) -> Result<(), RuntimeError> {
     execute_pou_with_pump(
         runtime,
@@ -118,6 +123,7 @@ pub(crate) fn execute_pou_stack_for_engine_entry(
         None,
         false,
         true,
+        fault_site,
     )
     .map(|_| ())
 }
@@ -136,6 +142,7 @@ fn execute_pou_with_pump(
     owned_initial_locals: Option<&mut Option<Vec<Value>>>,
     capture_result_locals: bool,
     optimize_root: bool,
+    fault_site: &mut Option<FaultSite>,
 ) -> Result<VmPouStackResult, RuntimeError> {
     let mut buffers = runtime.take_execution_buffers();
     let result = {
@@ -213,6 +220,9 @@ fn execute_pou_with_pump(
         super::continuation::unwind_stack_frames(runtime, &mut buffers, &mut result);
         #[cfg(not(feature = "register-ir"))]
         session::unwind_stack_failure(runtime, &mut buffers, &mut result);
+        // The site the dispatcher recorded for the innermost failing instruction, read before
+        // clearing the buffers (specification 34 MEM-05).
+        *fault_site = buffers.fault_site;
     }
     buffers.clear();
     runtime.recycle_execution_buffers(buffers);

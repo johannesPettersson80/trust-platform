@@ -2,6 +2,7 @@
 use super::{EngineData, EngineState, ExecutionServices, LogicalExecutionServices, PreparedModule};
 use crate::{
     error::RuntimeError,
+    fault::{FaultRecord, NO_TASK},
     io_address::IoAddress,
     memory::VariableStorage,
     retain::RestartMode,
@@ -240,9 +241,18 @@ impl<S: ExecutionServices> OwnedRuntimeState<S> {
         self.data.fault.as_ref()
     }
 
+    /// Inspect the fixed-size record latched with the execution fault, if any
+    /// (specification 34 MEM-05, STATE-04). The record is `Copy`, so a host reads it as often
+    /// as it asks and never changes it.
+    pub fn fault_record(&self) -> Option<FaultRecord> {
+        self.data.fault_record
+    }
+
     /// Latch a platform/supervision failure in the same owner as execution
-    /// faults. No PLC values, bindings or executable metadata change here.
+    /// faults, together with its fixed-size record. No PLC values, bindings or
+    /// executable metadata change here.
     pub fn latch_fault(&mut self, error: RuntimeError) {
+        self.engine().latch_fault_record(&error);
         self.data.fault = Some(error);
     }
 
@@ -250,6 +260,9 @@ impl<S: ExecutionServices> OwnedRuntimeState<S> {
     /// Task history, installed code and PLC values remain unchanged.
     pub fn clear_fault(&mut self) {
         self.data.fault = None;
+        self.data.fault_record = None;
+        self.data.fault_site = None;
+        self.data.task = NO_TASK;
     }
 
     /// Capture an explicit persistence checkpoint using the same indexed
