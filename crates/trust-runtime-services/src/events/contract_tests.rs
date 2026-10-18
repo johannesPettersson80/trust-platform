@@ -6,6 +6,8 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use serde_json::json;
+use trust_runtime_core::error::{ExecutionLimitKind, RuntimeError, StableErrorCode, VmFaultDetail};
+use trust_runtime_core::fault::FaultDetail;
 use trust_runtime_core::value::Duration;
 
 use super::*;
@@ -25,11 +27,14 @@ fn cycle(cycle: u64) -> RuntimeEvent {
     }
 }
 
-fn fault(error: &str) -> RuntimeEvent {
-    RuntimeEvent::Fault {
-        error: error.into(),
-        time: Duration::from_millis(2),
-    }
+/// A fault event whose fixed record and hosted message render `error`'s today text.
+fn fault(error: &RuntimeError) -> RuntimeEvent {
+    fault_at(error, Duration::from_millis(2))
+}
+
+/// A fault event at `time`, both in the record's logical time and the event's own time.
+fn fault_at(error: &RuntimeError, time: Duration) -> RuntimeEvent {
+    RuntimeEvent::fault(error, time)
 }
 
 #[test]
@@ -58,10 +63,10 @@ fn runtime_event_variants_preserve_exact_payloads_and_identity() {
             missed: u64::MAX,
             time: Duration::from_millis(5),
         },
-        RuntimeEvent::Fault {
-            error: "fault".into(),
-            time: Duration::from_millis(6),
-        },
+        fault_at(
+            &RuntimeError::SimulationFault("fault".into()),
+            Duration::from_millis(6),
+        ),
         RuntimeEvent::SafeStateFailed {
             root: "fault".into(),
             error: "safe state".into(),
@@ -162,10 +167,7 @@ fn diagnostic_events_project_to_their_exact_json() {
             json!({"type": "write_rejected", "target": "%QX0.0", "error": "out of range", "time_ns": -5}),
         ),
         (
-            RuntimeEvent::Fault {
-                error: "division by zero".into(),
-                time,
-            },
+            fault_at(&RuntimeError::DivisionByZero, time),
             json!({"type": "fault", "error": "division by zero", "time_ns": -5}),
         ),
         (
@@ -242,6 +244,181 @@ fn diagnostic_events_project_to_their_exact_json() {
     }
 }
 
+/// Spec 11 (`faults` and `events.tail`) and spec 34 MEM-05: both replies render a fault event's
+/// text from its fixed record, byte for byte as trust-runtime answers today. It covers one fault
+/// of each kind the record carries: division by zero, an index out of range, a null reference, an
+/// overflow, the work limit and the call depth. It would catch a reply that renders the stable
+/// code instead of the text, one that drops a bounded detail, and one whose `error` field moved.
+#[test]
+fn a_fault_event_replies_as_before() {
+    use crate::status::{events_tail, faults};
+    use crate::tests::fake_host::FakeHost;
+
+    let time = Duration::from_millis(4_036);
+    let cases = [
+        (RuntimeError::DivisionByZero, "division by zero"),
+        (
+            RuntimeError::IndexOutOfBounds {
+                index: 9,
+                lower: 1,
+                upper: 4,
+            },
+            "array index 9 out of bounds [1..4]",
+        ),
+        (RuntimeError::NullReference, "null reference dereference"),
+        (RuntimeError::Overflow, "arithmetic overflow"),
+        (
+            RuntimeError::ExecutionLimit {
+                kind: ExecutionLimitKind::AllocationBytes,
+                used: 40,
+                requested: 24,
+                limit: 60,
+            },
+            "execution timed out: allocation bytes limit 60, used 40, requested 24",
+        ),
+        (
+            RuntimeError::VmFault(VmFaultDetail {
+                code: StableErrorCode::VmCallStackOverflow,
+                detail: FaultDetail::Text("vm call stack overflow"),
+            }),
+            "invalid bytecode 'vm call stack overflow'",
+        ),
+    ];
+
+    for (error, text) in cases {
+        let event = fault_at(&error, time);
+        // Both replies project the event through the same JSON form.
+        assert_eq!(
+            runtime_event_to_json(event.clone()),
+            json!({"type": "fault", "error": text, "time_ns": 4_036_000_000_i64}),
+            "the event's JSON for {text}"
+        );
+
+        let host = FakeHost::running();
+        host.events.borrow_mut().push_back(event);
+        assert_eq!(
+            faults(1, None, &host).result.expect("faults result"),
+            json!({"faults": [{"type": "fault", "error": text, "time_ns": 4_036_000_000_i64}]}),
+            "the faults reply for {text}"
+        );
+        assert_eq!(
+            events_tail(2, None, &host)
+                .result
+                .expect("events tail result"),
+            json!({"events": [{"type": "fault", "error": text, "time_ns": 4_036_000_000_i64}]}),
+            "the events.tail reply for {text}"
+        );
+    }
+}
+
+/// Spec 11 (`faults` and `events.tail`) and spec 34 MEM-05: a fault whose fixed record does not
+/// hold a hosted name or message renders today's text from the message the error carried, byte for
+/// byte as trust-runtime answers today. It covers one fault of each kind that carries a message:
+/// simulation, resource panic, the four I/O kinds, the three retain kinds, invalid config, a
+/// read-only alias, a retained subrange name and bytecode. It would catch a reply that renders the
+/// record's stable code instead of the message, one that drops the hosted payload, and one whose
+/// `error` field moved.
+#[test]
+fn a_message_fault_replies_as_before() {
+    use crate::status::{events_tail, faults};
+    use crate::tests::fake_host::FakeHost;
+
+    let time = Duration::from_millis(4_036);
+    let cases = [
+        (
+            RuntimeError::SimulationFault("slot 3".into()),
+            "simulation fault 'slot 3'",
+        ),
+        (
+            RuntimeError::ResourcePanic("out of memory".into()),
+            "resource panic 'out of memory'",
+        ),
+        (
+            RuntimeError::IoDriver("adapter stopped".into()),
+            "i/o driver error 'adapter stopped'",
+        ),
+        (
+            RuntimeError::IoTransport("session closed".into()),
+            "i/o transport error 'session closed'",
+        ),
+        (
+            RuntimeError::IoAddress("%IX9.9".into()),
+            "i/o address error '%IX9.9'",
+        ),
+        (
+            RuntimeError::IoFreshness("%IX0.0".into()),
+            "i/o freshness error '%IX0.0'",
+        ),
+        (
+            RuntimeError::RetainStore("write failed".into()),
+            "retain store error 'write failed'",
+        ),
+        (
+            RuntimeError::RetainCorruption("checksum mismatch".into()),
+            "retain corruption 'checksum mismatch'",
+        ),
+        (
+            RuntimeError::RetainMigration("DINT to LINT".into()),
+            "retain migration error 'DINT to LINT'",
+        ),
+        (
+            RuntimeError::InvalidConfig("missing endpoint".into()),
+            "invalid config 'missing endpoint'",
+        ),
+        (
+            RuntimeError::ReadOnlyAlias("Observed".into()),
+            "VAR_ACCESS 'Observed' is read-only",
+        ),
+        (
+            RuntimeError::RetainSubrangeViolation {
+                name: "Speed".into(),
+                value: 5_000,
+                lower: 0,
+                upper: 1_000,
+            },
+            "retain migration error 'invalid retained value for 'Speed': value 5000 outside declared subrange 0..1000'",
+        ),
+        (
+            RuntimeError::Bytecode {
+                code: StableErrorCode::VmStackUnderflow,
+                detail: "vm invalid opcode 0xFF".into(),
+            },
+            "invalid bytecode 'vm invalid opcode 0xFF'",
+        ),
+    ];
+
+    for (error, text) in cases {
+        let event = fault_at(&error, time);
+        assert_eq!(
+            runtime_event_to_json(event.clone()),
+            json!({"type": "fault", "error": text, "time_ns": 4_036_000_000_i64}),
+            "the event's JSON for {text}"
+        );
+
+        let host = FakeHost::running();
+        host.events.borrow_mut().push_back(event);
+        assert_eq!(
+            faults(1, None, &host).result.expect("faults result"),
+            json!({"faults": [{"type": "fault", "error": text, "time_ns": 4_036_000_000_i64}]}),
+            "the faults reply for {text}"
+        );
+        assert_eq!(
+            events_tail(2, None, &host)
+                .result
+                .expect("events tail result"),
+            json!({"events": [{"type": "fault", "error": text, "time_ns": 4_036_000_000_i64}]}),
+            "the events.tail reply for {text}"
+        );
+    }
+}
+
+/// Spec 11 (event store) and D-C3-2: the store keeps the newest 1,000 events on every device. It
+/// would catch a capacity that moved off the committed 1,000.
+#[test]
+fn the_event_store_keeps_1000_events() {
+    assert_eq!(EVENT_STORE_CAPACITY, 1_000);
+}
+
 #[test]
 fn event_store_keeps_the_newest_1000_events_in_order() {
     let mut store = VecDeque::new();
@@ -294,23 +471,29 @@ fn newest_events_are_returned_newest_first_up_to_the_limit() {
 #[test]
 fn newest_faults_filter_before_applying_the_limit() {
     let store: VecDeque<_> = [
-        fault("old fault"),
+        fault(&RuntimeError::SimulationFault("old fault".into())),
         cycle(2),
         RuntimeEvent::SafeStateFailed {
             root: "old fault".into(),
             error: "output write failed".into(),
             time: Duration::ZERO,
         },
-        fault("new fault"),
+        fault(&RuntimeError::SimulationFault("new fault".into())),
         cycle(5),
     ]
     .into_iter()
     .collect();
     assert_eq!(
         newest_faults(&store, 2),
-        vec![fault("new fault"), fault("old fault")]
+        vec![
+            fault(&RuntimeError::SimulationFault("new fault".into())),
+            fault(&RuntimeError::SimulationFault("old fault".into()))
+        ]
     );
-    assert_eq!(newest_faults(&store, 1), vec![fault("new fault")]);
+    assert_eq!(
+        newest_faults(&store, 1),
+        vec![fault(&RuntimeError::SimulationFault("new fault".into()))]
+    );
 }
 
 #[test]

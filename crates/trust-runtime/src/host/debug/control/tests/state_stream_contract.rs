@@ -1,6 +1,7 @@
 use std::sync::mpsc::{channel, TryRecvError};
 
 use super::super::*;
+use crate::error::RuntimeError;
 use crate::io::{IoSnapshot, IoSnapshotEntry, IoSnapshotValue};
 use crate::memory::{FrameId, VariableStorage};
 use crate::program_model::Expr;
@@ -8,10 +9,10 @@ use crate::value::{DateTimeProfile, Duration, Value};
 use trust_hir::types::TypeRegistry;
 
 fn fault_event(label: &str, millis: i64) -> RuntimeEvent {
-    RuntimeEvent::Fault {
-        error: label.to_string(),
-        time: Duration::from_millis(millis),
-    }
+    RuntimeEvent::fault(
+        &RuntimeError::SimulationFault(label.into()),
+        Duration::from_millis(millis),
+    )
 }
 
 fn io_snapshot(scan: u64, value: i64) -> IoSnapshot {

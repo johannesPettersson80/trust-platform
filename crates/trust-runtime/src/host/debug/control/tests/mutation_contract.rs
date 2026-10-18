@@ -1,4 +1,5 @@
 use super::super::*;
+use crate::error::RuntimeError;
 use crate::memory::{FrameId, Generation, InstanceId};
 use crate::program_model::LValue;
 use crate::value::Value;
@@ -344,10 +345,10 @@ fn clearing_runtime_mutations_preserves_unrelated_debug_state() {
     let control = DebugControl::new();
     control.set_breakpoints_for_file(1, vec![DebugBreakpoint::new(SourceLocation::new(1, 1, 2))]);
     control.pause_thread(7);
-    control.push_runtime_event(RuntimeEvent::Fault {
-        error: "fault".into(),
-        time: crate::value::Duration::from_millis(1),
-    });
+    control.push_runtime_event(RuntimeEvent::fault(
+        &RuntimeError::SimulationFault("fault".into()),
+        crate::value::Duration::from_millis(1),
+    ));
     control.enqueue_global_write("a", Value::LInt(1));
     control.force_global("a", Value::LInt(2));
 

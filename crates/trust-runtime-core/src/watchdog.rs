@@ -5,6 +5,7 @@ use alloc::format;
 use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
+use crate::fault::{FaultRecord, FaultSite, NO_TASK};
 use crate::value::Duration;
 
 /// Action taken when the watchdog times out.
@@ -218,10 +219,16 @@ impl Default for WatchdogSubsystem {
 }
 
 /// Stateful runtime fault holder.
+///
+/// It keeps the latest fault both as the fixed record the engine latches (specification 34
+/// MEM-05, STATE-04) and, for the hosted fault log, as the error it was raised from. The record
+/// is `Copy` and carries the bounded context the fault log renders at reply time; a hosted
+/// message that the record does not hold stays in the error.
 pub struct FaultSubsystem {
     policy: FaultPolicy,
     faulted: bool,
     last_fault: Option<RuntimeError>,
+    last_record: Option<FaultRecord>,
 }
 
 impl FaultSubsystem {
@@ -232,6 +239,7 @@ impl FaultSubsystem {
             policy: FaultPolicy::Halt,
             faulted: false,
             last_fault: None,
+            last_record: None,
         }
     }
 
@@ -252,16 +260,27 @@ impl FaultSubsystem {
         FaultDecision::from_fault_policy(self.policy)
     }
 
-    /// Record a runtime fault.
-    pub fn record(&mut self, err: RuntimeError) {
+    /// Record a runtime fault at the given logical time, latching its fixed record
+    /// (specification 34 MEM-05) and returning the record for the caller that renders it.
+    #[must_use]
+    pub fn record_at(&mut self, err: RuntimeError, now: Duration) -> FaultRecord {
+        let record = FaultRecord::latch(&err, FaultSite::NONE, NO_TASK, now);
         self.faulted = true;
+        self.last_record = Some(record);
         self.last_fault = Some(err);
+        record
     }
 
-    /// Clear the faulted state and last fault.
+    /// Record a runtime fault with no scan logical time.
+    pub fn record(&mut self, err: RuntimeError) {
+        let _ = self.record_at(err, Duration::ZERO);
+    }
+
+    /// Clear the faulted state, the last fault and its record.
     pub fn clear(&mut self) {
         self.faulted = false;
         self.last_fault = None;
+        self.last_record = None;
     }
 
     /// Return whether the runtime is currently faulted.
@@ -274,6 +293,12 @@ impl FaultSubsystem {
     #[must_use]
     pub fn last_fault(&self) -> Option<&RuntimeError> {
         self.last_fault.as_ref()
+    }
+
+    /// Return the fixed record of the last recorded fault, if any (specification 34 MEM-05).
+    #[must_use]
+    pub fn fault_record(&self) -> Option<FaultRecord> {
+        self.last_record
     }
 }
 

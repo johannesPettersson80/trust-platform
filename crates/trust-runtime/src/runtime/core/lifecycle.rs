@@ -191,13 +191,14 @@ impl Runtime {
                 });
             }
         }
-        self.faults.record(err.clone());
+        let record = self.faults.record_at(err.clone(), self.current_time);
         self.metrics.record_fault();
         if let Some(debug) = &self.debug {
-            debug.push_runtime_event(crate::debug::RuntimeEvent::Fault {
-                error: err.to_string(),
-                time: self.current_time,
-            });
+            debug.push_runtime_event(crate::debug::RuntimeEvent::fault_with_record(
+                record,
+                &err,
+                self.current_time,
+            ));
         }
         reported
     }

@@ -4,11 +4,12 @@
 //! with the pipeline.
 
 use alloc::format;
-use alloc::string::{String, ToString};
+use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 
 use serde_json::{json, Value};
+use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::value::Duration;
 
 use super::*;
@@ -480,14 +481,14 @@ fn shared_resource_operations_are_routed_with_their_parameters() {
     );
 
     host.events.borrow_mut().extend([
-        RuntimeEvent::Fault {
-            error: "first".to_string(),
-            time: Duration::ZERO,
-        },
-        RuntimeEvent::Fault {
-            error: "second".to_string(),
-            time: Duration::ZERO,
-        },
+        RuntimeEvent::fault(
+            &RuntimeError::SimulationFault("first".into()),
+            Duration::ZERO,
+        ),
+        RuntimeEvent::fault(
+            &RuntimeError::SimulationFault("second".into()),
+            Duration::ZERO,
+        ),
     ]);
     let faults = dispatch_value(
         json!({"id": 2, "type": "faults", "params": {"limit": 1}}),
@@ -496,7 +497,9 @@ fn shared_resource_operations_are_routed_with_their_parameters() {
     );
     assert_eq!(
         faults.result,
-        Some(json!({"faults": [{"type": "fault", "error": "second", "time_ns": 0}]}))
+        Some(
+            json!({"faults": [{"type": "fault", "error": "simulation fault 'second'", "time_ns": 0}]})
+        )
     );
     let events = dispatch_value(
         json!({"id": 3, "type": "events", "params": {"limit": 0}}),

@@ -5,6 +5,7 @@ use serde_json::{json, Value};
 
 use super::*;
 use crate::debug::RuntimeEvent;
+use crate::error::RuntimeError;
 use crate::value::Duration;
 
 const SOURCE: &str = r#"
@@ -27,11 +28,11 @@ fn cycle(cycle: u64) -> RuntimeEvent {
     }
 }
 
-fn fault(error: &str, timestamp_ms: i64) -> RuntimeEvent {
-    RuntimeEvent::Fault {
-        error: error.to_string(),
-        time: time(timestamp_ms),
-    }
+fn fault(label: &str, timestamp_ms: i64) -> RuntimeEvent {
+    RuntimeEvent::fault(
+        &RuntimeError::SimulationFault(label.into()),
+        time(timestamp_ms),
+    )
 }
 
 fn result(response: ControlResponse) -> Value {
@@ -204,7 +205,13 @@ fn faults_filter_before_applying_limit() {
     ]);
 
     let value = result(handle_faults(7, Some(json!({"limit": 2})), &state));
-    assert_eq!(fault_errors(&value), ["new fault", "old fault"]);
+    assert_eq!(
+        fault_errors(&value),
+        [
+            "simulation fault 'new fault'",
+            "simulation fault 'old fault'"
+        ]
+    );
 }
 
 #[test]
@@ -220,8 +227,8 @@ fn faults_default_to_fifty_newest_faults_not_fifty_events() {
     let value = result(handle_faults(8, None, &state));
     let errors = fault_errors(&value);
     assert_eq!(errors.len(), 50);
-    assert_eq!(errors.first(), Some(&"fault-55"));
-    assert_eq!(errors.last(), Some(&"fault-6"));
+    assert_eq!(errors.first(), Some(&"simulation fault 'fault-55'"));
+    assert_eq!(errors.last(), Some(&"simulation fault 'fault-6'"));
 }
 
 #[test]
@@ -234,7 +241,14 @@ fn faults_return_newest_fault_first() {
     ]);
 
     let value = result(handle_faults(9, Some(json!({"limit": 3})), &state));
-    assert_eq!(fault_errors(&value), ["third", "second", "first"]);
+    assert_eq!(
+        fault_errors(&value),
+        [
+            "simulation fault 'third'",
+            "simulation fault 'second'",
+            "simulation fault 'first'"
+        ]
+    );
 }
 
 #[test]
@@ -250,7 +264,7 @@ fn faults_exclude_safe_state_failure_events() {
     ]);
 
     let value = result(handle_faults(10, None, &state));
-    assert_eq!(fault_errors(&value), ["root fault"]);
+    assert_eq!(fault_errors(&value), ["simulation fault 'root fault'"]);
 }
 
 #[test]

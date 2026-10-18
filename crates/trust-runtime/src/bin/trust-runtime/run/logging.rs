@@ -88,13 +88,17 @@ fn log_runtime_event(logger: &RuntimeLogger, event: &trust_runtime::debug::Runti
                 }),
             );
         }
-        trust_runtime::debug::RuntimeEvent::Fault { error, time } => {
+        trust_runtime::debug::RuntimeEvent::Fault {
+            fault,
+            message,
+            time,
+        } => {
             logger.log(
                 LogLevel::Error,
                 "runtime_fault",
                 json!({
                     "event_id": "TRUST-RT-FAULT-001",
-                    "error": error,
+                    "error": fault.render(message.as_ref()),
                     "time_ms": time.as_millis(),
                 }),
             );

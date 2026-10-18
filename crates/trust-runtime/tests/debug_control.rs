@@ -7,6 +7,7 @@ use trust_runtime::debug::{
     offset_to_line_col, resolve_breakpoint_location, DebugBreakpoint, DebugControl, DebugHook,
     DebugRuntimeContext, DebugStopReason, HitCondition, LogFragment, RuntimeEvent, SourceLocation,
 };
+use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::parse_debug_expression;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::memory::VariableStorage;
@@ -583,16 +584,18 @@ fn runtime_event_sender_drop_buffers_event_in_debug_control() {
     drop(rx);
     control.set_runtime_sender(tx);
 
-    control.push_runtime_event(RuntimeEvent::Fault {
-        error: "first fault".to_string(),
-        time: trust_runtime::value::Duration::ZERO,
-    });
+    control.push_runtime_event(RuntimeEvent::fault(
+        &RuntimeError::SimulationFault("first fault".into()),
+        trust_runtime::value::Duration::ZERO,
+    ));
 
     let events = control.drain_runtime_events();
     assert!(
-        events.iter().any(
-            |event| matches!(event, RuntimeEvent::Fault { error, .. } if error == "first fault")
-        ),
+        events.iter().any(|event| matches!(
+            event,
+            RuntimeEvent::Fault { fault, message, .. }
+                if fault.render(message.as_ref()) == "simulation fault 'first fault'"
+        )),
         "dropped runtime event sender must not lose the first fault, got {events:?}"
     );
 }

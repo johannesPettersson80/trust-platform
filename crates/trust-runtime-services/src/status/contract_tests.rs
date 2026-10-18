@@ -289,10 +289,10 @@ fn events_and_faults_read_the_newest_entries_within_their_limit() {
             cycle,
             time: EventTime::ZERO,
         }));
-    host.events.borrow_mut().push_back(RuntimeEvent::Fault {
-        error: "newest fault".to_string(),
-        time: EventTime::from_millis(2),
-    });
+    host.events.borrow_mut().push_back(RuntimeEvent::fault(
+        &RuntimeError::SimulationFault("newest fault".into()),
+        EventTime::from_millis(2),
+    ));
 
     let events = result(events_tail(1, None, &host));
     let events = events["events"].as_array().expect("events");
@@ -303,7 +303,7 @@ fn events_and_faults_read_the_newest_entries_within_their_limit() {
     let faults = result(faults(2, Some(&json!({"limit": 1_000})), &host));
     assert_eq!(
         faults,
-        json!({"faults": [{"type": "fault", "error": "newest fault", "time_ns": 2_000_000}]})
+        json!({"faults": [{"type": "fault", "error": "simulation fault 'newest fault'", "time_ns": 2_000_000}]})
     );
 }
 

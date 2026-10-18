@@ -148,11 +148,14 @@ impl Runtime {
             }
         }
         self.metrics.record_fault();
-        if let Some(debug) = &debug {
-            debug.push_runtime_event(RuntimeEvent::Fault {
-                error: error.to_string(),
-                time: self.current_time(),
-            });
+        if let Some(debug) = &debug
+            && let Some(record) = self.state.fault_record()
+        {
+            debug.push_runtime_event(RuntimeEvent::fault_with_record(
+                record,
+                &error,
+                self.current_time(),
+            ));
         }
         reported
     }

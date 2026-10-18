@@ -211,6 +211,9 @@ where
     fn apply_fault(&mut self, error: RuntimeError, decision: FaultDecision) -> RuntimeError {
         let time = self.program_time;
         let root = error.to_string();
+        // The fixed record and the hosted message the fault log renders, built while the error
+        // is still here (specification 34 MEM-05): recording the event allocates nothing.
+        let event = RuntimeEvent::fault(&error, time);
         let mut reported = error.clone();
         self.cycle.latch_fault(error);
         if decision.apply_safe_state
@@ -228,8 +231,7 @@ where
             });
         }
         self.records.record(RuntimeMetrics::record_fault);
-        self.records
-            .push_event(RuntimeEvent::Fault { error: root, time });
+        self.records.push_event(event);
         reported
     }
 

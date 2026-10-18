@@ -6,11 +6,20 @@
 //! logical time. Every scan-path fault is built from these values without allocating; rich
 //! names and messages are rendered outside the core control path.
 //!
+//! A fault whose reply text needs a hosted name or message keeps it as a
+//! [`FaultMessage`](crate::fault::FaultMessage), shared from the error without copying, and
+//! [`FaultRecord::render`](crate::fault::FaultRecord::render) builds today's text when a reply
+//! asks for it.
+//!
 //! The record's logical time is the scan's whole seconds beside the millisecond within the
 //! second, the millisecond precision the host's fault log already reports
 //! ([`FaultRecord::latch`](crate::fault::FaultRecord::latch)).
 
+use alloc::format;
+use alloc::string::{String, ToString};
 use core::fmt;
+
+use smol_str::SmolStr;
 
 use crate::error::ExecutionLimitKind;
 use crate::error::RuntimeError;
@@ -276,6 +285,42 @@ impl FaultRecord {
         }
     }
 
+    /// The text `faults`, `events.tail` and the host's fault log report for this record and the
+    /// message the error carried (specification 34 MEM-05).
+    ///
+    /// Without a message the record's own text is today's text. With one, the message selects
+    /// the wording and supplies the name or text the fixed record does not hold, so the reply is
+    /// byte for byte what trust-runtime answers today. The text is built here, at reply time; a
+    /// fault is captured without it.
+    #[must_use]
+    pub fn render(&self, message: Option<&FaultMessage>) -> String {
+        match message {
+            None => self.to_string(),
+            Some(FaultMessage::SimulationFault(text)) => format!("simulation fault '{text}'"),
+            Some(FaultMessage::ResourcePanic(text)) => format!("resource panic '{text}'"),
+            Some(FaultMessage::IoDriver(text)) => format!("i/o driver error '{text}'"),
+            Some(FaultMessage::IoTransport(text)) => format!("i/o transport error '{text}'"),
+            Some(FaultMessage::IoAddress(text)) => format!("i/o address error '{text}'"),
+            Some(FaultMessage::IoFreshness(text)) => format!("i/o freshness error '{text}'"),
+            Some(FaultMessage::RetainStore(text)) => format!("retain store error '{text}'"),
+            Some(FaultMessage::RetainCorruption(text)) => format!("retain corruption '{text}'"),
+            Some(FaultMessage::RetainMigration(text)) => {
+                format!("retain migration error '{text}'")
+            }
+            Some(FaultMessage::InvalidConfig(text)) => format!("invalid config '{text}'"),
+            Some(FaultMessage::ReadOnlyAlias(name)) => {
+                format!("VAR_ACCESS '{name}' is read-only")
+            }
+            // The retained-value range is the record's bounded subrange detail, whose text is
+            // exactly the range today's error prints between the retained name and the quote.
+            Some(FaultMessage::RetainSubrange(name)) => format!(
+                "retain migration error 'invalid retained value for '{name}': {}'",
+                self.detail
+            ),
+            Some(FaultMessage::Bytecode(detail)) => format!("invalid bytecode '{detail}'"),
+        }
+    }
+
     /// The stable code and bounded detail that render exactly as today's error does
     /// (specification 34 MEM-05).
     fn code_and_detail(error: &RuntimeError) -> (StableErrorCode, FaultDetail) {
@@ -323,6 +368,157 @@ impl FaultRecord {
             ),
             other => (other.stable_code(), FaultDetail::None),
         }
+    }
+}
+
+/// The hosted name or message a fault error carried, kept beside the fixed record so `faults`
+/// and `events.tail` render today's text (specification 34 MEM-05).
+///
+/// It is built from the error by reference: every payload is the `SmolStr` the error already
+/// holds, shared by an inline copy or a reference count, so capturing a fault formats no string.
+/// The record's [`FaultRecord::render`](crate::fault::FaultRecord::render) turns it into today's
+/// wording when a reply asks for it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FaultMessage {
+    /// `simulation fault '{0}'`.
+    SimulationFault(SmolStr),
+    /// `resource panic '{0}'`.
+    ResourcePanic(SmolStr),
+    /// `i/o driver error '{0}'`.
+    IoDriver(SmolStr),
+    /// `i/o transport error '{0}'`.
+    IoTransport(SmolStr),
+    /// `i/o address error '{0}'`.
+    IoAddress(SmolStr),
+    /// `i/o freshness error '{0}'`.
+    IoFreshness(SmolStr),
+    /// `retain store error '{0}'`.
+    RetainStore(SmolStr),
+    /// `retain corruption '{0}'`.
+    RetainCorruption(SmolStr),
+    /// `retain migration error '{0}'`.
+    RetainMigration(SmolStr),
+    /// `invalid config '{0}'`.
+    InvalidConfig(SmolStr),
+    /// `VAR_ACCESS '{0}' is read-only`.
+    ReadOnlyAlias(SmolStr),
+    /// The retained variable of `retain migration error 'invalid retained value for '{0}': …'`;
+    /// the record's bounded subrange detail supplies the range.
+    RetainSubrange(SmolStr),
+    /// `invalid bytecode '{0}'`.
+    Bytecode(SmolStr),
+}
+
+impl FaultMessage {
+    /// The message `error` carries, sharing its payload without copying, or `None` for a fault
+    /// whose text the fixed record renders alone (specification 34 MEM-05).
+    #[must_use]
+    pub fn from_error(error: &RuntimeError) -> Option<Self> {
+        match error {
+            RuntimeError::SimulationFault(text) => Some(Self::SimulationFault(text.clone())),
+            RuntimeError::ResourcePanic(text) => Some(Self::ResourcePanic(text.clone())),
+            RuntimeError::IoDriver(text) => Some(Self::IoDriver(text.clone())),
+            RuntimeError::IoTransport(text) => Some(Self::IoTransport(text.clone())),
+            RuntimeError::IoAddress(text) => Some(Self::IoAddress(text.clone())),
+            RuntimeError::IoFreshness(text) => Some(Self::IoFreshness(text.clone())),
+            RuntimeError::RetainStore(text) => Some(Self::RetainStore(text.clone())),
+            RuntimeError::RetainCorruption(text) => Some(Self::RetainCorruption(text.clone())),
+            RuntimeError::RetainMigration(text) => Some(Self::RetainMigration(text.clone())),
+            RuntimeError::InvalidConfig(text) => Some(Self::InvalidConfig(text.clone())),
+            RuntimeError::ReadOnlyAlias(name) => Some(Self::ReadOnlyAlias(name.clone())),
+            RuntimeError::RetainSubrangeViolation { name, .. } => {
+                Some(Self::RetainSubrange(name.clone()))
+            }
+            RuntimeError::Bytecode { detail, .. } => Some(Self::Bytecode(detail.clone())),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Display for FaultRecord {
+    /// The text the fault log reports for this record (specification 34 MEM-05).
+    ///
+    /// It is today's `RuntimeError` text for every fault the record holds: a bounded detail
+    /// renders its parameterised form and a parameterless fault its fixed text. A fault whose
+    /// text the record does not hold, because the error carried a name or message it never
+    /// stored, renders its stable code: rich names and messages are rendered outside the core
+    /// control path (MEM-05).
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.detail {
+            FaultDetail::None => formatter.write_str(fixed_message(self.code)),
+            FaultDetail::Index {
+                index,
+                lower,
+                upper,
+            } => write!(
+                formatter,
+                "array index {index} out of bounds [{lower}..{upper}]"
+            ),
+            FaultDetail::Subrange {
+                value,
+                lower,
+                upper,
+                negative,
+            } => {
+                formatter.write_str("value ")?;
+                FaultDetail::write_signed(formatter, negative & 1 != 0, value)?;
+                formatter.write_str(" outside declared subrange ")?;
+                FaultDetail::write_signed(formatter, negative & 2 != 0, lower)?;
+                formatter.write_str("..")?;
+                FaultDetail::write_signed(formatter, negative & 4 != 0, upper)
+            }
+            FaultDetail::Limit {
+                kind,
+                used,
+                requested,
+                limit,
+            } => write!(
+                formatter,
+                "execution timed out: {kind} limit {limit}, used {used}, requested {requested}"
+            ),
+            // Every other bounded detail belongs to a VM fault, whose text wraps it in the
+            // bytecode prefix (specification 34 MEM-05).
+            detail => write!(formatter, "invalid bytecode '{detail}'"),
+        }
+    }
+}
+
+/// Today's fixed text of a fault whose record holds no detail, or its stable code when the
+/// error carried a name or message the record does not hold (specification 34 MEM-05).
+fn fixed_message(code: StableErrorCode) -> &'static str {
+    match code {
+        StableErrorCode::RuntimeConstantWrite => "write to a constant declaration",
+        StableErrorCode::RuntimeStagingViolation => "write outside initializer staging storage",
+        StableErrorCode::RuntimeVisibilityViolation => {
+            "read outside the initializer visibility frontier"
+        }
+        StableErrorCode::RuntimeReferenceLifetime => {
+            "reference outlived its activation or instance"
+        }
+        StableErrorCode::RuntimeProgramRootReplacement => "program-root replacement is forbidden",
+        StableErrorCode::RuntimeInvalidAlias => "invalid storage alias use",
+        StableErrorCode::RuntimePreparationLimit => "preparation resource limit exceeded",
+        StableErrorCode::RuntimeInvalidExecutionState => {
+            "admitted execution metadata is inconsistent"
+        }
+        StableErrorCode::RuntimeTypeMismatch => "type mismatch",
+        StableErrorCode::RuntimeNonFiniteValue => "non-finite floating-point value",
+        StableErrorCode::RuntimeDivisionByZero => "division by zero",
+        StableErrorCode::RuntimeModuloByZero => "modulo by zero",
+        StableErrorCode::RuntimeOverflow => "arithmetic overflow",
+        StableErrorCode::RuntimeNullReference => "null reference dereference",
+        StableErrorCode::RuntimeInvalidControlFlow => "invalid control flow",
+        StableErrorCode::RuntimeForStepZero => "FOR loop step cannot be zero",
+        StableErrorCode::RuntimeConditionNotBool => "condition is not BOOL",
+        StableErrorCode::RuntimeCaseSelectorType => "case selector type not supported",
+        StableErrorCode::RuntimeDateTimeRange => "date/time out of range",
+        StableErrorCode::RuntimeResourceFaulted => "resource faulted",
+        StableErrorCode::RuntimeWatchdogTimeout => "watchdog timeout",
+        StableErrorCode::RuntimeExecutionTimeout => "execution timed out",
+        StableErrorCode::RuntimeStringCapacityExceeded => {
+            "string result longer than the maximum of 65535"
+        }
+        other => other.as_str(),
     }
 }
 

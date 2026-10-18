@@ -13,6 +13,8 @@ use alloc::vec::Vec;
 
 use serde_json::json;
 use smol_str::SmolStr;
+use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::fault::{FaultMessage, FaultRecord, FaultSite, NO_TASK};
 use trust_runtime_core::value::{Duration, Value};
 use trust_runtime_core::vm::RetainApplyEvent;
 
@@ -72,8 +74,12 @@ pub enum RuntimeEvent {
     },
     /// Resource fault event.
     Fault {
-        /// Fault message.
-        error: String,
+        /// The fixed fault record the engine latched (specification 34 MEM-05); `faults` and
+        /// `events.tail` render its text at reply time.
+        fault: FaultRecord,
+        /// The hosted message the error carried, when its kind has one (specification 34
+        /// MEM-05). The record's code and this shared payload render today's text at reply time.
+        message: Option<FaultMessage>,
         /// Time when the fault was recorded.
         time: Duration,
     },
@@ -123,6 +129,31 @@ pub enum RuntimeEvent {
         /// clock is not set.
         time: Option<Duration>,
     },
+}
+
+impl RuntimeEvent {
+    /// A fault event for `error` at logical `time`, latching its fixed record with no failure
+    /// site and no task, for faults that no dispatched instruction raised (specification 34
+    /// MEM-05).
+    #[must_use]
+    pub fn fault(error: &RuntimeError, time: Duration) -> Self {
+        Self::fault_with_record(
+            FaultRecord::latch(error, FaultSite::NONE, NO_TASK, time),
+            error,
+            time,
+        )
+    }
+
+    /// A fault event for a record the engine already latched, with the message `error` carried
+    /// (specification 34 MEM-05).
+    #[must_use]
+    pub fn fault_with_record(record: FaultRecord, error: &RuntimeError, time: Duration) -> Self {
+        Self::Fault {
+            fault: record,
+            message: FaultMessage::from_error(error),
+            time,
+        }
+    }
 }
 
 /// Newest runtime events the product event store keeps for `events.tail` and `faults`.
@@ -234,9 +265,13 @@ pub fn runtime_event_to_json(event: RuntimeEvent) -> serde_json::Value {
             "error": error,
             "time_ns": time.as_nanos(),
         }),
-        RuntimeEvent::Fault { error, time } => json!({
+        RuntimeEvent::Fault {
+            fault,
+            message,
+            time,
+        } => json!({
             "type": "fault",
-            "error": error,
+            "error": fault.render(message.as_ref()),
             "time_ns": time.as_nanos(),
         }),
         RuntimeEvent::SafeStateFailed { root, error, time } => json!({
