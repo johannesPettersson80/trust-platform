@@ -48,14 +48,16 @@ pub(super) fn validate_initializer_stack_shape(
     result_is_local: bool,
     budget: &mut ValidationBudget,
 ) -> Result<(), BytecodeError> {
-    validate_stack_shape_inner(
+    let demand = validate_stack_shape_inner(
         tables,
         instructions,
         code_len,
         Some(result_is_local),
         budget,
-    )
-    .map(|_| ())
+    )?;
+    let stats = &mut budget.stats;
+    stats.max_initializer_operand_depth = stats.max_initializer_operand_depth.max(demand.depth);
+    Ok(())
 }
 
 fn validate_stack_shape_inner(

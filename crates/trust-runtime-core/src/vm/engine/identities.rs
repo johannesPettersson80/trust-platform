@@ -23,6 +23,10 @@ impl InstanceSet {
     pub(super) fn insert(&mut self, id: InstanceId) -> Result<bool, RuntimeError> {
         Ok(self.0.insert(id.0, ())?.is_none())
     }
+    /// Room for `capacity` identities, so that inserting as many allocates nothing (C1-19c).
+    pub(super) fn reserve_capacity(&mut self, capacity: usize) -> Result<(), RuntimeError> {
+        self.0.reserve_capacity(capacity)
+    }
     /// Remove every identity and keep the room they took.
     pub(super) fn clear(&mut self) {
         self.0.clear();
@@ -128,6 +132,26 @@ impl OwnedInstances {
     }
     pub(super) fn reserve_capacity(&mut self, capacity: usize) -> Result<(), RuntimeError> {
         self.0.reserve_capacity(capacity)
+    }
+    /// Keep `count` emptied lists with room for `room` instances each, so that the owners a chain
+    /// of calls holds at once take their lists without allocating (spec 34 MEM-09; C1-19c).
+    pub(super) fn reserve_lists(&mut self, count: usize, room: usize) -> Result<(), RuntimeError> {
+        let refused = |_| RuntimeError::Overflow;
+        self.1
+            .try_reserve_exact(count.saturating_sub(self.1.len()))
+            .map_err(refused)?;
+        while self.1.len() < count {
+            let mut list = Vec::new();
+            list.try_reserve_exact(room).map_err(refused)?;
+            self.1.push(list);
+        }
+        Ok(())
+    }
+    /// The bytes [`OwnedInstances::reserve_lists`] takes for `count` lists of `room` instances.
+    pub(super) fn list_reservation_bytes(count: usize, room: usize) -> Option<usize> {
+        room.checked_mul(core::mem::size_of::<u32>())?
+            .checked_add(core::mem::size_of::<Vec<u32>>())?
+            .checked_mul(count)
     }
     pub(super) fn count(&self, owner: FrameId) -> usize {
         self.0.get(&owner.0).map_or(0, Vec::len)

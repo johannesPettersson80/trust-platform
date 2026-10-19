@@ -441,15 +441,20 @@ impl PreparedModule {
     /// The per-call instances the activation stack holds at most (C1-11c): for each reserved call
     /// level, as many as the frame of any POU creates.
     pub(crate) fn call_instance_reservation(&self) -> Result<usize, RuntimeError> {
+        self.largest_call_instances()?
+            .checked_mul(self.reserved_call_levels())
+            .ok_or(RuntimeError::Overflow)
+    }
+
+    /// The most instances on the activation stack that the frame of any POU creates (C1-11c), which
+    /// bounds the identities one call's bookkeeping lists hold (C1-19c).
+    pub(crate) fn largest_call_instances(&self) -> Result<usize, RuntimeError> {
         let mut largest = 0u32;
         for &pou in self.layouts.locals.keys() {
             let (_, count) = self.call_instance_room(pou).ok_or(RuntimeError::Overflow)?;
             largest = largest.max(count);
         }
-        usize::try_from(largest)
-            .ok()
-            .and_then(|count| count.checked_mul(self.reserved_call_levels()))
-            .ok_or(RuntimeError::Overflow)
+        usize::try_from(largest).map_err(|_| RuntimeError::Overflow)
     }
 
     /// Whether a call creates the instances of `pou` on the activation stack of the flat store: no

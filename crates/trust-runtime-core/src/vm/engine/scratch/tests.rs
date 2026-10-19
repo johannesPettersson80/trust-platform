@@ -24,6 +24,8 @@ const METHODS: &[u8] =
     include_bytes!("../../../../../trust-runtime/tests/fixtures/bounded-c/methods/program.stbc");
 const FAULTS: &[u8] =
     include_bytes!("../../../../../trust-runtime/tests/fixtures/bounded-c/faults/program.stbc");
+const RETAIN: &[u8] =
+    include_bytes!("../../../../../trust-runtime/tests/fixtures/bounded-c/retain/program.stbc");
 
 /// The chips' call depth, with the hosted preparation allowances the register tier needs.
 fn prepared(bytes: &[u8]) -> PreparedModule {
@@ -431,13 +433,30 @@ fn nested_calls_use_their_own_depths_scratch() {
     );
 }
 
+/// Spec 34 MEM-09 (C1-19c): the retain capture is reserved for the largest payload of the
+/// resource. For the `retain` corpus program, worked out by hand from `retain/src/main.st`: the
+/// entry count, 4 bytes; the globals `counter` and `setpoint`, each its name with a 4-byte length
+/// and a scalar's tag with at most 8 bytes, 4 + 7 + 9 = 20 and 4 + 8 + 9 = 21; the program `Plant`'s
+/// `runs` under `@program/Plant/runs`, 4 + 19 + 9 = 32; and its `label`, a `STRING[12]`, under
+/// `@program/Plant/label` with a tag, a 4-byte length and 12 bytes, 4 + 20 + 17 = 41. That is 118
+/// bytes. Catches a bound that leaves the program variables out (45), one that counts the text
+/// by its current value instead of its capacity (112) and one without the names (36 fewer).
+#[test]
+fn the_retain_capture_is_reserved_for_the_largest_payload() {
+    let prepared = prepared(RETAIN);
+    let services = &services::LOGICAL_ONLY;
+    let mut data = EngineState::construct_data(&prepared, 0, services).unwrap();
+    let state = EngineState::borrow(&mut data, &prepared, services);
+    assert_eq!(state.retained_payload_bound(), Some(118));
+}
+
 /// Spec 34 MEM-09: a reserved visited set is reused, and it comes back empty. Catches a set handed
 /// to an initializer with the instances of the one that used it before: the write policy would
 /// let the new initializer write them, and its staging would skip their backups.
 #[test]
 fn a_returned_visited_set_is_empty_when_taken_again() {
     let mut scratch = BookkeepingScratch::default();
-    scratch.reserve(1).unwrap();
+    scratch.reserve(1, 1).unwrap();
     let mut visited = scratch.take_visited();
     assert!(visited.insert(InstanceId(7)).unwrap());
     scratch.return_visited(visited);

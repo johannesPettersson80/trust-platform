@@ -676,6 +676,13 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// `<>` where they lie, and copies the bytes of an array or a structure that a call leaves on the
 /// operand stack into the stack's temporary area, where the store after the call finds them: on the
 /// flat store `copies`, `overlays` and `operands` make no allocator call after their first scan.
+///
+/// C1-19c reserves at construction what the first scans grew: the locals and presence bits of every
+/// call level, the execution buffers of initializer bodies, the instance bookkeeping of a call
+/// that creates instances, the output journal of a native call, the hierarchical image keys, the
+/// text a character write edits and the retain capture. On the flat store `scalar`, `gpio`, the
+/// saved `gpio` and `numeric`, `sizeof`, `methods`, `instances` and `retain` make no allocator call
+/// in any scan, the first included, measured on the builder on 19 October 2026.
 const CEILINGS: [(&str, usize, Calls); 36] = [
     ("faults/division", 2, Calls::ZERO),
     ("faults/index", 2, Calls::ZERO),
@@ -725,17 +732,17 @@ const CEILINGS: [(&str, usize, Calls); 36] = [
     ("methods", 1, Calls::ZERO),
     // The same runs on the flat store (C1-10 on): those at zero, and each other at the allocator
     // calls of its steady scans when the reference buffers were kept (19 October 2026).
-    ("cells/scalar", 1, Calls::ZERO),
-    ("cells/gpio", 1, Calls::ZERO),
-    ("cells/saved/gpio", 1, Calls::ZERO),
-    ("cells/saved/numeric", 1, Calls::ZERO),
-    ("cells/sizeof", 1, Calls::ZERO),
-    ("cells/retain", 1, Calls::ZERO),
+    ("cells/scalar", 0, Calls::ZERO),
+    ("cells/gpio", 0, Calls::ZERO),
+    ("cells/saved/gpio", 0, Calls::ZERO),
+    ("cells/saved/numeric", 0, Calls::ZERO),
+    ("cells/sizeof", 0, Calls::ZERO),
+    ("cells/retain", 0, Calls::ZERO),
     ("cells/io", 1, Calls::ZERO),
     ("cells/calls", 1, Calls::ZERO),
     ("cells/blocks", 1, Calls::ZERO),
-    ("cells/methods", 1, Calls::ZERO),
-    ("cells/instances", 1, Calls::ZERO),
+    ("cells/methods", 0, Calls::ZERO),
+    ("cells/instances", 0, Calls::ZERO),
     ("cells/arrays", 1, Calls::ZERO),
     ("cells/references", 1, Calls::ZERO),
     ("cells/strings", 1, Calls::ZERO),

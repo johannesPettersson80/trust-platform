@@ -130,6 +130,10 @@ pub(in crate::vm::engine) struct ImageStaging {
     patches: Vec<StagedPatch>,
     window: Vec<u8>,
     bytes: Vec<u8>,
+    /// For each published hierarchical binding, by its index among the prepared bindings, the key
+    /// of its image entry, built at construction and moved into the entry when the binding first
+    /// publishes, so that no scan builds one (C1-19c).
+    published_keys: Vec<Option<IoAddressKey>>,
 }
 
 /// The staging that the bindings of a prepared module use in one scan.
@@ -143,13 +147,20 @@ pub(in crate::vm::engine) struct StagingDemand {
     pub(in crate::vm::engine) window: usize,
     /// The bytes of all flat `%Q` and `%M` windows together.
     pub(in crate::vm::engine) bytes: usize,
+    /// Every binding, each with room for the key of a published hierarchical entry.
+    pub(in crate::vm::engine) bindings: usize,
+    /// The path bytes of the keys of the published hierarchical bindings.
+    pub(in crate::vm::engine) key_bytes: usize,
 }
 
 impl StagingDemand {
     /// Count the bindings and their flat windows. An address whose window is invalid stays
     /// out of the sums; the scan refuses it exactly as before.
     pub(in crate::vm::engine) fn of(bindings: &[PreparedIoBinding]) -> Option<Self> {
-        let mut demand = Self::default();
+        let mut demand = Self {
+            bindings: bindings.len(),
+            ..Self::default()
+        };
         for binding in bindings {
             let address = &binding.address;
             if matches!(address.area, IoArea::Input | IoArea::Memory) {
@@ -159,6 +170,13 @@ impl StagingDemand {
                 continue;
             }
             demand.outputs = demand.outputs.checked_add(1)?;
+            if address.path.len() > 1 {
+                demand.key_bytes = address
+                    .path
+                    .len()
+                    .checked_mul(core::mem::size_of::<u32>())
+                    .and_then(|bytes| demand.key_bytes.checked_add(bytes))?;
+            }
             if let Ok(Some(end)) = address.flat_byte_end() {
                 let width = (end as usize).saturating_sub(address.byte as usize);
                 demand.window = demand.window.max(width);
@@ -178,20 +196,36 @@ impl StagingDemand {
         let outputs = self
             .outputs
             .checked_mul(core::mem::size_of::<StagedPatch>())?;
+        let keys = self
+            .bindings
+            .checked_mul(core::mem::size_of::<Option<IoAddressKey>>())?
+            .checked_add(self.key_bytes)?;
         inputs
             .checked_add(outputs)?
             .checked_add(self.window)?
-            .checked_add(self.bytes)
+            .checked_add(self.bytes)?
+            .checked_add(keys)
     }
 }
 
 impl ImageStaging {
-    /// Reserve the staging of `demand` at construction.
+    /// Reserve the staging of `demand`, the demand of `bindings`, at construction.
     pub(in crate::vm::engine) fn reserve(
         &mut self,
         demand: StagingDemand,
+        bindings: &[PreparedIoBinding],
     ) -> Result<(), RuntimeError> {
         let refused = |_| crate::vm::VmTrap::BudgetExceeded.into_runtime_error();
+        self.published_keys
+            .try_reserve_exact(bindings.len())
+            .map_err(refused)?;
+        for binding in bindings {
+            let address = &binding.address;
+            let published =
+                matches!(address.area, IoArea::Output | IoArea::Memory) && address.path.len() > 1;
+            self.published_keys
+                .push(published.then(|| IoAddressKey::from(address)));
+        }
         self.inputs
             .try_reserve_exact(demand.inputs)
             .map_err(refused)?;
@@ -233,7 +267,8 @@ impl ImageStaging {
             match patch {
                 StagedPatch::Hierarchical(index, value) => {
                     if let Some(binding) = bindings.get(index) {
-                        super::store_hierarchical(images, &binding.address, value);
+                        let key = self.published_keys.get_mut(index);
+                        super::store_hierarchical(images, &binding.address, value, key);
                     }
                 }
                 StagedPatch::Flat {
@@ -770,7 +805,7 @@ impl EngineState<'_> {
                 .try_reserve(1)
                 .map_err(|_| RuntimeError::PreparationLimit)?;
             self.check_entry_deadline()?;
-            super::store_hierarchical(&mut self.data.images, address, value);
+            super::store_hierarchical(&mut self.data.images, address, value, None);
         } else {
             let len = match address.area {
                 IoArea::Input => self.data.images.inputs.len(),

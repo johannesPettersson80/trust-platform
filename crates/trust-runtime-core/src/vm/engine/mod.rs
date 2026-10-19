@@ -442,6 +442,8 @@ impl<'a> EngineState<'a> {
             state.install_cell_store()?;
         }
         state.construct_resource(retained)?;
+        state.reserve_call_lifetimes()?;
+        state.reserve_retain_capture()?;
         state.reserve_input_snapshot()?;
         // A variable located at %M starts with its initial value (or, after a warm restart, its
         // retained one). The first scan loads the marker image into the bound variables, so the
@@ -463,7 +465,13 @@ impl<'a> EngineState<'a> {
             self.data.profile,
             |bytes| self.charge_allocation_bytes(bytes),
         )?;
-        self.data.store = EngineStore::Cells(Box::new(CellArm::new(storage)));
+        // The text a character write edits is reserved with the store (C1-19c).
+        let edit =
+            crate::memory::cells::largest_text_edit(self.prepared).ok_or(RuntimeError::Overflow)?;
+        self.charge_allocation_bytes(edit)?;
+        let mut arm = CellArm::new(storage);
+        arm.reserve_text_edit(edit)?;
+        self.data.store = EngineStore::Cells(Box::new(arm));
         Ok(())
     }
 

@@ -199,6 +199,14 @@ impl CellArm {
         }
     }
 
+    /// Room for `bytes` bytes of the text a character write edits, so that no write grows it
+    /// (spec 34 MEM-09; C1-19c).
+    pub(crate) fn reserve_text_edit(&mut self, bytes: usize) -> Result<(), RuntimeError> {
+        self.text
+            .try_reserve_exact(bytes)
+            .map_err(|_| RuntimeError::Overflow)
+    }
+
     /// Record that `instance`, of template `pou`, occupies the cells of `range` with `parent` as its
     /// parent. Construction records the persistent instances as it reserves them
     /// ([`CellArm::create_persistent_instance`]); the tests record the identities they issued.

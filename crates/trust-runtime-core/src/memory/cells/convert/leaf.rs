@@ -165,6 +165,100 @@ fn enumeration_leaf<'a>(
     })
 }
 
+/// The most bytes the retained encoder writes for a value of `type_id` (specification 34 MEM-09;
+/// C1-19c): what [`leaf_in`] classifies, each part at its largest, so that a capture's payload
+/// room is known before any value is captured. A scalar takes its tag and at most eight bytes, a
+/// text its tag, its byte length and its capacity in UTF-8 (a `WSTRING`'s code units at up to
+/// three bytes each), an enumeration its type name and its longest variant name, a structure and
+/// an array every member and element, and a structure with a physical layout its physical
+/// checkpoint. A reference or an instance takes none: its variable is left out of the payload.
+/// `None` on overflow and for a type nested deeper than the admitted nesting.
+pub(crate) fn max_encoded_len(
+    prepared: &PreparedModule,
+    type_id: u32,
+    depth: usize,
+) -> Option<usize> {
+    if depth > crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
+        return None;
+    }
+    Some(match shape(prepared, type_id).ok()? {
+        Shape::Scalar(_) => 1 + 8,
+        Shape::Text(_) => {
+            let (_, capacity, wide) = text_geometry(prepared, type_id)?;
+            let capacity = usize::try_from(capacity).ok()?;
+            let text = if wide {
+                capacity.checked_div(2)?.checked_mul(3)?
+            } else {
+                capacity
+            };
+            text.checked_add(1 + 4)?
+        }
+        Shape::Enumeration(enum_type) => {
+            let TypeData::Enum { variants, .. } = &type_entry(prepared, enum_type).ok()?.data
+            else {
+                return None;
+            };
+            let longest = variants
+                .iter()
+                .map(|variant| string(prepared, variant.name_idx).map_or(0, str::len))
+                .max()
+                .unwrap_or(0);
+            type_name_of(prepared, enum_type)
+                .len()
+                .checked_add(longest)?
+                .checked_add(1 + 4 + 4 + 8)?
+        }
+        // The members, then the marker that no physical checkpoint follows.
+        Shape::Structure(struct_type) => {
+            members_len(prepared, type_id, struct_type, depth)?.checked_add(1)?
+        }
+        // The members, then the physical checkpoint's marker, length and bytes.
+        Shape::Overlay(struct_type) => members_len(prepared, type_id, struct_type, depth)?
+            .checked_add(1 + 4)?
+            .checked_add(
+                prepared
+                    .vm
+                    .physical_layout_ref(struct_type)?
+                    .checkpoint_len()?,
+            )?,
+        Shape::Array(element_type) => {
+            let array = layout_of(prepared, type_id).ok()?.array.as_ref()?;
+            let header = array.dims.len().checked_mul(16)?.checked_add(1 + 4 + 4)?;
+            element_count(&array.dims)?
+                .checked_mul(max_encoded_len(prepared, element_type, depth + 1)?)?
+                .checked_add(header)?
+        }
+        Shape::Reference | Shape::Instance => 0,
+    })
+}
+
+/// The most bytes of a structure's header and members, as [`max_encoded_len`] counts them: its
+/// tag, its type name, its member count, and each member's name and value.
+fn members_len(
+    prepared: &PreparedModule,
+    type_id: u32,
+    struct_type: u32,
+    depth: usize,
+) -> Option<usize> {
+    let (TypeData::Struct { fields } | TypeData::Union { fields }) =
+        &type_entry(prepared, struct_type).ok()?.data
+    else {
+        return None;
+    };
+    let mut total = type_name_of(prepared, struct_type)
+        .len()
+        .checked_add(1 + 4 + 4)?;
+    for (ordinal, field) in fields.iter().enumerate() {
+        let name = structure_member_name(prepared, type_id, ordinal)
+            .ok()?
+            .len();
+        total = total
+            .checked_add(name.checked_add(4)?)?
+            .checked_add(max_encoded_len(prepared, field.type_id, depth + 1)?)?;
+    }
+    Some(total)
+}
+
 /// The structure of one type: its name and its number of members, which its layout and its declaration
 /// must agree on.
 fn structure_leaf(

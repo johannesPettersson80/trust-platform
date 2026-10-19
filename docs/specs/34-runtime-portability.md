@@ -1345,22 +1345,35 @@ allocation allowance before reserving any of it (TIME-09), as HOST-04 does for r
   method while the callee runs. The validator records both numbers. With no such call there is
   one call level;
 - the frame and pending-call stacks of those call levels;
-- one local-slot vector as large as the largest POU's locals, for the program activation;
+- a local-slot vector and a parameter-presence vector as large as the largest POU's locals for
+  every call level (checklist C1-19c);
+- the execution buffers of initializer bodies, one for each nested initializer evaluation, each
+  as deep as the deepest initializer body, which the validator records, with one frame;
 - the initializer, construction-frame and type-operation stacks;
-- the output copy-back journal, with room for the most parameters of any POU;
+- the output copy-back journal, with room for the most parameters of any POU or the most
+  arguments of any call site, whose outputs a native call's group writes;
 - the staged input values, their destination snapshot and the output windows of every
-  process-image binding.
+  process-image binding, and the key of each published hierarchical image entry, which the entry
+  takes when its binding first publishes;
+- the text a character write edits, as large as the largest text the module declares;
+- the retain capture of services that persist through one, its staged payload and the buffer the
+  first accepted payload leaves, for the largest payload of the resource: each retained variable
+  whose value holds no reference and no instance, under its key, at the largest encoding of its
+  type (each text at its capacity, each enumeration with its longest variant name).
 
-A scan takes this storage and gives it back empty. RUN charges and refusals do not change: an
-activation is charged the frame and pending-call growth that storage growing on demand would
-need, and staging, snapshots and journals are charged as before (TIME-08).
+A scan takes this storage and gives it back empty, so no scan grows it, the first one and a rarely
+taken branch included (MEM-04, MEM-09). RUN charges and refusals do not change: an activation is
+charged the frame and pending-call growth that storage growing on demand would need, and staging,
+snapshots and journals are charged as before (TIME-08).
 
 Initializer evaluation, construction and the lifetime check reuse the same reserved bookkeeping:
 an evaluated initializer's result slot, its seed's pending, visited and backup lists and its
-owned-instance snapshot are taken per call depth and returned on every path, a construction frame
-is moved rather than cloned, the lifetime check's visited set is reserved for the live instance
-count and cleared per check, and each type's `SIZEOF` walks a fixed-depth stack; every result,
-charge and refusal is unchanged (TIME-08).
+owned-instance snapshot are taken per call depth and returned on every path, each list with room
+for the most instances one call creates, an owner of instances (a frame, an evaluated
+initializer) takes a reserved list for them, a construction frame is moved rather than cloned, the
+lifetime check's visited set is reserved for the persistent instances and the most per-call
+instances the activation stack holds and cleared per check, and each type's `SIZEOF` walks a
+fixed-depth stack; every result, charge and refusal is unchanged (TIME-08).
 
 Construction sizes these call levels to the program's static call depth, not to `max_call_depth`.
 The validator walks every call target from every entry and, conservatively, of every POU in the

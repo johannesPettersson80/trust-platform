@@ -31,8 +31,14 @@ pub(super) struct BookkeepingScratch {
 }
 
 impl BookkeepingScratch {
-    /// The bytes this scratch reserves for `levels` callback levels.
-    fn reservation_bytes(levels: usize) -> Option<usize> {
+    /// The bytes this scratch reserves for `levels` callback levels whose calls create at most
+    /// `instances` instances each.
+    fn reservation_bytes(levels: usize, instances: usize) -> Option<usize> {
+        let identities = instances.checked_mul(
+            core::mem::size_of::<u32>()
+                + core::mem::size_of::<(u32, ())>()
+                + core::mem::size_of::<InstanceId>(),
+        )?;
         let per_level = core::mem::size_of::<Vec<Value>>()
             .checked_add(core::mem::size_of::<Value>())?
             .checked_add(core::mem::size_of::<Vec<u32>>())?
@@ -40,14 +46,18 @@ impl BookkeepingScratch {
             .checked_add(core::mem::size_of::<
                 Vec<(InstanceId, crate::memory::InstanceData)>,
             >())?
-            .checked_add(core::mem::size_of::<Vec<InstanceId>>())?;
+            .checked_add(core::mem::size_of::<Vec<InstanceId>>())?
+            .checked_add(identities)?;
         levels
             .checked_mul(per_level)?
             .checked_add(core::mem::size_of::<Self>())
     }
 
-    /// Reserve the per-level lists and the fixed one-element result slots (spec 34 MEM-09).
-    fn reserve(&mut self, levels: usize) -> Result<(), RuntimeError> {
+    /// Reserve the per-level lists and the fixed one-element result slots (spec 34 MEM-09), the
+    /// pending identities, the visited set and the owned-instance snapshot of each level with room
+    /// for the `instances` a call creates at most, so that the first call that creates instances
+    /// allocates none of them either (C1-19c).
+    fn reserve(&mut self, levels: usize, instances: usize) -> Result<(), RuntimeError> {
         let refused = |_| VmTrap::BudgetExceeded.into_runtime_error();
         self.levels = levels;
         self.slots.try_reserve_exact(levels).map_err(refused)?;
@@ -59,10 +69,16 @@ impl BookkeepingScratch {
             let mut slot = Vec::new();
             slot.try_reserve_exact(1).map_err(refused)?;
             self.slots.push(slot);
-            self.pending.push(Vec::new());
-            self.visited.push(InstanceSet::default());
+            let mut pending = Vec::new();
+            pending.try_reserve_exact(instances).map_err(refused)?;
+            self.pending.push(pending);
+            let mut visited = InstanceSet::default();
+            visited.reserve_capacity(instances)?;
+            self.visited.push(visited);
             self.backups.push(Vec::new());
-            self.snapshots.push(Vec::new());
+            let mut snapshot = Vec::new();
+            snapshot.try_reserve_exact(instances).map_err(refused)?;
+            self.snapshots.push(snapshot);
         }
         Ok(())
     }
@@ -137,9 +153,10 @@ impl BookkeepingScratch {
     }
 }
 
-/// Local-slot vectors for stack activations. Each has room for the largest POU's locals, so
-/// handing one out never allocates. Each activation's parameter-presence bits come from the same
-/// store, so a call with presence bits allocates none either (census A4).
+/// Local-slot vectors for stack activations. Each has room for the largest POU's locals, and
+/// construction reserves one for every call level, so handing one out never allocates, the first
+/// call at a depth included (spec 34 MEM-09). Each activation's parameter-presence bits come from
+/// the same store, so a call with presence bits allocates none either (census A4).
 #[derive(Debug, Default)]
 pub(super) struct FrameLocals {
     spares: Vec<Vec<Value>>,
@@ -189,31 +206,31 @@ impl FrameLocals {
         }
     }
 
-    /// Room for `levels` vectors of `slots` locals and as many presence vectors, and the program
-    /// activation's vector of each.
+    /// A vector of `slots` locals and one of `slots` presence bits for each of `levels` call
+    /// levels, the activations a chain of calls holds at once.
     fn reserve(&mut self, levels: usize, slots: usize) -> Result<(), RuntimeError> {
         let refused = |_| VmTrap::BudgetExceeded.into_runtime_error();
         self.slots = slots;
         self.spares.try_reserve_exact(levels).map_err(refused)?;
         self.presence.try_reserve_exact(levels).map_err(refused)?;
-        let mut locals = Vec::new();
-        locals.try_reserve_exact(slots).map_err(refused)?;
-        self.spares.push(locals);
-        let mut present = Vec::new();
-        present.try_reserve_exact(slots).map_err(refused)?;
-        self.presence.push(present);
+        for _ in 0..levels {
+            let mut locals = Vec::new();
+            locals.try_reserve_exact(slots).map_err(refused)?;
+            self.spares.push(locals);
+            let mut present = Vec::new();
+            present.try_reserve_exact(slots).map_err(refused)?;
+            self.presence.push(present);
+        }
         Ok(())
     }
 
     /// The bytes [`FrameLocals::reserve`] takes for `levels` levels of `slots` slots.
     fn reservation_bytes(levels: usize, slots: usize) -> Option<usize> {
-        let locals = levels
-            .checked_mul(core::mem::size_of::<Vec<Value>>())?
+        let locals = core::mem::size_of::<Vec<Value>>()
             .checked_add(slots.checked_mul(core::mem::size_of::<Value>())?)?;
-        let presence = levels
-            .checked_mul(core::mem::size_of::<Vec<bool>>())?
+        let presence = core::mem::size_of::<Vec<bool>>()
             .checked_add(slots.checked_mul(core::mem::size_of::<bool>())?)?;
-        locals.checked_add(presence)
+        levels.checked_mul(locals.checked_add(presence)?)
     }
 }
 
@@ -369,9 +386,17 @@ struct ScratchPlan {
     slots: usize,
     /// Nested initializer evaluations and construction frames.
     initializers: usize,
+    /// The execution buffers of nested initializer bodies, one for each nested evaluation when
+    /// the module has an initializer body, and the operands each body needs (spec 34 MEM-09).
+    initializer_buffers: usize,
+    initializer_operands: usize,
+    /// The most instances on the activation stack that one call creates (C1-11c): each owner of
+    /// instances and each bookkeeping list a call takes has room for them (C1-19c).
+    call_instances: usize,
     /// Nested typed value operations.
     types: usize,
-    /// Destinations of one output copy-back group: the most parameters of any POU.
+    /// Destinations of one output copy-back group: the most parameters of any POU, or the most
+    /// arguments of any call site, whose outputs a native call's group writes (C1-19c).
     journal: usize,
     /// The most edge inputs of any POU: one edge-input list and one restore list.
     edges: usize,
@@ -432,13 +457,23 @@ impl ScratchPlan {
             .map(|(pou, _)| prepared.edge_inputs(*pou).len())
             .max()
             .unwrap_or(0);
+        // An initializer body runs in execution buffers of its own (C1-13); construction reserves
+        // them, so the first call that initializes a frame variable allocates none.
+        let bodies = prepared
+            .initializers
+            .entries
+            .iter()
+            .any(|entry| entry.code_length != 0);
         Ok(Self {
             levels,
             operands,
             slots,
             initializers: levels,
+            initializer_buffers: if bodies { levels } else { 0 },
+            initializer_operands: prepared.max_initializer_operand_depth,
+            call_instances: prepared.largest_call_instances()?,
             types: crate::bytecode::BYTECODE_MAX_TYPE_NESTING + 1,
-            journal,
+            journal: journal.max(call_args),
             call_scratch: crate::vm::call::scratch::CallScratchSizes {
                 args: call_args,
                 params: journal,
@@ -449,10 +484,25 @@ impl ScratchPlan {
         })
     }
 
+    /// The owners of instances a chain of calls holds at once: a frame on each level and an
+    /// initializer evaluated on each.
+    fn owner_lists(&self) -> usize {
+        if self.call_instances == 0 {
+            0
+        } else {
+            self.levels.saturating_add(self.initializers)
+        }
+    }
+
     /// Every byte the plan reserves.
     fn bytes(&self) -> Option<usize> {
         let buffer = ExecutionBuffers::reservation_bytes(self.operands, self.levels)?
             .checked_add(core::mem::size_of::<ExecutionBuffers>())?;
+        // Each initializer body's buffers: its operands and the one frame it runs in.
+        let initializer_buffers = self.initializer_buffers.checked_mul(
+            ExecutionBuffers::reservation_bytes(self.initializer_operands, 1)?
+                .checked_add(core::mem::size_of::<ExecutionBuffers>())?,
+        )?;
         let frame_locals = FrameLocals::reservation_bytes(self.levels, self.slots)?;
         // One frame payload per call depth, `levels` local slots and presence bits wide.
         let frame_payloads =
@@ -471,12 +521,18 @@ impl ScratchPlan {
             .types
             .checked_mul(core::mem::size_of::<(u32, ValueOperation)>())?;
         let journal = SavedDestinations::allocation_bytes(self.journal).ok()?;
-        let bookkeeping = BookkeepingScratch::reservation_bytes(self.initializers)?;
+        let bookkeeping =
+            BookkeepingScratch::reservation_bytes(self.initializers, self.call_instances)?
+                .checked_add(OwnedInstances::list_reservation_bytes(
+                    self.owner_lists(),
+                    self.call_instances,
+                )?)?;
         let call_scratch = crate::vm::call::scratch::CallScratch::reservation_bytes(
             self.levels,
             self.call_scratch,
         )?;
         buffer
+            .checked_add(initializer_buffers)?
             .checked_add(frame_locals)?
             .checked_add(frame_payloads)?
             .checked_add(edges)?
@@ -490,6 +546,26 @@ impl ScratchPlan {
 }
 
 impl EngineState<'_> {
+    /// Reserve the lifetime check's visited set for the persistent instances construction made and
+    /// the most per-call instances the activation stack holds, charged as construction memory, so
+    /// that a call that creates instances does not grow it (spec 34 MEM-09; C1-19c).
+    pub(super) fn reserve_call_lifetimes(&mut self) -> Result<(), RuntimeError> {
+        let calls = self.prepared.call_instance_reservation()?;
+        self.charge_allocation_bytes(
+            calls
+                .checked_mul(core::mem::size_of::<u32>())
+                .ok_or(RuntimeError::Overflow)?,
+        )?;
+        let live = self
+            .live_instance_count()
+            .checked_add(calls)
+            .ok_or(RuntimeError::Overflow)?;
+        self.data
+            .resources
+            .bookkeeping
+            .reserve_lifetime_visited(live)
+    }
+
     /// Reserve the scratch that every scan reuses, charged in full against the construction
     /// allowance before any of it is reserved (spec 34 MEM-09). Each later activation and
     /// staging is still charged as before (TIME-08); only the allocation goes.
@@ -507,7 +583,19 @@ impl EngineState<'_> {
             .frames
             .reserve_frame_payloads(plan.levels, plan.slots)?;
         let resources = &mut self.data.resources;
-        resources.buffers.try_reserve_exact(1).map_err(refused)?;
+        resources
+            .buffers
+            .try_reserve_exact(1 + plan.initializer_buffers)
+            .map_err(refused)?;
+        // An entry takes the last buffers of the pool: the scan's own go on top, below them those
+        // of the initializer bodies nested in it.
+        for _ in 0..plan.initializer_buffers {
+            let mut nested = ExecutionBuffers::default();
+            nested
+                .reserve(plan.initializer_operands, 1)
+                .map_err(VmTrap::into_runtime_error)?;
+            resources.buffers.push(nested);
+        }
         resources.buffers.push(buffers);
         resources.frame_locals.reserve(plan.levels, plan.slots)?;
         // One edge-input list and one restore list, reused by every edge-affected call
@@ -526,7 +614,9 @@ impl EngineState<'_> {
         resources
             .call_scratch
             .reserve(plan.levels, plan.call_scratch)?;
-        resources.staging.reserve(plan.staging)?;
+        resources
+            .staging
+            .reserve(plan.staging, &self.prepared.io_bindings)?;
         let construction = &mut self.data.construction;
         construction
             .initializers
@@ -540,7 +630,16 @@ impl EngineState<'_> {
             .types
             .try_reserve_exact(plan.types)
             .map_err(refused)?;
-        self.data.resources.bookkeeping.reserve(plan.initializers)
+        // The instances a call creates are listed under the frame that owns them and, while an
+        // initializer constructs them, under the initializer's result (C1-11c, C1-13).
+        self.data
+            .lifetimes
+            .owned_instances
+            .reserve_lists(plan.owner_lists(), plan.call_instances)?;
+        self.data
+            .resources
+            .bookkeeping
+            .reserve(plan.initializers, plan.call_instances)
     }
 }
 

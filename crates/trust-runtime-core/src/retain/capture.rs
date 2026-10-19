@@ -4,9 +4,9 @@
 //! write only when the image changed (specification 11 §6.7). The hosted `RetainManager` and a
 //! chip's persistence adapter share it, together with the STRN v3 payload bytes it stages.
 //!
-//! The staged payload is reserved at the first capture and refilled in place by every later one, so
-//! a platform that captures at its persistence checkpoint allocates nothing once it has captured
-//! once (specification 34 MEM-04).
+//! The staged payload is reserved when the engine is constructed, with room for the largest image,
+//! and refilled in place by every capture, so a platform that captures at its persistence checkpoint
+//! allocates nothing, at its first capture neither (specification 34 MEM-04, MEM-09).
 
 use alloc::vec::Vec;
 use core::mem;
@@ -35,6 +35,8 @@ pub struct RetainCapture {
     staged: Vec<u8>,
     /// The payload a store accepted; the unchanged-image skip compares against it.
     accepted: Option<Vec<u8>>,
+    /// The buffer the first accepted payload leaves the next capture, reserved with the staged one.
+    spare: Vec<u8>,
 }
 
 impl Default for RetainCapture {
@@ -45,6 +47,7 @@ impl Default for RetainCapture {
             dirty: false,
             staged: Vec::new(),
             accepted: None,
+            spare: Vec::new(),
         }
     }
 }
@@ -64,7 +67,28 @@ impl RetainCapture {
         self.interval = interval;
         self.last_save = now;
         self.dirty = false;
-        self.accepted = None;
+        // The accepted payload's buffer is kept as the spare for the next accepted one.
+        if let Some(mut accepted) = self.accepted.take()
+            && accepted.capacity() > self.spare.capacity()
+        {
+            accepted.clear();
+            self.spare = accepted;
+        }
+    }
+
+    /// Room for a payload of `bytes` bytes in the staged buffer and in the buffer the first accepted
+    /// payload leaves the next capture, so that no capture grows either (specification 34 MEM-09).
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::Overflow`] when the room cannot be reserved.
+    pub fn reserve(&mut self, bytes: usize) -> Result<(), RuntimeError> {
+        for buffer in [&mut self.staged, &mut self.spare] {
+            buffer
+                .try_reserve_exact(bytes.saturating_sub(buffer.len()))
+                .map_err(|_| RuntimeError::Overflow)?;
+        }
+        Ok(())
     }
 
     /// Set the save interval without restarting the cadence or clearing the accepted payload.
@@ -194,6 +218,8 @@ impl RetainCapture {
                 previous.clear();
                 previous
             }
+            // The reserved spare takes the next payload when it has the room.
+            None if self.spare.capacity() >= capacity => mem::take(&mut self.spare),
             None => Vec::with_capacity(capacity),
         };
         self.dirty = false;

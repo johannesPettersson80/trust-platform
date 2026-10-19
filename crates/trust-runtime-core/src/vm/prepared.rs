@@ -88,6 +88,9 @@ pub struct PreparedModule {
     /// a user call, from validation (construction reserves the operand stack from them).
     pub(crate) max_operand_depth: usize,
     pub(crate) max_call_operand_residue: Option<usize>,
+    /// The deepest operand stack of any initializer body, from validation (construction reserves
+    /// the execution buffers of initializer bodies from it, spec 34 MEM-09).
+    pub(crate) max_initializer_operand_depth: usize,
     /// The module's static call depth, or that its call graph is recursive (spec 34 MEM-09).
     pub(crate) call_depth: CallDepth,
     preparation_usage: PreparationUsage,
@@ -419,6 +422,7 @@ impl PreparedModule {
             requires_wall_clock,
             max_operand_depth: stats.max_operand_depth,
             max_call_operand_residue: stats.max_call_operand_residue,
+            max_initializer_operand_depth: stats.max_initializer_operand_depth,
             call_depth: stats.call_depth,
             method_owners,
             recipes,

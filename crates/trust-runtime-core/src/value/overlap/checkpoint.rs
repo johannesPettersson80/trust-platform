@@ -346,6 +346,50 @@ fn write_path(out: &mut Vec<u8>, path: &[RefSegment]) -> Result<(), RuntimeError
     Ok(())
 }
 
+impl PhysicalLayout {
+    /// The bytes [`StructValue::encode_physical_checkpoint`] writes for a value of this layout,
+    /// which depend on the layout alone, so a retained payload's room is known before any value
+    /// is captured (specification 34 MEM-09; C1-19c). `None` on overflow.
+    pub(crate) fn checkpoint_len(&self) -> Option<usize> {
+        let path_len = |path: &[RefSegment]| {
+            path.iter().try_fold(4usize, |total, segment| {
+                let segment = match segment {
+                    RefSegment::Field(name) => name.len().checked_add(1 + 4)?,
+                    RefSegment::Index(indices) => {
+                        indices.len().checked_mul(8)?.checked_add(1 + 4)?
+                    }
+                };
+                total.checked_add(segment)
+            })
+        };
+        // Magic, ABI, bit count and the two counts.
+        let mut total = CHECKPOINT_MAGIC.len() + 1 + 4 + 4 + 4;
+        for leaf in &self.leaves {
+            // Path, offset, width and primitive, then the enumeration and range markers.
+            total = total
+                .checked_add(path_len(&leaf.path)?)?
+                .checked_add(4 + 1 + 2 + 1 + 1)?;
+            if let Some(enumeration) = &leaf.enumeration {
+                total = total.checked_add(1 + 4)?;
+                for (name, _) in &enumeration.variants {
+                    total = total.checked_add(name.len().checked_add(4 + 8)?)?;
+                }
+            }
+            if leaf.range.is_some() {
+                total = total.checked_add(16)?;
+            }
+        }
+        for child in &self.children {
+            total = total
+                .checked_add(path_len(&child.path)?)?
+                .checked_add(4 + 4)?;
+        }
+        total
+            .checked_add(4)?
+            .checked_add(bit_extent_bytes(self.bits).ok()?)
+    }
+}
+
 fn write_string(out: &mut Vec<u8>, value: &str) -> Result<(), RuntimeError> {
     write_count(out, value.len())?;
     out.extend_from_slice(value.as_bytes());

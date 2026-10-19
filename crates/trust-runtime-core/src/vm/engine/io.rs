@@ -125,7 +125,7 @@ impl EngineState<'_> {
             .try_reserve(1)
             .map_err(|_| RuntimeError::Overflow)?;
         self.check_entry_deadline()?;
-        store_hierarchical(&mut self.data.images, address, value);
+        store_hierarchical(&mut self.data.images, address, value, None);
         Ok(())
     }
 
@@ -434,14 +434,21 @@ pub(super) fn read_hierarchical_output<'a>(
 }
 
 /// Store `value` as the hierarchical image value of `address`: in the entry the address already
-/// has, else in a new one, whose owned key is the only thing built (C1-16).
-pub(super) fn store_hierarchical(images: &mut ProcessImages, address: &IoAddress, value: Value) {
+/// has, else in a new one, whose key is taken from `spare`, the key construction built for it
+/// (C1-19c), or else built here (C1-16).
+pub(super) fn store_hierarchical(
+    images: &mut ProcessImages,
+    address: &IoAddress,
+    value: Value,
+    spare: Option<&mut Option<IoAddressKey>>,
+) {
     match images.hierarchical.get_mut(&IoAddressKeyRef::from(address)) {
         Some(stored) => *stored = value,
         None => {
-            images
-                .hierarchical
-                .insert(IoAddressKey::from(address), value);
+            let key = spare
+                .and_then(Option::take)
+                .unwrap_or_else(|| IoAddressKey::from(address));
+            images.hierarchical.insert(key, value);
         }
     }
 }

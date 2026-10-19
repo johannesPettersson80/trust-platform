@@ -73,6 +73,8 @@ pub struct ValidationStats {
     /// block or method while the callee runs; `None` when no POU body makes such a call, so
     /// no activation can nest inside another.
     pub max_call_operand_residue: Option<usize>,
+    /// The deepest operand stack that any initializer body reaches (spec 34 MEM-09).
+    pub max_initializer_operand_depth: usize,
     /// The module's static call depth, or that its call graph is recursive (spec 34 MEM-09).
     pub call_depth: CallDepth,
 }

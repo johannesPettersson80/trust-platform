@@ -26,7 +26,7 @@ use smol_str::SmolStr;
 mod leaf;
 mod overlay;
 mod read;
-pub(crate) use leaf::{leaf_in, structure_member_name, CellLeaf};
+pub(crate) use leaf::{leaf_in, max_encoded_len, structure_member_name, CellLeaf};
 pub(crate) use read::{enumeration_number, enumeration_value, read_value_in};
 
 use super::{Cell, ReferenceTable};
@@ -233,6 +233,30 @@ pub(crate) fn text_geometry(prepared: &PreparedModule, type_id: u32) -> Option<(
     let capacity = layout.text_leaves.first()?.capacity_bytes;
     let length = layout.shape.bytes.checked_sub(capacity)?;
     Some((length, capacity, prim_id == WSTRING_PRIMITIVE))
+}
+
+/// The most UTF-8 bytes a character write edits in one text leaf of the module (C1-12, C1-19c):
+/// the largest text decoded, a `WSTRING`'s code units at up to three bytes each, and the four
+/// bytes a written character may add before the text is cut to its leaf's capacity. Zero when
+/// the module has no text type.
+pub(crate) fn largest_text_edit(prepared: &PreparedModule) -> Option<usize> {
+    let mut largest = None::<usize>;
+    for type_id in 0..prepared.vm.types.entries.len() {
+        let Some((_, capacity, wide)) = u32::try_from(type_id)
+            .ok()
+            .and_then(|type_id| text_geometry(prepared, type_id))
+        else {
+            continue;
+        };
+        let capacity = usize::try_from(capacity).ok()?;
+        let bytes = if wide {
+            capacity.checked_div(2)?.checked_mul(3)?
+        } else {
+            capacity
+        };
+        largest = Some(largest.unwrap_or(0).max(bytes.checked_add(4)?));
+    }
+    Some(largest.unwrap_or(0))
 }
 
 /// How one prepared type holds a value in a flat block.
