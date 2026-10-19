@@ -17,7 +17,7 @@ use trust_runtime::{
 };
 
 /// The corpus. The test's fixture table names the same folders and rejects any other.
-const SOURCES: [(&str, &str); 16] = [
+const SOURCES: [(&str, &str); 17] = [
     (
         "scalar",
         include_str!("../tests/fixtures/bounded-c/scalar/src/main.st"),
@@ -82,6 +82,10 @@ const SOURCES: [(&str, &str); 16] = [
     (
         "faults",
         include_str!("../tests/fixtures/bounded-c/faults/src/main.st"),
+    ),
+    (
+        "copies",
+        include_str!("../tests/fixtures/bounded-c/copies/src/main.st"),
     ),
 ];
 

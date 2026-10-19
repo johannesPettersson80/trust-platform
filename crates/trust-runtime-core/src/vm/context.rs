@@ -126,6 +126,42 @@ pub trait ReferenceContext {
             ValueView::Cells { .. } => Err(crate::error::RuntimeError::InvalidExecutionState),
         }
     }
+    /// The place of `view` (C1-10c), when a store may copy the value it shows as bytes: an array or
+    /// a structure in a flat block whose type holds no text, reference, instance or overlap. A
+    /// composition that holds no flat block has none.
+    fn place_of(&self, _view: &ValueView<'_>) -> Option<super::Place> {
+        None
+    }
+    /// The view of the compound `place` stands for, read from the flat block it lies in (C1-10c).
+    fn place_view(&self, _place: super::Place) -> Option<ValueView<'_>> {
+        None
+    }
+    /// Where a store through `reference` copies `place` (C1-10c): the destination's bytes, when
+    /// they lie in the flat block and hold the place's type, which `declared`, the type the store
+    /// normalizes to when it has one, must be too. `None` when the store is given the value the
+    /// place stands for instead.
+    fn place_destination(
+        &self,
+        _reference: crate::value::ValueRefView<'_>,
+        _place: super::Place,
+        _declared: Option<u32>,
+    ) -> Option<super::PlaceDestination> {
+        None
+    }
+    /// The checks and charges of [`ReferenceContext::check_reference_write`] for a write of the
+    /// compound `place` stands for (C1-10c).
+    fn check_place_write(
+        &self,
+        _reference: crate::value::ValueRefView<'_>,
+        _place: super::Place,
+    ) -> Result<(), crate::error::RuntimeError> {
+        Err(crate::error::RuntimeError::InvalidExecutionState)
+    }
+    /// Copy the bytes of `place` to `destination` (C1-10c); `false` when the block refuses either
+    /// range.
+    fn copy_place(&mut self, _place: super::Place, _destination: super::PlaceDestination) -> bool {
+        false
+    }
     /// Admit a private call-transaction snapshot: a VAR_IN_OUT copy-in. IEC passes
     /// IN_OUT by reference, so a work-charging composition admits only its
     /// allocation (spec 34 TIME-08). Other compositions treat it as a copy.

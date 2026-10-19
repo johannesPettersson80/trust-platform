@@ -11,30 +11,85 @@ use super::errors::VmTrap;
 use super::frames::{FrameStack, VmFrame};
 use super::module::{invalid_bytecode, VmModule, VmRef};
 use super::type_policy::vm_type_for_path;
+use super::{Operand, Place, PlaceDestination};
 
 /// Read a static reference after policy and clone-budget checks.
+#[cfg(any(feature = "hir", feature = "register-ir", test))]
 pub fn load_ref(
     runtime: &impl ReferenceContext,
     module: &VmModule,
     frames: &FrameStack,
     ref_idx: u32,
 ) -> Result<Value, VmTrap> {
+    value_operand(load_static(runtime, module, frames, ref_idx, false)?)
+}
+
+/// Read a static reference as an operand (C1-10c): a compound that a store may copy as bytes is
+/// left where it lies, as its place, and charged as the copy that loading it is (TIME-08); any
+/// other value is read as [`load_ref`] reads it.
+pub(crate) fn load_ref_operand(
+    runtime: &impl ReferenceContext,
+    module: &VmModule,
+    frames: &FrameStack,
+    ref_idx: u32,
+) -> Result<Operand, VmTrap> {
+    load_static(runtime, module, frames, ref_idx, true)
+}
+
+fn load_static(
+    runtime: &impl ReferenceContext,
+    module: &VmModule,
+    frames: &FrameStack,
+    ref_idx: u32,
+    places: bool,
+) -> Result<Operand, VmTrap> {
     match peek_ref_view(runtime, module, frames, ref_idx) {
-        Ok(view) => {
-            // The copy is charged from the value it produces: a copy charges what it copies, so the
-            // owned value and the stored view have the same charge (TIME-08).
-            let value = materialize_in_buffers(runtime, &view)?;
-            runtime
-                .before_value_clone(&value)
-                .map_err(VmTrap::Runtime)?;
-            return Ok(value);
-        }
+        Ok(view) => return view_operand(runtime, &view, places),
         Err(VmTrap::NullReference) => {}
         Err(error) => return Err(error),
     }
     // A string element is materialized as CHAR/WCHAR, so it has no borrowed Value.
     let reference = load_ref_view(runtime, module, frames, ref_idx)?;
-    dynamic_load_view(runtime, frames, reference)
+    dynamic_load_view(runtime, frames, reference).map(Operand::Value)
+}
+
+/// The operand a load of `view` pushes: its place, when `places` allows one and a store may copy
+/// it (C1-10c), or the value it shows. Either is charged as one copy of the value: a copy charges
+/// what it copies, so the owned value and the stored view have the same charge (TIME-08).
+fn view_operand(
+    runtime: &impl ReferenceContext,
+    view: &ValueView<'_>,
+    places: bool,
+) -> Result<Operand, VmTrap> {
+    if places && let Some(place) = runtime.place_of(view) {
+        runtime.before_view_clone(view).map_err(VmTrap::Runtime)?;
+        return Ok(Operand::Place(place));
+    }
+    let value = materialize_in_buffers(runtime, view)?;
+    runtime
+        .before_value_clone(&value)
+        .map_err(VmTrap::Runtime)?;
+    Ok(Operand::Value(value))
+}
+
+/// The value of an operand read with places turned off.
+fn value_operand(operand: Operand) -> Result<Value, VmTrap> {
+    match operand {
+        Operand::Value(value) => Ok(value),
+        Operand::Place(_) => Err(VmTrap::Runtime(RuntimeError::InvalidExecutionState)),
+    }
+}
+
+/// The value the compound `place` stands for, read from the flat block it lies in (C1-10c). The
+/// load that pushed the place charged its copy, so this read charges nothing.
+pub(crate) fn materialize_place(
+    runtime: &impl ReferenceContext,
+    place: Place,
+) -> Result<Value, RuntimeError> {
+    runtime
+        .place_view(place)
+        .ok_or(RuntimeError::InvalidExecutionState)?
+        .materialize()
 }
 
 /// The view of a static reference after read-policy checks (C1-9d1): a stored leaf, or a local of the
@@ -301,6 +356,77 @@ pub fn store_ref(
     }
 }
 
+/// Store the compound `place` stands for through a static reference (C1-10c). A destination of the
+/// place's type in the flat block takes a copy of its bytes, checked and charged as [`store_ref`]
+/// checks and charges the value; a local, an initializer's result or any other destination is given
+/// the value, read from the place.
+pub(crate) fn store_ref_place(
+    runtime: &mut impl ReferenceContext,
+    module: &VmModule,
+    frames: &mut FrameStack,
+    ref_idx: u32,
+    place: Place,
+) -> Result<(), VmTrap> {
+    let reference = module
+        .refs
+        .get(ref_idx as usize)
+        .ok_or_else(|| VmTrap::InvalidRefIndex(ref_idx))?;
+    // Locals and initializer results are in the `Value` half until the activation block holds them
+    // (C1-11, C1-13).
+    if !matches!(
+        reference,
+        VmRef::Local { .. } | VmRef::InitializerResult { .. }
+    ) {
+        let address = load_ref_view(runtime, module, frames, ref_idx)?;
+        if let Some(destination) =
+            runtime.place_destination(address, place, module.ref_type(ref_idx))
+        {
+            return copy_place_to(runtime, address, place, destination);
+        }
+    }
+    let value = materialize_place(runtime, place).map_err(VmTrap::Runtime)?;
+    store_ref(runtime, module, frames, ref_idx, value)
+}
+
+/// Store the compound `place` stands for through a dynamic reference (C1-10c), as
+/// [`store_ref_place`] stores it through a static one.
+pub(crate) fn dynamic_store_place(
+    runtime: &mut impl ReferenceContext,
+    module: &VmModule,
+    frames: &mut FrameStack,
+    reference: &ValueRef,
+    place: Place,
+) -> Result<(), VmTrap> {
+    let frame = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
+    if !frame.owns_local_reference(reference) {
+        let declared = dynamic_ref_type(runtime, module, frame, reference)?;
+        if let Some(destination) = runtime.place_destination(reference.as_view(), place, declared) {
+            return copy_place_to(runtime, reference.as_view(), place, destination);
+        }
+    }
+    let value = materialize_place(runtime, place).map_err(VmTrap::Runtime)?;
+    dynamic_store_ref(runtime, module, frames, reference, value)
+}
+
+/// Check a write of `place` through `reference` as a write of its value is checked, then copy its
+/// bytes to `destination`. A value of the destination's type needs no normalization, and the cell
+/// write it replaces charges nothing beyond the check (TIME-08).
+fn copy_place_to(
+    runtime: &mut impl ReferenceContext,
+    reference: ValueRefView<'_>,
+    place: Place,
+    destination: PlaceDestination,
+) -> Result<(), VmTrap> {
+    runtime
+        .check_place_write(reference, place)
+        .map_err(VmTrap::Runtime)?;
+    if runtime.copy_place(place, destination) {
+        Ok(())
+    } else {
+        Err(VmTrap::NullReference)
+    }
+}
+
 /// Consume a non-null reference operand or return a VM trap.
 pub fn pop_reference(stack: &mut super::stack::OperandStack) -> Result<ValueRef, VmTrap> {
     let value = stack.pop()?;
@@ -527,6 +653,7 @@ fn peek_dynamic_ref_path<'a>(
 }
 
 /// Read a dynamic target with policy and pre-copy charging.
+#[cfg(any(feature = "hir", feature = "register-ir", test))]
 pub fn dynamic_load_ref(
     runtime: &impl ReferenceContext,
     frames: &FrameStack,
@@ -535,19 +662,29 @@ pub fn dynamic_load_ref(
     dynamic_load_view(runtime, frames, reference.as_view())
 }
 
+/// Read a dynamic target as an operand (C1-10c): a compound that a store may copy as bytes as its
+/// place, any other value as [`dynamic_load_ref`] reads it.
+pub(crate) fn dynamic_load_operand(
+    runtime: &impl ReferenceContext,
+    frames: &FrameStack,
+    reference: &ValueRef,
+) -> Result<Operand, VmTrap> {
+    match peek_dynamic_ref_path(runtime, frames, reference.as_view(), &reference.path) {
+        Ok(view) => view_operand(runtime, &view, true),
+        Err(VmTrap::NullReference) => {
+            dynamic_load_view(runtime, frames, reference.as_view()).map(Operand::Value)
+        }
+        Err(error) => Err(error),
+    }
+}
+
 fn dynamic_load_view(
     runtime: &impl ReferenceContext,
     frames: &FrameStack,
     reference: crate::value::ValueRefView<'_>,
 ) -> Result<Value, VmTrap> {
     match peek_dynamic_ref_path(runtime, frames, reference, reference.path) {
-        Ok(view) => {
-            let value = materialize_in_buffers(runtime, &view)?;
-            runtime
-                .before_value_clone(&value)
-                .map_err(VmTrap::Runtime)?;
-            Ok(value)
-        }
+        Ok(view) => value_operand(view_operand(runtime, &view, false)?),
         Err(VmTrap::NullReference) => {
             let (last, prefix) = reference
                 .path

@@ -249,6 +249,40 @@ impl CellArm {
         self.instance(instance).map(|persistent| persistent.range)
     }
 
+    /// Copy the bytes of `source` to `destination` in the persistent block and mark the presence
+    /// byte at `presence`, when the destination's declaration keeps one, as holding a value
+    /// (specification 34 MEM-12; C1-10c). `false`, and nothing changed, when the block refuses
+    /// either range.
+    pub(crate) fn copy_place(
+        &mut self,
+        source: ByteRange,
+        destination: ByteRange,
+        presence: Option<u32>,
+    ) -> bool {
+        let (persistent, _) = self.cells.regions_mut().split_mut();
+        let flag = presence.map(|start| ByteRange {
+            start,
+            bytes: 1,
+            ..destination
+        });
+        if flag.is_some_and(|flag| persistent.bytes(flag).is_none()) {
+            return false;
+        }
+        if !persistent.copy_within(source, destination) {
+            return false;
+        }
+        if let Some(byte) = flag.and_then(|flag| persistent.bytes_mut(flag)) {
+            byte[0] = 1;
+        }
+        true
+    }
+
+    /// The reference the last write into a reference leaf replaced, for the engine to take its path
+    /// buffers back (spec 34 ARCH-05).
+    pub(crate) fn take_displaced_reference(&mut self) -> Option<ValueRef> {
+        self.cells.regions_mut().split_mut().1.take_displaced()
+    }
+
     /// The cell store the arm reads and writes, for the tests.
     #[cfg(test)]
     pub(crate) fn cells(&self) -> &CellStorage {
@@ -575,6 +609,27 @@ impl<'a> CellReader<'a> {
         self.values
             .read_instance_field_by_offset(instance, ordinal)
             .map(ValueView::Value)
+    }
+
+    /// The view of the compound a place stands for: the cells of `range`, a value of `type_id`
+    /// (C1-10c).
+    pub(crate) fn place_view(self, range: ByteRange, type_id: u32) -> ValueView<'a> {
+        self.view(range, type_id, None)
+    }
+
+    /// The cells the slot `offset` of `location` and the path lead to, as their range, their type
+    /// and the presence byte of the declaration they are, when it keeps one. `None` for a place of
+    /// the `Value` half and for a path that names nothing (C1-10c).
+    pub(crate) fn cells_target(
+        self,
+        location: MemoryLocation,
+        offset: usize,
+        path: &[RefSegment],
+    ) -> Option<(ByteRange, u32, Option<u32>)> {
+        match self.locate(location, offset, path) {
+            Ok(Target::Cells(range, type_id, presence)) => Some((range, type_id, presence)),
+            _ => None,
+        }
     }
 
     /// The view of the cells of `range`, a value of `type_id`, through this reader's region.

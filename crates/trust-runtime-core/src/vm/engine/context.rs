@@ -91,6 +91,34 @@ impl<'e> ReferenceContext for EngineState<'e> {
             }
         }
     }
+    fn place_of(&self, view: &ValueView<'_>) -> Option<crate::vm::Place> {
+        EngineState::place_of(self, view)
+    }
+    fn place_view(&self, place: crate::vm::Place) -> Option<ValueView<'_>> {
+        EngineState::place_view(self, place)
+    }
+    fn place_destination(
+        &self,
+        reference: crate::value::ValueRefView<'_>,
+        place: crate::vm::Place,
+        declared: Option<u32>,
+    ) -> Option<crate::vm::PlaceDestination> {
+        EngineState::place_destination(self, reference, place, declared)
+    }
+    fn check_place_write(
+        &self,
+        reference: crate::value::ValueRefView<'_>,
+        place: crate::vm::Place,
+    ) -> Result<(), RuntimeError> {
+        EngineState::check_place_write(self, reference, place)
+    }
+    fn copy_place(
+        &mut self,
+        place: crate::vm::Place,
+        destination: crate::vm::PlaceDestination,
+    ) -> bool {
+        EngineState::copy_place(self, place, destination)
+    }
     fn normalize_assignment(
         &self,
         _module: &super::super::module::VmModule,

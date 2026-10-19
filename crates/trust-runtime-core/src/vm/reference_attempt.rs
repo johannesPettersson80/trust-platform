@@ -58,14 +58,18 @@ fn apply_typed_reference_attempt(
     let Some(reference) = reference else {
         return Ok(Value::Reference(None));
     };
-    let Some(actual_type_idx) = dynamic_ref_type(runtime, module, frame, &reference)? else {
-        return Ok(Value::Reference(None));
+    let compatible = match dynamic_ref_type(runtime, module, frame, &reference)? {
+        Some(actual_type_idx) => {
+            runtime_type_is_compatible(module, actual_type_idx, target_value_type_idx)
+                .map_err(VmTrap::Runtime)?
+        }
+        None => false,
     };
-    if runtime_type_is_compatible(module, actual_type_idx, target_value_type_idx)
-        .map_err(VmTrap::Runtime)?
-    {
+    if compatible {
         Ok(Value::Reference(Some(reference)))
     } else {
+        // The refused reference's path buffers go back to the engine (spec 34 ARCH-05).
+        runtime.recycle_reference_path(reference.path);
         Ok(Value::Reference(None))
     }
 }

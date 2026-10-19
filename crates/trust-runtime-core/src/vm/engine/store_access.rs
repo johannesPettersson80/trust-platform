@@ -223,12 +223,14 @@ impl StoreAccess for EngineState<'_> {
 impl StoreMutate for EngineState<'_> {
     #[inline]
     fn write_slot(&mut self, location: MemoryLocation, offset: usize, value: Value) -> bool {
-        StoreMutate::write_slot(
+        let written = StoreMutate::write_slot(
             &mut routed_mut(&mut *self.data, self.prepared),
             location,
             offset,
             value,
-        )
+        );
+        self.recycle_displaced_reference();
+        written
     }
 
     #[inline]
@@ -237,11 +239,13 @@ impl StoreMutate for EngineState<'_> {
         reference: ValueRefView<'_>,
         value: Value,
     ) -> Result<bool, RuntimeError> {
-        StoreMutate::write_reference(
+        let written = StoreMutate::write_reference(
             &mut routed_mut(&mut *self.data, self.prepared),
             reference,
             value,
-        )
+        );
+        self.recycle_displaced_reference();
+        written
     }
 
     #[inline]
@@ -299,13 +303,15 @@ impl StoreMutate for EngineState<'_> {
         prepared: PreparedWrite,
         capacity: usize,
     ) -> bool {
-        StoreMutate::commit_write(
+        let written = StoreMutate::commit_write(
             &mut routed_mut(&mut *self.data, self.prepared),
             path,
             value,
             prepared,
             capacity,
-        )
+        );
+        self.recycle_displaced_reference();
+        written
     }
 
     #[inline]
@@ -664,6 +670,17 @@ impl RoutedMut<'_> {
 }
 
 impl EngineState<'_> {
+    /// Give the path buffers of the reference that a write into a reference leaf replaced back to the
+    /// engine's reference buffers (spec 34 ARCH-05), so a reference variable that takes a new
+    /// reference in every scan allocates nothing once the engine is warm.
+    fn recycle_displaced_reference(&mut self) {
+        if let EngineStore::Cells(arm) = &mut self.data.store
+            && let Some(reference) = arm.take_displaced_reference()
+        {
+            self.data.resources.references.recycle(reference.path);
+        }
+    }
+
     /// Whether the engine holds its globals and persistent instances in cells.
     pub(super) fn holds_cells(&self) -> bool {
         matches!(self.data.store, EngineStore::Cells(_))

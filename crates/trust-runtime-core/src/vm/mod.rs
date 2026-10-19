@@ -71,7 +71,7 @@ pub use errors::VmTrap;
 pub(crate) use frames::{ensure_global_call_depth, FrameStack, VmFrame};
 pub(crate) use helpers::{materialize_borrowed_value, opcode_operand_len};
 pub use limits::{VM_MAX_CALL_DEPTH, VM_MAX_EXECUTED_INSTRUCTIONS, VM_MAX_OPERAND_STACK};
-pub(crate) use stack::OperandStack;
+pub(crate) use stack::{Operand, OperandStack, Place, PlaceDestination};
 
 /// Atomic retained-value migration observations.
 pub use engine::RetainApplyEvent;

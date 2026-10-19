@@ -439,6 +439,17 @@ impl EngineState<'_> {
         reference: ValueRefView<'_>,
         value: &Value,
     ) -> Result<(), RuntimeError> {
+        let destination = self.check_write_target(reference)?;
+        self.check_value_lifetime(value, destination)
+    }
+
+    /// The checks of a write that do not look at the value written: the reference's generation, the
+    /// declaration's mutability and an initializer's staging. Answers the frame whose lifetime the
+    /// destination has, against which the value's references are checked.
+    pub(in crate::vm::engine) fn check_write_target(
+        &self,
+        reference: ValueRefView<'_>,
+    ) -> Result<Option<FrameId>, RuntimeError> {
         self.check_generation(reference.generation)?;
         self.check_writable_declaration(reference)?;
         let destination = match reference.location {
@@ -455,7 +466,7 @@ impl EngineState<'_> {
                 return Err(RuntimeError::StagingViolation);
             }
         }
-        self.check_value_lifetime(value, destination)
+        Ok(destination)
     }
 
     pub(in crate::vm::engine) fn check_read(

@@ -416,7 +416,7 @@ impl Fixture {
 /// Every measured application. Each corpus program runs in a 10 ms task, so each of its scans
 /// activates it once. The saved main and numeric artifacts keep the boards' schedule: 101 scans
 /// from 0 ms to 1,000 ms with a 25 ms task.
-static FIXTURES: [Fixture; 18] = [
+static FIXTURES: [Fixture; 19] = [
     Fixture::saved("saved/main", SAVED_MAIN, 0, 101),
     Fixture::saved("saved/numeric", SAVED_NUMERIC, 0, 101),
     Fixture::saved("saved/gpio", SAVED_GPIO, 10, 20),
@@ -441,6 +441,7 @@ static FIXTURES: [Fixture; 18] = [
         ..Fixture::corpus("retain")
     },
     Fixture::corpus("retained_blocks"),
+    Fixture::corpus("copies"),
 ];
 
 /// How a fault case makes its scan fail.
@@ -547,7 +548,14 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// loaded reference variable allocate nothing once the engine is warm (spec 34 ARCH-05): `calls`
 /// falls to 28, `methods` to 9 and `initializers` to 19 allocator calls; the `arrays` fixture went
 /// from 62 to 6 and `references` from 18 to 7 on the flat store.
-const CEILINGS: [(&str, usize, Calls); 30] = [
+///
+/// C1-10c leaves an array or a structure of scalars where it lies until a store copies its bytes,
+/// and gives the path buffers of a stored reference back when a write replaces it, and of the
+/// references that `=`, `<>` and a refused `?=` consume. On the flat store `arrays` and
+/// `references` then make no allocator call after the first scan and `retained_blocks` makes 2;
+/// the `copies` fixture's 30 per scan are its function call and its structure that holds a text
+/// (C1-11, C1-12), measured on the builder on 19 October 2026.
+const CEILINGS: [(&str, usize, Calls); 31] = [
     ("faults/division", 2, Calls::ZERO),
     ("faults/index", 2, Calls::ZERO),
     ("faults/null", 2, Calls::ZERO),
@@ -655,24 +663,8 @@ const CEILINGS: [(&str, usize, Calls); 30] = [
             dealloc: 36,
         },
     ),
-    (
-        "cells/arrays",
-        1,
-        Calls {
-            alloc: 6,
-            realloc: 0,
-            dealloc: 6,
-        },
-    ),
-    (
-        "cells/references",
-        1,
-        Calls {
-            alloc: 7,
-            realloc: 0,
-            dealloc: 7,
-        },
-    ),
+    ("cells/arrays", 1, Calls::ZERO),
+    ("cells/references", 1, Calls::ZERO),
     (
         "cells/strings",
         1,
@@ -695,9 +687,18 @@ const CEILINGS: [(&str, usize, Calls); 30] = [
         "cells/retained_blocks",
         1,
         Calls {
-            alloc: 3,
+            alloc: 2,
             realloc: 0,
-            dealloc: 3,
+            dealloc: 2,
+        },
+    ),
+    (
+        "cells/copies",
+        1,
+        Calls {
+            alloc: 30,
+            realloc: 0,
+            dealloc: 30,
         },
     ),
 ];

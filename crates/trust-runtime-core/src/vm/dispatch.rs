@@ -8,20 +8,23 @@ mod entry;
 mod leaf_call;
 mod session;
 use super::context::ExecutionContext;
-use super::dispatch_ops::{apply_jump, execute_binary, execute_unary, read_i32, read_u32};
+use super::dispatch_ops::{
+    apply_jump, execute_binary, execute_unary, read_i32, read_u32, reference_equality,
+};
 use super::dispatch_refs::{
-    dynamic_load_ref, dynamic_ref_field, dynamic_ref_index, dynamic_store_ref, index_to_i64,
-    load_ref, load_ref_addr, pop_reference, store_ref,
+    dynamic_load_operand, dynamic_ref_field, dynamic_ref_index, dynamic_store_place,
+    dynamic_store_ref, index_to_i64, load_ref_addr, load_ref_operand, materialize_place,
+    pop_reference, store_ref, store_ref_place,
 };
 use super::dispatch_sizeof::sizeof_type_from_table_with_abi;
 use super::module::VmModule;
 use super::reference_attempt::apply_reference_attempt;
-use super::{ensure_global_call_depth, FrameStack, OperandStack, VmTrap};
+use super::{ensure_global_call_depth, FrameStack, Operand, OperandStack, VmTrap};
 use crate::error::RuntimeError;
 use crate::fault::FaultSite;
 use crate::memory::view::StoreAccess;
 use crate::memory::InstanceId;
-use crate::program_model::{BinaryOp, UnaryOp};
+use crate::program_model::{apply_binary, BinaryOp, UnaryOp};
 use crate::value::{
     read_partial_access, write_partial_access, PartialAccess, PartialAccessError, Value,
 };
@@ -396,6 +399,10 @@ fn execute_with_buffers(
             .map_err(VmTrap::into_runtime_error)?;
         cursor.pc += 1;
 
+        if operand_stack.places() != 0 && !keeps_places(opcode, operand_stack) {
+            operand_stack.materialize_places(|place| materialize_place(&*runtime, place))?;
+        }
+
         match opcode {
             0x00 => {}
             0x01 => return Err(VmTrap::ForStepZero.into_runtime_error()),
@@ -581,15 +588,27 @@ fn execute_with_buffers(
                     .map_err(VmTrap::into_runtime_error)?;
             }
             0x11 => {
-                let value = operand_stack.peek().map_err(VmTrap::into_runtime_error)?;
-                runtime.before_value_clone(value)?;
-                operand_stack
-                    .push(value.clone())
-                    .map_err(VmTrap::into_runtime_error)?;
+                if let Some(place) = operand_stack.top_place() {
+                    // A second place copies the same bytes, so it is charged as one more copy.
+                    let view = runtime
+                        .place_view(place)
+                        .ok_or(RuntimeError::InvalidExecutionState)?;
+                    runtime.before_view_clone(&view)?;
+                    operand_stack
+                        .push_place(place)
+                        .map_err(VmTrap::into_runtime_error)?;
+                } else {
+                    let value = operand_stack.peek().map_err(VmTrap::into_runtime_error)?;
+                    runtime.before_value_clone(value)?;
+                    operand_stack
+                        .push(value.clone())
+                        .map_err(VmTrap::into_runtime_error)?;
+                }
             }
             0x12 => {
-                if let Value::Reference(Some(reference)) =
-                    operand_stack.pop().map_err(VmTrap::into_runtime_error)?
+                if let Operand::Value(Value::Reference(Some(reference))) = operand_stack
+                    .pop_operand()
+                    .map_err(VmTrap::into_runtime_error)?
                 {
                     runtime.recycle_reference_path(reference.path);
                 }
@@ -603,18 +622,27 @@ fn execute_with_buffers(
             0x20 => {
                 let ref_idx =
                     read_u32(&module.code, &mut cursor.pc).map_err(VmTrap::into_runtime_error)?;
-                let value = load_ref(runtime, module, frames, ref_idx)
-                    .map_err(VmTrap::into_runtime_error)?;
-                operand_stack
-                    .push(value)
-                    .map_err(VmTrap::into_runtime_error)?;
+                match load_ref_operand(runtime, module, frames, ref_idx)
+                    .map_err(VmTrap::into_runtime_error)?
+                {
+                    Operand::Value(value) => operand_stack.push(value),
+                    Operand::Place(place) => operand_stack.push_place(place),
+                }
+                .map_err(VmTrap::into_runtime_error)?;
             }
             0x21 => {
                 let ref_idx =
                     read_u32(&module.code, &mut cursor.pc).map_err(VmTrap::into_runtime_error)?;
-                let value = operand_stack.pop().map_err(VmTrap::into_runtime_error)?;
-                store_ref(runtime, module, frames, ref_idx, value)
-                    .map_err(VmTrap::into_runtime_error)?;
+                match operand_stack
+                    .pop_operand()
+                    .map_err(VmTrap::into_runtime_error)?
+                {
+                    Operand::Value(value) => store_ref(runtime, module, frames, ref_idx, value),
+                    Operand::Place(place) => {
+                        store_ref_place(runtime, module, frames, ref_idx, place)
+                    }
+                }
+                .map_err(VmTrap::into_runtime_error)?;
             }
             0x22 => {
                 let ref_idx =
@@ -703,18 +731,29 @@ fn execute_with_buffers(
             }
             0x32 => {
                 let reference = pop_reference(operand_stack).map_err(VmTrap::into_runtime_error)?;
-                let value = dynamic_load_ref(runtime, frames, &reference)
+                let operand = dynamic_load_operand(runtime, frames, &reference)
                     .map_err(VmTrap::into_runtime_error)?;
                 runtime.recycle_reference_path(reference.path);
-                operand_stack
-                    .push(value)
-                    .map_err(VmTrap::into_runtime_error)?;
+                match operand {
+                    Operand::Value(value) => operand_stack.push(value),
+                    Operand::Place(place) => operand_stack.push_place(place),
+                }
+                .map_err(VmTrap::into_runtime_error)?;
             }
             0x33 => {
-                let value = operand_stack.pop().map_err(VmTrap::into_runtime_error)?;
-                let reference = pop_reference(operand_stack).map_err(VmTrap::into_runtime_error)?;
-                dynamic_store_ref(runtime, module, frames, &reference, value)
+                let operand = operand_stack
+                    .pop_operand()
                     .map_err(VmTrap::into_runtime_error)?;
+                let reference = pop_reference(operand_stack).map_err(VmTrap::into_runtime_error)?;
+                match operand {
+                    Operand::Value(value) => {
+                        dynamic_store_ref(runtime, module, frames, &reference, value)
+                    }
+                    Operand::Place(place) => {
+                        dynamic_store_place(runtime, module, frames, &reference, place)
+                    }
+                }
+                .map_err(VmTrap::into_runtime_error)?;
                 runtime.recycle_reference_path(reference.path);
             }
             0x40 => execute_binary(runtime.profile(), operand_stack, BinaryOp::Add)
@@ -745,9 +784,7 @@ fn execute_with_buffers(
                 .map_err(VmTrap::into_runtime_error)?,
             0x4D => return Err(VmTrap::UnsupportedOpcode("ROL").into_runtime_error()),
             0x4E => return Err(VmTrap::UnsupportedOpcode("ROR").into_runtime_error()),
-            0x50 => execute_binary(runtime.profile(), operand_stack, BinaryOp::Eq)
-                .map_err(VmTrap::into_runtime_error)?,
-            0x51 => execute_binary(runtime.profile(), operand_stack, BinaryOp::Ne)
+            0x50 | 0x51 => compare_equality(runtime, operand_stack, opcode == 0x50)
                 .map_err(VmTrap::into_runtime_error)?,
             0x52 => execute_binary(runtime.profile(), operand_stack, BinaryOp::Lt)
                 .map_err(VmTrap::into_runtime_error)?,
@@ -912,4 +949,46 @@ pub fn decode_partial_access(operand: u32) -> Result<PartialAccess, RuntimeError
 /// Preserve partial-access failure categories at the runtime boundary.
 pub fn partial_access_error_to_runtime(err: PartialAccessError) -> RuntimeError {
     err.into()
+}
+
+/// Whether `opcode` leaves the places on `stack` standing for unchanged bytes (C1-10c): it writes
+/// no block and calls nothing, and it pops a place only as the one place a store copies. Before any
+/// other instruction the dispatcher replaces every place with its value, so a place never shows a
+/// write that came after its load.
+fn keeps_places(opcode: u8, stack: &OperandStack) -> bool {
+    match opcode {
+        // NOP, JMP, CONST, LOAD, REF, SELF, SUPER and NULL push without writing.
+        0x00 | 0x02 | 0x10 | 0x20 | 0x22..=0x25 => true,
+        // DUP, POP and SWAP move a place as an operand.
+        0x11..=0x13 => true,
+        // The conditional jumps, REF_FIELD, LOAD_DYNAMIC, NEG and NOT pop one value.
+        0x03 | 0x04 | 0x30 | 0x32 | 0x45 | 0x49 => !stack.top_holds_place(1),
+        // REF_INDEX and the binary operators pop two values.
+        0x31 | 0x40..=0x44 | 0x46..=0x48 | 0x4C | 0x50..=0x55 => !stack.top_holds_place(2),
+        // A store of the only place copies it; the bytes it writes are the only ones it changes.
+        0x21 | 0x33 => stack.places() == 1 && stack.top_place().is_some(),
+        _ => false,
+    }
+}
+
+/// `=` (`equal`) or `<>` of the top two operands. When one of them is a reference they compare as
+/// `apply_binary` compares them, and the path buffers of the references go back to the engine
+/// (spec 34 ARCH-05), so a test such as `r <> NULL` allocates nothing once the engine is warm.
+fn compare_equality(
+    runtime: &impl ExecutionContext,
+    stack: &mut OperandStack,
+    equal: bool,
+) -> Result<(), VmTrap> {
+    let (left, right) = stack.pop_pair()?;
+    let Some(same) = reference_equality(&left, &right) else {
+        let op = if equal { BinaryOp::Eq } else { BinaryOp::Ne };
+        let result = apply_binary(op, left, right, runtime.profile())?;
+        return stack.push(result);
+    };
+    for operand in [left, right] {
+        if let Value::Reference(Some(reference)) = operand {
+            runtime.recycle_reference_path(reference.path);
+        }
+    }
+    stack.push(Value::Bool(same == equal))
 }

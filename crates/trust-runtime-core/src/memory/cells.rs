@@ -117,6 +117,9 @@ pub struct RefSlot(pub u32);
 #[derive(Debug, Default)]
 pub(crate) struct ReferenceTable {
     leaves: Vec<(u32, Option<ValueRef>)>,
+    /// The reference the last write replaced, until the engine takes its path buffers back
+    /// (spec 34 ARCH-05). It is held in place, so keeping it allocates nothing.
+    displaced: Option<ValueRef>,
 }
 
 impl ReferenceTable {
@@ -137,7 +140,10 @@ impl ReferenceTable {
             .try_reserve_exact(offsets.len())
             .map_err(|_| VmTrap::BudgetExceeded.into_runtime_error())?;
         leaves.extend(offsets.into_iter().map(|offset| (offset, None)));
-        Ok(Self { leaves })
+        Ok(Self {
+            leaves,
+            displaced: None,
+        })
     }
 
     /// The reference the leaf at byte `offset` holds, or `None` for a null leaf and for an offset
@@ -147,15 +153,24 @@ impl ReferenceTable {
     }
 
     /// Store `reference` (`None` for a null reference) in the leaf at byte `offset`. Answers `false`
-    /// when `offset` is no reference leaf of this region. Nothing is allocated.
+    /// when `offset` is no reference leaf of this region. Nothing is allocated: the reference the
+    /// leaf held is kept as the displaced one, whose buffers the engine takes back.
     pub(crate) fn set(&mut self, offset: u32, reference: Option<ValueRef>) -> bool {
         match self.index_of(offset) {
             Some(index) => {
-                self.leaves[index].1 = reference;
+                let previous = core::mem::replace(&mut self.leaves[index].1, reference);
+                if previous.is_some() {
+                    self.displaced = previous;
+                }
                 true
             }
             None => false,
         }
+    }
+
+    /// The reference the last write replaced, if the engine has not taken it yet.
+    pub(crate) fn take_displaced(&mut self) -> Option<ValueRef> {
+        self.displaced.take()
     }
 
     /// The entry of the leaf at byte `offset`, found by binary search over the reserved offsets.
@@ -263,6 +278,29 @@ impl FlatBlock {
             return None;
         }
         self.bytes.get_mut(byte_span(range)?)
+    }
+}
+
+impl FlatBlock {
+    /// Copy the bytes of `source` over those of `destination`, which may overlap them, as one
+    /// assignment of a compound copies its value (specification 34 MEM-12; C1-10c). `false`, and
+    /// nothing copied, when either range leaves this block or their lengths differ.
+    #[must_use]
+    pub fn copy_within(&mut self, source: ByteRange, destination: ByteRange) -> bool {
+        if source.region != self.region
+            || destination.region != self.region
+            || source.bytes != destination.bytes
+        {
+            return false;
+        }
+        let (Some(from), Some(to)) = (byte_span(source), byte_span(destination)) else {
+            return false;
+        };
+        if from.end > self.bytes.len() || to.end > self.bytes.len() {
+            return false;
+        }
+        self.bytes.copy_within(from, to.start);
+        true
     }
 }
 
