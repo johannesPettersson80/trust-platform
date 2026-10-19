@@ -636,6 +636,10 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// allocator call after its first scan, `calls` falls from 20 to 19 on the value store and from 1 to
 /// 0 on the flat store, `initializers` from 13 to 12 and, on the flat store, `copies` from 5 to 4,
 /// measured on the builder on 19 October 2026.
+///
+/// C1-13b1 builds the raw arrays and structures of initializer bodies in kept containers, which the
+/// construction that consumes a raw gives back: `initializers` falls from 12 to 9 on both stores,
+/// measured on the builder on 19 October 2026.
 const CEILINGS: [(&str, usize, Calls); 31] = [
     ("faults/division", 2, Calls::ZERO),
     ("faults/index", 2, Calls::ZERO),
@@ -658,9 +662,9 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
         "initializers",
         1,
         Calls {
-            alloc: 12,
+            alloc: 9,
             realloc: 0,
-            dealloc: 12,
+            dealloc: 9,
         },
     ),
     ("sizeof", 1, Calls::ZERO),
@@ -711,9 +715,9 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
         "cells/initializers",
         1,
         Calls {
-            alloc: 12,
+            alloc: 9,
             realloc: 0,
-            dealloc: 12,
+            dealloc: 9,
         },
     ),
     ("cells/retained_blocks", 1, Calls::ZERO),

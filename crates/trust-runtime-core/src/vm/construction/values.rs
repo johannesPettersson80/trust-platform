@@ -80,6 +80,16 @@ pub trait ValueConstructionContext {
     /// This stack spans helper/dispatcher callbacks; Default and Coerce are distinct.
     fn enter_type(&mut self, type_id: u32, operation: ValueOperation) -> Result<(), RuntimeError>;
     fn leave_type(&mut self);
+    /// Take back the container of an array whose elements a construction consumed, for the next
+    /// raw array an initializer body builds (spec 34 ARCH-05; C1-13). By default it is dropped.
+    fn recycle_array(&mut self, array: Box<ArrayValue>) {
+        drop(array);
+    }
+    /// Take back the container of a structure whose fields a construction consumed, as
+    /// [`ValueConstructionContext::recycle_array`] takes back an array's.
+    fn recycle_struct(&mut self, structure: Arc<StructValue>) {
+        drop(structure);
+    }
 }
 
 pub fn construct_value(
@@ -422,27 +432,34 @@ fn construct_array(
     let count = array_len(&dims)?;
     reserve_values(ctx, count)?;
     let mut supplied = match input {
-        None => Vec::new().into_iter(),
-        Some(Value::Array(array)) => array.elements.into_iter(),
+        None => None,
+        Some(Value::Array(array)) => Some(array),
         Some(_) => return Err(RuntimeError::TypeMismatch),
     };
     let mut elements = Vec::new();
     elements
         .try_reserve_exact(count)
         .map_err(|_| RuntimeError::Overflow)?;
-    for _ in 0..count {
-        let mode = supplied.next().map_or(
-            ValueConstructionMode::Default,
-            ValueConstructionMode::Coerce,
-        );
-        elements.push(construct(
-            types,
-            ctx,
-            elem_type_id,
-            mode,
-            intrinsic,
-            depth + 1,
-        )?);
+    {
+        // The supplied elements leave their container in order, so that it can be kept (C1-13).
+        let mut drained = supplied.as_mut().map(|array| array.elements.drain(..));
+        for _ in 0..count {
+            let mode = drained.as_mut().and_then(Iterator::next).map_or(
+                ValueConstructionMode::Default,
+                ValueConstructionMode::Coerce,
+            );
+            elements.push(construct(
+                types,
+                ctx,
+                elem_type_id,
+                mode,
+                intrinsic,
+                depth + 1,
+            )?);
+        }
+    }
+    if let Some(array) = supplied {
+        ctx.recycle_array(array);
     }
     Ok(Value::Array(Box::new(ArrayValue::from_canonical_parts(
         elements, dims,
@@ -470,10 +487,19 @@ fn construct_struct(
         Some(Value::Struct(value)) if value.physical_layout().is_some() => Some(Arc::clone(value)),
         _ => None,
     };
-    let overrides = match input {
-        None => OrderedMap::default(),
-        Some(Value::Struct(value)) => owned_fields(ctx, value)?,
+    let mut supplied = match input {
+        None => None,
+        Some(Value::Struct(value)) => Some(value),
         Some(_) => return Err(RuntimeError::TypeMismatch),
+    };
+    // A supplied structure that something else holds has its fields copied, charged; one that
+    // nothing else holds gives them up, so that its container can be kept (C1-13).
+    let shared = supplied
+        .as_mut()
+        .is_some_and(|value| Arc::get_mut(value).is_none());
+    let copied = match &supplied {
+        Some(value) if shared => Some(copied_fields(ctx, value)?),
+        _ => None,
     };
     reserve_fields(ctx, fields.len())?;
     let mut values = OrderedMap::default();
@@ -500,6 +526,14 @@ fn construct_struct(
     }
     // Defaults run first even for supplied fields. Overrides retain input
     // evaluation order, while replacements retain canonical member order.
+    let drained = supplied
+        .as_mut()
+        .and_then(Arc::get_mut)
+        .map(|value| value.fields.drain(..));
+    let overrides = copied
+        .into_iter()
+        .flatten()
+        .chain(drained.into_iter().flatten());
     for (name, value) in overrides {
         let field = fields
             .iter()
@@ -519,6 +553,9 @@ fn construct_struct(
             depth + 1,
         )?;
         values.insert(name, value);
+    }
+    if let Some(structure) = supplied {
+        ctx.recycle_struct(structure);
     }
     let name = name_idx
         .map(|idx| string(ctx, idx))
@@ -594,16 +631,22 @@ fn owned_fields(
 ) -> Result<OrderedMap<SmolStr, Value>, RuntimeError> {
     match Arc::try_unwrap(value) {
         Ok(value) => Ok(value.fields),
-        Err(value) => {
-            reserve_fields(ctx, value.fields().len())?;
-            let mut fields = OrderedMap::default();
-            for (name, value) in value.fields() {
-                charge_clone(ctx, value, 0)?;
-                fields.insert(name.clone(), value.clone());
-            }
-            Ok(fields)
-        }
+        Err(value) => copied_fields(ctx, &value),
     }
+}
+/// A copy of the fields of a structure that something else holds, its room and each field's copy
+/// charged first.
+fn copied_fields(
+    ctx: &mut impl ValueConstructionContext,
+    value: &StructValue,
+) -> Result<OrderedMap<SmolStr, Value>, RuntimeError> {
+    reserve_fields(ctx, value.fields().len())?;
+    let mut fields = OrderedMap::default();
+    for (name, value) in value.fields() {
+        charge_clone(ctx, value, 0)?;
+        fields.insert(name.clone(), value.clone());
+    }
+    Ok(fields)
 }
 // Detaching a shared structure copies its fields into the constructed value: each
 // copied node is one CONSTRUCT unit and text costs per character (TIME-08). Each

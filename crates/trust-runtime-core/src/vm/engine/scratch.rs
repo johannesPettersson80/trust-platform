@@ -4,10 +4,11 @@
 use super::io::staging::StagingDemand;
 use super::output_transaction::SavedDestinations;
 use super::*;
-use crate::value::{RefIndices, RefPath, RefSegment};
+use crate::value::{ArrayValue, RefIndices, RefPath, RefSegment, StructValue};
 use crate::vm::construction::values::ValueOperation;
 use crate::vm::module::VmNativeSymbolSpec;
 use crate::vm::VmTrap;
+use alloc::sync::Arc;
 
 /// Initializer, construction-frame and lifetime-check bookkeeping that construction reserves and
 /// every scan reuses (spec 34 MEM-03, MEM-09, census N1-N4 and I10): one staged result slot, one
@@ -283,6 +284,76 @@ fn keep<T>(spares: &core::cell::RefCell<Vec<Vec<T>>>, buffer: Vec<T>) {
     let mut spares = spares.borrow_mut();
     if buffer.capacity() > 0 && spares.len() < KEPT_REFERENCE_BUFFERS {
         spares.push(buffer);
+    }
+}
+
+/// The containers of the raw arrays and structures that initializer bodies build (`ARRAY_NEW`,
+/// `STRUCT_NEW`), kept once a construction has consumed them (spec 34 ARCH-05; C1-13). A body then
+/// builds its raws again in kept containers, so after the first scan an aggregate initializer's raw
+/// allocates nothing. The charges stay those of a new container (TIME-08): a kept container's room
+/// changes no charge.
+#[derive(Debug, Default)]
+pub(super) struct RawShells {
+    #[allow(
+        clippy::vec_box,
+        reason = "a raw array is a `Value::Array`, whose box is the allocation kept"
+    )]
+    arrays: Vec<Box<ArrayValue>>,
+    structures: Vec<Arc<StructValue>>,
+}
+
+/// The most containers of each kind kept; the raws a body holds beyond them allocate.
+const KEPT_RAW_SHELLS: usize = 16;
+
+impl RawShells {
+    /// A raw array of `count` null elements whose one dimension runs from 0 to `count - 1`: in a
+    /// kept container, else in a new one.
+    pub(super) fn array(&mut self, count: u32) -> Result<Box<ArrayValue>, RuntimeError> {
+        let mut array = self
+            .arrays
+            .pop()
+            .unwrap_or_else(|| Box::new(ArrayValue::from_canonical_parts(Vec::new(), Vec::new())));
+        let length = count as usize;
+        array.elements.clear();
+        array
+            .elements
+            .try_reserve_exact(length)
+            .map_err(|_| RuntimeError::Overflow)?;
+        array.elements.resize(length, Value::Null);
+        array.dimensions.clear();
+        array.dimensions.push((0, i64::from(count) - 1));
+        Ok(array)
+    }
+
+    /// A raw structure with no name and no fields: a kept container, else a new one.
+    pub(super) fn structure(&mut self) -> Arc<StructValue> {
+        self.structures.pop().unwrap_or_else(|| {
+            Arc::new(StructValue::from_canonical_parts(
+                SmolStr::default(),
+                crate::collections::OrderedMap::default(),
+            ))
+        })
+    }
+
+    /// Keep the container of an array a construction consumed, its elements gone.
+    pub(super) fn keep_array(&mut self, mut array: Box<ArrayValue>) {
+        if self.arrays.len() < KEPT_RAW_SHELLS {
+            array.elements.clear();
+            self.arrays.push(array);
+        }
+    }
+
+    /// Keep the container of a structure a construction consumed, emptied, when nothing else
+    /// holds it.
+    pub(super) fn keep_structure(&mut self, mut structure: Arc<StructValue>) {
+        if self.structures.len() < KEPT_RAW_SHELLS
+            && let Some(value) = Arc::get_mut(&mut structure)
+        {
+            value.type_name = SmolStr::default();
+            value.fields.clear();
+            value.physical = None;
+            self.structures.push(structure);
+        }
     }
 }
 

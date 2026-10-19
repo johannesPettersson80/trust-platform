@@ -5,9 +5,8 @@ use super::super::super::{
 };
 use super::*;
 use crate::bytecode::opcodes::*;
-use crate::collections::OrderedMap;
-use crate::value::{ArrayValue, StructValue};
-use alloc::{boxed::Box, sync::Arc};
+use crate::value::StructValue;
+use alloc::sync::Arc;
 
 impl EngineState<'_> {
     pub(in crate::vm::engine) fn initialization_opcode(
@@ -52,15 +51,7 @@ impl EngineState<'_> {
                         .checked_mul(core::mem::size_of::<Value>())
                         .ok_or(RuntimeError::Overflow)?,
                 )?;
-                let mut values = Vec::new();
-                values
-                    .try_reserve_exact(count)
-                    .map_err(|_| RuntimeError::Overflow)?;
-                values.resize(count, Value::Null);
-                Value::Array(Box::new(ArrayValue::from_canonical_parts(
-                    values,
-                    vec![(0, i64::from(operand) - 1)],
-                )))
+                Value::Array(self.data.resources.raw_shells.array(operand)?)
             }
             ARRAY_SET => {
                 let value = stack.pop().map_err(VmTrap::into_runtime_error)?;
@@ -83,14 +74,12 @@ impl EngineState<'_> {
                     self,
                     core::mem::size_of::<StructValue>(),
                 )?;
-                Value::Struct(Arc::new(StructValue::from_canonical_parts(
-                    "".into(),
-                    OrderedMap::default(),
-                )))
+                Value::Struct(self.data.resources.raw_shells.structure())
             }
             STRUCT_SET => {
                 let value = stack.pop().map_err(VmTrap::into_runtime_error)?;
-                let Value::Struct(structure) = stack.pop().map_err(VmTrap::into_runtime_error)?
+                let Value::Struct(mut structure) =
+                    stack.pop().map_err(VmTrap::into_runtime_error)?
                 else {
                     return Err(RuntimeError::TypeMismatch);
                 };
@@ -112,12 +101,21 @@ impl EngineState<'_> {
                     self,
                     core::mem::size_of::<(smol_str::SmolStr, Value)>(),
                 )?;
-                let (type_name, mut fields) =
-                    Arc::unwrap_or_clone(structure).into_canonical_parts();
-                fields.insert(name, value);
-                Value::Struct(Arc::new(StructValue::from_canonical_parts(
-                    type_name, fields,
-                )))
+                // A structure nothing else holds takes the field in place, in its container; a shared
+                // one is copied first. Either way the result is the same structure, without a
+                // physical layout.
+                if let Some(raw) = Arc::get_mut(&mut structure) {
+                    raw.physical = None;
+                    raw.fields.insert(name, value);
+                    Value::Struct(structure)
+                } else {
+                    let (type_name, mut fields) =
+                        Arc::unwrap_or_clone(structure).into_canonical_parts();
+                    fields.insert(name, value);
+                    Value::Struct(Arc::new(StructValue::from_canonical_parts(
+                        type_name, fields,
+                    )))
+                }
             }
             _ => return Err(VmTrap::InvalidOpcode(opcode).into_runtime_error()),
         };

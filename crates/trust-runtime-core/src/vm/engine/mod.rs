@@ -129,6 +129,8 @@ struct ExecutionResources {
     /// The buffers of the calls of built-in text functions, kept between calls (spec 34 ARCH-05;
     /// C1-12).
     text_call: crate::vm::TextBuffers,
+    /// Kept containers of the raw aggregates initializer bodies build (spec 34 ARCH-05; C1-13).
+    raw_shells: scratch::RawShells,
     ready_tasks: Vec<crate::cycle::ReadyTask>,
     constructed_values: usize,
     work_budget: crate::vm::budget::ExecutionBudget,
@@ -298,6 +300,7 @@ impl<'a> EngineState<'a> {
                 call_scratch: CallScratch::default(),
                 references: scratch::ReferenceBuffers::default(),
                 text_call: crate::vm::TextBuffers::default(),
+                raw_shells: scratch::RawShells::default(),
                 ready_tasks: Vec::new(),
                 constructed_values: 0,
                 // TIME-09: construction is one entry under its own allowance.

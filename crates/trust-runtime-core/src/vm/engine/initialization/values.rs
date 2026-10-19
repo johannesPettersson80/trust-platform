@@ -197,6 +197,14 @@ impl ValueConstructionContext for EngineState<'_> {
             self.data.construction.type_operations[index] &= !bit;
         }
     }
+
+    fn recycle_array(&mut self, array: alloc::boxed::Box<crate::value::ArrayValue>) {
+        self.data.resources.raw_shells.keep_array(array);
+    }
+
+    fn recycle_struct(&mut self, structure: alloc::sync::Arc<crate::value::StructValue>) {
+        self.data.resources.raw_shells.keep_structure(structure);
+    }
 }
 
 #[cfg(test)]
