@@ -261,7 +261,6 @@ fn priority_order() {
     }
 
     let prog_a = ProgramDef {
-
         methods: Vec::new(),
         name: "A".into(),
         vars: Vec::new(),
@@ -386,7 +385,6 @@ fn fifo_order_by_due_time_within_priority() {
     }
 
     let prog_a = ProgramDef {
-
         methods: Vec::new(),
         name: "A".into(),
         vars: Vec::new(),
