@@ -1,4 +1,6 @@
-use alloc::vec::Vec;
+use alloc::{string::String, vec::Vec};
+
+use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
 use crate::memory::layout::ByteRange;
@@ -28,13 +30,32 @@ pub struct PlaceDestination {
     pub presence: Option<u32>,
 }
 
-/// One operand: a value, or a place on the flat store (C1-10c).
+/// A text that a standard text function made, held in the operand stack's text area (specification
+/// 34 ARCH-05; C1-12): the UTF-8 of its characters, `len` bytes from byte `start`, and whether it
+/// is a `WSTRING`. An instruction that pops it as a value reads it into one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TextTemp {
+    start: u32,
+    len: u32,
+    wide: bool,
+}
+
+impl TextTemp {
+    /// Whether the text is a `WSTRING`.
+    pub(crate) fn wide(self) -> bool {
+        self.wide
+    }
+}
+
+/// One operand: a value, a place on the flat store (C1-10c) or a temporary text (C1-12).
 #[derive(Debug)]
 pub(crate) enum Operand {
     /// A value.
     Value(Value),
     /// A compound left where it lies.
     Place(Place),
+    /// A text in the operand stack's text area.
+    Text(TextTemp),
 }
 
 /// An operand holds a place in the room of a value, so the operand storage that construction
@@ -48,6 +69,11 @@ pub struct OperandStack {
     floor: usize,
     /// The places among `values`, so that the dispatcher's check costs nothing while there are none.
     places: usize,
+    /// The temporary texts among `values` (C1-12).
+    texts: usize,
+    /// The UTF-8 of the temporary texts, in the order of their operands (C1-12). It keeps its room,
+    /// so a text result allocates nothing once the engine is warm.
+    text_bytes: Vec<u8>,
 }
 
 impl OperandStack {
@@ -109,10 +135,20 @@ impl OperandStack {
         {
             return Err(VmTrap::Runtime(RuntimeError::InvalidExecutionState));
         }
+        // A temporary text is given to the call as its value (C1-12).
+        for index in start..self.values.len() {
+            if let Operand::Text(temp) = self.values[index] {
+                self.values[index] = Operand::Value(text_value(&self.text_bytes, temp)?);
+                self.texts -= 1;
+            }
+        }
+        if self.texts == 0 {
+            self.text_bytes.clear();
+        }
         Ok(self.values.drain(start..).map(|operand| match operand {
             Operand::Value(value) => value,
-            // Refused above: the drained operands hold no place.
-            Operand::Place(_) => Value::Null,
+            // Refused or read above: the drained operands hold no place and no text.
+            Operand::Place(_) | Operand::Text(_) => Value::Null,
         }))
     }
 
@@ -122,19 +158,23 @@ impl OperandStack {
         self.values.clear();
         self.floor = 0;
         self.places = 0;
+        self.texts = 0;
+        self.text_bytes.clear();
     }
 
-    /// Shorten the stack to `len` operands, counting the places that go.
+    /// Shorten the stack to `len` operands, counting the places and the texts that go.
     fn truncate(&mut self, len: usize) {
-        if self.places != 0 {
-            let gone = self
-                .values
-                .get(len..)
-                .unwrap_or_default()
-                .iter()
-                .filter(|operand| matches!(operand, Operand::Place(_)))
-                .count();
-            self.places -= gone;
+        if self.places != 0 || self.texts != 0 {
+            for operand in self.values.get(len..).unwrap_or_default() {
+                match operand {
+                    Operand::Place(_) => self.places -= 1,
+                    Operand::Text(_) => self.texts -= 1,
+                    Operand::Value(_) => {}
+                }
+            }
+            if self.texts == 0 {
+                self.text_bytes.clear();
+            }
         }
         self.values.truncate(len);
     }
@@ -152,6 +192,65 @@ impl OperandStack {
         Ok(())
     }
 
+    /// Push `text`, a `WSTRING` when `wide`, into the text area as one operand, enforcing the VM
+    /// stack limit (C1-12). The area is emptied first when it holds no text an operand stands for.
+    pub(crate) fn push_text(&mut self, text: &str, wide: bool) -> Result<(), VmTrap> {
+        if self.texts == 0 {
+            self.text_bytes.clear();
+        }
+        let start = self.text_bytes.len();
+        self.text_bytes
+            .try_reserve(text.len())
+            .map_err(|_| VmTrap::BudgetExceeded)?;
+        self.text_bytes.extend_from_slice(text.as_bytes());
+        self.push_text_at(start, wide)
+    }
+
+    /// Push a second operand for the temporary text `temp`, its characters copied (C1-12).
+    pub(crate) fn duplicate_text(&mut self, temp: TextTemp) -> Result<(), VmTrap> {
+        let start = self.text_bytes.len();
+        let from = temp.start as usize;
+        let to = from
+            .checked_add(temp.len as usize)
+            .filter(|end| *end <= start)
+            .ok_or(VmTrap::Runtime(RuntimeError::InvalidExecutionState))?;
+        self.text_bytes
+            .try_reserve(to - from)
+            .map_err(|_| VmTrap::BudgetExceeded)?;
+        self.text_bytes.extend_from_within(from..to);
+        self.push_text_at(start, temp.wide)
+    }
+
+    /// Push the operand of the text that starts at byte `start` of the text area and runs to its end.
+    fn push_text_at(&mut self, start: usize, wide: bool) -> Result<(), VmTrap> {
+        let text = TextTemp {
+            start: u32::try_from(start).map_err(|_| VmTrap::Runtime(RuntimeError::Overflow))?,
+            len: u32::try_from(self.text_bytes.len() - start)
+                .map_err(|_| VmTrap::Runtime(RuntimeError::Overflow))?,
+            wide,
+        };
+        if let Err(error) = self.push_operand(Operand::Text(text)) {
+            self.text_bytes.truncate(start);
+            return Err(error);
+        }
+        self.texts += 1;
+        Ok(())
+    }
+
+    /// The characters of the temporary text `temp`. A popped text stays readable until its room is
+    /// given back with [`Self::release_text`] or the next text is pushed (C1-12).
+    pub(crate) fn text(&self, temp: TextTemp) -> Result<&str, VmTrap> {
+        text_of(&self.text_bytes, temp)
+    }
+
+    /// Give back the room of the popped temporary text `temp`: the area ends where it began when no
+    /// text follows it (C1-12).
+    pub(crate) fn release_text(&mut self, temp: TextTemp) {
+        if temp.start as usize + temp.len as usize == self.text_bytes.len() {
+            self.text_bytes.truncate(temp.start as usize);
+        }
+    }
+
     fn push_operand(&mut self, operand: Operand) -> Result<(), VmTrap> {
         if self.values.len() - self.floor >= VM_MAX_OPERAND_STACK {
             return Err(VmTrap::StackOverflow);
@@ -161,25 +260,51 @@ impl OperandStack {
     }
 
     /// Pop one operand value. A place is refused: the dispatcher replaces every place with its
-    /// value before an instruction that pops one as a value (C1-10c).
+    /// value before an instruction that pops one as a value (C1-10c). A temporary text is read into
+    /// its value (C1-12).
     #[inline]
     pub fn pop(&mut self) -> Result<Value, VmTrap> {
         match self.pop_operand()? {
             Operand::Value(value) => Ok(value),
             Operand::Place(_) => Err(VmTrap::Runtime(RuntimeError::InvalidExecutionState)),
+            Operand::Text(temp) => {
+                let value = text_value(&self.text_bytes, temp);
+                self.release_text(temp);
+                value
+            }
         }
     }
 
-    /// Pop one operand, a value or a place (C1-10c).
+    /// Pop one operand, a value, a place (C1-10c) or a temporary text (C1-12), whose characters
+    /// stay readable until it is released.
     pub(crate) fn pop_operand(&mut self) -> Result<Operand, VmTrap> {
         if self.values.len() == self.floor {
             return Err(VmTrap::StackUnderflow);
         }
         let operand = self.values.pop().ok_or(VmTrap::StackUnderflow)?;
-        if matches!(operand, Operand::Place(_)) {
-            self.places -= 1;
+        match operand {
+            Operand::Place(_) => self.places -= 1,
+            Operand::Text(_) => self.texts -= 1,
+            Operand::Value(_) => {}
         }
         Ok(operand)
+    }
+
+    /// The active frame's top `count` operands, oldest first, or `None` when it holds fewer
+    /// (C1-12).
+    pub(crate) fn top_operands(&self, count: usize) -> Option<&[Operand]> {
+        let active = &self.values[self.floor..];
+        active.get(active.len().checked_sub(count)?..)
+    }
+
+    /// Pop the active frame's top `count` operands and give back the room of their texts (C1-12).
+    pub(crate) fn discard_top(&mut self, count: usize) -> Result<(), VmTrap> {
+        let available = self.values.len() - self.floor;
+        if available < count {
+            return Err(VmTrap::StackUnderflow);
+        }
+        self.truncate(self.values.len() - count);
+        Ok(())
     }
 
     #[cfg(test)]
@@ -201,8 +326,19 @@ impl OperandStack {
     pub fn peek(&self) -> Result<&Value, VmTrap> {
         match self.values[self.floor..].last() {
             Some(Operand::Value(value)) => Ok(value),
-            Some(Operand::Place(_)) => Err(VmTrap::Runtime(RuntimeError::InvalidExecutionState)),
+            Some(Operand::Place(_) | Operand::Text(_)) => {
+                Err(VmTrap::Runtime(RuntimeError::InvalidExecutionState))
+            }
             None => Err(VmTrap::StackUnderflow),
+        }
+    }
+
+    /// The temporary text on top of the active frame's operands, when the top operand is one
+    /// (C1-12).
+    pub(crate) fn top_text(&self) -> Option<TextTemp> {
+        match self.values[self.floor..].last() {
+            Some(Operand::Text(temp)) => Some(*temp),
+            _ => None,
         }
     }
 
@@ -270,6 +406,26 @@ impl OperandStack {
         self.values.swap(len - 1, len - 2);
         Ok(())
     }
+}
+
+/// The characters of the temporary text `temp` in the text area `bytes`.
+fn text_of(bytes: &[u8], temp: TextTemp) -> Result<&str, VmTrap> {
+    let start = temp.start as usize;
+    start
+        .checked_add(temp.len as usize)
+        .and_then(|end| bytes.get(start..end))
+        .and_then(|text| core::str::from_utf8(text).ok())
+        .ok_or(VmTrap::Runtime(RuntimeError::InvalidExecutionState))
+}
+
+/// The value of the temporary text `temp`: a `STRING` or a `WSTRING` that holds its characters.
+fn text_value(bytes: &[u8], temp: TextTemp) -> Result<Value, VmTrap> {
+    let text = text_of(bytes, temp)?;
+    Ok(if temp.wide {
+        Value::WString(String::from(text))
+    } else {
+        Value::String(SmolStr::new(text))
+    })
 }
 
 #[cfg(test)]
@@ -396,5 +552,82 @@ mod place_tests {
         assert_eq!(stack.places(), 0);
         assert_eq!(stack.pop().unwrap(), Value::Int(5));
         assert_eq!(stack.pop().unwrap(), Value::UDInt(0));
+    }
+}
+
+#[cfg(test)]
+mod text_tests {
+    use super::*;
+
+    /// The temporary text a pop gives.
+    fn popped(stack: &mut OperandStack) -> TextTemp {
+        match stack.pop_operand().unwrap() {
+            Operand::Text(temp) => temp,
+            other => panic!("a temporary text, not {other:?}"),
+        }
+    }
+
+    /// Spec 34 ARCH-05 (C1-12): the text area is a stack. A popped text stays readable until it is
+    /// given back; giving back the last text shrinks the area to where that text began, a text below
+    /// another is given back with it only, and once no operand stands for a text the next push starts
+    /// at the beginning, so the area keeps its room and grows only to the most texts alive at once.
+    /// Catches a pop that frees the characters before the consumer reads them, a release that frees
+    /// a text below another, and an area that grows with every text a scan makes.
+    #[test]
+    fn the_text_area_is_a_stack_that_keeps_its_room() {
+        let mut stack = OperandStack::default();
+        stack.push_text("pump", false).unwrap();
+        stack.push_text("Ventil", true).unwrap();
+        let top = popped(&mut stack);
+        assert_eq!(stack.text(top).unwrap(), "Ventil");
+        assert!(top.wide());
+        stack.release_text(top);
+        assert_eq!(stack.text_bytes.len(), 4);
+        stack.push_text("ab", false).unwrap();
+        stack.swap_top().unwrap();
+        let lower = popped(&mut stack);
+        assert_eq!(stack.text(lower).unwrap(), "pump");
+        stack.release_text(lower);
+        assert_eq!(stack.text_bytes.len(), 6);
+        assert_eq!(stack.pop().unwrap(), Value::String("ab".into()));
+        stack.push_text("x", false).unwrap();
+        assert_eq!(stack.text_bytes.len(), 1);
+        stack.push_text("station", false).unwrap();
+        let capacity = stack.text_bytes.capacity();
+        for _ in 0..100 {
+            let temp = popped(&mut stack);
+            stack.release_text(temp);
+            stack.push_text("station", false).unwrap();
+        }
+        assert_eq!(stack.text_bytes.len(), 8);
+        assert_eq!(stack.text_bytes.capacity(), capacity);
+    }
+
+    /// Spec 34 ARCH-05 (C1-12): a second operand for a text copies its characters, and a call that
+    /// binds values is given each text as its value, after which the area is empty. Catches a
+    /// duplicate that shares the first text's room, which giving the duplicate back would free, and
+    /// a call given a text's room instead of its value.
+    #[test]
+    fn a_duplicate_has_its_own_characters_and_a_call_takes_texts_as_values() {
+        let mut stack = OperandStack::default();
+        stack.push_text("pump", false).unwrap();
+        let first = stack.top_text().unwrap();
+        stack.duplicate_text(first).unwrap();
+        let copy = popped(&mut stack);
+        assert_eq!(stack.text(copy).unwrap(), "pump");
+        stack.release_text(copy);
+        assert_eq!(stack.text(first).unwrap(), "pump");
+        stack.push(Value::Int(4)).unwrap();
+        stack.push_text("Ventil", true).unwrap();
+        let drained: Vec<Value> = stack.drain_top(3).unwrap().collect();
+        assert_eq!(
+            drained,
+            [
+                Value::String("pump".into()),
+                Value::Int(4),
+                Value::WString(String::from("Ventil")),
+            ]
+        );
+        assert!(stack.text_bytes.is_empty());
     }
 }

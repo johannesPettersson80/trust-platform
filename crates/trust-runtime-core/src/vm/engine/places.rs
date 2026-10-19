@@ -1,16 +1,19 @@
 //! Places on the flat store (specification 34 MEM-12; C1-10c).
 //!
-//! A load of an array or a structure whose bytes hold no text, reference, instance or overlap leaves
-//! the value where it lies, as a [`Place`], and a store copies its bytes to a destination of its type,
-//! checked and charged as a write of the value is. So an assignment of such a compound builds no
-//! value and allocates nothing.
+//! A load of a text, or of an array or a structure whose bytes hold no reference, instance or
+//! overlap, leaves the value where it lies, as a [`Place`], and a store copies its bytes to a
+//! destination of its type, checked and charged as a write of the value is. A text a standard text
+//! function made is written into its destination's text leaf, cut to that leaf's capacity (C1-12).
+//! So such an assignment builds no value and allocates nothing.
 
 use super::store_access::Routed;
 use super::*;
 use crate::bytecode::{TypeData, TypeEntry, TypeKind, BYTECODE_MAX_TYPE_NESTING};
-use crate::memory::layout::LayoutRegion;
+use crate::memory::cell_access::CellReader;
+use crate::memory::cells::text_geometry;
+use crate::memory::layout::{ByteRange, LayoutRegion};
 use crate::memory::view::ValueView;
-use crate::value::ValueRefView;
+use crate::value::{string_capacity, string_capacity_cut, ValueRefView};
 use crate::vm::{Place, PlaceDestination};
 
 /// The `TYPE_TABLE` primitive ids of `STRING` and `WSTRING`.
@@ -69,6 +72,172 @@ impl EngineState<'_> {
         self.check_place_lifetime(place.type_id)
     }
 
+    /// Charge what normalizing the value `place` stands for to its own type charges, so that a copy
+    /// of its bytes charges what a store of that value does (TIME-08; C1-12): each text is checked
+    /// against its capacity, one unit for each byte of a text in a structure and two for each byte
+    /// of any other, in the order the value's normalization reaches them. A value without a text
+    /// charges nothing.
+    pub(super) fn charge_place_normalization(&self, place: Place) -> Result<(), RuntimeError> {
+        if !holds_text(self.prepared, place.type_id) {
+            return Ok(());
+        }
+        let Routed::Cells(reader) = self.data.routed(self.prepared) else {
+            return Err(RuntimeError::InvalidExecutionState);
+        };
+        self.charge_text_normalization(reader, place.range, place.type_id, false, 0)
+    }
+
+    /// The normalization charges of the texts in the value of `type_id` at `range`, as
+    /// [`Self::charge_place_normalization`] gives them; `in_structure` for a value inside a
+    /// structure, which normalization checks member by member.
+    fn charge_text_normalization(
+        &self,
+        reader: CellReader<'_>,
+        range: ByteRange,
+        type_id: u32,
+        in_structure: bool,
+        depth: usize,
+    ) -> Result<(), RuntimeError> {
+        if depth > BYTECODE_MAX_TYPE_NESTING {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        let entry = resolve(self.prepared, type_id).ok_or(RuntimeError::TypeMismatch)?;
+        let layout = self
+            .prepared
+            .type_layout(type_id)
+            .ok_or(RuntimeError::TypeMismatch)?;
+        match &entry.data {
+            TypeData::Primitive { prim_id, .. } if TEXT_PRIMITIVES.contains(prim_id) => {
+                let length = reader
+                    .place_view(range, type_id)
+                    .text_utf8_len()?
+                    .ok_or(RuntimeError::InvalidExecutionState)?;
+                let units = if in_structure {
+                    length
+                } else {
+                    length.checked_mul(2).ok_or(RuntimeError::Overflow)?
+                };
+                self.charge_work_units(units)
+            }
+            TypeData::Array { elem_type_id, dims } if holds_text(self.prepared, *elem_type_id) => {
+                let stride = layout
+                    .array
+                    .as_ref()
+                    .map(|array| array.byte_stride)
+                    .ok_or(RuntimeError::TypeMismatch)?;
+                let bytes = self
+                    .prepared
+                    .type_layout(*elem_type_id)
+                    .ok_or(RuntimeError::TypeMismatch)?
+                    .shape
+                    .bytes;
+                let count = element_count(dims).ok_or(RuntimeError::TypeMismatch)?;
+                for element in 0..count {
+                    let offset = u32::try_from(element)
+                        .ok()
+                        .and_then(|element| element.checked_mul(stride))
+                        .and_then(|offset| range.start.checked_add(offset))
+                        .ok_or(RuntimeError::Overflow)?;
+                    let element = ByteRange {
+                        start: offset,
+                        bytes,
+                        ..range
+                    };
+                    self.charge_text_normalization(
+                        reader,
+                        element,
+                        *elem_type_id,
+                        in_structure,
+                        depth + 1,
+                    )?;
+                }
+                Ok(())
+            }
+            TypeData::Struct { fields } => {
+                for (field, member) in fields.iter().zip(&layout.members) {
+                    if !holds_text(self.prepared, field.type_id) {
+                        continue;
+                    }
+                    let member = ByteRange {
+                        start: range
+                            .start
+                            .checked_add(member.byte_offset)
+                            .ok_or(RuntimeError::Overflow)?,
+                        bytes: self
+                            .prepared
+                            .type_layout(field.type_id)
+                            .ok_or(RuntimeError::TypeMismatch)?
+                            .shape
+                            .bytes,
+                        ..range
+                    };
+                    self.charge_text_normalization(reader, member, field.type_id, true, depth + 1)?;
+                }
+                Ok(())
+            }
+            _ => Ok(()),
+        }
+    }
+
+    /// Store `text`, a `WSTRING` when `wide`, through `reference` as a store of its value does
+    /// (TIME-08; C1-12): normalized to `declared`, the type the store normalizes to when it has one,
+    /// and checked as a write, the check first when `check_first`, as a dynamic store takes them,
+    /// then written into the destination's text leaf cut to its capacity. `None` when the
+    /// destination is no text leaf of the flat store with the text's width, so the store is given
+    /// the value instead; `Some(Ok(false))` when the block refuses the write.
+    pub(super) fn store_text(
+        &mut self,
+        reference: ValueRefView<'_>,
+        text: &str,
+        wide: bool,
+        declared: Option<u32>,
+        check_first: bool,
+    ) -> Option<Result<bool, RuntimeError>> {
+        let declared_units = match declared {
+            Some(declared) => {
+                let (prim_id, max_length) = text_primitive(self.prepared, declared)?;
+                if (prim_id == TEXT_PRIMITIVES[1]) != wide {
+                    return None;
+                }
+                Some(usize::from(string_capacity(max_length)))
+            }
+            None => None,
+        };
+        let (range, type_id, presence) = match self.data.routed(self.prepared) {
+            Routed::Cells(reader) => {
+                reader.cells_target(reference.location, reference.offset, reference.path)?
+            }
+            Routed::Values(_) => return None,
+        };
+        let geometry =
+            text_geometry(self.prepared, type_id).filter(|(_, _, other)| *other == wide)?;
+        Some((|| {
+            // A text holds no reference, so the write's checks are its target's (TIME-08).
+            if check_first {
+                self.check_write_target(reference)?;
+            }
+            let mut kept = text.len();
+            if let Some(units) = declared_units {
+                self.charge_work_units(kept.checked_mul(2).ok_or(RuntimeError::Overflow)?)?;
+                if let Some(end) = string_capacity_cut(text, wide, units) {
+                    // The kept prefix is a new text, charged by the copy rule (TIME-08).
+                    self.charge_allocation_bytes(super::allocation::text_copy_allocation(
+                        &text[..end],
+                        wide,
+                    )?)?;
+                    kept = end;
+                }
+            }
+            if !check_first {
+                self.check_write_target(reference)?;
+            }
+            Ok(match &mut self.data.store {
+                EngineStore::Cells(arm) => arm.write_text(range, geometry, presence, &text[..kept]),
+                EngineStore::Values => false,
+            })
+        })())
+    }
+
     /// Copy the bytes of `place` to `destination`.
     pub(super) fn copy_place(&mut self, place: Place, destination: PlaceDestination) -> bool {
         match &mut self.data.store {
@@ -84,6 +253,10 @@ impl EngineState<'_> {
     /// check finds nothing and only visits it: an array of scalars is admitted without a charge, and
     /// any other value is visited node by node, one unit each, as the `Value` walk visits it.
     fn check_place_lifetime(&self, type_id: u32) -> Result<(), RuntimeError> {
+        if !is_compound(self.prepared, type_id) {
+            // A text, as a scalar, is admitted without a charge.
+            return Ok(());
+        }
         match resolve(self.prepared, type_id).map(|entry| &entry.data) {
             Some(TypeData::Array { elem_type_id, .. })
                 if !is_compound(self.prepared, *elem_type_id) =>
@@ -144,19 +317,39 @@ fn is_compound(prepared: &PreparedModule, type_id: u32) -> bool {
     })
 }
 
-/// Whether a store may copy a value of `type_id` as its bytes: an array or a structure whose leaves
-/// are numbers, bits, characters, times, dates and enumerations. A text is cut to its destination's
-/// capacity, a reference and an instance are checked and placed by the value they hold, and an
-/// overlapping or located structure is written through its physical layout (C1-15), so a value that
-/// holds any of them is stored as a value.
+/// Whether a store may copy a value of `type_id` as its bytes: a text, or an array or a structure
+/// whose leaves are numbers, bits, characters, texts, times, dates and enumerations. A text of the
+/// destination's type fits its capacity, so its bytes, the tail zeroed, are the bytes the
+/// destination would hold (C1-12). A reference and an instance are checked and placed by the value
+/// they hold, and an overlapping or located structure is written through its physical layout
+/// (C1-15), so a value that holds any of them is stored as a value.
 fn copies_as_bytes(prepared: &PreparedModule, type_id: u32) -> bool {
     resolve(prepared, type_id).is_some_and(|entry| {
         matches!(entry.data, TypeData::Array { .. } | TypeData::Struct { .. })
             && plain(prepared, type_id, 0)
+            || text_primitive(prepared, type_id).is_some()
     })
 }
 
-/// Whether every leaf of a value of `type_id` is a scalar its bytes hold whole.
+/// Whether a value of `type_id` holds a text.
+fn holds_text(prepared: &PreparedModule, type_id: u32) -> bool {
+    prepared
+        .type_layout(type_id)
+        .is_some_and(|layout| !layout.text_leaves.is_empty())
+}
+
+/// The primitive id and declared length of the text type `type_id`, or `None` for another type.
+fn text_primitive(prepared: &PreparedModule, type_id: u32) -> Option<(u16, u16)> {
+    match resolve(prepared, type_id)?.data {
+        TypeData::Primitive {
+            prim_id,
+            max_length,
+        } if TEXT_PRIMITIVES.contains(&prim_id) => Some((prim_id, max_length)),
+        _ => None,
+    }
+}
+
+/// Whether every leaf of a value of `type_id` is a scalar or a text its bytes hold whole.
 fn plain(prepared: &PreparedModule, type_id: u32, depth: usize) -> bool {
     if depth > BYTECODE_MAX_TYPE_NESTING {
         return false;
@@ -165,7 +358,7 @@ fn plain(prepared: &PreparedModule, type_id: u32, depth: usize) -> bool {
         return false;
     };
     match &entry.data {
-        TypeData::Primitive { prim_id, .. } => !TEXT_PRIMITIVES.contains(prim_id),
+        TypeData::Primitive { .. } => true,
         TypeData::Enum { .. } => true,
         TypeData::Subrange { base_type_id, .. } => plain(prepared, *base_type_id, depth + 1),
         TypeData::Array { elem_type_id, .. } => plain(prepared, *elem_type_id, depth + 1),

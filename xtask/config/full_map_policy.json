@@ -2430,7 +2430,7 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 134,
+        "line": 145,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
         "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
@@ -2438,7 +2438,7 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 135,
+        "line": 146,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
         "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
@@ -2446,7 +2446,7 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 138,
+        "line": 149,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
         "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
@@ -2454,7 +2454,7 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 141,
+        "line": 152,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
         "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
@@ -2462,7 +2462,7 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 144,
+        "line": 155,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
         "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
@@ -2470,7 +2470,7 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 147,
+        "line": 158,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
         "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
@@ -2478,7 +2478,7 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 150,
+        "line": 161,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
         "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",

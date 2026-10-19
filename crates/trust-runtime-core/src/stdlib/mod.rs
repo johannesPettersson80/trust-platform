@@ -19,6 +19,7 @@ mod parameters;
 mod registration;
 pub(crate) mod selection;
 pub(crate) mod string;
+pub(crate) mod text_kernels;
 /// Date/time standard-function bindings and supplied-clock adapters.
 pub mod time;
 pub(crate) mod validate;
@@ -195,6 +196,20 @@ impl StandardLibrary {
         } else {
             None
         }
+    }
+
+    /// The built-in function `name`, in any case, when the library has its defaults and no custom
+    /// registration replaces it (C1-12): the engine then runs a text function on borrowed texts.
+    pub(crate) fn builtin(&self, name: &str) -> Option<&'static StdFunctionRef<'static>> {
+        if !self.defaults
+            || self
+                .functions
+                .keys()
+                .any(|registered| registered.eq_ignore_ascii_case(name))
+        {
+            return None;
+        }
+        registration::get(name)
     }
 
     /// Call a standard function by name.

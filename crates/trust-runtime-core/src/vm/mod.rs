@@ -46,6 +46,7 @@ pub use prepared::{PreparationLimits, PreparationUsage, PreparedModule};
 mod debug_map;
 mod dispatch_ops;
 mod dispatch_sizeof;
+mod dispatch_text;
 mod errors;
 mod frames;
 mod helpers;
@@ -67,6 +68,7 @@ pub(crate) use dispatch_sizeof::sizeof_primitive_type;
 pub use dispatch_sizeof::{
     sizeof_type_from_table, sizeof_type_from_table_with, sizeof_type_from_table_with_abi,
 };
+pub(crate) use dispatch_text::TextBuffers;
 pub use errors::VmTrap;
 pub(crate) use frames::{ensure_global_call_depth, FrameStack, VmFrame};
 pub(crate) use helpers::{materialize_borrowed_value, opcode_operand_len};

@@ -682,7 +682,7 @@ fn bind_stdlib_named_values_variadic_inner(
 /// name, and a lowercase formal never matches, exactly as a named argument never matched one when
 /// the actual name was uppercased into a new string.
 #[inline]
-fn formal_matches(formal: &str, actual: &str) -> bool {
+pub(crate) fn formal_matches(formal: &str, actual: &str) -> bool {
     formal.len() == actual.len()
         && formal
             .bytes()

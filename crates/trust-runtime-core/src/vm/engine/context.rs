@@ -46,6 +46,12 @@ impl<'e> ReferenceContext for EngineState<'e> {
         self.charge_allocation_bytes(bytes)
     }
 
+    fn charge_new_text(&self, text: &str, wide: bool) -> Result<(), RuntimeError> {
+        // As a new text value: one unit and its copy allocation (TIME-08 TEXT; C1-12).
+        self.charge_work_units(1)?;
+        self.charge_allocation_bytes(super::allocation::text_copy_allocation(text, wide)?)
+    }
+
     // A call-transaction snapshot is transient bookkeeping: it lives only until the
     // call commits or rolls back, bounded by call depth and the admitted parameter
     // type, so it charges neither work nor cumulative allocation (spec 34 TIME-08).
@@ -137,6 +143,26 @@ impl<'e> ReferenceContext for EngineState<'e> {
         destination: crate::vm::PlaceDestination,
     ) -> bool {
         EngineState::copy_place(self, place, destination)
+    }
+    fn charge_place_normalization(&self, place: crate::vm::Place) -> Result<(), RuntimeError> {
+        EngineState::charge_place_normalization(self, place)
+    }
+    fn store_text(
+        &mut self,
+        reference: crate::value::ValueRefView<'_>,
+        text: &str,
+        wide: bool,
+        declared: Option<u32>,
+        check_first: bool,
+    ) -> Option<Result<bool, RuntimeError>> {
+        EngineState::store_text(self, reference, text, wide, declared, check_first)
+    }
+    fn before_text_clone(&self, text: &str, wide: bool) -> Result<(), RuntimeError> {
+        // A WSTRING's copy costs one unit and its stored form, a STRING's its bytes (TIME-08).
+        if wide {
+            self.charge_work_units(1)?;
+        }
+        self.charge_allocation_bytes(super::allocation::text_copy_allocation(text, wide)?)
     }
     fn normalize_assignment(
         &self,
@@ -660,6 +686,17 @@ impl CallContext for EngineState<'_> {
 }
 
 impl ExecutionContext for EngineState<'_> {
+    fn take_text_buffers(&mut self) -> Option<crate::vm::TextBuffers> {
+        // The value store keeps the call that binds values, against which the differential test
+        // proves the flat store's text calls (C1-12).
+        match self.data.store {
+            EngineStore::Cells(_) => Some(core::mem::take(&mut self.data.resources.text_call)),
+            EngineStore::Values => None,
+        }
+    }
+    fn return_text_buffers(&mut self, buffers: crate::vm::TextBuffers) {
+        self.data.resources.text_call = buffers;
+    }
     fn call_depth_limit(&self) -> usize {
         self.prepared.limits.max_call_depth
     }

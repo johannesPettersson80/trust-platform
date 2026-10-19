@@ -110,15 +110,26 @@ fn trace_call() {
     let _ = ARMED.try_with(|armed| {
         let was = armed.replace(false);
         let trace = std::backtrace::Backtrace::force_capture().to_string();
-        let frames = trace
+        let mut names = trace
             .lines()
             .filter(|line| line.contains("trust_runtime_core::") && !line.contains(" at "))
-            .take(5)
             .map(|line| {
                 line.trim()
                     .split_once(": ")
                     .map_or(line.trim(), |(_, name)| name)
-            })
+            });
+        // The innermost frame names what allocates; the engine's own functions then say why.
+        let frames = names
+            .next()
+            .into_iter()
+            .chain(
+                names
+                    .filter(|name| {
+                        name.starts_with("trust_runtime_core::")
+                            || name.starts_with("<trust_runtime_core::")
+                    })
+                    .take(8),
+            )
             .collect::<Vec<_>>()
             .join(" <- ");
         let _ = TRACES.try_with(|traces| traces.borrow_mut().push(frames));
@@ -606,6 +617,13 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// instances in a reserved set: on the flat store `instances` falls from 16 to 2, the staged result
 /// of the initializer that creates the instance (C1-13), and on the value store from 16 to 10,
 /// measured on the builder on 19 October 2026.
+///
+/// C1-12a and C1-12b leave a text, and a structure that holds one, where it lies, and run the
+/// built-in text functions on their arguments where they lie, their results in the operand stack's
+/// text area, a variable argument read where its target lies: on the flat store `strings` falls
+/// from 40 to 10 allocator calls and from 14 to 1 reallocation per scan (its conversions, character
+/// writes and `WSTRING` constants, C1-12c), `copies` from 8 to 5 and `io` from 8 to 7, measured on
+/// the builder on 19 October 2026.
 const CEILINGS: [(&str, usize, Calls); 31] = [
     ("faults/division", 2, Calls::ZERO),
     ("faults/index", 2, Calls::ZERO),
@@ -673,9 +691,9 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
         "cells/io",
         1,
         Calls {
-            alloc: 8,
+            alloc: 7,
             realloc: 0,
-            dealloc: 8,
+            dealloc: 7,
         },
     ),
     (
@@ -712,9 +730,9 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
         "cells/strings",
         1,
         Calls {
-            alloc: 40,
-            realloc: 14,
-            dealloc: 40,
+            alloc: 10,
+            realloc: 1,
+            dealloc: 10,
         },
     ),
     (
@@ -731,9 +749,9 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
         "cells/copies",
         1,
         Calls {
-            alloc: 8,
+            alloc: 5,
             realloc: 0,
-            dealloc: 8,
+            dealloc: 5,
         },
     ),
 ];
@@ -1235,7 +1253,8 @@ fn the_cell_retain_capture_allocates_nothing() {
 }
 
 /// A diagnostic, run on request (`-- --ignored`): where the allocator calls of each fixture's later
-/// scans on the flat store come from, as the five innermost engine frames of each call, counted.
+/// scans on the flat store come from, as the innermost frame and the eight innermost engine functions
+/// of each call, counted.
 /// It asserts nothing; it tells the C1 slices which code still allocates.
 #[test]
 #[ignore = "diagnostic: run with --ignored --nocapture"]

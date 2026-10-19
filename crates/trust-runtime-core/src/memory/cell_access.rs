@@ -357,6 +357,39 @@ impl CellArm {
         true
     }
 
+    /// Write `text`, UTF-8, into the text leaf at `range` with the length field of `length` bytes and
+    /// room for `capacity` bytes of characters, cut to the last whole character that fits, a
+    /// `WSTRING`'s (`wide`) as UTF-16 code units, and mark the presence byte at `presence`, when the
+    /// declaration keeps one, as holding a value (MEM-12; C1-12). `false`, and nothing written, when
+    /// the block refuses either range.
+    pub(crate) fn write_text(
+        &mut self,
+        range: ByteRange,
+        (length, capacity, wide): (u32, u32, bool),
+        presence: Option<u32>,
+        text: &str,
+    ) -> bool {
+        let (block, _) = self.cells.regions_mut().block_mut(range.region);
+        let flag = presence.map(|start| ByteRange {
+            start,
+            bytes: 1,
+            ..range
+        });
+        if flag.is_some_and(|flag| block.bytes(flag).is_none()) {
+            return false;
+        }
+        let written = block
+            .bytes_mut(range)
+            .is_some_and(|bytes| flat::write_text(bytes, length, capacity, text, wide).is_ok());
+        if !written {
+            return false;
+        }
+        if let Some(byte) = flag.and_then(|flag| block.bytes_mut(flag)) {
+            byte[0] = 1;
+        }
+        true
+    }
+
     /// The first free byte of the activation stack (C1-11).
     pub(crate) fn activation_top(&self) -> u32 {
         self.cells.regions().activation_top()

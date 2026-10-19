@@ -126,6 +126,9 @@ struct ExecutionResources {
     call_scratch: CallScratch,
     /// Kept path and index buffers of the references a scan builds (spec 34 ARCH-05).
     references: scratch::ReferenceBuffers,
+    /// The buffers of the calls of built-in text functions, kept between calls (spec 34 ARCH-05;
+    /// C1-12).
+    text_call: crate::vm::TextBuffers,
     ready_tasks: Vec<crate::cycle::ReadyTask>,
     constructed_values: usize,
     work_budget: crate::vm::budget::ExecutionBudget,
@@ -294,6 +297,7 @@ impl<'a> EngineState<'a> {
                 bookkeeping: scratch::BookkeepingScratch::default(),
                 call_scratch: CallScratch::default(),
                 references: scratch::ReferenceBuffers::default(),
+                text_call: crate::vm::TextBuffers::default(),
                 ready_tasks: Vec::new(),
                 constructed_values: 0,
                 // TIME-09: construction is one entry under its own allowance.

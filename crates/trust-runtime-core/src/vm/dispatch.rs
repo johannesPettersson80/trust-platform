@@ -13,8 +13,8 @@ use super::dispatch_ops::{
 };
 use super::dispatch_refs::{
     dynamic_load_operand, dynamic_ref_field, dynamic_ref_index, dynamic_store_place,
-    dynamic_store_ref, index_to_i64, load_ref_addr, load_ref_operand, materialize_place,
-    pop_reference, store_ref, store_ref_place,
+    dynamic_store_ref, dynamic_store_text, index_to_i64, load_ref_addr, load_ref_operand,
+    materialize_place, pop_reference, store_ref, store_ref_place, store_ref_text,
 };
 use super::dispatch_sizeof::sizeof_type_from_table_with_abi;
 use super::module::VmModule;
@@ -417,7 +417,16 @@ fn execute_with_buffers(
             .map_err(VmTrap::into_runtime_error)?;
         cursor.pc += 1;
 
-        if operand_stack.places() != 0 && !keeps_places(opcode, operand_stack) {
+        // A built-in text function reads its arguments where they lie (C1-12).
+        let text_call = if opcode == 0x09 {
+            super::dispatch_text::text_call_at(&*runtime, module, cursor.pc)
+        } else {
+            None
+        };
+        if operand_stack.places() != 0
+            && text_call.is_none()
+            && !keeps_places(opcode, operand_stack)
+        {
             operand_stack.materialize_places(|place| materialize_place(&*runtime, place))?;
         }
 
@@ -539,6 +548,17 @@ fn execute_with_buffers(
                     read_u32(&module.code, &mut cursor.pc).map_err(VmTrap::into_runtime_error)?;
                 let arg_count =
                     read_u32(&module.code, &mut cursor.pc).map_err(VmTrap::into_runtime_error)?;
+                if let Some(call) = text_call {
+                    let caller = frames
+                        .current()
+                        .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
+                    if super::dispatch_text::run_text_call(runtime, operand_stack, caller, &call)? {
+                        continue;
+                    }
+                    // Any other argument is given its value, as for any call.
+                    operand_stack
+                        .materialize_places(|place| materialize_place(&*runtime, place))?;
+                }
                 let plan = runtime.call_plan(instruction_offset);
                 match continuation::start_call(
                     runtime,
@@ -615,6 +635,15 @@ fn execute_with_buffers(
                     operand_stack
                         .push_place(place)
                         .map_err(VmTrap::into_runtime_error)?;
+                } else if let Some(temp) = operand_stack.top_text() {
+                    // A second text copies its characters, charged as one more copy (C1-12).
+                    let text = operand_stack
+                        .text(temp)
+                        .map_err(VmTrap::into_runtime_error)?;
+                    runtime.before_text_clone(text, temp.wide())?;
+                    operand_stack
+                        .duplicate_text(temp)
+                        .map_err(VmTrap::into_runtime_error)?;
                 } else {
                     let value = operand_stack.peek().map_err(VmTrap::into_runtime_error)?;
                     runtime.before_value_clone(value)?;
@@ -623,14 +652,16 @@ fn execute_with_buffers(
                         .map_err(VmTrap::into_runtime_error)?;
                 }
             }
-            0x12 => {
-                if let Operand::Value(Value::Reference(Some(reference))) = operand_stack
-                    .pop_operand()
-                    .map_err(VmTrap::into_runtime_error)?
-                {
+            0x12 => match operand_stack
+                .pop_operand()
+                .map_err(VmTrap::into_runtime_error)?
+            {
+                Operand::Value(Value::Reference(Some(reference))) => {
                     runtime.recycle_reference_path(reference.path);
                 }
-            }
+                Operand::Text(temp) => operand_stack.release_text(temp),
+                _ => {}
+            },
             0x13 => operand_stack
                 .swap_top()
                 .map_err(VmTrap::into_runtime_error)?,
@@ -640,13 +671,9 @@ fn execute_with_buffers(
             0x20 => {
                 let ref_idx =
                     read_u32(&module.code, &mut cursor.pc).map_err(VmTrap::into_runtime_error)?;
-                match load_ref_operand(runtime, module, frames, ref_idx)
-                    .map_err(VmTrap::into_runtime_error)?
-                {
-                    Operand::Value(value) => operand_stack.push(value),
-                    Operand::Place(place) => operand_stack.push_place(place),
-                }
-                .map_err(VmTrap::into_runtime_error)?;
+                let operand = load_ref_operand(runtime, module, frames, ref_idx)
+                    .map_err(VmTrap::into_runtime_error)?;
+                push_loaded(operand_stack, operand).map_err(VmTrap::into_runtime_error)?;
             }
             0x21 => {
                 let ref_idx =
@@ -658,6 +685,13 @@ fn execute_with_buffers(
                     Operand::Value(value) => store_ref(runtime, module, frames, ref_idx, value),
                     Operand::Place(place) => {
                         store_ref_place(runtime, module, frames, ref_idx, place)
+                    }
+                    Operand::Text(temp) => {
+                        let stored = operand_stack.text(temp).and_then(|text| {
+                            store_ref_text(runtime, module, frames, ref_idx, text, temp.wide())
+                        });
+                        operand_stack.release_text(temp);
+                        stored
                     }
                 }
                 .map_err(VmTrap::into_runtime_error)?;
@@ -752,11 +786,7 @@ fn execute_with_buffers(
                 let operand = dynamic_load_operand(runtime, frames, &reference)
                     .map_err(VmTrap::into_runtime_error)?;
                 runtime.recycle_reference_path(reference.path);
-                match operand {
-                    Operand::Value(value) => operand_stack.push(value),
-                    Operand::Place(place) => operand_stack.push_place(place),
-                }
-                .map_err(VmTrap::into_runtime_error)?;
+                push_loaded(operand_stack, operand).map_err(VmTrap::into_runtime_error)?;
             }
             0x33 => {
                 let operand = operand_stack
@@ -769,6 +799,20 @@ fn execute_with_buffers(
                     }
                     Operand::Place(place) => {
                         dynamic_store_place(runtime, module, frames, &reference, place)
+                    }
+                    Operand::Text(temp) => {
+                        let stored = operand_stack.text(temp).and_then(|text| {
+                            dynamic_store_text(
+                                runtime,
+                                module,
+                                frames,
+                                &reference,
+                                text,
+                                temp.wide(),
+                            )
+                        });
+                        operand_stack.release_text(temp);
+                        stored
                     }
                 }
                 .map_err(VmTrap::into_runtime_error)?;
@@ -901,6 +945,15 @@ fn execute_with_buffers(
             }
             _ => return Err(VmTrap::InvalidOpcode(opcode).into_runtime_error()),
         }
+    }
+}
+
+/// Push the operand a load gave: a value or a place. A load gives no temporary text.
+fn push_loaded(stack: &mut OperandStack, operand: Operand) -> Result<(), VmTrap> {
+    match operand {
+        Operand::Value(value) => stack.push(value),
+        Operand::Place(place) => stack.push_place(place),
+        Operand::Text(_) => Err(VmTrap::Runtime(RuntimeError::InvalidExecutionState)),
     }
 }
 

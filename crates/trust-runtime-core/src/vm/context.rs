@@ -37,6 +37,12 @@ pub trait ReferenceContext {
         Ok(())
     }
 
+    /// Charge the text `text`, a `WSTRING` when `wide`, that a standard text function made, as
+    /// [`Self::charge_text_result`] charges its value (C1-12).
+    fn charge_new_text(&self, _text: &str, _wide: bool) -> Result<(), crate::error::RuntimeError> {
+        Ok(())
+    }
+
     /// Admit an owned reference path before an address instruction copies it.
     fn before_reference_path_clone(
         &self,
@@ -161,6 +167,38 @@ pub trait ReferenceContext {
     /// range.
     fn copy_place(&mut self, _place: super::Place, _destination: super::PlaceDestination) -> bool {
         false
+    }
+    /// Charge what normalizing the value `place` stands for to its own type charges, so that a copy
+    /// of its bytes charges what a store of the value does (C1-12): the capacity checks of its
+    /// texts. A composition that holds no flat block has no place.
+    fn charge_place_normalization(
+        &self,
+        _place: super::Place,
+    ) -> Result<(), crate::error::RuntimeError> {
+        Ok(())
+    }
+    /// Store `text`, a `WSTRING` when `wide`, through `reference` into a text leaf of the flat
+    /// store, normalized to `declared` and checked as a store of its value is, the check first when
+    /// `check_first`, as a dynamic store takes them (C1-12). `None` when the store is given the
+    /// value instead; `Some(Ok(false))` when the block refuses the write.
+    fn store_text(
+        &mut self,
+        _reference: crate::value::ValueRefView<'_>,
+        _text: &str,
+        _wide: bool,
+        _declared: Option<u32>,
+        _check_first: bool,
+    ) -> Option<Result<bool, crate::error::RuntimeError>> {
+        None
+    }
+    /// Charge a copy of `text`, a `WSTRING` when `wide`, as [`Self::before_value_clone`] charges a
+    /// copy of its value (C1-12). Only a composition that makes temporary texts copies one.
+    fn before_text_clone(
+        &self,
+        _text: &str,
+        _wide: bool,
+    ) -> Result<(), crate::error::RuntimeError> {
+        Ok(())
     }
     /// `reference` in its canonical form (C1-11d): a composition with a flat store makes a
     /// reference to a whole writable target in its persistent block flat, and gives the path's
@@ -355,6 +393,13 @@ pub const VM_LOCAL_SENTINEL_FRAME_ID: u32 = u32::MAX;
 
 /// Host extensions around the single bytecode dispatcher.
 pub trait ExecutionContext: super::call::context::CallContext {
+    /// The buffers of a call of a built-in text function, taken for the call (C1-12). `None`, the
+    /// default, has every text function bind values.
+    fn take_text_buffers(&mut self) -> Option<super::TextBuffers> {
+        None
+    }
+    /// Give back the buffers [`Self::take_text_buffers`] took.
+    fn return_text_buffers(&mut self, _buffers: super::TextBuffers) {}
     /// Initialize one invocation using the existing shared work allowance.
     fn initialize_frame(
         &mut self,

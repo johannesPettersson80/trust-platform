@@ -1,9 +1,10 @@
-(* Bounded-C corpus, copies: assignments of whole arrays and structures, which the flat store copies
-   as bytes (specification 34 MEM-12; C1-10c). An array to an array, a structure through dynamic
-   indices on both sides, an array of structures, a global structure from an element, a structure
-   that holds an array and an enumeration, a structure that holds a text, which is stored as a
-   value, and a copy whose source a call changes between the load and the store, which stores the
-   value the load read. *)
+(* Bounded-C corpus, copies: assignments of whole arrays, structures and texts, which the flat store
+   copies as bytes (specification 34 MEM-12; C1-10c, C1-12). An array to an array, a structure
+   through dynamic indices on both sides, an array of structures, a global structure from an
+   element, a structure that holds an array and an enumeration, a structure that holds a text, a
+   copy whose source a call changes between the load and the store, which stores the value the
+   load read, and texts: one of the same type, one cut into a shorter STRING, one cut into a shorter
+   WSTRING and one cut into a structure's member through a dynamic reference. *)
 TYPE Mode : (Idle, Run, Stop);
 END_TYPE
 
@@ -50,6 +51,11 @@ VAR
     rows : ARRAY[1..2] OF Row;
     rows_copy : ARRAY[1..2] OF Row;
     tags : ARRAY[1..2] OF Tagged;
+    label : STRING[16] := 'station-north';
+    label_copy : STRING[16];
+    short : STRING[4];
+    wide : WSTRING[8] := "Ventil-7";
+    wide_short : WSTRING[3];
     i : INT := INT#1;
     j : INT := INT#2;
     k : INT;
@@ -72,6 +78,10 @@ pairs[Bump(target := pairs[1].a)] := pairs[1];
 tags[1].id := tags[1].id + INT#1;
 tags[1].name := 'pump';
 tags[2] := tags[1];
+label_copy := label;
+short := label;
+wide_short := wide;
+tags[i].name := label;
 i := INT#3 - i;
 j := INT#3 - j;
 END_PROGRAM

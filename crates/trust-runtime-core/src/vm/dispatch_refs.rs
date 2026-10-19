@@ -76,7 +76,9 @@ fn view_operand(
 fn value_operand(operand: Operand) -> Result<Value, VmTrap> {
     match operand {
         Operand::Value(value) => Ok(value),
-        Operand::Place(_) => Err(VmTrap::Runtime(RuntimeError::InvalidExecutionState)),
+        Operand::Place(_) | Operand::Text(_) => {
+            Err(VmTrap::Runtime(RuntimeError::InvalidExecutionState))
+        }
     }
 }
 
@@ -402,10 +404,10 @@ pub(crate) fn store_ref_place(
         VmRef::Local { .. } | VmRef::InitializerResult { .. }
     ) {
         let address = load_ref_view(runtime, module, frames, ref_idx)?;
-        if let Some(destination) =
-            runtime.place_destination(address, place, module.ref_type(ref_idx))
-        {
-            return copy_place_to(runtime, address, place, destination);
+        let declared = module.ref_type(ref_idx);
+        let order = StoreOrder::NormalizeFirst;
+        if let Some(destination) = runtime.place_destination(address, place, declared) {
+            return copy_place_to(runtime, address, place, destination, declared, order);
         }
     }
     let value = materialize_place(runtime, place).map_err(VmTrap::Runtime)?;
@@ -424,30 +426,123 @@ pub(crate) fn dynamic_store_place(
     let frame = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
     if !frame.owns_local_reference(reference) {
         let declared = dynamic_ref_type(runtime, module, frame, reference)?;
-        if let Some(destination) = runtime.place_destination(reference.as_view(), place, declared) {
-            return copy_place_to(runtime, reference.as_view(), place, destination);
+        let address = reference.as_view();
+        let order = StoreOrder::CheckFirst;
+        if let Some(destination) = runtime.place_destination(address, place, declared) {
+            return copy_place_to(runtime, address, place, destination, declared, order);
         }
     }
     let value = materialize_place(runtime, place).map_err(VmTrap::Runtime)?;
     dynamic_store_ref(runtime, module, frames, reference, value)
 }
 
-/// Check a write of `place` through `reference` as a write of its value is checked, then copy its
-/// bytes to `destination`. A value of the destination's type needs no normalization, and the cell
-/// write it replaces charges nothing beyond the check (TIME-08).
+/// When a store normalizes the value it writes to `declared`: a static store before it checks the
+/// write, a dynamic one after (TIME-08).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum StoreOrder {
+    NormalizeFirst,
+    CheckFirst,
+}
+
+/// Check a write of `place` through `reference` as a write of its value is checked, and charge the
+/// normalization of that value to `declared` in the order the store's value path takes, then copy
+/// its bytes to `destination`. A value of the destination's type is normalized unchanged, so only
+/// its texts' capacity checks are charged, and the cell write it replaces charges nothing beyond
+/// the check (TIME-08; C1-12).
 fn copy_place_to(
     runtime: &mut impl ReferenceContext,
     reference: ValueRefView<'_>,
     place: Place,
     destination: PlaceDestination,
+    declared: Option<u32>,
+    order: StoreOrder,
 ) -> Result<(), VmTrap> {
+    let normalize = |runtime: &mut _| match declared {
+        Some(_) => ReferenceContext::charge_place_normalization(runtime, place),
+        None => Ok(()),
+    };
+    if order == StoreOrder::NormalizeFirst {
+        normalize(runtime).map_err(VmTrap::Runtime)?;
+    }
     runtime
         .check_place_write(reference, place)
         .map_err(VmTrap::Runtime)?;
+    if order == StoreOrder::CheckFirst {
+        normalize(runtime).map_err(VmTrap::Runtime)?;
+    }
     if runtime.copy_place(place, destination) {
         Ok(())
     } else {
         Err(VmTrap::NullReference)
+    }
+}
+
+/// Store the temporary text `text`, a `WSTRING` when `wide`, through the static reference
+/// `ref_idx` (C1-12): into a text leaf of the flat store, normalized and checked as a store of its
+/// value is and cut to the leaf's capacity, so that it builds no value; anywhere else as its value.
+pub(crate) fn store_ref_text(
+    runtime: &mut impl ReferenceContext,
+    module: &VmModule,
+    frames: &mut FrameStack,
+    ref_idx: u32,
+    text: &str,
+    wide: bool,
+) -> Result<(), VmTrap> {
+    let reference = module
+        .refs
+        .get(ref_idx as usize)
+        .ok_or_else(|| VmTrap::InvalidRefIndex(ref_idx))?;
+    // Locals and initializer results are stored as values, as places are (C1-10c).
+    if !matches!(
+        reference,
+        VmRef::Local { .. } | VmRef::InitializerResult { .. }
+    ) {
+        let address = load_ref_view(runtime, module, frames, ref_idx)?;
+        if let Some(stored) =
+            runtime.store_text(address, text, wide, module.ref_type(ref_idx), false)
+        {
+            return stored_text(stored);
+        }
+    }
+    store_ref(runtime, module, frames, ref_idx, text_value(text, wide))
+}
+
+/// Store the temporary text `text` through a dynamic reference (C1-12), as [`store_ref_text`]
+/// stores it through a static one.
+pub(crate) fn dynamic_store_text(
+    runtime: &mut impl ReferenceContext,
+    module: &VmModule,
+    frames: &mut FrameStack,
+    reference: &ValueRef,
+    text: &str,
+    wide: bool,
+) -> Result<(), VmTrap> {
+    let frame = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
+    if !frame.owns_local_reference(reference) {
+        let declared = dynamic_ref_type(runtime, module, frame, reference)?;
+        if let Some(stored) = runtime.store_text(reference.as_view(), text, wide, declared, true) {
+            return stored_text(stored);
+        }
+    }
+    dynamic_store_ref(runtime, module, frames, reference, text_value(text, wide))
+}
+
+/// The outcome of a text store into a leaf (C1-12): a write the block refuses names no target, as
+/// a refused copy does.
+fn stored_text(stored: Result<bool, RuntimeError>) -> Result<(), VmTrap> {
+    match stored {
+        Ok(true) => Ok(()),
+        Ok(false) => Err(VmTrap::NullReference),
+        Err(error) => Err(VmTrap::Runtime(error)),
+    }
+}
+
+/// The value of a text: a `WSTRING` when `wide`, else a `STRING`.
+fn text_value(text: &str, wide: bool) -> Value {
+    if wide {
+        Value::WString(alloc::string::String::from(text))
+    } else {
+        Value::String(SmolStr::new(text))
     }
 }
 

@@ -320,6 +320,13 @@ impl CellReader<'_> {
 /// The facts of a cell range that the engine's walks read without a `Value` (specification 34 §6.2,
 /// MEM-10; C1-9d1). Each answers what the `Value` form answers in [`crate::memory::view::ValueView`].
 impl<'a> CellsView<'a> {
+    /// The characters of the text leaf at `range`, a value of `type_id`, in place: a `STRING`'s
+    /// UTF-8 or a `WSTRING`'s UTF-16 code units (C1-12). `None` for another type.
+    pub(crate) fn text(self, range: ByteRange, type_id: u32) -> Option<TextBytes<'a>> {
+        let (length, _, wide) = text_geometry(self.prepared, type_id)?;
+        flat::read_text(self.regions.block(range.region).bytes(range)?, length, wide).ok()
+    }
+
     /// The scalar of the cells at `range`, a value of `type_id`: a primitive other than a text, copied
     /// without allocation. `None` for any other type.
     pub(crate) fn scalar(

@@ -1,7 +1,4 @@
-use alloc::{
-    string::{String, ToString},
-    vec::Vec,
-};
+use alloc::{string::String, vec::Vec};
 
 use crate::error::RuntimeError;
 
@@ -140,25 +137,46 @@ pub fn write_string_element(
     Ok(updated)
 }
 
-pub fn string_left(text: &str, count: i64) -> String {
-    let chars: Vec<char> = text.chars().collect();
-    let take = if count <= 0 {
+/// The byte offset of the character at zero-based `index` in `text`, or the text's length when
+/// `index` is at or past its end.
+fn char_offset(text: &str, index: usize) -> usize {
+    text.char_indices()
+        .nth(index)
+        .map_or(text.len(), |(offset, _)| offset)
+}
+
+/// A count or a length argument of a string function as a number of characters: none for a value
+/// below one, every character for one past the end.
+fn element_span(count: i64) -> usize {
+    if count <= 0 {
         0
     } else {
-        count.min(chars.len() as i64) as usize
-    };
-    chars.into_iter().take(take).collect()
+        usize::try_from(count).unwrap_or(usize::MAX)
+    }
+}
+
+pub fn string_left(text: &str, count: i64) -> String {
+    let mut out = String::new();
+    string_left_into(text, count, &mut out);
+    out
+}
+
+/// `LEFT`: the first `count` characters of `text`, appended to `out` (C1-12).
+pub fn string_left_into(text: &str, count: i64, out: &mut String) {
+    out.push_str(&text[..char_offset(text, element_span(count))]);
 }
 
 pub fn string_right(text: &str, count: i64) -> String {
-    let chars: Vec<char> = text.chars().collect();
-    let take = if count <= 0 {
-        0
-    } else {
-        count.min(chars.len() as i64) as usize
-    };
-    let start = chars.len().saturating_sub(take);
-    chars.into_iter().skip(start).collect()
+    let mut out = String::new();
+    string_right_into(text, count, &mut out);
+    out
+}
+
+/// `RIGHT`: the last `count` characters of `text`, appended to `out` (C1-12).
+pub fn string_right_into(text: &str, count: i64, out: &mut String) {
+    let length = string_element_count(text);
+    let start = length.saturating_sub(element_span(count).min(length));
+    out.push_str(&text[char_offset(text, start)..]);
 }
 
 // Zero-based index of the element at one-based `position`, or `None` when that
@@ -172,70 +190,89 @@ fn start_index(position: i64, element_count: usize) -> Option<usize> {
         .filter(|&start| start < element_count)
 }
 
+/// The zero-based end of the `length` characters from `start`, clamped to `element_count`.
+fn span_end(start: usize, length: i64, element_count: usize) -> usize {
+    start
+        .saturating_add(element_span(length))
+        .min(element_count)
+}
+
 pub fn string_mid(text: &str, length: i64, position: i64) -> String {
-    let chars: Vec<char> = text.chars().collect();
-    let Some(start) = start_index(position, chars.len()) else {
-        return String::new();
+    let mut out = String::new();
+    string_mid_into(text, length, position, &mut out);
+    out
+}
+
+/// `MID`: the `length` characters of `text` from one-based `position`, appended to `out` (C1-12).
+pub fn string_mid_into(text: &str, length: i64, position: i64, out: &mut String) {
+    let count = string_element_count(text);
+    let Some(start) = start_index(position, count) else {
+        return;
     };
     if length <= 0 {
-        return String::new();
+        return;
     }
-    let end = (start as i64)
-        .saturating_add(length)
-        .min(chars.len() as i64) as usize;
-    chars.into_iter().skip(start).take(end - start).collect()
+    let end = span_end(start, length, count);
+    out.push_str(&text[char_offset(text, start)..char_offset(text, end)]);
 }
 
 pub fn string_insert(input: &str, insert: &str, position: i64) -> String {
-    let chars: Vec<char> = input.chars().collect();
-    let idx = if position <= 0 {
-        0
-    } else if position >= chars.len() as i64 {
-        chars.len()
-    } else {
-        position as usize
-    };
-    let mut result = String::new();
-    result.extend(chars.iter().take(idx));
-    result.push_str(insert);
-    result.extend(chars.iter().skip(idx));
-    result
+    let mut out = String::new();
+    string_insert_into(input, insert, position, &mut out);
+    out
+}
+
+/// `INSERT`: `insert` placed after the `position`-th character of `input`, appended to `out`
+/// (C1-12).
+pub fn string_insert_into(input: &str, insert: &str, position: i64, out: &mut String) {
+    let at = char_offset(input, element_span(position));
+    out.push_str(&input[..at]);
+    out.push_str(insert);
+    out.push_str(&input[at..]);
 }
 
 pub fn string_delete(input: &str, length: i64, position: i64) -> String {
-    if length <= 0 {
-        return input.to_string();
-    }
-    let chars: Vec<char> = input.chars().collect();
-    let Some(start) = start_index(position, chars.len()) else {
-        return input.to_string();
+    let mut out = String::new();
+    string_delete_into(input, length, position, &mut out);
+    out
+}
+
+/// `DELETE`: `input` without the `length` characters from one-based `position`, appended to
+/// `out` (C1-12).
+pub fn string_delete_into(input: &str, length: i64, position: i64, out: &mut String) {
+    let count = string_element_count(input);
+    let start = start_index(position, count).filter(|_| length > 0);
+    let Some(start) = start else {
+        out.push_str(input);
+        return;
     };
-    let end = (start as i64)
-        .saturating_add(length)
-        .min(chars.len() as i64) as usize;
-    let mut result = String::new();
-    result.extend(chars.iter().take(start));
-    result.extend(chars.iter().skip(end));
-    result
+    let end = span_end(start, length, count);
+    out.push_str(&input[..char_offset(input, start)]);
+    out.push_str(&input[char_offset(input, end)..]);
 }
 
 pub fn string_replace(input: &str, repl: &str, length: i64, position: i64) -> String {
-    let chars: Vec<char> = input.chars().collect();
-    let Some(start) = start_index(position, chars.len()) else {
-        return input.to_string();
+    let mut out = String::new();
+    string_replace_into(input, repl, length, position, &mut out);
+    out
+}
+
+/// `REPLACE`: `input` with the `length` characters from one-based `position` replaced by `repl`,
+/// appended to `out` (C1-12).
+pub fn string_replace_into(input: &str, repl: &str, length: i64, position: i64, out: &mut String) {
+    let count = string_element_count(input);
+    let Some(start) = start_index(position, count) else {
+        out.push_str(input);
+        return;
     };
     let end = if length <= 0 {
         start
     } else {
-        (start as i64)
-            .saturating_add(length)
-            .min(chars.len() as i64) as usize
+        span_end(start, length, count)
     };
-    let mut result = String::new();
-    result.extend(chars.iter().take(start));
-    result.push_str(repl);
-    result.extend(chars.iter().skip(end));
-    result
+    out.push_str(&input[..char_offset(input, start)]);
+    out.push_str(repl);
+    out.push_str(&input[char_offset(input, end)..]);
 }
 
 pub fn string_find(haystack: &str, needle: &str) -> Result<i16, RuntimeError> {

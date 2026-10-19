@@ -194,6 +194,33 @@ impl VmWriteTarget {
             .map_err(VmTrap::Runtime)
     }
 
+    /// The view of the target `reference` names, as [`Self::read`] reads it through the target
+    /// [`Self::from_reference`] gives, without building that target (C1-12).
+    pub fn peek_reference<'a>(
+        runtime: &'a impl CallContext,
+        caller_frame: &'a VmFrame,
+        reference: &ValueRef,
+    ) -> Result<ValueView<'a>, VmTrap> {
+        if reference.path.is_empty() {
+            if is_vm_local_sentinel(reference) {
+                let target = Self::CallerLocalDirect {
+                    offset: reference.offset as usize,
+                };
+                return target.peek(runtime, caller_frame);
+            }
+            if let MemoryLocation::Global | MemoryLocation::Local(_) | MemoryLocation::Instance(_) =
+                reference.location
+            {
+                let target = Self::DirectStorage {
+                    location: reference.location,
+                    offset: reference.offset as usize,
+                };
+                return target.peek(runtime, caller_frame);
+            }
+        }
+        peek_vm_reference(runtime, caller_frame, reference)
+    }
+
     /// Borrow the current target value without cloning its path.
     pub fn peek<'a>(
         &self,
