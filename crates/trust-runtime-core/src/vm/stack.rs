@@ -320,6 +320,35 @@ impl OperandStack {
         self.push_text_at(start, wide)
     }
 
+    /// Push the `WSTRING` whose UTF-16 code units are `units` into the temporary area as one operand,
+    /// its characters as UTF-8 (C1-12, C1-19c4).
+    ///
+    /// # Errors
+    ///
+    /// [`VmTrap::Runtime`] with [`RuntimeError::InvalidExecutionState`] for units that are no
+    /// UTF-16, and [`VmTrap::BudgetExceeded`] when the area cannot grow.
+    pub(crate) fn push_wide_text(
+        &mut self,
+        units: impl Iterator<Item = u16> + Clone,
+    ) -> Result<(), VmTrap> {
+        self.forget_temps();
+        let start = self.temp_bytes.len();
+        let mut bytes = 0usize;
+        for character in char::decode_utf16(units.clone()) {
+            let character =
+                character.map_err(|_| VmTrap::Runtime(RuntimeError::InvalidExecutionState))?;
+            bytes += character.len_utf8();
+        }
+        self.temp_bytes
+            .try_reserve(bytes)
+            .map_err(|_| VmTrap::BudgetExceeded)?;
+        for character in char::decode_utf16(units).flatten() {
+            self.temp_bytes
+                .extend_from_slice(character.encode_utf8(&mut [0; 4]).as_bytes());
+        }
+        self.push_text_at(start, true)
+    }
+
     /// Push a second operand for the temporary text `temp`, its characters copied (C1-12).
     pub(crate) fn duplicate_text(&mut self, temp: TextTemp) -> Result<(), VmTrap> {
         let start = self.temp_bytes.len();

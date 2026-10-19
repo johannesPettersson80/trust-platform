@@ -43,7 +43,7 @@ pub(super) fn bits(value: &Value) -> Option<u64> {
     })
 }
 
-fn enum_number(bits: u64, leaf: &Leaf, enumeration: &Enumeration) -> i64 {
+pub(super) fn enum_number(bits: u64, leaf: &Leaf, enumeration: &Enumeration) -> i64 {
     if enumeration.signed {
         ((bits << (64 - leaf.width)) as i64) >> (64 - leaf.width)
     } else {

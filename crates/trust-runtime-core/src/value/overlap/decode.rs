@@ -158,6 +158,21 @@ impl PhysicalLayout {
         }
     }
 
+    /// The variant name and number of the enumeration leaf `leaf` read from `bytes`, the root's
+    /// backing, without allocating (C1-19c4): `None` for another leaf, and when its bits name no
+    /// variant.
+    pub(crate) fn enum_leaf(&self, leaf: u32, bytes: &[u8]) -> Option<(&str, i64)> {
+        let leaf = self.leaves.get(leaf as usize)?;
+        let enumeration = leaf.enumeration.as_ref()?;
+        let numeric =
+            scalar::enum_number(read_bits(bytes, leaf.offset, leaf.width), leaf, enumeration);
+        let (name, _) = enumeration
+            .variants
+            .iter()
+            .find(|(_, number)| *number == numeric)?;
+        Some((name.as_str(), numeric))
+    }
+
     /// The scalar leaf `leaf` read from `bytes`, the root's backing, without allocating: `None` for an
     /// enumeration leaf, whose value names its type and variant.
     pub(crate) fn scalar_leaf(&self, leaf: u32, bytes: &[u8]) -> Option<Value> {

@@ -790,30 +790,12 @@ const CEILINGS: [(&str, usize, Calls); 39] = [
     ("cells/retained_values", 0, Calls::ZERO),
     ("cells/copies", 0, Calls::ZERO),
     ("cells/structures", 0, Calls::ZERO),
-    // A retained overlapping structure is captured through its value and a checkpoint buffer
-    // (C1-19c4 removes it).
-    (
-        "cells/overlays",
-        0,
-        Calls {
-            alloc: 24,
-            realloc: 12,
-            dealloc: 24,
-        },
-    ),
+    ("cells/overlays", 0, Calls::ZERO),
     ("cells/unions", 0, Calls::ZERO),
     ("cells/operands", 0, Calls::ZERO),
-    // Calls that bind and give arrays, structures and texts as values, and the values that hold
-    // references (C1-19c4 removes them).
-    (
-        "cells/results",
-        0,
-        Calls {
-            alloc: 18,
-            realloc: 0,
-            dealloc: 18,
-        },
-    ),
+    ("cells/results", 0, Calls::ZERO),
+    // A structure holding a reference assigned whole, a frame variable and a per-call instance
+    // holding references (C1-19c4 removes them).
     (
         "cells/bindings",
         1,
@@ -1094,7 +1076,7 @@ fn listed_runs_stay_within_their_allocator_ceilings_and_every_fixture_reports_it
 
 /// The flat-store runs that still allocate, listed with their measured ceilings: the corpus cases
 /// C1-19c4 added, whose value paths it removes one by one. The list only shrinks.
-const NOT_YET_ZERO: [&str; 3] = ["cells/overlays", "cells/results", "cells/bindings"];
+const NOT_YET_ZERO: [&str; 1] = ["cells/bindings"];
 
 /// The fixtures the flat store refuses until a later slice, with the slice that admits them. None
 /// since C1-15 placed the `STRUCT OVERLAP` of `structures` and `overlays` as its backing.

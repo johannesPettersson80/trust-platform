@@ -643,6 +643,24 @@ impl CallContext for EngineState<'_> {
         self.data.resources.call_scratch.recycle_flags(flags);
     }
 
+    fn take_call_inputs(&mut self) -> Vec<(usize, crate::vm::Place)> {
+        self.data.resources.call_scratch.take_inputs()
+    }
+
+    fn recycle_call_inputs(&mut self, inputs: Vec<(usize, crate::vm::Place)>) {
+        self.data.resources.call_scratch.recycle_inputs(inputs);
+    }
+
+    fn input_place(
+        &self,
+        pou: u32,
+        slot: usize,
+        parameter: u32,
+        reference: &ValueRef,
+    ) -> Option<Result<crate::vm::Place, RuntimeError>> {
+        EngineState::input_place(self, pou, slot, parameter, reference)
+    }
+
     fn take_call_function_outputs(&mut self) -> Vec<VmOutBinding> {
         self.data.resources.call_scratch.take_function_outputs()
     }
@@ -845,6 +863,14 @@ impl ExecutionContext for EngineState<'_> {
             .activation
             .and_then(|id| self.data.storage.previous_execution_activation(id));
         self.check_value_lifetime(value, destination)
+    }
+    fn copy_input_place(
+        &mut self,
+        frame: &VmFrame,
+        slot: usize,
+        place: crate::vm::Place,
+    ) -> Result<(), RuntimeError> {
+        EngineState::copy_input_place(self, frame, slot, place)
     }
     fn check_return_place(&self, frame: &VmFrame) -> Option<Result<(), RuntimeError>> {
         EngineState::check_return_place(self, frame)

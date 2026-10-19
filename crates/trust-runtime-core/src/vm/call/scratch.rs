@@ -15,6 +15,7 @@ use crate::value::Value;
 
 use super::super::VmTrap;
 use super::bindings::{VmFbOutBinding, VmNativeArg, VmOutBinding, VmWriteTarget};
+use crate::vm::Place;
 
 /// The argument-list kind index.
 #[cfg(test)]
@@ -30,7 +31,7 @@ pub(crate) const KIND_FUNCTION_OUTPUTS: usize = 2;
 pub(crate) const KIND_STDLIB_VALUES: usize = 6;
 /// The number of call-binding vector kinds.
 #[cfg(test)]
-pub(crate) const KIND_COUNT: usize = 7;
+pub(crate) const KIND_COUNT: usize = 8;
 
 /// The widest vector of each kind the reserved call scratch holds (spec 34 MEM-09).
 #[derive(Debug, Clone, Copy)]
@@ -111,6 +112,7 @@ pub struct CallScratch {
     prepared_targets: KindScratch<PreparedTargets>,
     prepared_outputs: KindScratch<Vec<(VmWriteTarget, Value)>>,
     stdlib_values: KindScratch<Vec<Value>>,
+    inputs: KindScratch<Vec<(usize, Place)>>,
 }
 
 impl CallScratch {
@@ -139,6 +141,7 @@ impl CallScratch {
         reserve_kind(&mut self.stdlib_values.slots, levels, || {
             reserve_vec(sizes.args)
         })?;
+        reserve_kind(&mut self.inputs.slots, levels, || reserve_vec(sizes.params))?;
         Ok(())
     }
 
@@ -228,6 +231,17 @@ impl CallScratch {
         self.stdlib_values.recycle(values);
     }
 
+    /// Take the list of a function call's inputs bound as places, empty (C1-19c4).
+    pub(crate) fn take_inputs(&mut self) -> Vec<(usize, Place)> {
+        self.inputs.take()
+    }
+
+    /// Return the inputs of [`CallScratch::take_inputs`], emptied.
+    pub(crate) fn recycle_inputs(&mut self, mut inputs: Vec<(usize, Place)>) {
+        inputs.clear();
+        self.inputs.recycle(inputs);
+    }
+
     /// The reserved vectors still held per kind (test support).
     #[cfg(test)]
     pub(crate) fn held_counts(&self) -> [usize; KIND_COUNT] {
@@ -239,6 +253,7 @@ impl CallScratch {
             self.prepared_targets.held(),
             self.prepared_outputs.held(),
             self.stdlib_values.held(),
+            self.inputs.held(),
         ]
     }
 
@@ -253,6 +268,7 @@ impl CallScratch {
             self.prepared_targets.peak,
             self.prepared_outputs.peak,
             self.stdlib_values.peak,
+            self.inputs.peak,
         ]
     }
 
@@ -296,6 +312,11 @@ impl CallScratch {
                 core::mem::size_of::<Option<Vec<Value>>>(),
                 sizes.args,
                 core::mem::size_of::<Value>(),
+            ),
+            (
+                core::mem::size_of::<Option<Vec<(usize, Place)>>>(),
+                sizes.params,
+                core::mem::size_of::<(usize, Place)>(),
             ),
         ];
         let mut total = 0usize;

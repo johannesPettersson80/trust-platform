@@ -25,25 +25,90 @@ impl StructValue {
             return Ok(None);
         };
         let mut out = Vec::new();
+        physical
+            .layout
+            .write_checkpoint(&mut out, &physical.bytes)?;
+        Ok(Some(out))
+    }
+
+    /// Attach a validated persisted physical checkpoint to this logical
+    /// aggregate. Layout identity is retained only after its bytes agree with
+    /// every scalar leaf in the value.
+    pub fn with_physical_checkpoint(mut self, checkpoint: &[u8]) -> Result<Self, RuntimeError> {
+        self.physical = Some(decode_checkpoint(checkpoint, &self)?);
+        Ok(self)
+    }
+}
+
+impl PhysicalLayout {
+    /// Append the persistence checkpoint of a value of this layout whose backing is `bytes`, as
+    /// [`StructValue::encode_physical_checkpoint`] encodes it, to `out` (C1-19c4).
+    pub(crate) fn write_checkpoint(
+        &self,
+        out: &mut Vec<u8>,
+        bytes: &[u8],
+    ) -> Result<(), RuntimeError> {
+        let start = out.len();
+        self.write_checkpoint_head(out, start)?;
+        write_count(out, bytes.len())?;
+        out.extend_from_slice(bytes);
+        check_checkpoint_size(out.len() - start)
+    }
+
+    /// Append the persistence checkpoint of the structure nested at `path` in a value whose layout
+    /// is this one and whose backing is `root`: its own layout `own`, with its bits from the
+    /// backing, as decoding the value gives it (C1-19c4). `Ok(false)`, and nothing written, when
+    /// no structure of its own lies at `path`.
+    pub(crate) fn write_nested_checkpoint(
+        &self,
+        out: &mut Vec<u8>,
+        root: &[u8],
+        path: &[RefSegment],
+        own: &PhysicalLayout,
+    ) -> Result<bool, RuntimeError> {
+        let Some(child) = self.child_at_path(path) else {
+            return Ok(false);
+        };
+        let start = out.len();
+        own.write_checkpoint_head(out, start)?;
+        let len = own.byte_len()?;
+        write_count(out, len)?;
+        let at = out.len();
+        out.resize(at + len, 0);
+        for bit in 0..child.bits {
+            super::write_bits(
+                &mut out[at..],
+                bit,
+                1,
+                super::read_bits(root, child.offset + bit, 1),
+            );
+        }
+        check_checkpoint_size(out.len() - start)?;
+        Ok(true)
+    }
+
+    /// Append everything of a checkpoint of this layout before its bytes: the magic, the storage
+    /// ABI, the bits, the leaves and the children, each length checked from `start`.
+    fn write_checkpoint_head(&self, out: &mut Vec<u8>, start: usize) -> Result<(), RuntimeError> {
         out.extend_from_slice(CHECKPOINT_MAGIC);
-        out.push(match physical.layout.abi {
+        out.push(match self.abi {
             StorageAbi::LegacyTemporal32 => 0,
             StorageAbi::UniformTemporal64 => 1,
         });
-        out.extend_from_slice(&physical.layout.bits.to_le_bytes());
-        write_count(&mut out, physical.layout.leaves.len())?;
-        write_count(&mut out, physical.layout.children.len())?;
-        for leaf in &physical.layout.leaves {
-            write_path(&mut out, &leaf.path)?;
+        out.extend_from_slice(&self.bits.to_le_bytes());
+        write_count(out, self.leaves.len())?;
+        write_count(out, self.children.len())?;
+        for leaf in &self.leaves {
+            write_path(out, &leaf.path)?;
             out.extend_from_slice(&leaf.offset.to_le_bytes());
             out.push(leaf.width);
             out.extend_from_slice(&leaf.primitive_id.to_le_bytes());
             if let Some(enumeration) = &leaf.enumeration {
                 out.push(1);
                 out.push(u8::from(enumeration.signed));
-                write_count(&mut out, enumeration.variants.len())?;
+                write_count(out, enumeration.variants.len())?;
                 for (name, value) in &enumeration.variants {
-                    write_string(&mut out, name)?;
+                    write_string(out, name)?;
                     out.extend_from_slice(&value.to_le_bytes());
                 }
             } else {
@@ -56,26 +121,15 @@ impl StructValue {
             } else {
                 out.push(0);
             }
-            check_checkpoint_size(out.len())?;
+            check_checkpoint_size(out.len() - start)?;
         }
-        for child in &physical.layout.children {
-            write_path(&mut out, &child.path)?;
+        for child in &self.children {
+            write_path(out, &child.path)?;
             out.extend_from_slice(&child.offset.to_le_bytes());
             out.extend_from_slice(&child.bits.to_le_bytes());
-            check_checkpoint_size(out.len())?;
+            check_checkpoint_size(out.len() - start)?;
         }
-        write_count(&mut out, physical.bytes.len())?;
-        out.extend_from_slice(&physical.bytes);
-        check_checkpoint_size(out.len())?;
-        Ok(Some(out))
-    }
-
-    /// Attach a validated persisted physical checkpoint to this logical
-    /// aggregate. Layout identity is retained only after its bytes agree with
-    /// every scalar leaf in the value.
-    pub fn with_physical_checkpoint(mut self, checkpoint: &[u8]) -> Result<Self, RuntimeError> {
-        self.physical = Some(decode_checkpoint(checkpoint, &self)?);
-        Ok(self)
+        Ok(())
     }
 }
 

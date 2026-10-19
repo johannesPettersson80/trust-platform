@@ -722,6 +722,9 @@ pub struct BoundVmCall {
     pub out_bindings: Vec<VmOutBinding>,
     /// Explicit argument-presence bits; a supplied NULL is present.
     pub present: Vec<bool>,
+    /// The inputs bound as places, each with its slot, whose bytes are copied into the callee's
+    /// frame once it is placed; their slots hold no value (C1-19c4).
+    pub inputs: Vec<(usize, crate::vm::Place)>,
 }
 
 trait VmCallArgumentSource {
@@ -860,6 +863,7 @@ fn bind_vm_call_arguments_from_source(
     // returned on a refusal (spec 34 MEM-09; census C5).
     let mut out_bindings = runtime.take_call_function_outputs();
     let mut present = runtime.take_call_flags(locals.len());
+    let mut inputs = runtime.take_call_inputs();
     let capture_return = module.pou_has_return_slot(pou_id);
     let result = bind_vm_call_arguments_inner(
         runtime,
@@ -871,6 +875,7 @@ fn bind_vm_call_arguments_from_source(
         &mut locals,
         &mut out_bindings,
         &mut present,
+        &mut inputs,
     );
     match result {
         Ok(()) => Ok((
@@ -878,12 +883,14 @@ fn bind_vm_call_arguments_from_source(
                 locals,
                 out_bindings,
                 present,
+                inputs,
             },
             capture_return,
         )),
         Err(error) => {
             runtime.recycle_call_function_outputs(out_bindings);
             runtime.recycle_call_flags(present);
+            runtime.recycle_call_inputs(inputs);
             Err(error)
         }
     }
@@ -904,6 +911,7 @@ fn bind_vm_call_arguments_inner(
     locals: &mut [Value],
     out_bindings: &mut Vec<VmOutBinding>,
     present: &mut [bool],
+    inputs: &mut Vec<(usize, crate::vm::Place)>,
 ) -> Result<(), VmTrap> {
     #[cfg(all(feature = "std", feature = "test-support"))]
     let _consumer = attribution::consumer(CopyConsumerKind::UserCall, Some(pou_id));
@@ -937,6 +945,18 @@ fn bind_vm_call_arguments_inner(
                 param.default_const_idx.is_some() || (param.direction != 1 && arg_index.is_some())
             }
         };
+        // A supplied input that names a place of the parameter's type is copied into the callee's
+        // frame once it is placed, so binding it builds no value (C1-19c4).
+        if param.direction == 0
+            && present[slot]
+            && let Some(VmNativeArgValue::Target(reference)) = arg_index
+                .and_then(|arg_index| args.arguments().get(arg_index))
+                .map(|arg| &arg.value)
+            && let Some(place) = runtime.input_place(pou_id, slot, param.type_id, reference)
+        {
+            inputs.push((slot, place.map_err(VmTrap::Runtime)?));
+            continue;
+        }
         match param.direction {
             0 => {
                 let value = match arg_index {

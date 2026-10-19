@@ -661,6 +661,16 @@ pub trait ExecutionContext: super::call::context::CallContext {
     ) -> Option<Result<(), crate::error::RuntimeError>> {
         None
     }
+    /// Copy the bytes of `place`, an input a call bound as a place, into slot `slot` of `frame`,
+    /// which lies on the activation stack (C1-19c4).
+    fn copy_input_place(
+        &mut self,
+        _frame: &super::VmFrame,
+        _slot: usize,
+        _place: super::Place,
+    ) -> Result<(), crate::error::RuntimeError> {
+        Err(crate::error::RuntimeError::InvalidExecutionState)
+    }
     /// Push a copy of the bytes of the result the finished frame `block` keeps in slot 0, which
     /// [`Self::check_return_place`] admitted, onto `stack` (C1-19c4).
     fn push_return_copy(

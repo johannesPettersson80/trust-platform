@@ -28,6 +28,8 @@ pub(in crate::vm) struct PreparedCall {
     pub(in crate::vm) locals: Option<Vec<Value>>,
     pub(in crate::vm) present: Option<Vec<bool>>,
     pub(in crate::vm) capture_return: bool,
+    /// The inputs bound as places, copied into the callee's frame once it is placed (C1-19c4).
+    inputs: Option<Vec<(usize, crate::vm::Place)>>,
     outputs: Outputs,
     edge: Option<EdgeInputTransaction>,
 }
@@ -57,6 +59,7 @@ impl PreparedCall {
             locals: Some(bound.locals),
             present: Some(bound.present),
             capture_return,
+            inputs: Some(bound.inputs),
             outputs: Outputs::Function(bound.out_bindings),
             edge: None,
         })
@@ -90,9 +93,56 @@ impl PreparedCall {
             locals: None,
             present: None,
             capture_return: false,
+            inputs: None,
             outputs: Outputs::FunctionBlock(outputs),
             edge,
         })
+    }
+
+    /// Read the inputs bound as places into the call's locals as values, for a callee whose frame
+    /// keeps them as values, as the register tier's does (C1-19c4).
+    #[cfg(any(feature = "hir", feature = "register-ir"))]
+    pub(in crate::vm) fn resolve_inputs(
+        &mut self,
+        runtime: &mut impl ExecutionContext,
+    ) -> Result<(), RuntimeError> {
+        let Some(mut inputs) = self.inputs.take() else {
+            return Ok(());
+        };
+        let mut resolved = Ok(());
+        for (slot, place) in inputs.drain(..) {
+            let value = crate::vm::dispatch_refs::materialize_place(&*runtime, place);
+            match (
+                value,
+                self.locals.as_mut().and_then(|locals| locals.get_mut(slot)),
+            ) {
+                (Ok(value), Some(local)) => *local = value,
+                (Err(error), _) => resolved = resolved.and(Err(error)),
+                (Ok(_), None) => resolved = resolved.and(Err(RuntimeError::InvalidExecutionState)),
+            }
+        }
+        runtime.recycle_call_inputs(inputs);
+        resolved
+    }
+
+    /// Copy the inputs bound as places into `frame`, the callee's frame, once it is placed on the
+    /// activation stack and initialized (C1-19c4).
+    pub(in crate::vm) fn copy_inputs(
+        &mut self,
+        runtime: &mut impl ExecutionContext,
+        frame: &VmFrame,
+    ) -> Result<(), RuntimeError> {
+        let Some(mut inputs) = self.inputs.take() else {
+            return Ok(());
+        };
+        let mut copied = Ok(());
+        for (slot, place) in inputs.drain(..) {
+            if copied.is_ok() {
+                copied = runtime.copy_input_place(frame, slot, place);
+            }
+        }
+        runtime.recycle_call_inputs(inputs);
+        copied
     }
     /// Restore this call's edge inputs and return the reserved call scratch it still holds. It
     /// runs on completion and on every path that abandons the call — a trap, a refusal or an
@@ -105,6 +155,9 @@ impl PreparedCall {
         }
         if let Some(present) = self.present.take() {
             runtime.recycle_call_flags(present);
+        }
+        if let Some(inputs) = self.inputs.take() {
+            runtime.recycle_call_inputs(inputs);
         }
         match core::mem::replace(&mut self.outputs, Outputs::Empty) {
             Outputs::Function(outputs) => runtime.recycle_call_function_outputs(outputs),
@@ -120,6 +173,11 @@ impl PreparedCall {
         caller: &mut VmFrame,
         depth: u32,
     ) -> Result<Value, VmTrap> {
+        // The synchronous entry runs the callee from its values (C1-19c4).
+        if let Err(error) = self.resolve_inputs(runtime) {
+            self.restore_edges(runtime);
+            return Err(VmTrap::Runtime(error));
+        }
         let result = execute_vm_target(
             runtime,
             module,

@@ -1452,7 +1452,11 @@ global is, and a store copies the bytes between the persistent block and a frame
 (checklist C1-19c4). A value that holds a reference or an instance is stored as a value (C1-11). A
 function's result that is such a value stays in the finished frame's bytes, and the caller takes a
 copy of them onto its operand stack's temporary area, charged and checked as reading and returning
-the value is; a store writes the copy as it writes a copy of a place (C1-19c4).
+the value is; a store writes the copy as it writes a copy of a place (C1-19c4). A function's input
+that names such a value of the parameter's type is copied into the callee's frame once the frame is
+placed and initialized, checked and charged when the call binds it as reading the value and
+normalizing it are; a callee whose frame keeps its variables as values, as the register tier's does,
+takes the value (C1-19c4).
 Before a call that leaves such an operand on the operand stack, below the arguments the call takes,
 the engine copies the operand's bytes into the stack's temporary area ("Texts"), and a store writes
 the copy where it would have copied the bytes, checked and charged alike, its texts' capacity checks

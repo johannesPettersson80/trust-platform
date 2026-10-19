@@ -924,9 +924,10 @@ fn targets(
     }
 }
 
-/// The operand a user call's result is (C1-19c4): a function's result whose bytes a store copies is
-/// a copy of them in the temporary area, any other its value; a method's, whose type the walk does
-/// not know, is bounded by every type; a function block's call gives none.
+/// The operand a user call's result is (C1-19c4): a function's text result is a temporary text, and
+/// any other result whose bytes a store copies a copy of them, in the temporary area; any other
+/// result is its value; a method's, whose type the walk does not know, is bounded by every type; a
+/// function block's call gives none.
 fn call_result(prepared: &PreparedModule, types: &Types, kind: u32, symbol: u32) -> Operand {
     if kind == NATIVE_CALL_KIND_FUNCTION_BLOCK {
         return Operand::VALUE;
@@ -948,11 +949,16 @@ fn call_result(prepared: &PreparedModule, types: &Types, kind: u32, symbol: u32)
         };
     };
     match return_type(prepared, pou) {
+        // A text result is a temporary text, any other place a copy of its bytes.
         Some(ty) => {
             let result = load(prepared, types, Some(ty));
-            Operand {
-                temporary: result.copy,
-                ..result
+            if result.text > 0 {
+                Operand::temporary_text(result.text)
+            } else {
+                Operand {
+                    temporary: result.copy,
+                    ..result
+                }
             }
         }
         None => Operand::VALUE,

@@ -187,7 +187,7 @@ pub enum TextBytes<'a> {
 
 impl TextBytes<'_> {
     /// The code units of a `WSTRING`, in order; none for a `STRING`.
-    pub fn units(self) -> impl Iterator<Item = u16> {
+    pub fn units(self) -> impl Iterator<Item = u16> + Clone {
         let wide = match self {
             TextBytes::Wide(bytes) => bytes,
             TextBytes::Narrow(_) => &[][..],

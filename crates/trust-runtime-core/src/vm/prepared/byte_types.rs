@@ -106,8 +106,8 @@ fn plain(prepared: &PreparedModule, type_id: u32, depth: usize) -> bool {
     }
 }
 
-/// Whether values of `left` and `right` have the same bytes for the same value: the same type, or
-/// arrays of the same bounds whose elements are.
+/// Whether values of `left` and `right` have the same bytes for the same value: the same type, two
+/// texts of one kind and one capacity (C1-19c4), or arrays of the same bounds whose elements are.
 pub(crate) fn same_type(prepared: &PreparedModule, left: u32, right: u32, depth: usize) -> bool {
     if depth > BYTECODE_MAX_TYPE_NESTING {
         return false;
@@ -120,6 +120,21 @@ pub(crate) fn same_type(prepared: &PreparedModule, left: u32, right: u32, depth:
         return true;
     }
     match (&left_entry.data, &right_entry.data) {
+        (
+            TypeData::Primitive {
+                prim_id: left_primitive,
+                max_length: left_length,
+            },
+            TypeData::Primitive {
+                prim_id: right_primitive,
+                max_length: right_length,
+            },
+        ) => {
+            left_primitive == right_primitive
+                && TEXT_PRIMITIVES.contains(left_primitive)
+                && crate::value::string_capacity(*left_length)
+                    == crate::value::string_capacity(*right_length)
+        }
         (
             TypeData::Array {
                 elem_type_id: left_element,

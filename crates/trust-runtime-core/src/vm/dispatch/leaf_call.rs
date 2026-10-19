@@ -61,6 +61,10 @@ pub(in crate::vm) fn execute_leaf_call(
         call.restore_edges(runtime);
         return Err(error);
     }
+    // A register activation takes its inputs as values (C1-19c4).
+    if let Err(error) = call.resolve_inputs(runtime) {
+        return Err(resume_after_failure(runtime, frames, &mut call, error));
+    }
     let started = start_register_activation(
         runtime,
         module,

@@ -131,7 +131,7 @@ fn reservation_bytes_covers_the_depth_table_and_every_kind() {
     scratch.reserve(2, SIZES).unwrap();
     assert!(bytes > 0);
     // Every reserved vector holds its full size in the reserved storage: 4 arguments, 5 flags,
-    // 3 of each output kind, per depth.
+    // 3 of each output kind and 3 inputs bound as places (C1-19c4), per depth.
     let mut per_depth = SIZES.args * core::mem::size_of::<VmNativeArg>();
     per_depth += SIZES.flags() * core::mem::size_of::<bool>();
     per_depth += SIZES.params * core::mem::size_of::<VmOutBinding>();
@@ -139,6 +139,7 @@ fn reservation_bytes_covers_the_depth_table_and_every_kind() {
     per_depth += SIZES.params * core::mem::size_of::<Option<(VmWriteTarget, Option<u32>)>>();
     per_depth += SIZES.params * core::mem::size_of::<(VmWriteTarget, Value)>();
     per_depth += SIZES.args * core::mem::size_of::<Value>();
+    per_depth += SIZES.params * core::mem::size_of::<(usize, crate::vm::Place)>();
     let table = KIND_COUNT * 2 * core::mem::size_of::<Vec<u8>>();
     assert_eq!(bytes, table + 2 * per_depth, "every kind is charged");
 }

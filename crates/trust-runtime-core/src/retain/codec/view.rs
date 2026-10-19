@@ -22,6 +22,9 @@ use crate::memory::layout::ByteRange;
 use crate::memory::view::ValueView;
 use crate::value::Value;
 
+/// A structure with a physical layout written from its cells (C1-19c4).
+mod overlay;
+
 /// Append the STRN v3 encoding of the value `view` names, to the bytes `encode_value` writes for the
 /// same value.
 ///
@@ -168,9 +171,9 @@ fn encode_cells(
             }
         }
         CellLeaf::Reference | CellLeaf::Instance => return Err(reference_or_instance_refused()),
-        // An overlapping structure is encoded as its value, whose physical checkpoint carries the
-        // backing (C1-15).
-        CellLeaf::Overlay => encode_value(out, &cells.materialize(range, type_id)?)?,
+        // An overlapping structure is written from its backing as its value would be, its physical
+        // checkpoint carrying the backing (C1-15, C1-19c4).
+        CellLeaf::Overlay => overlay::encode_overlay(out, cells, range, type_id, depth)?,
     }
     Ok(())
 }

@@ -98,8 +98,8 @@ pub enum VmWriteTarget {
 
 impl VmWriteTarget {
     /// Cache a direct slot when possible, retaining an owned path only when needed. A call binds
-    /// its targets with [`Self::kept`]; the tests build targets with this.
-    #[cfg(test)]
+    /// its targets in the engine's kept buffers; the tests build targets with this.
+    #[cfg(any(test, feature = "test-support"))]
     pub fn from_reference(reference: &ValueRef) -> Self {
         Self::direct(reference).unwrap_or_else(|| Self::Reference(reference.clone()))
     }
@@ -574,6 +574,13 @@ impl VmFbFieldBinding {
     #[cfg(feature = "test-support")]
     pub fn write(&self, runtime: &mut impl CallContext, value: Value) -> bool {
         self.write_checked(runtime, value).unwrap_or(false)
+    }
+
+    /// Retain a copy of this binding as a function-block output source, for the tests; a call moves
+    /// the binding with [`Self::into_out_source`].
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn out_source(&self) -> VmFbOutSource {
+        self.clone().into_out_source()
     }
 
     /// Retain this binding as a function-block output source, moving its reference rather than

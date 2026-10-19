@@ -74,7 +74,12 @@ impl<'a> CellsView<'a> {
 
     /// The path of the node `anchor`/`depth` of the structure `type_id`: empty for the root, at a
     /// depth of zero.
-    fn overlay_path(self, type_id: u32, anchor: u32, depth: u8) -> Option<&'a [RefSegment]> {
+    pub(crate) fn overlay_path(
+        self,
+        type_id: u32,
+        anchor: u32,
+        depth: u8,
+    ) -> Option<&'a [RefSegment]> {
         if depth == 0 {
             return Some(&[]);
         }
@@ -100,7 +105,7 @@ impl<'a> CellsView<'a> {
     }
 
     /// The backing of the structure `type_id` whose cells are `range`.
-    fn backing(self, range: ByteRange, type_id: u32) -> Option<&'a [u8]> {
+    pub(crate) fn backing(self, range: ByteRange, type_id: u32) -> Option<&'a [u8]> {
         let (_, placed) = self.overlay_parts(type_id)?;
         self.bytes(ByteRange {
             bytes: placed.backing_bytes,
@@ -125,7 +130,7 @@ impl<'a> CellsView<'a> {
 
     /// [`CellsView::overlay_step`] to the member whose segment `names` accepts, so that a step by
     /// ordinal builds no segment (C1-15b).
-    fn overlay_step_by(
+    pub(crate) fn overlay_step_by(
         self,
         range: ByteRange,
         type_id: u32,
@@ -158,6 +163,11 @@ impl<'a> CellsView<'a> {
             anchor: u32::try_from(layout.leaf_count().checked_add(index)?).ok()?,
             depth: next,
         })
+    }
+
+    /// The module the cells are laid out for.
+    pub(crate) fn prepared(self) -> &'a crate::vm::PreparedModule {
+        self.prepared
     }
 
     /// The type of the node `anchor`/`depth` of the structure `type_id`.

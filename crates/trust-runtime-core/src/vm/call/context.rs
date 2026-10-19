@@ -95,6 +95,31 @@ pub trait CallContext: ReferenceContext {
     /// Return the output bindings of [`CallContext::take_call_function_outputs`], emptied.
     fn recycle_call_function_outputs(&mut self, _outputs: Vec<VmOutBinding>) {}
 
+    /// Take the list of a function call's inputs bound as places, empty (C1-19c4). A composition
+    /// that reserved call scratch hands one out. The matching return is
+    /// [`CallContext::recycle_call_inputs`].
+    fn take_call_inputs(&mut self) -> Vec<(usize, crate::vm::Place)> {
+        Vec::new()
+    }
+
+    /// Return the inputs of [`CallContext::take_call_inputs`], emptied.
+    fn recycle_call_inputs(&mut self, _inputs: Vec<(usize, crate::vm::Place)>) {}
+
+    /// The place the input `reference` names, when a call of `pou` binds it to slot `slot`, a
+    /// parameter of type `parameter`, by copying its bytes into the callee's frame once that frame
+    /// is placed (C1-19c4): the slot lies in the frame's bytes and the reference names a place of
+    /// the parameter's type. Reading it is checked and charged here as reading the value and
+    /// normalizing it to the parameter's type are. `None` when the input is bound as its value.
+    fn input_place(
+        &self,
+        _pou: u32,
+        _slot: usize,
+        _parameter: u32,
+        _reference: &ValueRef,
+    ) -> Option<Result<crate::vm::Place, RuntimeError>> {
+        None
+    }
+
     /// Take the output-binding list of a function-block call, empty (spec 34 MEM-09; census C3,
     /// C4). A composition that reserved call scratch hands one out. The matching return is
     /// [`CallContext::recycle_call_fb_outputs`].

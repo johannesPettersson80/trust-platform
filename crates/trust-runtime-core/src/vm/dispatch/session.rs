@@ -447,18 +447,22 @@ fn start_child(
             let Some(continuation) = buffers.continuations.last_mut() else {
                 return Err((None, RuntimeError::InvalidExecutionState));
             };
-            runtime.start_register_activation(
-                module,
-                continuation.call.pou_id,
-                continuation.call.instance,
-                None,
-                Some(&mut continuation.call.locals),
-                continuation.call.present.as_deref(),
-                continuation.call.capture_return,
-                child_depth,
-                ExecutionEntry::Nested,
-                true,
-            )
+            // A register activation takes its inputs as values (C1-19c4).
+            match continuation.call.resolve_inputs(runtime) {
+                Err(error) => Err(error),
+                Ok(()) => runtime.start_register_activation(
+                    module,
+                    continuation.call.pou_id,
+                    continuation.call.instance,
+                    None,
+                    Some(&mut continuation.call.locals),
+                    continuation.call.present.as_deref(),
+                    continuation.call.capture_return,
+                    child_depth,
+                    ExecutionEntry::Nested,
+                    true,
+                ),
+            }
         };
         match start {
             Ok(Some(activation)) => {
@@ -537,6 +541,13 @@ pub(super) fn start_legacy_child(
         return Err((Some(parent), error));
     }
 
+    // An optimized activation takes its inputs as values (C1-19c4).
+    #[cfg(feature = "register-ir")]
+    if let Err(error) = call.resolve_inputs(runtime) {
+        let error = resume_legacy_parent(runtime, frames, &mut parent, error);
+        call.restore_edges(runtime);
+        return Err((Some(parent), error));
+    }
     let optimized = runtime.try_execute_optimized_with_parameter_presence_owned(
         module,
         call.pou_id,
@@ -714,6 +725,7 @@ fn start_stack_child(
             continuation.call.present.as_deref(),
         )?;
         runtime.initialize_frame(module, frame, depth)?;
+        continuation.call.copy_inputs(runtime, frame)?;
         Ok(cursor)
     })();
     if result.is_err() {
