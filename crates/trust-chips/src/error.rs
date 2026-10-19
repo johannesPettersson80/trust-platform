@@ -150,6 +150,12 @@ pub enum Problem {
         /// The region's key.
         region: &'static str,
     },
+    /// A boot counter sector is not exactly one erase unit.
+    #[error("layout.{region} is not exactly one erase unit")]
+    NotOneEraseUnit {
+        /// The region's key.
+        region: &'static str,
+    },
     /// Two layout regions overlap.
     #[error("layout.{first} and layout.{second} overlap")]
     RegionsOverlap {

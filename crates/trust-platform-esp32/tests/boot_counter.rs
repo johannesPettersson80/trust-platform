@@ -281,40 +281,67 @@ fn the_highest_whole_record_of_either_sector_is_the_count() {
     assert_eq!(power_cycle(&flash).count_boot(), Ok(42));
 }
 
-/// The two sectors lie in the gap that `partitions.csv` leaves between the partition table (0x8000, 4
-/// KiB) and the `factory` application (0x10000), at 0x9000 and 0xA000, 4 KiB each, and no region of the
-/// chip file overlaps them (specification 34 Appendix D.2). Catches a counter that would write into the
-/// partition table or into the firmware.
+/// The chip file names the two sectors the counter writes (specification 34 Appendix D.2 and H.2):
+/// `boot_counter_a` at `SECTOR_A_OFFSET`, 0x9000, and `boot_counter_b` at `SECTOR_B_OFFSET`, 0xA000,
+/// each `SECTOR_BYTES`, 4 KiB, which is one erase unit of the chip's SPI flash. They lie one after
+/// the other at the start of the gap between the partition table, which ends at 0x9000, and the
+/// firmware, which starts at 0x10000. That no other region overlaps them is the reader's rule
+/// (`crates/trust-chips/tests/rules.rs` refuses a file in which one does), and `partitions.csv`
+/// declares them as data partitions (the xtask test of the partition table). Catches a counter that
+/// writes sectors the chip file does not declare, which a later layout could hand to the firmware or
+/// the partition table, and constants that drift from the file.
 #[test]
-fn the_counter_sectors_overlap_no_region_of_the_chip_file() {
-    assert_eq!(
-        (SECTOR_A_OFFSET, SECTOR_B_OFFSET, SECTOR_BYTES),
-        (0x9000, 0xA000, 0x1000)
-    );
+fn the_chip_file_names_the_boot_counter_sectors() {
     let file = Catalog::embedded()
         .expect("the chip files are valid")
         .chip("esp32c6")
         .cloned()
         .expect("the ESP32-C6 has a chip file");
-    let counter = u64::from(SECTOR_A_OFFSET)..u64::from(SECTOR_B_OFFSET + SECTOR_BYTES);
-    for (name, region) in file.layout.regions() {
-        let (start, end) = (u64::from(region.start), region.end());
-        assert!(
-            end <= counter.start || start >= counter.end,
-            "the chip file's region {name} ({start:#x}..{end:#x}) overlaps the counter sectors"
-        );
-    }
+    let sector_a = file
+        .layout
+        .boot_counter_a
+        .expect("the C6 names its first boot counter sector");
+    let sector_b = file
+        .layout
+        .boot_counter_b
+        .expect("the C6 names its second boot counter sector");
+    assert_eq!(
+        (SECTOR_A_OFFSET, SECTOR_B_OFFSET, SECTOR_BYTES),
+        (0x9000, 0xA000, 0x1000)
+    );
+    assert_eq!(
+        (sector_a.start, sector_b.start),
+        (SECTOR_A_OFFSET, SECTOR_B_OFFSET)
+    );
+    assert_eq!(
+        (sector_a.bytes(), sector_b.bytes()),
+        (u64::from(SECTOR_BYTES), u64::from(SECTOR_BYTES))
+    );
+    let erase_unit = file
+        .memory
+        .spi_flash
+        .expect("the C6 describes its SPI flash")
+        .erase_kib;
+    assert_eq!(
+        u64::from(SECTOR_BYTES),
+        u64::from(erase_unit) * 1024,
+        "a counter sector is one erase unit"
+    );
     assert_eq!(
         file.layout
             .partition_table
             .expect("the C6 names its partition table")
             .end(),
         u64::from(SECTOR_A_OFFSET),
-        "the counter follows the partition table"
+        "the counter starts where the partition table ends"
     );
     assert_eq!(
-        u64::from(file.layout.firmware.start),
-        0x1_0000,
-        "and ends before the firmware, which starts at 0x10000"
+        sector_a.end(),
+        u64::from(SECTOR_B_OFFSET),
+        "its second sector follows the first"
+    );
+    assert!(
+        sector_b.end() <= u64::from(file.layout.firmware.start),
+        "and ends before the firmware"
     );
 }

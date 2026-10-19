@@ -123,6 +123,8 @@ fn an_unknown_key_is_refused_in_every_table() {
         "memory.spi_flash",
         "layout.bootloader",
         "layout.partition_table",
+        "layout.boot_counter_a",
+        "layout.boot_counter_b",
     ] {
         let message = toml_message(c6(|file| set(file, path, "colour", "blue")));
         assert!(

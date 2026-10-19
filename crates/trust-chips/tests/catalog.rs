@@ -131,6 +131,10 @@ fn the_esp32c6_file_describes_the_chip_of_appendix_d2() {
             ("application", 0x20_0000, 6112),
             ("checkpoint_a", 0x7F_8000, 16),
             ("checkpoint_b", 0x7F_C000, 16),
+            // The boot counter's two sectors, one 4 KiB erase unit each, between the partition
+            // table and the firmware (Appendix D.2 and H.2).
+            ("boot_counter_a", 0x9000, 4),
+            ("boot_counter_b", 0xA000, 4),
         ]
     );
     assert_eq!(chip.interfaces.ethernet, Vec::<String>::new());

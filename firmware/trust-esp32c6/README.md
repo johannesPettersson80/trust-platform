@@ -5,19 +5,23 @@ workspace for the ESP32-C6-DevKitC-1 (`riscv32imac-unknown-none-elf`, 8 MiB flas
 is a truST runtime and works exactly like `trust-runtime` on a computer (specification 34). It boots
 the shared single-thread resource loop, reads and admits the installed application, claims the
 record's GPIO lines, prepares and starts the program, and serves the control link over the native
-USB-Serial/JTAG port.
+USB-Serial/JTAG port. A `restart` of the stopped program loads a newly installed program in place,
+without a reset, so the USB connection stays up.
 
 The shared loop, the container admission and the engine cycle live in `crates/trust-runtime-services`
 and `crates/trust-runtime-core`; the two-region measured heap and the reset record live in
-`crates/trust-platform-memory`; the C6 hardware adapter (peripherals, clock, USB link, wait, GPIO
-claim and the chip's watchdog rule) lives in `crates/trust-platform-esp32`. This firmware keeps only
-its board composition (design §1.1):
+`crates/trust-platform-memory`; the C6 hardware adapter lives in `crates/trust-platform-esp32`: the
+peripherals, clock, USB link, wait, GPIO claim and the chip's watchdog rule, and the three parts that
+make a program replaceable, the program loader (`loader.rs`), the memory a program lives in
+(`program_memory.rs`) and the boot counter (`boot_counter.rs`). This firmware keeps only its board
+composition (design §1.1):
 
 - `src/main.rs`: the boot sequence, the panic path and the runner composition.
 - `src/application.rs`: the boot selection over the two program slots. It reads the header of each
   slot, takes the committed `TRSTA002` container with the highest install sequence, copies it once
   into the heap and admits it with `installation::admit_sequenced` against the C6's
-  `DeviceDescriptor`.
+  `DeviceDescriptor`. A refusal gives the reason and the install sequence of the newest committed
+  container.
 - `src/memory.rs`: the 72 KiB main heap, the boot loader's 64 KiB reclaimed region and the 24 KiB
   main-stack window.
 
@@ -27,8 +31,11 @@ The boot order is design §1.1:
 
 1. **Hardware first.** `memory::initialize` gives the allocator its two regions and paints the stack
    window; the adapter takes the peripherals and brings the clock up, driving no output. The reset
-   reason and the reset record kept in RTC fast memory are read once, and this boot is counted for
-   the next record.
+   reason and the reset record kept in RTC fast memory are read once, and this boot is counted in the
+   flash (the boot counter, below). The board is then split: the loop gets the clock, the wait and
+   the watchdog, and the loader keeps the GPIO bank and the flash owner for the life of the boot, so
+   that every program it loads claims the pins and the checkpoint flash that the program before it
+   released.
 2. **The installed application.** The firmware reads the header of each of the two program slots in
    the `stbc` partition and selects the committed `TRSTA002` container with the highest install
    sequence. It copies only that container's declared total length into the heap (refusing a length
@@ -36,23 +43,54 @@ The boot order is design §1.1:
    against the C6's descriptor before any state exists. A slot that holds a `TRSTA001` container is
    not committed, and a damaged newest container refuses the boot: the other slot never starts in
    its place (specification 34 §5.1).
-3. **Outputs.** The deployment record's GPIO lines are claimed by the chip's pin names
-   (`GPIO18`, refused if the chip lacks the pin or reserves it), and each output is driven to its
-   initial value before it becomes an output (STATE-01).
-4. **Prepare and start.** `PreparedModule::from_bytes` is given limits derived from the application
-   region and the heap, the program is instantiated on the engine with the device's execution
-   services, and the resource loop starts its task timing. The prepared module lives for the rest of
-   the boot (boxed and leaked). With `[runtime.retain] mode = "file"` the program takes the chip's
-   checkpoint slots as its retain store and is then warm-started from the newest committed checkpoint
-   (specification 34 §10).
-5. **Run.** `Runner::new(link, wait, cycle, platform, clock, event_capacity).run()` serves the
-   control link and runs the scans; the event store keeps the record's `[runtime.events] capacity`,
-   or the C6's default of 200 from `chips/esp32c6.toml` when the project sets none.
+3. **The program.** The C6's loader (`Esp32Loader`) builds the program, at boot and at every later
+   load in place, in this order. It prepares the module (`PreparedModule::from_bytes`, with limits
+   derived from the application region and the heap) and frees the container's bytes at once; binds
+   the program's Live Values; and sets the hardware watchdog's interval from the record's cycle
+   watchdog. With `[runtime.retain] mode = "file"` it takes the chip's checkpoint slots as the
+   program's retain store. It claims the record's GPIO lines by the chip's pin names (`GPIO18`,
+   refused if the chip lacks the pin or reserves it), each output driven to its initial value before
+   it becomes an output (STATE-01). It starts the program on the engine with the device's execution
+   services and, for a warm start with a retain store, restores the newest committed checkpoint
+   (specification 34 §10). The lines are claimed last, so a program that cannot be prepared leaves
+   the outputs as the stop of the program before it left them. The loader feeds the hardware
+   watchdog between these steps; the firmware starts the watchdog after the first program is built.
+4. **Run.** `Runner::new(link, wait, cycle, platform, clock, event_capacity)`, or `Runner::stopped`
+   when there is no program, is given the transfer session of the boot, the program store and the
+   loader, and `run()` serves the control link and runs the scans. The event store keeps the
+   record's `[runtime.events] capacity`, or the C6's default of 200 from `chips/esp32c6.toml` when
+   the project sets none.
 
 With no valid installed application, or one the device refuses, the firmware still runs the same
 loop in the Stopped state and serves the link, so `status` says why and a program can be installed
-over the link; `restart` is refused with `no installed program: <reason>`, and a program installed
-meanwhile starts at the next reset (see Install).
+over the link. `restart` is refused with `no installed program: <reason>` until the store holds a
+container newer than the one the boot refused; it then loads that container in place.
+
+## Loading a newer program in place
+
+A `restart` of the Stopped resource compares the install sequence of the newest committed container
+in the program store with the sequence of the container the program came from (or that the boot
+refused). When the store's is newer, the loop loads it without a reset, and the control link stays
+up (specification 34 STATE-08):
+
+1. It drops the program that ended: the engine cycle and its state, the I/O lines (the pins go back
+   to the GPIO bank), the handle on the checkpoint flash, and the prepared module and the execution
+   services, which the cycle owns (`ProgramMemory`) and frees when it is dropped. Nothing of the new
+   container has been read yet, so the heap holds one program at a time.
+2. It reads the newest committed container within the room the heap has, checks its payloads and
+   admits it, as the boot does.
+3. The loader builds and starts it as the boot does (step 3 above) in the mode the request gave:
+   `cold` gives every variable its declared initial value, and `warm` restores the retained values
+   of the newest checkpoint.
+
+The program's records start empty, as for a new process. The control link, the transfer session and
+its ids, the program store, the audit sequence and the reset record stay, and the load writes no
+flash. A `restart` with no newer container restarts the running program in place. A program that
+cannot start (a damaged container, a refused record, a pin the chip lacks, a program that cannot be
+prepared) leaves the resource Faulted with `no installed program: <reason>`, the old program being
+gone, and the next `restart` tries again. The loop serves no request while it loads and feeds the
+hardware watchdog between the steps. A client reads the first reply after such a `restart` with the
+bound that specification 11 §6.8.1 gives for installing the same container.
 
 ## Control link
 
@@ -64,10 +102,12 @@ it. The boot loader still prints its own lines before the first reply.
 The chip answers the same operations as `trust-runtime` (`status`, `capabilities`, `health`,
 `tasks.stats`, `events.tail`, `faults`, `pause`, `resume`, `restart`, `shutdown`, the transfer
 operations `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort`,
-and `program.install`); the endpoint is the board's `/dev/serial/by-id` path (specification 11
-§6.9). `program.active` and `bytecode.reload` answer `unsupported request` on the chip for now.
-Requests and replies are bounded by the link's frame; a request or a reply above it is refused with
-the clear error, never cut.
+`program.install` and `program.active`); the endpoint is the board's `/dev/serial/by-id` path
+(specification 11 §6.9). `program.active` reports the installed program and the one before it,
+reading the header and the record of each container from the two program slots in reads of at most
+256 bytes, and never the program. `bytecode.reload` answers `unsupported request`: a chip has no
+online change yet. Requests and replies are bounded by the link's frame; a request or a reply above
+it is refused with the clear error, never cut.
 
 ## Build
 
@@ -94,8 +134,10 @@ espflash flash --port <devkit-serial-by-id> --partition-table partitions.csv \
 ```
 
 The `stbc` partition is 6112 KiB, the flash the chip allows (owner decision O7), and holds the two
-program slots. The second-stage bootloader is the one bundled with espflash 4.6.0 (ESP-IDF
-v6.1-beta1); M5 qualification requires a released bootloader instead.
+program slots. The partition table also declares the boot counter's two 4 KiB sectors as the data
+partitions `bootcnt_a` and `bootcnt_b` (type `0x42`), so that no tool writes there. The second-stage
+bootloader is the one bundled with espflash 4.6.0 (ESP-IDF v6.1-beta1); M5 qualification requires a
+released bootloader instead.
 
 ### A first program, from the bench
 
@@ -109,6 +151,10 @@ espflash write-bin --port <devkit-serial-by-id> 0x200000 application.bin
 espflash reset --port <devkit-serial-by-id>
 trust-runtime ctl --endpoint usb://<mac> status
 ```
+
+A chip that is running without a program starts the container by `restart` when it is newer than
+the one its boot refused, if it refused one; `restart` loads it in place (see "Loading a newer
+program in place").
 
 A flash that stops part-way can leave a good header over missing bytes. The boot then refuses the
 container as damaged, and `restart` names the failed check; flash the file again.
@@ -134,9 +180,13 @@ Admin, because a chip has no control token yet:
    commit, and the link answers no other request meanwhile. Read it for up to 4 s plus 0.4 s for
    each 4 KiB of the file plus 10 ms for each 256 bytes (specification 11 §6.8.1): the 750 ms of
    `ctl` is too short.
-5. Reset the board (`espflash reset`). The boot selects the committed container with the highest
-   install sequence, which is the one just installed. A chip does not yet reload in place, so
-   `restart` does not start an installed program until it does.
+5. `{"id":5,"type":"restart","params":{"mode":"warm"}}` (or `"cold"`) starts the program just
+   installed, in place. The reply `{"status":"restart queued"}` comes at once, and the chip drops the
+   running program and loads the committed container with the highest install sequence, which is the
+   one just installed ("Loading a newer program in place"). It serves no request while it loads, so
+   read the next reply for up to the bound of step 4. No reset is needed and the link stays up. A
+   reset (`espflash reset`) starts the same program, because the boot selects the committed
+   container with the highest install sequence.
 
 The device writes its own install sequence, one more than the newest committed container's, so the
 sequence in the file is replaced. A refused install changes nothing, and an install that stops at
@@ -148,6 +198,7 @@ any step, even at a power loss, leaves the previous program selected (DEPLOY-03)
 |---|---|---|
 | Bootloader | `0x0` | ESP-IDF second-stage bootloader from espflash 4.6.0 |
 | Partition table | `0x8000` | `partitions.csv` |
+| `bootcnt_a`, `bootcnt_b` | `0x9000` and `0xA000`, 4 KiB each | the boot counter (specification 34 PORT-05): two logs of 512 records, written once per boot. The chip file `chips/esp32c6.toml` names them `boot_counter_a` and `boot_counter_b`, and the reader of the file refuses a layout that overlaps them. |
 | `factory` | `0x10000`, 1984 KiB | this firmware image |
 | `stbc` | `0x200000`, 6112 KiB | the two program slots of the program store: slot A at `0x200000` and slot B at `0x4FC000`, 3056 KiB each, each holding one `TRSTA002` container. The boot reads the header of each slot and the newest committed container once. |
 | `ckpt_a`, `ckpt_b` | `0x7F8000` and `0x7FC000`, 16 KiB each | retain checkpoint log: the newest committed checkpoint is restored at boot, and the retained values are saved at the project's interval and at stop |
@@ -196,6 +247,14 @@ computer. Between scans, a save programs one 256-byte page per step and erases o
 step; an erase runs with interrupts masked for up to about 0.4 s. At a stop the pending save completes
 at once, before the resource reports Stopped. No save step runs inside a scan.
 
+Each boot is counted in the flash, in the sectors `bootcnt_a` and `bootcnt_b`. A sector is a log of
+512 records of 8 bytes, the count and its complement. The boot writes the next count after the last
+record and reads it back; when a sector is full it erases the other one and continues there. So the
+count survives a loss of power, and one erase is spent for 512 boots. The count is the boot number
+that every transfer id carries (specification 34 PORT-05), so an id never repeats across boots, and
+it stamps the reset record. The write, and the erase once in 512 boots, happen at the start of the
+boot, before the watchdog runs.
+
 The reset reason and the record kept in RTC fast memory are read once at boot, before any
 application state exists. The record is the same one trust-runtime reports as the last fault. The CPU
 runs at `CpuClock::max()`, 160 MHz; SYSTIMER (16 MHz) gives the runner its monotonic microseconds.
@@ -211,6 +270,14 @@ point.
   last scan. There is no UTC clock.
 - The C6 carries out the `gpio` I/O driver only until slice T1; a record that asks for another driver
   is refused with the driver's name.
+- A program that cannot start after a `restart` leaves the resource Faulted, and a Faulted chip takes
+  no `program.install`. When the newest container is the one that cannot start, reset the board: the
+  boot refuses that container, serves the link Stopped and takes an install.
+- Loading a program in place is one step of the control loop: the link is not served meanwhile, and
+  the longest such step is still to be measured on the bench. An upload left open keeps its buffer
+  in the heap during a load, which can make the load refuse the container for room;
+  `transfer.abort` frees it.
+- `bytecode.reload` (online change) is not built on the chip: it answers `unsupported request`.
 - The program slots are 3056 KiB each, so a container larger than a slot (or larger than the heap's
   room) cannot be installed, while `trust-runtime` has no such limit. An install holds the upload and
   the commit's own copy of the container in the heap, and a container the heap cannot hold is

@@ -3,7 +3,11 @@
 //! The boot number of a transfer id is a count that rises by one at every boot, power-on included, so
 //! that an id never repeats across boots. Memory that a reset keeps is not enough: a loss of power
 //! clears it, and the count would start again at 1. The count is therefore kept in flash, in two 4 KiB
-//! sectors in the gap before the `factory` application that `partitions.csv` leaves free.
+//! sectors in the gap between the partition table and the `factory` application. The chip file
+//! declares them as `boot_counter_a` and `boot_counter_b`, and `partitions.csv` as the data
+//! partitions `bootcnt_a` and `bootcnt_b`, so that no tool and no later layout uses them. The
+//! constants below are their values, which the host test
+//! `the_chip_file_names_the_boot_counter_sectors` checks.
 //!
 //! A sector is a log of 512 records of 8 bytes: the count `n` and its complement `!n`, the integrity
 //! pair that the reset cookie uses. A record is written once, into erased flash, so a write that power
@@ -22,9 +26,9 @@ use trust_runtime_core::retain::checkpoint::FlashError;
 
 use crate::checkpoint::RawFlash;
 
-/// The flash offset of the first counter sector.
+/// The flash offset of the first counter sector: `boot_counter_a` of the chip file.
 pub const SECTOR_A_OFFSET: u32 = 0x9000;
-/// The flash offset of the second counter sector.
+/// The flash offset of the second counter sector: `boot_counter_b` of the chip file.
 pub const SECTOR_B_OFFSET: u32 = 0xA000;
 /// The bytes of each counter sector: one 4 KiB erase unit.
 pub const SECTOR_BYTES: u32 = 4 * 1024;

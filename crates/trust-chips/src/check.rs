@@ -222,6 +222,30 @@ impl FlashSpace<'_> {
         }
     }
 
+    /// The address one past the erase unit that starts at `address`, or `None` when no erase unit
+    /// starts there.
+    fn unit_end(&self, address: u64) -> Option<u64> {
+        match *self {
+            Self::Mapped { start, sectors, .. } => {
+                let mut run_start = start;
+                for run in sectors {
+                    let sector = u64::from(run.kib) * KIB;
+                    let run_end = run_start + u64::from(run.count) * sector;
+                    if (run_start..run_end).contains(&address) {
+                        return (address - run_start)
+                            .is_multiple_of(sector)
+                            .then_some(address + sector);
+                    }
+                    run_start = run_end;
+                }
+                None
+            }
+            Self::Spi { erase_bytes } => address
+                .is_multiple_of(erase_bytes)
+                .then_some(address + erase_bytes),
+        }
+    }
+
     /// Whether an erase unit starts or ends at `address`.
     fn on_boundary(&self, address: u64) -> bool {
         match *self {
@@ -408,7 +432,36 @@ fn layout(family: Family, layout: &Layout, flash: &FlashSpace<'_>) -> Result<(),
     if misplaced {
         return Err(Problem::BootRegion { region: boot });
     }
-    program_slots(layout, flash)
+    program_slots(layout, flash)?;
+    boot_counter(layout, flash)
+}
+
+/// The boot counter's two sectors, when the file names them (specification 34 PORT-05 and Appendix
+/// D.2 and H.2): both or neither, each exactly one erase unit, because the counter erases a whole
+/// sector when its log is full and may not erase more of the flash than that. Inside the flash, on
+/// erase-unit boundaries and apart from every other region, each is held by the loop of [`layout`]
+/// over [`Layout::regions`], which includes them.
+fn boot_counter(layout: &Layout, flash: &FlashSpace<'_>) -> Result<(), Problem> {
+    let (a, b) = match (layout.boot_counter_a, layout.boot_counter_b) {
+        (None, None) => return Ok(()),
+        (Some(a), Some(b)) => (a, b),
+        (Some(_), None) => {
+            return Err(Problem::MissingRegion {
+                region: "boot_counter_b",
+            });
+        }
+        (None, Some(_)) => {
+            return Err(Problem::MissingRegion {
+                region: "boot_counter_a",
+            });
+        }
+    };
+    for (key, region) in [("boot_counter_a", a), ("boot_counter_b", b)] {
+        if flash.unit_end(u64::from(region.start)) != Some(region.end()) {
+            return Err(Problem::NotOneEraseUnit { region: key });
+        }
+    }
+    Ok(())
 }
 
 /// The program store's two slots, when the file names them (specification 34 §5.1 and Appendix

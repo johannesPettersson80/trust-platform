@@ -59,6 +59,12 @@ max_capacity = 200
 [layout]
 bootloader = { start = 0x0, kib = 32 }
 partition_table = { start = 0x8000, kib = 4 }
+# The two sectors of the boot counter (specification 34 PORT-05 and Appendix D.2), one erase unit
+# each, in the gap between the partition table and the firmware. They are SECTOR_A_OFFSET and
+# SECTOR_B_OFFSET of boot_counter.rs, which the host test boot_counter.rs checks, and the data
+# partitions bootcnt_a and bootcnt_b of partitions.csv.
+boot_counter_a = { start = 0x9000, kib = 4 }
+boot_counter_b = { start = 0xA000, kib = 4 }
 firmware = { start = 0x1_0000, kib = 1984 }
 # The installed application takes the flash the chip allows (owner decision O7): from its start
 # to the two checkpoint slots, which sit at the very end of the 8 MB module.

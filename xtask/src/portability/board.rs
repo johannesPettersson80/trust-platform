@@ -343,7 +343,21 @@ mod tests {
         let number = |text: &str| u64::from_str_radix(text.trim_start_matches("0x"), 16).unwrap();
         let layout = chip("esp32c6").unwrap().layout;
         let span = |region: trust_chips::Region| (u64::from(region.start), region.bytes());
+        // The boot counter's two sectors (Appendix D.2) are data partitions of their own, so that no
+        // tool writes there: the chip file's `boot_counter_a` and `boot_counter_b`, in address order.
         let expected = [
+            (
+                "bootcnt_a",
+                "0x42",
+                "0x00",
+                span(layout.boot_counter_a.unwrap()),
+            ),
+            (
+                "bootcnt_b",
+                "0x42",
+                "0x01",
+                span(layout.boot_counter_b.unwrap()),
+            ),
             ("factory", "app", "factory", span(layout.firmware)),
             ("stbc", "0x40", "0x00", span(layout.application)),
             ("ckpt_a", "0x41", "0x00", span(layout.checkpoint_a)),
@@ -361,7 +375,11 @@ mod tests {
         }
         // The factory partition and the application partition are the profile's capacities.
         let c6 = Board::Esp32c6Devkitc1.profile().unwrap();
-        assert_eq!(number(rows[0][4]), c6.image_capacity_bytes);
-        assert_eq!(number(rows[1][4]), c6.application_bytes);
+        let size_of = |name: &str| {
+            let row = rows.iter().find(|row| row[0] == name).unwrap();
+            number(row[4])
+        };
+        assert_eq!(size_of("factory"), c6.image_capacity_bytes);
+        assert_eq!(size_of("stbc"), c6.application_bytes);
     }
 }

@@ -12,7 +12,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   program that cannot start leaves the resource faulted with the reason, and the next `restart` tries
   again. `program.active` answers on a chip, reading only the headers and records of the two
   containers. A chip's transfer ids now carry a boot count that it keeps in flash, so an id never
-  repeats across boots, a loss of power included.
+  repeats across boots, a loss of power included. The count's two 4 KiB sectors are declared: the
+  chip file `chips/esp32c6.toml` names them (`boot_counter_a` at `0x9000`, `boot_counter_b` at
+  `0xA000`), the chip file reader refuses a counter sector that is not one erase unit or that
+  overlaps another region, and `partitions.csv` declares them as the data partitions `bootcnt_a`
+  and `bootcnt_b`, which the next firmware flash writes to the board.
 - Fixed: on the ESP32-C6 a firmware panic drove every configured output low before the chip
   reset, whatever `[[io.safe_state]]` named. It now drives each output to its safe value, as the
   STM32U5A9 and the stop and fault paths do.

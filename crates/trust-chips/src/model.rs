@@ -234,6 +234,12 @@ pub struct Layout {
     pub checkpoint_a: Region,
     /// The second checkpoint slot of the retain store.
     pub checkpoint_b: Region,
+    /// The first of the two sectors in which the chip keeps its boot counter (specification 34
+    /// PORT-05 and Appendix D.2): exactly one erase unit. A file names both counter sectors or
+    /// neither.
+    pub boot_counter_a: Option<Region>,
+    /// The second boot counter sector, also exactly one erase unit.
+    pub boot_counter_b: Option<Region>,
 }
 
 impl Layout {
@@ -248,6 +254,8 @@ impl Layout {
             ("application", Some(self.application)),
             ("checkpoint_a", Some(self.checkpoint_a)),
             ("checkpoint_b", Some(self.checkpoint_b)),
+            ("boot_counter_a", self.boot_counter_a),
+            ("boot_counter_b", self.boot_counter_b),
         ]
         .into_iter()
         .filter_map(|(key, region)| region.map(|region| (key, region)))
