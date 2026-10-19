@@ -26,10 +26,12 @@ fn a_text_buffer_never_grows() {
         TextLeaf {
             offset: 0,
             capacity_bytes: 4,
+            byte_offset: 0,
         },
         TextLeaf {
             offset: 1,
             capacity_bytes: 16,
+            byte_offset: 0,
         },
     ];
     let mut store =
@@ -64,10 +66,12 @@ fn an_empty_and_a_full_text_round_trip() {
             TextLeaf {
                 offset: 0,
                 capacity_bytes: 4,
+                byte_offset: 0,
             },
             TextLeaf {
                 offset: 1,
                 capacity_bytes: 8,
+                byte_offset: 0,
             },
         ],
     )

@@ -55,6 +55,9 @@ const BASE_FB_TYPE: u32 = 12;
 const DERIVED_FB_TYPE: u32 = 13;
 const OVERLAY: u32 = 14;
 const REFS: u32 = 15;
+const MIXED: u32 = 16;
+const MODE: u32 = 17;
+const SMALL: u32 = 18;
 
 const PROGRAM_ROOT_DECL: usize = 0;
 const TRIGGER_DECL: usize = 1;
@@ -215,6 +218,8 @@ fn fixture() -> BytecodeModule {
                 "@init/4/result",
                 "@init/5/result",
                 "@init/6/result",
+                "Mixed",
+                "Mode",
             ]
             .into_iter()
             .map(smol_str::SmolStr::new)
@@ -302,6 +307,38 @@ fn fixture() -> BytecodeModule {
                     fields: vec![field(23, INT_REF)],
                 },
             ), // 15 Refs
+            named(
+                TypeKind::Struct,
+                34,
+                TypeData::Struct {
+                    fields: vec![field(19, BOOL), field(20, DWORD)],
+                },
+            ), // 16 Mixed { lo : BOOL; wide : DWORD }: three bytes of padding before `wide`
+            named(
+                TypeKind::Enum,
+                35,
+                TypeData::Enum {
+                    base_type_id: DWORD,
+                    variants: vec![
+                        trust_runtime_core::bytecode::EnumVariant {
+                            name_idx: 13,
+                            value: 0,
+                        },
+                        trust_runtime_core::bytecode::EnumVariant {
+                            name_idx: 14,
+                            value: 1,
+                        },
+                    ],
+                },
+            ), // 17 Mode : DWORD (a, b)
+            anonymous(
+                TypeKind::Subrange,
+                TypeData::Subrange {
+                    base_type_id: INT,
+                    lower: 0,
+                    upper: 10,
+                },
+            ), // 18 INT (0..10)
         ],
     };
     types.offsets = compute_type_offsets_for_entries(&types.entries).expect("type offsets");
@@ -672,6 +709,7 @@ fn text_leaves_have_byte_capacities() {
             vec![trust_runtime_core::memory::layout::TextLeaf {
                 offset: 0,
                 capacity_bytes: capacity,
+                byte_offset: 0,
             }],
             "type {type_id}"
         );
@@ -693,6 +731,7 @@ fn reference_and_instance_leaves_are_found_and_scalar_only_types_are_marked() {
         reference.reference_leaves,
         vec![trust_runtime_core::memory::layout::ReferenceLeaf {
             offset: 0,
+            byte_offset: 0,
             target_type_id: INT,
         }]
     );
@@ -1084,4 +1123,85 @@ fn layout_tables_are_charged_and_region_cells_are_not() {
         .err(),
         Some(RuntimeError::PreparationLimit)
     );
+}
+
+/// Specification 34 MEM-12 (owner, 19 October 2026): every variable takes its declared size at its
+/// natural alignment in a flat block. Worked out by hand from MEM-12:
+/// - `BOOL` 1, `INT` 2, `DWORD` 4 bytes, each aligned to its size;
+/// - `STRING[10]` a 2-byte length and 10 bytes of UTF-8 = 12; `WSTRING[10]` the length and 10 UTF-16
+///   units = 2 + 20 = 22; without a length `STRING[80]` = 82 and `WSTRING[80]` = 162; aligned to 2;
+/// - `Pair { a : INT; b : INT }` = 4 bytes, `a` at 0 and `b` at 2; `ARRAY[0..2] OF Pair` three
+///   4-byte elements = 12; `ARRAY[0..1] OF INT` = 4; `Outer { pp : Pair; arr : ARRAY[0..1] OF INT }`
+///   = 8, `arr` at byte 4;
+/// - `Mixed { lo : BOOL; wide : DWORD }`: `lo` at 0, three bytes of padding, `wide` at 4, so 8 bytes
+///   aligned to 4;
+/// - an enumeration on `DWORD` 4 bytes and a subrange of `INT` 2: the base type's size;
+/// - `REF_TO INT` 16 bytes aligned to 8, and `Refs { r : REF_TO INT }` 16 with its reference leaf at
+///   byte 0; a function-block instance leaf 8 bytes.
+///
+/// Catches a layout that still counts 16-byte cells, one that packs without alignment (`wide` at 1),
+/// one without the string length, one that gives an enumeration a fixed size, and one that forgets
+/// a structure's trailing padding.
+#[test]
+fn byte_shapes_follow_mem_12() {
+    use trust_runtime_core::memory::layout::ByteShape;
+    let prepared = prepared();
+    let shape = |type_id: u32| prepared.type_layout(type_id).expect("a type").shape;
+    let at = |bytes: u32, align: u32| ByteShape { bytes, align };
+    assert_eq!(shape(BOOL), at(1, 1));
+    assert_eq!(shape(INT), at(2, 2));
+    assert_eq!(shape(DWORD), at(4, 4));
+    assert_eq!(shape(STRING_10), at(12, 2));
+    assert_eq!(shape(WSTRING_10), at(22, 2));
+    assert_eq!(shape(STRING_DEFAULT), at(82, 2));
+    assert_eq!(shape(WSTRING_DEFAULT), at(162, 2));
+    assert_eq!(shape(PAIR), at(4, 2));
+    let pair = prepared.type_layout(PAIR).expect("Pair");
+    assert_eq!(
+        pair.members
+            .iter()
+            .map(|m| m.byte_offset)
+            .collect::<Vec<_>>(),
+        vec![0, 2]
+    );
+    assert_eq!(shape(PAIR_ARRAY), at(12, 2));
+    assert_eq!(
+        prepared
+            .type_layout(PAIR_ARRAY)
+            .and_then(|layout| layout.array.as_ref())
+            .map(|array| array.byte_stride),
+        Some(4)
+    );
+    assert_eq!(shape(INT_ARRAY), at(4, 2));
+    assert_eq!(shape(OUTER), at(8, 2));
+    let outer = prepared.type_layout(OUTER).expect("Outer");
+    assert_eq!(
+        outer
+            .members
+            .iter()
+            .map(|m| m.byte_offset)
+            .collect::<Vec<_>>(),
+        vec![0, 4]
+    );
+    assert_eq!(shape(MIXED), at(8, 4));
+    let mixed = prepared.type_layout(MIXED).expect("Mixed");
+    assert_eq!(
+        mixed
+            .members
+            .iter()
+            .map(|m| m.byte_offset)
+            .collect::<Vec<_>>(),
+        vec![0, 4]
+    );
+    assert_eq!(shape(MODE), at(4, 4));
+    assert_eq!(shape(SMALL), at(2, 2));
+    assert_eq!(shape(INT_REF), at(16, 8));
+    assert_eq!(shape(REFS), at(16, 8));
+    assert_eq!(
+        prepared
+            .type_layout(REFS)
+            .map(|layout| layout.reference_leaves[0].byte_offset),
+        Some(0)
+    );
+    assert_eq!(shape(BASE_FB_TYPE), at(8, 8));
 }

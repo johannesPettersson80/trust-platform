@@ -472,8 +472,9 @@ impl PersistentExtent {
 
 /// The bytes of one entry of the `globals` and `roots` range tables (R6).
 const RANGE_ENTRY_BYTES: usize = 12;
-/// The bytes of one entry of the transient text-leaf list (R6).
-const TEXT_LEAF_BYTES: usize = 8;
+/// The bytes of one entry of the transient text-leaf list (R6): its cell offset, its capacity and
+/// its byte offset in the flat block (MEM-12).
+const TEXT_LEAF_BYTES: usize = 12;
 /// The bytes of one entry of the transient reference-leaf list (R6): a cell index, a `u32`.
 const REFERENCE_LEAF_BYTES: usize = 4;
 /// The bytes of one entry of the transient initial-value list (R6).
@@ -572,6 +573,7 @@ impl Leaves {
                     self.texts.push(TextLeaf {
                         offset: offset_of(base, leaf.offset)?,
                         capacity_bytes: leaf.capacity_bytes,
+                        byte_offset: leaf.byte_offset,
                     });
                 }
             }

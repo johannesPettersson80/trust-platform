@@ -1143,7 +1143,7 @@ table, one 12-byte entry for each STORAGE_LAYOUT declaration; the `roots` range 
 entry for each CONSTRUCTION_ROOTS record; the instance table, one 28-byte entry (the identity, the
 template POU, the cell range and the parent) for each CONSTRUCTION_ROOTS record that has a template
 POU, which is every persistent instance of the application; and the lists it fills while it walks the
-layouts, one 8-byte entry for each text leaf, one 4-byte entry for each reference leaf and one 24-byte
+layouts, one 12-byte entry for each text leaf (its cell offset, capacity and byte offset), one 4-byte entry for each reference leaf and one 24-byte
 entry for each declared variable that construction fills with its default, which is every global and
 every member of a persistent instance except a function static and a native-state slot (their static
 action and their native import give them their values, and until then their cells are empty).

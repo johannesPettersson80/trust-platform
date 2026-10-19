@@ -38,6 +38,7 @@ fn single_leaf(capacity_bytes: u32) -> TextStore {
         &[TextLeaf {
             offset: 0,
             capacity_bytes,
+            byte_offset: 0,
         }],
     )
     .expect("the one text buffer reserves")

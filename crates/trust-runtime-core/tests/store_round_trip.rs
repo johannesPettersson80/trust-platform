@@ -626,18 +626,22 @@ fn label_text_store() -> TextStore {
             TextLeaf {
                 offset: 0,
                 capacity_bytes: 10,
+                byte_offset: 0,
             },
             TextLeaf {
                 offset: 1,
                 capacity_bytes: 10,
+                byte_offset: 0,
             },
             TextLeaf {
                 offset: 2,
                 capacity_bytes: 10,
+                byte_offset: 0,
             },
             TextLeaf {
                 offset: 3,
                 capacity_bytes: 10,
+                byte_offset: 0,
             },
         ],
     )

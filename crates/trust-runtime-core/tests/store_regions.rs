@@ -506,28 +506,29 @@ fn reservation_is_charged_before_it_is_reserved() {
     // Nine cells at 16 bytes and no reference records give 144 bytes; six text buffers of five
     // bytes give 30. Construction charges the memory it holds with them (C1-9d2b-1, R6): the
     // `globals` table has one 12-byte entry for each of the 5 declarations and the `roots` table one
-    // for each of the 4 roots, 108 bytes; the transient lists hold 6 text leaves at 8 bytes and 5
-    // initial values at 24 bytes (`trigger`, `g_a`, `g_b` and the `v` of each `Names` root), 168
+    // for each of the 4 roots, 108 bytes; the transient lists hold 6 text leaves at 12 bytes (each with its byte offset in the flat
+    // block, MEM-12) and 5
+    // initial values at 24 bytes (`trigger`, `g_a`, `g_b` and the `v` of each `Names` root), 192
     // bytes. The instance table holds one 28-byte entry for each of the 3 roots that have a template POU
     // (`Main`, `g_a` and `g_b`; `trigger` has none), 84 bytes (C1-9d2b-2, R5). The charge is
-    // 144 + 30 + 108 + 168 + 84 = 534 bytes, requested once. An allowance one byte short refuses it and
-    // reserves nothing; an allowance of exactly 534 admits the region. The 450 bytes that this charge was
+    // 144 + 30 + 108 + 192 + 84 = 558 bytes, requested once. An allowance one byte short refuses it and
+    // reserves nothing; an allowance of exactly 558 admits the region. The 474 bytes that this charge was
     // before the instance table was part of it are no longer enough.
     let prepared = prepared();
     let requested = std::cell::Cell::new(0usize);
     let refused = CellStorage::construct(&prepared, Generation::FIRST, |bytes| {
         requested.set(bytes);
-        if bytes > 533 {
+        if bytes > 557 {
             Err(RuntimeError::Overflow)
         } else {
             Ok(())
         }
     });
     assert_eq!(refused.err(), Some(RuntimeError::Overflow));
-    assert_eq!(requested.get(), 534);
+    assert_eq!(requested.get(), 558);
 
     let admitted = CellStorage::construct(&prepared, Generation::FIRST, |bytes| {
-        if bytes > 534 {
+        if bytes > 558 {
             Err(RuntimeError::Overflow)
         } else {
             Ok(())
