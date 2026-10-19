@@ -376,8 +376,9 @@ impl PreparedModule {
     /// The type and the bytes of the staged result of initializer `id` when the flat store evaluates
     /// it in place (specification 34 MEM-12, ARCH-05; C1-13): the initializer of a frame variable
     /// whose slot lies on the activation stack, whose result is an array, a structure or a text that
-    /// a store copies as bytes, and whose value the value path builds in a staged slot (a body, or a
-    /// default without a literal). The bytes are rounded up to [`INSTANCE_ALIGN`], so that a frame
+    /// a store copies as bytes, or a structure that lies as its backing built by its default alone
+    /// (C1-15b), and whose value the value path builds in a staged slot (a body, or a default without
+    /// a literal). The bytes are rounded up to [`INSTANCE_ALIGN`], so that a frame
     /// pushed above the result stays aligned. `None` for every other initializer.
     pub(crate) fn in_place_result(&self, id: u32) -> Option<(u32, u32)> {
         let entry = self.initializers.entries.get(id as usize)?;
@@ -396,13 +397,45 @@ impl PreparedModule {
         let (_, slot_type) =
             self.frame_slot(declaration.owner_pou_id?, declaration.slot as usize)?;
         let result = self.vm.ref_type(entry.result_ref_idx)?;
-        if !super::byte_types::copies_as_bytes(self, result)
-            || !super::byte_types::same_type(self, result, slot_type, 0)
-        {
+        // A structure that lies as its backing is built in place by its default, when no recipe can
+        // build a value of it or of a part of it (C1-15b).
+        let in_place = super::byte_types::copies_as_bytes(self, result)
+            || (super::byte_types::backing_place(self, result) && self.recipe_free(result, 0));
+        if !in_place || !super::byte_types::same_type(self, result, slot_type, 0) {
             return None;
         }
         let bytes = align_up(self.type_layout(result)?.shape.bytes, INSTANCE_ALIGN).ok()?;
         Some((result, bytes))
+    }
+
+    /// Whether no recipe, in any context, builds a value of `type_id` or of a member or an element of
+    /// it at any depth, so that its default is built from the types alone (C1-15b).
+    fn recipe_free(&self, type_id: u32, depth: usize) -> bool {
+        if depth > crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
+            return false;
+        }
+        if self.recipes.iter().any(|recipe| recipe.1 == type_id) {
+            return false;
+        }
+        match self
+            .vm
+            .types
+            .entries
+            .get(type_id as usize)
+            .map(|entry| &entry.data)
+        {
+            Some(TypeData::Alias { target_type_id }) => {
+                self.recipe_free(*target_type_id, depth + 1)
+            }
+            Some(TypeData::Array { elem_type_id, .. }) => {
+                self.recipe_free(*elem_type_id, depth + 1)
+            }
+            Some(TypeData::Struct { fields } | TypeData::Union { fields }) => fields
+                .iter()
+                .all(|field| self.recipe_free(field.type_id, depth + 1)),
+            Some(_) => true,
+            None => false,
+        }
     }
 
     /// The per-call instances the activation stack holds at most (C1-11c): for each reserved call

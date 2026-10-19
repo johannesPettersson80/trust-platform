@@ -13,7 +13,7 @@
 
 use super::super::super::construction::values::{construct_in_place, ValueConstructionMode};
 use super::*;
-use crate::bytecode::opcodes::{APPLY_INIT_VALUE, COERCE_INIT_VALUE};
+use crate::bytecode::opcodes::{APPLY_INIT_VALUE, COERCE_INIT_VALUE, DEFAULT_TYPED};
 use crate::bytecode::InitializerEntry;
 use crate::memory::layout::ByteRange;
 use crate::memory::regions::ResultBlock;
@@ -345,6 +345,11 @@ impl EngineState<'_> {
             return Ok(false);
         };
         if !same_type(self.prepared, operand, block.type_id, 0) {
+            return Ok(false);
+        }
+        // A structure that lies as its backing is built in place by its default only; a coerced or
+        // applied value is built as a value and stored, as the value path stores it (C1-15b).
+        if opcode != DEFAULT_TYPED && self.prepared.vm.physical_layout_ref(operand).is_some() {
             return Ok(false);
         }
         let mode = match opcode {

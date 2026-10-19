@@ -184,6 +184,18 @@ impl PhysicalLayout {
         &self,
         value: &StructValue,
     ) -> Result<usize, RuntimeError> {
+        self.initialization_staging_allocation_by(&mut |leaf| match read_struct_path(value, leaf) {
+            Some(Value::Enum(v)) => v.type_name().len(),
+            _ => 0,
+        })
+    }
+
+    /// [`PhysicalLayout::initialization_staging_allocation`] of a structure whose enumeration leaf at
+    /// a path has a type name of `enum_type_len` bytes, computed without its value (C1-15b).
+    pub(crate) fn initialization_staging_allocation_by(
+        &self,
+        enum_type_len: &mut dyn FnMut(&[RefSegment]) -> usize,
+    ) -> Result<usize, RuntimeError> {
         let mut bytes = self
             .leaves
             .len()
@@ -197,10 +209,7 @@ impl PhysicalLayout {
                     .map(|(name, _)| name.len())
                     .max()
                     .unwrap_or(0);
-                let type_len = match read_struct_path(value, &leaf.path) {
-                    Some(Value::Enum(v)) => v.type_name().len(),
-                    _ => 0,
-                };
+                let type_len = enum_type_len(&leaf.path);
                 bytes = add(bytes, core::mem::size_of::<super::super::EnumValue>())?;
                 bytes = add(bytes, name)?;
                 bytes = add(bytes, type_len)?;

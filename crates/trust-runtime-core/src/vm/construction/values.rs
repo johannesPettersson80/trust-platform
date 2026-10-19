@@ -29,6 +29,33 @@ pub(crate) enum Target {
     /// `Value::Null`. It charges and checks what building the value does, in the same order
     /// (TIME-08), since both run this one traversal.
     Bytes(ByteRange),
+    /// A member, an element or a nested structure in the backing of a structure with a physical
+    /// layout on the flat store (C1-15b): its leaves are written where their bits lie, as
+    /// [`Target::Bytes`] writes the leaves of a structure that lies member by member.
+    Node(NodeTarget),
+}
+
+/// A node of the backing of a structure with a physical layout that a construction in place builds
+/// (C1-15b): the structure's cells and type, and the anchor and the depth that name the node there,
+/// the structure itself at a depth of zero.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct NodeTarget {
+    pub(crate) root: ByteRange,
+    pub(crate) root_type: u32,
+    pub(crate) anchor: u32,
+    pub(crate) depth: u8,
+}
+
+impl NodeTarget {
+    /// The structure of `type_id` whose cells are `root`, as a node of its own backing.
+    fn root(root: ByteRange, type_id: u32) -> Self {
+        Self {
+            root,
+            root_type: type_id,
+            anchor: 0,
+            depth: 0,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -146,6 +173,51 @@ pub trait ValueConstructionContext {
     fn check_in_place(&mut self, _at: ByteRange, _type_id: u32) -> Result<(), RuntimeError> {
         Err(RuntimeError::InvalidExecutionState)
     }
+    /// Whether a structure of `type_id` lies as its backing on the flat store, so that a construction
+    /// in place builds its members as nodes of it (C1-15b).
+    fn lies_as_backing(&self, _type_id: u32) -> bool {
+        false
+    }
+    /// The target of member or element `ordinal` of the node `node`, of `type_id`, of a backing: a
+    /// node of the backing, or the bytes of a member beside it (C1-15b).
+    fn node_child(
+        &self,
+        _node: NodeTarget,
+        _type_id: u32,
+        _ordinal: usize,
+    ) -> Result<Target, RuntimeError> {
+        Err(RuntimeError::InvalidExecutionState)
+    }
+    /// Write `value`, of `type_id`, into the leaf `node` of a backing, as building the structure's
+    /// backing writes the leaf (C1-15b).
+    fn write_node(
+        &mut self,
+        _node: NodeTarget,
+        _type_id: u32,
+        _value: &Value,
+    ) -> Result<(), RuntimeError> {
+        Err(RuntimeError::InvalidExecutionState)
+    }
+    /// Write the enumeration value `numeric` of `type_id` into the leaf `node` of a backing.
+    fn write_enum_node(
+        &mut self,
+        _node: NodeTarget,
+        _type_id: u32,
+        _numeric: i64,
+    ) -> Result<(), RuntimeError> {
+        Err(RuntimeError::InvalidExecutionState)
+    }
+    /// Finish the structure of `type_id` built at `node`, as
+    /// [`ValueConstructionContext::initialize_structure_layout`] finishes its value: charge its
+    /// backing's construction and check every leaf of it (C1-15b).
+    fn finish_backing(&mut self, _node: NodeTarget, _type_id: u32) -> Result<(), RuntimeError> {
+        Err(RuntimeError::InvalidExecutionState)
+    }
+    /// The checks [`ValueConstructionContext::check_value`] makes of the value of `type_id` a
+    /// construction in place built at `node` of a backing (C1-15b).
+    fn check_node(&mut self, _node: NodeTarget, _type_id: u32) -> Result<(), RuntimeError> {
+        Err(RuntimeError::InvalidExecutionState)
+    }
 }
 
 pub fn construct_value(
@@ -217,7 +289,7 @@ fn construct<C: ValueConstructionContext>(
                 // In place, the layout holds the dimensions, so none are copied.
                 Some(match target {
                     Target::Value => dims.clone(),
-                    Target::Bytes(_) => Vec::new(),
+                    Target::Bytes(_) | Target::Node(_) => Vec::new(),
                 })
             }
             _ => None,
@@ -256,6 +328,7 @@ fn construct<C: ValueConstructionContext>(
         match target {
             Target::Value => ctx.check_value(type_id, &value)?,
             Target::Bytes(at) => ctx.check_in_place(at, type_id)?,
+            Target::Node(node) => ctx.check_node(node, type_id)?,
         }
         Ok(value)
     });
@@ -274,6 +347,10 @@ fn emit(
         Target::Value => Ok(value),
         Target::Bytes(at) => {
             ctx.write_in_place(at, type_id, &value)?;
+            Ok(Value::Null)
+        }
+        Target::Node(node) => {
+            ctx.write_node(node, type_id, &value)?;
             Ok(Value::Null)
         }
     }
@@ -577,6 +654,10 @@ fn construct_enum(
             ctx.write_enum_in_place(at, type_id, variant.value)?;
             Ok(Value::Null)
         }
+        Target::Node(node) => {
+            ctx.write_enum_node(node, type_id, variant.value)?;
+            Ok(Value::Null)
+        }
     }
 }
 
@@ -623,6 +704,7 @@ fn construct_array(
                 Target::Bytes(at) => {
                     Target::Bytes(ctx.element_in_place(at, array.type_id, index)?)
                 }
+                Target::Node(node) => ctx.node_child(node, array.type_id, index)?,
             };
             let value = construct(
                 types,
@@ -645,7 +727,7 @@ fn construct_array(
         Target::Value => Ok(Value::Array(Box::new(ArrayValue::from_canonical_parts(
             elements, owned_dims,
         )))),
-        Target::Bytes(_) => Ok(Value::Null),
+        Target::Bytes(_) | Target::Node(_) => Ok(Value::Null),
     }
 }
 
@@ -756,9 +838,19 @@ fn construct_struct(
         .map(|idx| name_of(ctx, target, idx))
         .transpose()?
         .unwrap_or_default();
-    // A structure in place has no physical layout (a plain type, C1-15), so binding one would
-    // charge nothing.
-    if let Target::Bytes(_) = target {
+    // A structure that lies as its backing is finished as its value is: its backing's construction
+    // charged and every leaf checked (C1-15b). Only its default is built in place.
+    let backing = match target {
+        Target::Value => None,
+        Target::Bytes(at) if ctx.lies_as_backing(type_id) => Some(NodeTarget::root(at, type_id)),
+        Target::Bytes(_) => return Ok(Value::Null),
+        Target::Node(node) => Some(node),
+    };
+    if let Some(node) = backing {
+        if !default_only {
+            return Err(RuntimeError::InvalidExecutionState);
+        }
+        ctx.finish_backing(node, type_id)?;
         return Ok(Value::Null);
     }
     let value = StructValue::from_canonical_parts(name, values);
@@ -791,7 +883,11 @@ fn member_target(
 ) -> Result<Target, RuntimeError> {
     match target {
         Target::Value => Ok(Target::Value),
+        Target::Bytes(at) if ctx.lies_as_backing(type_id) => {
+            ctx.node_child(NodeTarget::root(at, type_id), type_id, index)
+        }
         Target::Bytes(at) => ctx.member_in_place(at, type_id, index).map(Target::Bytes),
+        Target::Node(node) => ctx.node_child(node, type_id, index),
     }
 }
 
@@ -803,7 +899,7 @@ fn name_of(
 ) -> Result<SmolStr, RuntimeError> {
     match target {
         Target::Value => string(ctx, idx),
-        Target::Bytes(_) => {
+        Target::Bytes(_) | Target::Node(_) => {
             let len = ctx
                 .strings()
                 .get(idx as usize)

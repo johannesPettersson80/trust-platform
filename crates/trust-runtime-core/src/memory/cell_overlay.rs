@@ -117,10 +117,25 @@ impl<'a> CellsView<'a> {
         depth: u8,
         segment: &RefSegment,
     ) -> Option<OverlayNode> {
+        self.overlay_step_by(range, type_id, anchor, depth, &|next| {
+            paths_match(core::slice::from_ref(next), core::slice::from_ref(segment))
+        })
+    }
+
+    /// [`CellsView::overlay_step`] to the member whose segment `names` accepts, so that a step by
+    /// ordinal builds no segment (C1-15b).
+    fn overlay_step_by(
+        self,
+        range: ByteRange,
+        type_id: u32,
+        anchor: u32,
+        depth: u8,
+        names: &dyn Fn(&RefSegment) -> bool,
+    ) -> Option<OverlayNode> {
         let (layout, placed) = self.overlay_parts(type_id)?;
         let prefix = self.overlay_path(type_id, anchor, depth)?;
         let next = depth.checked_add(1)?;
-        if let Some(leaf) = layout.step_below(prefix, segment) {
+        if let Some(leaf) = layout.step_below(prefix, names) {
             return Some(OverlayNode::Bits {
                 anchor: leaf,
                 depth: next,
@@ -129,10 +144,7 @@ impl<'a> CellsView<'a> {
         let index = placed.slots.iter().position(|slot| {
             slot.path.len() > prefix.len()
                 && paths_match(&slot.path[..prefix.len()], prefix)
-                && paths_match(
-                    core::slice::from_ref(&slot.path[prefix.len()]),
-                    core::slice::from_ref(segment),
-                )
+                && names(&slot.path[prefix.len()])
         })?;
         let slot = &placed.slots[index];
         if slot.path.len() == usize::from(next) {
@@ -276,7 +288,7 @@ impl<'a> CellsView<'a> {
 
     /// The node of member or element `ordinal` of the node `anchor`/`depth`, whose type is
     /// `node_type`, of the structure `type_id` whose cells are `range`: a member in declaration
-    /// order, an element in flat order.
+    /// order, an element in flat order. The step builds no segment (C1-15b).
     pub(crate) fn overlay_child(
         self,
         range: ByteRange,
@@ -288,36 +300,25 @@ impl<'a> CellsView<'a> {
     ) -> Result<OverlayNode, RuntimeError> {
         let (_, entry) =
             resolve_entry(self.prepared, node_type).ok_or(RuntimeError::InvalidExecutionState)?;
-        let segment = match &entry.data {
+        let node = match &entry.data {
             TypeData::Struct { fields } => {
                 let field = fields
                     .get(ordinal)
                     .ok_or(RuntimeError::InvalidExecutionState)?;
-                RefSegment::Field(SmolStr::new(
-                    member_name(self.prepared, field.name_idx)
-                        .ok_or(RuntimeError::InvalidExecutionState)?,
-                ))
+                let name = member_name(self.prepared, field.name_idx)
+                    .ok_or(RuntimeError::InvalidExecutionState)?;
+                self.overlay_step_by(range, type_id, anchor, depth, &|next| {
+                    matches!(next, RefSegment::Field(member) if member.eq_ignore_ascii_case(name))
+                })
             }
             TypeData::Array { dims, .. } => {
-                let mut indices = alloc::vec![0i64; dims.len()];
-                let mut remaining = ordinal;
-                for (index, (lower, upper)) in indices.iter_mut().zip(dims).rev() {
-                    let length = usize::try_from(upper - lower + 1)
-                        .map_err(|_| RuntimeError::InvalidExecutionState)?;
-                    *index = lower
-                        .checked_add(
-                            i64::try_from(remaining % length)
-                                .map_err(|_| RuntimeError::Overflow)?,
-                        )
-                        .ok_or(RuntimeError::Overflow)?;
-                    remaining /= length;
-                }
-                RefSegment::Index(indices)
+                self.overlay_step_by(range, type_id, anchor, depth, &|next| {
+                    matches!(next, RefSegment::Index(indices) if is_element(indices, dims, ordinal))
+                })
             }
             _ => return Err(RuntimeError::InvalidExecutionState),
         };
-        self.overlay_step(range, type_id, anchor, depth, &segment)
-            .ok_or(RuntimeError::InvalidExecutionState)
+        node.ok_or(RuntimeError::InvalidExecutionState)
     }
 
     /// The cells and the type of member `index` beside the backing of the structure `type_id` whose
@@ -624,4 +625,31 @@ impl CopyWalk<'_> {
         own.checked_add(crate::memory::layout::CELL_BYTES)
             .ok_or(RuntimeError::Overflow)
     }
+}
+
+/// Whether `indices` are the subscripts of the element at flat position `ordinal` of an array of
+/// `dims`, the last dimension varying fastest.
+fn is_element(indices: &[i64], dims: &[(i64, i64)], ordinal: usize) -> bool {
+    if indices.len() != dims.len() {
+        return false;
+    }
+    let mut remaining = ordinal;
+    for (index, (lower, upper)) in indices.iter().zip(dims).rev() {
+        let Some(length) = upper
+            .checked_sub(*lower)
+            .and_then(|span| span.checked_add(1))
+            .and_then(|length| usize::try_from(length).ok())
+            .filter(|length| *length != 0)
+        else {
+            return false;
+        };
+        let expected = i64::try_from(remaining % length)
+            .ok()
+            .and_then(|offset| lower.checked_add(offset));
+        if expected != Some(*index) {
+            return false;
+        }
+        remaining /= length;
+    }
+    true
 }

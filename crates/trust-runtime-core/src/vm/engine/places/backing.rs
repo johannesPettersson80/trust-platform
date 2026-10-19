@@ -10,18 +10,15 @@
 //! changes.
 
 use super::*;
-use crate::memory::cell_access::CellsView;
+use crate::memory::cell_access::{CellsView, OverlayNode};
 use crate::value::overlap::check_node_write;
+use crate::vm::construction::values::{NodeTarget, Target};
 
 impl EngineState<'_> {
     /// Whether a store may copy a structure of `type_id` that lies as its backing as its cells: one
     /// that holds no reference, so its copy is checked by visiting it, as a plain structure's is.
     pub(super) fn backing_place(&self, type_id: u32) -> bool {
-        self.prepared.vm.physical_layout_ref(type_id).is_some()
-            && self
-                .prepared
-                .type_layout(type_id)
-                .is_some_and(|layout| layout.reference_leaves.is_empty())
+        crate::vm::prepared::byte_types::backing_place(self.prepared, type_id)
     }
 
     /// The bytes and the type of the structure nested at the node `anchor`/`depth` of the
@@ -121,5 +118,134 @@ impl EngineState<'_> {
             return Err(RuntimeError::InvalidExecutionState);
         }
         check_node_write(layout, path, source, target)
+    }
+
+    /// The target of member or element `ordinal` of the node `node`, of `type_id`, that a
+    /// construction in place builds (C1-15b): a node of the backing, or the bytes of a member beside
+    /// it.
+    pub(in crate::vm::engine) fn construction_node_child(
+        &self,
+        node: NodeTarget,
+        type_id: u32,
+        ordinal: usize,
+    ) -> Result<Target, RuntimeError> {
+        let Routed::Cells(reader) = self.data.routed(self.prepared) else {
+            return Err(RuntimeError::InvalidExecutionState);
+        };
+        let child = reader.view_cells().overlay_child(
+            node.root,
+            node.root_type,
+            node.anchor,
+            node.depth,
+            type_id,
+            ordinal,
+        )?;
+        Ok(match child {
+            OverlayNode::Bits { anchor, depth } => Target::Node(NodeTarget {
+                anchor,
+                depth,
+                ..node
+            }),
+            OverlayNode::Beside { range, .. } => Target::Bytes(range),
+        })
+    }
+
+    /// Write `bits` into the leaf `node` of its backing.
+    pub(in crate::vm::engine) fn write_construction_leaf(
+        &mut self,
+        node: NodeTarget,
+        bits: u64,
+    ) -> Result<(), RuntimeError> {
+        let layout = self
+            .prepared
+            .vm
+            .physical_layout_ref(node.root_type)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        if layout
+            .leaf_path(node.anchor)
+            .is_none_or(|leaf| leaf.len() != usize::from(node.depth))
+        {
+            return Err(RuntimeError::InvalidExecutionState);
+        }
+        let backing = {
+            let Routed::Cells(reader) = self.data.routed(self.prepared) else {
+                return Err(RuntimeError::InvalidExecutionState);
+            };
+            reader
+                .view_cells()
+                .node_cells(node.root, node.root_type, None)
+                .ok_or(RuntimeError::InvalidExecutionState)?
+                .backing
+        };
+        let EngineStore::Cells(arm) = &mut self.data.store else {
+            return Err(RuntimeError::InvalidExecutionState);
+        };
+        if arm.write_backing_leaf(backing, layout, node.anchor, bits) {
+            Ok(())
+        } else {
+            Err(RuntimeError::InvalidExecutionState)
+        }
+    }
+
+    /// Finish the structure of `type_id` a construction in place built at `node`, as
+    /// `initialize_structure_layout` finishes its value: its backing's bytes, its staging and its
+    /// construction work charged, then every leaf of it checked (C1-15b).
+    pub(in crate::vm::engine) fn finish_construction_backing(
+        &mut self,
+        node: NodeTarget,
+        type_id: u32,
+    ) -> Result<(), RuntimeError> {
+        let layout = self
+            .prepared
+            .vm
+            .physical_layout_ref(type_id)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        self.charge_allocation_bytes(layout.byte_len()?)?;
+        let staging = layout.initialization_staging_allocation_by(&mut |leaf| {
+            self.enumeration_name_len(type_id, leaf)
+        })?;
+        self.charge_allocation_bytes(staging)?;
+        self.charge_work_units(layout.construction_work()?)?;
+        let Routed::Cells(reader) = self.data.routed(self.prepared) else {
+            return Err(RuntimeError::InvalidExecutionState);
+        };
+        let cells = reader.view_cells();
+        let nested = (node.depth > 0).then_some((node.anchor, node.depth));
+        let backing = cells
+            .node_cells(node.root, node.root_type, nested)
+            .ok_or(RuntimeError::InvalidExecutionState)?
+            .backing;
+        let bytes = cells
+            .bytes(backing)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        layout.check_leaves(bytes)
+    }
+
+    /// The checks `check_value` makes of the value of `type_id` a construction in place built at
+    /// `node` of a backing, charged as it charges them for that value: its texts beside the
+    /// backing once each, then the lifetime check's visit (C1-15b).
+    pub(in crate::vm::engine) fn check_constructed_node(
+        &self,
+        node: NodeTarget,
+        type_id: u32,
+    ) -> Result<(), RuntimeError> {
+        if holds_text(self.prepared, type_id) {
+            let Routed::Cells(reader) = self.data.routed(self.prepared) else {
+                return Err(RuntimeError::InvalidExecutionState);
+            };
+            let cells = reader.view_cells();
+            let placed = cells
+                .node_cells(node.root, node.root_type, Some((node.anchor, node.depth)))
+                .ok_or(RuntimeError::InvalidExecutionState)?;
+            for index in placed.first_slot..placed.first_slot + placed.slots {
+                let (member, member_type) = cells
+                    .beside_backing(node.root, node.root_type, index)
+                    .ok_or(RuntimeError::InvalidExecutionState)?;
+                if holds_text(self.prepared, member_type) {
+                    self.charge_texts(reader, member, member_type, TextRule::Canonical, 1)?;
+                }
+            }
+        }
+        self.check_place_lifetime(type_id)
     }
 }

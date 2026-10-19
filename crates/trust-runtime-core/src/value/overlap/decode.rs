@@ -132,17 +132,18 @@ impl PhysicalLayout {
             .map(|leaf| leaf.path.as_slice())
     }
 
-    /// The first scalar leaf, in path order, below the member `segment` of the node at `prefix`, or
-    /// `None` when no leaf lies below that member. No path is built.
-    pub(crate) fn step_below(&self, prefix: &[RefSegment], segment: &RefSegment) -> Option<u32> {
+    /// The first scalar leaf, in path order, below the member of the node at `prefix` whose segment
+    /// `names` accepts, or `None` when no leaf lies below such a member. No path is built.
+    pub(crate) fn step_below(
+        &self,
+        prefix: &[RefSegment],
+        names: &dyn Fn(&RefSegment) -> bool,
+    ) -> Option<u32> {
         let depth = prefix.len();
         let range = self.leaves_below_path(prefix);
         self.path_order[range].iter().find_map(|&index| {
             let next = self.leaves[index].path.get(depth)?;
-            compare_paths(core::slice::from_ref(next), core::slice::from_ref(segment))
-                .is_eq()
-                .then(|| u32::try_from(index).ok())
-                .flatten()
+            names(next).then(|| u32::try_from(index).ok()).flatten()
         })
     }
 

@@ -458,6 +458,22 @@ impl CellArm {
         }
     }
 
+    /// Write `bits` into scalar leaf `leaf` of the backing `backing` of a structure with the physical
+    /// layout `layout`, as building the backing writes it (C1-15b). `false` when the block refuses
+    /// the backing.
+    pub(crate) fn write_backing_leaf(
+        &mut self,
+        backing: ByteRange,
+        layout: &crate::value::overlap::PhysicalLayout,
+        leaf: u32,
+        bits: u64,
+    ) -> bool {
+        let (block, _) = self.cells.regions_mut().block_mut(backing.region);
+        block
+            .bytes_mut(backing)
+            .is_some_and(|bytes| layout.write_leaf_bits(leaf, bits, bytes))
+    }
+
     /// Write the enumeration value `numeric` of `type_id` into its leaf `range` (C1-13).
     pub(crate) fn write_enum_in_place(
         &mut self,

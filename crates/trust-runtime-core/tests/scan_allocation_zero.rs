@@ -655,10 +655,9 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// measured on the builder on 19 October 2026.
 ///
 /// C1-15 places a `STRUCT OVERLAP` on the flat store as its backing, and C1-15b reads and writes its
-/// leaves, and copies it and the structures nested in it, where they lie. Left on the flat store:
-/// `structures` the boxes of its enumeration values (7 calls each way per scan), and `overlays` those
-/// and the default its function's local overlay is constructed as per call (12 each way), measured
-/// on the builder on 19 October 2026.
+/// leaves, copies it and the structures nested in it, and builds the default of a function's local
+/// overlay, where they lie. Left on the flat store for `structures` and `overlays`: the boxes of
+/// their enumeration values (7 calls each way per scan), measured on the builder on 19 October 2026.
 const CEILINGS: [(&str, usize, Calls); 34] = [
     ("faults/division", 2, Calls::ZERO),
     ("faults/index", 2, Calls::ZERO),
@@ -755,9 +754,9 @@ const CEILINGS: [(&str, usize, Calls); 34] = [
         "cells/overlays",
         1,
         Calls {
-            alloc: 12,
+            alloc: 7,
             realloc: 0,
-            dealloc: 12,
+            dealloc: 7,
         },
     ),
 ];

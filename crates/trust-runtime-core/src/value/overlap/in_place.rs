@@ -189,3 +189,43 @@ pub(crate) fn check_node_write(
     }
     Ok(())
 }
+
+impl PhysicalLayout {
+    /// The bits that building a backing writes for `value` in scalar leaf `leaf`, checked as that
+    /// building checks the value it writes (C1-15b). An enumeration is checked against its own type.
+    pub(crate) fn initial_leaf_bits(&self, leaf: u32, value: &Value) -> Result<u64, RuntimeError> {
+        let leaf = self
+            .leaves
+            .get(leaf as usize)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        let enum_type = match value {
+            Value::Enum(enumeration) => enumeration.type_name().as_str(),
+            _ => "",
+        };
+        scalar::checked_leaf_bits(value, leaf, self.abi, enum_type)
+    }
+
+    /// Write `bits` into scalar leaf `leaf` of the backing `bytes`; `false` when the leaf does not
+    /// lie in them.
+    pub(crate) fn write_leaf_bits(&self, leaf: u32, bits: u64, bytes: &mut [u8]) -> bool {
+        let Some(leaf) = self.leaves.get(leaf as usize) else {
+            return false;
+        };
+        let end = leaf.offset + u32::from(leaf.width);
+        if end.div_ceil(8) as usize > bytes.len() {
+            return false;
+        }
+        write_bits(bytes, leaf.offset, leaf.width, bits);
+        true
+    }
+
+    /// Check every leaf of a backing of this layout that holds `bytes`, in bit order, as building the
+    /// backing checks the leaves it decodes again (C1-15b).
+    pub(crate) fn check_leaves(&self, bytes: &[u8]) -> Result<(), RuntimeError> {
+        for &index in &self.bit_order[self.affected_leaves(&(0..self.bits))] {
+            let leaf = &self.leaves[index];
+            scalar::validate_leaf(read_bits(bytes, leaf.offset, leaf.width), leaf)?;
+        }
+        Ok(())
+    }
+}

@@ -2,7 +2,9 @@
 use crate::error::RuntimeError;
 use crate::memory::layout::ByteRange;
 use crate::value::{DateTimeProfile, Value};
-use crate::vm::construction::values::{ValueConstructionContext, ValueOperation};
+use crate::vm::construction::values::{
+    NodeTarget, Target, ValueConstructionContext, ValueOperation,
+};
 use crate::vm::{
     engine::{EngineState, EngineStore},
     module::invalid_bytecode,
@@ -255,6 +257,52 @@ impl ValueConstructionContext for EngineState<'_> {
 
     fn check_in_place(&mut self, at: ByteRange, type_id: u32) -> Result<(), RuntimeError> {
         self.check_constructed_place(at, type_id)
+    }
+
+    fn lies_as_backing(&self, type_id: u32) -> bool {
+        self.prepared.vm.physical_layout_ref(type_id).is_some()
+    }
+
+    fn node_child(
+        &self,
+        node: NodeTarget,
+        type_id: u32,
+        ordinal: usize,
+    ) -> Result<Target, RuntimeError> {
+        self.construction_node_child(node, type_id, ordinal)
+    }
+
+    fn write_node(
+        &mut self,
+        node: NodeTarget,
+        _type_id: u32,
+        value: &Value,
+    ) -> Result<(), RuntimeError> {
+        let layout = self
+            .prepared
+            .vm
+            .physical_layout_ref(node.root_type)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        let bits = layout.initial_leaf_bits(node.anchor, value)?;
+        self.write_construction_leaf(node, bits)
+    }
+
+    fn write_enum_node(
+        &mut self,
+        node: NodeTarget,
+        _type_id: u32,
+        numeric: i64,
+    ) -> Result<(), RuntimeError> {
+        // An enumeration's bits are its value, as its value's leaf is written.
+        self.write_construction_leaf(node, numeric as u64)
+    }
+
+    fn finish_backing(&mut self, node: NodeTarget, type_id: u32) -> Result<(), RuntimeError> {
+        self.finish_construction_backing(node, type_id)
+    }
+
+    fn check_node(&mut self, node: NodeTarget, type_id: u32) -> Result<(), RuntimeError> {
+        self.check_constructed_node(node, type_id)
     }
 }
 

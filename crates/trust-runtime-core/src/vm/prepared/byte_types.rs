@@ -47,6 +47,15 @@ pub(crate) fn copies_as_bytes(prepared: &PreparedModule, type_id: u32) -> bool {
     })
 }
 
+/// Whether a store may copy a structure of `type_id` that lies as its backing as its cells: one with
+/// a physical layout that holds no reference, whose copy is checked by visiting it (C1-15b).
+pub(crate) fn backing_place(prepared: &PreparedModule, type_id: u32) -> bool {
+    prepared.vm.physical_layout_ref(type_id).is_some()
+        && prepared
+            .type_layout(type_id)
+            .is_some_and(|layout| layout.reference_leaves.is_empty())
+}
+
 /// Whether a value of `type_id` holds a text.
 pub(crate) fn holds_text(prepared: &PreparedModule, type_id: u32) -> bool {
     prepared
