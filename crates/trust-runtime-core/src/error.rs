@@ -361,6 +361,34 @@ pub enum RuntimeError {
 }
 
 impl RuntimeError {
+    /// Whether a program was refused by a limit of its preparation (`PreparationLimits`) and not
+    /// for what it is: the length of the artifact, the memory or the work of the decoder, the
+    /// cumulative preparation budget, or the storage or the work of the validator. A device that
+    /// sizes the limits from its free memory words such a refusal as a shortage of memory
+    /// (specification 34 §11.3). The answer comes from the type of the error in every build, not
+    /// from its text.
+    #[must_use]
+    pub fn is_preparation_limit(&self) -> bool {
+        use crate::bytecode::BytecodeError;
+        match self {
+            Self::PreparationLimit => true,
+            // A hosted build flattens the decoder's failures to their stable code and text.
+            Self::Bytecode { code, .. } => matches!(
+                code,
+                StableErrorCode::BytecodeDecodeMemoryLimit
+                    | StableErrorCode::BytecodeDecodeWorkLimit
+            ),
+            Self::BytecodeCause(cause) => matches!(
+                cause,
+                BytecodeError::DecodeMemoryLimit
+                    | BytecodeError::DecodeWorkLimit
+                    | BytecodeError::ValidationStorageLimit
+                    | BytecodeError::ValidationWorkLimit
+            ),
+            _ => false,
+        }
+    }
+
     /// Construct a bytecode/VM structural error without losing its stable code.
     pub fn bytecode(code: StableErrorCode, detail: impl Into<SmolStr>) -> Self {
         Self::Bytecode {
@@ -455,7 +483,16 @@ impl From<crate::bytecode::BytecodeError> for RuntimeError {
     fn from(error: crate::bytecode::BytecodeError) -> Self {
         #[cfg(feature = "std")]
         {
-            Self::bytecode(error.stable_code(), error.to_string())
+            use crate::bytecode::BytecodeError;
+            match error {
+                // The validator's limits keep their type, so that a caller can tell a limit from
+                // a malformed section without reading text. Their text and stable code are those
+                // of the flattened error.
+                BytecodeError::ValidationStorageLimit | BytecodeError::ValidationWorkLimit => {
+                    Self::BytecodeCause(error)
+                }
+                error => Self::bytecode(error.stable_code(), error.to_string()),
+            }
         }
         #[cfg(not(feature = "std"))]
         {

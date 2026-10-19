@@ -165,5 +165,31 @@ pub fn newest_checkpoint<F: CheckpointFlash + ?Sized>(
     decode_snapshot_payload_v3(&payload).map(Some)
 }
 
+/// The length of the payload that the newest committed checkpoint in `checkpoints` holds: the bytes
+/// that [`newest_checkpoint`] reads whole into the heap. It is read from the header of the record, and
+/// nothing of the payload is read. It is 0 when the log holds no committed checkpoint, which has
+/// nothing to read. The slots are only read.
+///
+/// A device that keeps the heap free for a retained step asks this before it takes the room, so
+/// that the room it keeps is the checkpoint's own payload and not the largest one a slot takes
+/// (specification 34 §11.3).
+///
+/// # Errors
+///
+/// [`RuntimeError::RetainCorruption`] when the header of the newest checkpoint fails its check,
+/// [`RuntimeError::RetainStore`] when the flash cannot be read: the header cannot say how many bytes a
+/// read would take.
+pub fn newest_checkpoint_payload_len<F: CheckpointFlash + ?Sized>(
+    checkpoints: &mut F,
+) -> Result<usize, RuntimeError> {
+    let mut log = CheckpointLog::open(ReadOnly(checkpoints))?;
+    let Some(newest) = log.newest()? else {
+        return Ok(0);
+    };
+    usize::try_from(newest.payload_len).map_err(|_| {
+        RuntimeError::RetainCorruption("retain payload length exceeds platform size".into())
+    })
+}
+
 #[cfg(test)]
 mod contract_tests;

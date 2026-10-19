@@ -12,8 +12,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   and the computer build the new program with one replacement: it installs the next generation, so a
   reference taken before the change is refused as stale after it, and the retained values carry over,
   with the retained function-block instances and references when the new program declares the same
-  retained storage. The new program is prepared in the heap that remains less a reserve of 24 KiB, and
-  a program that needs more is refused with `insufficient memory` and its numbers; the dry run of
+  retained storage. The new program is prepared in the heap that remains less a reserve: 8 KiB of
+  working memory, and the length of the newest checkpoint's payload when the running program keeps
+  retained values. A program that needs more, by any limit of its preparation, is refused with
+  `insufficient memory` and its numbers, and not as a damaged program; the dry run of
   `program.install` on a chip takes the same limits, so a program that cannot fit is refused instead
   of resetting the chip.
 - The ESP32-C6 loads a newly installed program in place. `restart` of the stopped program drops the

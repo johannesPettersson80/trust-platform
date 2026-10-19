@@ -13,7 +13,7 @@ use std::cell::Cell;
 
 use smol_str::SmolStr;
 use support::{booted, configuration, gpio, Dog, Hardware, TestClock, PROBE, PROGRAM};
-use trust_platform_esp32::loader::{Esp32Loader, ONLINE_CHANGE_RESERVE_BYTES};
+use trust_platform_esp32::loader::{Esp32Loader, ONLINE_CHANGE_WORKING_MEMORY_BYTES};
 use trust_platform_esp32::process_io::{GpioPin, PinClaims};
 use trust_platform_esp32::profile::runtime_id;
 use trust_platform_esp32::Platform;
@@ -67,17 +67,18 @@ fn platform() -> Platform<Dog> {
 #[test]
 fn the_c6_builds_a_candidate_within_the_heaps_room_and_hands_over_its_lines() {
     // Specification 34 §11.3 and Appendix D.2: the candidate is prepared with the limits of the heap's
-    // room now, less the reserve, not with those of the heap's capacity, and it claims no pin; the
-    // commit hands the running program's pins to it, so they are held all the time, by the running
-    // program, then by the candidate, and are freed only when the candidate ends. The A4 program runs
-    // with GPIO9 as an input and GPIO18 as an output. With the room at the reserve plus 72 KiB the
-    // board probe's candidate has the bring-up limits (512 KiB of preparation bytes, 128 KiB of
-    // construction bytes, 64 bytes of process image, 4 call levels, an artifact of 64 KiB, the region),
-    // although the device's heap is 288 KiB; with the room at the reserve plus 144 KiB it has twice the
-    // memory limits and 8 call levels. With a room below the reserve it is refused with the C6's
-    // numbers. Wrong behaviour caught: limits taken from the heap's capacity; a reserve that is not
-    // subtracted; a candidate that claims a pin ("already claimed"); lines released with the running
-    // program, or never released; a refusal that disturbs the running program.
+    // room now, less the reserve (the working memory, 8 KiB, for a record that keeps no retained
+    // values), not with those of the heap's capacity, and it claims no pin; the commit hands the
+    // running program's pins to it, so they are held all the time, by the running program, then by the
+    // candidate, and are freed only when the candidate ends. The A4 program runs with GPIO9 as an input
+    // and GPIO18 as an output. With the room at the reserve plus 72 KiB the board probe's candidate has
+    // the bring-up limits (512 KiB of preparation bytes, 128 KiB of construction bytes, 64 bytes of
+    // process image, 4 call levels, an artifact of 64 KiB, the region), although the device's heap is
+    // 288 KiB; with the room at the reserve plus 144 KiB it has twice the memory limits and 8 call
+    // levels. With a room below the reserve it is refused with the C6's numbers. Wrong behaviour
+    // caught: limits taken from the heap's capacity; a reserve that is not subtracted; a candidate that
+    // claims a pin ("already claimed"); lines released with the running program, or never released; a
+    // refusal that disturbs the running program.
     let (hardware, reader) = Hardware::with_reader();
     let claims: PinClaims = hardware.claims.clone();
     let mut loader = Esp32Loader::new(hardware, TestClock, MEMORY, room, reader);
@@ -94,7 +95,7 @@ fn the_c6_builds_a_candidate_within_the_heaps_room_and_hands_over_its_lines() {
         "the program holds its pins"
     );
 
-    ROOM.with(|room| room.set(ONLINE_CHANGE_RESERVE_BYTES + 72 * 1024));
+    ROOM.with(|room| room.set(ONLINE_CHANGE_WORKING_MEMORY_BYTES + 72 * 1024));
     let at_72 = loader
         .prepare_change(&mut platform, &mut running, PROBE.to_vec())
         .expect("the probe is prepared within 72 KiB");
@@ -118,7 +119,7 @@ fn the_c6_builds_a_candidate_within_the_heaps_room_and_hands_over_its_lines() {
         "a dropped candidate frees nothing"
     );
 
-    ROOM.with(|room| room.set(ONLINE_CHANGE_RESERVE_BYTES + 144 * 1024));
+    ROOM.with(|room| room.set(ONLINE_CHANGE_WORKING_MEMORY_BYTES + 144 * 1024));
     let at_144 = loader
         .prepare_change(&mut platform, &mut running, PROBE.to_vec())
         .expect("the probe is prepared within 144 KiB");
@@ -136,7 +137,7 @@ fn the_c6_builds_a_candidate_within_the_heaps_room_and_hands_over_its_lines() {
     assert_eq!(limits.max_call_depth, 8);
     drop(at_144);
 
-    ROOM.with(|room| room.set(ONLINE_CHANGE_RESERVE_BYTES - 1));
+    ROOM.with(|room| room.set(ONLINE_CHANGE_WORKING_MEMORY_BYTES - 1));
     let refused = loader
         .prepare_change(&mut platform, &mut running, PROBE.to_vec())
         .err()
@@ -147,8 +148,8 @@ fn the_c6_builds_a_candidate_within_the_heaps_room_and_hands_over_its_lines() {
         format!(
             "insufficient memory: a change of 3388 bytes needs more than the 0 bytes of heap that \
              remain for it ({} bytes are free, {} are kept in reserve)",
-            ONLINE_CHANGE_RESERVE_BYTES - 1,
-            ONLINE_CHANGE_RESERVE_BYTES
+            ONLINE_CHANGE_WORKING_MEMORY_BYTES - 1,
+            ONLINE_CHANGE_WORKING_MEMORY_BYTES
         )
     );
     assert_eq!(
@@ -157,7 +158,7 @@ fn the_c6_builds_a_candidate_within_the_heaps_room_and_hands_over_its_lines() {
         "the refusal disturbs nothing"
     );
 
-    ROOM.with(|room| room.set(ONLINE_CHANGE_RESERVE_BYTES + 72 * 1024));
+    ROOM.with(|room| room.set(ONLINE_CHANGE_WORKING_MEMORY_BYTES + 72 * 1024));
     let mut candidate = loader
         .prepare_change(&mut platform, &mut running, PROBE.to_vec())
         .expect("the probe is prepared");

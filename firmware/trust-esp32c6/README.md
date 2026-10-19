@@ -283,11 +283,12 @@ point.
   `transfer.abort` frees it.
 - `bytecode.reload` (online change) prepares the new program while the running one stays installed,
   so the heap holds both programs and the upload at once. The new program is prepared within the
-  heap's free bytes less a reserve of 24 KiB, and a program that needs more is refused with
-  `insufficient memory` and its numbers, while the running program goes on unchanged. The reserve
-  comes from a measurement on the host and the bench replaces it, and the longest uninterrupted step
-  of a change is still to be measured against the hardware watchdog (specification 34 §11.3 and
-  Appendix D.2).
+  heap's free bytes less a reserve: 8 KiB of working memory for every change, and, when the
+  running program keeps retained values, the length of the newest checkpoint's payload. A program
+  that needs more, by any limit of its preparation, is refused with `insufficient memory` and its
+  numbers, while the running program goes on unchanged. The working memory comes from a
+  measurement on the host and the bench replaces it, and the longest uninterrupted step of a change
+  is still to be measured against the hardware watchdog (specification 34 §11.3 and Appendix D.2).
 - The program slots are 3056 KiB each, so a container larger than a slot (or larger than the heap's
   room) cannot be installed, while `trust-runtime` has no such limit. An install holds the upload and
   the commit's own copy of the container in the heap, and a container the heap cannot hold is

@@ -23,16 +23,16 @@
 //!
 //! The same loader builds the candidate of an online change (specification 34 §11.3), while the
 //! running program stays installed and keeps its lines. The candidate is prepared with the limits that
-//! the heap's room allows now, less [`ONLINE_CHANGE_RESERVE_BYTES`], and checked against the lines of
-//! the running program's record. It is then built from the running program's state by the engine's
-//! replacement, as a computer builds the candidate of its online change: over the running program's
-//! settings and an empty process I/O, so that it claims no pin, it continues the running program's
-//! installation generation, keeps its logical time and process images, keeps the retained function-block
-//! instances and references live when it declares the same retained storage, and takes the newest
-//! checkpoint over the retained values. Last, it is checked against the running program's safe state.
-//! The commit hands the running program's lines and checkpoint store to the candidate, which the loop
-//! then makes its program. The shared order is in `trust_runtime_services::runner`; the loader supplies
-//! the C6's steps.
+//! the heap's room allows now, less the reserve of the change ([`online_change_reserve`]), and checked
+//! against the lines of the running program's record. It is then built from the running program's state
+//! by the engine's replacement, as a computer builds the candidate of its online change: over the
+//! running program's settings and an empty process I/O, so that it claims no pin, it continues the
+//! running program's installation generation, keeps its logical time and process images, keeps the
+//! retained function-block instances and references live when it declares the same retained storage,
+//! and takes the newest checkpoint over the retained values. Last, it is checked against the running
+//! program's safe state. The commit hands the running program's lines and checkpoint store to the
+//! candidate, which the loop then makes its program. The shared order is in
+//! `trust_runtime_services::runner`; the loader supplies the C6's steps.
 
 use alloc::boxed::Box;
 use alloc::format;
@@ -55,8 +55,9 @@ use trust_runtime_services::runner::engine::{
     device_limits, CycleSettings, DeviceMemory, DeviceServices, ProcessIo,
 };
 use trust_runtime_services::runner::{
-    address_text, check_install, newest_checkpoint, prepare_candidate, unwired_binding, Candidate,
-    EngineLiveValues, Loaded, ProgramLoader, ResourceCycle, RetainConfig, RetainSource,
+    address_text, check_install, newest_checkpoint, newest_checkpoint_payload_len,
+    prepare_candidate, unwired_binding, Candidate, EngineLiveValues, Loaded, ProgramLoader,
+    ResourceCycle, RetainConfig, RetainSource,
 };
 
 use crate::platform::Platform;
@@ -95,21 +96,42 @@ pub trait CycleWatchdog {
     fn apply_cycle_timeout_ms(&mut self, cycle_timeout_ms: u32) -> bool;
 }
 
-/// The bytes of the heap that an online change and the check of an install keep free while they
-/// prepare a program (specification 34 §11.3, UPDATE-06 and Appendix D.2). The program's limits are
-/// those of the heap's room now, less these bytes, so that the working memory a change takes at its peak
-/// beyond the two programs stays inside the heap.
+/// The bytes of the heap that an online change and the check of an install keep free for the working
+/// memory of preparing and constructing a program, beyond the program itself (specification 34 §11.3,
+/// UPDATE-06 and Appendix D.2). The program's limits are those of the heap's room now, less these bytes
+/// and, when the record keeps retained values, the payload of the newest checkpoint
+/// ([`online_change_reserve`]), so that what a change takes at its peak beyond the two programs stays
+/// inside the heap.
 ///
 /// The size comes from `tests/online_change_heap.rs`. With a counting allocator it changes the A4
 /// program to itself and to three other programs of the repository, and the retained-blocks program
 /// to itself, with a record that keeps no retained values and with one that does, and reads the most
 /// the heap held at once beyond the running program and the candidate: at most 3,383 bytes on the
-/// host. The reserve is twice that, for the fragmentation of a first-fit heap that a host cannot
-/// measure, and the 16,300 bytes of the largest payload that a checkpoint slot takes, which the
-/// retained steps read whole into the heap: 23,066 bytes, rounded up to 24 KiB. The host's pointers
-/// are 64 bits wide and the C6's 32, so the host's figures are the larger ones; the bench replaces
-/// them (specification 34, Appendix D.2).
-pub const ONLINE_CHANGE_RESERVE_BYTES: usize = 24 * 1024;
+/// host. Twice that, for the fragmentation of a first-fit heap that a host cannot measure, is 6,766
+/// bytes, rounded up to 8 KiB. The host's pointers are 64 bits wide and the C6's 32, so the host's
+/// figures are the larger ones; the bench replaces them (specification 34, Appendix D.2).
+pub const ONLINE_CHANGE_WORKING_MEMORY_BYTES: usize = 8 * 1024;
+
+/// The bytes of the heap that a change keeps free (specification 34 §11.3): the working memory,
+/// [`ONLINE_CHANGE_WORKING_MEMORY_BYTES`], always, and, when the record of the program that runs keeps
+/// retained values (`retains`), the length of the payload of the newest committed checkpoint, which the
+/// change reads whole into the heap beside the two programs. The length is read from the record header
+/// of the checkpoint in `checkpoints`, the bytes the change will really read, and is 0 when the log
+/// holds no committed checkpoint. When the header cannot say, the reserve holds the largest payload
+/// that a slot takes. The checkpoint slots are only read.
+#[must_use]
+pub fn online_change_reserve<F: CheckpointFlash + ?Sized>(
+    retains: bool,
+    checkpoints: &mut F,
+) -> usize {
+    if !retains {
+        return ONLINE_CHANGE_WORKING_MEMORY_BYTES;
+    }
+    let payload = newest_checkpoint_payload_len(checkpoints).unwrap_or_else(|_| {
+        usize::try_from(checkpoints.geometry().max_payload_len()).unwrap_or(usize::MAX)
+    });
+    ONLINE_CHANGE_WORKING_MEMORY_BYTES.saturating_add(payload)
+}
 
 /// What the loader keeps of the program that runs: the configuration of its record. An online change
 /// brings no record, so the candidate runs over this one (specification 34 §11.3).
@@ -154,10 +176,11 @@ impl<H, C> Esp32Loader<H, C> {
 }
 
 /// The C6's check of an install (specification 34 §11.2, decision G13): the new program is prepared
-/// with the limits that the heap allows now, its room less [`ONLINE_CHANGE_RESERVE_BYTES`], so that a
-/// program the heap cannot hold is refused with `insufficient memory` and its numbers instead of
-/// resetting the chip, and then its warm start is tried with the newest checkpoint, which `checkpoints`
-/// only reads. The firmware gives the loop this check with its program store
+/// with the limits that the heap allows now, its room less the reserve of the change
+/// ([`online_change_reserve`], for the new program's record), so that a program the heap cannot hold is
+/// refused with `insufficient memory` and its numbers instead of resetting the chip, and then its warm
+/// start is tried with the newest checkpoint, which `checkpoints` only reads. The firmware gives the
+/// loop this check with its program store
 /// ([`Runner::with_program_store`](trust_runtime_services::runner::Runner::with_program_store)).
 pub fn install_check(
     mut checkpoints: Box<dyn CheckpointFlash>,
@@ -165,13 +188,9 @@ pub fn install_check(
     room: fn() -> usize,
 ) -> impl FnMut(&Admitted<'_>) -> Result<(), RuntimeError> {
     move |admitted| {
-        check_install(
-            &mut *checkpoints,
-            admitted,
-            memory,
-            room(),
-            ONLINE_CHANGE_RESERVE_BYTES,
-        )
+        let retains = admitted.record.configuration.retain_mode == RetainMode::File;
+        let reserve = online_change_reserve(retains, &mut *checkpoints);
+        check_install(&mut *checkpoints, admitted, memory, room(), reserve)
     }
 }
 
@@ -300,14 +319,13 @@ where
             .as_ref()
             .ok_or_else(|| String::from("the running program's record is not known"))?;
 
-        // The memory check (UPDATE-06): the limits are those of the heap's room now, less the reserve,
-        // and the upload is freed as soon as the module is prepared.
-        let (prepared, budget) = prepare_candidate(
-            program,
-            self.memory,
-            (self.room)(),
-            ONLINE_CHANGE_RESERVE_BYTES,
-        )?;
+        // The memory check (UPDATE-06): the limits are those of the heap's room now, less the reserve
+        // of this change, and the upload is freed as soon as the module is prepared. The reserve holds
+        // the checkpoint's payload only when the record keeps retained values, because only then does
+        // the change read it.
+        let retains = record.config.retain_mode == RetainMode::File;
+        let reserve = online_change_reserve(retains, &mut *self.checkpoints);
+        let (prepared, budget) = prepare_candidate(program, self.memory, (self.room)(), reserve)?;
         platform.feed();
 
         // The candidate's bindings are checked against the lines of the running program's record.
@@ -323,7 +341,7 @@ where
         // The saved snapshot of the retain store: the newest checkpoint when the record keeps retained
         // values, and none otherwise, as a computer's online change loads its retain store, which is
         // empty when the project keeps none.
-        let saved = if record.config.retain_mode == RetainMode::File {
+        let saved = if retains {
             newest_checkpoint(&mut *self.checkpoints).map_err(|error| error.to_string())?
         } else {
             None

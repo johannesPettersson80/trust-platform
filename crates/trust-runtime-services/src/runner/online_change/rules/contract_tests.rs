@@ -5,10 +5,12 @@
 //! scratch, 4,096 constructed values, 128 KiB of construction bytes, 64 bytes of process image and 4
 //! call levels), which scales with the heap, not taken from the code under test.
 
+use alloc::format;
 use alloc::string::ToString;
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
+use trust_runtime_core::bytecode::{BytecodeError, BytecodeModule, ValidationLimits};
 use trust_runtime_core::deployment::{GpioInput, GpioOutput};
 use trust_runtime_core::error::{ExecutionLimitKind, RuntimeError};
 use trust_runtime_core::io_address::IoAddress;
@@ -188,6 +190,66 @@ fn a_program_the_memory_limits_refuse_is_refused_with_its_numbers() {
     assert_eq!(memory.refusal(&RuntimeError::TypeMismatch), "type mismatch");
     assert!(!is_memory_limit(&RuntimeError::TypeMismatch));
     assert!(is_memory_limit(&RuntimeError::PreparationLimit));
+}
+
+#[test]
+fn a_validation_limit_is_refused_as_insufficient_memory_with_its_numbers() {
+    // Specification 34 §11.3 (UPDATE-06): a candidate that needs more than the limits of the heap
+    // that remains is refused with `insufficient memory` and its numbers, and the validator's limits
+    // are among them. The validator's analysis of the A4 program peaks at a number of bytes that the
+    // test measures; the limit for `h` bytes of heap is two thirds of `h` (48 KiB per 72 KiB), so a
+    // heap of three halves of that peak less one leaves a limit just below it. The core returns the
+    // validator's own error, and the refusal is the same text as for any other limit, with the
+    // artifact's length, the heap that remains, the room and the reserve. The validator's work limit
+    // is worded the same way. Wrong behaviour caught: the bench's reply `invalid bytecode 'invalid
+    // section data: validation analysis storage limit exceeded'`, which names no number and reads as
+    // a damaged program, for a program that only needed more memory than the limits allow.
+    let memory = DeviceMemory {
+        region_bytes: 64 * 1024,
+        heap_bytes: 144 * 1024,
+    };
+    let reserve = 8_192;
+    let peak = BytecodeModule::decode(PROGRAM)
+        .expect("the A4 program decodes")
+        .validated_with_limits(ValidationLimits::default())
+        .expect("the A4 program validates")
+        .stats()
+        .peak_scratch_bytes;
+    // One call level needs 18,432 bytes, and the scratch limit of such a heap is 12,288: the
+    // premise of the test is that the analysis needs more than that.
+    assert!(
+        peak > 12_288,
+        "the analysis of the A4 program peaks at {peak}"
+    );
+    let remains = 3 * (peak - 1) / 2;
+    let room = remains + reserve;
+    let budget = ChangeMemory::for_change(PROGRAM.len(), room, reserve);
+    let limits = budget.limits(memory).expect("the limits of the heap");
+    assert!(limits.validation.max_scratch_bytes < peak);
+
+    let error = PreparedModule::from_bytes(PROGRAM, limits).expect_err("the analysis is refused");
+    assert_eq!(
+        error,
+        RuntimeError::from(BytecodeError::ValidationStorageLimit)
+    );
+    assert!(is_memory_limit(&error));
+    let expected = format!(
+        "insufficient memory: a change of 6412 bytes needs more than the {remains} bytes of heap \
+         that remain for it ({room} bytes are free, {reserve} are kept in reserve)"
+    );
+    assert_eq!(budget.refusal(&error), expected);
+    assert_eq!(
+        prepare_candidate(PROGRAM.to_vec(), memory, room, reserve).err(),
+        Some(expected)
+    );
+
+    let work = RuntimeError::from(BytecodeError::ValidationWorkLimit);
+    assert!(is_memory_limit(&work));
+    assert_eq!(
+        ChangeMemory::for_install(9_000, 70_000, 30_000).refusal(&work),
+        "insufficient memory: a program of 9000 bytes needs more than the 40000 bytes of heap that \
+         remain for it (70000 bytes are free, 30000 are kept in reserve)"
+    );
 }
 
 #[test]

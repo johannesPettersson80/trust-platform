@@ -386,3 +386,115 @@ fn process_image_limit_is_exact_for_inputs_outputs_and_memory() {
         RuntimeError::PreparationLimit
     );
 }
+
+#[test]
+fn a_refusal_by_any_preparation_limit_is_one_kind_and_a_malformed_artifact_is_not() {
+    // Specification 34 §11.3 (UPDATE-06): a device that sizes the limits of a candidate from its free
+    // memory words every refusal by those limits as a shortage of memory, so the core says which
+    // errors those are by their type, in a hosted and in a portable build alike. The limits are the
+    // length of the artifact, the memory and the work of the decoder, the cumulative preparation
+    // budget, and the storage and the work of the validator. Each is set one unit below what the A4
+    // artifact needs, so each refuses it. The validator's two refusals keep the text and the stable
+    // code of the section rejection that they are. A malformed artifact and an error that no limit
+    // caused are not limits. Wrong behaviour caught: a limit refusal that reads as a malformed
+    // artifact (the bench saw `invalid bytecode 'invalid section data: validation analysis storage
+    // limit exceeded'` where a shortage of memory was the cause); a malformed artifact worded as a
+    // shortage of memory.
+    use trust_runtime_core::bytecode::{RejectionReason, ValidationLimits};
+    use trust_runtime_core::error_code::StableErrorCode;
+    let (_, decoder) = BytecodeModule::decode_with_limits(BYTES, usize::MAX, usize::MAX).unwrap();
+    let prepared = PreparedModule::from_bytes(BYTES, Default::default())
+        .unwrap()
+        .preparation_usage();
+    let validator = decoded()
+        .validated_with_limits(ValidationLimits::default())
+        .unwrap()
+        .stats();
+    let refused =
+        |limits: PreparationLimits| PreparedModule::from_bytes(BYTES, limits).unwrap_err();
+    let cumulative = PreparationLimits {
+        max_preparation_bytes: prepared.bytes,
+        max_preparation_work: prepared.work,
+        ..Default::default()
+    };
+
+    let length = refused(PreparationLimits {
+        max_artifact_bytes: BYTES.len() - 1,
+        ..Default::default()
+    });
+    assert_eq!(length, RuntimeError::PreparationLimit);
+    let budget = refused(PreparationLimits {
+        max_preparation_bytes: prepared.bytes - 1,
+        ..cumulative
+    });
+    assert_eq!(budget, RuntimeError::PreparationLimit);
+    let decoder_memory = refused(PreparationLimits {
+        max_preparation_bytes: decoder.allocation_bytes - 1,
+        ..Default::default()
+    });
+    assert_eq!(
+        decoder_memory.stable_code(),
+        StableErrorCode::BytecodeDecodeMemoryLimit
+    );
+    let decoder_work = refused(PreparationLimits {
+        max_preparation_work: decoder.work - 1,
+        ..Default::default()
+    });
+    assert_eq!(
+        decoder_work.stable_code(),
+        StableErrorCode::BytecodeDecodeWorkLimit
+    );
+    let scratch = refused(PreparationLimits {
+        validation: ValidationLimits {
+            max_scratch_bytes: validator.peak_scratch_bytes - 1,
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+    assert_eq!(
+        scratch,
+        RuntimeError::from(BytecodeError::ValidationStorageLimit)
+    );
+    let work = refused(PreparationLimits {
+        validation: ValidationLimits {
+            max_work: validator.work - 1,
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+    assert_eq!(work, RuntimeError::from(BytecodeError::ValidationWorkLimit));
+    for limit in [
+        &length,
+        &budget,
+        &decoder_memory,
+        &decoder_work,
+        &scratch,
+        &work,
+    ] {
+        assert!(limit.is_preparation_limit(), "{limit:?}");
+    }
+
+    assert_eq!(
+        scratch.to_string(),
+        "invalid bytecode 'invalid section data: validation analysis storage limit exceeded'"
+    );
+    assert_eq!(
+        scratch.stable_code(),
+        StableErrorCode::BytecodeInvalidSection
+    );
+    assert_eq!(
+        work.to_string(),
+        "invalid bytecode 'invalid section data: validation analysis work limit exceeded'"
+    );
+    assert_eq!(work.stable_code(), StableErrorCode::BytecodeInvalidSection);
+
+    for other in [
+        PreparedModule::from_bytes(&[0, 1, 2, 3], Default::default()).unwrap_err(),
+        RuntimeError::from(BytecodeError::from(RejectionReason::UnknownPrimitive)),
+        RuntimeError::from(BytecodeError::InvalidMagic),
+        RuntimeError::Overflow,
+        RuntimeError::TypeMismatch,
+    ] {
+        assert!(!other.is_preparation_limit(), "{other:?}");
+    }
+}

@@ -17,7 +17,7 @@ use serde_json::{json, Value};
 use smol_str::SmolStr;
 use trust_platform_esp32::checkpoint::RawFlash;
 use trust_platform_esp32::loader::{
-    install_check, CycleWatchdog, Esp32Loader, ProgramHardware, ONLINE_CHANGE_RESERVE_BYTES,
+    install_check, CycleWatchdog, Esp32Loader, ProgramHardware, ONLINE_CHANGE_WORKING_MEMORY_BYTES,
 };
 use trust_platform_esp32::process_io::{
     check_pin, GpioPin, PinClaim, PinClaims, CHIP_GPIO_PINS, CHIP_GPIO_RESERVED,
@@ -809,19 +809,21 @@ fn the_c6_refuses_an_install_whose_dry_run_does_not_fit_the_heap() {
     // Specification 34 §11.2 and §11.3 (UPDATE-06; the follow-up of slice S4-6): the check of an install
     // prepares the new program with the limits that the heap allows now, its room less the C6's reserve,
     // before the shared dry run that prepares it with the limits of its record, so a program that cannot
-    // fit is refused cleanly instead of resetting the chip. With the room at the reserve plus 10,000
-    // bytes, 10,000 remain, which allow no call level, so the container of the A4 program (6,412 bytes)
-    // is refused with the numbers inside the check's error, and not a byte of the program store is
-    // written (the commit comes after the checks); with the room back to 1 MiB the same container
-    // installs. Wrong behaviour caught: an install that is checked with the hosted limits of its
-    // record only, which on the C6's heap resets the chip; a refusal that leaves the chip unable to
-    // install again; a check that does not use the C6's reserve.
+    // fit is refused cleanly instead of resetting the chip. The new program keeps retained values but
+    // the log holds no committed checkpoint, so the reserve is the working memory, 8 KiB, and no
+    // payload. With the room at the reserve plus 10,000 bytes, 10,000 remain, which allow no call
+    // level, so the container of the A4 program (6,412 bytes) is refused with the numbers inside the
+    // check's error, and not a byte of the program store is written (the commit comes after the
+    // checks); with the room back to 1 MiB the same container installs. Wrong behaviour caught: an
+    // install that is checked with the hosted limits of its record only, which on the C6's heap
+    // resets the chip; a refusal that leaves the chip unable to install again; a check that does not
+    // use the C6's reserve.
     arm();
     TestClock::set(0);
     let mut chip = Chip::without_program();
     let configuration = || retaining(vec![gpio(&["GPIO9"], &["GPIO18"])]);
 
-    ROOM.with(|room| room.set(ONLINE_CHANGE_RESERVE_BYTES + 10_000));
+    ROOM.with(|room| room.set(ONLINE_CHANGE_WORKING_MEMORY_BYTES + 10_000));
     let refused = chip.install(&container(configuration()));
     assert_eq!(refused["ok"], json!(false), "{refused}");
     assert_eq!(
@@ -830,8 +832,8 @@ fn the_c6_refuses_an_install_whose_dry_run_does_not_fit_the_heap() {
             "the retained-value check could not run: control error 'insufficient memory: a program \
              of 6412 bytes needs more than the 10000 bytes of heap that remain for it ({} bytes are \
              free, {} are kept in reserve)'",
-            ONLINE_CHANGE_RESERVE_BYTES + 10_000,
-            ONLINE_CHANGE_RESERVE_BYTES
+            ONLINE_CHANGE_WORKING_MEMORY_BYTES + 10_000,
+            ONLINE_CHANGE_WORKING_MEMORY_BYTES
         ))
     );
     assert_eq!(PROGRAM.len(), 6_412, "the fixture program");

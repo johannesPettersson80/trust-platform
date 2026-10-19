@@ -91,10 +91,15 @@ impl ChangeMemory {
     /// The reply for `error`, which the preparation or the construction of the program returned: the
     /// `insufficient memory` refusal with its numbers when the memory limits refused the program, and
     /// the error's own text otherwise, as a computer replies with the error of its transaction.
+    ///
+    /// A limit of the preparation counts, whichever step met it: the artifact's length, the memory or
+    /// the work of the decoder, the cumulative preparation budget, or the storage or the work of the
+    /// validator ([`RuntimeError::is_preparation_limit`]). The limits are the device's limits for the
+    /// heap that remains, so a program that needs more than they allow needs more memory than it has.
     #[must_use]
     pub fn refusal(self, error: &RuntimeError) -> String {
         match error {
-            RuntimeError::PreparationLimit => self.needs_more(),
+            error if error.is_preparation_limit() => self.needs_more(),
             RuntimeError::ExecutionLimit {
                 kind:
                     kind @ (ExecutionLimitKind::AllocationBytes | ExecutionLimitKind::ConstructedValues),
@@ -130,17 +135,18 @@ impl ChangeMemory {
 }
 
 /// Whether `error` is the memory limits refusing a program, which [`ChangeMemory::refusal`] words as
-/// `insufficient memory`.
+/// `insufficient memory`: a limit of the preparation ([`RuntimeError::is_preparation_limit`]), or the
+/// construction exceeding its allowance of allocation bytes or constructed values.
 #[must_use]
 pub fn is_memory_limit(error: &RuntimeError) -> bool {
-    matches!(
-        error,
-        RuntimeError::PreparationLimit
-            | RuntimeError::ExecutionLimit {
+    error.is_preparation_limit()
+        || matches!(
+            error,
+            RuntimeError::ExecutionLimit {
                 kind: ExecutionLimitKind::AllocationBytes | ExecutionLimitKind::ConstructedValues,
                 ..
             }
-    )
+        )
 }
 
 /// Prepares the module of an online change from `program`, the upload of the request, with the limits

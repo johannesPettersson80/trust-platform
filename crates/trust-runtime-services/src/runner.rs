@@ -86,7 +86,9 @@ pub use cycle::{resource_tasks, ResourceCycle, RetainSource, TaskDescriptor};
 pub use engine::EngineLiveValues;
 pub use hold::HoldHandle;
 pub use host::RunnerPlatform;
-pub use install::{check_install, check_retained_values, newest_checkpoint};
+pub use install::{
+    check_install, check_retained_values, newest_checkpoint, newest_checkpoint_payload_len,
+};
 pub use online_change::{
     address_text, is_memory_limit, prepare_candidate, unwired_binding, Candidate, ChangeMemory,
 };
