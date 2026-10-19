@@ -136,8 +136,8 @@ fn captured_cells_encode_like_the_value_tree() {
     }
     // The programs that retain: `retain`; `retained_blocks`, whose instance `kept` and reference `follow`
     // stay out of the payload beside its `total` and its program's `runs`; `retained_values`, whose
-    // arrays, structure and texts all go into it; and the saved main artifact, whose program retains
-    // `activations`.
+    // arrays, structure and texts all go into it; `overlays` and `unions`, whose overlay and union go
+    // into it; and the saved main artifact, whose program retains `activations`.
     assert_eq!(
         covered,
         [
@@ -145,6 +145,7 @@ fn captured_cells_encode_like_the_value_tree() {
             "retained_blocks",
             "retained_values",
             "overlays",
+            "unions",
             "saved/main"
         ]
     );

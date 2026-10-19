@@ -1174,8 +1174,8 @@ bytes — checking the whole value before it writes a byte and allocating nothin
 scalar's exact bits, every enumeration's value as its base type, and every structure member, array
 element and nested compound at its layout offset — and refuses, leaving the bytes as they were, a
 value whose kind, members, bounds, element count or slice length does not match the type, a non-null
-reference where no reference table is given, a structure with a physical layout whose members
-disagree about their shared bits, and a union (C1-15), while a read
+reference where no reference table is given, and a structure with a physical layout whose members
+disagree about their shared bits (C1-15), while a read
 materializes the same `Value` again and a member-and-index path resolves to its byte offset through
 the same layout (C1-10). `Value::Null` writes zero bytes, and zero bytes read as the type's zero
 value, except an instance leaf that names no instance and an unbound native counter slot, which read
@@ -1191,6 +1191,7 @@ as `Value::Null`.
   - `STRING[n]` a length of 2 bytes (4 when `n` exceeds 65,535) and `n` bytes of UTF-8, and `WSTRING[n]` the same length and `n` UTF-16 code units, so `2n` bytes (specification 02 §6; `STRING` without a length is `STRING[80]`);
   - a structure its members in declaration order, each at its alignment, aligned to its largest member and padded to a multiple of it; an array its elements one after the other; a `STRUCT OVERLAP` its members over the same bytes, as specification 02 defines them;
   - a `STRUCT OVERLAP`, and every structure type nested in one, lies as its backing in every place it is held: the bits of its members as specification 02 §3.6 places them, the gaps between them included, so a copy of the structure carries its gap bits as specification 12 requires of independently copied aggregates. A member that has no overlapping bit representation (a text, a reference, a union, or an array of them; specification 12 §4) follows the backing at its own layout and alignment, in declaration order through every nesting level, since no other member shares its bits. Such a structure is aligned to its most aligned member beside the backing, or to 1;
+  - a union each of its variants, as a structure its members, since every variant is kept as a member of its own (specification 02 §3.7); `SIZEOF` keeps the largest variant;
   - a function block or class instance its variables in declaration order, each at its alignment, in a range of the same block: the persistent block holds one range for each persistent instance, its own variables first and its base's after them, and whatever holds the instance (a global, a program's variable or a member of another instance) holds an 8-byte leaf naming it;
   - a reference (`REF_TO`, an interface reference) 16 bytes on every target: the block and byte offset of its target, the target's installation generation (MEM-07) and the character index of a character reference. Its target type is the declaration's.
   - a function static and a native-state slot their value and one presence byte after it: they hold no value until their static action or their native import gives them one.

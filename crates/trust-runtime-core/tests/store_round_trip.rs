@@ -1209,8 +1209,8 @@ impl Rng {
     }
 }
 
-/// Whether this test generates every value of the type: no text leaf, and no `STRUCT OVERLAP` or
-/// union anywhere inside it. Random members of an overlay would disagree about their shared bits, so
+/// Whether this test generates every value of the type: no text leaf, and no `STRUCT OVERLAP`
+/// anywhere inside it. Random members of an overlay would disagree about their shared bits, so
 /// its values are written by hand in [`a_struct_overlap_is_written_as_its_backing`].
 fn convertible(prepared: &PreparedModule, type_id: u32) -> bool {
     let Some(layout) = prepared.type_layout(type_id) else {
@@ -1220,7 +1220,8 @@ fn convertible(prepared: &PreparedModule, type_id: u32) -> bool {
     layout.text_leaves.is_empty() && shared_storage_free(prepared, type_id, 0)
 }
 
-/// Whether the type holds no `STRUCT OVERLAP` or union at any depth, following aliases.
+/// Whether the type holds no `STRUCT OVERLAP` at any depth, following aliases. A union keeps every
+/// variant as a member of its own, so its members decide.
 fn shared_storage_free(prepared: &PreparedModule, type_id: u32, depth: usize) -> bool {
     if depth > 32 {
         return false;
@@ -1240,7 +1241,9 @@ fn shared_storage_free(prepared: &PreparedModule, type_id: u32, depth: usize) ->
                     .iter()
                     .all(|field| shared_storage_free(prepared, field.type_id, depth + 1))
         }
-        TypeData::Union { .. } => false,
+        TypeData::Union { fields } => fields
+            .iter()
+            .all(|field| shared_storage_free(prepared, field.type_id, depth + 1)),
         TypeData::Array { elem_type_id, .. } => {
             shared_storage_free(prepared, *elem_type_id, depth + 1)
         }

@@ -207,7 +207,7 @@ impl EngineState<'_> {
         type_id: u32,
         ordinal: usize,
     ) -> Result<ByteRange, RuntimeError> {
-        let Some(TypeData::Struct { fields }) =
+        let Some(TypeData::Struct { fields } | TypeData::Union { fields }) =
             resolve(self.prepared, type_id).map(|entry| &entry.data)
         else {
             return Err(RuntimeError::TypeMismatch);
@@ -300,7 +300,7 @@ impl EngineState<'_> {
             TypeData::Struct { .. } if layout.overlay.is_some() => {
                 self.charge_slot_texts(reader, range, type_id, rule, depth)
             }
-            TypeData::Struct { fields } => {
+            TypeData::Struct { fields } | TypeData::Union { fields } => {
                 for (field, member) in fields.iter().zip(&layout.members) {
                     if !holds_text(self.prepared, field.type_id) {
                         continue;
@@ -462,7 +462,7 @@ impl EngineState<'_> {
                     self.visit_place_node(*elem_type_id, depth + 1)?;
                 }
             }
-            Some(TypeData::Struct { fields }) => {
+            Some(TypeData::Struct { fields } | TypeData::Union { fields }) => {
                 for field in fields {
                     self.visit_place_node(field.type_id, depth + 1)?;
                 }

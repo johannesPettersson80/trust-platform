@@ -46,7 +46,7 @@ impl CellsView<'_> {
             TypeData::Struct { .. } if self.overlay_layout(resolved).is_some() => {
                 self.overlay_copy_charge(range, resolved, 0, 0, depth)
             }
-            TypeData::Struct { fields } => {
+            TypeData::Struct { fields } | TypeData::Union { fields } => {
                 let layout = self
                     .prepared
                     .type_layout(resolved)
@@ -112,10 +112,7 @@ impl CellsView<'_> {
             },
             // An instance is one cell and copies nothing, as the `Value` instance does.
             TypeData::Pou { .. } | TypeData::Interface { .. } => Ok(CopyCharge::default()),
-            // A union is not stored in cells yet (C1-15).
-            TypeData::Union { .. } | TypeData::Alias { .. } => {
-                Err(RuntimeError::InvalidExecutionState)
-            }
+            TypeData::Alias { .. } => Err(RuntimeError::InvalidExecutionState),
         }
     }
 
@@ -142,7 +139,7 @@ impl CellsView<'_> {
             TypeData::Struct { .. } if self.overlay_layout(resolved).is_some() => {
                 self.overlay_copy_work(range, resolved, 0, 0, depth, charge)
             }
-            TypeData::Struct { fields } => {
+            TypeData::Struct { fields } | TypeData::Union { fields } => {
                 let layout = self
                     .prepared
                     .type_layout(resolved)
@@ -201,9 +198,7 @@ impl CellsView<'_> {
                 None => Ok(()),
             },
             TypeData::Pou { .. } | TypeData::Interface { .. } => Ok(()),
-            TypeData::Union { .. } | TypeData::Alias { .. } => {
-                Err(RuntimeError::InvalidExecutionState)
-            }
+            TypeData::Alias { .. } => Err(RuntimeError::InvalidExecutionState),
         }
     }
 
@@ -293,10 +288,13 @@ impl CopyCharge {
 }
 
 /// Whether `type_id` is a structure or an array, which a copy takes as a compound (not as one leaf):
-/// a structure with a physical layout too, whose value is a structure (C1-15).
+/// a structure with a physical layout too, and a union, whose values are structures (C1-15).
 pub(super) fn is_compound(prepared: &PreparedModule, type_id: u32) -> bool {
     resolve_entry(prepared, type_id).is_some_and(|(_, entry)| {
-        matches!(entry.data, TypeData::Array { .. } | TypeData::Struct { .. })
+        matches!(
+            entry.data,
+            TypeData::Array { .. } | TypeData::Struct { .. } | TypeData::Union { .. }
+        )
     })
 }
 
@@ -538,8 +536,9 @@ impl<'a> CellsView<'a> {
     /// Whether `type_id` is a structure: one cell range per member, or a backing with the members
     /// beside it for a structure with a physical layout (C1-15).
     pub(crate) fn is_struct(self, type_id: u32) -> bool {
-        resolve_entry(self.prepared, type_id)
-            .is_some_and(|(_, entry)| matches!(entry.data, TypeData::Struct { .. }))
+        resolve_entry(self.prepared, type_id).is_some_and(|(_, entry)| {
+            matches!(entry.data, TypeData::Struct { .. } | TypeData::Union { .. })
+        })
     }
 
     /// Whether `type_id` is a structure that declares a member named `name`, as the `Value` structure
@@ -548,7 +547,7 @@ impl<'a> CellsView<'a> {
         let Some((resolved, entry)) = resolve_entry(self.prepared, type_id) else {
             return false;
         };
-        if !matches!(entry.data, TypeData::Struct { .. }) {
+        if !matches!(entry.data, TypeData::Struct { .. } | TypeData::Union { .. }) {
             return false;
         }
         self.prepared.type_layout(resolved).is_some_and(|layout| {
@@ -601,7 +600,9 @@ impl<'a> CellsView<'a> {
         let (resolved, entry) =
             resolve_entry(self.prepared, type_id).ok_or(RuntimeError::InvalidExecutionState)?;
         match &entry.data {
-            TypeData::Struct { fields } if self.overlay_layout(resolved).is_none() => {
+            TypeData::Struct { fields } | TypeData::Union { fields }
+                if self.overlay_layout(resolved).is_none() =>
+            {
                 Ok(Some(fields.len()))
             }
             TypeData::Array { .. } => {
@@ -617,9 +618,7 @@ impl<'a> CellsView<'a> {
                     element_count(&array.dims).ok_or(RuntimeError::InvalidExecutionState)?;
                 Ok(Some(count))
             }
-            TypeData::Struct { .. } | TypeData::Union { .. } => {
-                Err(RuntimeError::InvalidExecutionState)
-            }
+            TypeData::Struct { .. } => Err(RuntimeError::InvalidExecutionState),
             _ => Ok(None),
         }
     }
@@ -640,7 +639,9 @@ impl<'a> CellsView<'a> {
             .type_layout(resolved)
             .ok_or(RuntimeError::InvalidExecutionState)?;
         let (offset, child_type) = match &entry.data {
-            TypeData::Struct { fields } if self.overlay_layout(resolved).is_none() => {
+            TypeData::Struct { fields } | TypeData::Union { fields }
+                if self.overlay_layout(resolved).is_none() =>
+            {
                 let member = layout
                     .members
                     .get(ordinal)

@@ -819,8 +819,8 @@ impl Leaves {
     }
 
     /// Add the reference leaves of one value of `type_id` placed at byte `base`. Arrays expand per
-    /// element and structures per member, so each leaf occurrence is counted once (O10). Unions and
-    /// overlapping structures hold no leaves here: C1-15 places them (specification 34 §6.2).
+    /// element and structures and unions per member, so each leaf occurrence is counted once (O10). A
+    /// structure with a physical layout holds its references beside its backing (C1-15).
     fn add_value(
         &mut self,
         prepared: &PreparedModule,
@@ -856,7 +856,7 @@ impl Leaves {
                     )?;
                 }
             }
-            TypeData::Struct { fields } => match &layout.overlay {
+            TypeData::Struct { fields } | TypeData::Union { fields } => match &layout.overlay {
                 // A structure with a physical layout holds its references beside its backing
                 // (C1-15).
                 Some(overlay) => {
@@ -911,7 +911,9 @@ impl DefaultWriter<'_> {
             TypeData::Alias { target_type_id } => {
                 self.write(bytes, *target_type_id, start, depth + 1)
             }
-            TypeData::Struct { fields } if layout_of(prepared, type_id)?.overlay.is_none() => {
+            TypeData::Struct { fields } | TypeData::Union { fields }
+                if layout_of(prepared, type_id)?.overlay.is_none() =>
+            {
                 let layout = layout_of(prepared, type_id)?;
                 for (member, field) in layout.members.iter().zip(fields) {
                     let size = layout_of(prepared, field.type_id)?.shape.bytes;

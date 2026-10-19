@@ -14,9 +14,10 @@
 //! - [`byte_offset`](crate::memory::cells::byte_offset) maps a member-and-index path to a byte
 //!   offset within a value of its type (C1-10).
 //!
-//! A `STRUCT OVERLAP` is held as its backing bytes, read back with its members decoded from them
-//! (C1-15); a union is not converted, and its refusal names the type and the reason. A text leaf
-//! holds its length and its characters inline, cut where assignment normalization cuts it.
+//! A `STRUCT OVERLAP`, and every structure nested in one, is held as its backing bytes with the
+//! members that have no bits there beside it, read back with its members decoded from them; a union
+//! is held as a structure its variants (C1-15). A text leaf holds its length and its characters
+//! inline, cut where assignment normalization cuts it.
 
 use alloc::format;
 
@@ -48,10 +49,6 @@ const REFERENCE_REASON: &str = "a non-null reference is held by its region's ref
 pub(super) const REFERENCE_TARGET_REASON: &str =
     "a reference leaf's target is in its region's reference table";
 
-/// Why a union is refused here (C1-15).
-pub(super) const UNION_REASON: &str =
-    "a union's members share their bytes; C1-15 owns shared storage";
-
 /// Why a value of another structure type is refused.
 const STRUCTURE_NAME_REASON: &str = "the value's type name is not the structure's";
 
@@ -72,9 +69,6 @@ pub(super) const REFERENCE_LEAF: &str = "REFERENCE";
 
 /// The leaf name of a `STRUCT OVERLAP`.
 pub(super) const OVERLAP_LEAF: &str = "OVERLAP";
-
-/// The leaf name of a union.
-pub(super) const UNION_LEAF: &str = "UNION";
 
 /// The text primitive encodings (`STRING` and `WSTRING`).
 const TEXT_PRIMITIVES: [u16; 2] = [24, 25];
@@ -97,8 +91,9 @@ pub(super) const WSTRING_PRIMITIVE: u16 = 25;
 /// reason, when a value's kind is not the type's, when a structure is missing a member or carries
 /// one the type does not declare, when an array's bounds or element count are not the type's, and
 /// when `bytes` is not the layout's length. A non-null reference, which a region's reference table
-/// holds, and a union (C1-15) are refused. A `STRUCT OVERLAP` is written as its backing. The check
-/// runs before the first write, so a refusal leaves the bytes as they were.
+/// holds, is refused, and so is a structure with a physical layout whose members disagree about
+/// their shared bits. A `STRUCT OVERLAP` is written as its backing (C1-15). The check runs before
+/// the first write, so a refusal leaves the bytes as they were.
 pub fn write_value(
     bytes: &mut [u8],
     type_id: u32,
@@ -165,8 +160,7 @@ pub(crate) fn write_enum_in(
 /// Refused with [`RuntimeError::InitFailed`], naming the type, the refused leaf and the reason,
 /// when a leaf does not hold a value of the type, when an enumeration names no variant of its type,
 /// when `bytes` is not the layout's length, and for a reference that holds a reference, which only
-/// a region's table can read, and the overlapping structures and unions (C1-15) [`write_value`]
-/// refuses.
+/// a region's table can read.
 pub fn read_value(
     bytes: &[u8],
     type_id: u32,
@@ -203,7 +197,7 @@ pub fn byte_offset(type_id: u32, path: &[RefSegment], prepared: &PreparedModule)
         rest = after;
         match segment {
             RefSegment::Field(name) => {
-                let TypeData::Struct { fields } = &entry.data else {
+                let (TypeData::Struct { fields } | TypeData::Union { fields }) = &entry.data else {
                     return None;
                 };
                 let layout = prepared.type_layout(resolved)?;
@@ -259,8 +253,6 @@ pub(super) enum Shape {
     /// A structure with a physical layout (a `STRUCT OVERLAP` or a structure nested in one) of this
     /// resolved type, held as its backing and the members beside it (C1-15).
     Overlay(u32),
-    /// A union, whose members share their bytes (C1-15).
-    Union,
     /// An array of this element type.
     Array(u32),
 }
@@ -340,7 +332,6 @@ pub(crate) fn check_value(
         Shape::Overlay(overlay) => {
             overlay::check(type_id, overlay, value, prepared, accept_references)
         }
-        Shape::Union => Err(refusal(prepared, type_id, UNION_LEAF, UNION_REASON)),
     }
 }
 
@@ -411,7 +402,9 @@ fn check_structure(
     prepared: &PreparedModule,
     accept_references: bool,
 ) -> Result<(), RuntimeError> {
-    let TypeData::Struct { fields } = &type_entry(prepared, struct_type)?.data else {
+    let (TypeData::Struct { fields } | TypeData::Union { fields }) =
+        &type_entry(prepared, struct_type)?.data
+    else {
         return Err(RuntimeError::InvalidExecutionState);
     };
     let Value::Struct(structure) = value else {
@@ -570,7 +563,6 @@ fn store_value(
         Shape::Overlay(overlay) => {
             overlay::store(bytes, overlay, value, prepared, references, start)?
         }
-        Shape::Union => return Err(RuntimeError::InvalidExecutionState),
     }
     Ok(())
 }
@@ -697,7 +689,9 @@ fn store_structure(
     start: u32,
 ) -> Result<(), RuntimeError> {
     let layout = layout_of(prepared, type_id)?;
-    let TypeData::Struct { fields } = &type_entry(prepared, struct_type)?.data else {
+    let (TypeData::Struct { fields } | TypeData::Union { fields }) =
+        &type_entry(prepared, struct_type)?.data
+    else {
         return Err(RuntimeError::InvalidExecutionState);
     };
     let Value::Struct(structure) = value else {
@@ -801,7 +795,8 @@ pub(super) fn shape(prepared: &PreparedModule, type_id: u32) -> Result<Shape, Ru
             Shape::Overlay(resolved)
         }
         TypeData::Struct { .. } => Shape::Structure(resolved),
-        TypeData::Union { .. } => Shape::Union,
+        // A union keeps every variant, so it lies as a structure its members (C1-15).
+        TypeData::Union { .. } => Shape::Structure(resolved),
         TypeData::Array { elem_type_id, .. } => Shape::Array(*elem_type_id),
         TypeData::Reference { .. } => Shape::Reference,
         TypeData::Pou { .. } | TypeData::Interface { .. } => Shape::Instance,

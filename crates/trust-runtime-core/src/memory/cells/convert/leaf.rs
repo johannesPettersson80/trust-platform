@@ -13,7 +13,7 @@ use alloc::format;
 use super::read::read_scalar;
 use super::{
     check_slice_length, element_count, enumeration_kind, layout_of, refusal, shape, string,
-    text_geometry, type_entry, Shape, KIND_REASON, UNION_LEAF, UNION_REASON,
+    text_geometry, type_entry, Shape, KIND_REASON,
 };
 use crate::bytecode::TypeData;
 use crate::error::RuntimeError;
@@ -105,7 +105,6 @@ pub(crate) fn leaf_in<'a>(
             Ok(CellLeaf::Text { wide, bytes })
         }
         Shape::Overlay(_) => Ok(CellLeaf::Overlay),
-        Shape::Union => Err(refusal(prepared, type_id, UNION_LEAF, UNION_REASON)),
     }
 }
 
@@ -174,7 +173,9 @@ fn structure_leaf(
     prepared: &PreparedModule,
 ) -> Result<CellLeaf<'_>, RuntimeError> {
     let layout = layout_of(prepared, type_id)?;
-    let TypeData::Struct { fields } = &type_entry(prepared, struct_type)?.data else {
+    let (TypeData::Struct { fields } | TypeData::Union { fields }) =
+        &type_entry(prepared, struct_type)?.data
+    else {
         return Err(RuntimeError::InvalidExecutionState);
     };
     if layout.members.len() != fields.len() {

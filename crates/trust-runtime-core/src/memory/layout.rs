@@ -426,23 +426,15 @@ impl Computation<'_> {
                     cursor.finish(&mut layout)?;
                 }
             }
+            // A union keeps every variant as a member of its own (specification 02 §3.7), so it lies
+            // as a structure its members; `SIZEOF` keeps its largest variant (C1-15).
             TypeData::Union { fields } => {
-                let mut shape = ByteShape::default();
+                let mut cursor = MemberCursor::default();
                 for field in fields {
                     let child = self.compute_child(field.type_id, depth)?;
-                    layout.members.push(MemberLayout {
-                        name_idx: field.name_idx,
-                        byte_offset: 0,
-                    });
-                    extend_leaves(&mut layout, &child, 0)?;
-                    shape.bytes = shape.bytes.max(child.shape.bytes);
-                    shape.align = shape.align.max(child.shape.align);
+                    cursor.place(&mut layout, &child, field.name_idx)?;
                 }
-                // A union reserves its largest variant, aligned to its most aligned one.
-                layout.shape = ByteShape {
-                    bytes: align_up(shape.bytes, shape.align)?,
-                    align: shape.align,
-                };
+                cursor.finish(&mut layout)?;
             }
             TypeData::Reference { target_type_id } => {
                 layout.reference_leaves.push(ReferenceLeaf {

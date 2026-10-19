@@ -46,7 +46,7 @@ const RETAIN: &[u8] =
     include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/retain/program.stbc");
 
 /// Every program of the bounded-C corpus and the three saved artifacts the boards run, by name.
-const CORPUS: [(&str, &[u8]); 22] = [
+const CORPUS: [(&str, &[u8]); 23] = [
     ("scalar", SCALAR),
     (
         "gpio",
@@ -115,6 +115,10 @@ const CORPUS: [(&str, &[u8]); 22] = [
     (
         "overlays",
         include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/overlays/program.stbc"),
+    ),
+    (
+        "unions",
+        include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/unions/program.stbc"),
     ),
     (
         "saved/main",

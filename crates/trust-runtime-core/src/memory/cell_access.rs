@@ -1302,7 +1302,7 @@ impl<'a> CellReader<'a> {
             return self.path_to(child, slot.type_id, offset, target_type, path, depth + 1);
         }
         match data {
-            TypeData::Struct { fields } => {
+            TypeData::Struct { fields } | TypeData::Union { fields } => {
                 for (member, field) in layout.members.iter().zip(fields) {
                     let bytes = self.prepared.type_layout(field.type_id)?.shape.bytes;
                     if delta >= member.byte_offset && delta - member.byte_offset < bytes {
@@ -1613,7 +1613,7 @@ fn is_instance(prepared: &PreparedModule, type_id: u32) -> bool {
 fn step(prepared: &PreparedModule, type_id: u32, segment: &RefSegment) -> Option<(u32, u32)> {
     let (resolved, data) = resolve_alias(prepared, type_id)?;
     match (segment, data) {
-        (RefSegment::Field(name), TypeData::Struct { fields }) => {
+        (RefSegment::Field(name), TypeData::Struct { fields } | TypeData::Union { fields }) => {
             let layout = prepared.type_layout(resolved)?;
             let ordinal = layout
                 .members

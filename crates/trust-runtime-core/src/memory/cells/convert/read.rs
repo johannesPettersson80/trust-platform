@@ -11,7 +11,7 @@ use smol_str::SmolStr;
 use super::{
     check_slice_length, element_count, element_offset, enumeration_kind, layout_of, offset_by,
     part, refusal, shape, string, text_geometry, type_entry, value_type_name, Shape, KIND_REASON,
-    REFERENCE_LEAF, REFERENCE_TARGET_REASON, UNION_LEAF, UNION_REASON,
+    REFERENCE_LEAF, REFERENCE_TARGET_REASON,
 };
 use crate::bytecode::TypeData;
 use crate::collections::OrderedMap;
@@ -62,7 +62,6 @@ pub(super) fn read_one(
         Shape::Overlay(overlay) => {
             super::overlay::read(overlay, bytes, prepared, references, start)
         }
-        Shape::Union => Err(refusal(prepared, type_id, UNION_LEAF, UNION_REASON)),
     }
 }
 
@@ -168,7 +167,9 @@ fn read_structure(
     start: u32,
 ) -> Result<Value, RuntimeError> {
     let layout = layout_of(prepared, type_id)?;
-    let TypeData::Struct { fields } = &type_entry(prepared, struct_type)?.data else {
+    let (TypeData::Struct { fields } | TypeData::Union { fields }) =
+        &type_entry(prepared, struct_type)?.data
+    else {
         return Err(RuntimeError::InvalidExecutionState);
     };
     let mut members: OrderedMap<SmolStr, Value> = OrderedMap::default();

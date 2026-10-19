@@ -76,7 +76,7 @@ impl RetainedGraph<'_, '_> {
                     self.check_flat_reference(&reference, depth + 1)?;
                 }
             }
-            Some(TypeData::Array { .. } | TypeData::Struct { .. }) => {
+            Some(TypeData::Array { .. } | TypeData::Struct { .. } | TypeData::Union { .. }) => {
                 let count = view.cell_child_count()?.ok_or(RuntimeError::TypeMismatch)?;
                 for ordinal in 0..count {
                     self.owned_cells(target, view.cell_child(ordinal)?, depth + 1)?;
@@ -262,7 +262,7 @@ impl RetainedGraph<'_, '_> {
                     }
                     return Ok(());
                 }
-                Some(TypeData::Array { .. } | TypeData::Struct { .. }) => {
+                Some(TypeData::Array { .. } | TypeData::Struct { .. } | TypeData::Union { .. }) => {
                     let count = view.cell_child_count()?.ok_or(RuntimeError::TypeMismatch)?;
                     for ordinal in 0..count {
                         let child = view.cell_child(ordinal)?;
@@ -328,7 +328,7 @@ fn holds_backing(prepared: &PreparedModule, type_id: u32, depth: usize) -> bool 
     }
     match resolved_data(prepared, type_id) {
         Some(TypeData::Struct { .. }) if prepared.vm.physical_layout_ref(type_id).is_some() => true,
-        Some(TypeData::Struct { fields }) => fields
+        Some(TypeData::Struct { fields } | TypeData::Union { fields }) => fields
             .iter()
             .any(|field| holds_backing(prepared, field.type_id, depth + 1)),
         Some(TypeData::Array { elem_type_id, .. }) => {
@@ -400,7 +400,7 @@ fn references_are_flat(
         Some(TypeData::Reference { .. }) => Ok(view
             .cell_reference()?
             .is_none_or(|reference| matches!(reference.location, MemoryLocation::Flat { .. }))),
-        Some(TypeData::Array { .. } | TypeData::Struct { .. }) => {
+        Some(TypeData::Array { .. } | TypeData::Struct { .. } | TypeData::Union { .. }) => {
             let count = view.cell_child_count()?.ok_or(RuntimeError::TypeMismatch)?;
             for ordinal in 0..count {
                 if !references_are_flat(prepared, view.cell_child(ordinal)?, depth + 1)? {

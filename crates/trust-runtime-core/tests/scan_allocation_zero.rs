@@ -463,7 +463,7 @@ impl Fixture {
 /// Every measured application. Each corpus program runs in a 10 ms task, so each of its scans
 /// activates it once. The saved main and numeric artifacts keep the boards' schedule: 101 scans
 /// from 0 ms to 1,000 ms with a 25 ms task.
-static FIXTURES: [Fixture; 21] = [
+static FIXTURES: [Fixture; 22] = [
     Fixture::saved("saved/main", SAVED_MAIN, 0, 101),
     Fixture::saved("saved/numeric", SAVED_NUMERIC, 0, 101),
     Fixture::saved("saved/gpio", SAVED_GPIO, 10, 20),
@@ -491,6 +491,7 @@ static FIXTURES: [Fixture; 21] = [
     Fixture::corpus("retained_values"),
     Fixture::corpus("copies"),
     Fixture::corpus("overlays"),
+    Fixture::corpus("unions"),
 ];
 
 /// How a fault case makes its scan fail.
@@ -658,7 +659,10 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// leaves, copies it and the structures nested in it, and builds the default of a function's local
 /// overlay, where they lie. Left on the flat store for `structures` and `overlays`: the boxes of
 /// their enumeration values (7 calls each way per scan), measured on the builder on 19 October 2026.
-const CEILINGS: [(&str, usize, Calls); 34] = [
+/// `unions` lays each union out as a structure its variants: its scans write them in place, and the
+/// first scan through its text branch, scan 2, grows the text buffers once, so its ceiling of zero
+/// starts at scan 3.
+const CEILINGS: [(&str, usize, Calls); 35] = [
     ("faults/division", 2, Calls::ZERO),
     ("faults/index", 2, Calls::ZERO),
     ("faults/null", 2, Calls::ZERO),
@@ -759,6 +763,7 @@ const CEILINGS: [(&str, usize, Calls); 34] = [
             dealloc: 7,
         },
     ),
+    ("cells/unions", 3, Calls::ZERO),
 ];
 
 /// The ceilings are asserted on the chips' stack executor and printed with the register tier.

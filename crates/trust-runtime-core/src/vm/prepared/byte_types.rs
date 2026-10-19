@@ -41,8 +41,10 @@ pub(crate) fn is_compound(prepared: &PreparedModule, type_id: u32) -> bool {
 /// as a value.
 pub(crate) fn copies_as_bytes(prepared: &PreparedModule, type_id: u32) -> bool {
     resolve(prepared, type_id).is_some_and(|entry| {
-        matches!(entry.data, TypeData::Array { .. } | TypeData::Struct { .. })
-            && plain(prepared, type_id, 0)
+        matches!(
+            entry.data,
+            TypeData::Array { .. } | TypeData::Struct { .. } | TypeData::Union { .. }
+        ) && plain(prepared, type_id, 0)
             || text_primitive(prepared, type_id).is_some()
     })
 }
@@ -96,6 +98,10 @@ fn plain(prepared: &PreparedModule, type_id: u32, depth: usize) -> bool {
                     .iter()
                     .all(|field| plain(prepared, field.type_id, depth + 1))
         }
+        // A union keeps every variant as a member of its own (C1-15).
+        TypeData::Union { fields } => fields
+            .iter()
+            .all(|field| plain(prepared, field.type_id, depth + 1)),
         _ => false,
     }
 }
