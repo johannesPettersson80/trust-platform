@@ -186,6 +186,39 @@ pub trait ReferenceContext {
     ) -> Result<(), crate::error::RuntimeError> {
         Ok(())
     }
+    /// The bytes of `place`, which a call that leaves it on the operand stack copies for the store
+    /// that comes after the call (C1-19b). `None`, the default, has the place read into its value.
+    fn place_copy(&self, _place: super::Place) -> Option<&[u8]> {
+        None
+    }
+    /// Charge what normalizing the value the copy `bytes` of `place` stands for to its own type
+    /// charges, as [`ReferenceContext::charge_place_normalization`] charges it for the place
+    /// (C1-19b).
+    fn charge_copy_normalization(
+        &self,
+        _bytes: &[u8],
+        _place: super::Place,
+    ) -> Result<(), crate::error::RuntimeError> {
+        Ok(())
+    }
+    /// The value of `type_id` that the copy `bytes` stands for, as a read of the place it was
+    /// copied from gives it (C1-19b). Only a composition that copies places is asked.
+    fn copy_value(
+        &self,
+        _bytes: &[u8],
+        _type_id: u32,
+    ) -> Result<Value, crate::error::RuntimeError> {
+        Err(crate::error::RuntimeError::InvalidExecutionState)
+    }
+    /// Write the copy `bytes` to `destination` as [`ReferenceContext::copy_place`] copies a place
+    /// there (C1-19b); `Ok(false)` when the block refuses the destination.
+    fn write_copy(
+        &mut self,
+        _bytes: &[u8],
+        _destination: super::PlaceDestination,
+    ) -> Result<bool, crate::error::RuntimeError> {
+        Ok(false)
+    }
     /// Store `text`, a `WSTRING` when `wide`, through `reference` into a text leaf of the flat
     /// store, normalized to `declared` and checked as a store of its value is, the check first when
     /// `check_first`, as a dynamic store takes them (C1-12). `None` when the store is given the

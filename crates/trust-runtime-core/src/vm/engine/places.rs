@@ -29,6 +29,10 @@ use crate::vm::{Place, PlaceDestination, PlaceNode};
 #[path = "places/backing.rs"]
 mod backing;
 
+/// Copies of the places a call leaves on the operand stack (C1-19b).
+#[path = "places/copies.rs"]
+mod copies;
+
 impl EngineState<'_> {
     /// The place of `view`: an array or a structure in the persistent block whose value a store may
     /// copy as bytes, or a structure there that lies as its backing, or a structure nested in a
@@ -142,7 +146,7 @@ impl EngineState<'_> {
             return Err(RuntimeError::InvalidExecutionState);
         };
         self.charge_texts(
-            reader,
+            (reader, None),
             place.range,
             place.type_id,
             TextRule::Normalization {
@@ -165,7 +169,7 @@ impl EngineState<'_> {
             let Routed::Cells(reader) = self.data.routed(self.prepared) else {
                 return Err(RuntimeError::InvalidExecutionState);
             };
-            self.charge_texts(reader, range, type_id, TextRule::Canonical, 0)?;
+            self.charge_texts((reader, None), range, type_id, TextRule::Canonical, 0)?;
         }
         self.check_place_lifetime(type_id)
     }
@@ -237,10 +241,12 @@ impl EngineState<'_> {
     }
 
     /// The charges of the texts in the value of `type_id` at `range` under `rule`, each text in the
-    /// order a walk of the value reaches it: its elements and its members in order.
+    /// order a walk of the value reaches it: its elements and its members in order. `walk` holds the
+    /// store's reader and, when the walk reads a copy a call made of a place, the copy, whose first
+    /// byte is the walk's offset 0 (C1-19b).
     fn charge_texts(
         &self,
-        reader: CellReader<'_>,
+        walk: (CellReader<'_>, Option<&[u8]>),
         range: ByteRange,
         type_id: u32,
         rule: TextRule,
@@ -256,10 +262,13 @@ impl EngineState<'_> {
             .ok_or(RuntimeError::TypeMismatch)?;
         match &entry.data {
             TypeData::Primitive { prim_id, .. } if TEXT_PRIMITIVES.contains(prim_id) => {
-                let length = reader
-                    .place_view(range, type_id)
-                    .text_utf8_len()?
-                    .ok_or(RuntimeError::InvalidExecutionState)?;
+                let length = match walk {
+                    (reader, None) => reader.place_view(range, type_id).text_utf8_len()?,
+                    (reader, Some(copy)) => reader
+                        .view_cells()
+                        .copied_text_utf8_len(copy, range, type_id)?,
+                }
+                .ok_or(RuntimeError::InvalidExecutionState)?;
                 let units = match rule {
                     TextRule::Normalization {
                         in_structure: false,
@@ -292,13 +301,13 @@ impl EngineState<'_> {
                         bytes,
                         ..range
                     };
-                    self.charge_texts(reader, element, *elem_type_id, rule, depth + 1)?;
+                    self.charge_texts(walk, element, *elem_type_id, rule, depth + 1)?;
                 }
                 Ok(())
             }
             // A structure with a physical layout holds its texts beside its backing (C1-15b).
             TypeData::Struct { .. } if layout.overlay.is_some() => {
-                self.charge_slot_texts(reader, range, type_id, rule, depth)
+                self.charge_slot_texts(walk, range, type_id, rule, depth)
             }
             TypeData::Struct { fields } | TypeData::Union { fields } => {
                 for (field, member) in fields.iter().zip(&layout.members) {
@@ -324,7 +333,7 @@ impl EngineState<'_> {
                         }
                         TextRule::Canonical => TextRule::Canonical,
                     };
-                    self.charge_texts(reader, member, field.type_id, rule, depth + 1)?;
+                    self.charge_texts(walk, member, field.type_id, rule, depth + 1)?;
                 }
                 Ok(())
             }

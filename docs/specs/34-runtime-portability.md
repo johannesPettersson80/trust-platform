@@ -1408,13 +1408,18 @@ buffer's room changes no charge: each segment and each subscript costs what it c
 numbers, bits, characters, texts, times, dates and enumerations, leaves the value where it lies: the
 operand stands for its bytes, and a store into a destination of the same type in the block copies
 them, checked and charged as a write of the value is (TIME-08), its texts' capacity checks included
-(checklist C1-12). A value that holds a reference or an instance, an overlapping or located
-structure or a structure nested in an overlapping one, and a destination that is a local are stored
-as values until their slices (C1-11, C1-15).
-Before an instruction that may write a block or call, other than a call of a built-in text function
-("Texts"), or that pops such an operand as a value, the engine reads it into a value, so a store
-always stores the value its load read, whatever the program wrote in between. An assignment of such
-a value allocates nothing (ARCH-05).
+(checklist C1-12). A structure with a physical layout, an overlapping or a located one, that holds
+no reference is such a value, copied as its cells, and so is a structure nested in one whose members
+all lie in its backing (C1-15b). A value that holds a reference or an instance, and a destination
+that is a local, are stored as values (C1-11).
+Before a call that leaves such an operand on the operand stack, below the arguments the call takes,
+the engine copies the operand's bytes into the stack's temporary area ("Texts"), and a store writes
+the copy where it would have copied the bytes, checked and charged alike, its texts' capacity checks
+read from the copy (checklist C1-19b): `a[F(x)] := b`, where `F` writes `b`, stores the `b` its load
+read. Before any other instruction that may write a block or call, other than a call of a built-in
+text function ("Texts"), or that pops such an operand or a copy as a value, the engine reads it into
+a value, so a store always stores the value its load read, whatever the program wrote in between. An
+assignment of such a value allocates nothing (ARCH-05).
 
 **Enumerations.** On the flat store a load of an enumeration, a variable or a member of an
 overlapping structure, and a load of an enumeration constant push it as its type and the number of
@@ -1429,15 +1434,17 @@ enumeration allocates nothing (ARCH-05).
 `INSERT`, `LEFT`, `LEN`, `MID`, `REPLACE`, `RIGHT`, the cut that assigns a text to a shorter one,
 and a conversion from or to a text) whose arguments are inputs reads each argument where it lies: a
 text in a block, a text an earlier call made, or a value, a `WSTRING` in a block from its code units
-(checklist C1-12). Its text result goes into the text area of the operand stack, which keeps its
-room and gives a text's room back once the text is used, and a `WSTRING` constant is loaded there. A
-conversion reads a number from a text where it lies. A store writes the text into its destination's
-leaf, cut to the leaf's capacity and charged as the store of its value is, and an instruction that
-needs the value reads it into one. A character written into a text (`s[i] := c`) replaces the
-character in the leaf, the text then cut to the leaf's capacity. A function a program registers
-under such a name, a call with an output and a call by name that does not bind one argument to each
-formal bind values as any call does. Every result, charge and refusal is the value store's
-(TIME-08), so such a call allocates nothing once the engine is warm (ARCH-05).
+(checklist C1-12). Its text result goes into the temporary area of the operand stack, which keeps
+its room and gives a text's room back once the text is used, and a `WSTRING` constant is loaded
+there. A conversion reads a number from a text where it lies, and `=` and `<>` compare two texts
+where they lie, as their values compare: equal when both are `STRING`s or both `WSTRING`s with the
+same characters (checklist C1-19b). A store writes the text into its destination's leaf, cut to the
+leaf's capacity and charged as the store of its value is, and an instruction that needs the value
+reads it into one. A character written into a text (`s[i] := c`) replaces the character in the leaf,
+the text then cut to the leaf's capacity. A function a program registers under such a name, a call
+with an output and a call by name that does not bind one argument to each formal bind values as any
+call does. Every result, charge and refusal is the value store's (TIME-08), so such a call allocates
+nothing once the engine is warm (ARCH-05).
 
 **Activation stack.** On the flat store every call's frame lies on the activation stack, on top of
 its caller's (MEM-12; checklist C1-11). Preparation gives each POU a frame layout, every typed

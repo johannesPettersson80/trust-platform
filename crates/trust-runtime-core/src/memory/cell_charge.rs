@@ -318,8 +318,14 @@ fn text_bytes<'a>(
     range: ByteRange,
     type_id: u32,
 ) -> Option<&'a [u8]> {
+    leaf_text(prepared, regions.block(range.region).bytes(range)?, type_id)
+}
+
+/// The characters of the text leaf `leaf` of `type_id`: a `STRING`'s UTF-8 or the bytes of a
+/// `WSTRING`'s code units.
+fn leaf_text<'a>(prepared: &PreparedModule, leaf: &'a [u8], type_id: u32) -> Option<&'a [u8]> {
     let (length, _, wide) = text_geometry(prepared, type_id)?;
-    match flat::read_text(regions.block(range.region).bytes(range)?, length, wide).ok()? {
+    match flat::read_text(leaf, length, wide).ok()? {
         TextBytes::Narrow(text) => Some(text.as_bytes()),
         TextBytes::Wide(units) => Some(units),
     }
@@ -464,6 +470,32 @@ impl<'a> CellsView<'a> {
         text_utf8_length(self.prepared, self.regions, range, type_id, prim_id)
             .map(Some)
             .ok_or(RuntimeError::InvalidExecutionState)
+    }
+
+    /// The UTF-8 length of the text leaf of `type_id` at `range` in `copy`, the bytes of a place a
+    /// call copied, whose ranges start at its first byte, as [`Self::text_utf8_len`] gives it for
+    /// the leaf where it lay (C1-19b). `None` for any other type.
+    pub(crate) fn copied_text_utf8_len(
+        self,
+        copy: &[u8],
+        range: ByteRange,
+        type_id: u32,
+    ) -> Result<Option<usize>, RuntimeError> {
+        let Some(prim_id @ (STRING_PRIMITIVE | WSTRING_PRIMITIVE)) =
+            primitive_of(self.prepared, type_id)
+        else {
+            return Ok(None);
+        };
+        let start = usize::try_from(range.start).map_err(|_| RuntimeError::Overflow)?;
+        let chars = start
+            .checked_add(usize::try_from(range.bytes).map_err(|_| RuntimeError::Overflow)?)
+            .and_then(|end| copy.get(start..end))
+            .and_then(|leaf| leaf_text(self.prepared, leaf, type_id))
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        Ok(Some(match prim_id {
+            STRING_PRIMITIVE => chars.len(),
+            _ => utf8_length_of_utf16(chars),
+        }))
     }
 
     /// The number of characters (Unicode scalar values) of the text leaf at `range` (C1-9d3a): the count

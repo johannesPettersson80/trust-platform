@@ -159,6 +159,26 @@ impl<'e> ReferenceContext for EngineState<'e> {
     fn charge_place_normalization(&self, place: crate::vm::Place) -> Result<(), RuntimeError> {
         EngineState::charge_place_normalization(self, place)
     }
+    fn place_copy(&self, place: crate::vm::Place) -> Option<&[u8]> {
+        EngineState::place_copy(self, place)
+    }
+    fn charge_copy_normalization(
+        &self,
+        bytes: &[u8],
+        place: crate::vm::Place,
+    ) -> Result<(), RuntimeError> {
+        EngineState::charge_copy_normalization(self, bytes, place)
+    }
+    fn copy_value(&self, bytes: &[u8], type_id: u32) -> Result<Value, RuntimeError> {
+        crate::memory::cells::read_value(bytes, type_id, self.prepared)
+    }
+    fn write_copy(
+        &mut self,
+        bytes: &[u8],
+        destination: crate::vm::PlaceDestination,
+    ) -> Result<bool, RuntimeError> {
+        EngineState::write_copy(self, bytes, destination)
+    }
     fn store_text(
         &mut self,
         reference: crate::value::ValueRefView<'_>,

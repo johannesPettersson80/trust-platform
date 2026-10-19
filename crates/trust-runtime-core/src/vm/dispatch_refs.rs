@@ -13,6 +13,10 @@ use super::module::{invalid_bytecode, VmModule, VmRef};
 use super::type_policy::vm_type_for_path;
 use super::{Operand, Place, PlaceDestination};
 
+/// Stores of the copies a call leaves on the operand stack (C1-19b).
+mod copies;
+pub(crate) use copies::{dynamic_store_copy, store_ref_copy};
+
 /// Read a static reference after policy and clone-budget checks.
 #[cfg(any(feature = "hir", feature = "register-ir", test))]
 pub fn load_ref(
@@ -82,7 +86,7 @@ fn view_operand(
 fn value_operand(operand: Operand) -> Result<Value, VmTrap> {
     match operand {
         Operand::Value(value) => Ok(value),
-        Operand::Place(_) | Operand::Text(_) | Operand::Enum(_) => {
+        Operand::Place(_) | Operand::Text(_) | Operand::Enum(_) | Operand::Copy(_) => {
             Err(VmTrap::Runtime(RuntimeError::InvalidExecutionState))
         }
     }
@@ -410,7 +414,8 @@ pub(crate) fn store_ref_place(
         let declared = module.ref_type(ref_idx);
         let order = StoreOrder::NormalizeFirst;
         if let Some(destination) = runtime.place_destination(address, place, declared) {
-            return copy_place_to(runtime, address, place, destination, declared, order);
+            let source = (place, None);
+            return copy_place_to(runtime, address, source, destination, declared, order);
         }
     }
     let value = materialize_place(runtime, place).map_err(VmTrap::Runtime)?;
@@ -432,7 +437,8 @@ pub(crate) fn dynamic_store_place(
         let address = reference.as_view();
         let order = StoreOrder::CheckFirst;
         if let Some(destination) = runtime.place_destination(address, place, declared) {
-            return copy_place_to(runtime, address, place, destination, declared, order);
+            let source = (place, None);
+            return copy_place_to(runtime, address, source, destination, declared, order);
         }
     }
     let value = materialize_place(runtime, place).map_err(VmTrap::Runtime)?;
@@ -449,20 +455,23 @@ enum StoreOrder {
 
 /// Check a write of `place` through `reference` as a write of its value is checked, and charge the
 /// normalization of that value to `declared` in the order the store's value path takes, then copy
-/// its bytes to `destination`. A value of the destination's type is normalized unchanged, so only
-/// its texts' capacity checks are charged, and the cell write it replaces charges nothing beyond
-/// the check (TIME-08; C1-12).
+/// its bytes to `destination`, or the copy `copy` a call made of them (C1-19b). A value of the
+/// destination's type is normalized unchanged, so only its texts' capacity checks are charged, and
+/// the cell write it replaces charges nothing beyond the check (TIME-08; C1-12).
 fn copy_place_to(
     runtime: &mut impl ReferenceContext,
     reference: ValueRefView<'_>,
-    place: Place,
+    (place, copy): (Place, Option<&[u8]>),
     destination: PlaceDestination,
     declared: Option<u32>,
     order: StoreOrder,
 ) -> Result<(), VmTrap> {
-    let normalize = |runtime: &mut _| match declared {
-        Some(_) => ReferenceContext::charge_place_normalization(runtime, place),
-        None => Ok(()),
+    let normalize = |runtime: &mut _| match (declared, copy) {
+        (None, _) => Ok(()),
+        (Some(_), None) => ReferenceContext::charge_place_normalization(runtime, place),
+        (Some(_), Some(bytes)) => {
+            ReferenceContext::charge_copy_normalization(runtime, bytes, place)
+        }
     };
     if order == StoreOrder::NormalizeFirst {
         normalize(runtime).map_err(VmTrap::Runtime)?;
@@ -473,10 +482,11 @@ fn copy_place_to(
     if order == StoreOrder::CheckFirst {
         normalize(runtime).map_err(VmTrap::Runtime)?;
     }
-    if runtime
-        .copy_place(place, destination)
-        .map_err(VmTrap::Runtime)?
-    {
+    let written = match copy {
+        None => runtime.copy_place(place, destination),
+        Some(bytes) => runtime.write_copy(bytes, destination),
+    };
+    if written.map_err(VmTrap::Runtime)? {
         Ok(())
     } else {
         Err(VmTrap::NullReference)

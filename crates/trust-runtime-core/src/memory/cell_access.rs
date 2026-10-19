@@ -369,6 +369,38 @@ impl CellArm {
         true
     }
 
+    /// Write `bytes`, a copy of a value the operand stack keeps, over `destination` and mark the
+    /// presence byte at `presence`, when the destination's declaration keeps one, as holding a value
+    /// (specification 34 MEM-12; C1-19b). `false`, and nothing changed, when the block refuses
+    /// either range or `bytes` is not as long as `destination`.
+    pub(crate) fn write_copy(
+        &mut self,
+        destination: ByteRange,
+        presence: Option<u32>,
+        bytes: &[u8],
+    ) -> bool {
+        let (block, _) = self.cells.regions_mut().block_mut(destination.region);
+        let flag = presence.map(|start| ByteRange {
+            start,
+            bytes: 1,
+            ..destination
+        });
+        if flag.is_some_and(|flag| block.bytes(flag).is_none()) {
+            return false;
+        }
+        let Some(target) = block
+            .bytes_mut(destination)
+            .filter(|target| target.len() == bytes.len())
+        else {
+            return false;
+        };
+        target.copy_from_slice(bytes);
+        if let Some(byte) = flag.and_then(|flag| block.bytes_mut(flag)) {
+            byte[0] = 1;
+        }
+        true
+    }
+
     /// Write `text`, UTF-8, into the text leaf at `range` with the length field of `length` bytes and
     /// room for `capacity` bytes of characters, cut to the last whole character that fits, a
     /// `WSTRING`'s (`wide`) as UTF-16 code units, and mark the presence byte at `presence`, when the

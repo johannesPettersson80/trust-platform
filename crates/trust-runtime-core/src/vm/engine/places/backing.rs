@@ -46,13 +46,13 @@ impl EngineState<'_> {
     /// `range`, as the members of a structure, in the order a walk of its value reaches them.
     pub(super) fn charge_slot_texts(
         &self,
-        reader: CellReader<'_>,
+        walk: (CellReader<'_>, Option<&[u8]>),
         range: ByteRange,
         type_id: u32,
         rule: TextRule,
         depth: usize,
     ) -> Result<(), RuntimeError> {
-        let cells = reader.view_cells();
+        let cells = walk.0.view_cells();
         let placed = cells
             .node_cells(range, type_id, None)
             .ok_or(RuntimeError::InvalidExecutionState)?;
@@ -65,7 +65,7 @@ impl EngineState<'_> {
                 .beside_backing(range, type_id, index)
                 .ok_or(RuntimeError::InvalidExecutionState)?;
             if holds_text(self.prepared, member_type) {
-                self.charge_texts(reader, member, member_type, rule, depth + 1)?;
+                self.charge_texts(walk, member, member_type, rule, depth + 1)?;
             }
         }
         Ok(())
@@ -242,7 +242,7 @@ impl EngineState<'_> {
                     .beside_backing(node.root, node.root_type, index)
                     .ok_or(RuntimeError::InvalidExecutionState)?;
                 if holds_text(self.prepared, member_type) {
-                    self.charge_texts(reader, member, member_type, TextRule::Canonical, 1)?;
+                    self.charge_texts((reader, None), member, member_type, TextRule::Canonical, 1)?;
                 }
             }
         }

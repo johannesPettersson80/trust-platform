@@ -1,10 +1,11 @@
 (* Bounded-C corpus, copies: assignments of whole arrays, structures and texts, which the flat store
    copies as bytes (specification 34 MEM-12; C1-10c, C1-12). An array to an array, a structure
    through dynamic indices on both sides, an array of structures, a global structure from an
-   element, a structure that holds an array and an enumeration, a structure that holds a text, a
-   copy whose source a call changes between the load and the store, which stores the value the
-   load read, and texts: one of the same type, one cut into a shorter STRING, one cut into a shorter
-   WSTRING and one cut into a structure's member through a dynamic reference. *)
+   element, a structure that holds an array and an enumeration, a structure that holds a text, two
+   copies whose source a call changes between the load and the store, which store the value the
+   load read (a structure of numbers and one that holds a text, C1-19b), and texts: one of the same
+   type, one cut into a shorter STRING, one cut into a shorter WSTRING and one cut into a
+   structure's member through a dynamic reference. *)
 TYPE Mode : (Idle, Run, Stop);
 END_TYPE
 
@@ -40,6 +41,14 @@ VAR_IN_OUT
 END_VAR
 target := target + DINT#100;
 Bump := INT#2;
+END_FUNCTION
+
+FUNCTION Flip : INT
+VAR_IN_OUT
+    target : INT;
+END_VAR
+target := -target;
+Flip := INT#2;
 END_FUNCTION
 
 PROGRAM Copies
@@ -78,6 +87,7 @@ pairs[Bump(target := pairs[1].a)] := pairs[1];
 tags[1].id := tags[1].id + INT#1;
 tags[1].name := 'pump';
 tags[2] := tags[1];
+tags[Flip(target := tags[1].id)] := tags[1];
 label_copy := label;
 short := label;
 wide_short := wide;

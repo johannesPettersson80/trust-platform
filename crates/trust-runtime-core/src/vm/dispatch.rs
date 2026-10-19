@@ -12,10 +12,10 @@ use super::dispatch_ops::{
     apply_jump, execute_binary, execute_unary, read_i32, read_u32, reference_equality,
 };
 use super::dispatch_refs::{
-    dynamic_load_operand, dynamic_ref_field, dynamic_ref_index, dynamic_store_enum,
-    dynamic_store_place, dynamic_store_ref, dynamic_store_text, index_to_i64, load_ref_addr,
-    load_ref_operand, materialize_place, pop_reference, store_ref, store_ref_enum, store_ref_place,
-    store_ref_text,
+    dynamic_load_operand, dynamic_ref_field, dynamic_ref_index, dynamic_store_copy,
+    dynamic_store_enum, dynamic_store_place, dynamic_store_ref, dynamic_store_text, index_to_i64,
+    load_ref_addr, load_ref_operand, materialize_place, pop_reference, store_ref, store_ref_copy,
+    store_ref_enum, store_ref_place, store_ref_text,
 };
 use super::dispatch_sizeof::sizeof_type_from_table_with_abi;
 use super::module::VmModule;
@@ -451,14 +451,34 @@ fn execute_with_buffers(
         } else {
             None
         };
+        let call_operands = if opcode == 0x09 {
+            call_operands(module, cursor.pc)
+        } else {
+            None
+        };
         if operand_stack.places() != 0
             && text_call.is_none()
             && !keeps_places(opcode, operand_stack)
+            // `=` and `<>` compare two texts where they lie (C1-19b).
+            && !(matches!(opcode, 0x50 | 0x51)
+                && super::dispatch_text::texts_on_top(&*runtime, operand_stack))
         {
+            // A place a call leaves on the stack keeps the bytes its load read as a copy, whatever
+            // the call writes (C1-19b).
+            if let Some(own) = call_operands {
+                let reader = &*runtime;
+                operand_stack
+                    .detach_places(own, move |place| reader.place_copy(place))
+                    .map_err(VmTrap::into_runtime_error)?;
+            }
             operand_stack.materialize_places(|place| materialize_place(&*runtime, place))?;
         }
         if operand_stack.enums() != 0 && !keeps_enums(opcode, operand_stack) {
             operand_stack.materialize_enums(|temp| runtime.enum_value(temp))?;
+        }
+        if operand_stack.copies() != 0 && !keeps_copies(opcode, operand_stack, call_operands) {
+            operand_stack
+                .materialize_copies(|bytes, type_id| runtime.copy_value(bytes, type_id))?;
         }
 
         match opcode {
@@ -707,6 +727,7 @@ fn execute_with_buffers(
                     runtime.recycle_reference_path(reference.path);
                 }
                 Operand::Text(temp) => operand_stack.release_text(temp),
+                Operand::Copy(temp) => operand_stack.release_copy(temp),
                 _ => {}
             },
             0x13 => operand_stack
@@ -739,6 +760,13 @@ fn execute_with_buffers(
                             store_ref_text(runtime, module, frames, ref_idx, text, temp.wide())
                         });
                         operand_stack.release_text(temp);
+                        stored
+                    }
+                    Operand::Copy(temp) => {
+                        let stored = operand_stack.copy_bytes(temp).and_then(|bytes| {
+                            store_ref_copy(runtime, module, frames, ref_idx, bytes, temp.place())
+                        });
+                        operand_stack.release_copy(temp);
                         stored
                     }
                 }
@@ -863,6 +891,20 @@ fn execute_with_buffers(
                             )
                         });
                         operand_stack.release_text(temp);
+                        stored
+                    }
+                    Operand::Copy(temp) => {
+                        let stored = operand_stack.copy_bytes(temp).and_then(|bytes| {
+                            dynamic_store_copy(
+                                runtime,
+                                module,
+                                frames,
+                                &reference,
+                                bytes,
+                                temp.place(),
+                            )
+                        });
+                        operand_stack.release_copy(temp);
                         stored
                     }
                 }
@@ -1014,13 +1056,16 @@ fn execute_with_buffers(
     }
 }
 
-/// Push the operand a load gave: a value or a place. A load gives no temporary text.
+/// Push the operand a load gave: a value, a place or an enumeration. A load gives no temporary text
+/// and no copy.
 fn push_loaded(stack: &mut OperandStack, operand: Operand) -> Result<(), VmTrap> {
     match operand {
         Operand::Value(value) => stack.push(value),
         Operand::Place(place) => stack.push_place(place),
         Operand::Enum(temp) => stack.push_enum(temp),
-        Operand::Text(_) => Err(VmTrap::Runtime(RuntimeError::InvalidExecutionState)),
+        Operand::Text(_) | Operand::Copy(_) => {
+            Err(VmTrap::Runtime(RuntimeError::InvalidExecutionState))
+        }
     }
 }
 
@@ -1173,6 +1218,32 @@ fn keeps_enums(opcode: u8, stack: &OperandStack) -> bool {
     }
 }
 
+/// Whether `opcode` takes the copies on `stack` as they are (C1-19b): it pops none of them as a
+/// value, or it moves or stores one. A copy's bytes are its own, so no write changes them. A call
+/// pops its top `own` operands as values. Before any other instruction the dispatcher replaces every
+/// copy with the value it stands for.
+fn keeps_copies(opcode: u8, stack: &OperandStack, own: Option<usize>) -> bool {
+    match opcode {
+        // NOP, JMP, CONST, LOAD, REF, SELF, SUPER and NULL push without popping.
+        0x00 | 0x02 | 0x10 | 0x20 | 0x22..=0x25 => true,
+        // POP and SWAP move an operand; STORE and STORE_DYNAMIC store one.
+        0x12 | 0x13 | 0x21 | 0x33 => true,
+        0x09 => own.is_some_and(|own| !stack.top_holds_copy(own)),
+        // The conditional jumps, DUP, REF_FIELD, LOAD_DYNAMIC, NEG and NOT take one value, and
+        // REF_INDEX and the binary operators two.
+        0x03 | 0x04 | 0x11 | 0x30 | 0x32 | 0x45 | 0x49 => !stack.top_holds_copy(1),
+        0x31 | 0x40..=0x44 | 0x46..=0x48 | 0x4C | 0x50..=0x55 => !stack.top_holds_copy(2),
+        _ => false,
+    }
+}
+
+/// The operands the call whose operands start at `pc` pops: its `arg_count`, the third of them
+/// (C1-19b).
+fn call_operands(module: &VmModule, pc: usize) -> Option<usize> {
+    let operand = module.code.get(pc.checked_add(8)?..pc.checked_add(12)?)?;
+    usize::try_from(u32::from_le_bytes(operand.try_into().ok()?)).ok()
+}
+
 /// `=` (`equal`) or `<>` of the top two operands. When one of them is a reference they compare as
 /// `apply_binary` compares them, and the path buffers of the references go back to the engine
 /// (spec 34 ARCH-05), so a test such as `r <> NULL` allocates nothing once the engine is warm.
@@ -1186,6 +1257,15 @@ fn compare_equality(
     if let Some([Operand::Enum(left), Operand::Enum(right)]) = stack.top_operands(2) {
         let same = runtime.enums_equal(*left, *right);
         stack.discard_top(2)?;
+        return stack.push(Value::Bool(same == equal));
+    }
+    // Two texts are compared where they lie, as their values are (C1-19b).
+    if let Some(same) = super::dispatch_text::equal_texts(runtime, stack) {
+        for _ in 0..2 {
+            if let Operand::Text(temp) = stack.pop_operand()? {
+                stack.release_text(temp);
+            }
+        }
         return stack.push(Value::Bool(same == equal));
     }
     let (left, right) = stack.pop_pair()?;

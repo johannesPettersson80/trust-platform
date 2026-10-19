@@ -1165,7 +1165,17 @@ pub fn read_vm_target_value(
     frame: &VmFrame,
     reference: &ValueRef,
 ) -> Result<Value, VmTrap> {
-    VmWriteTarget::from_reference(reference).read(runtime, frame)
+    match VmWriteTarget::direct(reference) {
+        Some(target) => target.read(runtime, frame),
+        // A read borrows the reference: only a target kept for a copy-back owns its path (C1-19b).
+        None => {
+            #[cfg(all(feature = "std", feature = "test-support"))]
+            let _read = crate::vm::diagnostic_timing::attribution::read(
+                crate::vm::diagnostic_timing::CopyReadKind::Reference,
+            );
+            read_vm_reference(runtime, frame, reference)
+        }
+    }
 }
 
 /// Read an expression or target argument using the shared call context.

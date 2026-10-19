@@ -91,23 +91,28 @@ pub enum VmWriteTarget {
 impl VmWriteTarget {
     /// Cache a direct slot when possible, retaining an owned path only when needed.
     pub fn from_reference(reference: &ValueRef) -> Self {
+        Self::direct(reference).unwrap_or_else(|| Self::Reference(reference.clone()))
+    }
+
+    /// The direct slot `reference` names, or `None` when it needs its path resolved.
+    pub(super) fn direct(reference: &ValueRef) -> Option<Self> {
         if is_vm_local_sentinel(reference) && reference.path.is_empty() {
-            return Self::CallerLocalDirect {
+            return Some(Self::CallerLocalDirect {
                 offset: reference.offset as usize,
-            };
+            });
         }
         if reference.path.is_empty() {
             match reference.location {
                 MemoryLocation::Global | MemoryLocation::Local(_) | MemoryLocation::Instance(_) => {
-                    return Self::DirectStorage {
+                    return Some(Self::DirectStorage {
                         location: reference.location,
                         offset: reference.offset as usize,
-                    };
+                    });
                 }
                 MemoryLocation::Io(_) | MemoryLocation::Retain | MemoryLocation::Flat { .. } => {}
             }
         }
-        Self::Reference(reference.clone())
+        None
     }
 
     /// Borrow the resolved target path for policy checks and transaction planning.

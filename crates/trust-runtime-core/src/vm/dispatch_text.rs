@@ -279,8 +279,9 @@ fn lying<'a>(
             stack.text(*temp).map_err(VmTrap::into_runtime_error)?,
             temp.wide(),
         )),
-        // The dispatcher gives a text call's enumerations their values first (C1-19a).
-        Operand::Enum(_) => None,
+        // The dispatcher gives a text call's enumerations and copies their values first (C1-19a,
+        // C1-19b).
+        Operand::Enum(_) | Operand::Copy(_) => None,
     })
 }
 
@@ -414,4 +415,77 @@ fn run_with_buffers(
     .map_err(VmTrap::into_runtime_error)?;
     runtime.check_execution_deadline()?;
     Ok(true)
+}
+
+/// The characters of a text operand where it lies (C1-19b): UTF-8, or a `WSTRING` leaf's code units.
+enum Chars<'a> {
+    Utf8(&'a str),
+    Utf16(TextBytes<'a>),
+}
+
+impl Chars<'_> {
+    /// Whether `self` and `other` have the same characters.
+    fn same(&self, other: &Chars<'_>) -> bool {
+        match (self, other) {
+            (Chars::Utf8(left), Chars::Utf8(right)) => left == right,
+            (Chars::Utf16(left), Chars::Utf16(right)) => left.units().eq(right.units()),
+            (Chars::Utf16(wide), Chars::Utf8(text)) | (Chars::Utf8(text), Chars::Utf16(wide)) => {
+                char::decode_utf16(wide.units())
+                    .map(Result::ok)
+                    .eq(text.chars().map(Some))
+            }
+        }
+    }
+}
+
+/// The text `operand` stands for where it lies, and whether it is a `WSTRING`: a text value, a
+/// temporary text, or a place that is a text leaf of the flat store which a read into its value
+/// takes. `None` for any other operand, and for a `WSTRING` leaf whose code units are no valid
+/// UTF-16, which that read refuses.
+fn operand_text<'a>(
+    runtime: &'a impl ExecutionContext,
+    stack: &'a OperandStack,
+    operand: &'a Operand,
+) -> Option<(bool, Chars<'a>)> {
+    match operand {
+        Operand::Value(Value::String(text)) => Some((false, Chars::Utf8(text.as_str()))),
+        Operand::Value(Value::WString(text)) => Some((true, Chars::Utf8(text.as_str()))),
+        Operand::Text(temp) => Some((temp.wide(), Chars::Utf8(stack.text(*temp).ok()?))),
+        Operand::Place(place) => match runtime.place_view(*place)? {
+            ValueView::Cells {
+                cells,
+                range,
+                type_id,
+            } => match cells.text(range, type_id)? {
+                TextBytes::Narrow(text) => Some((false, Chars::Utf8(text))),
+                wide @ TextBytes::Wide(_) => char::decode_utf16(wide.units())
+                    .all(|unit| unit.is_ok())
+                    .then_some((true, Chars::Utf16(wide))),
+            },
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// Whether `=` or `<>` compares the top two operands where they lie (C1-19b): two texts, each a text
+/// value, a temporary text or a text leaf of the flat store, so neither is read into a value.
+pub(super) fn texts_on_top(runtime: &impl ExecutionContext, stack: &OperandStack) -> bool {
+    matches!(
+        stack.top_operands(2),
+        Some([left, right])
+            if operand_text(runtime, stack, left).is_some()
+                && operand_text(runtime, stack, right).is_some()
+    )
+}
+
+/// Whether the top two operands, two texts, are equal as their values are: of one kind, `STRING` or
+/// `WSTRING`, with the same characters (C1-19b). `None` when they are not two texts.
+pub(super) fn equal_texts(runtime: &impl ExecutionContext, stack: &OperandStack) -> Option<bool> {
+    let Some([left, right]) = stack.top_operands(2) else {
+        return None;
+    };
+    let (left_wide, left) = operand_text(runtime, stack, left)?;
+    let (right_wide, right) = operand_text(runtime, stack, right)?;
+    Some(left_wide == right_wide && left.same(&right))
 }

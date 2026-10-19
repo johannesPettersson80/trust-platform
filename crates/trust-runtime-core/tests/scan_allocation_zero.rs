@@ -671,6 +671,11 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// comparisons build no boxed value: `structures` falls from 7 to 0, `overlays` from 7 to 1 (a call
 /// target's path) and `copies` from 4 to 3 (a structure read as a value); `operands` makes 2 (its
 /// WSTRINGs read as values for `=`), measured on the builder on 19 October 2026.
+///
+/// C1-19b reads a call target's value without copying its path, compares two texts with `=` and
+/// `<>` where they lie, and copies the bytes of an array or a structure that a call leaves on the
+/// operand stack into the stack's temporary area, where the store after the call finds them: on the
+/// flat store `copies`, `overlays` and `operands` make no allocator call after their first scan.
 const CEILINGS: [(&str, usize, Calls); 36] = [
     ("faults/division", 2, Calls::ZERO),
     ("faults/index", 2, Calls::ZERO),
@@ -737,35 +742,11 @@ const CEILINGS: [(&str, usize, Calls); 36] = [
     ("cells/initializers", 1, Calls::ZERO),
     ("cells/retained_blocks", 1, Calls::ZERO),
     ("cells/retained_values", 2, Calls::ZERO),
-    (
-        "cells/copies",
-        1,
-        Calls {
-            alloc: 3,
-            realloc: 0,
-            dealloc: 3,
-        },
-    ),
+    ("cells/copies", 1, Calls::ZERO),
     ("cells/structures", 1, Calls::ZERO),
-    (
-        "cells/overlays",
-        1,
-        Calls {
-            alloc: 1,
-            realloc: 0,
-            dealloc: 1,
-        },
-    ),
+    ("cells/overlays", 1, Calls::ZERO),
     ("cells/unions", 3, Calls::ZERO),
-    (
-        "cells/operands",
-        1,
-        Calls {
-            alloc: 2,
-            realloc: 0,
-            dealloc: 2,
-        },
-    ),
+    ("cells/operands", 1, Calls::ZERO),
 ];
 
 /// The ceilings are asserted on the chips' stack executor and printed with the register tier.
