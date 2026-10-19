@@ -919,43 +919,32 @@ or cross-version identifiers.
 
 #### 3.2 Variable Storage
 
-```rust
-/// Storage for runtime variables.
-#[derive(Debug, Default)]
-pub struct VariableStorage {
-    /// Global variables (VAR_GLOBAL)
-    globals: IndexMap<SmolStr, Value>,
+A program's variables live in flat blocks of bytes that preparation lays out
+from the TYPE_TABLE, each variable at its declared size and alignment
+(specification 34 MEM-12, owner decision of 19 October 2026, as CODESYS and
+TwinCAT keep them):
 
-    /// Local variable frames (call stack)
-    frames: Vec<LocalFrame>,
+- the **persistent block** holds the globals, the programs and every function
+  block or class instance they declare, inline, for the installation's
+  generation;
+- the **activation stack** holds the variables of each function and method call
+  and its per-call instances, last in first out, sized from the deepest static
+  call chain;
+- the **operand stack** holds the temporaries of an expression.
 
-    /// FB/Class instances
-    instances: FxHashMap<InstanceId, InstanceData>,
+Sizes: `BOOL`, `SINT`, `USINT`, `BYTE`, `CHAR` 1 byte; `INT`, `UINT`, `WORD`,
+`WCHAR` 2; `DINT`, `UDINT`, `DWORD`, `REAL` 4; `LINT`, `ULINT`, `LWORD`,
+`LREAL` and every temporal type 8; an enumeration its base type; `STRING[n]` a
+2-byte length and `n` bytes of UTF-8, `WSTRING[n]` the length and `n` UTF-16
+code units; structures and arrays packed in declaration order at natural
+alignment; a reference 16 bytes (its target's block, offset and generation).
+The engine reads and writes each value in place; a scan allocates nothing.
 
-    /// Retain variables (persist across warm restart)
-    retain: IndexMap<SmolStr, Value>,
-
-    /// Next instance ID
-    next_instance_id: u32,
-}
-
-/// A local variable frame for function/method calls.
-#[derive(Debug)]
-pub struct LocalFrame {
-    pub id: FrameId,
-    pub owner: SmolStr,        // POU name
-    pub variables: IndexMap<SmolStr, Value>,
-    pub return_value: Option<Value>,
-}
-
-/// Data for a single FB/Class instance.
-#[derive(Debug)]
-pub struct InstanceData {
-    pub type_name: SmolStr,
-    pub variables: IndexMap<SmolStr, Value>,
-    pub parent: Option<InstanceId>,  // For inheritance
-}
-```
+The `Value` tree of §3.1 is the boundary type: engineering reads materialize a
+`Value` from the bytes, and engineering writes convert a `Value` into them,
+checked whole first. Until checklist item C1 completes, the engine still keeps
+part of its state in the earlier map-based storage, whose public type,
+`VariableStorage`, it keeps as a compatibility view.
 
 #### 3.2.1 Variable-storage reference and layout contract
 
