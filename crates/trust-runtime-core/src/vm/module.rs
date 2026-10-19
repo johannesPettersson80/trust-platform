@@ -144,13 +144,21 @@ impl VmModule {
         &self,
         type_id: u32,
     ) -> Option<alloc::sync::Arc<crate::value::overlap::PhysicalLayout>> {
+        self.physical_layout_ref(type_id).cloned()
+    }
+
+    /// The physical layout of `type_id`, borrowed: [`VmModule::physical_layout`] without a count.
+    pub(crate) fn physical_layout_ref(
+        &self,
+        type_id: u32,
+    ) -> Option<&alloc::sync::Arc<crate::value::overlap::PhysicalLayout>> {
         let mut current = type_id;
         for _ in 0..=crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
             let entry = self.types.entries.get(current as usize)?;
             if let TypeData::Alias { target_type_id } = entry.data {
                 current = target_type_id;
             } else {
-                return self.physical_layouts.get(current as usize)?.clone();
+                return self.physical_layouts.get(current as usize)?.as_ref();
             }
         }
         None

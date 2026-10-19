@@ -103,7 +103,9 @@ pub trait ReferenceContext {
     ) -> Result<(), crate::error::RuntimeError> {
         match root {
             ValueView::Value(value) => self.before_path_write(value, path, input),
-            ValueView::Cells { .. } => Err(crate::error::RuntimeError::InvalidExecutionState),
+            ValueView::Cells { .. } | ValueView::Bits { .. } => {
+                Err(crate::error::RuntimeError::InvalidExecutionState)
+            }
         }
     }
     /// Final operational check after detached staging and before installed mutation.
@@ -129,7 +131,9 @@ pub trait ReferenceContext {
     fn before_view_clone(&self, view: &ValueView<'_>) -> Result<(), crate::error::RuntimeError> {
         match view {
             ValueView::Value(value) => self.before_value_clone(value),
-            ValueView::Cells { .. } => Err(crate::error::RuntimeError::InvalidExecutionState),
+            ValueView::Cells { .. } | ValueView::Bits { .. } => {
+                Err(crate::error::RuntimeError::InvalidExecutionState)
+            }
         }
     }
     /// The place of `view` (C1-10c), when a store may copy the value it shows as bytes: an array or

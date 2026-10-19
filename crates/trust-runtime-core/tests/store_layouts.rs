@@ -727,7 +727,11 @@ fn an_overlap_struct_has_its_byte_backing() {
     // Overlay { lo : BOOL; wide : DWORD } places both fields at bit 0, so its whole extent is the
     // DWORD's 32 bits: four backing bytes.
     let overlay = prepared.type_layout(OVERLAY).expect("Overlay");
-    assert_eq!(overlay.overlap_backing_bytes, 4);
+    let placed = overlay.overlay.as_ref().expect("an overlay layout");
+    assert_eq!(placed.backing_bytes, 4);
+    // Neither member is a text, a reference or a union, so nothing lies beside the backing.
+    assert!(placed.slots.is_empty());
+    assert_eq!(overlay.shape.bytes, 4);
 }
 
 #[test]

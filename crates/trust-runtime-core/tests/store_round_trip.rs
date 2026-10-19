@@ -1209,8 +1209,9 @@ impl Rng {
     }
 }
 
-/// Whether this slice converts every value of the type: no text leaf, and no `STRUCT OVERLAP` or
-/// union anywhere inside it.
+/// Whether this test generates every value of the type: no text leaf, and no `STRUCT OVERLAP` or
+/// union anywhere inside it. Random members of an overlay would disagree about their shared bits, so
+/// its values are written by hand in [`a_struct_overlap_is_written_as_its_backing`].
 fn convertible(prepared: &PreparedModule, type_id: u32) -> bool {
     let Some(layout) = prepared.type_layout(type_id) else {
         return false;
@@ -1498,28 +1499,40 @@ fn a_mismatched_value_is_refused_and_writes_nothing() {
 }
 
 #[test]
-fn a_struct_overlap_is_refused() {
-    // Specification 34 §6.2 after MEM-10: a `STRUCT OVERLAP`'s members share its byte backing, which
-    // C1-15 writes, so a conversion that stored the members one after the other would lose the
-    // overlap. It is refused with the type and the reason, and a write of the same module's other
-    // types is unaffected. A union shares its members' bytes the same way and is refused as well.
+fn a_struct_overlap_is_written_as_its_backing() {
+    // Specification 34 MEM-12 (C1-15): a `STRUCT OVERLAP` lies as its backing, its members over the
+    // same bytes as specification 02 §3.6 places them. `Packed`'s DWORD and DINT both lie at bit 0,
+    // so its cells are the DWORD's four bytes, little-endian, and both members read back from them.
+    // A conversion that stored the members one after the other would need eight bytes, one that kept
+    // only the member written last would refuse the first value below or read another `as_word`, and
+    // one that wrote a member at the wrong bit would read other bytes.
     let prepared = prepared();
+    assert_eq!(prepared.type_layout(PACKED).expect("Packed").shape.bytes, 4);
+    // 16#8000_0001 is the DINT -2,147,483,647 in two's complement, so the two members agree.
     let packed = structure(
         "Packed",
-        vec![("as_word", Value::DWord(1)), ("as_int", Value::DInt(1))],
+        vec![
+            ("as_word", Value::DWord(0x8000_0001)),
+            ("as_int", Value::DInt(-2_147_483_647)),
+        ],
     );
-    refused_write(
-        &RuntimeError::InitFailed {
-            owner: "Packed".into(),
-            variable: "OVERLAP".into(),
-            error: "an overlapping structure is written through its byte backing in C1-15".into(),
-        },
-        |bytes| write_value(&mut bytes[..4], PACKED, &packed, &prepared),
-    );
-    // Both members lie at bit 0, so the backing is the DWORD's four bytes.
-    assert_eq!(prepared.type_layout(PACKED).expect("Packed").shape.bytes, 4);
+    let mut bytes = [0xABu8; 4];
+    write_value(&mut bytes, PACKED, &packed, &prepared).expect("a coherent overlay writes");
+    assert_eq!(bytes, [0x01, 0x00, 0x00, 0x80]);
+    let read = read_value(&bytes, PACKED, &prepared).expect("and reads");
+    assert_same(&read, &packed, "Packed");
 
-    // The refusals above disturbed nothing: the same module's Axis still writes and reads.
+    // Members that disagree about their shared bits describe no backing: the value is refused and
+    // the bytes stay as they were.
+    let conflicting = structure(
+        "Packed",
+        vec![("as_word", Value::DWord(1)), ("as_int", Value::DInt(2))],
+    );
+    refused_write(&RuntimeError::TypeMismatch, |bytes| {
+        write_value(&mut bytes[..4], PACKED, &conflicting, &prepared)
+    });
+
+    // The same module's Axis still writes and reads.
     let good = axis(1.0, band(0.0, 0.0), ("Idle", 0), [1, 2, 3]);
     let mut bytes = [0xABu8; 24];
     write_value(&mut bytes, AXIS, &good, &prepared).expect("the same type still writes");

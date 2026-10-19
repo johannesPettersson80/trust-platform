@@ -37,6 +37,8 @@ pub(super) fn encode_view(out: &mut Vec<u8>, view: &ValueView<'_>) -> Result<(),
             range,
             type_id,
         } => encode_cells(out, cells, range, type_id, 0),
+        // A node of a backing is written as the value it decodes to (C1-15).
+        ValueView::Bits { .. } => encode_value(out, &view.materialize()?),
     }
 }
 
@@ -56,6 +58,7 @@ pub(crate) fn view_is_retainable(view: &ValueView<'_>) -> Result<bool, RuntimeEr
             range,
             type_id,
         } => cells_are_retainable(cells, range, type_id, 0),
+        ValueView::Bits { .. } => value_is_retainable(&view.materialize()?, 0),
     }
 }
 
@@ -101,6 +104,9 @@ fn cells_are_retainable(
         CellLeaf::Reference | CellLeaf::Instance => return Ok(false),
         CellLeaf::Structure { members, .. } => members,
         CellLeaf::Array { elements, .. } => elements,
+        // A structure with a physical layout holds no instance, and a reference only beside its
+        // backing (C1-15).
+        CellLeaf::Overlay => return Ok(!cells.holds_reference(type_id)),
         _ => return Ok(true),
     };
     for ordinal in 0..children {
@@ -162,6 +168,9 @@ fn encode_cells(
             }
         }
         CellLeaf::Reference | CellLeaf::Instance => return Err(reference_or_instance_refused()),
+        // An overlapping structure is encoded as its value, whose physical checkpoint carries the
+        // backing (C1-15).
+        CellLeaf::Overlay => encode_value(out, &cells.materialize(range, type_id)?)?,
     }
     Ok(())
 }

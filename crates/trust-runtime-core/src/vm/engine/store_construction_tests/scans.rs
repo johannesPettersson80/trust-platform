@@ -339,8 +339,9 @@ fn cells_and_values_agree_after_every_scan() {
     // charge that depended on where a value is held would show on the line of the phase that charged it.
     // The guard on `ticks` expects each program to have run its body in all 20 scans.
     //
-    // `structures` is the one program the cell store refuses: it declares a `STRUCT OVERLAP`, which C1-15
-    // places (specification 34 §6.2), so construction cannot write the overlay's value into its cells yet.
+    // No program is refused: since C1-15 a `STRUCT OVERLAP` lies as its backing, so `structures` and
+    // `overlays` run on both stores too, and an overlay that kept a member's bits apart, lost a copied
+    // structure's gap bits or misplaced a text beside the backing would differ in their values.
     let mut passes: Vec<(Limits, &str)> = vec![(PreparationLimits::default, "default limits")];
     if !cfg!(feature = "register-ir") {
         passes.push((chip_limits, "chip limits"));
@@ -352,7 +353,7 @@ fn cells_and_values_agree_after_every_scan() {
             Vec::<String>::new(),
             "{label}: the cells differ from the Value store"
         );
-        assert_eq!(refused, ["structures: InvalidExecutionState"], "{label}");
+        assert_eq!(refused, Vec::<String>::new(), "{label}");
     }
 }
 
@@ -479,7 +480,8 @@ fn a_warm_restart_copies_retained_cells_where_the_value_store_copies_values() {
     // Specification 34 §11.3, TIME-08 and MEM-12 (C1-14b): a warm restart carries the retained values
     // into the next generation. `retained_blocks` retains a function-block instance `kept`, the
     // reference `follow` to `kept.count`, `total` and its program's `runs`; `retained_values` retains
-    // arrays, a structure and texts in globals and in its program. The cell store copies them from
+    // arrays, a structure and texts in globals and in its program; `overlays` retains a `STRUCT
+    // OVERLAP` with a text beside its backing (C1-15). The cell store copies them from
     // cell to cell, an instance's members and a flat reference's generation included, and charges
     // each copy as the value store charges the copy of the value. So at every construction work
     // allowance, from one unit up to the first at which both stores construct the program and restart
@@ -489,7 +491,7 @@ fn a_warm_restart_copies_retained_cells_where_the_value_store_copies_values() {
     // generation, an instance leaf without its new identity or a misplaced byte would make the lines
     // of some allowance differ.
     let mut differences = Vec::new();
-    for name in ["retained_blocks", "retained_values"] {
+    for name in ["retained_blocks", "retained_values", "overlays"] {
         let program = corpus(name);
         let mut restarted = false;
         for allowance in 1..=200_000 {

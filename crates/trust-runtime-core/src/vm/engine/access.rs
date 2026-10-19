@@ -53,6 +53,21 @@ impl EngineState<'_> {
                 })?;
                 Ok(cells.copy_charge(*range, *type_id, 0)?.allocation)
             }
+            // A node of a backing charges what the copy of the value it decodes to charges (C1-15).
+            ValueView::Bits {
+                cells,
+                range,
+                type_id,
+                leaf,
+                depth,
+            } => {
+                cells.overlay_copy_work(*range, *type_id, *leaf, *depth, 0, &mut |units| {
+                    self.charge_work_units(units)
+                })?;
+                Ok(cells
+                    .overlay_copy_charge(*range, *type_id, *leaf, *depth, 0)?
+                    .allocation)
+            }
         }
     }
 

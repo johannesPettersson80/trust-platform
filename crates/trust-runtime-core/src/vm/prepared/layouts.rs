@@ -49,9 +49,13 @@ impl PreparedLayouts {
         let charged_before = budget.usage();
         let types = compute_type_layouts(
             &vm.types,
-            &mut |id: u32| -> Result<u32, RuntimeError> {
-                let physical = vm.physical_layout(id).ok_or(RuntimeError::TypeMismatch)?;
-                u32::try_from(physical.byte_len()?).map_err(|_| RuntimeError::Overflow)
+            &vm.strings,
+            &mut |id: u32| -> Result<Option<u32>, RuntimeError> {
+                vm.physical_layout(id)
+                    .map(|physical| {
+                        u32::try_from(physical.byte_len()?).map_err(|_| RuntimeError::Overflow)
+                    })
+                    .transpose()
             },
             &mut |bytes, work| budget.charge(bytes, work),
         )?;

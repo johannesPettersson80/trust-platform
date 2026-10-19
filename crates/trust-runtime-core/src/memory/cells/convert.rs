@@ -14,21 +14,22 @@
 //! - [`byte_offset`](crate::memory::cells::byte_offset) maps a member-and-index path to a byte
 //!   offset within a value of its type (C1-10).
 //!
-//! A `STRUCT OVERLAP` and a union are not converted in this slice, and each refusal names the type
-//! and the reason: their members share their bytes (C1-15). A text leaf holds its length and its
-//! characters inline, cut where assignment normalization cuts it.
+//! A `STRUCT OVERLAP` is held as its backing bytes, read back with its members decoded from them
+//! (C1-15); a union is not converted, and its refusal names the type and the reason. A text leaf
+//! holds its length and its characters inline, cut where assignment normalization cuts it.
 
 use alloc::format;
 
 use smol_str::SmolStr;
 
 mod leaf;
+mod overlay;
 mod read;
 pub(crate) use leaf::{leaf_in, structure_member_name, CellLeaf};
 pub(crate) use read::read_value_in;
 
 use super::{Cell, ReferenceTable};
-use crate::bytecode::{Field, TypeData, TypeEntry, TypeKind, BYTECODE_MAX_TYPE_NESTING};
+use crate::bytecode::{Field, TypeData, TypeEntry, BYTECODE_MAX_TYPE_NESTING};
 use crate::error::RuntimeError;
 use crate::memory::flat::{self, LeafKind};
 use crate::memory::layout::TypeLayout;
@@ -46,10 +47,6 @@ const REFERENCE_REASON: &str = "a non-null reference is held by its region's ref
 /// Why a reference leaf that holds a reference is refused where no reference table is given (O9).
 pub(super) const REFERENCE_TARGET_REASON: &str =
     "a reference leaf's target is in its region's reference table";
-
-/// Why a `STRUCT OVERLAP` is refused here (C1-15).
-pub(super) const OVERLAP_REASON: &str =
-    "an overlapping structure is written through its byte backing in C1-15";
 
 /// Why a union is refused here (C1-15).
 pub(super) const UNION_REASON: &str =
@@ -100,8 +97,8 @@ pub(super) const WSTRING_PRIMITIVE: u16 = 25;
 /// reason, when a value's kind is not the type's, when a structure is missing a member or carries
 /// one the type does not declare, when an array's bounds or element count are not the type's, and
 /// when `bytes` is not the layout's length. A non-null reference, which a region's reference table
-/// holds, and a `STRUCT OVERLAP` or union (C1-15) are refused. The check runs before the first
-/// write, so a refusal leaves the bytes as they were, and no path allocates.
+/// holds, and a union (C1-15) are refused. A `STRUCT OVERLAP` is written as its backing. The check
+/// runs before the first write, so a refusal leaves the bytes as they were.
 pub fn write_value(
     bytes: &mut [u8],
     type_id: u32,
@@ -188,8 +185,22 @@ pub fn read_value(
 pub fn byte_offset(type_id: u32, path: &[RefSegment], prepared: &PreparedModule) -> Option<u32> {
     let mut offset = 0u32;
     let mut current = type_id;
-    for segment in path {
+    let mut rest = path;
+    while let Some((segment, after)) = rest.split_first() {
         let (resolved, entry) = resolve(prepared, current).ok()?;
+        // A member of a structure with a physical layout has a byte range of its own only when it
+        // lies beside the backing (C1-15).
+        if let Some(placed) = prepared.type_layout(resolved)?.overlay.as_ref() {
+            let slot = placed.slots.iter().find(|slot| {
+                rest.len() >= slot.path.len()
+                    && crate::value::overlap::paths_match(&rest[..slot.path.len()], &slot.path)
+            })?;
+            offset = offset.checked_add(slot.byte_offset)?;
+            current = slot.type_id;
+            rest = &rest[slot.path.len()..];
+            continue;
+        }
+        rest = after;
         match segment {
             RefSegment::Field(name) => {
                 let TypeData::Struct { fields } = &entry.data else {
@@ -245,8 +256,9 @@ pub(super) enum Shape {
     Enumeration(u32),
     /// A structure of this resolved structure type's members.
     Structure(u32),
-    /// A `STRUCT OVERLAP`, whose members share their bytes (C1-15).
-    Overlay,
+    /// A structure with a physical layout (a `STRUCT OVERLAP` or a structure nested in one) of this
+    /// resolved type, held as its backing and the members beside it (C1-15).
+    Overlay(u32),
     /// A union, whose members share their bytes (C1-15).
     Union,
     /// An array of this element type.
@@ -325,7 +337,9 @@ pub(crate) fn check_value(
             prepared,
             accept_references,
         ),
-        Shape::Overlay => Err(refusal(prepared, type_id, OVERLAP_LEAF, OVERLAP_REASON)),
+        Shape::Overlay(overlay) => {
+            overlay::check(type_id, overlay, value, prepared, accept_references)
+        }
         Shape::Union => Err(refusal(prepared, type_id, UNION_LEAF, UNION_REASON)),
     }
 }
@@ -553,7 +567,10 @@ fn store_value(
         Shape::Array(elem_type) => store_array(
             bytes, type_id, elem_type, value, prepared, references, start,
         )?,
-        Shape::Overlay | Shape::Union => return Err(RuntimeError::InvalidExecutionState),
+        Shape::Overlay(overlay) => {
+            overlay::store(bytes, overlay, value, prepared, references, start)?
+        }
+        Shape::Union => return Err(RuntimeError::InvalidExecutionState),
     }
     Ok(())
 }
@@ -779,13 +796,11 @@ pub(super) fn shape(prepared: &PreparedModule, type_id: u32) -> Result<Shape, Ru
             primitive_shape(prepared, type_id)?
         }
         TypeData::Enum { .. } => Shape::Enumeration(resolved),
-        TypeData::Struct { .. } => {
-            if entry.kind == TypeKind::OverlappingStruct {
-                Shape::Overlay
-            } else {
-                Shape::Structure(resolved)
-            }
+        // A `STRUCT OVERLAP`, and every structure nested in one, lies as its backing (C1-15).
+        TypeData::Struct { .. } if prepared.vm.physical_layout(resolved).is_some() => {
+            Shape::Overlay(resolved)
         }
+        TypeData::Struct { .. } => Shape::Structure(resolved),
         TypeData::Union { .. } => Shape::Union,
         TypeData::Array { elem_type_id, .. } => Shape::Array(*elem_type_id),
         TypeData::Reference { .. } => Shape::Reference,

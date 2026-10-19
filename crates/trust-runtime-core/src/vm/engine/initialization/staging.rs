@@ -373,6 +373,8 @@ impl EngineState<'_> {
         match view {
             ValueView::Value(value) => self.owned_value_instances(type_id, value, output, depth),
             ValueView::Cells { .. } => self.owned_cell_instances(view, output, depth),
+            // A structure with a physical layout holds no instance (C1-15).
+            ValueView::Bits { .. } => Ok(()),
         }
     }
 
@@ -390,6 +392,10 @@ impl EngineState<'_> {
         }
         if let Some(instance) = view.owned_cell_instance()? {
             return self.push_owned_instance(output, instance.0);
+        }
+        // A structure with a physical layout holds no instance (C1-15).
+        if view.lies_as_backing() {
+            return Ok(());
         }
         let Some(count) = view.cell_child_count()? else {
             return Ok(());

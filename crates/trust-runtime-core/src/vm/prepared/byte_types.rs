@@ -36,8 +36,9 @@ pub(crate) fn is_compound(prepared: &PreparedModule, type_id: u32) -> bool {
 /// whose leaves are numbers, bits, characters, texts, times, dates and enumerations. A text of the
 /// destination's type fits its capacity, so its bytes, the tail zeroed, are the bytes the
 /// destination would hold (C1-12). A reference and an instance are checked and placed by the value
-/// they hold, and an overlapping or located structure is written through its physical layout
-/// (C1-15), so a value that holds any of them is stored as a value.
+/// they hold, and an overlapping or located structure, and every structure nested in an overlapping
+/// one, is written through its physical layout (C1-15), so a value that holds any of them is stored
+/// as a value.
 pub(crate) fn copies_as_bytes(prepared: &PreparedModule, type_id: u32) -> bool {
     resolve(prepared, type_id).is_some_and(|entry| {
         matches!(entry.data, TypeData::Array { .. } | TypeData::Struct { .. })
@@ -81,9 +82,10 @@ fn plain(prepared: &PreparedModule, type_id: u32, depth: usize) -> bool {
             !matches!(
                 entry.kind,
                 TypeKind::OverlappingStruct | TypeKind::LocatedStruct
-            ) && fields
-                .iter()
-                .all(|field| plain(prepared, field.type_id, depth + 1))
+            ) && prepared.vm.physical_layout_ref(type_id).is_none()
+                && fields
+                    .iter()
+                    .all(|field| plain(prepared, field.type_id, depth + 1))
         }
         _ => false,
     }

@@ -17,7 +17,7 @@ use crate::memory::cells::{
 };
 use crate::memory::flat::{self, LeafKind, TextBytes};
 use crate::memory::layout::ByteRange;
-use crate::memory::view::{PreparedWrite, PreparedWriteKind, StoreMutate};
+use crate::memory::view::{OverlayWrite, PreparedWrite, PreparedWriteKind, StoreMutate};
 use crate::memory::{InstanceData, InstanceId, MemoryLocation, VariableStorage};
 use crate::value::{
     replace_text_element, string_element_count, string_element_position_in, text_element_char,
@@ -234,6 +234,23 @@ impl<'a> CellWriter<'a> {
             Ok(Target::Values(location, offset, rest)) => self
                 .values
                 .write_by_ref_parts_checked(location, offset, rest, value),
+            // A write into the backing of a structure with a physical layout patches the
+            // structure's value as the value store patches it, then stores it (C1-15).
+            Ok(Target::Bits(range, type_id, presence, rest)) => {
+                let mut root = self.reader().overlay_root(range, type_id, presence)?;
+                let Some(staged) = root.prepare_physical_write(rest, &value)? else {
+                    return Ok(false);
+                };
+                if !root.commit_physical_write(rest, value, staged) {
+                    return Ok(false);
+                }
+                Ok(self.store(
+                    range,
+                    type_id,
+                    presence,
+                    Value::Struct(alloc::sync::Arc::new(root)),
+                ))
+            }
             Err(_) => {
                 let patch = self
                     .reader()
@@ -289,6 +306,24 @@ impl CellReader<'_> {
                     .prepare_by_ref_parts_write(location, offset, rest, value)?;
                 Ok(staged
                     .map(|staged| PreparedWrite(PreparedWriteKind::Values { consumed, staged })))
+            }
+            // The structure's value, read from its cells, is checked and patched as the value store
+            // checks and patches its own (C1-15).
+            Ok(Target::Bits(range, type_id, presence, rest)) => {
+                let root = self.overlay_root(range, type_id, presence)?;
+                let Some(staged) = root.prepare_physical_write(rest, value)? else {
+                    return Ok(None);
+                };
+                Ok(Some(PreparedWrite(PreparedWriteKind::Overlay(
+                    OverlayWrite {
+                        range,
+                        type_id,
+                        presence,
+                        consumed: path.len() - rest.len(),
+                        root,
+                        staged,
+                    },
+                ))))
             }
             Err(_) => Ok(self
                 .text_element_patch(location, offset, path, value)?
@@ -445,7 +480,8 @@ impl StoreMutate for CellWriter<'_> {
             Ok(Target::Values(location, offset, _)) => self
                 .values
                 .write_direct_slot_by_location(location, offset, value),
-            Err(_) => false,
+            // A slot is a whole declaration, never a node inside one.
+            Ok(Target::Bits(..)) | Err(_) => false,
         }
     }
 
@@ -591,6 +627,20 @@ impl StoreMutate for CellWriter<'_> {
                 (None, Some(leaf)) => self.store(patch.range, patch.type_id, patch.presence, leaf),
                 (None, None) => self.store(patch.range, patch.type_id, patch.presence, value),
             },
+            PreparedWriteKind::Overlay(mut write) => {
+                let Some(rest) = path.get(write.consumed..) else {
+                    return false;
+                };
+                if !write.root.commit_physical_write(rest, value, write.staged) {
+                    return false;
+                }
+                self.store(
+                    write.range,
+                    write.type_id,
+                    write.presence,
+                    Value::Struct(alloc::sync::Arc::new(write.root)),
+                )
+            }
         }
     }
 
@@ -604,7 +654,24 @@ impl StoreMutate for CellWriter<'_> {
             Ok(Target::Values(location, offset, _)) => {
                 self.values.restore_direct_slot(location, offset, value);
             }
-            Err(_) => {}
+            Ok(Target::Bits(..)) | Err(_) => {}
+        }
+    }
+}
+
+impl CellReader<'_> {
+    /// The value of the structure with a physical layout whose cells are `range`, read whole so that
+    /// a write into its backing can be checked and patched as the value store checks and patches its
+    /// own (C1-15).
+    fn overlay_root(
+        self,
+        range: ByteRange,
+        type_id: u32,
+        presence: Option<u32>,
+    ) -> Result<crate::value::StructValue, RuntimeError> {
+        match self.view(range, type_id, presence).materialize()? {
+            Value::Struct(root) => Ok(alloc::sync::Arc::unwrap_or_clone(root)),
+            _ => Err(RuntimeError::InvalidExecutionState),
         }
     }
 }

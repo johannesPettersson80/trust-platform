@@ -54,7 +54,9 @@ fn charge_of(view: ValueView<'_>) -> CopyCharge {
         } => cells
             .copy_charge(range, type_id, 0)
             .expect("the cells of a value copy"),
-        ValueView::Value(_) => panic!("a view of the cell arm holds cells"),
+        ValueView::Value(_) | ValueView::Bits { .. } => {
+            panic!("a view of a declaration of the cell arm holds cells")
+        }
     }
 }
 

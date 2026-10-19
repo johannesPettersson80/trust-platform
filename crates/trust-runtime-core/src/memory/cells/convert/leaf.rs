@@ -13,8 +13,7 @@ use alloc::format;
 use super::read::read_scalar;
 use super::{
     check_slice_length, element_count, enumeration_kind, layout_of, refusal, shape, string,
-    text_geometry, type_entry, Shape, KIND_REASON, OVERLAP_LEAF, OVERLAP_REASON, UNION_LEAF,
-    UNION_REASON,
+    text_geometry, type_entry, Shape, KIND_REASON, UNION_LEAF, UNION_REASON,
 };
 use crate::bytecode::TypeData;
 use crate::error::RuntimeError;
@@ -65,6 +64,9 @@ pub(crate) enum CellLeaf<'a> {
     Reference,
     /// An instance leaf.
     Instance,
+    /// A structure with a physical layout, its backing in the bytes: its members are bit fields of it
+    /// or lie beside it (C1-15), so the caller reads its value whole.
+    Overlay,
 }
 
 /// Classify the bytes of one value of the `TYPE_TABLE` type `type_id`.
@@ -73,7 +75,7 @@ pub(crate) enum CellLeaf<'a> {
 ///
 /// The refusal `read_value_in` gives for the same bytes: a leaf the type does not hold, an
 /// enumeration leaf that names no variant of its type, a slice that is not the layout's length,
-/// and a `STRUCT OVERLAP` or a union (C1-15).
+/// and a union (C1-15).
 pub(crate) fn leaf_in<'a>(
     bytes: &'a [u8],
     type_id: u32,
@@ -102,7 +104,7 @@ pub(crate) fn leaf_in<'a>(
             };
             Ok(CellLeaf::Text { wide, bytes })
         }
-        Shape::Overlay => Err(refusal(prepared, type_id, OVERLAP_LEAF, OVERLAP_REASON)),
+        Shape::Overlay(_) => Ok(CellLeaf::Overlay),
         Shape::Union => Err(refusal(prepared, type_id, UNION_LEAF, UNION_REASON)),
     }
 }

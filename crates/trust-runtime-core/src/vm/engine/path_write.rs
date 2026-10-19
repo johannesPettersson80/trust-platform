@@ -60,9 +60,19 @@ impl EngineState<'_> {
     ) -> Result<(), RuntimeError> {
         let value = match root {
             ValueView::Value(value) => value,
-            cells @ ValueView::Cells { .. } => {
-                return self.charge_cell_path_write(storage, cells, path, input, depth);
+            // A structure with a physical layout, or a node of its backing, is charged as its value
+            // is, through its physical layout (C1-15).
+            view if view.lies_as_backing() => {
+                let value = view.materialize()?;
+                return self.charge_path_write_inner(
+                    storage,
+                    ValueView::Value(&value),
+                    path,
+                    input,
+                    depth,
+                );
             }
+            cells => return self.charge_cell_path_write(storage, cells, path, input, depth),
         };
         if let Value::Struct(structure) = value {
             let layout = structure.physical_layout();
@@ -137,7 +147,8 @@ impl EngineState<'_> {
     }
 
     /// The cell form of [`Self::charge_path_write_inner`] (C1-9d1): the same steps over the members,
-    /// elements and text that the view reads. A cell structure has no physical layout (C1-15).
+    /// elements and text that the view reads. A structure with a physical layout is charged by
+    /// [`Self::charge_path_write_inner`] as its value (C1-15).
     fn charge_cell_path_write<S: StoreAccess>(
         &self,
         storage: &S,

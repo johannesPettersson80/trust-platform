@@ -1174,7 +1174,8 @@ bytes — checking the whole value before it writes a byte and allocating nothin
 scalar's exact bits, every enumeration's value as its base type, and every structure member, array
 element and nested compound at its layout offset — and refuses, leaving the bytes as they were, a
 value whose kind, members, bounds, element count or slice length does not match the type, a non-null
-reference where no reference table is given, and a `STRUCT OVERLAP` or union (C1-15), while a read
+reference where no reference table is given, a structure with a physical layout whose members
+disagree about their shared bits, and a union (C1-15), while a read
 materializes the same `Value` again and a member-and-index path resolves to its byte offset through
 the same layout (C1-10). `Value::Null` writes zero bytes, and zero bytes read as the type's zero
 value, except an instance leaf that names no instance and an unbound native counter slot, which read
@@ -1189,6 +1190,7 @@ as `Value::Null`.
   - an enumeration its base type, `INT` (2 bytes) when it declares none;
   - `STRING[n]` a length of 2 bytes (4 when `n` exceeds 65,535) and `n` bytes of UTF-8, and `WSTRING[n]` the same length and `n` UTF-16 code units, so `2n` bytes (specification 02 §6; `STRING` without a length is `STRING[80]`);
   - a structure its members in declaration order, each at its alignment, aligned to its largest member and padded to a multiple of it; an array its elements one after the other; a `STRUCT OVERLAP` its members over the same bytes, as specification 02 defines them;
+  - a `STRUCT OVERLAP`, and every structure type nested in one, lies as its backing in every place it is held: the bits of its members as specification 02 §3.6 places them, the gaps between them included, so a copy of the structure carries its gap bits as specification 12 requires of independently copied aggregates. A member that has no overlapping bit representation (a text, a reference, a union, or an array of them; specification 12 §4) follows the backing at its own layout and alignment, in declaration order through every nesting level, since no other member shares its bits. Such a structure is aligned to its most aligned member beside the backing, or to 1;
   - a function block or class instance its variables in declaration order, each at its alignment, in a range of the same block: the persistent block holds one range for each persistent instance, its own variables first and its base's after them, and whatever holds the instance (a global, a program's variable or a member of another instance) holds an 8-byte leaf naming it;
   - a reference (`REF_TO`, an interface reference) 16 bytes on every target: the block and byte offset of its target, the target's installation generation (MEM-07) and the character index of a character reference. Its target type is the declaration's.
   - a function static and a native-state slot their value and one presence byte after it: they hold no value until their static action or their native import gives them one.
@@ -1405,7 +1407,8 @@ numbers, bits, characters, texts, times, dates and enumerations, leaves the valu
 operand stands for its bytes, and a store into a destination of the same type in the block copies
 them, checked and charged as a write of the value is (TIME-08), its texts' capacity checks included
 (checklist C1-12). A value that holds a reference or an instance, an overlapping or located
-structure, and a destination that is a local are stored as values until their slices (C1-11, C1-15).
+structure or a structure nested in an overlapping one, and a destination that is a local are stored
+as values until their slices (C1-11, C1-15).
 Before an instruction that may write a block or call, other than a call of a built-in text function
 ("Texts"), or that pops such an operand as a value, the engine reads it into a value, so a store
 always stores the value its load read, whatever the program wrote in between. An assignment of such
@@ -1472,6 +1475,18 @@ reference takes the next generation, and every other leaf keeps its bytes, since
 the program out alike. Each copy is checked and charged as the value store checks and charges the
 copy of the value, in the same order (TIME-08). A value that holds a reference with a path, and the
 migration of a replacement that changes the retained storage, are carried as values.
+
+**Overlapping structures.** On the flat store a `STRUCT OVERLAP`, and every structure nested in
+one, lies as its backing with its members that have no shared bits beside it (MEM-12; checklist
+C1-15). A member, an element or a nested structure of the backing is no byte range of its own: a
+read decodes it from the backing, as the value store decodes the same bits, and a write is staged
+on the structure's value as the value store stages it (each overlapping member checked against the
+written bits before any byte changes, specification 02 §3.6), then the structure is stored again.
+Such a write and such a read are charged as the value store charges them: the write by the physical
+layout's write cost (TIME-08), a copy by the members and elements of the value it decodes to. A
+member beside the backing is read and written where it lies, as a variable of its type. A warm
+restart carries the backing as its bytes and the members beside it as retained values, and binds
+each structure to the next generation's layout as the value transfer does.
 
 **Flat references.** On the flat store a reference to a whole variable, member or element that can
 be written and lies in the persistent block is flat as soon as the program takes it: the block and

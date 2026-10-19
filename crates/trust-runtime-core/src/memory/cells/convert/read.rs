@@ -11,8 +11,7 @@ use smol_str::SmolStr;
 use super::{
     check_slice_length, element_count, element_offset, enumeration_kind, layout_of, offset_by,
     part, refusal, shape, string, text_geometry, type_entry, value_type_name, Shape, KIND_REASON,
-    OVERLAP_LEAF, OVERLAP_REASON, REFERENCE_LEAF, REFERENCE_TARGET_REASON, UNION_LEAF,
-    UNION_REASON,
+    REFERENCE_LEAF, REFERENCE_TARGET_REASON, UNION_LEAF, UNION_REASON,
 };
 use crate::bytecode::TypeData;
 use crate::collections::OrderedMap;
@@ -38,7 +37,7 @@ pub(crate) fn read_value_in(
 }
 
 /// Materialize the value of one byte range, refusing a leaf the type does not hold.
-fn read_one(
+pub(super) fn read_one(
     bytes: &[u8],
     type_id: u32,
     prepared: &PreparedModule,
@@ -60,7 +59,9 @@ fn read_one(
             _ => Ok(Value::Null),
         },
         Shape::Text(_) => read_text(type_id, bytes, prepared),
-        Shape::Overlay => Err(refusal(prepared, type_id, OVERLAP_LEAF, OVERLAP_REASON)),
+        Shape::Overlay(overlay) => {
+            super::overlay::read(overlay, bytes, prepared, references, start)
+        }
         Shape::Union => Err(refusal(prepared, type_id, UNION_LEAF, UNION_REASON)),
     }
 }

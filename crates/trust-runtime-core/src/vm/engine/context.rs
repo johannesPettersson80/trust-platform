@@ -91,7 +91,7 @@ impl<'e> ReferenceContext for EngineState<'e> {
     fn before_view_clone(&self, view: &ValueView<'_>) -> Result<(), RuntimeError> {
         match view {
             ValueView::Value(value) => self.before_value_clone(value),
-            ValueView::Cells { .. } => {
+            ValueView::Cells { .. } | ValueView::Bits { .. } => {
                 let bytes = self.view_clone_charge(view)?;
                 self.charge_allocation_bytes(bytes)
             }

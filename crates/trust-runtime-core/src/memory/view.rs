@@ -17,7 +17,7 @@
 
 use super::{Generation, InstanceData, InstanceId, MemoryLocation, PreparedStorageWrite};
 use crate::error::RuntimeError;
-use crate::memory::cell_access::{CellPatch, CellsView};
+use crate::memory::cell_access::{CellPatch, CellsView, OverlayNode};
 use crate::memory::layout::ByteRange;
 use crate::value::{
     read_string_element, read_value_path_borrowed, single_string_index, string_element_count,
@@ -47,6 +47,23 @@ pub enum ValueView<'a> {
         /// The `TYPE_TABLE` type the cells hold.
         type_id: u32,
     },
+    /// A node of the backing of a structure with a physical layout that lies in cells (C1-15): a
+    /// member, an element or a nested structure, which is a bit field of the backing rather than a
+    /// byte range of its own. It is the node at the first `depth` path segments of anchor `leaf` (a
+    /// scalar leaf of the physical layout, or a member beside the backing numbered after them), and
+    /// its value is decoded from the backing when it is asked.
+    Bits {
+        /// The layouts and the region the structure is read from.
+        cells: CellsView<'a>,
+        /// The structure's cells: its backing and the members beside it.
+        range: ByteRange,
+        /// The structure's `TYPE_TABLE` type.
+        type_id: u32,
+        /// The anchor below the node.
+        leaf: u32,
+        /// The number of the anchor's path segments that name the node.
+        depth: u8,
+    },
 }
 
 impl<'a> ValueView<'a> {
@@ -55,12 +72,55 @@ impl<'a> ValueView<'a> {
         Self::Value(value)
     }
 
+    /// The view of `node`, a node of the structure `type_id` whose cells `range` holds.
+    fn overlay_node(
+        cells: CellsView<'a>,
+        range: ByteRange,
+        type_id: u32,
+        node: OverlayNode,
+    ) -> Self {
+        match node {
+            OverlayNode::Bits { anchor, depth } => Self::Bits {
+                cells,
+                range,
+                type_id,
+                leaf: anchor,
+                depth,
+            },
+            OverlayNode::Beside { range, type_id } => Self::Cells {
+                cells,
+                range,
+                type_id,
+            },
+        }
+    }
+
     /// Step one compound segment into a child borrowed from the same storage, or
     /// `None` when the child is absent.
     fn member(&self, segment: &RefSegment) -> Option<Self> {
         match *self {
             Self::Value(value) => {
                 read_value_path_borrowed(value, core::slice::from_ref(segment)).map(Self::borrowed)
+            }
+            // A member of a structure with a physical layout is a node of its backing, or lies
+            // beside it (C1-15).
+            Self::Cells {
+                cells,
+                range,
+                type_id,
+            } if cells.overlay_layout(type_id).is_some() => {
+                let node = cells.overlay_step(range, type_id, 0, 0, segment)?;
+                Some(Self::overlay_node(cells, range, type_id, node))
+            }
+            Self::Bits {
+                cells,
+                range,
+                type_id,
+                leaf,
+                depth,
+            } => {
+                let node = cells.overlay_step(range, type_id, leaf, depth, segment)?;
+                Some(Self::overlay_node(cells, range, type_id, node))
             }
             Self::Cells {
                 cells,
@@ -90,6 +150,8 @@ impl<'a> ValueView<'a> {
                 range,
                 type_id,
             } => cells.string_text(range, type_id),
+            // A text lies beside the backing, so no node of it is one.
+            Self::Bits { .. } => None,
         }
     }
 
@@ -97,7 +159,7 @@ impl<'a> ValueView<'a> {
     pub(crate) fn borrowed_value(&self) -> Option<&'a Value> {
         match *self {
             Self::Value(value) => Some(value),
-            Self::Cells { .. } => None,
+            Self::Cells { .. } | Self::Bits { .. } => None,
         }
     }
 
@@ -111,6 +173,13 @@ impl<'a> ValueView<'a> {
                 range,
                 type_id,
             } => cells.materialize(range, type_id),
+            Self::Bits {
+                cells,
+                range,
+                type_id,
+                leaf,
+                depth,
+            } => cells.overlay_value(range, type_id, leaf, depth),
         }
     }
 
@@ -119,7 +188,7 @@ impl<'a> ValueView<'a> {
     pub(crate) fn materialize_flagged(&self) -> Result<(Value, bool), RuntimeError> {
         match *self {
             Self::Value(value) => Ok(crate::vm::materialize_borrowed_value(value)),
-            Self::Cells { .. } => {
+            Self::Cells { .. } | Self::Bits { .. } => {
                 let value = self.materialize()?;
                 let cloned = !matches!(
                     value,
@@ -202,6 +271,13 @@ impl<'a> ValueView<'a> {
                 range,
                 type_id,
             } => cells.scalar(range, type_id),
+            Self::Bits {
+                cells,
+                range,
+                type_id,
+                leaf,
+                depth,
+            } => cells.overlay_scalar(range, type_id, leaf, depth),
         }
     }
 
@@ -218,6 +294,8 @@ impl<'a> ValueView<'a> {
                 range,
                 type_id,
             } => cells.instance(range, type_id),
+            // An overlay holds no instance.
+            Self::Bits { .. } => Ok(None),
         }
     }
 
@@ -235,6 +313,16 @@ impl<'a> ValueView<'a> {
                 range,
                 type_id,
             } => cells.text_utf8_len(range, type_id),
+            Self::Bits { .. } => Ok(None),
+        }
+    }
+
+    /// Whether this view holds a structure with a physical layout, or a node of its backing (C1-15).
+    pub(crate) fn lies_as_backing(&self) -> bool {
+        match *self {
+            Self::Value(_) => false,
+            Self::Cells { cells, type_id, .. } => cells.overlay_layout(type_id).is_some(),
+            Self::Bits { .. } => true,
         }
     }
 
@@ -243,6 +331,15 @@ impl<'a> ValueView<'a> {
         match *self {
             Self::Value(value) => matches!(value, Value::Struct(_)),
             Self::Cells { cells, type_id, .. } => cells.is_struct(type_id),
+            Self::Bits {
+                cells,
+                type_id,
+                leaf,
+                depth,
+                ..
+            } => cells
+                .overlay_node_type(type_id, leaf, depth)
+                .is_some_and(|node| cells.is_struct(node)),
         }
     }
 
@@ -253,7 +350,19 @@ impl<'a> ValueView<'a> {
                 Value::Struct(structure) => structure.contains_field(name),
                 _ => false,
             },
+            Self::Cells { cells, type_id, .. } if cells.overlay_layout(type_id).is_some() => {
+                cells.overlay_has_field(type_id, name)
+            }
             Self::Cells { cells, type_id, .. } => cells.has_field(type_id, name),
+            Self::Bits {
+                cells,
+                type_id,
+                leaf,
+                depth,
+                ..
+            } => cells
+                .overlay_node_type(type_id, leaf, depth)
+                .is_some_and(|node| cells.overlay_has_field(node, name)),
         }
     }
 
@@ -266,6 +375,15 @@ impl<'a> ValueView<'a> {
                 _ => None,
             },
             Self::Cells { cells, type_id, .. } => cells.array_dimensions(type_id),
+            Self::Bits {
+                cells,
+                type_id,
+                leaf,
+                depth,
+                ..
+            } => cells
+                .overlay_node_type(type_id, leaf, depth)
+                .and_then(|node| cells.array_dimensions(node)),
         }
     }
 
@@ -284,6 +402,7 @@ impl<'a> ValueView<'a> {
                 range,
                 type_id,
             } => cells.text_char_count(range, type_id),
+            Self::Bits { .. } => Ok(None),
         }
     }
 
@@ -297,6 +416,7 @@ impl<'a> ValueView<'a> {
                 _ => None,
             },
             Self::Cells { cells, type_id, .. } => cells.text_is_wide(type_id),
+            Self::Bits { .. } => None,
         }
     }
 
@@ -306,7 +426,7 @@ impl<'a> ValueView<'a> {
     pub(crate) fn walk(&self, path: &[RefSegment]) -> Option<Self> {
         match *self {
             Self::Value(value) => read_value_path_borrowed(value, path).map(Self::borrowed),
-            Self::Cells { .. } => path
+            Self::Cells { .. } | Self::Bits { .. } => path
                 .iter()
                 .try_fold(*self, |view, segment| view.member(segment)),
         }
@@ -337,6 +457,7 @@ impl<'a> ValueView<'a> {
                 Some(true) => cells.wide_text_element(range, type_id, index),
                 None => Ok(None),
             },
+            Self::Bits { .. } => Ok(None),
         }
     }
 
@@ -345,7 +466,20 @@ impl<'a> ValueView<'a> {
     pub(crate) fn cell_child_count(&self) -> Result<Option<usize>, RuntimeError> {
         match *self {
             Self::Value(_) => Ok(None),
+            Self::Cells { cells, type_id, .. } if cells.overlay_layout(type_id).is_some() => {
+                cells.overlay_child_count(type_id)
+            }
             Self::Cells { cells, type_id, .. } => cells.child_count(type_id),
+            Self::Bits {
+                cells,
+                type_id,
+                leaf,
+                depth,
+                ..
+            } => match cells.overlay_node_type(type_id, leaf, depth) {
+                Some(node) => cells.overlay_child_count(node),
+                None => Err(RuntimeError::InvalidExecutionState),
+            },
         }
     }
 
@@ -354,6 +488,27 @@ impl<'a> ValueView<'a> {
     pub(crate) fn cell_child(&self, ordinal: usize) -> Result<Self, RuntimeError> {
         match *self {
             Self::Value(_) => Err(RuntimeError::InvalidExecutionState),
+            Self::Cells {
+                cells,
+                range,
+                type_id,
+            } if cells.overlay_layout(type_id).is_some() => {
+                let node = cells.overlay_child(range, type_id, 0, 0, type_id, ordinal)?;
+                Ok(Self::overlay_node(cells, range, type_id, node))
+            }
+            Self::Bits {
+                cells,
+                range,
+                type_id,
+                leaf,
+                depth,
+            } => {
+                let node_type = cells
+                    .overlay_node_type(type_id, leaf, depth)
+                    .ok_or(RuntimeError::InvalidExecutionState)?;
+                let node = cells.overlay_child(range, type_id, leaf, depth, node_type, ordinal)?;
+                Ok(Self::overlay_node(cells, range, type_id, node))
+            }
             Self::Cells {
                 cells,
                 range,
@@ -378,6 +533,7 @@ impl<'a> ValueView<'a> {
                 range,
                 type_id,
             } => cells.reference_leaf(range, type_id),
+            Self::Bits { .. } => Ok(None),
         }
     }
 
@@ -386,6 +542,15 @@ impl<'a> ValueView<'a> {
         match *self {
             Self::Value(_) => false,
             Self::Cells { cells, type_id, .. } => cells.array_of_primitives(type_id),
+            Self::Bits {
+                cells,
+                type_id,
+                leaf,
+                depth,
+                ..
+            } => cells
+                .overlay_node_type(type_id, leaf, depth)
+                .is_some_and(|node| cells.array_of_primitives(node)),
         }
     }
 
@@ -420,6 +585,24 @@ pub(crate) enum PreparedWriteKind {
     },
     /// A checked leaf of the cells: its range, its type and the value it will hold (R4).
     Cells(CellPatch),
+    /// A write into the backing of a structure with a physical layout in the cells (C1-15): the
+    /// structure's value read from its cells, the physical patch the value store would stage on it,
+    /// and where the structure lies. The commit applies the patch to the value and stores it.
+    Overlay(OverlayWrite),
+}
+
+/// A staged write into the backing of a structure with a physical layout in the cells (C1-15).
+pub(crate) struct OverlayWrite {
+    /// The structure's cells, its type and the presence byte of the declaration it is.
+    pub(crate) range: ByteRange,
+    pub(crate) type_id: u32,
+    pub(crate) presence: Option<u32>,
+    /// The leading segments of the written path that reached the structure.
+    pub(crate) consumed: usize,
+    /// The structure's value, read from its cells when the write was prepared.
+    pub(crate) root: crate::value::StructValue,
+    /// The physical patch of the write, checked against `root`.
+    pub(crate) staged: crate::value::overlap::PreparedPhysicalWrite,
 }
 
 impl PreparedWrite {
@@ -429,6 +612,8 @@ impl PreparedWrite {
         match &self.0 {
             PreparedWriteKind::Values { staged, .. } => staged.requires_final_deadline_check(),
             PreparedWriteKind::Cells(_) => false,
+            // A physical patch publishes as the value store's does.
+            PreparedWriteKind::Overlay(_) => true,
         }
     }
 
@@ -441,6 +626,7 @@ impl PreparedWrite {
         match &self.0 {
             PreparedWriteKind::Values { staged, .. } => staged.validate_aliases(check),
             PreparedWriteKind::Cells(_) => Ok(()),
+            PreparedWriteKind::Overlay(write) => write.staged.validate_aliases(check),
         }
     }
 }

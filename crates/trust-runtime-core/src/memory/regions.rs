@@ -13,9 +13,7 @@ use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 
-use crate::bytecode::{
-    StorageOwner, StorageRole, TypeData, TypeEntry, TypeKind, BYTECODE_MAX_TYPE_NESTING,
-};
+use crate::bytecode::{StorageOwner, StorageRole, TypeData, TypeEntry, BYTECODE_MAX_TYPE_NESTING};
 use crate::error::RuntimeError;
 use crate::memory::cells::{write_value_in, FlatBlock, ReferenceTable};
 use crate::memory::instance_table::{InstanceTable, PersistentInstance};
@@ -858,12 +856,22 @@ impl Leaves {
                     )?;
                 }
             }
-            TypeData::Struct { fields } if entry.kind != TypeKind::OverlappingStruct => {
-                for (field, member) in fields.iter().zip(&layout.members) {
-                    let start = offset_of(base, member.byte_offset)?;
-                    self.add_value(prepared, field.type_id, start, depth + 1)?;
+            TypeData::Struct { fields } => match &layout.overlay {
+                // A structure with a physical layout holds its references beside its backing
+                // (C1-15).
+                Some(overlay) => {
+                    for slot in &overlay.slots {
+                        let start = offset_of(base, slot.byte_offset)?;
+                        self.add_value(prepared, slot.type_id, start, depth + 1)?;
+                    }
                 }
-            }
+                None => {
+                    for (field, member) in fields.iter().zip(&layout.members) {
+                        let start = offset_of(base, member.byte_offset)?;
+                        self.add_value(prepared, field.type_id, start, depth + 1)?;
+                    }
+                }
+            },
             _ => {}
         }
         Ok(())
@@ -879,9 +887,9 @@ struct DefaultWriter<'a> {
 impl DefaultWriter<'_> {
     /// Write the default of the `TYPE_TABLE` type `type_id` into `bytes`, the bytes of one value of
     /// it that starts at byte `start` of its block (R2). A structure and an array are written leaf
-    /// by leaf, so no whole default value is built. A type whose value only construction can give,
-    /// an instance, or a type C1-15 places, an overlapping structure or a union, keeps its bytes as
-    /// they are.
+    /// by leaf, so no whole default value is built. A type whose value only construction can give
+    /// keeps its bytes as they are: an instance, a structure with a physical layout, whose backing
+    /// construction encodes from its members (C1-15), and a union.
     fn write(
         &mut self,
         bytes: &mut [u8],
@@ -903,7 +911,7 @@ impl DefaultWriter<'_> {
             TypeData::Alias { target_type_id } => {
                 self.write(bytes, *target_type_id, start, depth + 1)
             }
-            TypeData::Struct { fields } if entry.kind != TypeKind::OverlappingStruct => {
+            TypeData::Struct { fields } if layout_of(prepared, type_id)?.overlay.is_none() => {
                 let layout = layout_of(prepared, type_id)?;
                 for (member, field) in layout.members.iter().zip(fields) {
                     let size = layout_of(prepared, field.type_id)?.shape.bytes;

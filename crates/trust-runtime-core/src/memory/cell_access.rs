@@ -35,6 +35,7 @@ use crate::memory::{
 use crate::value::{array_offset_i64, RefPath, RefSegment, Value, ValueRef, ValueRefView};
 use crate::vm::{PreparedModule, VmTrap};
 
+pub(crate) use cell_overlay::OverlayNode;
 pub(crate) use cell_write::{CellPatch, CellWriter};
 
 /// The write side of the arm (C1-9c), in its own file.
@@ -531,6 +532,10 @@ enum Target<'p> {
     Cells(ByteRange, u32, Option<u32>),
     /// A place the `Value` half reads: location, slot and the path still to walk.
     Values(MemoryLocation, usize, &'p [RefSegment]),
+    /// A node of the backing of a structure with a physical layout (C1-15): the structure's cells,
+    /// its type and the presence byte of the declaration it is, and the path from the structure to
+    /// the node.
+    Bits(ByteRange, u32, Option<u32>, &'p [RefSegment]),
 }
 
 /// The reads of the cell arm (specification 34 §6.2, MEM-10; C1-9b): the reads of
@@ -577,6 +582,10 @@ impl<'a> CellReader<'a> {
         match self.locate(location, offset, path)? {
             Target::Cells(range, type_id, presence) => Ok(self.view(range, type_id, presence)),
             Target::Values(location, offset, rest) => self.values_slot(location, offset, rest),
+            Target::Bits(range, type_id, presence, rest) => self
+                .view(range, type_id, presence)
+                .walk(rest)
+                .ok_or(VmTrap::NullReference),
         }
     }
 
@@ -594,6 +603,10 @@ impl<'a> CellReader<'a> {
         match self.field(instance, name, &[])? {
             Target::Cells(range, type_id, presence) => Ok(self.view(range, type_id, presence)),
             Target::Values(location, offset, rest) => self.values_slot(location, offset, rest),
+            Target::Bits(range, type_id, presence, rest) => self
+                .view(range, type_id, presence)
+                .walk(rest)
+                .ok_or(VmTrap::NullReference),
         }
     }
 
@@ -857,6 +870,14 @@ impl<'a> CellReader<'a> {
         match self.locate(location, offset, path) {
             Ok(Target::Cells(range, type_id, presence)) => Some((range, type_id, presence)),
             _ => None,
+        }
+    }
+
+    /// The cells of this reader's region, for the questions a view asks of them.
+    fn view_cells(self) -> CellsView<'a> {
+        CellsView {
+            prepared: self.prepared,
+            regions: self.arm.cells.regions(),
         }
     }
 
@@ -1188,6 +1209,22 @@ impl<'a> CellReader<'a> {
         }
         let delta = offset.checked_sub(range.start)?;
         let layout = self.prepared.type_layout(resolved)?;
+        // Inside a structure with a physical layout only a member beside the backing has bytes of
+        // its own (C1-15).
+        if let Some(overlay) = &layout.overlay {
+            let slot = overlay.slots.iter().find(|slot| {
+                self.prepared.type_layout(slot.type_id).is_some_and(|own| {
+                    delta >= slot.byte_offset && delta - slot.byte_offset < own.shape.bytes
+                })
+            })?;
+            path.extend(slot.path.iter().cloned());
+            let child = ByteRange {
+                start: range.start.checked_add(slot.byte_offset)?,
+                bytes: self.prepared.type_layout(slot.type_id)?.shape.bytes,
+                ..range
+            };
+            return self.path_to(child, slot.type_id, offset, target_type, path, depth + 1);
+        }
         match data {
             TypeData::Struct { fields } => {
                 for (member, field) in layout.members.iter().zip(fields) {
@@ -1361,6 +1398,33 @@ impl<'a> CellReader<'a> {
                 let instance = self.instance_at(range)?;
                 return self.field(instance, name.as_str(), &path[index + 1..]);
             }
+            // Inside a structure with a physical layout the path names a node of its backing, or a
+            // member beside the backing, from which it goes on (C1-15). Only the declaration itself
+            // keeps a presence byte.
+            if self.view_cells().overlay_layout(type_id).is_some() {
+                let cells = self.view_cells();
+                let (mut anchor, mut depth) = (0, 0);
+                for (step, segment) in path[index..].iter().enumerate() {
+                    match cells
+                        .overlay_step(range, type_id, anchor, depth, segment)
+                        .ok_or(VmTrap::NullReference)?
+                    {
+                        OverlayNode::Bits {
+                            anchor: next,
+                            depth: deeper,
+                        } => (anchor, depth) = (next, deeper),
+                        OverlayNode::Beside {
+                            range: member,
+                            type_id: member_type,
+                        } => {
+                            let rest = &path[index + step + 1..];
+                            return self.walk(member, member_type, None, rest);
+                        }
+                    }
+                }
+                let presence = if index == 0 { presence } else { None };
+                return Ok(Target::Bits(range, type_id, presence, &path[index..]));
+            }
             let (offset, child) =
                 step(self.prepared, type_id, segment).ok_or(VmTrap::NullReference)?;
             let bytes = self
@@ -1493,6 +1557,9 @@ fn step(prepared: &PreparedModule, type_id: u32, segment: &RefSegment) -> Option
 
 #[path = "cell_charge.rs"]
 mod cell_charge;
+/// The nodes of structures with a physical layout (C1-15), in their own file.
+#[path = "cell_overlay.rs"]
+mod cell_overlay;
 /// The bytecode fixture of the cell arm's tests, whose builders the engine's construction tests reuse.
 #[cfg(all(test, feature = "std"))]
 pub(crate) mod fixture;

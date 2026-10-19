@@ -203,19 +203,21 @@ enum Lying<'a> {
 }
 
 impl<'a> Lying<'a> {
-    /// The argument a view shows.
-    fn of_view(view: ValueView<'a>) -> Self {
+    /// The argument a view shows, or `None` for a node of a backing, which holds no text and is
+    /// bound as a value (C1-15).
+    fn of_view(view: ValueView<'a>) -> Option<Self> {
         match view {
-            ValueView::Value(value) => Lying::Value(value),
+            ValueView::Value(value) => Some(Lying::Value(value)),
             ValueView::Cells {
                 cells,
                 range,
                 type_id,
-            } => Lying::Cells {
+            } => Some(Lying::Cells {
                 cells,
                 range,
                 type_id,
-            },
+            }),
+            ValueView::Bits { .. } => None,
         }
     }
 
@@ -264,14 +266,14 @@ fn lying<'a>(
         Operand::Value(Value::Reference(Some(reference))) if call.is_target(source) => {
             VmWriteTarget::peek_reference(runtime, frame, reference)
                 .ok()
-                .map(Lying::of_view)
+                .and_then(Lying::of_view)
         }
         // A target that is no reference is refused by the call that binds values.
         Operand::Value(_) if call.is_target(source) => None,
         Operand::Value(value) => Some(Lying::Value(value)),
         Operand::Place(place) => runtime
             .place_view(*place)
-            .map(Lying::of_view)
+            .and_then(Lying::of_view)
             .filter(|lying| lying.cell_text().is_some()),
         Operand::Text(temp) => Some(Lying::Text(
             stack.text(*temp).map_err(VmTrap::into_runtime_error)?,

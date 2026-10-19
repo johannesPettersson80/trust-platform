@@ -463,7 +463,7 @@ impl Fixture {
 /// Every measured application. Each corpus program runs in a 10 ms task, so each of its scans
 /// activates it once. The saved main and numeric artifacts keep the boards' schedule: 101 scans
 /// from 0 ms to 1,000 ms with a 25 ms task.
-static FIXTURES: [Fixture; 20] = [
+static FIXTURES: [Fixture; 21] = [
     Fixture::saved("saved/main", SAVED_MAIN, 0, 101),
     Fixture::saved("saved/numeric", SAVED_NUMERIC, 0, 101),
     Fixture::saved("saved/gpio", SAVED_GPIO, 10, 20),
@@ -490,6 +490,7 @@ static FIXTURES: [Fixture; 20] = [
     Fixture::corpus("retained_blocks"),
     Fixture::corpus("retained_values"),
     Fixture::corpus("copies"),
+    Fixture::corpus("overlays"),
 ];
 
 /// How a fault case makes its scan fail.
@@ -1004,9 +1005,9 @@ fn listed_runs_stay_within_their_allocator_ceilings_and_every_fixture_reports_it
     assert_eq!(failures, Vec::<String>::new(), "failing runs");
 }
 
-/// The fixtures the flat store refuses until a later slice, with the slice that admits them: a
-/// `STRUCT OVERLAP` is written through its byte backing in C1-15.
-const REFUSED_ON_THE_FLAT_STORE: [&str; 1] = ["structures"];
+/// The fixtures the flat store refuses until a later slice, with the slice that admits them. None
+/// since C1-15 placed the `STRUCT OVERLAP` of `structures` and `overlays` as its backing.
+const REFUSED_ON_THE_FLAT_STORE: [&str; 0] = [];
 
 /// Spec 34 MEM-12 and ARCH-05: the same runs on the flat store, which C1-10 to C1-19 build on and
 /// make the default. Every scan's counts are printed under `cells/<name>`, so each slice is

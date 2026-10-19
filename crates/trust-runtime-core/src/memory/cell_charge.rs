@@ -12,7 +12,7 @@ use super::{
     is_instance, member_name, primitive_of, resolve_entry, CellReader, CellsView, Target,
     STRING_PRIMITIVE, WSTRING_PRIMITIVE,
 };
-use crate::bytecode::{TypeData, TypeKind, BYTECODE_MAX_TYPE_NESTING};
+use crate::bytecode::{TypeData, BYTECODE_MAX_TYPE_NESTING};
 use crate::error::RuntimeError;
 use crate::memory::cells::{text_geometry, Cell};
 use crate::memory::flat::{self, LeafKind, TextBytes};
@@ -41,7 +41,12 @@ impl CellsView<'_> {
         let (resolved, entry) =
             resolve_entry(self.prepared, type_id).ok_or(RuntimeError::InvalidExecutionState)?;
         match &entry.data {
-            TypeData::Struct { fields } if entry.kind != TypeKind::OverlappingStruct => {
+            // A structure with a physical layout is charged by its type and the members beside its
+            // backing (C1-15).
+            TypeData::Struct { .. } if self.overlay_layout(resolved).is_some() => {
+                self.overlay_copy_charge(range, resolved, 0, 0, depth)
+            }
+            TypeData::Struct { fields } => {
                 let layout = self
                     .prepared
                     .type_layout(resolved)
@@ -107,11 +112,10 @@ impl CellsView<'_> {
             },
             // An instance is one cell and copies nothing, as the `Value` instance does.
             TypeData::Pou { .. } | TypeData::Interface { .. } => Ok(CopyCharge::default()),
-            // A `STRUCT OVERLAP` or a union shares its cells, which C1-15 owns.
-            TypeData::Struct { .. } | TypeData::Union { .. } => {
+            // A union is not stored in cells yet (C1-15).
+            TypeData::Union { .. } | TypeData::Alias { .. } => {
                 Err(RuntimeError::InvalidExecutionState)
             }
-            TypeData::Alias { .. } => Err(RuntimeError::InvalidExecutionState),
         }
     }
 
@@ -135,7 +139,10 @@ impl CellsView<'_> {
         let (resolved, entry) =
             resolve_entry(self.prepared, type_id).ok_or(RuntimeError::InvalidExecutionState)?;
         match &entry.data {
-            TypeData::Struct { fields } if entry.kind != TypeKind::OverlappingStruct => {
+            TypeData::Struct { .. } if self.overlay_layout(resolved).is_some() => {
+                self.overlay_copy_work(range, resolved, 0, 0, depth, charge)
+            }
+            TypeData::Struct { fields } => {
                 let layout = self
                     .prepared
                     .type_layout(resolved)
@@ -194,7 +201,7 @@ impl CellsView<'_> {
                 None => Ok(()),
             },
             TypeData::Pou { .. } | TypeData::Interface { .. } => Ok(()),
-            TypeData::Struct { .. } | TypeData::Union { .. } | TypeData::Alias { .. } => {
+            TypeData::Union { .. } | TypeData::Alias { .. } => {
                 Err(RuntimeError::InvalidExecutionState)
             }
         }
@@ -285,12 +292,11 @@ impl CopyCharge {
     }
 }
 
-/// Whether `type_id` is a structure or an array, which a copy takes as a compound (not as one leaf).
-fn is_compound(prepared: &PreparedModule, type_id: u32) -> bool {
-    resolve_entry(prepared, type_id).is_some_and(|(_, entry)| match &entry.data {
-        TypeData::Array { .. } => true,
-        TypeData::Struct { .. } => entry.kind != TypeKind::OverlappingStruct,
-        _ => false,
+/// Whether `type_id` is a structure or an array, which a copy takes as a compound (not as one leaf):
+/// a structure with a physical layout too, whose value is a structure (C1-15).
+pub(super) fn is_compound(prepared: &PreparedModule, type_id: u32) -> bool {
+    resolve_entry(prepared, type_id).is_some_and(|(_, entry)| {
+        matches!(entry.data, TypeData::Array { .. } | TypeData::Struct { .. })
     })
 }
 
@@ -529,8 +535,8 @@ impl<'a> CellsView<'a> {
         }
     }
 
-    /// Whether `type_id` is a structure, which owns one cell range per member (the layout of the
-    /// `Value` structure). An overlapping structure is refused by the cell charge (C1-15).
+    /// Whether `type_id` is a structure: one cell range per member, or a backing with the members
+    /// beside it for a structure with a physical layout (C1-15).
     pub(crate) fn is_struct(self, type_id: u32) -> bool {
         resolve_entry(self.prepared, type_id)
             .is_some_and(|(_, entry)| matches!(entry.data, TypeData::Struct { .. }))
@@ -589,13 +595,13 @@ impl<'a> CellsView<'a> {
 
     /// The number of members of the structure, or of elements of the array, of `type_id` (C1-9d2a,
     /// item (e)): the children a layout walk visits, as a `Value` tree's fields and elements are
-    /// visited. `None` for any other type. A `STRUCT OVERLAP` or a union has no walk until C1-15, so
-    /// it is refused.
+    /// visited. `None` for any other type. A structure with a physical layout is walked through its
+    /// view's nodes (C1-15), and a union has no walk yet, so both are refused here.
     pub(crate) fn child_count(self, type_id: u32) -> Result<Option<usize>, RuntimeError> {
         let (resolved, entry) =
             resolve_entry(self.prepared, type_id).ok_or(RuntimeError::InvalidExecutionState)?;
         match &entry.data {
-            TypeData::Struct { fields } if entry.kind != TypeKind::OverlappingStruct => {
+            TypeData::Struct { fields } if self.overlay_layout(resolved).is_none() => {
                 Ok(Some(fields.len()))
             }
             TypeData::Array { .. } => {
@@ -634,7 +640,7 @@ impl<'a> CellsView<'a> {
             .type_layout(resolved)
             .ok_or(RuntimeError::InvalidExecutionState)?;
         let (offset, child_type) = match &entry.data {
-            TypeData::Struct { fields } if entry.kind != TypeKind::OverlappingStruct => {
+            TypeData::Struct { fields } if self.overlay_layout(resolved).is_none() => {
                 let member = layout
                     .members
                     .get(ordinal)

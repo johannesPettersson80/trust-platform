@@ -140,7 +140,13 @@ fn captured_cells_encode_like_the_value_tree() {
     // `activations`.
     assert_eq!(
         covered,
-        ["retain", "retained_blocks", "retained_values", "saved/main"]
+        [
+            "retain",
+            "retained_blocks",
+            "retained_values",
+            "overlays",
+            "saved/main"
+        ]
     );
 }
 

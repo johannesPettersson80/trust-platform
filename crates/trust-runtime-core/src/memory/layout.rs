@@ -4,7 +4,8 @@
 //! type occupies a flat block: its declared size and alignment, its members' and elements' byte
 //! offsets, and its text, reference and instance leaves. Every structure or array is a contiguous
 //! byte range with its nested compounds inline. A text leaf records its byte capacity from D-C1-2,
-//! and a `STRUCT OVERLAP` records the length of its byte backing.
+//! and a structure with a physical layout (a `STRUCT OVERLAP` and every structure nested in one)
+//! records its byte backing and the members that lie beside it (C1-15).
 //!
 //! The layout tables and their computation are charged once at preparation. A region's bytes are
 //! only recorded here; construction charges them when it reserves the region. The traversal is
@@ -16,10 +17,13 @@
 
 use alloc::vec::Vec;
 
-use crate::bytecode::{TypeData, TypeKind, TypeTable, BYTECODE_MAX_TYPE_NESTING};
+use smol_str::SmolStr;
+
+use crate::bytecode::{TypeData, TypeTable, BYTECODE_MAX_TYPE_NESTING};
 use crate::error::RuntimeError;
-use crate::value::string_capacity;
+use crate::value::{string_capacity, RefSegment};
 use crate::vm::type_policy::is_wildcard_dim;
+use crate::vm::Names;
 
 /// Bytes of one decoded leaf value, a [`Cell`](crate::memory::cells::Cell): the unit the copy
 /// charges of TIME-08 count a value's element in.
@@ -220,22 +224,49 @@ pub struct TypeLayout {
     pub reference_leaves: Vec<ReferenceLeaf>,
     /// Instance leaves.
     pub instance_leaves: Vec<InstanceLeaf>,
-    /// Length in bytes of a `STRUCT OVERLAP`'s byte backing, or zero.
-    pub overlap_backing_bytes: u32,
+    /// How a structure with a physical layout lies in the block: its backing, then the members
+    /// that lie beside it (C1-15). `None` for every other type.
+    pub overlay: Option<OverlayLayout>,
     /// Whether the type can hold a reference or an instance, so a later lifetime check visits it.
     pub holds_reference_or_instance: bool,
 }
 
+/// How a structure with a physical layout lies in a flat block (specification 34 MEM-12; C1-15): its
+/// backing, which holds the bits of every member as specification 02 places them, gaps included,
+/// then each member that has no bits there, which only it uses.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OverlayLayout {
+    /// Bytes of the backing, from byte 0 of the structure's flat bytes.
+    pub backing_bytes: u32,
+    /// The members that lie beside the backing, in declaration order through every nesting level.
+    pub slots: Vec<OverlaySlot>,
+}
+
+/// A member of a structure with a physical layout that lies beside its backing (C1-15): a text, a
+/// reference, a union, or an array of them, which specification 12 gives no bits that another member
+/// shares. It lies at its own type's layout.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OverlaySlot {
+    /// The member's path from the structure: member names and element subscripts.
+    pub path: Vec<RefSegment>,
+    /// The member's type.
+    pub type_id: u32,
+    /// Byte offset of the member's bytes within the structure's flat bytes.
+    pub byte_offset: u32,
+}
+
 /// Compute one [`TypeLayout`] per TYPE_TABLE entry, charging the layout tables it builds.
 ///
-/// `overlap_backing` returns the admitted byte backing length of the overlapping structure at
-/// `type_id` (the shared value layer already validates and sizes it). `charge` mirrors the
-/// preparation budget: it is called with the bytes of each layout table and the work of computing
-/// it, so an oversized type table is refused here with its limit error. The type's bytes are not
-/// charged; construction charges a region's bytes when it reserves the region.
+/// `physical_backing` returns the admitted byte backing length of a structure type that has a
+/// physical layout, and `None` for one that has none (the shared value layer validates and sizes
+/// it); `names` gives the member names of the paths of the members that lie beside a backing.
+/// `charge` mirrors the preparation budget: it is called with the bytes of each layout table and the
+/// work of computing it, so an oversized type table is refused here with its limit error. The
+/// type's bytes are not charged; construction charges a region's bytes when it reserves the region.
 pub(crate) fn compute_type_layouts(
     types: &TypeTable,
-    overlap_backing: &mut dyn FnMut(u32) -> Result<u32, RuntimeError>,
+    names: &Names,
+    physical_backing: &mut dyn FnMut(u32) -> Result<Option<u32>, RuntimeError>,
     charge: &mut dyn FnMut(usize, usize) -> Result<(), RuntimeError>,
 ) -> Result<Vec<TypeLayout>, RuntimeError> {
     let mut layouts: Vec<Option<TypeLayout>> = Vec::new();
@@ -245,208 +276,362 @@ pub(crate) fn compute_type_layouts(
     layouts.resize_with(types.entries.len(), || None);
     let mut active = Vec::new();
     active.resize(types.entries.len(), false);
+    let mut computation = Computation {
+        types,
+        names,
+        layouts,
+        active,
+        physical_backing,
+        charge,
+    };
     for index in 0..types.entries.len() {
         let id = u32::try_from(index).map_err(|_| RuntimeError::Overflow)?;
-        compute_one(
-            types,
-            id,
-            &mut layouts,
-            &mut active,
-            0,
-            overlap_backing,
-            charge,
-        )?;
+        computation.compute_one(id, 0)?;
     }
-    Ok(layouts.into_iter().map(Option::unwrap_or_default).collect())
+    Ok(computation
+        .layouts
+        .into_iter()
+        .map(Option::unwrap_or_default)
+        .collect())
 }
 
-/// Compute and cache the layout of one type.
-fn compute_one(
-    types: &TypeTable,
-    id: u32,
-    layouts: &mut [Option<TypeLayout>],
-    active: &mut [bool],
-    depth: usize,
-    overlap_backing: &mut dyn FnMut(u32) -> Result<u32, RuntimeError>,
-    charge: &mut dyn FnMut(usize, usize) -> Result<(), RuntimeError>,
-) -> Result<(), RuntimeError> {
-    charge(0, 1)?;
-    if layouts.get(id as usize).is_some_and(Option::is_some) {
-        return Ok(());
-    }
-    if depth >= BYTECODE_MAX_TYPE_NESTING {
-        return Err(RuntimeError::TypeNestingExceeds);
-    }
-    if *active.get(id as usize).ok_or(RuntimeError::TypeMismatch)? {
-        return Err(RuntimeError::TypeMismatch);
-    }
-    *active
-        .get_mut(id as usize)
-        .ok_or(RuntimeError::TypeMismatch)? = true;
-    let layout = build_layout(types, id, layouts, active, depth, overlap_backing, charge)?;
-    *active
-        .get_mut(id as usize)
-        .ok_or(RuntimeError::TypeMismatch)? = false;
-    charge(layout_table_bytes(&layout)?, 1)?;
-    layouts
-        .get_mut(id as usize)
-        .ok_or(RuntimeError::TypeMismatch)?
-        .replace(layout);
-    Ok(())
+/// The type layouts being computed, with what their computation reads and charges.
+struct Computation<'a> {
+    types: &'a TypeTable,
+    names: &'a Names,
+    layouts: Vec<Option<TypeLayout>>,
+    /// The types whose layout is being computed, so a recursive type is refused.
+    active: Vec<bool>,
+    physical_backing: &'a mut dyn FnMut(u32) -> Result<Option<u32>, RuntimeError>,
+    charge: &'a mut dyn FnMut(usize, usize) -> Result<(), RuntimeError>,
 }
 
-/// Build the layout of one already-entered type.
-fn build_layout(
-    types: &TypeTable,
-    id: u32,
-    layouts: &mut [Option<TypeLayout>],
-    active: &mut [bool],
-    depth: usize,
-    overlap_backing: &mut dyn FnMut(u32) -> Result<u32, RuntimeError>,
-    charge: &mut dyn FnMut(usize, usize) -> Result<(), RuntimeError>,
-) -> Result<TypeLayout, RuntimeError> {
-    let entry = types
-        .entries
-        .get(id as usize)
-        .ok_or(RuntimeError::TypeMismatch)?;
-    let mut layout = TypeLayout::default();
-    match &entry.data {
-        TypeData::Primitive {
-            prim_id,
-            max_length,
-        } => {
-            let length = u32::from(string_capacity(*max_length));
-            match *prim_id {
-                24 => layout.text_leaves.push(TextLeaf {
-                    capacity_bytes: length,
-                    byte_offset: 0,
-                }),
-                25 => layout.text_leaves.push(TextLeaf {
-                    capacity_bytes: length * 2,
-                    byte_offset: 0,
-                }),
-                _ => {}
+impl Computation<'_> {
+    /// Compute and cache the layout of one type.
+    fn compute_one(&mut self, id: u32, depth: usize) -> Result<(), RuntimeError> {
+        (self.charge)(0, 1)?;
+        if self.layouts.get(id as usize).is_some_and(Option::is_some) {
+            return Ok(());
+        }
+        if depth >= BYTECODE_MAX_TYPE_NESTING {
+            return Err(RuntimeError::TypeNestingExceeds);
+        }
+        if *self
+            .active
+            .get(id as usize)
+            .ok_or(RuntimeError::TypeMismatch)?
+        {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        *self
+            .active
+            .get_mut(id as usize)
+            .ok_or(RuntimeError::TypeMismatch)? = true;
+        let layout = self.build_layout(id, depth)?;
+        *self
+            .active
+            .get_mut(id as usize)
+            .ok_or(RuntimeError::TypeMismatch)? = false;
+        (self.charge)(layout_table_bytes(&layout)?, 1)?;
+        self.layouts
+            .get_mut(id as usize)
+            .ok_or(RuntimeError::TypeMismatch)?
+            .replace(layout);
+        Ok(())
+    }
+
+    /// Compute a child layout and return a clone of it.
+    fn compute_child(&mut self, id: u32, depth: usize) -> Result<TypeLayout, RuntimeError> {
+        self.compute_one(id, depth + 1)?;
+        self.layouts
+            .get(id as usize)
+            .and_then(Option::as_ref)
+            .cloned()
+            .ok_or(RuntimeError::TypeMismatch)
+    }
+
+    /// Build the layout of one already-entered type.
+    fn build_layout(&mut self, id: u32, depth: usize) -> Result<TypeLayout, RuntimeError> {
+        let types = self.types;
+        let entry = types
+            .entries
+            .get(id as usize)
+            .ok_or(RuntimeError::TypeMismatch)?;
+        let mut layout = TypeLayout::default();
+        match &entry.data {
+            TypeData::Primitive {
+                prim_id,
+                max_length,
+            } => {
+                let length = u32::from(string_capacity(*max_length));
+                match *prim_id {
+                    24 => layout.text_leaves.push(TextLeaf {
+                        capacity_bytes: length,
+                        byte_offset: 0,
+                    }),
+                    25 => layout.text_leaves.push(TextLeaf {
+                        capacity_bytes: length * 2,
+                        byte_offset: 0,
+                    }),
+                    _ => {}
+                }
+                layout.shape = primitive_shape(*prim_id, length)?;
             }
-            layout.shape = primitive_shape(*prim_id, length)?;
-        }
-        // An enumeration or a subrange has its base type's declared size (MEM-12).
-        TypeData::Enum { base_type_id, .. } | TypeData::Subrange { base_type_id, .. } => {
-            let base = compute_child(
-                types,
-                *base_type_id,
-                layouts,
-                active,
-                depth,
-                overlap_backing,
-                charge,
-            )?;
-            layout.shape = base.shape;
-        }
-        TypeData::Alias { target_type_id } => {
-            let child = compute_child(
-                types,
-                *target_type_id,
-                layouts,
-                active,
-                depth,
-                overlap_backing,
-                charge,
-            )?;
-            layout = child;
-        }
-        TypeData::Array { elem_type_id, dims } => {
-            let child = compute_child(
-                types,
-                *elem_type_id,
-                layouts,
-                active,
-                depth,
-                overlap_backing,
-                charge,
-            )?;
-            array_from(&mut layout, child, dims)?;
-        }
-        TypeData::Struct { fields } => {
-            if entry.kind == TypeKind::OverlappingStruct {
-                layout.overlap_backing_bytes = overlap_backing(id)?;
+            // An enumeration or a subrange has its base type's declared size (MEM-12).
+            TypeData::Enum { base_type_id, .. } | TypeData::Subrange { base_type_id, .. } => {
+                let base = self.compute_child(*base_type_id, depth)?;
+                layout.shape = base.shape;
+            }
+            TypeData::Alias { target_type_id } => {
+                let child = self.compute_child(*target_type_id, depth)?;
+                layout = child;
+            }
+            TypeData::Array { elem_type_id, dims } => {
+                let child = self.compute_child(*elem_type_id, depth)?;
+                array_from(&mut layout, child, dims)?;
+            }
+            TypeData::Struct { fields } => {
+                if let Some(backing_bytes) = (self.physical_backing)(id)? {
+                    for field in fields {
+                        layout.members.push(MemberLayout {
+                            name_idx: field.name_idx,
+                            byte_offset: 0,
+                        });
+                    }
+                    // The members lie over the backing bytes, laid out as specification 02 defines,
+                    // and those with no bits there after it, each at its own layout.
+                    let mut walk = SlotWalk {
+                        slots: Vec::new(),
+                        path: Vec::new(),
+                        end: backing_bytes,
+                        align: 1,
+                    };
+                    self.place_slots(&mut walk, &mut layout, id, depth)?;
+                    // Aligned to its most aligned member beside the backing; the backing's bytes
+                    // need no alignment.
+                    layout.shape = ByteShape {
+                        bytes: align_up(walk.end, walk.align)?,
+                        align: walk.align,
+                    };
+                    layout.overlay = Some(OverlayLayout {
+                        backing_bytes,
+                        slots: walk.slots,
+                    });
+                } else {
+                    let mut cursor = MemberCursor::default();
+                    for field in fields {
+                        let child = self.compute_child(field.type_id, depth)?;
+                        cursor.place(&mut layout, &child, field.name_idx)?;
+                    }
+                    cursor.finish(&mut layout)?;
+                }
+            }
+            TypeData::Union { fields } => {
+                let mut shape = ByteShape::default();
                 for field in fields {
+                    let child = self.compute_child(field.type_id, depth)?;
                     layout.members.push(MemberLayout {
                         name_idx: field.name_idx,
                         byte_offset: 0,
                     });
+                    extend_leaves(&mut layout, &child, 0)?;
+                    shape.bytes = shape.bytes.max(child.shape.bytes);
+                    shape.align = shape.align.max(child.shape.align);
                 }
-                // The members lie over the backing bytes, laid out as specification 02 defines.
+                // A union reserves its largest variant, aligned to its most aligned one.
                 layout.shape = ByteShape {
-                    bytes: layout.overlap_backing_bytes,
+                    bytes: align_up(shape.bytes, shape.align)?,
+                    align: shape.align,
+                };
+            }
+            TypeData::Reference { target_type_id } => {
+                layout.reference_leaves.push(ReferenceLeaf {
+                    byte_offset: 0,
+                    target_type_id: *target_type_id,
+                });
+                layout.shape = ByteShape {
+                    bytes: REFERENCE_BYTES,
                     align: 8,
                 };
-            } else {
-                let mut cursor = MemberCursor::default();
-                for field in fields {
-                    let child = compute_child(
-                        types,
-                        field.type_id,
-                        layouts,
-                        active,
-                        depth,
-                        overlap_backing,
-                        charge,
-                    )?;
-                    cursor.place(&mut layout, &child, field.name_idx)?;
-                }
-                cursor.finish(&mut layout)?;
             }
-        }
-        TypeData::Union { fields } => {
-            let mut shape = ByteShape::default();
-            for field in fields {
-                let child = compute_child(
-                    types,
-                    field.type_id,
-                    layouts,
-                    active,
-                    depth,
-                    overlap_backing,
-                    charge,
-                )?;
-                layout.members.push(MemberLayout {
-                    name_idx: field.name_idx,
+            TypeData::Pou { .. } | TypeData::Interface { .. } => {
+                layout.instance_leaves.push(InstanceLeaf {
                     byte_offset: 0,
+                    type_id: id,
                 });
-                extend_leaves(&mut layout, &child, 0)?;
-                shape.bytes = shape.bytes.max(child.shape.bytes);
-                shape.align = shape.align.max(child.shape.align);
+                layout.shape = ByteShape {
+                    bytes: INSTANCE_BYTES,
+                    align: 8,
+                };
             }
-            // A union reserves its largest variant, aligned to its most aligned one.
-            layout.shape = ByteShape {
-                bytes: align_up(shape.bytes, shape.align)?,
-                align: shape.align,
-            };
         }
-        TypeData::Reference { target_type_id } => {
-            layout.reference_leaves.push(ReferenceLeaf {
-                byte_offset: 0,
-                target_type_id: *target_type_id,
-            });
-            layout.shape = ByteShape {
-                bytes: REFERENCE_BYTES,
-                align: 8,
-            };
+        layout.holds_reference_or_instance =
+            !layout.reference_leaves.is_empty() || !layout.instance_leaves.is_empty();
+        Ok(layout)
+    }
+
+    /// Place, after the backing of the structure with a physical layout whose layout is `layout`,
+    /// each member of a value of `type_id` (the structure or one of its members) that lies beside
+    /// the backing: in declaration order, elements in flat order, each at its own layout and
+    /// alignment, its leaves added to `layout`'s at its offset (C1-15).
+    fn place_slots(
+        &mut self,
+        walk: &mut SlotWalk,
+        layout: &mut TypeLayout,
+        type_id: u32,
+        depth: usize,
+    ) -> Result<(), RuntimeError> {
+        (self.charge)(0, 1)?;
+        if depth >= BYTECODE_MAX_TYPE_NESTING {
+            return Err(RuntimeError::TypeNestingExceeds);
         }
-        TypeData::Pou { .. } | TypeData::Interface { .. } => {
-            layout.instance_leaves.push(InstanceLeaf {
-                byte_offset: 0,
-                type_id: id,
+        let types = self.types;
+        let entry = types
+            .entries
+            .get(type_id as usize)
+            .ok_or(RuntimeError::TypeMismatch)?;
+        if lies_beside_backing(types, type_id) {
+            let child = self.compute_child(type_id, depth)?;
+            let offset = align_up(walk.end, child.shape.align)?;
+            walk.align = walk.align.max(child.shape.align);
+            extend_leaves(layout, &child, offset)?;
+            let mut path = Vec::new();
+            path.try_reserve_exact(walk.path.len())
+                .map_err(|_| RuntimeError::PreparationLimit)?;
+            path.extend(walk.path.iter().cloned());
+            (self.charge)(path_table_bytes(&path)?, path.len())?;
+            walk.slots.push(OverlaySlot {
+                path,
+                type_id,
+                byte_offset: offset,
             });
-            layout.shape = ByteShape {
-                bytes: INSTANCE_BYTES,
-                align: 8,
-            };
+            walk.end = offset
+                .checked_add(child.shape.bytes)
+                .ok_or(RuntimeError::Overflow)?;
+            return Ok(());
+        }
+        match &entry.data {
+            TypeData::Alias { target_type_id } => {
+                self.place_slots(walk, layout, *target_type_id, depth + 1)
+            }
+            TypeData::Struct { fields } => {
+                for field in fields {
+                    if !holds_slot(types, field.type_id, depth + 1) {
+                        continue;
+                    }
+                    let name = self
+                        .names
+                        .get(field.name_idx as usize)
+                        .ok_or(RuntimeError::TypeMismatch)?;
+                    walk.path.push(RefSegment::Field(SmolStr::new(name)));
+                    let placed = self.place_slots(walk, layout, field.type_id, depth + 1);
+                    walk.path.pop();
+                    placed?;
+                }
+                Ok(())
+            }
+            TypeData::Array { elem_type_id, dims } => {
+                if !holds_slot(types, *elem_type_id, depth + 1) {
+                    return Ok(());
+                }
+                let count = array_count(dims)?;
+                for ordinal in 0..count {
+                    walk.path
+                        .push(RefSegment::Index(subscripts(dims, ordinal)?));
+                    let placed = self.place_slots(walk, layout, *elem_type_id, depth + 1);
+                    walk.path.pop();
+                    placed?;
+                }
+                Ok(())
+            }
+            _ => Ok(()),
         }
     }
-    layout.holds_reference_or_instance =
-        !layout.reference_leaves.is_empty() || !layout.instance_leaves.is_empty();
-    Ok(layout)
+}
+
+/// The walk that places the members of a structure that lie beside its backing.
+struct SlotWalk {
+    slots: Vec<OverlaySlot>,
+    /// The path of the member being walked.
+    path: Vec<RefSegment>,
+    /// The end of the bytes placed so far.
+    end: u32,
+    /// The largest alignment of a member placed so far.
+    align: u32,
+}
+
+/// Whether a member of `type_id` in a structure with a physical layout lies beside its backing
+/// (specification 12: a text has no overlapping bit representation, and the layout gives a reference
+/// and a union none either): a text, a reference, a union, or an array of them.
+pub(crate) fn lies_beside_backing(types: &TypeTable, type_id: u32) -> bool {
+    let mut current = type_id;
+    for _ in 0..=BYTECODE_MAX_TYPE_NESTING {
+        let Some(entry) = types.entries.get(current as usize) else {
+            return false;
+        };
+        match &entry.data {
+            TypeData::Alias { target_type_id } => current = *target_type_id,
+            TypeData::Array { elem_type_id, .. } => current = *elem_type_id,
+            TypeData::Primitive {
+                prim_id: 24 | 25, ..
+            }
+            | TypeData::Reference { .. }
+            | TypeData::Union { .. } => return true,
+            _ => return false,
+        }
+    }
+    false
+}
+
+/// Whether a value of `type_id` holds a member that lies beside a backing, at any nesting level.
+fn holds_slot(types: &TypeTable, type_id: u32, depth: usize) -> bool {
+    if depth > BYTECODE_MAX_TYPE_NESTING {
+        return false;
+    }
+    if lies_beside_backing(types, type_id) {
+        return true;
+    }
+    match types.entries.get(type_id as usize).map(|entry| &entry.data) {
+        Some(TypeData::Alias { target_type_id }) => holds_slot(types, *target_type_id, depth + 1),
+        Some(TypeData::Array { elem_type_id, .. }) => holds_slot(types, *elem_type_id, depth + 1),
+        Some(TypeData::Struct { fields }) => fields
+            .iter()
+            .any(|field| holds_slot(types, field.type_id, depth + 1)),
+        _ => false,
+    }
+}
+
+/// The subscripts of the element at flat position `ordinal` of an array of `dims`, the last
+/// dimension varying fastest.
+fn subscripts(dims: &[(i64, i64)], ordinal: u64) -> Result<Vec<i64>, RuntimeError> {
+    let mut indices = Vec::new();
+    indices
+        .try_reserve_exact(dims.len())
+        .map_err(|_| RuntimeError::PreparationLimit)?;
+    indices.resize(dims.len(), 0);
+    let mut remaining = ordinal;
+    for (index, (lower, upper)) in indices.iter_mut().zip(dims).rev() {
+        let length = u64::try_from(i128::from(*upper) - i128::from(*lower) + 1)
+            .map_err(|_| RuntimeError::TypeMismatch)?;
+        let offset = i64::try_from(remaining % length).map_err(|_| RuntimeError::Overflow)?;
+        *index = lower.checked_add(offset).ok_or(RuntimeError::Overflow)?;
+        remaining /= length;
+    }
+    Ok(indices)
+}
+
+/// The bytes a slot's path occupies: its segments and each segment's subscripts or long name.
+fn path_table_bytes(path: &[RefSegment]) -> Result<usize, RuntimeError> {
+    let mut bytes = list_bytes::<RefSegment>(path.len())?;
+    for segment in path {
+        let own = match segment {
+            RefSegment::Index(indices) => list_bytes::<i64>(indices.len())?,
+            RefSegment::Field(name) if name.is_heap_allocated() => name.len(),
+            RefSegment::Field(_) => 0,
+        };
+        bytes = bytes.checked_add(own).ok_or(RuntimeError::Overflow)?;
+    }
+    Ok(bytes)
 }
 
 /// The layout of an array of `dims` whose elements have the layout `child`, written into `layout`.
@@ -529,6 +714,10 @@ impl MemberCursor {
 /// leaf and dimension lists it owns (specification 34 §6.2).
 fn layout_table_bytes(layout: &TypeLayout) -> Result<usize, RuntimeError> {
     let dims = layout.array.as_ref().map_or(0, |array| array.dims.len());
+    let slots = layout
+        .overlay
+        .as_ref()
+        .map_or(0, |overlay| overlay.slots.len());
     let mut bytes = core::mem::size_of::<TypeLayout>();
     for list in [
         list_bytes::<MemberLayout>(layout.members.len())?,
@@ -536,6 +725,7 @@ fn layout_table_bytes(layout: &TypeLayout) -> Result<usize, RuntimeError> {
         list_bytes::<ReferenceLeaf>(layout.reference_leaves.len())?,
         list_bytes::<InstanceLeaf>(layout.instance_leaves.len())?,
         list_bytes::<(i64, i64)>(dims)?,
+        list_bytes::<OverlaySlot>(slots)?,
     ] {
         bytes = bytes.checked_add(list).ok_or(RuntimeError::Overflow)?;
     }
@@ -547,32 +737,6 @@ fn list_bytes<T>(count: usize) -> Result<usize, RuntimeError> {
     count
         .checked_mul(core::mem::size_of::<T>())
         .ok_or(RuntimeError::Overflow)
-}
-
-/// Compute a child layout and return a clone of it.
-fn compute_child(
-    types: &TypeTable,
-    id: u32,
-    layouts: &mut [Option<TypeLayout>],
-    active: &mut [bool],
-    depth: usize,
-    overlap_backing: &mut dyn FnMut(u32) -> Result<u32, RuntimeError>,
-    charge: &mut dyn FnMut(usize, usize) -> Result<(), RuntimeError>,
-) -> Result<TypeLayout, RuntimeError> {
-    compute_one(
-        types,
-        id,
-        layouts,
-        active,
-        depth + 1,
-        overlap_backing,
-        charge,
-    )?;
-    layouts
-        .get(id as usize)
-        .and_then(Option::as_ref)
-        .cloned()
-        .ok_or(RuntimeError::TypeMismatch)
 }
 
 /// Append a child's leaves to a compound layout, shifted by the child's byte offset.

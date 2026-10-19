@@ -10,10 +10,12 @@ use smol_str::SmolStr;
 
 mod checkpoint;
 mod cost;
+mod decode;
 mod index;
 mod layout;
 mod scalar;
 mod writer;
+pub(crate) use decode::{decode as decode_overlay, node_type as overlay_node_type};
 pub(crate) use layout::prepare_layouts;
 pub(crate) use writer::PreparedPhysicalWrite;
 
@@ -148,6 +150,13 @@ impl StructValue {
             }
             _ => Err(RuntimeError::TypeMismatch),
         }
+    }
+
+    /// The admitted layout and the backing bytes of this structure, when it has a physical layout.
+    pub(crate) fn physical_backing(&self) -> Option<(&Arc<PhysicalLayout>, &[u8])> {
+        self.physical
+            .as_ref()
+            .map(|value| (&value.layout, value.bytes.as_slice()))
     }
 
     pub(crate) fn physical_byte_len(&self) -> usize {
@@ -294,6 +303,11 @@ fn sort_order(
             Ok(false)
         }
     })
+}
+
+/// Whether two member-and-index paths name the same member: member names in any case.
+pub(crate) fn paths_match(a: &[RefSegment], b: &[RefSegment]) -> bool {
+    compare_paths(a, b).is_eq()
 }
 
 fn compare_paths(a: &[RefSegment], b: &[RefSegment]) -> core::cmp::Ordering {
