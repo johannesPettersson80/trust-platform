@@ -174,6 +174,8 @@ where
     ///
     /// The composition starts the installed program before, as trust-runtime does before it
     /// starts its scheduler: cold, or warm with the retain checkpoint ([`ResourceCycle::restart`]).
+    /// The loop gives the Live Values the generation the program's state is in
+    /// ([`ResourceCycle::generation`]), which a warm start has advanced.
     /// The loop keeps a receive buffer of [`ControlLink::max_frame_len`] bytes, and its records,
     /// among them the 512 durations of the latest scans, in place: a firmware keeps it in static
     /// memory or on the main stack. Its event store keeps the newest `event_capacity` events
@@ -197,6 +199,9 @@ where
         let start = clock.now();
         cycle.reset_task_timing(value::Duration::ZERO);
         let live = platform.live_values().clone();
+        // The composition may have restarted the program warm, which installs the next generation,
+        // before it built the loop: the Live Values carry the generation the program is in.
+        live.set_generation(cycle.generation());
         let records = Records::new(clock.clone(), start, event_capacity);
         let shell = Rc::new(Shell::new(
             link,

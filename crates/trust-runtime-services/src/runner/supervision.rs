@@ -149,6 +149,7 @@ where
         // trust-runtime's `begin_lifecycle` does (specification 11 §6.9.2); a failed one keeps
         // them, as a failed host restart keeps them.
         self.live.clear();
+        self.follow_generation();
         self.record_retain_events(events);
         let now = self.logical(self.clock.now());
         self.cycle.reset_task_timing(now);
@@ -156,6 +157,15 @@ where
         self.cycle_count = 0;
         self.shell.resource.set_last_error(None);
         Ok(())
+    }
+
+    /// Gives the Live Values the installation generation of the program's state (specification 34
+    /// STATE-08 and UPDATE-04). A restart that commits installs the next generation, and a request that
+    /// names an instance by a bare identity belongs to the generation the Live Values carry when it is
+    /// accepted, so they follow the program before the loop answers another request: a force that
+    /// arrives after the restart is applied at the next boundary and not refused as stale.
+    fn follow_generation(&self) {
+        self.live.set_generation(self.cycle.generation());
     }
 
     /// A restart of a program that has ended starts it as a new trust-runtime process would,
@@ -168,6 +178,10 @@ where
         match self.load_or_restart(mode) {
             Ok(events) => {
                 self.live.clear();
+                // A restart in place installed the next generation. A program loaded in place has
+                // Live Values of its own, in the first generation, over a state that its warm start
+                // may have restarted.
+                self.follow_generation();
                 let start = self.clock.now();
                 self.program_start = start;
                 self.shell.records.restart(self.clock.clone(), start);

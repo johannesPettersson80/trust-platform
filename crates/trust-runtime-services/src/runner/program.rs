@@ -6,6 +6,7 @@ use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::memory::Generation;
 use trust_runtime_core::ports::{MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::value::Duration;
@@ -129,6 +130,14 @@ impl<Y: ResourceCycle> ResourceCycle for Program<Y> {
     fn reset_task_timing(&mut self, now: Duration) {
         if let Self::Installed(cycle) = self {
             cycle.reset_task_timing(now);
+        }
+    }
+
+    fn generation(&self) -> Generation {
+        match self {
+            Self::Installed(cycle) => cycle.generation(),
+            // A missing program has no state to be in a generation; none follows it.
+            Self::Missing(_) => Generation::FIRST,
         }
     }
 

@@ -15,6 +15,7 @@ use core::time::Duration;
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
+use trust_runtime_core::memory::Generation;
 use trust_runtime_core::ports::{
     ControlLink, LinkFrame, MonotonicClock, MonotonicInstant, PeerClass, PortError, RunnerWait,
     TimeSpan, WakeReason, WakeToken,
@@ -634,6 +635,10 @@ impl ResourceCycle for ScriptedCycle<'_> {
         self.engine.reset_task_timing(now);
     }
 
+    fn generation(&self) -> Generation {
+        self.engine.generation()
+    }
+
     fn io_drivers(&self) -> Vec<IoDriverStatus> {
         self.engine.io_drivers()
     }
@@ -756,7 +761,8 @@ impl Fixture {
     where
         L: ControlLink + 'static,
     {
-        let runner = self.start_with_link(link, TestPlatform::default(), EVENT_STORE_CAPACITY);
+        let runner =
+            self.start_with_link(link, TestPlatform::default(), EVENT_STORE_CAPACITY, false);
         let _ = self.take_calls();
         runner
     }
@@ -784,17 +790,34 @@ impl Fixture {
         platform: TestPlatform,
         event_capacity: usize,
     ) -> TestRunner<'_> {
-        self.start_with_link(self.link.clone(), platform, event_capacity)
+        self.start_with_link(self.link.clone(), platform, event_capacity, false)
+    }
+
+    /// The program started on the shared engine cycle and then restarted warm, as the composition
+    /// starts a program that keeps retained values, and the loop built at the clock's current time
+    /// with the test platform. The restart installed the next generation of the program's state
+    /// before the loop was built; what the loop asked of the program at power-on is taken already.
+    pub(crate) fn power_on_restarted_warm(&self) -> TestRunner<'_> {
+        let runner = self.start_with_link(
+            self.link.clone(),
+            TestPlatform::default(),
+            EVENT_STORE_CAPACITY,
+            true,
+        );
+        let _ = self.take_calls();
+        runner
     }
 
     /// The program started on the shared engine cycle with the script's settings, as the
     /// composition starts it at power-on, and the loop built over `link` at the clock's current
-    /// time with an event store of `event_capacity`.
+    /// time with an event store of `event_capacity`. `restarted_warm` restarts the program warm
+    /// before the loop is built, as the composition does for a program that keeps retained values.
     fn start_with_link<L>(
         &self,
         link: L,
         mut platform: TestPlatform,
         event_capacity: usize,
+        restarted_warm: bool,
     ) -> Runner<L, TestWait, ScriptedCycle<'_>, TestPlatform, TestClock>
     where
         L: ControlLink + 'static,
@@ -812,8 +835,14 @@ impl Fixture {
                 safe_outputs: script.safe_outputs.clone(),
             }
         };
-        let engine = EngineCycle::start(self.prepared, self.services, self.io.clone(), settings)
-            .expect("the board probe starts");
+        let mut engine =
+            EngineCycle::start(self.prepared, self.services, self.io.clone(), settings)
+                .expect("the board probe starts");
+        if restarted_warm {
+            engine
+                .restart(RestartMode::Warm, RetainSource::Checkpoint)
+                .expect("the board probe restarts warm");
+        }
         let engine = if self.debugger {
             engine.with_debugger()
         } else {

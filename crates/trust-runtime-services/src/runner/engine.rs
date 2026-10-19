@@ -342,6 +342,11 @@ impl<C: MonotonicClock, I: ProcessIo, M> ResourceCycle for EngineCycle<'_, C, I,
         self.state.reset_task_timing(now);
     }
 
+    /// The generation of the engine state, which an online change reads too (`handover.rs`).
+    fn generation(&self) -> Generation {
+        EngineCycle::generation(self)
+    }
+
     fn io_drivers(&self) -> Vec<IoDriverStatus> {
         self.io.driver_health()
     }
@@ -504,7 +509,9 @@ impl EngineLiveValues {
     /// installed when the request is accepted, and the boundary that applies it refuses it when another
     /// generation is installed (specification 34 §4.3.1). A device gives the Live Values of an online
     /// change's candidate the generation of the candidate's state before the commit, so a force queued
-    /// after the change names the installed generation.
+    /// after the change names the installed generation. The resource loop gives them the generation of
+    /// the program's state ([`ResourceCycle::generation`]) when it takes a program and after every
+    /// restart that commits (specification 34 STATE-08).
     pub fn set_generation(&self, generation: Generation) {
         self.inner.generation.set(generation);
     }

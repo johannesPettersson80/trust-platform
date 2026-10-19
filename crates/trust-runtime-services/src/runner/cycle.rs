@@ -7,6 +7,7 @@ use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::memory::Generation;
 use trust_runtime_core::ports::{MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::value::Duration;
@@ -159,6 +160,17 @@ pub trait ResourceCycle {
     /// does: every task counts its next activation from `now`, which becomes the program's
     /// current time.
     fn reset_task_timing(&mut self, now: Duration);
+
+    /// The installation generation the program's state is in (specification 34 MEM-07 and
+    /// UPDATE-04). Every restart that commits installs the next one, and a restart that fails
+    /// changes none.
+    ///
+    /// A request that names an instance by a bare identity belongs to the generation the Live Values
+    /// carry when the request is accepted, and the scan that applies it refuses it when the program is
+    /// in another generation. The loop therefore reads this after every restart that commits, and when
+    /// it takes a program, and gives it to the Live Values before the next cycle
+    /// ([`set_generation`](crate::runner::EngineLiveValues::set_generation); STATE-08).
+    fn generation(&self) -> Generation;
 
     /// The health of the program's I/O drivers, in `io.toml` order, which `status` and `health`
     /// report before the drivers the platform runs itself.

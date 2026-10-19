@@ -141,7 +141,7 @@ package "Device resource loop: one thread, no operating system (spec 34 STATE-08
     component "ScanObserver\ncycle and task events, task / program / overrun metrics\n(runner/observer.rs)" as deviceObserver
     component "Shared request pipeline\ndispatch.rs + status.rs + resource/operations.rs;\nevents.tail and faults written event by event\nwithin the link's frame (status/event_reads.rs)" as deviceDispatch
     interface "trust-runtime-core::ports\nMonotonicClock (MonotonicInstant, TimeSpan), WallClock (None until set),\nRunnerWait + WakeSignal (PORT-03), HardwareWatchdog (TIME-04),\nControlLink + PeerClass (frames bounded both ways)" as corePorts
-    interface "ResourceCycle (runner/cycle.rs)\nscan, latch fault, safe outputs,\nretain save, restart cold / warm, task timing,\nI/O driver health" as cyclePort
+    interface "ResourceCycle (runner/cycle.rs)\nscan, latch fault, safe outputs,\nretain save, restart cold / warm, task timing,\ninstallation generation (the loop gives it to the Live Values\nafter each restart and when it takes a program),\nI/O driver health" as cyclePort
     component "EngineCycle (runner/engine.rs)\nthe installed program on RuntimeState<'static>:\ninputs before the scan, outputs at the engine's publication,\nsafe outputs written into the output image, then driven;\nDeviceServices: scan deadline on the monotonic clock,\nno wall clock until T6 (CURRENT_DT refused at admission);\ndevice_limits from the region and heap sizes" as deviceEngine
     interface "ProcessIo (runner/engine/process_io.rs)\nread inputs, write outputs,\nwrite safe outputs, driver health" as processIo
     interface "RunnerPlatform (runner/host.rs)\naccess, audit, wall clock, status values,\nplatform operations, hardware watchdog" as platformPort

@@ -29,6 +29,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   `0xA000`), the chip file reader refuses a counter sector that is not one erase unit or that
   overlaps another region, and `partitions.csv` declares them as the data partitions `bootcnt_a`
   and `bootcnt_b`, which the next firmware flash writes to the board.
+- Fixed: on the ESP32-C6 a force that names an instance by its identity (`var.force` with
+  `instance:<id>:<name>`) is applied after a restart. Every restart installs the next generation of
+  the program's state, but the loop's Live Values kept the generation of the program's first start, so
+  the scan refused such a force as stale and withdrew it with a `write_rejected` event. The loop now
+  gives its Live Values the program's generation after a `restart`, the recovery of a faulted
+  resource, the automatic restart of the fault policy and the start of a stopped program, and when it
+  takes a program that started warm, at boot or when it loads one in place.
 - Fixed: the ESP32-C6 holds a reply longer than its 8,192-byte frame, up to the 139,264 bytes of its
   heap, as a computer does, so `trust-runtime ctl events --limit 200` over USB is no longer refused
   with `reply longer than 8192 bytes`. A reply the heap has no room for is refused with

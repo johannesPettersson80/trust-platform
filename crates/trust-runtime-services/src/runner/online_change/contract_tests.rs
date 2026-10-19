@@ -28,6 +28,7 @@ use trust_runtime_core::crc32;
 use trust_runtime_core::deployment::{sha256, Configuration, GpioInput, GpioOutput, IoDriver};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
+use trust_runtime_core::memory::Generation;
 use trust_runtime_core::ports::{MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
@@ -167,6 +168,10 @@ impl ResourceCycle for ChangeCycle {
             format!("timing {} {}", self.name, logical_ms(now)),
         );
         self.engine.reset_task_timing(now);
+    }
+
+    fn generation(&self) -> Generation {
+        self.engine.generation()
     }
 
     fn io_drivers(&self) -> Vec<IoDriverStatus> {

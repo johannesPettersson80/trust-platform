@@ -23,6 +23,7 @@ use smol_str::SmolStr;
 use trust_runtime_core::crc32;
 use trust_runtime_core::deployment::sha256;
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::memory::Generation;
 use trust_runtime_core::ports::CheckpointStore;
 use trust_runtime_core::retain::checkpoint::Slot;
 use trust_runtime_core::retain::{RestartMode, RetainSnapshot};
@@ -38,6 +39,7 @@ use super::{
     RetainConfig, RetainSource, Runner,
 };
 use crate::events::EVENT_STORE_CAPACITY;
+use crate::live_values::var_requests::VariableQueuePort;
 use crate::loading::select::Booted;
 use crate::tests::program_store::{
     committed_image, transfer_of, CheckpointProbe, FlashOp, FlashProbe, PROGRAM, SLOT_BYTES,
@@ -572,6 +574,41 @@ fn a_cold_and_a_warm_reload_start_with_the_requested_retained_values() {
             RestartMode::Cold
         };
         assert_eq!(rig.log.borrow()[0].mode, asked, "{mode}");
+    }
+}
+
+#[test]
+fn a_program_loaded_in_place_carries_its_generation_in_its_live_values() {
+    // Specification 34 STATE-08, UPDATE-04 and §4.3.1: a request that names an instance by a bare
+    // identity belongs to the generation that the Live Values carry. The loader builds the Live Values
+    // of the program it loads, in generation 0, and a warm start of a program that keeps retained
+    // values restarts the program's state over its checkpoint, which installs generation 1; a cold
+    // start installs none. The loop that takes the program gives its Live Values the generation of its
+    // state. Wrong behaviour caught: Live Values of a program loaded in place that stay in generation
+    // 0 while the program is in generation 1, which refuse every force by instance identity after a
+    // warm reload; Live Values that are moved on after a cold reload that moved the program on.
+    for (mode, expected) in [("warm", Generation(1)), ("cold", Generation(0))] {
+        let rig = Rig::new(FlashProbe::erased(), checkpoint_of(Retained::Int(7)));
+        let mut runner = rig.runner(None);
+        rig.stop(&mut runner);
+        let installed = rig.install(&mut runner, &transfer_of(RetainMode::File), 40);
+        assert_eq!(installed["ok"], json!(true), "{mode}: {installed}");
+
+        let reply = rig.ports.call(&mut runner, &restart(50, mode));
+        assert_eq!(
+            reply["result"],
+            json!({"status": "restart queued"}),
+            "{mode}"
+        );
+        let Program::Installed(cycle) = &runner.cycle else {
+            panic!("{mode}: a program is installed");
+        };
+        assert_eq!(cycle.engine().generation(), expected, "{mode}: the program");
+        assert_eq!(
+            runner.live.generation(),
+            expected,
+            "{mode}: the Live Values"
+        );
     }
 }
 
