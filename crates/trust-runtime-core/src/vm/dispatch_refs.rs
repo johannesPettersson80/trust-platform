@@ -182,7 +182,7 @@ pub fn load_ref_addr(
 
 /// An owned copy of `reference` whose path and index segments are in the buffers `runtime` keeps
 /// (spec 34 ARCH-05), so copying a static path allocates nothing after the first scan.
-fn owned_reference(
+pub(crate) fn owned_reference(
     runtime: &impl ReferenceContext,
     reference: ValueRefView<'_>,
 ) -> Result<ValueRef, VmTrap> {

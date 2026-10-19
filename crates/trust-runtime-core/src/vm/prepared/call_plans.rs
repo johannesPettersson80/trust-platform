@@ -55,6 +55,14 @@ impl CallArguments {
         &self.present
     }
 
+    /// The payload positions of the outputs and in-outs the call supplies, whose destinations its
+    /// copy-back writes (C1-19c4).
+    pub(crate) fn output_positions(&self) -> impl Iterator<Item = usize> + '_ {
+        self.outputs
+            .iter()
+            .filter_map(|&(formal, _)| self.actual(formal as usize))
+    }
+
     /// The direction of output formal `formal`, when the call supplies it. Read by the
     /// call-plan tests (spec 34 MEM-09).
     #[cfg_attr(not(test), allow(dead_code))]

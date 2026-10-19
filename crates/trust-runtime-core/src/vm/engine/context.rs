@@ -645,7 +645,11 @@ impl CallContext for EngineState<'_> {
         self.data.resources.call_scratch.take_function_outputs()
     }
 
-    fn recycle_call_function_outputs(&mut self, outputs: Vec<VmOutBinding>) {
+    fn recycle_call_function_outputs(&mut self, mut outputs: Vec<VmOutBinding>) {
+        // A target left by a refused call gives its path back, as an argument's does (C1-19c4).
+        for binding in outputs.drain(..) {
+            binding.target.recycle(self);
+        }
         self.data
             .resources
             .call_scratch
@@ -656,7 +660,11 @@ impl CallContext for EngineState<'_> {
         self.data.resources.call_scratch.take_fb_outputs()
     }
 
-    fn recycle_call_fb_outputs(&mut self, outputs: Vec<VmFbOutBinding>) {
+    fn recycle_call_fb_outputs(&mut self, mut outputs: Vec<VmFbOutBinding>) {
+        for binding in outputs.drain(..) {
+            binding.source.recycle(self);
+            binding.target.recycle(self);
+        }
         self.data.resources.call_scratch.recycle_fb_outputs(outputs);
     }
 
@@ -666,8 +674,11 @@ impl CallContext for EngineState<'_> {
 
     fn recycle_call_prepared_targets(
         &mut self,
-        targets: Vec<Option<(VmWriteTarget, Option<u32>)>>,
+        mut targets: Vec<Option<(VmWriteTarget, Option<u32>)>>,
     ) {
+        for (target, _) in targets.drain(..).flatten() {
+            target.recycle(self);
+        }
         self.data
             .resources
             .call_scratch
@@ -678,7 +689,10 @@ impl CallContext for EngineState<'_> {
         self.data.resources.call_scratch.take_prepared_outputs()
     }
 
-    fn recycle_call_prepared_outputs(&mut self, outputs: Vec<(VmWriteTarget, Value)>) {
+    fn recycle_call_prepared_outputs(&mut self, mut outputs: Vec<(VmWriteTarget, Value)>) {
+        for (target, _) in outputs.drain(..) {
+            target.recycle(self);
+        }
         self.data
             .resources
             .call_scratch

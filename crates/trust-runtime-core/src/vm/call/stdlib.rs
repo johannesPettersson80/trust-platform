@@ -177,6 +177,13 @@ impl SplitOutputs {
         self.count += 1;
         Ok(())
     }
+
+    /// Give the buffers of the targets' paths back to `runtime` (spec 34 MEM-09; C1-19c4).
+    fn recycle(self, runtime: &impl CallContext) {
+        for target in self.targets.into_iter().flatten() {
+            target.recycle(runtime);
+        }
+    }
 }
 
 fn dispatch_native_split_call(
@@ -189,7 +196,7 @@ fn dispatch_native_split_call(
         .ok_or_else(|| VmTrap::Runtime(RuntimeError::UndefinedFunction(name.into())))?;
 
     let (input, outputs) = bind_split_vm_args(runtime, frame, params, args)?;
-    runtime.with_output_transaction(frame, |runtime, frame| {
+    let result = runtime.with_output_transaction(frame, |runtime, frame| {
         match name {
             "SPLIT_DATE" => {
                 let [Some(year_output), Some(month_output), Some(day_output)] =
@@ -278,7 +285,9 @@ fn dispatch_native_split_call(
             }
         }
         Ok(Value::Null)
-    })
+    });
+    outputs.recycle(runtime);
+    result
 }
 
 fn bind_split_vm_args(
@@ -303,7 +312,7 @@ fn bind_split_vm_args(
         let _parameter = attribution::parameter(0, 3, false);
         let input = resolve_vm_arg_value(runtime, frame, &args[0])?;
         for arg in &args[1..] {
-            outputs.push(require_output_target(arg)?)?;
+            outputs.push(require_output_target(runtime, arg)?)?;
         }
         return Ok((input, outputs));
     }
@@ -361,7 +370,7 @@ fn bind_split_vm_args(
                 got: args.len(),
             })
         })?;
-        outputs.push(require_output_target(arg)?)?;
+        outputs.push(require_output_target(runtime, arg)?)?;
     }
     Ok((input, outputs))
 }

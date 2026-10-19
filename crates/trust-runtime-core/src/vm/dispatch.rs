@@ -820,8 +820,7 @@ fn execute_with_buffers(
                     read_u32(&module.code, &mut cursor.pc).map_err(VmTrap::into_runtime_error)?;
                 let field = module
                     .strings
-                    .get(field_idx as usize)
-                    .map(smol_str::SmolStr::new)
+                    .name(field_idx as usize)
                     .ok_or_else(|| super::errors::invalid_field_string_index(field_idx))?;
                 let base = operand_stack.pop().map_err(VmTrap::into_runtime_error)?;
                 let next = match base {

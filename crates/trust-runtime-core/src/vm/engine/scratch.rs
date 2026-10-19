@@ -467,6 +467,8 @@ struct ScratchPlan {
     /// Destinations of one output copy-back group: the most parameters of any POU, or the most
     /// arguments of any call site, whose outputs a native call's group writes (C1-19c).
     journal: usize,
+    /// The most bytes the journal saves of the roots of one call's targets (C1-19c4).
+    journal_bytes: usize,
     /// The most edge inputs of any POU: one edge-input list and one restore list.
     edges: usize,
     /// Reusable per-depth call-binding scratch (spec 34 MEM-09; census C1, C3, C4, C5, C7).
@@ -555,10 +557,12 @@ impl ScratchPlan {
                 .checked_mul(prepared.operand_bounds.references_below_call)
                 .and_then(|below| below.checked_add(prepared.operand_bounds.references))
                 .and_then(|operands| {
+                    // On each level the targets of the call it makes keep copies of their
+                    // references until the outputs are copied back (C1-19c4).
+                    let frames = crate::vm::prepared::operand_bounds::frame_references(prepared)
+                        .checked_add(prepared.operand_bounds.targets)?;
                     levels
-                        .checked_mul(crate::vm::prepared::operand_bounds::frame_references(
-                            prepared,
-                        ))?
+                        .checked_mul(frames)?
                         .checked_add(operands)?
                         .checked_add(1)
                 })
@@ -566,6 +570,7 @@ impl ScratchPlan {
             path_shape: crate::vm::prepared::operand_bounds::PathShape::of(prepared),
             types: crate::bytecode::BYTECODE_MAX_TYPE_NESTING + 1,
             journal: journal.max(call_args),
+            journal_bytes: prepared.operand_bounds.journal_bytes,
             call_scratch: crate::vm::call::scratch::CallScratchSizes {
                 args: call_args,
                 params: journal,
@@ -627,7 +632,9 @@ impl ScratchPlan {
         let types = self
             .types
             .checked_mul(core::mem::size_of::<(u32, ValueOperation)>())?;
-        let journal = SavedDestinations::allocation_bytes(self.journal).ok()?;
+        let journal = SavedDestinations::allocation_bytes(self.journal)
+            .ok()?
+            .checked_add(self.journal_bytes)?;
         let bookkeeping =
             BookkeepingScratch::reservation_bytes(self.initializers, self.call_instances)?
                 .checked_add(OwnedInstances::list_reservation_bytes(
@@ -763,6 +770,7 @@ impl EngineState<'_> {
             .try_reserve_exact(plan.edges)
             .map_err(refused)?;
         resources.spare_journal.reserve_storage(plan.journal)?;
+        resources.spare_journal.reserve_bytes(plan.journal_bytes)?;
         // One reusable call-binding vector of each kind per call depth, so a call takes one
         // instead of allocating (spec 34 MEM-09; census C1, C3, C4, C5, C7).
         resources

@@ -303,8 +303,8 @@ fn bind_builtin_function_block_arguments_inner(
             BuiltinParamDirection::Out => {
                 if let Some(arg) = arg {
                     out_bindings.push(VmFbOutBinding {
-                        source: field_binding.out_source(),
-                        target: require_output_target(arg)?,
+                        target: require_output_target(runtime, arg)?,
+                        source: field_binding.into_out_source(),
                         target_type_idx: None,
                     });
                 }
@@ -313,14 +313,14 @@ fn bind_builtin_function_block_arguments_inner(
                 let Some(arg) = arg else {
                     continue;
                 };
-                let target = require_output_target(arg)?;
+                let target = require_output_target(runtime, arg)?;
                 let value = target.snapshot(runtime, caller_frame)?;
                 field_binding.check_write(runtime, &value)?;
                 if !field_binding.write_checked(runtime, value)? {
                     return Err(VmTrap::Runtime(RuntimeError::NullReference));
                 }
                 out_bindings.push(VmFbOutBinding {
-                    source: field_binding.out_source(),
+                    source: field_binding.into_out_source(),
                     target,
                     target_type_idx: None,
                 });
@@ -446,8 +446,8 @@ fn bind_builtin_function_block_arguments_planned_inner(
             1 => {
                 if let Some(arg) = arg {
                     out_bindings.push(VmFbOutBinding {
-                        source: field_binding.out_source(),
-                        target: require_output_target(arg)?,
+                        target: require_output_target(runtime, arg)?,
+                        source: field_binding.into_out_source(),
                         target_type_idx: None,
                     });
                 }
@@ -456,14 +456,14 @@ fn bind_builtin_function_block_arguments_planned_inner(
                 let Some(arg) = arg else {
                     continue;
                 };
-                let target = require_output_target(arg)?;
+                let target = require_output_target(runtime, arg)?;
                 let value = target.snapshot(runtime, caller_frame)?;
                 field_binding.check_write(runtime, &value)?;
                 if !field_binding.write_checked(runtime, value)? {
                     return Err(VmTrap::Runtime(RuntimeError::NullReference));
                 }
                 out_bindings.push(VmFbOutBinding {
-                    source: field_binding.out_source(),
+                    source: field_binding.into_out_source(),
                     target,
                     target_type_idx: None,
                 });
@@ -675,7 +675,7 @@ fn bind_vm_function_block_arguments_inner(
                         .take()
                         .expect("output target preflight must produce a binding");
                     out_bindings.push(VmFbOutBinding {
-                        source: field_binding.out_source(),
+                        source: field_binding.into_out_source(),
                         target,
                         target_type_idx,
                     });
@@ -697,7 +697,7 @@ fn bind_vm_function_block_arguments_inner(
                     return Err(VmTrap::Runtime(RuntimeError::NullReference));
                 }
                 out_bindings.push(VmFbOutBinding {
-                    source: field_binding.out_source(),
+                    source: field_binding.into_out_source(),
                     target,
                     target_type_idx,
                 });
@@ -1033,10 +1033,14 @@ fn bind_vm_call_arguments_inner(
     Ok(())
 }
 
-/// Require an argument to designate writable storage.
-pub fn require_output_target(arg: &VmNativeArg) -> Result<VmWriteTarget, VmTrap> {
+/// Require an argument to designate writable storage; its path is copied into the buffers
+/// `runtime` keeps (C1-19c4).
+pub fn require_output_target(
+    runtime: &impl CallContext,
+    arg: &VmNativeArg,
+) -> Result<VmWriteTarget, VmTrap> {
     match &arg.value {
-        VmNativeArgValue::Target(reference) => Ok(VmWriteTarget::from_reference(reference)),
+        VmNativeArgValue::Target(reference) => VmWriteTarget::kept(runtime, reference),
         _ => Err(VmTrap::Runtime(RuntimeError::TypeMismatch)),
     }
 }
@@ -1050,7 +1054,7 @@ fn bind_output_target(
     let VmNativeArgValue::Target(reference) = &arg.value else {
         return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
     };
-    let target = VmWriteTarget::from_reference(reference);
+    let target = VmWriteTarget::kept(runtime, reference)?;
     let target_type_idx = dynamic_ref_type(runtime, module, caller_frame, reference)?;
     if target_type_idx.is_none() && target.peek(runtime, caller_frame)?.text_is_wide().is_some() {
         return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));

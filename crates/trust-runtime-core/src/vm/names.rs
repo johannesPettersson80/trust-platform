@@ -1,5 +1,7 @@
 //! The module's names held compactly (specification 34 MEM-14): the container's string table as
-//! one text buffer and the end offset of each entry, not one owned string per entry.
+//! one text buffer and the end offset of each entry, not one owned string per entry. An entry too
+//! long for a short string's inline bytes also keeps one shared string, so that a scan that names
+//! it shares that string instead of copying the name to the heap (MEM-09; C1-19c4).
 
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -15,6 +17,8 @@ use crate::error::RuntimeError;
 pub struct Names {
     text: String,
     ends: Vec<u32>,
+    /// Each entry that a short string holds on the heap, under its index, in index order.
+    shared: Vec<(u32, SmolStr)>,
 }
 
 impl Names {
@@ -23,6 +27,7 @@ impl Names {
         Self {
             text: String::new(),
             ends: Vec::new(),
+            shared: Vec::new(),
         }
     }
 
@@ -44,7 +49,19 @@ impl Names {
             .ends
             .try_reserve_exact(entries.len())
             .map_err(|_| RuntimeError::PreparationLimit)?;
+        let long = entries
+            .iter()
+            .filter(|entry| entry.is_heap_allocated())
+            .count();
+        names
+            .shared
+            .try_reserve_exact(long)
+            .map_err(|_| RuntimeError::PreparationLimit)?;
         for entry in entries {
+            if entry.is_heap_allocated() {
+                // The container's own string, shared rather than copied.
+                names.shared.push((names.ends.len() as u32, entry.clone()));
+            }
             names.text.push_str(entry);
             names.ends.push(names.text.len() as u32);
         }
@@ -71,6 +88,19 @@ impl Names {
         Some(&self.text[start..end])
     }
 
+    /// Entry `index` as a short string, when the table holds it: a long entry's shared string,
+    /// whose copy takes no heap, and a short entry held inline. A scan names a member with it.
+    pub fn name(&self, index: usize) -> Option<SmolStr> {
+        let entry = self.get(index)?;
+        let at = u32::try_from(index).ok()?;
+        Some(
+            match self.shared.binary_search_by_key(&at, |&(shared, _)| shared) {
+                Ok(found) => self.shared[found].1.clone(),
+                Err(_) => SmolStr::new(entry),
+            },
+        )
+    }
+
     /// The entries in table order.
     pub fn iter(&self) -> impl ExactSizeIterator<Item = &str> + '_ {
         (0..self.len()).map(|index| &self[index])
@@ -79,6 +109,10 @@ impl Names {
     /// Append `name` and return its index, as a module built from source names a new string.
     pub(crate) fn push(&mut self, name: &str) -> u32 {
         let index = self.ends.len() as u32;
+        let shared = SmolStr::new(name);
+        if shared.is_heap_allocated() {
+            self.shared.push((index, shared));
+        }
         self.text.push_str(name);
         self.ends.push(self.text.len() as u32);
         index
@@ -337,5 +371,29 @@ mod tests {
         assert_eq!(methods.get(&names, 3, "START"), Some(30));
         assert_eq!(methods.get(&names, 3, "Stop"), None);
         assert_eq!(methods.get(&names, 8, "STOP"), Some(81));
+    }
+
+    /// MEM-09 and MEM-14: a name longer than a short string's 23 inline bytes is named by sharing
+    /// one string, so that naming it in a scan copies nothing to the heap, and a short name is held
+    /// inline, in a table read from a container and in one built name by name. Catches a lookup
+    /// that copies a long name each time (the two names would lie at two addresses) and one that
+    /// gives a long name's string to the wrong index.
+    #[test]
+    fn a_long_name_is_shared_and_a_short_one_held_inline() {
+        let long = "a_member_whose_name_is_rather_long";
+        for names in [
+            Names::from_entries(&[SmolStr::new("level"), SmolStr::new(long)]).unwrap(),
+            ["level", long].into_iter().collect::<Names>(),
+        ] {
+            let first = names.name(1).unwrap();
+            let second = names.name(1).unwrap();
+            assert_eq!(first, long);
+            assert!(first.is_heap_allocated());
+            assert_eq!(first.as_ptr(), second.as_ptr());
+            let short = names.name(0).unwrap();
+            assert_eq!(short, "level");
+            assert!(!short.is_heap_allocated());
+            assert_eq!(names.name(2), None);
+        }
     }
 }

@@ -1356,7 +1356,7 @@ fn trace_flat_store_allocations() {
         }
         let mut sites = sites.into_iter().collect::<Vec<_>>();
         sites.sort_by_key(|site| std::cmp::Reverse(site.1));
-        for (site, count) in sites.into_iter().take(12) {
+        for (site, count) in sites.into_iter().take(48) {
             eprintln!("trace,cells/{},{count},{site}", fixture.name);
         }
     }

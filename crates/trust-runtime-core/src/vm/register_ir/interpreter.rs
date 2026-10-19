@@ -309,16 +309,10 @@ pub(super) fn execute_register_block_interpreted_slice(
                 runtime
                     .register_profile_mut()
                     .record_ref_op(RegisterRefOpKind::RefField);
-                let field = module
-                    .strings()
-                    .get(*field_idx as usize)
-                    .map(smol_str::SmolStr::new)
-                    .ok_or_else(|| {
-                        VmTrap::BytecodeDecode(
-                            format!("invalid index {field_idx} for string").into(),
-                        )
+                let field = module.strings().name(*field_idx as usize).ok_or_else(|| {
+                    VmTrap::BytecodeDecode(format!("invalid index {field_idx} for string").into())
                         .into_runtime_error()
-                    })?;
+                })?;
                 let base_value = checked_read_register_with_counts(
                     runtime,
                     registers,

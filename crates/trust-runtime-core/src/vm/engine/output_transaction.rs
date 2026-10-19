@@ -61,26 +61,35 @@ impl EngineState<'_> {
         frame: &VmFrame,
         reference: ValueRefView<'_>,
     ) -> Result<(), RuntimeError> {
-        let Some(journal) = self.data.resources.output_journal.as_ref() else {
+        // The journal is set aside while the root is read, so that the root's view and the
+        // journal it is saved in are borrowed apart; nothing it calls reads the journal.
+        let Some(mut journal) = self.data.resources.output_journal.take() else {
             return Ok(());
         };
+        let saved = self.journal_root(frame, reference, &mut journal);
+        self.data.resources.output_journal = Some(journal);
+        saved
+    }
+
+    /// Save in `journal` the root of `reference` that it does not hold yet: as its bytes when it
+    /// lies in cells and holds no reference and no instance, so that the save builds no value
+    /// (C1-16, C1-19c4), and as its value otherwise.
+    fn journal_root(
+        &self,
+        frame: &VmFrame,
+        reference: ValueRefView<'_>,
+        journal: &mut SavedDestinations,
+    ) -> Result<(), RuntimeError> {
         let key = self.snapshot_key(Some(frame), reference)?;
         if journal.contains_key(&key) {
             return Ok(());
         }
         let root = self.snapshot_root(Some(frame), key)?;
-        // The saved value and the journal's growth are call-transaction bookkeeping:
+        // The saved root and the journal's growth are call-transaction bookkeeping:
         // neither the work allowance nor the cumulative allocation charge admits them
-        // (spec 34 TIME-08). The detached value needs no temporary heap collection.
-        // Insertion can still refuse allocation, in which case the destination is untouched.
-        let saved = root.materialize()?;
-        self.data
-            .resources
-            .output_journal
-            .as_mut()
-            .ok_or(RuntimeError::InvalidExecutionState)?
-            .insert(key, saved)?;
-        Ok(())
+        // (spec 34 TIME-08). Insertion can still refuse allocation, in which case the
+        // destination is untouched.
+        save_root(self.prepared, journal, key, root)
     }
 
     fn snapshot_key(

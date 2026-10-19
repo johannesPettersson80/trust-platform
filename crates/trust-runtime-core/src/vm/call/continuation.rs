@@ -286,15 +286,27 @@ fn prepare_function_outputs(
         binding.target.check_write(runtime, caller_frame, &value)?;
         prepared_outputs.push((binding.target, value));
     }
-    if !prepared_outputs.is_empty() {
-        runtime.with_output_transaction(caller_frame, |runtime, caller_frame| {
-            for (target, value) in prepared_outputs.drain(..) {
-                target.write(runtime, caller_frame, value)?;
-            }
-            Ok(())
-        })?;
+    write_prepared_outputs(runtime, caller_frame, prepared_outputs)
+}
+
+/// Write a call's prepared outputs as one copy-back group, giving each target's path back to the
+/// engine's buffers once it is written (spec 34 MEM-09; C1-19c4).
+fn write_prepared_outputs(
+    runtime: &mut impl ExecutionContext,
+    caller_frame: &mut VmFrame,
+    prepared_outputs: &mut Vec<(VmWriteTarget, Value)>,
+) -> Result<(), VmTrap> {
+    if prepared_outputs.is_empty() {
+        return Ok(());
     }
-    Ok(())
+    runtime.with_output_transaction(caller_frame, |runtime, caller_frame| {
+        for (target, value) in prepared_outputs.drain(..) {
+            let written = target.write(runtime, caller_frame, value);
+            target.recycle(runtime);
+            written?;
+        }
+        Ok(())
+    })
 }
 
 fn complete_function_block(
@@ -342,6 +354,7 @@ fn prepare_function_block_outputs(
             }
             value
         };
+        binding.source.recycle(runtime);
         let value = normalize_output_copyback_value(
             runtime,
             module,
@@ -353,13 +366,5 @@ fn prepare_function_block_outputs(
         binding.target.check_write(runtime, caller_frame, &value)?;
         prepared_outputs.push((binding.target, value));
     }
-    if !prepared_outputs.is_empty() {
-        runtime.with_output_transaction(caller_frame, |runtime, caller_frame| {
-            for (target, value) in prepared_outputs.drain(..) {
-                target.write(runtime, caller_frame, value)?;
-            }
-            Ok(())
-        })?;
-    }
-    Ok(())
+    write_prepared_outputs(runtime, caller_frame, prepared_outputs)
 }

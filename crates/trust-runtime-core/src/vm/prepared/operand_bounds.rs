@@ -15,11 +15,18 @@
 //! text by the longest text its source type gives. A block the walk keeps joining new operands
 //! into, as a loop that carries a growing text across its back edge does, is widened to the
 //! longest text a function may return, 65,535 characters, so the walk ends.
+//!
+//! A reference operand also keeps the bytes of the root it lies in (C1-19c4): a call's output
+//! copy-back saves the root of each target before writing it, so the walk bounds the bytes the
+//! targets of one call save.
 
 use alloc::vec;
 use alloc::vec::Vec;
 
-use crate::bytecode::{opcodes, StorageOwner, TypeData, NATIVE_CALL_KIND_STDLIB};
+use crate::bytecode::{
+    opcodes, StorageOwner, TypeData, NATIVE_CALL_KIND_FUNCTION_BLOCK, NATIVE_CALL_KIND_METHOD,
+    NATIVE_CALL_KIND_STDLIB,
+};
 use crate::memory::cells::{is_reference_type, text_geometry};
 use crate::stdlib::conversions::{ConversionSpec, ConversionType};
 use crate::stdlib::text_kernels::TextKernel;
@@ -38,6 +45,9 @@ const LONGEST_SCALAR_TEXT: u32 = 1 + 2 + 323 + 17;
 /// How often the walk joins new operands into a block's before it widens them to their bounds, so
 /// that a loop that carries a growing text across its back edge still ends.
 const JOINS_BEFORE_WIDENING: u8 = 8;
+
+/// The bytes of the root a reference lies in (C1-19c4).
+mod roots;
 
 /// The maxima construction reserves from.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -59,6 +69,11 @@ pub(crate) struct OperandBounds {
     /// keeps below a call (C1-19c3).
     pub(crate) references: usize,
     pub(crate) references_below_call: usize,
+    /// The most bytes the output journal saves of the roots of one call's targets (C1-19c4).
+    pub(crate) journal_bytes: usize,
+    /// The most targets of one call: each keeps a copy of its reference until the call's outputs
+    /// are copied back (C1-19c4).
+    pub(crate) targets: usize,
 }
 
 impl OperandBounds {
@@ -72,6 +87,7 @@ impl OperandBounds {
                 code: code
                     .get(entry.code_start..entry.code_end)
                     .unwrap_or_default(),
+                start: entry.code_start,
                 pou: Some(*pou),
             };
             let walked = walk(prepared, &types, &body, &mut bounds);
@@ -89,6 +105,7 @@ impl OperandBounds {
             };
             let body = Body {
                 code: code.get(start..end).unwrap_or_default(),
+                start,
                 pou: entry.owner_pou_id,
             };
             let walked = walk(prepared, &types, &body, &mut bounds);
@@ -235,6 +252,8 @@ struct Types {
     longest_text: u32,
     /// The bytes of the largest place a call may copy.
     largest_place: u32,
+    /// The most bytes the output journal saves of any root (C1-19c4).
+    largest_root: u32,
 }
 
 impl Types {
@@ -242,6 +261,7 @@ impl Types {
         let mut types = Self {
             longest_text: 0,
             largest_place: 0,
+            largest_root: 0,
         };
         for type_id in 0..prepared.vm.types.entries.len() {
             let Ok(type_id) = u32::try_from(type_id) else {
@@ -250,6 +270,9 @@ impl Types {
             let loaded = Operand::loaded(prepared, None, Some(type_id));
             types.longest_text = types.longest_text.max(loaded.text);
             types.largest_place = types.largest_place.max(loaded.copy);
+            types.largest_root = types
+                .largest_root
+                .max(roots::saved_bytes(prepared, type_id));
         }
         types
     }
@@ -258,6 +281,8 @@ impl Types {
 /// One body: its code and the POU it runs for.
 struct Body<'a> {
     code: &'a [u8],
+    /// Where the body starts in the module's code.
+    start: usize,
     pou: Option<u32>,
 }
 
@@ -285,6 +310,8 @@ struct Operand {
     pou: Option<u32>,
     /// Whether the operand can be a reference, whose path may hold a kept buffer (C1-19c3).
     reference: bool,
+    /// The most bytes the output journal saves of the root a reference operand lies in (C1-19c4).
+    root: u32,
 }
 
 impl Operand {
@@ -296,6 +323,7 @@ impl Operand {
         ty: None,
         pou: None,
         reference: false,
+        root: 0,
     };
 
     /// The operand a load of a value of `ty` pushes: its text, and its bytes when a store may copy
@@ -307,6 +335,7 @@ impl Operand {
                     text: types.longest_text,
                     copy: types.largest_place,
                     reference: true,
+                    root: types.largest_root,
                     ..Self::VALUE
                 },
                 None => Self::VALUE,
@@ -343,11 +372,13 @@ impl Operand {
         }
     }
 
-    /// The operand a reference to a value of `target` is.
-    fn reference(target: Option<u32>) -> Self {
+    /// The operand a reference to a value of `target` is, lying in a root of which the output
+    /// journal saves `root` bytes.
+    fn reference(target: Option<u32>, root: u32) -> Self {
         Self {
             ty: target,
             reference: true,
+            root,
             ..Self::VALUE
         }
     }
@@ -376,6 +407,7 @@ impl Operand {
                 None
             },
             reference: self.reference || other.reference,
+            root: self.root.max(other.root),
         }
     }
 
@@ -388,6 +420,7 @@ impl Operand {
             ty: None,
             pou: None,
             reference: true,
+            root: types.largest_root,
         }
         .join(self)
     }
@@ -581,7 +614,7 @@ fn step(
         0x03 | 0x04 | 0x12 | 0x21 => {
             pop(stack);
         }
-        0x09 => call(prepared, types, instruction, stack, walked, bounds),
+        0x09 => call(prepared, types, body, instruction, stack, walked, bounds),
         0x10 => stack.push(match prepared.vm.consts.get(first as usize) {
             // A `WSTRING` constant is loaded into the temporary area (C1-12); a `STRING`
             // constant's copy shares its characters.
@@ -602,15 +635,25 @@ fn step(
                 stack.swap(len - 1, len - 2);
             }
         }
-        0x20 => stack.push(load(prepared, prepared.vm.ref_type(first))),
-        0x22 => stack.push(Operand::reference(prepared.vm.ref_type(first))),
+        0x20 => stack.push(load(prepared, types, prepared.vm.ref_type(first))),
+        0x22 => stack.push(Operand::reference(
+            prepared.vm.ref_type(first),
+            roots::of_ref(prepared, body.pou, first, types.largest_root),
+        )),
         0x23 | 0x24 => stack.push(Operand {
             pou: body.pou,
             ..Operand::VALUE
         }),
         0x30 => {
             let base = pop(stack);
-            stack.push(Operand::reference(member_type(prepared, base, first)));
+            let member = member_type(prepared, base, first);
+            // An instance's member is a root of its own: the journal follows the instance (C1-19c4).
+            let root = if names_instance(prepared, base) {
+                member.map_or(types.largest_root, |ty| roots::saved_bytes(prepared, ty))
+            } else {
+                base.root
+            };
+            stack.push(Operand::reference(member, root));
         }
         0x31 => {
             pop(stack);
@@ -621,12 +664,12 @@ fn step(
                         Some(TypeData::Array { elem_type_id, .. }) => Some(*elem_type_id),
                         _ => None,
                     });
-            stack.push(Operand::reference(element));
+            stack.push(Operand::reference(element, base.root));
         }
         0x32 => {
             let reference = pop(stack);
             stack.push(match reference.ty {
-                Some(ty) => load(prepared, Some(ty)),
+                Some(ty) => load(prepared, types, Some(ty)),
                 None => Operand::loaded(prepared, Some(types), None),
             });
         }
@@ -641,7 +684,7 @@ fn step(
         // An attempt `?=` gives a reference or an instance.
         0x64 => {
             pop(stack);
-            stack.push(Operand::reference(None));
+            stack.push(Operand::reference(None, types.largest_root));
         }
         0x40..=0x44 | 0x46..=0x48 | 0x4C | 0x50..=0x55 | 0x63 => {
             pop(stack);
@@ -675,14 +718,29 @@ fn step(
 }
 
 /// The operand a load of a value of `ty` pushes; a reference variable's value is a reference to
-/// its target type.
-fn load(prepared: &PreparedModule, ty: Option<u32>) -> Operand {
+/// its target type, which may lie in any root.
+fn load(prepared: &PreparedModule, types: &Types, ty: Option<u32>) -> Operand {
     match ty.and_then(|ty| resolve(prepared, ty).map(|entry| (ty, &entry.data))) {
         Some((_, TypeData::Reference { target_type_id })) => {
-            Operand::reference(Some(*target_type_id))
+            Operand::reference(Some(*target_type_id), types.largest_root)
         }
-        Some((ty, _)) if is_reference_type(prepared, ty) => Operand::reference(None),
+        Some((ty, _)) if is_reference_type(prepared, ty) => {
+            Operand::reference(None, types.largest_root)
+        }
         _ => Operand::loaded(prepared, None, ty),
+    }
+}
+
+/// Whether `base` is, or refers to, a function block's or a class's instance.
+fn names_instance(prepared: &PreparedModule, base: Operand) -> bool {
+    match base
+        .ty
+        .and_then(|ty| resolve(prepared, ty))
+        .map(|entry| &entry.data)
+    {
+        Some(TypeData::Pou { .. }) => true,
+        Some(_) => false,
+        None => base.pou.is_some(),
     }
 }
 
@@ -729,6 +787,7 @@ fn member_type(prepared: &PreparedModule, base: Operand, name: u32) -> Option<u3
 fn call(
     prepared: &PreparedModule,
     types: &Types,
+    body: &Body<'_>,
     instruction: Instruction,
     stack: &mut Vec<Operand>,
     walked: &mut Walked,
@@ -737,6 +796,15 @@ fn call(
     let [kind, symbol, count] = instruction.operands;
     let count = (count as usize).min(stack.len());
     let below = stack.len() - count;
+    targets(
+        prepared,
+        body,
+        instruction,
+        kind,
+        symbol,
+        &stack[below..],
+        bounds,
+    );
     if kind != NATIVE_CALL_KIND_STDLIB {
         // A call of a user function, function block or method copies the places it leaves on
         // the stack (C1-19b), which stay there while the callee runs.
@@ -750,10 +818,11 @@ fn call(
             .max(references(&stack[..below]));
         stack.truncate(below);
         // A user function's result is a value: bounded as any text, it holds no room, and it can
-        // be a reference.
+        // be a reference into any root.
         stack.push(Operand {
             text: types.longest_text,
             reference: true,
+            root: types.largest_root,
             ..Operand::VALUE
         });
         return;
@@ -816,6 +885,52 @@ fn call(
     }
 }
 
+/// Fold the targets of a call into `bounds` (C1-19c4): each output and in-out keeps a copy of its
+/// reference until the call's outputs are copied back, and the copy-back saves the root of each
+/// before writing it. A user call passes every argument as a reference, inputs too, so its prepared
+/// plan names the outputs and in-outs; a call without a plan counts every reference it passes. A
+/// function block's and a method's instance comes before the arguments.
+fn targets(
+    prepared: &PreparedModule,
+    body: &Body<'_>,
+    instruction: Instruction,
+    kind: u32,
+    symbol: u32,
+    operands: &[Operand],
+    bounds: &mut OperandBounds,
+) {
+    let Ok(VmNativeSymbolSpec::Parsed { arg_specs, .. }) = prepared.vm.native_symbol_spec(symbol)
+    else {
+        return;
+    };
+    let receivers = usize::from(matches!(
+        kind,
+        NATIVE_CALL_KIND_FUNCTION_BLOCK | NATIVE_CALL_KIND_METHOD
+    ));
+    let arguments = operands.get(receivers..).unwrap_or_default();
+    let at = u32::try_from(body.start.saturating_add(instruction.at)).unwrap_or(u32::MAX);
+    let plan = prepared
+        .call_plans
+        .binary_search_by_key(&at, |entry| entry.0)
+        .ok()
+        .map(|found| &prepared.call_plans[found].1);
+    let mut fold = |positions: &mut dyn Iterator<Item = usize>| {
+        let (count, saved) = positions.fold((0usize, 0usize), |(count, saved), position| {
+            let root = arguments.get(position).map_or(0, |operand| operand.root);
+            (count + 1, saved.saturating_add(root as usize))
+        });
+        bounds.targets = bounds.targets.max(count);
+        bounds.journal_bytes = bounds.journal_bytes.max(saved);
+    };
+    match plan {
+        Some(plan) => fold(&mut plan.arguments.output_positions()),
+        None => fold(
+            &mut (0..arguments.len())
+                .filter(|&position| arg_specs.get(position).is_some_and(|spec| spec.is_target)),
+        ),
+    }
+}
+
 /// Whether a conversion type is a text.
 fn is_text(ty: ConversionType) -> bool {
     matches!(ty, ConversionType::String | ConversionType::WString)
@@ -855,5 +970,24 @@ mod tests {
         assert_eq!(bounds.text_result, 24);
         assert_eq!(bounds.text_arguments, 24);
         assert_eq!(bounds.text_count, 2);
+    }
+
+    const BINDINGS: &[u8] =
+        include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/bindings/program.stbc");
+
+    /// Spec 34 MEM-09 (C1-19c4): the walk bounds the bytes the output journal saves of the roots of
+    /// one call's targets, worked out by hand from `bindings/src/main.st`. Two calls have targets:
+    /// `Split(value := ticks, high => measurement.level)`, whose target lies in `measurement`, a
+    /// `Reading` of a DINT (4 bytes at 0) and a `STRING[12]` (a 2-byte length and 12 bytes, 14 at
+    /// 4, aligned to 2), 18 bytes padded to a multiple of its DINT's 4, so 20; and
+    /// `Accumulate(slot := cells[k])`, whose target lies in `cells`, an `ARRAY[1..2] OF DINT`, 8.
+    /// The bound is the larger, 20. Catches a walk that takes a target's own bytes (`level`, 4), one
+    /// that counts the inputs, which a call passes as references too (`value`, a DINT: 24), and one
+    /// that adds the calls' targets together (28).
+    #[test]
+    fn the_bindings_program_saves_at_most_its_largest_target_root() {
+        let prepared = PreparedModule::from_bytes(BINDINGS, PreparationLimits::default())
+            .expect("the bindings program prepares");
+        assert_eq!(prepared.operand_bounds.journal_bytes, 20);
     }
 }

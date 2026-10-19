@@ -1203,7 +1203,7 @@ as `Value::Null`.
 
 **MEM-14. The program held compactly** (owner, 19 October 2026; checklist C1). A prepared program keeps no heavyweight copy of its container in RAM. Measured on the A4 program (6,412 bytes of bytecode, 64-bit host, `where_a_loaded_programs_heap_goes`), the prepared module took 24,671 bytes, of which its instructions were 424: native call symbols 7,208, type and region layouts 2,680, prepared indexes 2,329, references 1,920, names 1,848, initializers 1,764, the storage layout 1,216, the debugger's statement index 1,204, name maps 964, POU entries and parameters 936 and types 624. On every runtime:
 
-- Names are offsets into one buffer that holds the container's string table, not owned copies, and a lookup by name searches a sorted table of offsets; no table keeps a hash map of owned keys.
+- Names are offsets into one buffer that holds the container's string table, not owned copies, and a lookup by name searches a sorted table of offsets; no table keeps a hash map of owned keys. A name longer than the 23 bytes a short string holds inline also keeps one shared string, so that a member a scan names by it shares that string instead of copying the name to the heap (MEM-09; checklist C1-19c4).
 - A native call symbol is a compact plan: its target's and its arguments' names as string offsets, its resolved function and conversion as small indexes.
 - Each prepared table is one array of fixed-size entries, whose lists are ranges into shared arrays, not one vector per entry.
 - MEM-12's memory figure includes the prepared program. The target is that a prepared program takes at most as much heap as its container has bytes; the test prints each fixture program's figures, part by part, so every change is measured against this target.
@@ -1351,7 +1351,12 @@ allocation allowance before reserving any of it (TIME-09), as HOST-04 does for r
   as deep as the deepest initializer body, which the validator records, with one frame;
 - the initializer, construction-frame and type-operation stacks;
 - the output copy-back journal, with room for the most parameters of any POU or the most
-  arguments of any call site, whose outputs a native call's group writes;
+  arguments of any call site, whose outputs a native call's group writes, and for the bytes of
+  the roots it saves as their bytes (checklist C1-19c4): the most bytes of the roots that the
+  outputs and in-outs of one call lie in, as the call's prepared plan names them (a call passes
+  its inputs as references too), the walk bounding each root by the variable its static reference
+  starts at, by the member of an instance it names, and, for a reference the program holds or a
+  call returns, by the largest type that holds no reference and no instance;
 - the staged input values, their destination snapshot and the output windows of every
   process-image binding, and the key of each published hierarchical image entry, which the entry
   takes when its binding first publishes;
@@ -1422,11 +1427,13 @@ every result, count, charge and refusal unchanged (MEM-09; TIME-08).
 a reference whose path grows (a member, an element, a further subscript), a copy of a static path
 and a loaded reference variable take kept buffers, and a load, a store or a discard through a
 reference gives them back, as do a write that replaces a stored reference, a comparison of
-references and a refused assignment attempt. Construction reserves a path buffer for every
-reference a scan can hold at once (checklist C1-19c3): those the walk ("Execution scratch") finds
-among a body's operands at once, on every call level, the references the frame variables hold as
-values, the reference leaves of the persistent block, and one for a path that moves into another
-buffer. Each path buffer has room for the longest path of the module (a segment for each member
+references and a refused assignment attempt. A call's outputs and in-outs copy their
+references' paths into kept buffers and give them back once the outputs are copied back, and the
+check of an output's write reads the output's own path (checklist C1-19c4). Construction reserves a
+path buffer for every reference a scan can hold at once (checklist C1-19c3): those the walk
+("Execution scratch") finds among a body's operands at once, on every call level, the references
+the frame variables hold as values and the copies the outputs and in-outs of a call keep, the
+reference leaves of the persistent block, and one for a path that moves into another buffer. Each path buffer has room for the longest path of the module (a segment for each member
 and array level, a static reference's own path followed by any path into its target), and each
 has an index buffer for every index segment such a path takes, with room for the most subscripts.
 So a dynamic index or member and a reference variable that takes a new reference allocate
@@ -1565,6 +1572,12 @@ destination that lies in the block and holds no reference or instance as its byt
 back when the synchronization is refused; construction reserves those bytes for the distinct
 variables the inputs write and charges them as the store's own bytes (MEM-09). Every result,
 charge and refusal of a scan is the value store's (TIME-08).
+
+**Output copy-back.** On the flat store the journal of a call's output copy-back saves the root of
+each output that lies in the block and holds no reference or instance as its bytes, as the input
+snapshot does, and writes them back when the copy-back is refused (checklist C1-19c4); construction
+reserves those bytes ("Execution scratch"). Every result, charge and refusal is the value store's
+(TIME-08).
 
 **The debugger.** On the flat store the debugger reads a statement's call stack and variables where
 they lie (checklist C1-17). At a statement start, where the debugger stops, evaluates a condition or

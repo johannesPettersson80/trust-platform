@@ -5,13 +5,14 @@ use super::{
 };
 use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
 use crate::vm::call::context::{CallContext, RegisterValueOpKind};
+use crate::vm::dispatch_refs::owned_reference;
 use crate::vm::{VmFrame, VmTrap};
 use crate::{
     error::RuntimeError,
     memory::{Generation, InstanceId, MemoryLocation},
     value::{normalize_assignment_for_target, Value, ValueRef},
 };
-use alloc::{format, vec::Vec};
+use alloc::{borrow::Cow, format, vec::Vec};
 use smol_str::SmolStr;
 
 /// Cached source of a function-block output value.
@@ -29,6 +30,13 @@ pub enum VmFbOutSource {
 }
 
 impl VmFbOutSource {
+    /// Give the buffers of this source's path back to `runtime` (spec 34 MEM-09; C1-19c4).
+    pub(crate) fn recycle(self, runtime: &impl CallContext) {
+        if let Self::Reference(reference) = self {
+            runtime.recycle_reference_path(reference.path);
+        }
+    }
+
     /// The view of the bound value after reference-read policy checks (C1-9d2a, item (c)).
     pub fn read_checked<'a>(
         &'a self,
@@ -89,9 +97,29 @@ pub enum VmWriteTarget {
 }
 
 impl VmWriteTarget {
-    /// Cache a direct slot when possible, retaining an owned path only when needed.
+    /// Cache a direct slot when possible, retaining an owned path only when needed. A call binds
+    /// its targets with [`Self::kept`]; the tests build targets with this.
+    #[cfg(test)]
     pub fn from_reference(reference: &ValueRef) -> Self {
         Self::direct(reference).unwrap_or_else(|| Self::Reference(reference.clone()))
+    }
+
+    /// The direct slot `reference` names, or the reference with its path copied into the buffers
+    /// `runtime` keeps, so that binding a call's output allocates nothing after the first scan
+    /// (spec 34 MEM-09; C1-19c4). The call gives them back by [`Self::recycle`] once the output is
+    /// copied back.
+    pub(crate) fn kept(runtime: &impl CallContext, reference: &ValueRef) -> Result<Self, VmTrap> {
+        match Self::direct(reference) {
+            Some(target) => Ok(target),
+            None => owned_reference(runtime, reference.as_view()).map(Self::Reference),
+        }
+    }
+
+    /// Give the buffers of this target's path back to `runtime` (C1-19c4).
+    pub(crate) fn recycle(self, runtime: &impl CallContext) {
+        if let Self::Reference(reference) = self {
+            runtime.recycle_reference_path(reference.path);
+        }
     }
 
     /// The direct slot `reference` names, or `None` when it needs its path resolved.
@@ -140,28 +168,30 @@ impl VmWriteTarget {
         }
     }
 
+    /// The reference this target names: a reference target's own, borrowed, so that checking a
+    /// write copies no path (C1-19c4), and a direct slot's, whose path is empty.
     fn reference(
         &self,
         caller_frame: &VmFrame,
         generation: Generation,
-    ) -> Result<ValueRef, VmTrap> {
+    ) -> Result<Cow<'_, ValueRef>, VmTrap> {
         let slot = |offset: usize| {
             u32::try_from(offset).map_err(|_| VmTrap::Runtime(RuntimeError::Overflow))
         };
         Ok(match self {
-            Self::CallerLocalDirect { offset } => ValueRef {
+            Self::CallerLocalDirect { offset } => Cow::Owned(ValueRef {
                 location: MemoryLocation::Local(caller_frame.reference_frame_id()),
                 offset: slot(*offset)?,
                 generation,
                 path: Vec::new(),
-            },
-            Self::DirectStorage { location, offset } => ValueRef {
+            }),
+            Self::DirectStorage { location, offset } => Cow::Owned(ValueRef {
                 location: *location,
                 offset: slot(*offset)?,
                 generation,
                 path: Vec::new(),
-            },
-            Self::Reference(reference) => reference.clone(),
+            }),
+            Self::Reference(reference) => Cow::Borrowed(reference),
         })
     }
 
@@ -199,8 +229,8 @@ impl VmWriteTarget {
             .map_err(VmTrap::Runtime)
     }
 
-    /// The view of the target `reference` names, as [`Self::read`] reads it through the target
-    /// [`Self::from_reference`] gives, without building that target (C1-12).
+    /// The view of the target `reference` names, as [`Self::read`] reads it through the target a
+    /// call binds for it, without building that target (C1-12).
     pub fn peek_reference<'a>(
         runtime: &'a impl CallContext,
         caller_frame: &'a VmFrame,
@@ -546,17 +576,18 @@ impl VmFbFieldBinding {
         self.write_checked(runtime, value).unwrap_or(false)
     }
 
-    /// Retain this binding as a function-block output source.
-    pub fn out_source(&self) -> VmFbOutSource {
+    /// Retain this binding as a function-block output source, moving its reference rather than
+    /// copying its path (C1-19c4).
+    pub fn into_out_source(self) -> VmFbOutSource {
         match self {
             Self::Direct {
                 instance_id,
                 offset,
             } => VmFbOutSource::Direct {
-                instance_id: *instance_id,
-                offset: *offset,
+                instance_id,
+                offset,
             },
-            Self::Reference(reference) => VmFbOutSource::Reference(reference.clone()),
+            Self::Reference(reference) => VmFbOutSource::Reference(reference),
         }
     }
 }
