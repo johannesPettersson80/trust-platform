@@ -218,13 +218,42 @@ fn fleet_host_contract_configured_ips_exclude_unspecified_addresses() {
     assert_eq!(configured_host_ips(&settings), ["2001:db8::2"]);
 }
 
+// Specification 11, "Configured host IP projection": a concrete listen host is reported as it is;
+// a runtime listening only on an unspecified wildcard address reports the computer's real
+// non-loopback interface addresses in its place, and `127.0.0.1` only when it has none. It would
+// catch a projection that keeps the wildcard, keeps a loopback or unspecified interface address,
+// forgets to sort or deduplicate, or falls back to `127.0.0.1` while interface addresses exist.
 #[test]
-fn fleet_host_contract_configured_ips_fall_back_to_loopback() {
-    let mut settings = settings();
-    settings.web.listen = SmolStr::new("0.0.0.0:8080");
-    settings.opcua.listen = SmolStr::new("[::]:4840");
-    settings.mesh.listen = SmolStr::new("0.0.0.0:7447");
-    assert_eq!(configured_host_ips(&settings), ["127.0.0.1"]);
+fn local_host_ips_follow_the_decided_rule() {
+    assert_eq!(
+        configured_host_ips_from(&["192.0.2.20:8080", "192.0.2.10:4840"], &[]),
+        ["192.0.2.10", "192.0.2.20"]
+    );
+    assert_eq!(
+        configured_host_ips_from(
+            &["0.0.0.0:8080", "[::]:4840"],
+            &[
+                IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+                IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+                IpAddr::V6(Ipv6Addr::LOCALHOST),
+                IpAddr::V4(Ipv4Addr::new(198, 51, 100, 7)),
+                IpAddr::V4(Ipv4Addr::new(198, 51, 100, 7)),
+                IpAddr::V4(Ipv4Addr::new(203, 0, 113, 9)),
+            ]
+        ),
+        ["198.51.100.7", "203.0.113.9"]
+    );
+    assert_eq!(
+        configured_host_ips_from(&["0.0.0.0:8080", "[::]:7447"], &[]),
+        ["127.0.0.1"]
+    );
+    assert_eq!(
+        configured_host_ips_from(
+            &["0.0.0.0:8080", "192.0.2.10:4840"],
+            &[IpAddr::V4(Ipv4Addr::new(198, 51, 100, 7))]
+        ),
+        ["192.0.2.10"]
+    );
 }
 
 #[test]

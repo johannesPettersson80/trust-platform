@@ -325,6 +325,8 @@ fn directed_broadcast_is_optional_and_deduplicated() {
 fn directed_broadcast_collects_multiple_ads_targets_from_one_subnet() {
     let mut wire = MultiBroadcastWire::new(vec![
         TargetIdentity {
+            os_version: None,
+            fingerprint: None,
             name: Some("trust-runtime".to_string()),
             ip: "192.168.77.10".to_string(),
             ams_net_id: "192.168.77.10.1.1".to_string(),
@@ -332,6 +334,8 @@ fn directed_broadcast_collects_multiple_ads_targets_from_one_subnet() {
             tc_version: Some("1.0.0".to_string()),
         },
         TargetIdentity {
+            os_version: None,
+            fingerprint: None,
             name: Some("TwinCAT-XAE".to_string()),
             ip: "192.168.77.11".to_string(),
             ams_net_id: "100.67.6.217.1.1".to_string(),
@@ -522,6 +526,8 @@ fn assert_wire_failure(
 
 fn target_identity() -> TargetIdentity {
     TargetIdentity {
+        os_version: None,
+        fingerprint: None,
         name: Some("CX-1234".to_string()),
         ip: "192.168.10.5".to_string(),
         ams_net_id: "5.23.91.12.1.1".to_string(),

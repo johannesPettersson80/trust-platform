@@ -3,7 +3,7 @@
 **/*.rs.bk
 **/Cargo.lock
 !/Cargo.lock
-!/firmware/trust-esp32c6-reference/Cargo.lock
+!/firmware/trust-esp32c6/Cargo.lock
 !/firmware/trust-stm32f407/Cargo.lock
 !/fuzz/Cargo.lock
 !/crates/trust-ads-server/fuzz/Cargo.lock

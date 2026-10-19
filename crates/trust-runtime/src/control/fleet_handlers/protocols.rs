@@ -173,12 +173,20 @@ pub(super) fn configured_mesh_link_status(
     if snapshot
         .peers
         .iter()
-        .any(|peer| peer == target || target.contains(peer.as_str()))
+        .any(|peer| mesh_peer_matches_target(target, peer.as_str()))
     {
         "connected".to_string()
     } else {
         "degraded".to_string()
     }
+}
+
+/// Whether the mesh liveliness `peer` names the configured mesh `target`: a peer names a target
+/// when it is that target or the target contains it (specification 11, "Communication schema,
+/// capabilities, and Test"). This is the single matching rule the mesh link status and the
+/// capability health both use.
+pub(crate) fn mesh_peer_matches_target(target: &str, peer: &str) -> bool {
+    peer == target || target.contains(peer)
 }
 
 pub(super) fn realtime_health_and_detail(status: &LinuxRtRuntimeStatus) -> (String, String) {

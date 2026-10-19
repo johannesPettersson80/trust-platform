@@ -48,7 +48,7 @@
       "kind": "normal",
       "status": "allowed",
       "owner": "runtime portability S1b-3b (application container)",
-      "rationale": "The bench packer builds the chip's TRSTA001 application container with the shared no_std installation writer, so the bench writes exactly the bytes a chip checks."
+      "rationale": "The bench packer builds the chip's TRSTA002 application container with the shared no_std installation writer, so the bench writes exactly the bytes a chip checks."
     },
     {
       "from": "xtask",
@@ -107,7 +107,7 @@
       "rationale": "The F407 adapter keeps the same fixed-size reset record in the RTC backup registers, so both chips report the same cause; the memory crate holds the record codec and depends on no runtime or compiler."
     },
     {
-      "from": "trust-esp32c6-reference",
+      "from": "trust-esp32c6",
       "to": "trust-board-fixture",
       "kind": "normal",
       "status": "allowed",
@@ -115,7 +115,7 @@
       "rationale": "The C6 composition runs the same shared M2E fixture as the F407."
     },
     {
-      "from": "trust-esp32c6-reference",
+      "from": "trust-esp32c6",
       "to": "trust-platform-esp32",
       "kind": "normal",
       "status": "allowed",
@@ -339,6 +339,14 @@
       "rationale": "The shared runtime services use the engine's records (resource state, restart mode, watchdog and fault policies, durations, runtime errors and the libm rounding primitive) through the core built without std; the core never depends on the services (forbidden edge)."
     },
     {
+      "from": "trust-runtime-services",
+      "to": "trust-platform-memory",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability S1b-9u-c (shared chip platform)",
+      "rationale": "The shared chip platform (chip::platform) reads the fixed-size reset record a chip keeps across a reset into the capabilities reply, so the C6 and the STM32U5A9 report the same cause from one copy of the mapping; the memory crate holds the record codec and depends on no runtime or compiler."
+    },
+    {
       "from": "trust-runtime",
       "to": "verification-cases",
       "kind": "dev",
@@ -433,6 +441,102 @@
       "status": "allowed",
       "owner": "wasm analysis",
       "rationale": "WASM analysis consumes syntax"
+    },
+    {
+      "from": "trust-devices",
+      "to": "trust-runtime",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "The panel engine reads trust-runtime's wire types, configuration, catalog and control glue; it is a host tool and no chip links it."
+    },
+    {
+      "from": "trust-devices",
+      "to": "trust-runtime-client",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "The panel engine reaches runtimes through the one shared control client."
+    },
+    {
+      "from": "trust-devices",
+      "to": "trust-chips",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "The panel shows a runtime whose status names a chip of truST's chip files as that chip; the reader depends on no firmware or adapter."
+    },
+    {
+      "from": "trust-lsp",
+      "to": "trust-devices",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "The five `trust-lsp.devices*` commands decode their arguments, run the panel engine on a blocking thread and return its JSON (design §1.4.1 and §1.6)."
+    },
+    {
+      "from": "trust-runtime",
+      "to": "trust-devices",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "The engine integration test drives the panel engine against a real `trust-runtime` binary; a dev edge only, so no runtime or firmware build resolves the reader."
+    },
+    {
+      "from": "trust-runtime",
+      "to": "trust-runtime-client",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "trust-runtime discover reaches the runtime that runs a search through the one shared control client; the client depends on no truST crate."
+    },
+    {
+      "from": "trust-platform-stm32f4",
+      "to": "trust-platform-stm32",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability STM32 chips (S1b-8u-1)",
+      "rationale": "The STM32F4 adapter re-exports the pin grammar, the pin table lookup, the reset record and the unique ID from the shared STM32 crate, which depends on no runtime or compiler, so the STM32 adapters keep one copy of each rule."
+    },
+    {
+      "from": "trust-platform-stm32u5",
+      "to": "trust-platform-stm32",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability STM32U5A9 (S1b-8u-1)",
+      "rationale": "The STM32U5A9 adapter uses the shared STM32 rules for its pin names and its pin table lookup; the shared crate depends on nothing."
+    },
+    {
+      "from": "trust-platform-stm32u5",
+      "to": "trust-chips",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "runtime portability T3 (chip files)",
+      "rationale": "A host test compares the STM32U5A9 chip table and its clock with chips/stm32u5a9.toml; a dev edge only, so no firmware build resolves the reader."
+    },
+    {
+      "from": "trust-platform-stm32u5",
+      "to": "trust-runtime-core",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+      "rationale": "The STM32U5A9 control link implements the engine's ControlLink, MonotonicClock and WakeSignal ports; the core depends on no platform crate."
+    },
+    {
+      "from": "trust-platform-stm32u5",
+      "to": "trust-runtime-services",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+      "rationale": "The control link carries the shared line link of the runtime services (framing, reply and stall rule), as the C6 adapter does; the services depend on no platform crate."
+    },
+    {
+      "from": "trust-platform-stm32u5",
+      "to": "trust-platform-memory",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+      "rationale": "The STM32U5A9 memory map gives the shared measurement crate its main-stack window, and its reset store implements the shared ResetStore; the memory crate holds the record codec and depends on no runtime or compiler."
     }
   ],
   "forbidden_workspace_edges": [
@@ -512,7 +616,7 @@
       "kind": "normal"
     },
     {
-      "from": "trust-esp32c6-reference",
+      "from": "trust-esp32c6",
       "to": "trust-runtime",
       "kind": "normal"
     },
@@ -609,6 +713,12 @@
       "class": "product",
       "owner": "runtime/communication",
       "rationale": "communication protocol configuration and apply command surface"
+    },
+    {
+      "name": "Discover",
+      "class": "product",
+      "owner": "runtime/communication",
+      "rationale": "the one search for devices, from this computer or inside a runtime (spec 11, One search)"
     },
     {
       "name": "Fleet",
@@ -755,6 +865,12 @@
       "class": "product",
       "owner": "runtime/communication",
       "rationale": "communication protocol configuration command module"
+    },
+    {
+      "name": "discover",
+      "class": "product",
+      "owner": "runtime/communication",
+      "rationale": "the one search command module: request, progress and output of trust-runtime discover"
     },
     {
       "name": "fleet",
@@ -1257,6 +1373,14 @@
         "decision_note": "ARCHPROG-C-05 baseline freeze"
       },
       {
+        "name": "fleet_topology",
+        "subsystem": "runtime_fleet_topology_contract",
+        "owner": "runtime/control",
+        "rationale": "fleet.topology wire types and the decoder of schema versions 2 to 4, shared by the control handlers that write the report and the tools that read it; owns no transport",
+        "review_date": "2026-10-17",
+        "decision_note": "V7 B1: wire types moved out of control/fleet_handlers so the Devices panel engine can read them"
+      },
+      {
         "name": "host",
         "subsystem": "linux_host_adapters",
         "owner": "runtime/Linux host",
@@ -1684,6 +1808,33 @@
         "rationale": "The device runner namespace is the resource loop and one contract test file per port: the loop and its link/wait boundary, the cycle port, the shared-engine cycle with its limits, process I/O and services, the program wrapper, the platform host, the supervisor, the records and the retain store. Slice C5-3b added the chip retention contract tests (runner/retain_contract_tests.rs) beside the loop they exercise, which takes the aggregate past 5000 lines; the boundary is the sum of focused files, not one implementation file or a mixed owner.",
         "review_date": "2026-10-18",
         "split_plan": "Keep one responsibility per child file: the loop, the cycle port, the shared-engine cycle, the platform host, the supervisor, the records and the retain store stay separate, and each port's contract tests stay beside the loop they exercise. Split any individual file approaching 1000 lines by the same responsibility rather than growing runner.rs."
+      },
+      {
+        "crate_name": "trust-devices",
+        "module_name": "view",
+        "path": "crates/trust-devices/src/view",
+        "owner": "VS Code Devices & Connections (V7)",
+        "rationale": "The view namespace is the panel contract of specification 25 §5.15 and its projection, in focused child modules: the contract types (split into vocabulary, graph and panes), health rules, computers, runtimes, lifecycle actions, the list, connections, devices and links, the filter and search, issues, status reading and addresses, with their tests and golden scenarios beside them. The pane builders (add dialog, forms, USB tray) live in the sibling `panes` namespace and answer the pane types of this contract. No single file or mixed owner; about a third of the lines are tests.",
+        "review_date": "2026-10-17",
+        "split_plan": "Keep one child module per panel concern; B5 added connections, devices, links, search and issues as their own files. The panes now live in the sibling `panes` namespace beside `view` (add dialog, forms, USB tray; later Discover and browse), and new panes go there; their contract types stay in `view/types/panes.rs`. Split any file approaching 1000 lines by its responsibility."
+      },
+      {
+        "crate_name": "trust-devices",
+        "module_name": "actions",
+        "path": "crates/trust-devices/src/actions",
+        "owner": "VS Code Devices & Connections (V7)",
+        "rationale": "The panel's action path of specification 25 §5.4, §5.9, §5.13 and §5.14, in focused child modules: the closed action set and its dispatch, the host-effect lists, the forms and connection actions, the connection plans, the ADS route action, the runtime actions, and the one write path they share, each with its tests beside it. No single file or mixed owner; about half the lines are tests.",
+        "review_date": "2026-10-18",
+        "split_plan": "Keep one child module per action family; B7 added `ads.rs` for the browse pane's `Create route` beside the plans. Split any file approaching 1000 lines by its responsibility, and put a new action family in its own child module."
+      },
+      {
+        "crate_name": "trust-devices",
+        "module_name": "panes",
+        "path": "crates/trust-devices/src/panes",
+        "owner": "VS Code Devices & Connections (V7)",
+        "rationale": "The panes beside the graph of specification 25 §2 and §5.12-§5.14, in focused child modules: the add dialog, the forms, the USB tray, and the browse panes (OPC UA nodes, EtherCAT channels, exposed globals and, with B8b1, the ADS tag browser in `browse/ads.rs`), each with its tests beside it. The aggregate crosses 5000 lines as the sum of these focused modules; no single file is near 1000 lines and about a third of the lines are tests.",
+        "review_date": "2026-10-18",
+        "split_plan": "Keep one child module per pane concern; the browse panes keep one child per protocol family under `browse/`. Split any file approaching 1000 lines by its own responsibility."
       }
     ],
     "function_size_allowlist": [
@@ -2030,14 +2181,6 @@
         "rationale": "Validated bytecode construction assembles one compatibility-sensitive VM boundary",
         "review_date": "2026-08-21",
         "split_plan": "Extract table families only with bytecode validation and execution parity locks."
-      },
-      {
-        "path": "crates/trust-runtime/src/host/debug/control/hook.rs",
-        "name": "on_statement_inner",
-        "owner": "runtime/debug",
-        "rationale": "Debug statement hook maintains one ordered breakpoint and control-session decision boundary",
-        "review_date": "2026-08-21",
-        "split_plan": "Extract stop-reason and control-session helpers only with debugger lifecycle coverage."
       }
     ],
     "public_api_snapshots": [
@@ -2391,59 +2534,59 @@
       },
       {
         "path": "crates/trust-runtime/tests/device_link_heap.rs",
-        "line": 75,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime/tests/device_link_heap.rs",
-        "line": 76,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime/tests/device_link_heap.rs",
-        "line": 79,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime/tests/device_link_heap.rs",
-        "line": 82,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime/tests/device_link_heap.rs",
-        "line": 85,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime/tests/device_link_heap.rs",
-        "line": 88,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime/tests/device_link_heap.rs",
         "line": 91,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
         "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
-        "review_date": "2026-10-17"
+        "review_date": "2026-10-19"
+      },
+      {
+        "path": "crates/trust-runtime/tests/device_link_heap.rs",
+        "line": 92,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
+        "review_date": "2026-10-19"
+      },
+      {
+        "path": "crates/trust-runtime/tests/device_link_heap.rs",
+        "line": 96,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
+        "review_date": "2026-10-19"
+      },
+      {
+        "path": "crates/trust-runtime/tests/device_link_heap.rs",
+        "line": 99,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
+        "review_date": "2026-10-19"
+      },
+      {
+        "path": "crates/trust-runtime/tests/device_link_heap.rs",
+        "line": 102,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
+        "review_date": "2026-10-19"
+      },
+      {
+        "path": "crates/trust-runtime/tests/device_link_heap.rs",
+        "line": 105,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
+        "review_date": "2026-10-19"
+      },
+      {
+        "path": "crates/trust-runtime/tests/device_link_heap.rs",
+        "line": 109,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
+        "review_date": "2026-10-19"
       },
       {
         "path": "crates/trust-runtime/tests/allocation_lifecycle.rs",
@@ -2791,7 +2934,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 55,
+        "line": 54,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "Callers give the allocator up to two regions, once, before any allocation; each non-empty region is valid, aligned and owned by nothing else for the program's lifetime (documented Safety contract).",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -2799,7 +2942,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 62,
+        "line": 61,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "Forwards the caller's init contract unchanged to one inner LlffHeap per region; each composition arena is exclusively owned by the allocator.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -2807,7 +2950,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 116,
+        "line": 115,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "MeasuredHeap delegates to one critical-section protected LlffHeap per composition region; instrumentation uses relaxed atomics and never allocates or panics.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -2815,7 +2958,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 117,
+        "line": 116,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "GlobalAlloc layout contract is inherited; allocation tries the regions in order, forwards the unchanged layout to each, and records failure/live/peak counts.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -2823,7 +2966,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 121,
+        "line": 120,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "Forwarded allocation uses the caller-supplied valid Layout; a null pointer from one region makes the next region try, and a null pointer from every region is retained as allocation-failure evidence.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -2831,7 +2974,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 137,
+        "line": 136,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "GlobalAlloc caller owns the pointer/layout allocation pair; deallocation preserves the pair and exposes no alias.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -2839,7 +2982,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 141,
+        "line": 140,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "Underlying deallocation receives the exact pointer and Layout supplied by the allocator caller, routed to the region whose recorded bounds contain the pointer.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -2847,23 +2990,23 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 209,
+        "line": 210,
         "owner": "runtime portability M2E board/firmware",
-        "invariant": "Interrupts are masked by the critical section; writes paint only aligned addresses of the composition's 16 KiB stack window below the sampled stack pointer minus a 256-byte guard.",
+        "invariant": "Interrupts are masked by the critical section; writes paint only aligned addresses of the composition's stack window below the sampled stack pointer minus a 256-byte guard.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
         "review_date": "2026-10-15"
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 233,
+        "line": 234,
         "owner": "runtime portability M2E board/firmware",
-        "invariant": "Aligned volatile reads stay inside the composition's 16 KiB stack window; the reported watermark is measured evidence, not a worst-case proof.",
+        "invariant": "Aligned volatile reads stay inside the composition's stack window; the reported watermark is measured evidence, not a worst-case proof.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
         "review_date": "2026-10-15"
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 269,
+        "line": 270,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the Cortex-M MSP register only (nomem, nostack, preserves_flags); no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -2871,7 +3014,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 286,
+        "line": 287,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Copies the RISC-V stack pointer register only (nomem, nostack, preserves_flags); no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -2887,7 +3030,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
-        "line": 38,
+        "line": 37,
         "owner": "runtime portability S1b-5 (C6 firmware)",
         "invariant": "Clears only mstatus.MIE in the terminal single-core fault boundary; no suspended handler ever resumes.",
         "test_evidence": "The terminal fault path is exercised only by the chip build and the planned C6 bench run; the reset record it writes is proven by cargo test -p trust-platform-memory.",
@@ -2895,27 +3038,43 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
-        "line": 49,
+        "line": 48,
         "owner": "runtime portability S1b-5 (C6 firmware)",
-        "invariant": "`out_w1tc` is write-one-to-clear: writing only the configured output pins clears their output latch and no other pin.",
-        "test_evidence": "The terminal fault path is exercised only by the chip build and the planned C6 bench run; the registered pins are the record's claimed outputs.",
+        "invariant": "`out_w1ts` is write-one-to-set: writing only the configured outputs whose safe level is high sets their output latch and no other pin.",
+        "test_evidence": "The masks come from SafeLevels, whose rule cargo test -p trust-platform-esp32 --test pin_lines proves (the_terminal_fault_path_drives_each_output_to_its_safe_level); the register write runs only on the chip.",
         "review_date": "2026-10-18"
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
-        "line": 52,
+        "line": 51,
         "owner": "runtime portability S1b-5 (C6 firmware)",
-        "invariant": "`enable_w1ts` is write-one-to-set: writing only the configured output pins enables their output driver, which is already latched low, and no other pin.",
+        "invariant": "`out_w1tc` is write-one-to-clear: writing only the configured outputs whose safe level is low clears their output latch and no other pin.",
+        "test_evidence": "The masks come from SafeLevels, whose rule cargo test -p trust-platform-esp32 --test pin_lines proves (the_terminal_fault_path_drives_each_output_to_its_safe_level); the register write runs only on the chip.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
+        "line": 54,
+        "owner": "runtime portability S1b-5 (C6 firmware)",
+        "invariant": "`enable_w1ts` is write-one-to-set: writing only the configured output pins enables their output driver, which is already latched at its safe level, and no other pin.",
         "test_evidence": "The terminal fault path is exercised only by the chip build and the planned C6 bench run; the registered pins are the record's claimed outputs.",
         "review_date": "2026-10-18"
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/mod.rs",
-        "line": 212,
+        "line": 337,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the misa CSR only; no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
         "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/process_io.rs",
+        "line": 355,
+        "owner": "runtime portability S4-6b (program loading in place)",
+        "invariant": "clone_unchecked copies a pin of the bank only after PinClaims::claim refused every line that holds it. A line keeps its PinClaim next to the driver built from the copy (ClaimedInput and ClaimedOutput own both and drop them together), so a pin is claimed again only after the driver that held it is gone, and at most one driver of a pin exists at a time.",
+        "test_evidence": "cargo test -p trust-platform-esp32 --test pin_lines (a_claimed_pin_is_free_again_when_its_line_is_dropped) and --test reload (the_new_program_claims_the_pins_the_old_one_released); the esp-hal driver is exercised only by the chip build and the planned C6 bench run.",
+        "review_date": "2026-10-19"
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/reset.rs",
@@ -2974,8 +3133,24 @@
         "review_date": "2026-10-18"
       },
       {
-        "path": "firmware/trust-esp32c6-reference/src/memory.rs",
-        "line": 42,
+        "path": "crates/trust-platform-esp32/src/program_memory.rs",
+        "line": 115,
+        "owner": "runtime portability S4-6b (program loading in place)",
+        "invariant": "Both pointers came from Box::leak a few lines above, so they are valid and nothing else reaches the boxes. The 'static borrows are stored only in the cycle that the engine closure builds (a program started by start, or the candidate of an online change built by replace), which owns the memory as its last field and returns no reference of its lifetime, or they are dropped in this function; an early return drops the memory after their last use.",
+        "test_evidence": "cargo test -p trust-platform-esp32 --test reload (install_and_restart_rounds_leave_the_heap_where_one_round_left_it) and --test online_change_state (an_online_change_keeps_a_retained_function_block_instance_of_a_congruent_candidate).",
+        "review_date": "2026-10-19"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/program_memory.rs",
+        "line": 128,
+        "owner": "runtime portability S4-6b (program loading in place)",
+        "invariant": "Both pointers came from Box::leak in build and are freed here and nowhere else, once, because ProgramMemory is neither Clone nor Copy. The cycle that owns this memory drops its engine state, its process I/O and its checkpoint store before it drops the memory (the last field), so no borrow of either box is alive; the services go first because they hold a borrow of the module.",
+        "test_evidence": "cargo test -p trust-platform-esp32 --test reload (install_and_restart_rounds_leave_the_heap_where_one_round_left_it).",
+        "review_date": "2026-10-19"
+      },
+      {
+        "path": "firmware/trust-esp32c6/src/memory.rs",
+        "line": 45,
         "owner": "runtime portability S1b-5 (C6 firmware)",
         "invariant": "Called exactly once before any allocation on a single core; the private 72 KiB HEAP_MEMORY static and the 64 KiB reclaimed static are exclusively owned by the allocator, and the slices cover exactly those statics.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: heap accounting and stack-window headroom; the two-region allocator is proven by cargo test -p trust-platform-memory.",
@@ -3004,6 +3179,262 @@
         "invariant": "Initialization occurs once before any allocation and transfers the linker-resident private 72 KiB aligned arena to the allocator.",
         "test_evidence": "Planned F407 frozen thumbv7em build and DISC1 bench run: identity, crystal measurement, safe GPIO, deliberate watchdog reset, heap accounting and stack headroom; hardware evidence remains unrun.",
         "review_date": "2026-10-17"
+      },
+      {
+        "path": "firmware/trust-stm32u5a9/src/application.rs",
+        "line": 23,
+        "owner": "runtime portability STM32U5A9 (S1b-9u)",
+        "invariant": "The application region is bank 2 from 0x0820_0000 for 2016 KiB: profile.x keeps the firmware image below 0x0820_0000, and the checkpoint slots follow the region. The firmware never writes or erases it, so the slice is constant for the boot and is read only to admit the program.",
+        "test_evidence": "The region bounds are asserted at build time (profile.rs) and the admission rules are host-tested in trust-runtime-services; the read of the installed bytes is proved on the bench (S1b-9u) with a deployed program.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "firmware/trust-stm32u5a9/src/halt.rs",
+        "line": 20,
+        "owner": "runtime portability STM32U5A9 (S1b-9u)",
+        "invariant": "The fault path runs after the boot has ended: it takes the RCC, PWR and TAMP blocks, which no other owner uses again, to write the reset record and to reset the chip. Interrupts are masked before the outputs are driven to their safe levels.",
+        "test_evidence": "The record encoding is host-tested in trust-platform-memory; the panic record and its reset are proved on the bench (S1b-9u) by a deliberate fault.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "firmware/trust-stm32u5a9/src/identity.rs",
+        "line": 36,
+        "owner": "runtime portability STM32U5A9 (S1b-9u)",
+        "invariant": "The flash size register is a read-only half-word of system memory at 0x0BFA_07A0 (RM0456). A volatile read of it has no effect on the chip.",
+        "test_evidence": "The boot compares the value with chips/stm32u5a9.toml; proved on the bench (S1b-9u) by the identity record of the Riverdi board.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "firmware/trust-stm32u5a9/src/main.rs",
+        "line": 301,
+        "owner": "runtime portability STM32U5A9 (S1b-9u)",
+        "invariant": "The Cortex-M exception ABI is required by cortex-m-rt. HardFault never returns: it runs the terminal fault path, which masks interrupts and resets the chip.",
+        "test_evidence": "The fault path is proved on the bench (S1b-9u); no host test raises an exception.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "firmware/trust-stm32u5a9/src/memory.rs",
+        "line": 25,
+        "owner": "runtime portability STM32U5A9 (S1b-9u)",
+        "invariant": "Called exactly once, first in main and before any allocation. Region A (SRAM1, SRAM2 and the first 192 KiB of SRAM3) is no section of memory.x, so the slice covers only memory the allocator owns for the whole boot.",
+        "test_evidence": "The two-region allocator rules are proved by cargo test -p trust-platform-memory; the placement is checked by the linker assertions (profile.x) and the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/clock.rs",
+        "line": 141,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-1)",
+        "invariant": "FLASH_ACR.LATENCY takes the wait-state count, a four-bit field; the value written is FLASH_WAIT_STATES (4), the count for 160 MHz in voltage range 1, and the register is read back until it holds that count.",
+        "test_evidence": "Host test flash_has_four_wait_states_at_160_mhz_in_voltage_range_1 pins the constant; the register write and its read back are proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/clock.rs",
+        "line": 178,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-1)",
+        "invariant": "PLL1DIVR.PLL1N is a nine-bit field and takes PLL1N_FIELD (0x4F); the register is written while PLL1 is off, which is its state after reset, and before PLL1ON.",
+        "test_evidence": "Host test the_n_field_holds_n_minus_one pins the field value; the register write and the PLL1 lock are proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
+        "line": 122,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+        "invariant": "bind takes the only reference to the static mut STORAGE, after the BOUND swap has made it the first bind; the device and its allocator borrow parts of it for 'static, and nothing else reaches it.",
+        "test_evidence": "Host tests usb_descriptors pin the serial and bcdDevice values bind writes; bind itself runs only on the chip and is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
+        "line": 151,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+        "invariant": "NVIC::unmask enables OTG_HS only after bind has put the device in DEVICE, so the handler always finds it; the interrupt is the PAC's Interrupt::OTG_HS, number 73 (design §2.1).",
+        "test_evidence": "The handler and the unmask are proved on the bench (S1b-9u); the servicing pass the handler runs is host-tested (tests/usb_service.rs).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
+        "line": 184,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+        "invariant": "read_volatile reads the three words of the chip's read-only 96-bit unique ID at 0x0BFA_0700 (design §2.5), in address order, and writes nothing.",
+        "test_evidence": "The serial text the words build is host-tested (tests/usb_descriptors.rs); the read is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
+        "line": 227,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+        "invariant": "the read-modify-write touches only the RXFLVLM bit of OTG_HS GINTMSK and runs under the critical section every caller holds; the USB driver writes GINTMSK only in its enable, before the device exists.",
+        "test_evidence": "The pass that chooses the value is host-tested (tests/usb_service.rs, a_full_link_leaves_the_packet_with_the_port); the register write is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
+        "line": 164,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "invariant": "OTG_HS is the chip's own register block (PAC 0.16.0). The writes run in bind's critical section, after the build and before the interrupt is unmasked, so DCTL.SDIS, GCCFG and DCFG are never seen half set.",
+        "test_evidence": "The values written are host-tested (tests/usb_phy.rs: device_mode_gccfg_overrides_vbus_and_keeps_sensing_and_pulldowns_off and full_speed_on_the_hs_phy_sets_dspd_to_one_and_keeps_the_other_fields); the writes are proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
+        "line": 167,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "invariant": "GCCFG takes the whole device-mode value 0x0180_0000 (VBVALEXTOEN and VBVALOVAL set, VBDEN and PULLDOWNEN clear), because the PAC has no fields for bits 23 to 25.",
+        "test_evidence": "device_mode_gccfg_overrides_vbus_and_keeps_sensing_and_pulldowns_off pins the value (tests/usb_phy.rs); the write is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
+        "line": 169,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "invariant": "DCFG keeps every bit except the speed (bits 1:0), which becomes 0b01, full speed on the on-chip PHY, as ST's USB_DevInit sets it for the embedded PHY (stm32u5xx_ll_usb.c, line 365).",
+        "test_evidence": "full_speed_on_the_hs_phy_sets_dspd_to_one_and_keeps_the_other_fields pins the value (tests/usb_phy.rs); the write is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb.rs",
+        "line": 227,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+        "invariant": "the OTG_HS trait values are the chip's: the register block at 0x4204_0000, a 4 KiB FIFO of 1024 words, nine device endpoints, the 160 MHz AHB clock and the on-chip high-speed PHY, driven at full speed with HIGH_SPEED false (design §2.1 and §2.2; PAC DIEPCTL0 to DIEPCTL8).",
+        "test_evidence": "Host test the_otg_hs_block_is_at_0x4204_0000_with_4_kib_of_fifo_and_nine_endpoints pins the constants, and tests/usb_phy.rs pins the PHY values; the driver's use of them is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb.rs",
+        "line": 244,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+        "invariant": "the RCC read-modify-writes set only OTGEN (bit 14) and USBPHYCEN (bit 15) in RCC_AHB2ENR1, and SYSCFGEN (bit 1) in RCC_APB3ENR, so the OTG_HS, PHY and SYSCFG clocks run before the USB core is configured (PAC 0.16.0 field descriptions; stm32u5a9xx.h).",
+        "test_evidence": "The clock enables are proved on the bench (S1b-9u); RM0456's USB section owns the order, which is unverified here (design §2.2).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb.rs",
+        "line": 248,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+        "invariant": "the PWR read-modify-writes set only USV (PWR_SVMCR bit 28) and USBPWREN and USBBOOSTEN (PWR_VOSR bits 19 and 20), the USB supply, before the USB core is configured (PAC 0.16.0 field descriptions).",
+        "test_evidence": "The supply sequence is proved on the bench (S1b-9u); RM0456's USB section owns the order, which is unverified here (design §2.2).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb.rs",
+        "line": 279,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "invariant": "SYSCFG is the chip's own register block (PAC 0.16.0), and its clock is on since enable; the two writes below touch only OTGHSPHYCR, first CLKSEL and then EN, in ST's order (stm32u5xx_hal.c, lines 1002 and 1030).",
+        "test_evidence": "The reference codes are host-tested (tests/usb_phy.rs, the_phy_reference_codes_are_st_s); the register writes are proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb.rs",
+        "line": 282,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "invariant": "CLKSEL takes HSE_PHY_CLKSEL, the code of the board's 16 MHz HSE (0b0011, ST's SYSCFG_OTG_HS_PHY_CLK_SELECT_1). It is a compile-time constant, so a frequency with no code does not build.",
+        "test_evidence": "the_phy_reference_codes_are_st_s pins the code; the write is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/wait.rs",
+        "line": 76,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "invariant": "TIM2 is the chip's own timer block at its address (PAC 0.16.0). Only this module uses its registers: Monotonic::start writes them before a wait starts, and the wait and the TIM2 interrupt use them inside the critical section.",
+        "test_evidence": "The compare arithmetic is host-tested (tests/wait.rs); the registers are proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/wait.rs",
+        "line": 113,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "invariant": "RCC is the chip's own register block (PAC 0.16.0), and the one write sets TIM2EN in RCC_APB1ENR1, the timer's clock.",
+        "test_evidence": "The clock enable is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/wait.rs",
+        "line": 168,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "invariant": "NVIC::unmask enables the TIM2 interrupt, whose handler (the TIM2 function of wait.rs) touches only the timer and the wake counter.",
+        "test_evidence": "The sleep and the wake are proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/flash.rs",
+        "line": 211,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "NSKEYR takes KEY1 (0x4567_0123, RM0456) as the first of the two keys that unlock NSCR, and only while NSCR.LOCK is set (ST's HAL_FLASH_Unlock). The write touches no other register.",
+        "test_evidence": "The lock state and the unlock order are proved on the bench (S1b-9u); the address and slot rules that run before it are host-tested (tests/flash.rs).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/flash.rs",
+        "line": 212,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "NSKEYR takes KEY2 (0xCDEF_89AB, RM0456) straight after KEY1, which completes the unlock of NSCR; the unlock is checked by reading NSCR.LOCK back.",
+        "test_evidence": "Proved on the bench (S1b-9u) with the unlock of line 213.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/flash.rs",
+        "line": 295,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "The four 32-bit volatile writes program one quad-word at an address that is 16-byte aligned and inside the flash (is_quad_word, checked by program_quad_word before this runs), after PG is set and NSSR is idle, with interrupts masked (ST's FLASH_Program_QuadWord).",
+        "test_evidence": "The address rule is host-tested (tests/flash.rs a_quad_word_must_be_16_byte_aligned); the programming is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/flash.rs",
+        "line": 311,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "PNB takes the page index in its eight-bit field (bits 3 to 10), and the index is below 256 (PAGES_PER_BANK), which erase_page checks before the sequence starts.",
+        "test_evidence": "The bank and page of an address are host-tested (tests/flash.rs a_flash_address_maps_to_its_bank_and_page); the erase is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/flash.rs",
+        "line": 326,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "A volatile byte read of the chip's flash at an address that SlotFlash keeps inside the checkpoint slots (slot_address refuses a read past the slot), so the read has no effect on the flash.",
+        "test_evidence": "The slot bounds are host-tested (tests/flash.rs a_read_outside_the_slot_is_refused); the read is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/watchdog.rs",
+        "line": 135,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "IWDG_KR takes any 16-bit key, and the keys are ST's three: 0xCCCC starts the counter, 0x5555 unlocks IWDG_PR and IWDG_RLR, and 0xAAAA reloads the counter (RM0456; ST's stm32u5xx_hal_iwdg.c). Only this module writes IWDG_KR.",
+        "test_evidence": "The interval rule is host-tested (tests/watchdog.rs, watchdog_interval_gives_prescaler_and_reload). The key order and the counter's start are proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/watchdog.rs",
+        "line": 143,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "IWDG_PR takes a 4-bit prescaler code, and timing_for_ms returns only codes 0 to 6 (dividers 4 to 256), so the write selects no reserved code.",
+        "test_evidence": "tests/watchdog.rs pins the code of each interval it lists; the write is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/watchdog.rs",
+        "line": 145,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "IWDG_RLR takes a 12-bit reload, and timing_for_ms returns at most 4,095 (4,096 counts), so the write leaves the reserved upper bits at zero.",
+        "test_evidence": "tests/watchdog.rs pins the reloads at 512, 513 and 32,767 ms; the write is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/gpio.rs",
+        "line": 456,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "The ten GPIO register blocks are the chip's own, at their fixed addresses (RM0456). The fault path reads each port's output record with relaxed loads and writes that port's BSRR once, setting or resetting only the outputs claim_output recorded. No owner is borrowed and nothing is allocated.",
+        "test_evidence": "The record and its masks are host-tested (tests/gpio.rs, the_emergency_path_drives_every_configured_output_to_its_safe_value); the BSRR writes are proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/reset.rs",
+        "line": 221,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "A TAMP backup register takes any 32-bit value (RM0456), so the write touches no other register. The cookie keeps its order (BKP1R cleared, then BKP0R and BKP1R written), and ResetControl::take enables the backup domain before the first write.",
+        "test_evidence": "The register mapping is host-tested over a fake register file (tests/backup_store.rs); the cookie encoding is host-tested (trust-platform-stm32); the writes and their read-back are proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
       }
     ],
     "delegated_unsafe_path_register": [
@@ -3433,21 +3864,93 @@
         "review_date": "2026-10-15"
       },
       {
-        "path_prefix": "crates/trust-platform-esp32/src/hardware/emergency.rs",
+        "path_prefix": "crates/trust-platform-esp32/src/hardware/process_io.rs",
         "primitive": "Atomic",
         "owner": "runtime portability S1b-5 (C6 firmware)",
-        "shared_state": "the configured output pins the terminal fault path drives",
-        "invariant": "One AtomicU32 holds the output pins claimed from the record; register_output fetches_or a bit before the pin is drivable and the fault path loads it with interrupts masked, so no other data is published through it.",
+        "shared_state": "the configured output pins and their safe levels, which the terminal fault path drives (SafeLevels)",
+        "invariant": "Two AtomicU32 hold the output pins claimed from the record and those whose safe level is high; record sets a pin's bits before the pin is drivable and the fault path loads them with interrupts masked, so no other data is published through them.",
         "test_evidence": "The chip build and the planned C6 bench run; the fault path is not exercised on the host.",
         "review_date": "2026-10-18"
       },
       {
-        "path_prefix": "crates/trust-platform-esp32/src/hardware/emergency.rs",
+        "path_prefix": "crates/trust-platform-esp32/src/hardware/process_io.rs",
         "primitive": "Ordering::",
         "owner": "runtime portability S1b-5 (C6 firmware)",
-        "shared_state": "the configured output pins the terminal fault path drives",
-        "invariant": "Relaxed accesses order nothing but the pin mask itself: the mask is a set of drivable pins that the fault path re-reads after masking interrupts, never a publication fence for program state.",
+        "shared_state": "the configured output pins and their safe levels, which the terminal fault path drives (SafeLevels)",
+        "invariant": "Relaxed accesses order nothing but the two pin masks themselves: they are sets of drivable pins and their levels that the fault path re-reads after masking interrupts, never a publication fence for program state.",
         "test_evidence": "The chip build and the planned C6 bench run; the fault path is not exercised on the host.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path_prefix": "crates/trust-platform-stm32u5/src/usb_link.rs",
+        "primitive": "Mutex",
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+        "shared_state": "the USB device and the shared line link, entered by the OTG_HS interrupt and the runner in one critical section",
+        "invariant": "DEVICE and LINK are reached only inside critical_section::with, so the interrupt and the runner never see a half-updated device or link; bind sets DEVICE before the interrupt is unmasked.",
+        "test_evidence": "Host tests tests/usb_service.rs pin the pass both sides run; the interrupt and the link are proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path_prefix": "crates/trust-platform-stm32u5/src/usb_link.rs",
+        "primitive": "Atomic",
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+        "shared_state": "bind-once flag",
+        "invariant": "BOUND is swapped once by bind, so a second bind is refused. The wake counter moved to the wait module (wait.rs) in S1b-8u-2b.",
+        "test_evidence": "Host tests tests/usb_service.rs pin when a pass wakes (a completed request or a moved reply); the bind refusal is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path_prefix": "crates/trust-platform-stm32u5/src/usb_link.rs",
+        "primitive": "Ordering::",
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+        "shared_state": "bind-once flag",
+        "invariant": "AcqRel orders the bind-once swap before the storage it guards is touched.",
+        "test_evidence": "The ordering is proved on the bench with the critical sections it sits beside (S1b-9u); the host runs no interrupt.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path_prefix": "crates/trust-platform-stm32u5/src/wait.rs",
+        "primitive": "Atomic",
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "shared_state": "the wake counter, advanced by the TIM2 interrupt, the control link's servicing pass and WakeSignal::wake",
+        "invariant": "WAKE_COUNT only grows (fetch_add). The wait reads it with Acquire before it arms the compare, and a change since the loop read its token ends the wait at once.",
+        "test_evidence": "tests/wait.rs pins the compare arithmetic; the wake and the sleep are proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path_prefix": "crates/trust-platform-stm32u5/src/wait.rs",
+        "primitive": "Ordering::",
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "shared_state": "the wake counter, advanced by the TIM2 interrupt, the control link's servicing pass and WakeSignal::wake",
+        "invariant": "Release on the advance and Acquire on the reads, so a wake made before the wait's check is seen by that check.",
+        "test_evidence": "The ordering is proved on the bench with the critical sections it sits beside (S1b-9u); the host runs no interrupt.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path_prefix": "crates/trust-platform-stm32u5/src/wait.rs",
+        "primitive": "Mutex",
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "shared_state": "EXTENSION, the 64-bit extension of the TIM2 count",
+        "invariant": "EXTENSION is reached only inside critical_section::with, and only from the main context (now_instant); the TIM2 interrupt never samples it.",
+        "test_evidence": "counter_extension_keeps_time_across_the_32_bit_wrap pins the arithmetic; the sampling is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path_prefix": "crates/trust-platform-stm32u5/src/gpio.rs",
+        "primitive": "Atomic",
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "shared_state": "OUTPUTS, one AtomicU32 record per port: the outputs claimed on the port and their safe levels",
+        "invariant": "claim_output ORs a pin's bits in with fetch_or during set-up, and the fault path only loads the records. Both run on one core, so a relaxed load sees a whole record, either before or after an OR.",
+        "test_evidence": "record_bits and safe_levels are host-tested (tests/gpio.rs); the fault path is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path_prefix": "crates/trust-platform-stm32u5/src/gpio.rs",
+        "primitive": "Ordering::",
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "shared_state": "OUTPUTS, one AtomicU32 record per port: the outputs claimed on the port and their safe levels",
+        "invariant": "Relaxed on the fetch_or and on the loads: a record is a set of bits and orders no other memory.",
+        "test_evidence": "The same host tests as the Atomic entry; the fault path is proved on the bench (S1b-9u).",
         "review_date": "2026-10-18"
       }
     ],
@@ -3574,16 +4077,5 @@
       "evidence"
     ]
   },
-  "unbuilt_source_allowlist": [
-    {
-      "path": "crates/trust-runtime/src/host/ads/onboarding/wire/identity.rs",
-      "owner": "runtime portability V7 (discovery)",
-      "reason": "Same-computer TwinCAT identity check (Windows ADS API, then the local router on TCP 48898, then UDP), out of the build since dd476a78f (20 August 2026). The owner decided on 16 October 2026 to restore or replace it in the discovery work of checklist item V7; remove this entry then."
-    },
-    {
-      "path": "crates/trust-runtime/src/host/ads/onboarding/wire/identity/windows_native.rs",
-      "owner": "runtime portability V7 (discovery)",
-      "reason": "Same-computer TwinCAT identity check (Windows ADS API, then the local router on TCP 48898, then UDP), out of the build since dd476a78f (20 August 2026). The owner decided on 16 October 2026 to restore or replace it in the discovery work of checklist item V7; remove this entry then."
-    }
-  ]
+  "unbuilt_source_allowlist": []
 }

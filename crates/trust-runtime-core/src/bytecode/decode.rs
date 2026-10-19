@@ -8,13 +8,13 @@ use super::align4;
 use super::BytecodeReader;
 use super::{
     BytecodeError, BytecodeModule, BytecodeVersion, ConstEntry, ConstPool, DebugEntry, DebugMap,
-    EnumVariant, Field, InterfaceImpl, InterfaceMethod, IoBinding, IoMap, MethodEntry,
-    PouClassMeta, PouEntry, PouIndex, PouKind, RefEntry, RefLocation, RefSegment, RefTable,
-    RejectionReason, ResourceEntry, ResourceMeta, RetainInit, RetainInitEntry, Section,
-    SectionData, SectionDiagnostic, SectionEntry, SectionId, StringTable, TypeData, TypeEntry,
-    TypeKind, TypeTable, VarMeta, VarMetaEntry, BYTECODE_MAX_CONTAINER_BYTES,
+    EnumVariant, Field, InterfaceImpl, InterfaceMethod, IoBinding, IoMap, LineFile, LineStatement,
+    LineTable, MethodEntry, PouClassMeta, PouEntry, PouIndex, PouKind, RefEntry, RefLocation,
+    RefSegment, RefTable, RejectionReason, ResourceEntry, ResourceMeta, RetainInit,
+    RetainInitEntry, Section, SectionData, SectionDiagnostic, SectionEntry, SectionId, StringTable,
+    TypeData, TypeEntry, TypeKind, TypeTable, VarMeta, VarMetaEntry, BYTECODE_MAX_CONTAINER_BYTES,
     BYTECODE_MAX_LOCALS_PER_POU, BYTECODE_MAX_PARAMETERS_PER_POU, BYTECODE_MAX_REFERENCES,
-    HEADER_FLAG_CRC32, HEADER_SIZE, MAGIC, SECTION_ENTRY_SIZE,
+    HEADER_FLAG_CRC32, HEADER_SIZE, LINE_TABLE_SECTION_ID, MAGIC, SECTION_ENTRY_SIZE,
 };
 
 fn read_bounded_count(

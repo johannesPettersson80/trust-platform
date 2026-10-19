@@ -112,6 +112,18 @@ pub(super) fn handle_aux_route(
         return AuxRouteOutcome::Handled;
     }
     if *method == Method::Get && url == "/api/discovery" {
+        // The runtime discovery read passes the web authentication as the other routes do
+        // (specification 11, runtime discovery).
+        if let Err(error) = check_auth(
+            &request,
+            ctx.auth_mode,
+            ctx.auth_token,
+            ctx.pairing,
+            AccessRole::Viewer,
+        ) {
+            let _ = request.respond(auth_error_response(error));
+            return AuxRouteOutcome::Handled;
+        }
         let items = ctx
             .discovery
             .snapshot()
@@ -136,52 +148,53 @@ pub(super) fn handle_aux_route(
         let _ = request.respond(response);
         return AuxRouteOutcome::Handled;
     }
-    if *method == Method::Get && url.starts_with("/api/probe") {
-        let target = query_value(url, "url");
-        let target = match target {
-            Some(value) if value.starts_with("http://") || value.starts_with("https://") => {
-                value.trim_end_matches('/').to_string()
-            }
-            _ => {
-                let response = Response::from_string(
-                    json!({ "ok": false, "error": "invalid url" }).to_string(),
-                )
-                .with_status_code(400);
-                let _ = request.respond(response);
+    if url == "/api/probe" || url.starts_with("/api/probe?") {
+        // The probe passes the web authentication as the other routes do, and its target and
+        // credentials travel in the JSON body of a POST, never in the URL
+        // (specification 11, runtime discovery).
+        if let Err(error) = check_auth(
+            &request,
+            ctx.auth_mode,
+            ctx.auth_token,
+            ctx.pairing,
+            AccessRole::Viewer,
+        ) {
+            let _ = request.respond(auth_error_response(error));
+            return AuxRouteOutcome::Handled;
+        }
+        if *method != Method::Post || url != "/api/probe" {
+            let _ = request.respond(aux_json_response(
+                405,
+                json!({
+                    "ok": false,
+                    "error": "probe takes its target and credentials in the request body",
+                }),
+            ));
+            return AuxRouteOutcome::Handled;
+        }
+        let payload: ProbeRequest = match read_json_body(&mut request, MAX_JSON_REQUEST_BYTES) {
+            Ok(value) => value,
+            Err(error) => {
+                let _ = request.respond(json_body_error_response(error));
                 return AuxRouteOutcome::Handled;
             }
         };
-        let control_url = format!("{target}/api/control");
-        let config = ureq::Agent::config_builder()
-            .timeout_connect(Some(Duration::from_millis(500)))
-            .timeout_recv_response(Some(Duration::from_millis(800)))
-            .http_status_as_error(true)
-            .build();
-        let agent: ureq::Agent = config.into();
-        let body = json!({ "id": 1u64, "type": "status" }).to_string();
-        let mut probe_request = agent
-            .post(&control_url)
-            .header("Content-Type", "application/json");
-        if let Some(value) = query_value(url, "username")
-            .map(|entry| entry.trim().to_string())
-            .filter(|entry| !entry.is_empty())
-        {
-            let password = query_value(url, "password").unwrap_or_default();
-            let auth = STANDARD.encode(format!("{value}:{password}"));
-            probe_request = probe_request.header("Authorization", &format!("Basic {auth}"));
-        }
-        let response_body = probe_request.send(body.as_str());
-        let payload = match response_body {
-            Ok(mut resp) => {
-                let text = resp.body_mut().read_to_string().unwrap_or_default();
-                parse_probe_response(&text)
-            }
-            Err(ureq::Error::StatusCode(401)) => {
-                json!({ "ok": false, "error": "auth_required" })
-            }
-            Err(_) => json!({ "ok": false, "error": "unreachable" }),
+        let target = payload.url.trim();
+        let target = if target.starts_with("http://") || target.starts_with("https://") {
+            target.trim_end_matches('/').to_string()
+        } else {
+            let response =
+                Response::from_string(json!({ "ok": false, "error": "invalid url" }).to_string())
+                    .with_status_code(400);
+            let _ = request.respond(response);
+            return AuxRouteOutcome::Handled;
         };
-        let response = Response::from_string(payload.to_string())
+        let probe = probe_remote_runtime(
+            target.as_str(),
+            payload.username.trim(),
+            payload.password.as_str(),
+        );
+        let response = Response::from_string(probe.to_string())
             .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
         let _ = request.respond(response);
         return AuxRouteOutcome::Handled;
@@ -547,12 +560,52 @@ fn probe_error_message(probe: &serde_json::Value) -> String {
         .to_string()
 }
 
+/// Probes the control endpoint of `target` for its status and answers what the web IDE shows
+/// (specification 11, runtime discovery). The credentials are used only while `username` is not
+/// empty, and only as a Basic authorization header to the probed runtime.
+fn probe_remote_runtime(target: &str, username: &str, password: &str) -> serde_json::Value {
+    let control_url = format!("{target}/api/control");
+    let config = ureq::Agent::config_builder()
+        .timeout_connect(Some(Duration::from_millis(500)))
+        .timeout_recv_response(Some(Duration::from_millis(800)))
+        .http_status_as_error(true)
+        .build();
+    let agent: ureq::Agent = config.into();
+    let body = json!({ "id": 1u64, "type": "status" }).to_string();
+    let mut probe_request = agent
+        .post(&control_url)
+        .header("Content-Type", "application/json");
+    if !username.is_empty() {
+        let auth = STANDARD.encode(format!("{username}:{password}"));
+        probe_request = probe_request.header("Authorization", &format!("Basic {auth}"));
+    }
+    match probe_request.send(body.as_str()) {
+        Ok(mut resp) => {
+            let text = resp.body_mut().read_to_string().unwrap_or_default();
+            parse_probe_response(&text)
+        }
+        Err(ureq::Error::StatusCode(401)) => json!({ "ok": false, "error": "auth_required" }),
+        Err(_) => json!({ "ok": false, "error": "unreachable" }),
+    }
+}
+
 #[derive(Debug, Deserialize)]
 struct ControlProxyRequest {
     target: String,
     control_request: serde_json::Value,
     #[serde(default)]
     auth_basic: Option<ProxyBasicAuth>,
+}
+
+/// One `/api/probe` request: the runtime to probe and the credentials its control endpoint needs
+/// (specification 11, runtime discovery).
+#[derive(Debug, Deserialize)]
+struct ProbeRequest {
+    url: String,
+    #[serde(default)]
+    username: String,
+    #[serde(default)]
+    password: String,
 }
 
 #[derive(Debug, Deserialize)]

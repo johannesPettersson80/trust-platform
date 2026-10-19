@@ -115,6 +115,7 @@ pub(super) fn control_state_named_with_audit(
     )));
 
     Arc::new(ControlState {
+        transfers: trust_runtime::control::new_transfer_session(),
         debug,
         resource,
         metadata: Arc::new(Mutex::new(harness.runtime().metadata_snapshot())),
@@ -140,6 +141,7 @@ pub(super) fn control_state_named_with_audit(
         opcua_server_bound: Arc::new(AtomicBool::new(false)),
         project_root: None,
         resource_name: SmolStr::new(resource_name),
+        runtime_id: SmolStr::new(resource_name),
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),
         debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
@@ -149,6 +151,7 @@ pub(super) fn control_state_named_with_audit(
         historian: None,
         openot_persistence_status: None,
         pairing: None,
+        search: Default::default(),
         ads_doctor_jobs: Arc::new(Mutex::new(
             trust_runtime::control::AdsDoctorJobStore::default(),
         )),

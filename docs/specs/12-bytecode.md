@@ -877,6 +877,55 @@ struct RetainInitEntry {
 
 RetainInit provides cold-start initialization values for retained variables; warm restarts restore retained state instead.
 
+#### 6.13 LINE_TABLE (0x0011, optional)
+
+```
+struct LineTable {
+  u32 file_count;
+  LineFile files[file_count];
+  u32 statement_count;
+  LineStatement statements[statement_count];
+}
+
+struct LineFile {
+  u32 path_idx;       // DEBUG_STRING_TABLE index: the file's label
+}
+
+struct LineStatement {
+  u32 pou_id;            // POU_INDEX entry
+  u32 start_code_offset; // offset within POU_BODIES of the statement's first instruction
+  u32 end_code_offset;   // offset within POU_BODIES, one past the statement's last instruction
+  u32 file_index;        // index into files (DEBUG_MAP's file_idx is a DEBUG_STRING_TABLE index)
+  u32 start_line;        // 1-based line of the statement's first byte
+  u32 start_column;      // 1-based byte column within that line
+  u32 end_line;          // 1-based line of the statement syntax node's range end (trailing trivia included)
+  u32 end_column;        // 1-based byte column within that line
+}
+```
+
+This section carries what source-level debugging needs when the ST text is absent: the code span of every executable statement and its source span. It is the single input of breakpoint and step resolution on every runtime that implements it, trust-runtime and a chip alike (owner, 18 October 2026; specification 13, "Source Mapping"). IEC 61131-3 defines neither a bytecode container nor debug information; the statement boundaries recorded here are those of IEC 61131-3 Ed.3 §7.3.3 and Table 72.
+
+Files:
+
+- Every file appears once, ordered by ascending byte order of its label. The label is the file's source path relative to the project root with `/` separators, or the deterministic fallback label `file_<file_id>` of §7.5.1.4 when no path was supplied. A label is non-empty and appears in one entry only.
+- `path_idx` resolves in DEBUG_STRING_TABLE, so a container with at least one file requires that section.
+- A file entry carries its label only. The statement entries carry every position a runtime resolves, so no line extents are stored and a chip does not hold a per-line copy of the source.
+
+Statements:
+
+- `pou_id` resolves in POU_INDEX and the code span lies inside that POU's body. `start_code_offset` is the offset of a decoded instruction; `end_code_offset` is the offset of a decoded instruction or the exact end of the body, and is strictly greater than `start_code_offset`.
+- `file_index` indexes `files`. `start_line`, `end_line`, `start_column` and `end_column` are 1-based, and `(end_line, end_column)` is strictly after `(start_line, start_column)`; a statement does not span two files.
+- The source span starts at the statement's first non-trivia token and ends at the position of the statement syntax node's range end with its trailing trivia included: the next non-trivia token's start, or the end of the file. That end is the one specification 13's source mapping gives the statement and breakpoint resolution compares against, so the two positions reconstruct exactly the byte range the runtime resolves.
+- Entries are ordered by ascending `pou_id`, then ascending `start_code_offset`, then descending `end_code_offset`. Statements that share a `start_code_offset` must nest: the later entry's code span lies inside the earlier entry's, as a REPEAT and its first body statement do, or a label and the statement it owns. Entries with the same span keep the order the compiler emits them, outermost first. A code offset belongs to the innermost (last) entry whose span contains it, so a breakpoint or a step at that offset names that statement. Because the source end reaches over the trailing trivia, two statements that are not nested may touch at a boundary — the earlier entry's end equals the later entry's start — but never otherwise overlap; a nested pair still holds as one span inside the other.
+- The decoder rejects an entry that breaks the order and a shared start whose spans do not nest, instead of selecting one; a statement at a code offset is always the innermost entry that contains it.
+
+Validation and use:
+
+- The decoder checks the counts and every field above before a candidate is validated (§4.5, §7.4). A malformed entry rejects the complete candidate with `InvalidSection`; it is never partly used.
+- The section is optional: a module without it decodes, validates and executes exactly as one with it, and only source-location resolution is unavailable. It is defined for the source-free container versions (2.0 and 3.0) and a 1.x producer does not emit it, so adding it changes no container version. The compiler writes it for every module it produces from ST source (owner, 18 October 2026). A module built by the source-free constructor has no source positions and therefore no LINE_TABLE (§7.5.1.4).
+- When both sections are present, the two must describe the same statements: every LINE_TABLE entry has exactly one DEBUG_MAP entry of kind 0 (statement) and every such DEBUG_MAP entry has exactly one LINE_TABLE entry, with the same POU, code offset, file label, line and column. A missing counterpart or a disagreement rejects the candidate. A runtime that implements this section resolves through it and never through DEBUG_MAP, so every runtime gives the same answer for the same artifact (§10).
+- A reader that predates this section ignores it as the optional extension of §4.2 and keeps resolving from DEBUG_MAP statement starts.
+
 ### 7. Instruction Encoding (Version 1.x)
 
 #### 7.1 Encoding Rules
@@ -1028,8 +1077,8 @@ The validator enforces these module-wide contracts:
 - operand-stack dataflow has no underflow, has compatible depth at each
   control-flow merge, uses reference/numeric/boolean shapes where required,
   and leaves no values at a normal POU-body exit; and
-- resource, task, program, I/O, retain, variable, and debug metadata resolves
-  to compatible table entries and code locations.
+- resource, task, program, I/O, retain, variable, debug, and line-table
+  metadata resolves to compatible table entries and code locations.
 
 `BytecodeModule::decode` may reject malformed container bytes before semantic
 validation. `BytecodeModule::validate` performs the decoded semantic checks.
@@ -1152,7 +1201,8 @@ The encoder projects source declarations as follows:
 - declared resource and task identities are preserved so applying the encoded
   module materializes the same named runtime resource and tasks;
 - source locations emit `DEBUG_MAP` entries with the owning POU, bytecode
-  offset, file, line, column, and statement kind;
+  offset, file, line, column, and statement kind, and the same statements and
+  source files also emit `LINE_TABLE` entries with their code span end (§6.13);
 - a label with an empty statement emits an explicit `NOP`, preserving a
   valid instruction location;
 - IF/ELSIF, CASE, WHILE, REPEAT, and FOR control flow emits validated relative
@@ -1561,9 +1611,11 @@ execution; an expired deadline rejects before the guarded mutation with
 Debug lookup is optional and fail-soft. Valid variable metadata creates
 case-preserving symbol-to-reference and first-symbol reference-to-symbol
 lookups. Valid debug entries create exact `(pou_id, code_offset)` source
-locations. A missing optional section or an entry whose string index is
-invalid is omitted without inventing a symbol, file, line, or column. Debug
-lookup never changes execution results.
+locations. Valid `LINE_TABLE` entries (§6.13) create the statement spans that
+breakpoint and step resolution use, with the same fail-soft rule. A missing
+optional section or an entry whose string index is invalid is omitted without
+inventing a symbol, file, line, or column. Debug lookup never changes execution
+results.
 
 ### 8. Versioning
 
@@ -1600,6 +1652,16 @@ image, retain state, task configuration, or executable module is replaced.
 
 The DEBUG_MAP section provides a deterministic mapping between bytecode offsets and source locations. Debug entries must refer to valid POU IDs and code offsets.
 For version >= 1.1, file paths are stored in DEBUG_STRING_TABLE and referenced by `file_idx`.
+
+The DEBUG_MAP section records only where a statement starts, so it cannot resolve a breakpoint that
+belongs to a statement's body. The LINE_TABLE section
+(§6.13) records each statement's code span and source span. It is
+therefore the single input of breakpoint and step resolution on every runtime that implements it,
+trust-runtime and a chip alike, and neither needs the ST sources to reach the same answer (owner,
+18 October 2026; specification 13, "Source Mapping"). The section is optional in the format, so an
+artifact without it is still valid, and the compiler writes it for every module it produces from ST
+source. When both sections are present the decoder checks that they agree, as §6.13 states, and a
+runtime that implements the line table never resolves through DEBUG_MAP.
 
 ### 11. Source-Free Initialization Format (STBC 2.0 and 3.0)
 
@@ -1758,6 +1820,8 @@ post-construction legacy re-encoding/reinstallation step.
 Four new sections are mandatory, including when empty: STORAGE_LAYOUT (0x000D),
 CONSTRUCTION_ROOTS (0x000E), INITIALIZERS (0x000F), ACCESS_BINDINGS (0x0010).
 Each begins with a u32 count.
+LINE_TABLE (0x0011, optional) is the fifth source-free section and its own section
+of §6.13; a module without it is still valid.
 Indices are zero-based positions; optional indices use 0xFFFFFFFF. Fields are
 little-endian and records contain no native alignment padding. Decoder count
 bounds are checked before reservation; trailing bytes in these payloads reject.

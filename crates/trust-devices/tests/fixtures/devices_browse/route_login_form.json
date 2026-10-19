@@ -1,0 +1,82 @@
+{
+  "breadcrumb": "Devices & Connections / Create route",
+  "buttons": [
+    {
+      "emphasis": "primary",
+      "enabled": true,
+      "id": "create_route",
+      "label": "Create route",
+      "op": {
+        "action": "ads.route_add",
+        "kind": "rust",
+        "payload": {
+          "local": {
+            "ams_net_id": "192.168.10.20.1.1",
+            "candidates": [],
+            "chosen_ip": "192.168.10.20",
+            "classification": "lan",
+            "host_name": "line-controller-1",
+            "nic": "eth0"
+          },
+          "pane": "form:ads.route@runtime:line#trust-runtime-line-controller-1",
+          "route_name": "trust-runtime-line-controller-1",
+          "runtime": "runtime:line",
+          "target": {
+            "ams_net_id": "5.23.91.12.1.1",
+            "ams_port": 851,
+            "ip": "192.168.10.5",
+            "name": "CX-1234",
+            "tc_version": "3.1.4024"
+          }
+        }
+      }
+    },
+    {
+      "emphasis": "secondary",
+      "enabled": true,
+      "id": "cancel",
+      "label": "Cancel",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "close_inspector"
+        }
+      }
+    }
+  ],
+  "id": "ads.route@runtime:line#trust-runtime-line-controller-1",
+  "note": "The login is used only to create this route. truST never stores or shows it again.",
+  "owner_line": "",
+  "protocol": "ads",
+  "purpose": "Create the TwinCAT route from this computer, as TwinCAT's own Add Route does.",
+  "runtime_choices": [],
+  "sections": [
+    {
+      "fields": [
+        {
+          "forget_after_post": true,
+          "help": "The TwinCAT computer's administrator login. It is sent once to create the route and is never stored.",
+          "id": "username",
+          "kind": "text",
+          "label": "TwinCAT administrator user name",
+          "options": [],
+          "required": true,
+          "required_mark": " *",
+          "value": ""
+        },
+        {
+          "forget_after_post": true,
+          "help": "The TwinCAT computer's administrator login. It is sent once to create the route and is never stored.",
+          "id": "password",
+          "kind": "secret",
+          "label": "TwinCAT administrator password",
+          "options": [],
+          "required": true,
+          "required_mark": " *",
+          "value": ""
+        }
+      ]
+    }
+  ],
+  "title": "Create route"
+}

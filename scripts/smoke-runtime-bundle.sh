@@ -68,5 +68,6 @@ for _ in $(seq 1 50); do
 done
 
 "$BIN" ctl --project "$BUNDLE" --token trust-demo-token status
-"$BIN" ctl --project "$BUNDLE" --token trust-demo-token shutdown >/dev/null
+# `shutdown` alone stops the program and keeps the runtime running; `--exit` ends the process too.
+"$BIN" ctl --project "$BUNDLE" --token trust-demo-token shutdown --exit >/dev/null
 wait "$PID"

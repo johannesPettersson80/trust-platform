@@ -1,17 +1,27 @@
 //! The device runner's Live Values (specification 11, "Live Values"; specification 34 §4.3.1):
 //! where a queued write and an active force reach the process image, how a refused write is
-//! reported, and the boundaries that clear the queues and the forces. The board probe
-//! (`led := button` every 10 ms) runs on the real engine behind the cycle port.
+//! reported, the boundaries that clear the queues and the forces, and the generation the Live Values
+//! carry after a restart. The board probe (`led := button` every 10 ms) runs on the real engine behind
+//! the cycle port; a force by instance identity runs the corpus program `retained_blocks`.
 
+use alloc::format;
 use alloc::vec::Vec;
 
 use serde_json::{json, Value};
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::memory::Generation;
 use trust_runtime_core::scheduler::ResourceState;
+use trust_runtime_core::value::Value as Retained;
 use trust_runtime_core::watchdog::FaultPolicy;
 
+use super::program::Program;
 use crate::live_values::var_requests::VariableQueuePort;
-use crate::tests::runner_ports::Fixture;
+use crate::tests::runner_ports::{Fixture, TestRunner};
+
+/// The corpus program `retained_blocks`: a 10 ms task calls the function-block instance `kept` with
+/// `delta := DINT#1`, so that its output `count` rises by one in each activation.
+const BLOCKS: &[u8] =
+    include_bytes!("../../../trust-runtime/tests/fixtures/bounded-c/retained_blocks/program.stbc");
 
 /// `io.write` of `value` to `address`.
 fn io_write(id: u64, address: &str, value: &str) -> Value {
@@ -38,9 +48,44 @@ fn restart(id: u64, mode: &str) -> Value {
     json!({"id": id, "type": "restart", "params": {"mode": mode}})
 }
 
+/// `shutdown`.
+fn shutdown(id: u64) -> Value {
+    json!({"id": id, "type": "shutdown"})
+}
+
+/// `var.force` of `value` on `target`.
+fn var_force(id: u64, target: &str, value: &str) -> Value {
+    json!({"id": id, "type": "var.force", "params": {"target": target, "value": value}})
+}
+
 /// The `%QX0.0` entry of an `io.list` reply.
 fn output_led(reply: &Value) -> &Value {
     &reply["result"]["outputs"][0]
+}
+
+/// The installation generation of the program the loop runs, and the one its Live Values carry.
+fn generations(runner: &TestRunner<'_>) -> (Generation, Generation) {
+    let Program::Installed(cycle) = &runner.cycle else {
+        panic!("a program is installed");
+    };
+    (cycle.engine().generation(), runner.live.generation())
+}
+
+/// The identity of the function-block instance `kept` and the `count` it holds, in the program the
+/// loop runs now.
+fn kept(runner: &TestRunner<'_>) -> (u32, Retained) {
+    let Program::Installed(cycle) = &runner.cycle else {
+        panic!("a program is installed");
+    };
+    let storage = cycle.engine().storage();
+    let Some(Retained::Instance(kept)) = storage.get_global("kept") else {
+        panic!("kept is a function-block instance");
+    };
+    let count = storage
+        .get_instance_var(*kept, "count")
+        .cloned()
+        .expect("the instance has a count");
+    (kept.0, count)
 }
 
 /// Spec 11, "Live Values": a queued one-shot I/O write reaches the process image at
@@ -53,6 +98,8 @@ fn output_led(reply: &Value) -> &Value {
 fn a_queued_output_write_reaches_the_image_before_the_outputs_are_written() {
     let fixture = Fixture::board_probe();
     let mut runner = fixture.runner();
+    // The first scan, due at power-on, runs before a request that arrives then (STATE-08).
+    fixture.pass_at(&mut runner, 0);
     let reply = fixture.call_at(&mut runner, 0, &io_write(1, "%QX0.0", "TRUE"));
     assert_eq!(reply["result"], json!({"status": "queued"}));
     fixture.pass_at(&mut runner, 10);
@@ -80,6 +127,8 @@ fn a_queued_output_write_reaches_the_image_before_the_outputs_are_written() {
 fn a_force_holds_across_scans_until_it_is_released() {
     let fixture = Fixture::board_probe();
     let mut runner = fixture.runner();
+    // The first scan, due at power-on, runs before a request that arrives then (STATE-08).
+    fixture.pass_at(&mut runner, 0);
     let reply = fixture.call_at(&mut runner, 0, &io_force(1, "%QX0.0", "TRUE"));
     assert_eq!(reply["result"], json!({"status": "forced"}));
 
@@ -114,6 +163,8 @@ fn a_force_holds_across_scans_until_it_is_released() {
 fn a_refused_write_becomes_a_write_rejected_event() {
     let fixture = Fixture::board_probe();
     let mut runner = fixture.runner();
+    // The first scan, due at power-on, runs before a request that arrives then (STATE-08).
+    fixture.pass_at(&mut runner, 0);
     let reply = fixture.call_at(
         &mut runner,
         0,
@@ -125,20 +176,27 @@ fn a_refused_write_becomes_a_write_rejected_event() {
     );
     assert_eq!(reply["result"], json!({"status": "queued"}));
 
+    // The queued write reaches the scan at 10 ms, the first scan with a cycle start after it.
+    fixture.pass_at(&mut runner, 10);
     let events = fixture.call(&mut runner, &json!({"id": 2, "type": "events.tail"}));
     assert_eq!(
         events["result"]["events"],
         json!([
-            {"type": "cycle_end", "cycle": 0, "time_ns": 0},
-            {"type": "cycle_start", "cycle": 0, "time_ns": 0},
+            {"type": "cycle_end", "cycle": 1, "time_ns": 10_000_000},
+            {"type": "task_end", "name": "Scan", "priority": 0, "time_ns": 10_000_000},
+            {"type": "task_start", "name": "Scan", "priority": 0, "time_ns": 10_000_000},
+            {"type": "cycle_start", "cycle": 1, "time_ns": 10_000_000},
             {
                 "type": "write_rejected",
                 "target": "probe_depth",
                 "error": "type mismatch",
-                "time_ns": 0,
+                "time_ns": 10_000_000,
             },
+            {"type": "cycle_end", "cycle": 0, "time_ns": 0},
+            {"type": "cycle_start", "cycle": 0, "time_ns": 0},
         ]),
-        "the refused write is reported at the cycle start, before the scan's cycle_start event"
+        "the refused write is reported at the cycle start of the scan at 10 ms, before that scan's \
+         cycle_start event"
     );
 }
 
@@ -153,6 +211,8 @@ fn safe_state_and_restart_clear_the_queues_and_forces() {
     let fixture = Fixture::board_probe();
     fixture.script.borrow_mut().fault_policy = FaultPolicy::SafeHalt;
     let mut runner = fixture.runner();
+    // The first scan, due at power-on, runs before a request that arrives then (STATE-08).
+    fixture.pass_at(&mut runner, 0);
     let _ = fixture.call_at(&mut runner, 0, &io_force(1, "%QX0.0", "TRUE"));
     let _ = fixture.call_at(&mut runner, 1, &io_write(2, "%IX0.0", "TRUE"));
     assert_eq!(
@@ -174,7 +234,9 @@ fn safe_state_and_restart_clear_the_queues_and_forces() {
         "the fault's safe state cleared the force"
     );
 
-    let _ = fixture.call_at(&mut runner, 20, &restart(3, "warm"));
+    // Sent before the faulted wait's poll at 20 ms, which takes it. A request that arrives at a
+    // due poll waits for the poll (STATE-08).
+    let _ = fixture.call_at(&mut runner, 15, &restart(3, "warm"));
     fixture.pass_at(&mut runner, 30);
     assert_eq!(runner.resource_state(), ResourceState::Running);
     assert_eq!(
@@ -190,4 +252,189 @@ fn safe_state_and_restart_clear_the_queues_and_forces() {
         "the cleared input write and force no longer reach the program"
     );
     assert_eq!(output_led(&list)["forced"], json!(false));
+}
+
+/// Specification 34 STATE-08 and UPDATE-04 (installation generations): every restart that commits
+/// installs the next generation of the program's state, and the loop gives its Live Values that
+/// generation before the next cycle; a restart that fails changes none.
+///
+/// The board probe starts in generation 0. A warm `restart` queued at 5 ms commits at the boundary at
+/// 10 ms (generation 1), a cold one queued at 15 ms at the boundary at 20 ms (2); a scan that faults
+/// at 30 ms leaves the resource faulted, and a warm `restart` queued at 35 ms commits at the poll of
+/// the faulted wait at 40 ms (3); a restart that fails at the boundary at 50 ms leaves both in 3.
+/// Wrong behaviour caught: Live Values that keep the generation of the program's first start (0), so
+/// that every force by instance identity after a restart is refused as stale; Live Values updated for
+/// one kind of restart and not another; Live Values moved before the restart commits.
+#[test]
+fn the_live_values_carry_the_generation_of_each_restart() {
+    let fixture = Fixture::board_probe();
+    let mut runner = fixture.runner();
+    fixture.pass_at(&mut runner, 0);
+    assert_eq!(generations(&runner), (Generation(0), Generation(0)));
+
+    let queued = fixture.call_at(&mut runner, 5, &restart(1, "warm"));
+    assert_eq!(queued["result"], json!({"status": "restart queued"}));
+    fixture.pass_at(&mut runner, 10);
+    assert_eq!(
+        generations(&runner),
+        (Generation(1), Generation(1)),
+        "a warm restart"
+    );
+
+    let queued = fixture.call_at(&mut runner, 15, &restart(2, "cold"));
+    assert_eq!(queued["result"], json!({"status": "restart queued"}));
+    fixture.pass_at(&mut runner, 20);
+    assert_eq!(
+        generations(&runner),
+        (Generation(2), Generation(2)),
+        "a cold restart"
+    );
+
+    fixture
+        .script
+        .borrow_mut()
+        .failing_scans
+        .push_back(RuntimeError::DivisionByZero);
+    fixture.pass_at(&mut runner, 30);
+    assert_eq!(runner.resource_state(), ResourceState::Faulted);
+    assert_eq!(
+        generations(&runner),
+        (Generation(2), Generation(2)),
+        "a fault installs no generation"
+    );
+    let queued = fixture.call_at(&mut runner, 35, &restart(3, "warm"));
+    assert_eq!(queued["result"], json!({"status": "restart queued"}));
+    fixture.pass_at(&mut runner, 40);
+    assert_eq!(runner.resource_state(), ResourceState::Running);
+    assert_eq!(
+        generations(&runner),
+        (Generation(3), Generation(3)),
+        "the recovery of a faulted resource"
+    );
+
+    fixture
+        .script
+        .borrow_mut()
+        .failing_restarts
+        .push_back(RuntimeError::Overflow);
+    let queued = fixture.call_at(&mut runner, 45, &restart(4, "cold"));
+    assert_eq!(queued["result"], json!({"status": "restart queued"}));
+    fixture.pass_at(&mut runner, 50);
+    assert_eq!(runner.resource_state(), ResourceState::Faulted);
+    assert_eq!(
+        generations(&runner),
+        (Generation(3), Generation(3)),
+        "a restart that fails changes no generation"
+    );
+}
+
+/// Specification 34 STATE-08 and UPDATE-04: the automatic restart of the fault policy is a restart in
+/// place like the others. The policy is `restart`; the scan at 10 ms faults, the loop restarts the
+/// program warm and goes on running, in generation 1, and its Live Values carry it. Wrong behaviour
+/// caught: Live Values that follow the restarts a client asks for and not the one the loop makes
+/// itself.
+#[test]
+fn the_live_values_carry_the_generation_of_an_automatic_restart() {
+    let fixture = Fixture::board_probe();
+    fixture.script.borrow_mut().fault_policy = FaultPolicy::Restart;
+    let mut runner = fixture.runner();
+    fixture.pass_at(&mut runner, 0);
+    assert_eq!(generations(&runner), (Generation(0), Generation(0)));
+
+    fixture
+        .script
+        .borrow_mut()
+        .failing_scans
+        .push_back(RuntimeError::DivisionByZero);
+    fixture.pass_at(&mut runner, 10);
+    assert_eq!(runner.resource_state(), ResourceState::Running);
+    assert_eq!(generations(&runner), (Generation(1), Generation(1)));
+}
+
+/// Specification 34 STATE-08 and UPDATE-04: a `restart` of a program that a `shutdown` ended starts it
+/// again in place when no newer container is installed, and that restart installs the next generation
+/// too. The board probe runs two scans and stops at 20 ms; the cold `restart` at 27 ms starts it in
+/// generation 1. Wrong behaviour caught: Live Values that follow a restart of a running program and
+/// not the start of a stopped one, the way a chip is restarted after `shutdown`.
+#[test]
+fn the_live_values_carry_the_generation_of_a_restart_after_a_stop() {
+    let fixture = Fixture::board_probe();
+    let mut runner = fixture.runner();
+    fixture.pass_at(&mut runner, 0);
+    fixture.pass_at(&mut runner, 10);
+    let _ = fixture.call_at(&mut runner, 15, &shutdown(1));
+    fixture.pass_at(&mut runner, 20);
+    assert_eq!(runner.resource_state(), ResourceState::Stopped);
+    assert_eq!(generations(&runner), (Generation(0), Generation(0)));
+
+    let reply = fixture.call_at(&mut runner, 27, &restart(2, "cold"));
+    assert_eq!(reply["result"], json!({"status": "restart queued"}));
+    assert_eq!(runner.resource_state(), ResourceState::Running);
+    assert_eq!(generations(&runner), (Generation(1), Generation(1)));
+}
+
+/// Specification 34 STATE-08 and UPDATE-04: the composition may restart the program warm before it
+/// builds the loop, as it does for a program that keeps retained values, and that restart has
+/// installed generation 1. The loop that takes the program gives its Live Values that generation.
+/// Wrong behaviour caught: Live Values that start in generation 0 whatever the program is in, which
+/// refuse every force by instance identity on a chip that booted warm.
+#[test]
+fn a_loop_takes_the_generation_of_a_program_the_composition_restarted_warm() {
+    let fixture = Fixture::board_probe();
+    let runner = fixture.power_on_restarted_warm();
+    assert_eq!(generations(&runner), (Generation(1), Generation(1)));
+}
+
+/// Specification 34 STATE-08, UPDATE-04 and §4.3.1: a request that names an instance by a bare
+/// identity belongs to the generation the Live Values carry when it is accepted, and the scan that
+/// applies it refuses it when the program is in another generation. The program `retained_blocks`
+/// runs its task at 10 and 20 ms; a warm `restart` queued at 25 ms commits at the boundary at 30 ms,
+/// in generation 1. `var.force` of `instance:<id>:count` to 100 arrives after the restart and is
+/// accepted; the scan at 40 ms applies it before the program runs and again after the outputs are
+/// sampled, so `count` reads 100, the force is still active and no write is rejected. Wrong behaviour
+/// caught: Live Values that keep the generation of the program's first start, which tag the force with
+/// generation 0, so that the scan refuses it as stale, withdraws it and reports `write_rejected`, and
+/// `count` shows only what the program counted.
+#[test]
+fn a_force_by_identity_after_a_restart_in_place_is_applied() {
+    let fixture = Fixture::with_program(BLOCKS);
+    let mut runner = fixture.runner();
+    fixture.pass_at(&mut runner, 0);
+    fixture.pass_at(&mut runner, 10);
+    fixture.pass_at(&mut runner, 20);
+    assert_eq!(kept(&runner).1, Retained::DInt(2), "two activations");
+
+    let queued = fixture.call_at(&mut runner, 25, &restart(1, "warm"));
+    assert_eq!(queued["result"], json!({"status": "restart queued"}));
+    fixture.pass_at(&mut runner, 30);
+    assert_eq!(generations(&runner), (Generation(1), Generation(1)));
+
+    let (instance, _) = kept(&runner);
+    let target = format!("instance:{instance}:count");
+    let forced = fixture.call(&mut runner, &var_force(2, &target, "100"));
+    assert_eq!(forced["result"], json!({"status": "forced"}), "{forced}");
+    fixture.pass_at(&mut runner, 40);
+    assert_eq!(
+        kept(&runner).1,
+        Retained::DInt(100),
+        "the force by identity reached the variable"
+    );
+
+    let listed = fixture.call(&mut runner, &json!({"id": 3, "type": "var.forced"}));
+    let active = listed["result"]["vars"]
+        .as_array()
+        .expect("var.forced lists the active forces");
+    assert_eq!(
+        active.iter().map(|var| &var["target"]).collect::<Vec<_>>(),
+        [&json!(target)],
+        "the force is still active: a refused force is withdrawn"
+    );
+    let events = fixture.call(&mut runner, &json!({"id": 4, "type": "events.tail"}));
+    let rejected = events["result"]["events"]
+        .as_array()
+        .expect("events.tail lists the events")
+        .iter()
+        .filter(|event| event["type"] == json!("write_rejected"))
+        .count();
+    assert_eq!(rejected, 0, "{events}");
 }

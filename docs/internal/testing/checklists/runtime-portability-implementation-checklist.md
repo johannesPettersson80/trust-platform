@@ -7,39 +7,66 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
-**18 October, about 11:00 (lead).** The STM32 target is the STM32U5A9 on the owner's Riverdi
-panel (17 October; the F407 code stays). All work is local; nothing is pushed. Lanes:
+**18 October, night (lead).** All work is local; nothing is pushed. Agents: Claude Haiku, and
+Sonnet where a slice needs design judgment (owner, 18 October: "continue with haiku"). Owner
+decisions of 18 October: Q11, installs only while stopped on every runtime, with `bytecode.reload`
+still allowed while running; O2, after a faulted scan the debugger shows the values the fault
+left, with its position and call stack, as CODESYS and TwinCAT do; and on a computer `shutdown`
+keeps trust-runtime up in Stopped. The Beckhoff and CODESYS research is in
+`~/projects/.artifacts/s4/vendor-research-2026-10-18.md`. The C6 is connected; the Riverdi U5A9
+board comes later. Lanes:
 
-- c6 `feat/board-runtime` (integration): `985823d96` merges feat/chip-control-link (S1b-1 to
-  S1b-5b2 and the chip retain persister) after feat/live-values (S2a-S2d); focused check
-  c6/merge-s1b green (22 steps). C6 bench of the merged firmware: Live Values at the pins pass
-  (`~/projects/.artifacts/runtime-portability-c6/s2-dil-bench/result.md`): io.write on an unbound
-  output holds, a write to a bound output is owned by the program as on trust-runtime, io.force
-  holds over 20 scans, io.unforce returns control, BOOT drives the output. S2 closes when the chip
-  names its bindings in io.list on the bench (S1b-5c, `4806a7ff7` on feat/chip-control-link).
-- s1b `feat/chip-control-link` (= c6 + S1b-5c): S1b-5 bench steps 1-5 pass on the C6
-  (`s1b-5b2-bench/result.md`: control requests, limits, safe state on stop, a host that stops
-  reading, liveness stopped/paused/faulted, faults). Open: S1b-5d (S1b-5c's firmware resets at
-  boot: `.rwtext` grew until `_bss_end` entered the 16 KiB stack window, whose boot paint
-  overwrote the heap allocator; a link guard and a narrower RAM-code selection are running),
-  step 6 (the hardware watchdog needs a hang that is not a debugger halt: OpenOCD disables MWDT0
-  on halt and leaves it off), step 7 (heap, stack and lateness figures). Event store per device
-  (owner, 18 October): `[runtime.events] capacity`, chip default and maximum 200 from the chip
-  file (S1b-5b1 `1b5dfd167`, S1b-5b2 `436f208f5`).
-- live-values `feat/live-values`: S3a specs (Q4-Q7), S3b1 LINE_TABLE section 0x0011 (`fe13fcf2b`,
-  check green). Running: S3b3 (a stop ends a debugger hold, Q7). Next: S3b2a portable resolver
-  with parity tests, S3b2b the switch; the chips' debugger hold (a debug-mode pause on a chip
-  answers paused but does not hold until then).
-- engine-init `feat/engine-init` (C1 phase B, from c6 `87873ed68`): C1-8a1 the view seam
-  `e63e1e025`; C1-8a2 (the dispatcher on the seam) in its focused check; C1-8b next. Found: C1-5
-  moved the alias-depth refusal to preparation (spec 12 §4.6 agrees); bytecode_vm_core's test is
-  rewritten and the refusal gets `runtime_type_nesting_exceeds`. A FOR loop allocates about 32 B
-  per iteration on the chip (C6 bench), which C1-9 must remove.
-- devices `feat/devices-connections` (V7): B7 done (B7e `6885bde98`), B8a `93cbb5bde`, B8b1
-  `5e8de27e2`, B8b2 `2e4135229`; B8c (last ADS tag removal, OPC UA continuation points) running;
-  then B9 (the language-server transport).
+- c6 `feat/board-runtime` (integration):
+  - `78fb5316f` merges live-values (S3d-1 to S3d-5); `7dbd40711` merges S4-4, the computer's
+    program store; `f8e8bcf04` is S3d-3b, the faulted-scan view (O2).
+  - `d297b39ab` merges devices (C4b to C7c). Its fix lists the STM32U5A9 among the Add dialog's
+    chips, one entry per chip file (spec 25); D4b disables the Discover cards while a posted
+    action awaits its reply.
+  - Merged the same night: u5a9 `919e04141` (9u-c), live-values `98d6b34b1` (S3d-6, S3d-7a,
+    S3d-7b), s1b `5375cadbf` (S4-5, S4-3b, S4-8; S4-8's explicit exit moved into S3d-7b's runner
+    shell) and engine-init `c76679610` (C1-P0 to C1-9d2a). The combined merge check passed:
+    Clippy over eight crates with the chip lanes, the core, services (596), runtime library
+    (4,018), the runtime vertical with the S4-8 and hold tests, devices (244), register-IR,
+    trust-debug (120), and both firmware builds. The merged C6 image leaves 29,472 B of stack
+    against the 24 KiB window (D.2).
+- s1b `feat/chip-control-link`:
+  - S4-5 `47d220404`: the C6's two program slots and one owner for its flash, bench-booted.
+  - S4-3b `cac0db67b`: `program.install` only while stopped, with the retained-values check
+    (G13) before any write, on computers.
+  - S4-8 `eba57328a`: a computer's `shutdown` keeps trust-runtime up in Stopped; the explicit
+    exit `shutdown {"exit": true}`; the web deploy and rollback only while Stopped.
+  - Running: S4-6, the C6's stepped commit, its retained-value check and boot selection. Then the
+    bench (lead) and S4-7.
+- live-values `feat/live-values`:
+  - S3d-6 `74c0319ae`: the chip's cycle deadline and active time leave out debugger holds.
+  - S3d-7a `ca66b077c`: the statement index on the prepared module.
+  - S3d-7b `206e62604`: the chip's statement hook and hold pass, with one shared runner shell.
+  - Running: S3d-8, the debug operations on the shared dispatcher. Next: S3d-9 (the C6 bench),
+    S3d-3c (the unwound frames' locals at a fault).
+- engine-init `feat/engine-init`:
+  - C1-9a to C1-9d1, then C1-9d2a `d1b05007e`: the last stored-value uses read through views,
+    and `CycleAccess::storage()` is removed.
+  - C1-9d2b-1 `1550fde74`: the engine constructs the cell store, with the Values arm's initial
+    values on every fixture (a differential test after construction and restarts).
+  - Running: C1-9d2b-2, the retain encoder over cells, the entry floor and the instance table.
+    Next: d3 (the switch), C1-9e (the differential test, PERF-01).
+- u5a9 `feat/u5a9-runtime`: 9u-c `619364e74` shares the chip platform, the process image, the
+  watchdog rule and the ELF reader; the C6 bench passed with it. Next: the bench, when the board
+  is here.
+- devices `feat/devices-connections`:
+  - C4c `a971b416f`: the TwinCAT route list (unproven until a real TwinCAT run).
+  - C7b-2a `702a811d2`, C7b-2b `31f4474a0`: the old pane's texts, TwinCAT cards, fieldbus
+    confirmation, Ignore and remembered choices.
+  - C7c `7e5672053`: advertised protocols scanned through `comm.discover`, the tag browser after
+    `Add to canvas`, and `trust-runtime discover --project` reading `devices.toml`.
+  - Running: C6a, `identify` in the shared services. Next: C6b (compare), the panel's program
+    Start and Stop for computers (S4-8), C5b (Bluetooth and the Modbus RTU scan), D6, D7.
+- Builder disk, 18 October night: the VS Code tests had built into a `target/` inside two check
+  copies on the root disk (26 GB), which was down to 5.6 GB free. Both were removed with two idle
+  validation targets; the check script now builds the extension tests' binaries into the leased
+  check target.
 
-Open top-level items: 57 (S2 closed 18 Oct, afternoon).
+Open top-level items: 57.
 
 **16 October, evening: the owner's corrections (spec 34 v0.21, approved by the owner).** The boards
 are complete truST runtimes that work exactly like trust-runtime on Linux, macOS and Windows: spec 34
@@ -86,9 +113,11 @@ C — Bounded operation (M3), shared by both chips:
   bytes, 96,000 for the 1,000-event store (D-C3-2); the chips' measured RAM goes to the owner with
   the S1b-5 bench. A chip keeps the cause of a panic or watchdog reset in its reset record,
   `f904c8949` on `feat/chip-control-link`.)
-- [ ] C4 Import and admission bounds (17 Oct evening: C4-1, the deployment record, is committed in `0cb9710b9`. 17 Oct: C4-2 done. Every built-in function and FB has a contract, and admission refuses a missing or mismatched import by name with `runtime_import_unsupported`. Open: C4-1 deployment record, C4-3 demand, C4-4 descriptor), and capability and deployment records (including the
+- [ ] C4 Import and admission bounds (17 Oct evening: C4-1, the deployment record, is committed in `0cb9710b9`. 17 Oct: C4-2 done. Every built-in function and FB has a contract, and admission refuses a missing or mismatched import by name with `runtime_import_unsupported`. Open: C4-3 demand, after the C1-9 switch. 18 Oct: C4-4, the device descriptor and a chip's last
+  reset in `capabilities`, `4ebe03858`, merged in `2d667368c`), and capability and deployment records (including the
   HOST-02 deployment-level limit record).
-- [ ] C5 Persistence (18 Oct, day: C5-3b, the persister in the device runner (capture at the pre-output sample, one step between scans, the stop save before Stopped, a latched failure that fails the next scan before outputs), is written in s1b-retain; its second round gives the codec a bare-payload decoder and keeps a warm start from rewriting an unchanged checkpoint. 18 Oct: C5-2b, the shared due rule and the allocation-free capture of STRN v3
+- [ ] C5 Persistence (18 Oct, afternoon: C5-4 for the C6 runs in s1b; the F407 part is superseded
+  by QS2, retain on the U5A9. 18 Oct, day: C5-3b, the persister in the device runner (capture at the pre-output sample, one step between scans, the stop save before Stopped, a latched failure that fails the next scan before outputs), is written in s1b-retain; its second round gives the codec a bare-payload decoder and keeps a warm start from rewriting an unchanged checkpoint. 18 Oct: C5-2b, the shared due rule and the allocation-free capture of STRN v3
   payload bytes, is committed in `fb37c3324` (focused check c6/c52b green); C5-3a, the checkpoint
   persister in the core, runs in this worktree; C5-3b, its wiring into the device runner, follows
   in s1b. 17 Oct, night: the retain checksum gate points at the codec's new place, `276b16a9f`; C5-2b's follow-up runs. 17 Oct evening: C5-2a, the STRN v3 codec shared in the core, is committed in `c56bc3a86`; C5-2b, the shared due rule and allocation-free capture, is running. 17 Oct: C5-1 done. The checkpoint log is specified in spec 34 §10.1, with a cut at every byte of every program and erase recovering the previous checkpoint. Open: C5-2 capture, C5-3 persist, C5-4 chip drivers and bench power cuts. Policy decided: D-C5-1 in `~/projects/.artifacts/bounded-c/decisions.md`): retain variables survive a power cut through checkpoints in each chip's
@@ -245,18 +274,26 @@ Whether the chips run their services as embassy tasks is measured in S1: Include
       - Work limits on chips are now trust-runtime's (R8). A chip's call depth follows its heap,
         4 at 72 KiB. The engine fix that lets chips admit trust-runtime's 1,024 is R9 / D-C1-4,
         in C1-3 and C1-4.
-    - [ ] S1b-3, the installed application: it extends C4-1's record (R6). Split in three:
+    - [x] S1b-3, the installed application (closed 18 Oct: S1b-3b `2eca48b8d`, the `TRSTA001`
+      container, the chip's admission of section 7 and `xtask portability pack-project`, used by
+      every S1b-5 bench build). It extends C4-1's record (R6). Split in three:
       S1b-3a1, the record's section 7 (the configuration a chip needs from `runtime.toml` and
       `io.toml`), is committed in s1b `930adc9b9` (focused check s1b3a1 and its rerun green); S1b-3a2, `trust-runtime build` fills it from the
       project with the existing parsers; S1b-3b, the `TRSTA001` container, the chip's admission
       of section 7 and `xtask portability pack-project`.
-    - [ ] S1b-4, the C6 adapter. S1b-4a (`trust-platform-memory`, moved byte for byte) and S1b-4b1
+    - [x] S1b-4, the C6 adapter (closed 18 Oct: S1b-4b2 `3a2217974` the USB-Serial/JTAG link and
+      `f904c8949` the two heap regions and the reset record; the S1b-5 bench passes steps 1 to 7).
+      S1b-4a (`trust-platform-memory`, moved byte for byte) and S1b-4b1
       (wait and wake, process I/O by pin name, the watchdog rule) are committed, focused check
       `s1b4b` green. Open, S1b-4b2: `hardware/usb_link.rs` (the USB-Serial/JTAG interrupt and
       `ControlLink`, design §2.2), the identity and status values, the reset record in RTC
       memory, the two heap regions, and the GPIO and watchdog read from the record after S1b-3.
-    - [ ] S1b-5, the C6 firmware and bench; S1b-6, `usb://` and the relay (after the devices
-      branch merges); S1b-7, every client through the shared transport.
+    - [x] S1b-5, the C6 firmware and bench (closed 18 Oct on c6 `2d667368c`: bench steps 1 to 7,
+      `s1b-5b2-bench/result.md`; S1b-5f `d732fa7c0` the 24 KiB stack window and the due boundary
+      before each request; S1b-5g `47dcbd07c` the crate `trust-esp32c6` and its chip file's
+      components `engine`, `control` and `live-values`).
+    - [ ] S1b-6, `usb://` and the relay (after the devices branch merges); S1b-7, every client
+      through the shared transport.
     - [ ] S1b-8u and S1b-9u, the STM32U5A9 track (owner's Riverdi, 17 Oct).
       - Design done 17 Oct: `~/projects/.artifacts/u5a9/design.md`, 1,225 lines, every fact
         sourced (DS13543, RM0456, Riverdi `.ioc`).
@@ -288,6 +325,13 @@ Whether the chips run their services as embassy tasks is measured in S1: Include
   Null at a stop inside a `FOR` body, to be reproduced with a probe and fixed, and a test seam for
   capture failures): breakpoints, pause, continue, stepping, call stack, variables and evaluation
   (specification 13), as in trust-runtime (STATE-07).
+  - 18 Oct, in `~/projects/trust-platform-live-values` (feat/live-values): S3a the specification
+    (Q4-Q7), S3b1 LINE_TABLE `fe13fcf2b`, S3b3 a stop ends a hold `19fdd04a0`, S3b2a the portable
+    resolver `273b94e4b`, S3b2b trust-runtime through LINE_TABLE `c0ea86692` (parity: 45,242
+    answers, no difference). Chip design `~/projects/.artifacts/s3/chip-debugger.md`, decided in
+    `s3/decisions.md` (O2 is the owner's: what a debugger shows after a faulted scan). Slices S3d-1
+    (the A01 probe, running) to S3d-9 (the C6 bench), then S3c (compiled expressions). The C6 chip
+    file lists `debug` only once all of it holds, S3c included.
 - [ ] S4 Program loading: deployment and online change over the control connection (DEPLOY-02,
   §11.3), safe against interruption (DEPLOY-03).
 - [ ] S5 Access rights: tokens and roles, TLS and signed deployment, as in trust-runtime.
@@ -604,7 +648,10 @@ Open, to be fixed:
   (`64adfb9e2`, from this branch's `276b16a9f`): `oscat_core_suite_passes_every_case` runs the
   whole OSCAT core project (126 passed) and `pointer_to_open_array` pins the rule; focused check
   green. Open: merge into this branch after C5-2b.
-- [ ] C6: supervision during a debug halt is not evaluated (STATE-06).
+- [ ] C6: supervision during a debug halt is not evaluated (spec 11 §6.6 and §6.9, spec 34
+  STATE-07; the earlier STATE-06 citation was wrong). S3d-6 makes the chip's deadline and overrun
+  check leave out held time, S3d-7 feeds the watchdog on every hold pass, S3d-9 measures it on the
+  C6 (`~/projects/.artifacts/s3/chip-debugger.md` §3.5).
 - [x] Hardware canvas: both boards selectable in Devices & Connections, found by a passive USB scan
   in Rust (never resetting a board); specifications 25 and 34 first, then its own PR. (Merged 16 Oct into V1 and V7: specified in spec 25 §5.12 and spec 34 TARGET-04 (V7a, done);
   the passive USB scan is V7c and the panel V7d.)

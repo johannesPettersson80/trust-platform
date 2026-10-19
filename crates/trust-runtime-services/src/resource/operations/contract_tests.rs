@@ -282,10 +282,79 @@ fn restarts_coalesce_with_cold_precedence() {
 
 #[test]
 fn shutdown_replies_stopping_and_defers_the_stop() {
-    let response = shutdown(41);
+    let response = shutdown(41, None);
     assert_eq!(response.result, Some(json!({"status": "stopping"})));
     assert_eq!(
         response.after_response,
         Some(ControlAfterResponse::StopResource)
     );
+}
+
+#[test]
+fn shutdown_without_exit_or_with_exit_false_only_stops_the_program() {
+    // Specification 11 §6.9 and 34 STATE-08: a plain `shutdown` leaves the process running in
+    // the Stopped state, and `{"exit": false}` is a plain `shutdown`. Wrong behaviour: an empty
+    // object or `exit: false` ends the process.
+    for params in [None, Some(json!({})), Some(json!({"exit": false}))] {
+        let response = shutdown(8, params.as_ref());
+        assert_eq!(
+            response.result,
+            Some(json!({"status": "stopping"})),
+            "{params:?}"
+        );
+        assert_eq!(
+            response.after_response,
+            Some(ControlAfterResponse::StopResource),
+            "{params:?}: the process stays"
+        );
+    }
+}
+
+#[test]
+fn shutdown_with_exit_true_replies_the_same_and_defers_the_exit_of_the_process() {
+    // Specification 11 §6.9 and 34 STATE-08: `shutdown` with `{"exit": true}` is the explicit
+    // exit. Its reply is the `stopping` of `shutdown`, written first, and the platform ends the
+    // process after it. Wrong behaviour: the exit is ignored and the process stays, or the reply
+    // differs from the one a client of `shutdown` reads.
+    let response = shutdown(7, Some(&json!({"exit": true})));
+    assert_eq!(response.result, Some(json!({"status": "stopping"})));
+    assert_eq!(
+        response.after_response,
+        Some(ControlAfterResponse::ExitRuntime)
+    );
+}
+
+#[test]
+fn shutdown_refuses_a_malformed_parameter_and_stops_nothing() {
+    // Specification 11 §6.9: `exit` must be a Boolean and no other member is accepted, so a typo
+    // never turns into a different action. Wrong behaviour: `"true"` or `1` reads as plain
+    // `shutdown` (the process stays when the caller asked for an exit), or an unknown member is
+    // ignored.
+    for (params, error) in [
+        (
+            json!({"exit": "true"}),
+            "invalid params: exit must be a boolean",
+        ),
+        (json!({"exit": 1}), "invalid params: exit must be a boolean"),
+        (
+            json!({"exit": null}),
+            "invalid params: parameter fields must not be null",
+        ),
+        (
+            json!({"exits": true}),
+            "invalid params: unknown parameter field",
+        ),
+        (
+            json!("exit"),
+            "invalid params: parameters must be an object",
+        ),
+        (
+            json!([true]),
+            "invalid params: parameters must be an object",
+        ),
+    ] {
+        let response = shutdown(9, Some(&params));
+        assert_eq!(refusal(&response), (Some(error), None), "{params}");
+        assert_eq!(response.after_response, None, "{params}: nothing stops");
+    }
 }

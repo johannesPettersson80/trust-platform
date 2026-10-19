@@ -21,7 +21,9 @@ fn field(
         default,
         validation: None,
         options: None,
+        option_labels: None,
         visible_when: None,
+        list: None,
     }
 }
 

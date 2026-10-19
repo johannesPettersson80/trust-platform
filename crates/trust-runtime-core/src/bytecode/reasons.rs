@@ -3,8 +3,10 @@
 use super::BytecodeError;
 use core::fmt;
 
-/// Named section validation failures. Conversion preserves the existing error variant,
-/// stable machine code and diagnostic text; callers need not write string literals.
+/// Named section validation failures. Conversion preserves the stable machine code and the
+/// diagnostic text; callers need not write string literals. The two validation limits convert to
+/// their own [`BytecodeError`] variants, which keep the type that a hosted build would otherwise
+/// flatten to text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RejectionReason {
     /// storage declaration differs from its POU signature.
@@ -351,6 +353,10 @@ impl fmt::Display for RejectionReason {
 
 impl From<RejectionReason> for BytecodeError {
     fn from(reason: RejectionReason) -> Self {
-        Self::section_diagnostic(super::SectionDiagnostic::Reason(reason))
+        match reason {
+            RejectionReason::ValidationStorageLimit => Self::ValidationStorageLimit,
+            RejectionReason::ValidationWorkLimit => Self::ValidationWorkLimit,
+            reason => Self::section_diagnostic(super::SectionDiagnostic::Reason(reason)),
+        }
     }
 }

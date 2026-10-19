@@ -16,6 +16,9 @@ use config::{GpioBackendKind, GpioConfig, GpioInputEntry, GpioOutputEntry};
 use crate::error::RuntimeError;
 use crate::io::{IoAddress, IoDriver, IoDriverHealth};
 
+mod lines;
+pub use lines::GpioLine;
+
 pub struct GpioDriver {
     backend: Box<dyn GpioBackend>,
     inputs: Vec<GpioInput>,
@@ -73,15 +76,8 @@ impl GpioDriver {
     }
 }
 
-pub fn discover_gpio_lines() -> Result<Vec<GpioLineInfo>, RuntimeError> {
-    let mut lines = Vec::new();
-    collect_gpiochip_lines(Path::new("/sys/bus/gpio/devices"), &mut lines)?;
-    if lines.is_empty() {
-        collect_gpiochip_lines(Path::new("/sys/class/gpio"), &mut lines)?;
-    }
-    lines.sort_by(|left, right| left.chip.cmp(&right.chip).then(left.line.cmp(&right.line)));
-    lines.dedup_by(|left, right| left.chip == right.chip && left.line == right.line);
-    Ok(lines)
+pub fn discover_gpio_lines() -> Result<Vec<GpioLine>, RuntimeError> {
+    lines::discover()
 }
 
 impl IoDriver for GpioDriver {

@@ -3,8 +3,9 @@
 //! A platform adapter implements these for its operating system or chip: the monotonic and wall
 //! clocks, the wait and wake of the resource loop (PORT-03), the hardware watchdog (TIME-04), the
 //! control link, which moves whole request and reply frames (the management transport of §7), and
-//! the checkpoint store a chip keeps its retained values in (§10). The engine and the shared
-//! runtime services use them and hold no platform state.
+//! the checkpoint store a chip keeps its retained values in (§10), and the program store that holds
+//! its installed program in two application slots (§5.1). The engine and the shared runtime
+//! services use them and hold no platform state.
 //!
 //! Time on the monotonic clock has its own types (PORT-01): a
 //! [`MonotonicInstant`](crate::ports::MonotonicInstant) is a reading of the clock and a
@@ -17,7 +18,7 @@ use alloc::boxed::Box;
 use core::net::SocketAddr;
 use core::time::Duration;
 
-use crate::retain::checkpoint::CheckpointFlash;
+use crate::retain::checkpoint::{CheckpointFlash, FlashError, FlashGeometry, Slot};
 use crate::value;
 
 /// A reading of a platform's monotonic clock: the time since the clock's origin (PORT-01).
@@ -284,6 +285,61 @@ pub trait CheckpointStorage {
     /// Takes the platform's checkpoint store, or returns `None` when the device keeps no retained
     /// checkpoint, as a project with `[runtime.retain] mode = "none"` asks for.
     fn take_checkpoint_store(&mut self) -> Option<CheckpointStore>;
+}
+
+/// The flash of a platform's two application slots, as its adapter drives it (specification 34
+/// §5.1, DEPLOY-03).
+///
+/// It has the shape of [`CheckpointFlash`]. Offsets count from the first byte of a slot. The
+/// program store reads and programs only whole program units, at multiples of the unit and inside
+/// the slot, and erases one erase unit at a time by its first byte. A power loss may stop a program
+/// or an erase at any byte, and the store is built for that.
+pub trait ProgramFlash {
+    /// The flash's program and erase units and the slot size.
+    fn geometry(&self) -> FlashGeometry;
+
+    /// Read `bytes.len()` bytes from `offset` in `slot`.
+    ///
+    /// # Errors
+    ///
+    /// [`FlashError::Read`] when the flash cannot be read.
+    fn read(&mut self, slot: Slot, offset: u32, bytes: &mut [u8]) -> Result<(), FlashError>;
+
+    /// Program `bytes` at `offset` in `slot`: every bit that is 0 in `bytes` becomes 0. A program
+    /// never sets a bit to 1.
+    ///
+    /// # Errors
+    ///
+    /// [`FlashError::Program`] when the flash reports the program as failed.
+    fn program(&mut self, slot: Slot, offset: u32, bytes: &[u8]) -> Result<(), FlashError>;
+
+    /// Erase the erase unit that starts at `offset` in `slot`: every byte becomes 0xFF.
+    ///
+    /// # Errors
+    ///
+    /// [`FlashError::Erase`] when the flash reports the erase as failed.
+    fn erase(&mut self, slot: Slot, offset: u32) -> Result<(), FlashError>;
+}
+
+/// The program store a platform supplies for its installed application (specification 34 §5.1):
+/// the flash of its two application slots and the most bytes one install step may program.
+pub struct ProgramStore {
+    /// The flash of the two application slots, `Slot::A` and `Slot::B`.
+    pub flash: Box<dyn ProgramFlash>,
+    /// The most bytes one step of an install may program, so that one step fits between two loop
+    /// passes, as the checkpoint store's budget does for a checkpoint.
+    pub program_budget: usize,
+}
+
+/// A platform that keeps its installed program in the two application slots of its flash
+/// (specification 34 §5.1).
+///
+/// The composition takes the store once, as it takes the checkpoint store, and the loop holds it
+/// from then on. A device without application slots keeps no installed program and takes `None`.
+pub trait ProgramStorage {
+    /// Takes the platform's program store, or returns `None` when the device keeps no installed
+    /// program in its flash.
+    fn take_program_store(&mut self) -> Option<ProgramStore>;
 }
 
 #[cfg(test)]

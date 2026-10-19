@@ -61,6 +61,8 @@ fn ads_connection_status(
     AdsConnectionStatus {
         name: name.to_string(),
         target: Some(TargetIdentity {
+            os_version: None,
+            fingerprint: None,
             name: None,
             ip: "192.0.2.20".to_string(),
             ams_net_id: target_net_id.to_string(),

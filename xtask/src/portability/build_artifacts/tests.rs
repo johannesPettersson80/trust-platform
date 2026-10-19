@@ -128,11 +128,11 @@ fn executable_is_selected_by_the_board_binary_name() {
     let path = std::env::temp_dir().join("c6 firmware");
     let c6 = serde_json::json!({
         "reason": "compiler-artifact",
-        "target": {"name": "trust-esp32c6-reference", "kind": ["bin"]},
+        "target": {"name": "trust-esp32c6", "kind": ["bin"]},
         "fresh": false,
         "executable": path
     })
     .to_string();
-    assert_eq!(executable(&c6, "trust-esp32c6-reference").unwrap(), path);
+    assert_eq!(executable(&c6, "trust-esp32c6").unwrap(), path);
     assert!(executable(&c6, BIN).is_err());
 }

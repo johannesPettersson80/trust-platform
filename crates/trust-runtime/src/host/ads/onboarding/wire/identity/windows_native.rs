@@ -9,6 +9,8 @@ pub(super) fn local_router_identity(
     let net_id = trust_tcads_native::local_net_id()
         .map_err(|error| native_router_error(target_ip, format!("query TcAdsDll.dll: {error}")))?;
     Ok(TargetIdentity {
+        os_version: None,
+        fingerprint: None,
         name: None,
         ip: target_ip.to_string(),
         ams_net_id: ams_net_id_text(&net_id),

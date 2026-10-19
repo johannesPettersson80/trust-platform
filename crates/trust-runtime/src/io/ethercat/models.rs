@@ -47,9 +47,26 @@ enum EthercatModuleKind {
     DigitalOutput,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct EthercatDiscovery {
-    modules: Vec<EthercatModuleConfig>,
+    subdevices: Vec<EthercatSubDevice>,
+    input_bytes: usize,
+    output_bytes: usize,
+}
+
+/// One SubDevice that an identification found (specification 11, "Identity" and "Sources"): its
+/// position and addresses on the bus, its identity, and its mapped process data lengths.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct EthercatSubDevice {
+    slot: u16,
+    configured_address: u16,
+    alias_address: u16,
+    name: SmolStr,
+    channels: u16,
+    vendor_id: u32,
+    product_id: u32,
+    revision: u32,
+    serial: u32,
     input_bytes: usize,
     output_bytes: usize,
 }

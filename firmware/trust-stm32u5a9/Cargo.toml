@@ -1,0 +1,36 @@
+[package]
+name = "trust-stm32u5a9"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[workspace]
+resolver = "3"
+
+[dependencies]
+# The chip adapter (clock, pins, reset record, watchdog, GPIO, USB control link, wait) and the shared
+# measurement crate, which the adapter's memory map and the stack window come from (design §6.2).
+trust-platform-stm32u5 = { path = "../../crates/trust-platform-stm32u5" }
+trust-platform-memory = { path = "../../crates/trust-platform-memory" }
+# The shared single-thread resource loop, container admission and engine cycle (specification 34).
+trust-runtime-core = { path = "../../crates/trust-runtime-core", default-features = false }
+trust-runtime-services = { path = "../../crates/trust-runtime-services" }
+# The PAC names the peripherals the boot takes; the adapter uses the same PAC instance.
+stm32u5 = { version = "=0.16.0", default-features = false, features = ["stm32u5a9", "rt"] }
+cortex-m = { version = "=0.7.9", features = ["critical-section-single-core"] }
+cortex-m-rt = { version = "=0.7.7", features = ["set-sp", "set-vtor"] }
+smol_str = { version = "0.3.6", default-features = false }
+serde_json = { version = "1.0.152", default-features = false, features = ["alloc"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+debug = 1
+panic = "abort"
+overflow-checks = true
+
+[profile.dev]
+panic = "abort"

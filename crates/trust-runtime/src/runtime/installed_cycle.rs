@@ -80,6 +80,13 @@ impl Runtime {
         match result {
             Ok(()) => {
                 if let Some(debug) = self.debug_control() {
+                    // The completed scan is the state reads answer from until the next scan ends
+                    // (specification 11 section 6.13.1). A faulted scan publishes in the error arm.
+                    debug.publish_completed_scan(
+                        self.state.storage(),
+                        self.current_time(),
+                        self.prepared().storage_abi(),
+                    );
                     debug.push_runtime_event(RuntimeEvent::CycleEnd {
                         cycle: self.cycle_counter,
                         time: now,
@@ -92,8 +99,25 @@ impl Runtime {
                 Ok(())
             }
             Err(error) => {
+                self.publish_faulted_state();
                 Err(self.apply_fault(error, FaultDecision::from_fault_policy(self.fault_policy)))
             }
+        }
+    }
+
+    /// Publish the state a faulted scan left, before the fault's safe-state action runs: the storage
+    /// as the fault left it, with the position of the statement that owns the failing instruction
+    /// (specification 11 section 6.13.1). The engine has latched the fault's record when the scan
+    /// failed. Nothing is copied while debugging is disabled.
+    fn publish_faulted_state(&self) {
+        if let Some(debug) = self.debug_control().filter(DebugControl::is_enabled) {
+            debug.publish_faulted_scan(
+                self.state.storage(),
+                self.current_time(),
+                self.prepared().storage_abi(),
+                self.state.fault_record().map(|record| record.site),
+                self.artifact.as_deref(),
+            );
         }
     }
 
@@ -168,6 +192,7 @@ impl Runtime {
     }
     /// Report a host panic without discarding safe-output delivery evidence.
     pub fn resource_panic(&mut self, message: impl Into<smol_str::SmolStr>) -> RuntimeError {
+        self.publish_faulted_state();
         self.apply_fault(
             RuntimeError::ResourcePanic(message.into()),
             FaultDecision {

@@ -61,11 +61,11 @@ fn every_lock_graph_is_audited_and_any_graph_failure_fails_the_gate() {
             "",
             "deny --locked check",
             "--manifest-path firmware/",
-            "--manifest-path firmware/trust-esp32c6-reference/",
+            "--manifest-path firmware/trust-esp32c6/",
             "--manifest-path firmware/trust-stm32f407/",
             "audit --json --file Cargo.lock",
             "audit --json --file firmware/",
-            "audit --json --file firmware/trust-esp32c6-reference/",
+            "audit --json --file firmware/trust-esp32c6/",
             "audit --json --file firmware/trust-stm32f407/",
         ] {
             let fixture = fixture();
@@ -96,7 +96,7 @@ fn every_lock_graph_is_audited_and_any_graph_failure_fails_the_gate() {
                 "deny --locked check advisories licenses bans sources"
             );
             assert!(commands[1].starts_with(
-                "deny --locked --manifest-path firmware/trust-esp32c6-reference/Cargo.toml --config "
+                "deny --locked --manifest-path firmware/trust-esp32c6/Cargo.toml --config "
             ));
             assert!(commands[1].ends_with(" check advisories licenses bans sources"));
             assert!(commands[2].starts_with(
@@ -114,7 +114,7 @@ fn every_lock_graph_is_audited_and_any_graph_failure_fails_the_gate() {
             );
             assert_eq!(
                 commands[4],
-                format!("audit --json --file firmware/trust-esp32c6-reference/Cargo.lock{suffix}")
+                format!("audit --json --file firmware/trust-esp32c6/Cargo.lock{suffix}")
             );
             assert_eq!(
                 commands[5],

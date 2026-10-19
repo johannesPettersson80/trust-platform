@@ -13,9 +13,15 @@ serde = { version = "1.0.229", default-features = false, features = ["derive", "
 serde_json = { version = "1.0.152", default-features = false, features = ["alloc"] }
 indexmap.workspace = true
 smol_str = { workspace = true }
+# The standard base64 of a part's data and of a reply's data (specification 34, PORT-05), with
+# alloc only: the chips build this crate without std. The version is the one Cargo.lock locks.
+base64 = { version = "0.23.1", default-features = false, features = ["alloc"] }
 # The engine's records: resource state, restart mode, watchdog and fault policies, durations and
 # runtime errors. The workspace entry builds the core without std.
 trust-runtime-core = { workspace = true }
+# The fixed-size reset record a chip keeps across a reset, which the shared chip platform reads into
+# the `capabilities` reply. The memory crate depends on no runtime or compiler.
+trust-platform-memory = { workspace = true }
 
 # Deliberately not `[lints] workspace = true`: the workspace's `unsafe_code = "forbid"` cannot be
 # lowered by a crate, and the integration test's test-only counting allocator must implement the

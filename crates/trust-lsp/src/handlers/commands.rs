@@ -73,6 +73,9 @@ pub async fn execute_command(
     state: &ServerState,
     params: ExecuteCommandParams,
 ) -> Option<Value> {
+    if let Some(reply) = super::devices::execute(state, &params).await {
+        return Some(reply);
+    }
     match params.command.as_str() {
         MOVE_NAMESPACE_COMMAND => {
             let args = parse_move_namespace_args(params.arguments)?;

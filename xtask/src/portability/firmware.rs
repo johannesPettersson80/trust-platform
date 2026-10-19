@@ -29,6 +29,9 @@ impl Firmware {
         }
         if let Ok(board) = Board::parse(name) {
             let chip = board.chip();
+            if catalog.chip(chip).is_none() {
+                bail!("{name} is a bench board whose chip {chip} has no firmware yet (S1b-9u)");
+            }
             bail!("{name} is a bench board, and firmware is built for its chip: build-firmware {chip}");
         }
         bail!(
@@ -50,12 +53,12 @@ impl Firmware {
     }
 }
 
-/// The linker scripts a family's firmware must link with. Without `profile.x` the STM32F4
-/// firmware's linker assertions and `__firmware_load_end` are missing; `linkall.x` is esp-hal's
-/// memory map and section placement.
+/// The linker scripts a family's firmware must link with. Without `profile.x` the STM32 firmware's
+/// linker assertions and `__firmware_load_end` are missing; `linkall.x` is esp-hal's memory map
+/// and section placement.
 fn required_rustflags(family: Family) -> &'static [[&'static str; 2]] {
     match family {
-        Family::Stm32f4 => &[["-C", "link-arg=-Tprofile.x"]],
+        Family::Stm32f4 | Family::Stm32u5 => &[["-C", "link-arg=-Tprofile.x"]],
         Family::Esp32 => &[["-C", "link-arg=-Tlinkall.x"]],
     }
 }
@@ -78,12 +81,40 @@ mod tests {
     }
 
     #[test]
+    fn u5a9_firmware_is_built_from_its_chip_file() {
+        let firmware = Firmware::parse("stm32u5a9").unwrap();
+        assert_eq!(firmware.name, "stm32u5a9");
+        assert_eq!(firmware.firmware_dir, "firmware/trust-stm32u5a9");
+        assert_eq!(firmware.target, "thumbv8m.main-none-eabihf");
+        assert_eq!(firmware.bin, "trust-stm32u5a9");
+        assert_eq!(
+            firmware.required_rustflags,
+            [["-C", "link-arg=-Tprofile.x"]].as_slice()
+        );
+    }
+
+    #[test]
+    fn the_stm32u5_links_with_the_profile_script_as_the_stm32f4_does() {
+        // Specification 34, Appendix D.5: the STM32U5A9 firmware links with profile.x, which holds the
+        // linker assertions and __firmware_load_end, as the STM32F4 firmware does. Catches a family
+        // mapped to no script or to the ESP32's linkall.x.
+        assert_eq!(
+            required_rustflags(Family::Stm32u5),
+            [["-C", "link-arg=-Tprofile.x"]].as_slice()
+        );
+        assert_eq!(
+            required_rustflags(Family::Stm32u5),
+            required_rustflags(Family::Stm32f4)
+        );
+    }
+
+    #[test]
     fn c6_firmware_is_built_from_its_chip_file() {
         let firmware = Firmware::parse("esp32c6").unwrap();
         assert_eq!(firmware.name, "esp32c6");
-        assert_eq!(firmware.firmware_dir, "firmware/trust-esp32c6-reference");
+        assert_eq!(firmware.firmware_dir, "firmware/trust-esp32c6");
         assert_eq!(firmware.target, "riscv32imac-unknown-none-elf");
-        assert_eq!(firmware.bin, "trust-esp32c6-reference");
+        assert_eq!(firmware.bin, "trust-esp32c6");
         assert_eq!(
             firmware.required_rustflags,
             [["-C", "link-arg=-Tlinkall.x"]].as_slice()
@@ -130,6 +161,11 @@ mod tests {
         assert!(error.contains("build-firmware esp32c6"), "{error}");
         let error = Firmware::parse("stm32f401").unwrap_err().to_string();
         assert!(error.contains("stm32f407, esp32c6"), "{error}");
+        // The Riverdi board's chip is built as its own chip, stm32u5a9.
+        let error = Firmware::parse("riverdi-rvt50hqsnwc00-b")
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("build-firmware stm32u5a9"), "{error}");
         // The NUCLEO-F401RE composition was retired on 17 October 2026; its name is unknown.
         let error = Firmware::parse("nucleo-f401re").unwrap_err().to_string();
         assert!(

@@ -41,6 +41,29 @@ pub enum ResourceCommand {
     },
 }
 
+/// What a program start leaves to the scan thread: the scheduling settings of the program's own
+/// configuration, which the thread takes over (specification 34, STATE-08).
+pub struct StartedProgram {
+    /// The cycle interval of the program's configuration.
+    pub cycle_interval: Duration,
+    /// The simulation time scale of the program's configuration, at least 1.
+    pub time_scale: u32,
+    /// The simulation of the program's configuration, when it has one.
+    pub simulation: Option<crate::simulation::SimulationController>,
+    /// What hosted hang supervision does after it records a hung scan thread.
+    pub hang_action: crate::watchdog::HangAction,
+}
+
+/// Loads the installed program into the runtime slot and starts it in the given mode, as a new
+/// process loads and starts its program (specification 34, STATE-08).
+///
+/// The loader reads the program first and changes the slot only once that has succeeded. It drops
+/// the program that stopped, with its I/O drivers, before it builds the drivers of the new one.
+/// When it fails the slot holds either the program that stopped or a new program that did not
+/// start, so the next `restart` loads the program again.
+pub type ProgramLoader =
+    Box<dyn FnMut(&mut Runtime, crate::RestartMode) -> Result<StartedProgram, RuntimeError> + Send>;
+
 /// The kind of work `command` asks for; the shared supervisor rules decide what each kind does
 /// while running and while faulted.
 fn command_class(command: &ResourceCommand) -> CommandClass {

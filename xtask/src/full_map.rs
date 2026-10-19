@@ -5403,7 +5403,7 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
         for path in [
             "firmware/demo/src/main.rs",
             "firmware/trust-stm32f407/src/board.rs",
-            "firmware/trust-esp32c6-reference/src/main.rs",
+            "firmware/trust-esp32c6/src/main.rs",
         ] {
             assert!(is_panic_like_scan_path(path), "{path}");
             assert!(is_concurrency_scan_path(path), "{path}");

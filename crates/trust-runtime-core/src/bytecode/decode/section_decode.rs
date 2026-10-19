@@ -6,6 +6,9 @@ pub(super) fn decode_section_data(
     payload: &[u8],
     budget: &mut DecodeBudget,
 ) -> Result<SectionData, BytecodeError> {
+    if version.is_source_free() && id == LINE_TABLE_SECTION_ID {
+        return Ok(SectionData::LineTable(decode_line_table(payload, budget)?));
+    }
     let Some(kind) = SectionId::from_raw(id) else {
         return Ok(SectionData::Raw(budget.copy(payload)?));
     };
@@ -387,6 +390,68 @@ pub(super) fn decode_retain_init(
         entries.push(RetainInitEntry { ref_idx, const_idx });
     }
     Ok(RetainInit { entries })
+}
+
+/// Decode LINE_TABLE and check every field §6.13 defines (spec 12 §6.13).
+///
+/// Counts, ordering and span bounds are decoder rules: a malformed entry rejects
+/// the complete candidate with `InvalidSection` and is never partly used. Whether a
+/// code offset is inside its POU body needs POU_BODIES and is therefore a validator
+/// rule (§7.4).
+pub(super) fn decode_line_table(
+    payload: &[u8],
+    budget: &mut DecodeBudget,
+) -> Result<LineTable, BytecodeError> {
+    let mut reader = BytecodeReader::new(payload);
+    // A LineFile is the single encoded `path_idx` field.
+    let file_count = read_bounded_count(&mut reader, 4, "LINE_TABLE file")?;
+    let mut files = budget.vector(file_count)?;
+    for _ in 0..file_count {
+        files.push(LineFile {
+            path_idx: reader.read_u32()?,
+        });
+    }
+
+    // A LineStatement is eight u32 fields.
+    let statement_count = read_bounded_count(&mut reader, 32, "LINE_TABLE statement")?;
+    let mut statements = budget.vector(statement_count)?;
+    for _ in 0..statement_count {
+        let pou_id = reader.read_u32()?;
+        let start_code_offset = reader.read_u32()?;
+        let end_code_offset = reader.read_u32()?;
+        let file_index = reader.read_u32()?;
+        let start_line = reader.read_u32()?;
+        let start_column = reader.read_u32()?;
+        let end_line = reader.read_u32()?;
+        let end_column = reader.read_u32()?;
+        if file_index as usize >= files.len() {
+            return Err(BytecodeError::section_static(
+                "LINE_TABLE statement file index is outside the file table",
+            ));
+        }
+        statements.push(LineStatement {
+            pou_id,
+            start_code_offset,
+            end_code_offset,
+            file_index,
+            start_line,
+            start_column,
+            end_line,
+            end_column,
+        });
+    }
+    if reader.remaining() != 0 {
+        return Err(BytecodeError::section_static(
+            "LINE_TABLE has trailing bytes",
+        ));
+    }
+    // §6.13: the decoder refuses an entry whose spans are empty, reversed or not
+    // 1-based, an entry that breaks the order, a shared start whose spans do not nest,
+    // and crossing code spans; the validator applies the same rule to a source-built
+    // container.
+    let table = LineTable { files, statements };
+    table.check_statement_order()?;
+    Ok(table)
 }
 
 pub(super) fn optional_u32(value: u32) -> Option<u32> {

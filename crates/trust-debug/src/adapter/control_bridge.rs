@@ -55,6 +55,7 @@ impl DebugControlServer {
             &sources,
         )));
         let state = Arc::new(ControlState {
+            transfers: trust_runtime::control::new_transfer_session(),
             debug: debug.clone(),
             resource,
             metadata: Arc::new(Mutex::new(session.metadata().clone())),
@@ -75,6 +76,7 @@ impl DebugControlServer {
             web_listener_bound: Arc::new(AtomicBool::new(false)),
             opcua_server_bound: Arc::new(AtomicBool::new(false)),
             resource_name: SmolStr::new("RESOURCE"),
+            runtime_id: SmolStr::new("RESOURCE"),
             io_health: Arc::new(Mutex::new(Vec::<IoDriverStatus>::new())),
             realtime_status: Arc::new(Mutex::new(LinuxRtRuntimeStatus::from_config(
                 LinuxRtConfig::default(),
@@ -87,6 +89,7 @@ impl DebugControlServer {
             hmi_descriptor,
             historian: None,
             pairing: None,
+            search: Default::default(),
             ads_doctor_jobs: Arc::new(Mutex::new(AdsDoctorJobStore::default())),
             ads_client_config: Arc::new(Mutex::new(None)),
             opcua_client_config: Arc::new(Mutex::new(None)),

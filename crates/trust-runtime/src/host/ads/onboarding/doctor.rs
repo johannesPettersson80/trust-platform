@@ -293,6 +293,8 @@ fn run_step<W: AdsOnboardingWire>(
         DoctorStepId::UdpIdentify => {
             if let Some(ams_net_id) = options.expected_target_ams_net_id.as_deref() {
                 let target = TargetIdentity {
+                    os_version: None,
+                    fingerprint: None,
                     name: None,
                     ip: options.target_ip.clone(),
                     ams_net_id: ams_net_id.to_string(),

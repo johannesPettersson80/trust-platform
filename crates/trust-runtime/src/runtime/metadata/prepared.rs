@@ -243,6 +243,7 @@ impl RuntimeMetadata {
             statement_index: IndexMap::new(),
             source_text_index: IndexMap::new(),
             source_label_index: Default::default(),
+            line_table: None,
         })
     }
 

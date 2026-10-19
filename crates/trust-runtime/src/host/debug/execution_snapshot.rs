@@ -1,11 +1,124 @@
 //! Detached debugger projection of the shared engine's admitted call stack.
 
-use super::DebugSnapshot;
-use crate::{error::RuntimeError, memory::VariableStorage, value::Duration};
+use super::{hook::DebugRuntimeContext, DebugSnapshot};
+use crate::{
+    error::RuntimeError,
+    memory::{FrameId, VariableStorage},
+    stdlib::StandardLibrary,
+    value::{DateTimeProfile, Duration},
+};
+use trust_hir::types::TypeRegistry;
 use trust_runtime_core::{
     bytecode::StorageRole,
     vm::{PreparedModule, StatementFrame},
 };
+
+/// The live storage of one statement of a hosted scan, read where the scan runs it.
+///
+/// Nothing is copied when the statement is observed. The detached projection that a stop, a
+/// breakpoint condition or a logpoint needs is built on first use, and it is the only copy the
+/// statement makes (specification 11 section 6.13.1).
+pub(crate) struct StatementProjection<'a> {
+    storage: &'a VariableStorage,
+    now: Duration,
+    frame: StatementFrame<'a>,
+    prepared: &'a PreparedModule,
+    registry: &'a TypeRegistry,
+    stdlib: &'a StandardLibrary,
+    profile: DateTimeProfile,
+    detached: Option<DebugSnapshot>,
+    copies: u64,
+    published: bool,
+}
+
+impl<'a> StatementProjection<'a> {
+    /// Observe the scan's storage and call stack at one statement boundary, without copying them.
+    pub(crate) fn new(
+        storage: &'a VariableStorage,
+        now: Duration,
+        frame: StatementFrame<'a>,
+        prepared: &'a PreparedModule,
+        registry: &'a TypeRegistry,
+        stdlib: &'a StandardLibrary,
+        profile: DateTimeProfile,
+    ) -> Self {
+        Self {
+            storage,
+            now,
+            frame,
+            prepared,
+            registry,
+            stdlib,
+            profile,
+            detached: None,
+            copies: 0,
+            published: false,
+        }
+    }
+
+    /// The storage copies this statement has made: at most one, when a projection was built.
+    pub(crate) fn copies(&self) -> u64 {
+        self.copies
+    }
+
+    /// Whether this statement's projection has already been published to a stop.
+    pub(crate) fn is_published(&self) -> bool {
+        self.published
+    }
+
+    /// The identities of the invocations on the call stack, the active one last.
+    pub(crate) fn active_frames(&self) -> impl Iterator<Item = FrameId> + '_ {
+        self.frame
+            .call_stack()
+            .filter_map(|invocation| invocation.activation())
+    }
+
+    /// Build the detached projection once, and return it for reading or moving.
+    fn detached(&mut self) -> Result<&mut DebugSnapshot, RuntimeError> {
+        if self.detached.is_none() {
+            let snapshot =
+                DebugSnapshot::from_execution(self.storage, self.now, self.prepared, self.frame)?;
+            self.copies = self.copies.saturating_add(1);
+            self.detached = Some(snapshot);
+        }
+        self.detached
+            .as_mut()
+            .ok_or(RuntimeError::InvalidExecutionState)
+    }
+
+    /// Run `f` with the debugger's evaluation context over the detached projection.
+    pub(crate) fn with_context<R>(
+        &mut self,
+        f: impl FnOnce(&mut DebugRuntimeContext<'_>) -> R,
+    ) -> Result<R, RuntimeError> {
+        let storage_abi = self.prepared.storage_abi();
+        let (registry, stdlib, profile, now) = (self.registry, self.stdlib, self.profile, self.now);
+        let snapshot = self.detached()?;
+        let current_instance = snapshot
+            .storage
+            .current_frame()
+            .and_then(|frame| frame.instance_id);
+        let mut ctx = DebugRuntimeContext {
+            storage_abi,
+            storage: &mut snapshot.storage,
+            registry,
+            stdlib: Some(stdlib),
+            profile,
+            current_instance,
+            now,
+        };
+        Ok(f(&mut ctx))
+    }
+
+    /// Move the detached projection out for a stop, and mark the statement as published.
+    pub(crate) fn take(&mut self) -> Result<DebugSnapshot, RuntimeError> {
+        self.detached()?;
+        self.published = true;
+        self.detached
+            .take()
+            .ok_or(RuntimeError::InvalidExecutionState)
+    }
+}
 
 impl DebugSnapshot {
     /// Reconstruct named debugger frames on a detached copy, preserving actual

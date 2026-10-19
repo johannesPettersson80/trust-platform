@@ -1,0 +1,82 @@
+{
+  "access_tooltip": "{access} on the device",
+  "add": {
+    "action": {
+      "emphasis": "primary",
+      "enabled": false,
+      "id": "add",
+      "label": "Add nodes",
+      "op": {
+        "action": "browse.add",
+        "kind": "rust",
+        "payload": {
+          "pane": "browse:opcua_client",
+          "request": {
+            "kind": "nodes",
+            "seq": 3,
+            "session": "dc-golden",
+            "source": {
+              "connection": "endpoint:line",
+              "connection_name": "Line"
+            },
+            "trust_server_certificate": false
+          }
+        }
+      },
+      "reason": "Resolve the browse error before adding tags."
+    },
+    "counted_label": "Add nodes ({count})",
+    "enabled": false,
+    "label": "Add nodes",
+    "no_selection_reason": "Select at least one symbol to add.",
+    "reason": "Resolve the browse error before adding tags."
+  },
+  "added_aria_label": "Already added: {path}",
+  "added_label": "Added",
+  "breadcrumb": "Devices & Connections",
+  "close_label": "Close",
+  "empty_text": "Resolve the browse error above, then browse again.",
+  "error": {
+    "detail": "Confirm this is the expected server, then choose Trust certificate to browse it.",
+    "recovery": {
+      "emphasis": "primary",
+      "enabled": true,
+      "id": "trust_certificate",
+      "label": "Trust certificate",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "open",
+          "pane": {
+            "kind": "browse",
+            "request": {
+              "kind": "nodes",
+              "seq": 4,
+              "session": "dc-golden",
+              "source": {
+                "connection": "endpoint:line",
+                "connection_name": "Line"
+              },
+              "trust_server_certificate": true
+            }
+          }
+        }
+      }
+    },
+    "title": "Server certificate not trusted"
+  },
+  "id": "browse:opcua_client",
+  "kind": "nodes",
+  "loading": false,
+  "port_help": "",
+  "port_suggestions": [],
+  "ports": [],
+  "subtitle": "Line",
+  "title": "Browse OPC UA nodes",
+  "tree": [],
+  "write_toggle": {
+    "enabled": false,
+    "label": "Allow writes (default: read-only)",
+    "reason": "Resolve the browse error before adding tags."
+  }
+}

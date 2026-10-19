@@ -214,6 +214,7 @@ fn vm_validator_rejects_legacy_call_even_when_target_exists() {
     module.sections.retain(|section| {
         section.id != SectionId::DebugMap.as_raw()
             && section.id != SectionId::DebugStringTable.as_raw()
+            && section.id != LINE_TABLE_SECTION_ID
     });
 
     assert_apply_invalid_bytecode_contains(&module, "unsupported legacy CALL opcode 0x05");

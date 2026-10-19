@@ -70,6 +70,11 @@ pub(super) fn identity(board: &BoardProfile, id: &[u64; 8], boot: usize) -> Resu
                 ensure!(id[7] == C6_WATCHDOG_RESET, "missing MWDT0 reset evidence");
             }
         }
+        // The U5 track reads its evidence over the control protocol, so it has no trace identity.
+        Board::RiverdiRvt50hqsnwc00B => anyhow::bail!(
+            "{}: the STM32U5A9 identity is read over the control protocol, not from a trace",
+            board.name
+        ),
     }
     Ok(())
 }

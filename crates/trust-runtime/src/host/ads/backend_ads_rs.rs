@@ -8,9 +8,9 @@ use trust_ads_core::{
 
 use super::identity::parse_canonical_ams_net_id;
 use super::transport::{
-    AdsDeviceState, AdsHandleRequest, AdsNotificationMode, AdsNotificationSample, AdsPointAddress,
-    AdsReadResult, AdsResolvedHandle, AdsSubscribeRequest, AdsSubscription, AdsTransport,
-    AdsTransportError, AdsWriteRequest,
+    AdsDeviceState, AdsHandleRequest, AdsIndexRead, AdsIndexReadError, AdsNotificationMode,
+    AdsNotificationSample, AdsPointAddress, AdsReadResult, AdsResolvedHandle, AdsSubscribeRequest,
+    AdsSubscription, AdsTransport, AdsTransportError, AdsWriteRequest,
 };
 
 mod connection;
@@ -247,6 +247,28 @@ impl Drop for AdsRsTransport {
     fn drop(&mut self) {
         self.release_notifications();
         self.release_symbol_handles();
+    }
+}
+
+impl AdsIndexRead for AdsRsTransport {
+    fn read_index(
+        &mut self,
+        index_group: u32,
+        index_offset: u32,
+        buffer: &mut [u8],
+    ) -> Result<usize, AdsIndexReadError> {
+        let device = self
+            .device()
+            .map_err(|error| AdsIndexReadError::Transport(error.to_string()))?;
+        device
+            .read(index_group, index_offset, buffer)
+            .map_err(|error| match error {
+                ads::Error::Ads(_, description, code) => AdsIndexReadError::Ads {
+                    code,
+                    description: description.to_string(),
+                },
+                other => AdsIndexReadError::Transport(other.to_string()),
+            })
     }
 }
 

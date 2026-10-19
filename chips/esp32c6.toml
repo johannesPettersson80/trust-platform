@@ -1,8 +1,9 @@
 # The ESP32-C6, the ESP32 chip of truST (specification 34, TARGET-03; the format is Appendix H).
 # Values from the adapter profile crates/trust-platform-esp32/src/profile.rs, the firmware's
-# partition table firmware/trust-esp32c6-reference/partitions.csv, the ESP32-C6 memory windows of
+# partition table firmware/trust-esp32c6/partitions.csv, the ESP32-C6 memory windows of
 # xtask/src/portability/elf.rs (from esp-hal 1.2.2) and specification 34 D.2. The host test
-# crates/trust-platform-esp32/tests/chip_file.rs compares them with profile.rs.
+# crates/trust-platform-esp32/tests/chip_file.rs compares them with profile.rs and with the program
+# slot constants of crates/trust-platform-esp32/src/program_flash.rs.
 
 [identity]
 name = "esp32c6"
@@ -58,10 +59,21 @@ max_capacity = 200
 [layout]
 bootloader = { start = 0x0, kib = 32 }
 partition_table = { start = 0x8000, kib = 4 }
+# The two sectors of the boot counter (specification 34 PORT-05 and Appendix D.2), one erase unit
+# each, in the gap between the partition table and the firmware. They are SECTOR_A_OFFSET and
+# SECTOR_B_OFFSET of boot_counter.rs, which the host test boot_counter.rs checks, and the data
+# partitions bootcnt_a and bootcnt_b of partitions.csv.
+boot_counter_a = { start = 0x9000, kib = 4 }
+boot_counter_b = { start = 0xA000, kib = 4 }
 firmware = { start = 0x1_0000, kib = 1984 }
 # The installed application takes the flash the chip allows (owner decision O7): from its start
 # to the two checkpoint slots, which sit at the very end of the 8 MB module.
 application = { start = 0x20_0000, kib = 6112 }
+# The two program slots of the program store (specification 34 §5.1): the two halves of `application`,
+# of equal size, which an install writes in turn. Their offsets and size are SLOT_A_OFFSET,
+# SLOT_B_OFFSET and SLOT_BYTES of program_flash.rs, and the host test chip_file.rs checks them.
+application_a = { start = 0x20_0000, kib = 3056 }
+application_b = { start = 0x4F_C000, kib = 3056 }
 checkpoint_a = { start = 0x7F_8000, kib = 16 }
 checkpoint_b = { start = 0x7F_C000, kib = 16 }
 
@@ -88,9 +100,11 @@ reserved = [
 ]
 
 [firmware]
-crate = "firmware/trust-esp32c6-reference"
-bin = "trust-esp32c6-reference"
-components = ["engine"]
+crate = "firmware/trust-esp32c6"
+bin = "trust-esp32c6"
+# Measured on the C6 bench, 18 October 2026: the control requests (status, start and stop, states,
+# faults and events) and Live Values at the pins (read, write, force and release).
+components = ["engine", "control", "live-values"]
 
 [sources]
 documents = [

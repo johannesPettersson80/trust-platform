@@ -1,11 +1,14 @@
 //! ADS onboarding control-plane engine.
 
+pub mod browse;
 pub mod discover;
 pub mod doctor;
 pub mod errors;
 pub mod identity;
 pub mod import;
 pub mod route;
+#[cfg(feature = "ads-wire")]
+pub mod route_list;
 pub mod wire;
 
 pub use discover::{
@@ -25,6 +28,9 @@ pub use identity::{
     auto_route_availability_for_identity, classify_local_address, derive_default_ams_net_id,
     derive_runtime_identity_from_source, resolve_os_source_ip,
     runtime_address_candidates_from_interfaces, IdentityRequest, RuntimeAddressCandidate,
+};
+pub use import::remove::{
+    regenerate_ads_interface, remove_symbol_imports, AdsTagDevice, AdsTagRemoval,
 };
 pub use import::{
     apply_symbol_import, build_symbol_import_response, SymbolImportApplyRequest,

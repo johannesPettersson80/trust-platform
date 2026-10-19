@@ -6,18 +6,12 @@
 //! Sources: RM0090 and DS8626 for the STM32F407.
 
 use crate::pins::{at, Pin, PinError, Port, Reserved, Wiring};
+use trust_platform_stm32::table::pin_in;
+pub use trust_platform_stm32::table::{PortSpec, RamRegion, Reservation, SectorRun};
+pub use trust_platform_stm32::uid_words;
 
 /// Start of the main flash memory, the same on every F4 chip.
 pub const FLASH_START: u32 = 0x0800_0000;
-
-/// A run of equally sized flash sectors.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SectorRun {
-    /// Number of sectors in the run.
-    pub count: u8,
-    /// Size of each sector in KiB.
-    pub kib: u16,
-}
 
 /// One erase unit of the main flash memory.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,37 +22,6 @@ pub struct Sector {
     pub start: u32,
     /// Size in bytes.
     pub bytes: u32,
-}
-
-/// A RAM region of the chip.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct RamRegion {
-    /// Name in the reference manual.
-    pub name: &'static str,
-    /// Address of the first byte.
-    pub start: u32,
-    /// Size in KiB.
-    pub kib: u16,
-    /// Whether DMA reaches it. The F407's core-coupled memory is for the CPU only.
-    pub dma: bool,
-}
-
-/// How many pins a GPIO port has on the chip, counted from pin 0.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PortSpec {
-    /// The port.
-    pub port: Port,
-    /// Pins `0` to `pins - 1` exist.
-    pub pins: u8,
-}
-
-/// A pin the firmware keeps for itself.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Reservation {
-    /// The pin.
-    pub pin: Pin,
-    /// What uses it.
-    pub reason: Reserved,
 }
 
 /// The pins of the console UART, USART2 with alternate function 7.
@@ -189,32 +152,7 @@ impl Chip {
     /// A `const fn`, so that a board's wiring can be checked when the firmware is built
     /// ([`Chip::check_wiring`]).
     pub const fn pin(&self, name: &str) -> Result<Pin, PinError> {
-        let pin = match Pin::parse(name) {
-            Ok(pin) => pin,
-            Err(error) => return Err(PinError::Name(error)),
-        };
-        let mut index = 0;
-        while index < self.ports.len() {
-            let spec = &self.ports[index];
-            if spec.port.index() == pin.port().index() {
-                if pin.number() >= spec.pins {
-                    return Err(PinError::NoSuchPin(pin));
-                }
-                let mut kept = 0;
-                while kept < self.reserved.len() {
-                    let entry = &self.reserved[kept];
-                    if entry.pin.port().index() == pin.port().index()
-                        && entry.pin.number() == pin.number()
-                    {
-                        return Err(PinError::Reserved(pin, entry.reason));
-                    }
-                    kept += 1;
-                }
-                return Ok(pin);
-            }
-            index += 1;
-        }
-        Err(PinError::NoSuchPort(pin.port()))
+        pin_in(self.ports, self.reserved, name)
     }
 
     /// Checks a board's wiring against this chip: both lines name a pin the chip has and the
@@ -239,18 +177,6 @@ impl Chip {
     pub fn pin_count(&self) -> u32 {
         self.ports.iter().map(|spec| u32::from(spec.pins)).sum()
     }
-}
-
-/// The three little-endian words of the 96-bit unique ID at 0x1FFF_7A10, rebuilt from the fields
-/// the HAL reads there: the X and Y wafer coordinates, the wafer number and the seven lot
-/// characters. Missing lot bytes read as zero.
-pub fn uid_words(x: u16, y: u16, wafer: u8, lot: &[u8]) -> [u32; 3] {
-    let lot_byte = |index: usize| lot.get(index).copied().unwrap_or(0);
-    [
-        u32::from(x) | (u32::from(y) << 16),
-        u32::from_le_bytes([wafer, lot_byte(0), lot_byte(1), lot_byte(2)]),
-        u32::from_le_bytes([lot_byte(3), lot_byte(4), lot_byte(5), lot_byte(6)]),
-    ]
 }
 
 const PA2_PA3: ConsolePins = ConsolePins {
@@ -485,23 +411,6 @@ mod tests {
         assert!(STM32F407.verify_identity(0x100f_6000, 1024).is_err());
         assert!(STM32F407.verify_identity(0x100f_6413, 0).is_err());
         assert!(STM32F407.verify_identity(0x100f_6413, u16::MAX).is_err());
-    }
-
-    #[test]
-    fn the_unique_id_words_are_rebuilt_from_the_fields() {
-        // Spec 34 D.4: UID 0x0034002D 0x34314715 0x35363630 on the owner's STM32F407G-DISC1:
-        // X 0x2D, Y 0x34, wafer 0x15, lot "G140665".
-        assert_eq!(
-            uid_words(0x002d, 0x0034, 0x15, b"G140665"),
-            [0x0034_002d, 0x3431_4715, 0x3536_3630]
-        );
-        // A short lot string reads as zeros, never out of bounds.
-        assert_eq!(uid_words(1, 2, 3, b"AB"), [0x0002_0001, 0x0042_4103, 0]);
-        assert_eq!(uid_words(0, 0, 0, b""), [0, 0, 0]);
-        assert_eq!(
-            uid_words(u16::MAX, u16::MAX, u8::MAX, b"\xff\xff\xff\xff\xff\xff\xff"),
-            [u32::MAX; 3]
-        );
     }
 
     #[test]

@@ -2,11 +2,11 @@
 //! control request, job, and state-surface contract"). Each request is one JSON object and each
 //! response is one JSON object; how the bytes travel is the platform's link.
 
-mod bounded;
+mod reply_writer;
 mod request;
 mod response;
 
-pub(crate) use bounded::BoundedReply;
+pub(crate) use reply_writer::{ReplyWriter, Written};
 pub use request::ControlRequest;
 pub use response::{ControlAfterResponse, ControlResponse};
 

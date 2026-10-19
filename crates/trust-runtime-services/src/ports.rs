@@ -11,19 +11,23 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
+use trust_runtime_core::deployment::DeviceDescriptor;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::WallClock;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 
 use crate::access::{AccessRole, AuthFailure};
+use crate::capabilities::LastReset;
 use crate::events::RuntimeEvent;
+use crate::installation::Admitted;
 use crate::live_values::io_requests::IoQueuePort;
 use crate::live_values::var_requests::VariableQueuePort;
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::resource::commands::CommandSendError;
 use crate::status::{IoDriverStatus, StatusSettings};
+use crate::transfer::TransferSession;
 
 /// Access rights of the control connection.
 pub trait AccessPort {
@@ -118,9 +122,10 @@ pub trait ResourcePort {
 
     /// Whether `restart` starts a stopped resource again (specification 34, STATE-08).
     ///
-    /// On a device without an operating system the program takes the place of the process: after
-    /// `shutdown` the device stays reachable and `restart` starts the installed program again. On
-    /// a computer `shutdown` ends the trust-runtime process, so a stopped resource refuses it.
+    /// On every runtime the program takes the place of the process: after `shutdown` the runtime
+    /// stays reachable and `restart` starts the installed program again. A platform whose
+    /// `shutdown` ended the process would have no scan to take the restart, so its stopped
+    /// resource would refuse it.
     fn starts_when_stopped(&self) -> bool;
 
     /// Why the resource has no installed program, when it has none: a device whose application
@@ -132,14 +137,53 @@ pub trait ResourcePort {
     }
 }
 
-/// The values the platform knows that the status operations report: configuration, I/O driver
-/// health and the platform's posture.
+/// How the runtime's program control behaves across `shutdown`: whether the runtime still answers
+/// once its program is stopped, and what `restart` then does (specification 11, `status`;
+/// specification 34, STATE-08).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProgramControl {
+    /// The runtime still answers after `shutdown`, and `restart` starts the program again: the
+    /// program takes the place of the process, as on a device without an operating system and,
+    /// since the owner's decision of 18 October 2026, as on trust-runtime on a computer
+    /// (spec 34 STATE-08).
+    KeepsControl,
+    /// `shutdown` ends the runtime's process, so a stopped runtime has no scan loop to take a
+    /// `restart`, as an earlier trust-runtime on a computer did (spec 34 STATE-08).
+    Process,
+}
+
+impl ProgramControl {
+    /// The wire name of the posture that `status` reports.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::KeepsControl => "keeps_control",
+            Self::Process => "process",
+        }
+    }
+}
+
+/// The values the platform knows that the status and `capabilities` operations report:
+/// configuration, I/O driver health, the platform's posture, the device descriptor admission
+/// reads and the reset a device without an operating system read at boot.
 ///
 /// A method that returns `None` reports a value that cannot be read, and the operation answers
-/// `<value> unavailable`.
+/// `<value> unavailable`. The descriptor and last-reset methods default to a computer's values,
+/// which a platform that composes the hosted runtime keeps.
 pub trait StatusPort {
     /// Name of the resource.
     fn resource_name(&self) -> &str;
+
+    /// The platform the runtime runs on: `<os>-<arch>` on a computer, for example `linux-x86_64`,
+    /// and the board name on a device, for example `stm32f407`.
+    fn platform(&self) -> &str;
+
+    /// The runtime's stable runtime ID (specification 11, `status` and runtime discovery): the
+    /// same value the runtime announces by mDNS, and the same across restarts.
+    fn runtime_id(&self) -> &str;
+
+    /// Whether the runtime's program control survives `shutdown` (spec 34 STATE-08).
+    fn program_control(&self) -> ProgramControl;
 
     /// The runtime settings that `status` reports.
     fn status_settings(&self) -> Option<StatusSettings>;
@@ -156,10 +200,67 @@ pub trait StatusPort {
     /// The `openot_persistence` block of `status`: the state of the `OpenOT` document
     /// persistence.
     fn openot_persistence(&self) -> Option<serde_json::Value>;
+
+    /// The device descriptor admission reads (specification 34 §5.1.1, COMPAT-02); the
+    /// `capabilities` operation serves it. The default is a computer's descriptor
+    /// (specification 34, HOST-02).
+    fn device_descriptor(&self) -> DeviceDescriptor {
+        DeviceDescriptor::hosted()
+    }
+
+    /// The reset a device without an operating system read at boot, or `None` on a computer, which
+    /// starts as a new process (specification 11, the runtime device capabilities contract). The
+    /// default is no last reset.
+    fn last_reset(&self) -> Option<LastReset> {
+        None
+    }
+}
+
+/// One installed program, as `program.active` reports it: its install sequence, the SHA-256 of the
+/// program and its length in bytes (specification 34 §11.2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProgramIdentity {
+    /// The install sequence the store gave the program.
+    pub sequence: u64,
+    /// The SHA-256 of the program.
+    pub program_sha256: [u8; 32],
+    /// The program's length in bytes.
+    pub bytes: usize,
+}
+
+/// The program the store selects and the program before it, as `program.active` reports them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProgramIdentities {
+    /// The selected program, when the store holds one.
+    pub active: Option<ProgramIdentity>,
+    /// The program before the selected one, when the store holds one.
+    pub previous: Option<ProgramIdentity>,
+}
+
+/// Why the platform gives out no transfer session (specification 34, PORT-05).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransferSessionError {
+    /// The platform keeps no transfer session, so the transfer operations are unsupported.
+    Unsupported,
+    /// The platform's session cannot be locked now.
+    Unavailable,
+}
+
+impl TransferSessionError {
+    /// The refusal to request `id` when the platform gives out no session.
+    #[must_use]
+    pub fn refusal(self, id: u64) -> ControlResponse {
+        let text = match self {
+            Self::Unsupported => "unsupported request",
+            Self::Unavailable => "transfer session unavailable",
+        };
+        ControlResponse::error(id, text.into())
+    }
 }
 
 /// What the running resource records and the status operations report: the debugger hold, the
-/// control mode, the metrics and the event store.
+/// control mode, the metrics and the event store. The transfer session and the installed program's
+/// identities are held the same way, and a platform that keeps neither keeps the defaults.
 ///
 /// A method that returns `None` reports a value that cannot be read, and the operation answers
 /// `<value> unavailable`.
@@ -179,6 +280,71 @@ pub trait RecordsPort {
 
     /// Reads the event store, oldest event first.
     fn read_events<R>(&self, read: impl FnOnce(&VecDeque<RuntimeEvent>) -> R) -> Option<R>;
+
+    /// Runs `use_session` on the platform's transfer session, which holds the transfers of its boot
+    /// (specification 34, PORT-05). The default is no session, so the transfer operations answer
+    /// `unsupported request`.
+    ///
+    /// # Errors
+    ///
+    /// [`TransferSessionError::Unsupported`] when the platform keeps no session, and
+    /// [`TransferSessionError::Unavailable`] when the session cannot be locked.
+    fn with_transfers<R>(
+        &self,
+        _use_session: impl FnOnce(&mut TransferSession) -> R,
+    ) -> Result<R, TransferSessionError> {
+        Err(TransferSessionError::Unsupported)
+    }
+
+    /// The selected program and the program before it, which `program.active` reports (specification
+    /// 34 §11.2). The default is no program store, so `program.active` answers `unsupported request`.
+    fn program_identities(&self) -> Option<ProgramIdentities> {
+        None
+    }
+
+    /// As [`Self::program_identities`], for a store whose read can fail: a chip reads the identities
+    /// from its flash (specification 34 §11.2). `Ok(None)` is a platform without a program store, and
+    /// the error is the reply of `program.active`. The default is what `program_identities` answers,
+    /// so a platform that cannot fail keeps that method alone.
+    ///
+    /// # Errors
+    ///
+    /// The text of the store's failure: its containers cannot be ordered, or its flash cannot be read.
+    fn read_program_identities(&self) -> Result<Option<ProgramIdentities>, String> {
+        Ok(self.program_identities())
+    }
+
+    /// Whether the platform keeps a program store that `program.install` commits to (specification
+    /// 34 §11.2). The default is none: `program.install` then answers `unsupported request` after its
+    /// state check, and takes nothing.
+    fn has_program_store(&self) -> bool {
+        false
+    }
+
+    /// The retained-value check of specification 11 §6.7.1 (decision G13), run before any write: the
+    /// warm start of the admitted program with the retained values of the newest checkpoint on a
+    /// chip, or of the retain file on a computer. It is asked only of a platform that has a program
+    /// store. The default refuses, so a store cannot skip the check by leaving it out.
+    ///
+    /// # Errors
+    ///
+    /// The warm start's own error, which names the retained value and its reason.
+    fn check_retained_values(&self, _admitted: &Admitted<'_>) -> Result<(), RuntimeError> {
+        Err(RuntimeError::ControlError(
+            "the platform does not check retained values".into(),
+        ))
+    }
+
+    /// Commits the complete container `container`, already checked, to the platform's program store
+    /// (specification 34 §11.2), and returns the identity the store gives the program. The default
+    /// refuses.
+    ///
+    /// # Errors
+    ///
+    /// The store's refusal or failure, as plain text.
+    fn commit_program(&self, _container: &[u8]) -> Result<ProgramIdentity, String> {
+        Err("the platform does not store programs".into())
+    }
 }
 
 /// Operations that only the platform answers.

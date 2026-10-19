@@ -3,16 +3,17 @@
 pub use trust_runtime_core::bytecode::{
     BytecodeError, BytecodeMetadata, BytecodeModuleView, BytecodeVersion, ConstEntry, ConstPool,
     DebugEntry, DebugMap, EnumVariant, Field, InterfaceImpl, InterfaceMethod, IoBinding, IoMap,
-    MethodEntry, ParamEntry, PouClassMeta, PouEntry, PouIndex, PouKind, ProcessImageConfig,
-    RefEntry, RefLocation, RefSegment, RefTable, RejectionReason, ResourceEntry, ResourceMeta,
-    ResourceMetadata, RetainInit, RetainInitEntry, Section, SectionData, SectionEntry, SectionId,
-    StringTable, TaskEntry, TypeData, TypeEntry, TypeKind, TypeTable, ValidatedBytecode,
-    ValidationLimits, ValidationStats, VarMeta, VarMetaEntry, BYTECODE_MAX_CONST_NESTING,
-    BYTECODE_MAX_CONTAINER_BYTES, BYTECODE_MAX_INSTRUCTIONS, BYTECODE_MAX_LOCALS_PER_POU,
-    BYTECODE_MAX_NATIVE_ARGUMENTS, BYTECODE_MAX_PARAMETERS_PER_POU, BYTECODE_MAX_REFERENCES,
-    HEADER_FLAG_CRC32, HEADER_FLAG_LEGACY_TEMPORAL32, NATIVE_CALL_KIND_FUNCTION,
-    NATIVE_CALL_KIND_FUNCTION_BLOCK, NATIVE_CALL_KIND_METHOD, NATIVE_CALL_KIND_STDLIB,
-    SUPPORTED_MAJOR_VERSION, SUPPORTED_MINOR_VERSION,
+    LineFile, LineStatement, LineTable, MethodEntry, ParamEntry, PouClassMeta, PouEntry, PouIndex,
+    PouKind, ProcessImageConfig, RefEntry, RefLocation, RefSegment, RefTable, RejectionReason,
+    ResourceEntry, ResourceMeta, ResourceMetadata, RetainInit, RetainInitEntry, Section,
+    SectionData, SectionEntry, SectionId, StringTable, TaskEntry, TypeData, TypeEntry, TypeKind,
+    TypeTable, ValidatedBytecode, ValidationLimits, ValidationStats, VarMeta, VarMetaEntry,
+    BYTECODE_MAX_CONST_NESTING, BYTECODE_MAX_CONTAINER_BYTES, BYTECODE_MAX_INSTRUCTIONS,
+    BYTECODE_MAX_LOCALS_PER_POU, BYTECODE_MAX_NATIVE_ARGUMENTS, BYTECODE_MAX_PARAMETERS_PER_POU,
+    BYTECODE_MAX_REFERENCES, HEADER_FLAG_CRC32, HEADER_FLAG_LEGACY_TEMPORAL32,
+    LINE_TABLE_SECTION_ID, NATIVE_CALL_KIND_FUNCTION, NATIVE_CALL_KIND_FUNCTION_BLOCK,
+    NATIVE_CALL_KIND_METHOD, NATIVE_CALL_KIND_STDLIB, SUPPORTED_MAJOR_VERSION,
+    SUPPORTED_MINOR_VERSION,
 };
 
 mod module;

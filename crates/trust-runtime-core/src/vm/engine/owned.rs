@@ -335,6 +335,9 @@ impl<S: ExecutionServices> OwnedRuntimeState<S> {
     /// retained object graphs require congruent admitted identities; serializable
     /// checkpoints migrate by name when the schema changes. The old owner is
     /// unchanged if any preparation, initializer or checkpoint fails.
+    ///
+    /// The body is shared with `RuntimeState::prepare_replacement`, which a chip's
+    /// borrowed state calls, so both replace their program by the same rules.
     pub fn prepare_replacement(
         &mut self,
         prepared: Arc<PreparedModule>,
@@ -342,62 +345,12 @@ impl<S: ExecutionServices> OwnedRuntimeState<S> {
         services: S,
         durable: Option<&crate::retain::RetainSnapshot>,
     ) -> Result<(Self, Vec<super::RetainApplyEvent>), RuntimeError> {
-        // The replacement continues this installation's lineage with the next
-        // generation, so no earlier reference names its state (spec 34 §11.3).
-        let generation = self.engine().next_generation()?;
-        let congruent = super::restart::warm_graph_congruent(&self.prepared, &prepared);
-        let snapshot = if congruent {
-            None
-        } else {
-            let mut source = self.engine();
-            source
-                .engineering_operation(|source| {
-                    source.require_serializable_retained_values()?;
-                    source.cycle_retain_snapshot()
-                })
-                .map(Some)?
-        };
-        let source = self.engine();
-        let mut data = EngineState::build(
+        let (data, events) = self.engine().prepare_replacement_data(
             &prepared,
             resource_index,
             &services,
-            generation,
-            true,
-            congruent.then_some(&source),
-            Some(&source.data.images),
-            source.data.now,
-            // The replacement continues the installation on the store it runs on, with its profile.
-            super::Construction {
-                store: source.data.store.kind(),
-                profile: source.data.profile,
-            },
+            durable,
         )?;
-        let mut candidate = EngineState::borrow(&mut data, &prepared, &services);
-        let mut events = if congruent {
-            candidate.restore_retained_program_values(&source)?;
-            Vec::new()
-        } else {
-            candidate.apply_retained_snapshot(
-                snapshot
-                    .as_ref()
-                    .ok_or(RuntimeError::InvalidExecutionState)?,
-            )?
-        };
-        if let Some(snapshot) = durable {
-            let restored = candidate.apply_retained_snapshot(snapshot)?;
-            candidate.charge_allocation_bytes(
-                restored
-                    .len()
-                    .checked_mul(core::mem::size_of::<super::RetainApplyEvent>())
-                    .ok_or(RuntimeError::Overflow)?,
-            )?;
-            events
-                .try_reserve_exact(restored.len())
-                .map_err(|_| RuntimeError::Overflow)?;
-            events.extend(restored);
-        }
-        candidate.check_entry_deadline()?;
         Ok((
             Self {
                 data,
@@ -549,5 +502,324 @@ impl<S: ExecutionServices> OwnedRuntimeState<S> {
         }
         self.engine()
             .engineering_operation(|state| state.execute_bound_function_block(reference))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Specification 34 §11.3 and UPDATE-04; specification 11 §6.7.1. The state a chip borrows and the
+    //! state a computer owns replace their program by one body, so the same replacement of the same
+    //! installation builds the same candidate in both, or is refused for the same reason. The programs
+    //! are the corpus fixtures `retained_blocks` (a function-block instance, a reference and a scalar
+    //! in retained globals, and a retained program variable), the A4 program and the board probe.
+    use super::*;
+    use crate::bytecode::{BytecodeModule, SectionData, SectionId};
+    use crate::memory::Generation;
+    use crate::retain::RetainSnapshot;
+    use crate::vm::{PreparationLimits, RetainApplyEvent};
+    use smol_str::SmolStr;
+
+    const BLOCKS: &[u8] = include_bytes!(
+        "../../../../trust-runtime/tests/fixtures/bounded-c/retained_blocks/program.stbc"
+    );
+    const A4: &[u8] = include_bytes!(
+        "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
+    );
+    const PROBE: &[u8] =
+        include_bytes!("../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc");
+
+    fn prepared(bytes: &[u8]) -> PreparedModule {
+        PreparedModule::from_bytes(bytes, PreparationLimits::default()).unwrap()
+    }
+
+    /// `bytes` with the string `from` renamed `to`: a candidate that declares other names, which is
+    /// no longer congruent with `bytes`.
+    fn renamed(bytes: &[u8], from: &str, to: &str) -> Vec<u8> {
+        let mut module = BytecodeModule::decode(bytes).unwrap();
+        let Some(SectionData::StringTable(strings)) = module.section_mut(SectionId::StringTable)
+        else {
+            panic!("strings")
+        };
+        let entry = strings
+            .entries
+            .iter_mut()
+            .find(|entry| entry.as_str() == from)
+            .unwrap_or_else(|| panic!("the program names {from}"));
+        *entry = SmolStr::from(to);
+        module.encode().unwrap()
+    }
+
+    /// The `retained_blocks` program with the argument of its call of `kept` changed from DINT#1 to
+    /// DINT#2: the same declarations, types and identities with another executable body, which is
+    /// congruent with the original.
+    fn blocks_that_count_by_two() -> Vec<u8> {
+        let mut module = BytecodeModule::decode(BLOCKS).unwrap();
+        let Some(SectionData::ConstPool(constants)) = module.section_mut(SectionId::ConstPool)
+        else {
+            panic!("constants")
+        };
+        assert_eq!(
+            constants.entries[0].payload,
+            1_i32.to_le_bytes(),
+            "the first constant is the argument DINT#1 of the call of kept"
+        );
+        constants.entries[0].payload = 2_i32.to_le_bytes().to_vec();
+        module.encode().unwrap()
+    }
+
+    /// What a state shows of an installation.
+    #[derive(Debug, PartialEq)]
+    struct Observed {
+        events: Vec<RetainApplyEvent>,
+        generation: Generation,
+        time: Duration,
+        inputs: Vec<u8>,
+        outputs: Vec<u8>,
+        memory: Vec<u8>,
+        /// The globals `total` and `follow`'s target, and the instance `kept`'s `count`.
+        total: Option<Value>,
+        count: Option<Value>,
+        followed: Option<Value>,
+        /// The members `runs`, `activations` and `activations2` of the program instance `Plant`.
+        members: [Option<Value>; 3],
+    }
+
+    macro_rules! observe {
+        ($state:expr, $events:expr) => {{
+            let state = &$state;
+            let storage = state.storage();
+            let instance = |name: &str| match storage.get_global(name) {
+                Some(Value::Instance(id)) => Some(*id),
+                _ => None,
+            };
+            let plant = instance("Plant");
+            let member = |name: &str| {
+                plant
+                    .and_then(|id| storage.get_instance_var(id, name))
+                    .cloned()
+            };
+            Observed {
+                events: $events,
+                generation: storage.generation(),
+                time: state.current_time(),
+                inputs: state.inputs().to_vec(),
+                outputs: state.outputs().to_vec(),
+                memory: state.memory_image().to_vec(),
+                total: storage.get_global("total").cloned(),
+                count: instance("kept")
+                    .and_then(|id| storage.get_instance_var(id, "count"))
+                    .cloned(),
+                followed: match storage.get_global("follow") {
+                    Some(Value::Reference(Some(reference))) => {
+                        storage.read_by_ref_ref(reference).cloned()
+                    }
+                    _ => None,
+                },
+                members: [
+                    member("runs"),
+                    member("activations"),
+                    member("activations2"),
+                ],
+            }
+        }};
+    }
+
+    /// A replacement through each kind of state: the candidate as it is built, and after one more scan.
+    type Replaced = Result<(Observed, Observed), RuntimeError>;
+
+    /// The candidate and its next scan, or the panic that says the replacement was refused.
+    fn candidate_of(replaced: &Replaced) -> (&Observed, &Observed) {
+        let Ok((built, next)) = replaced else {
+            panic!("the replacement is built: {replaced:?}");
+        };
+        (built, next)
+    }
+
+    struct Both {
+        before: Observed,
+        borrowed: Replaced,
+        owned: Replaced,
+        after: Observed,
+    }
+
+    /// Runs `old` on a borrowed and on an owned state, both given the first input byte `input` and the
+    /// scans at `scans` (milliseconds of logical time), then replaces each with `new`, with the saved
+    /// snapshot `durable`, and runs the candidate's scan at `next` milliseconds.
+    fn replace_through_both(
+        old: &[u8],
+        new: &[u8],
+        input: u8,
+        scans: &[i64],
+        durable: Option<&RetainSnapshot>,
+        next: i64,
+    ) -> Both {
+        let old_module = prepared(old);
+        let mut borrowed = old_module.instantiate(0).unwrap();
+        let mut owned = Arc::new(prepared(old)).instantiate_owned(0).unwrap();
+        if let Some(byte) = borrowed.inputs_mut().first_mut() {
+            *byte = input;
+        }
+        if let Some(byte) = owned.inputs_mut().first_mut() {
+            *byte = input;
+        }
+        for &at in scans {
+            borrowed.execute_cycle(Duration::from_millis(at)).unwrap();
+            owned.execute_cycle(Duration::from_millis(at)).unwrap();
+        }
+        let before = observe!(borrowed, Vec::new());
+        assert_eq!(
+            observe!(owned, Vec::new()),
+            before,
+            "the two sources are one state"
+        );
+
+        let new_module = prepared(new);
+        let borrowed_result = match borrowed.prepare_replacement(
+            &new_module,
+            0,
+            &super::super::services::LOGICAL_ONLY,
+            durable,
+        ) {
+            Ok((mut candidate, events)) => {
+                let built = observe!(candidate, events);
+                candidate
+                    .execute_cycle(Duration::from_millis(next))
+                    .unwrap();
+                Ok((built, observe!(candidate, Vec::new())))
+            }
+            Err(error) => Err(error),
+        };
+        let owned_result = match owned.prepare_replacement(
+            Arc::new(prepared(new)),
+            0,
+            LogicalExecutionServices,
+            durable,
+        ) {
+            Ok((mut candidate, events)) => {
+                let built = observe!(candidate, events);
+                candidate
+                    .execute_cycle(Duration::from_millis(next))
+                    .unwrap();
+                Ok((built, observe!(candidate, Vec::new())))
+            }
+            Err(error) => Err(error),
+        };
+        let after = observe!(borrowed, Vec::new());
+        assert_eq!(
+            observe!(owned, Vec::new()),
+            after,
+            "the two sources are one state after the replacement"
+        );
+        Both {
+            before,
+            borrowed: borrowed_result,
+            owned: owned_result,
+            after,
+        }
+    }
+
+    #[test]
+    fn the_borrowed_and_owned_replacements_build_the_same_candidate() {
+        // Specification 34 §11.3 and UPDATE-04; specification 11 §6.7.1: the replacement of the state a
+        // chip borrows (`RuntimeState`) and of the state a computer owns (`OwnedRuntimeState`) is one
+        // body. Each case replaces the same installation in both and expects the same candidate, or the
+        // same refusal. Every expected value is worked out here from the programs.
+        // Wrong behaviour caught: a body of the borrowed replacement that drifts from the owned one
+        // (another generation, a retained object rebuilt anew, images or time dropped, another
+        // refusal), and a replacement that is not the next generation of its lineage.
+
+        // 1. A congruent candidate. `retained_blocks` runs a 10 ms task: `kept` counts by the call's
+        // argument, `total` and `runs` by 1. The scans at 10, 20 and 30 ms leave count, total and runs
+        // at 3, and `follow` pointing at `kept.count`. The candidate has the same declarations and
+        // another body (`kept(delta := DINT#2)`). It continues the lineage (generation 2), keeps the
+        // logical time of the last scan (30 ms) and the live function-block instance, whose count is
+        // still 3 (an instance built anew would count 0), and the reference reads that count. Its
+        // scan at 40 ms runs the new body: count 3 + 2 = 5, total and runs 4, and `follow` reads 5.
+        let congruent = blocks_that_count_by_two();
+        let one = replace_through_both(BLOCKS, &congruent, 0, &[10, 20, 30], None, 40);
+        assert_eq!(one.borrowed, one.owned, "congruent");
+        let (built, next) = candidate_of(&one.borrowed);
+        assert_eq!(built.generation, Generation::FIRST.next().unwrap());
+        assert_eq!(built.time, Duration::from_millis(30));
+        assert_eq!(built.count, Some(Value::DInt(3)), "the live instance");
+        assert_eq!(built.followed, Some(Value::DInt(3)), "the live reference");
+        assert_eq!(built.total, Some(Value::DInt(3)));
+        assert_eq!(built.members[0], Some(Value::DInt(3)), "runs");
+        assert!(built.events.is_empty());
+        assert_eq!(next.count, Some(Value::DInt(5)), "the new body runs");
+        assert_eq!(next.followed, Some(Value::DInt(5)));
+        assert_eq!(next.total, Some(Value::DInt(4)));
+        assert_eq!(next.members[0], Some(Value::DInt(4)));
+        assert_eq!(one.after.generation, Generation::FIRST, "the source stays");
+        assert_eq!(one.after, one.before);
+
+        // 2. The same, with a saved snapshot: it is applied over the live values, by name. `total`
+        // takes the saved 100, `count` and `runs` keep their live 3, and the name that the program
+        // does not declare is reported once as an orphan.
+        let mut saved = RetainSnapshot::default();
+        saved.insert("total", Value::DInt(100));
+        saved.insert("ghost", Value::DInt(1));
+        let two = replace_through_both(BLOCKS, &congruent, 0, &[10, 20, 30], Some(&saved), 40);
+        assert_eq!(two.borrowed, two.owned, "congruent with a saved snapshot");
+        let (built, next) = candidate_of(&two.borrowed);
+        assert_eq!(built.total, Some(Value::DInt(100)), "the saved value wins");
+        assert_eq!(built.count, Some(Value::DInt(3)));
+        assert_eq!(built.members[0], Some(Value::DInt(3)));
+        assert_eq!(
+            built.events,
+            [RetainApplyEvent::Orphan {
+                name: "ghost".into()
+            }]
+        );
+        assert_eq!(next.total, Some(Value::DInt(101)));
+
+        // 3. A candidate that is not congruent. The A4 program runs a 25 ms task; its scans at 25, 50
+        // and 75 ms leave the retained `activations` at 3. The candidate names that variable
+        // `activations2`, so it is not congruent and the snapshot of the retained values migrates by
+        // name: the saved key `@program/Plant/activations` names no declared destination and is
+        // reported as an orphan, and `activations2` has its declared initial value, 0. The generation
+        // is 2 and the time 75 ms.
+        let renamed_a4 = renamed(A4, "activations", "activations2");
+        let three = replace_through_both(A4, &renamed_a4, 0, &[25, 50, 75], None, 100);
+        assert_eq!(three.borrowed, three.owned, "not congruent");
+        assert_eq!(three.before.members[1], Some(Value::DInt(3)));
+        let (built, next) = candidate_of(&three.borrowed);
+        assert_eq!(built.generation, Generation::FIRST.next().unwrap());
+        assert_eq!(built.time, Duration::from_millis(75));
+        assert_eq!(built.members[1], None, "the old name is gone");
+        assert_eq!(built.members[2], Some(Value::DInt(0)));
+        assert_eq!(
+            built.events,
+            [RetainApplyEvent::Orphan {
+                name: "@program/Plant/activations".into()
+            }]
+        );
+        assert_eq!(next.members[2], Some(Value::DInt(1)), "it runs on from 0");
+
+        // 4. A candidate that is not congruent while the program holds a retained function-block
+        // instance and a retained reference. Neither can be serialized into a snapshot, so both
+        // states refuse the change with the same error, and the source is exactly as it was.
+        let renamed_blocks = renamed(BLOCKS, "total", "sum");
+        let four = replace_through_both(BLOCKS, &renamed_blocks, 0, &[10, 20, 30], None, 40);
+        let refusal = RuntimeError::RetainMigration(
+            "retained live-object graph requires congruent admitted schema".into(),
+        );
+        assert_eq!(four.borrowed, Err(refusal.clone()));
+        assert_eq!(four.owned, Err(refusal));
+        assert_eq!(four.after, four.before);
+
+        // 5. The images and the logical time. The board probe copies its input to its output every
+        // 10 ms. With the input at 1, the scans at 10 and 20 ms leave the input and the output image
+        // at 1. The same program, congruent, carries both images into the candidate, whose outputs
+        // are still 1 (an image built anew is 0), at the generation 2 and the time 20 ms.
+        let five = replace_through_both(PROBE, PROBE, 1, &[10, 20], None, 30);
+        assert_eq!(five.borrowed, five.owned, "images");
+        assert_eq!(five.before.inputs, [1]);
+        assert_eq!(five.before.outputs, [1]);
+        let (built, _) = candidate_of(&five.borrowed);
+        assert_eq!(built.inputs, [1]);
+        assert_eq!(built.outputs, [1]);
+        assert_eq!(built.time, Duration::from_millis(20));
+        assert_eq!(built.generation, Generation::FIRST.next().unwrap());
     }
 }

@@ -32,6 +32,7 @@ SECTION 0x0008
 SECTION 0x000B
 SECTION 0x000A
 SECTION 0x0009
+SECTION 0x0011
 SECTION 0x000D
   DECL 0 owner=Global role=Variable retain=1 flags=0 owner_pou_id=none name_idx=3 type_id=0 slot=0 ref_idx=0 default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
   DECL 1 owner=Global role=Variable retain=1 flags=0 owner_pou_id=none name_idx=4 type_id=1 slot=1 ref_idx=1 default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none

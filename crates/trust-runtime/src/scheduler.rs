@@ -38,6 +38,7 @@ include!("scheduler/handle_shared.rs");
 
 mod command_queue;
 mod faulted;
+mod stopped;
 mod supervisor;
 
 #[cfg(test)]

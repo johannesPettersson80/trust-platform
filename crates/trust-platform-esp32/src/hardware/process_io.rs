@@ -1,14 +1,24 @@
 //! The GPIO process image of the installed program (design §1.2 and specification 34, §7.2,
-//! TARGET-01 and STATE-04): one input or output line for each `io.toml` `gpio` line, named by a
-//! pin (`GPIO18`) and a bit of the flat process image, with its invert and, for an output, its
-//! initial value.
+//! TARGET-01 and STATE-04): one input or output line for each `io.toml` `gpio` line, named by a pin
+//! (`GPIO18`) and a bit of the flat process image, with its invert and, for an output, its initial
+//! value.
 //!
-//! The lines are plain data the installed-application record fills (a later slice); this module
-//! checks the pin against the chip's file and inverts a level. `GpioIo` drives the esp-hal pins
-//! behind the crate's riscv32 gate, so the pin check and the inversion run in `tests/pin_lines.rs`
-//! without hardware.
+//! The lines are plain data the installed-application record fills; this module checks the pin against
+//! the chip's file and claims it. The image itself is the shared one of
+//! `trust_runtime_services::chip::process_io`: `Esp32Pins` drives the esp-hal pins behind the crate's
+//! riscv32 gate, so the pin check and the inversion run in `tests/pin_lines.rs` without hardware.
+//!
+//! A program that is loaded in place (specification 34 STATE-08) claims its lines after the program
+//! before it released them. A line holds a [`PinClaim`] with its pin, and the claim frees the pin when
+//! the line is dropped, with the program's cycle, so the next program claims the same pin again. The
+//! claims are the host-testable half; the esp-hal pins are the riscv32 half.
 
+use alloc::rc::Rc;
+use core::cell::Cell;
 use core::fmt;
+use core::sync::atomic::{AtomicU32, Ordering};
+
+use trust_runtime_services::chip::process_io::ImageBit;
 
 /// A pin number of the esp32 GPIO family, printed `GPIO0` to `GPIO255`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -139,10 +149,20 @@ pub struct InputLine {
 }
 
 impl InputLine {
+    /// The line's bit of the flat input image, with its inversion.
+    #[must_use]
+    pub const fn image_bit(self) -> ImageBit {
+        ImageBit {
+            byte: self.byte,
+            bit: self.bit,
+            invert: self.invert,
+        }
+    }
+
     /// The logical input value of the pin's physical level `high`; an inverted line flips it.
     #[must_use]
     pub const fn level(self, high: bool) -> bool {
-        high != self.invert
+        self.image_bit().value(high)
     }
 }
 
@@ -160,78 +180,237 @@ pub struct OutputLine {
     pub invert: bool,
     /// The initial logical output value driven at boot (`io.toml` `initial`).
     pub initial: bool,
+    /// The logical safe value: the output's `[[io.safe_state]]` entry, false without one
+    /// (specification 34, TARGET-08).
+    pub safe: bool,
 }
 
 impl OutputLine {
+    /// The line's bit of the flat output image, with its inversion.
+    #[must_use]
+    pub const fn image_bit(self) -> ImageBit {
+        ImageBit {
+            byte: self.byte,
+            bit: self.bit,
+            invert: self.invert,
+        }
+    }
+
     /// The pin's physical level for the logical output value `value`; an inverted line flips it.
     #[must_use]
     pub const fn level(self, value: bool) -> bool {
-        value != self.invert
+        self.image_bit().level(value)
+    }
+
+    /// The pin's physical level in the output's safe state: its safe value, with its inversion.
+    #[must_use]
+    pub const fn safe_level(self) -> bool {
+        self.level(self.safe)
+    }
+}
+
+/// The safe levels of the configured outputs, which the terminal fault path drives before the chip
+/// resets (specification 34, TARGET-08): one bit per GPIO number for each output, and one for each
+/// output whose safe level is high. An output is recorded once it has become an output, so the
+/// fault path drives only pins it can drive.
+#[derive(Debug, Default)]
+pub struct SafeLevels {
+    outputs: AtomicU32,
+    high: AtomicU32,
+}
+
+impl SafeLevels {
+    /// No output recorded.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            outputs: AtomicU32::new(0),
+            high: AtomicU32::new(0),
+        }
+    }
+
+    /// Records `pin` as an output whose safe level is high when `high`, and low otherwise.
+    pub fn record(&self, pin: GpioPin, high: bool) {
+        let bit = 1 << pin.number();
+        if high {
+            self.high.fetch_or(bit, Ordering::Relaxed);
+        } else {
+            self.high.fetch_and(!bit, Ordering::Relaxed);
+        }
+        self.outputs.fetch_or(bit, Ordering::Relaxed);
+    }
+
+    /// Forgets `pin`: the line that held it was dropped with its program (specification 34 STATE-08),
+    /// so the fault path no longer drives it, and a pin the next program claims is recorded again.
+    pub fn forget(&self, pin: GpioPin) {
+        let bit = 1 << pin.number();
+        self.outputs.fetch_and(!bit, Ordering::Relaxed);
+        self.high.fetch_and(!bit, Ordering::Relaxed);
+    }
+
+    /// The bank-0 masks of the recorded outputs: the pins to drive high, and the pins to drive low.
+    #[must_use]
+    pub fn masks(&self) -> (u32, u32) {
+        let outputs = self.outputs.load(Ordering::Relaxed);
+        let high = self.high.load(Ordering::Relaxed) & outputs;
+        (high, outputs & !high)
+    }
+}
+
+/// The pins that lines hold now, one bit for each pin number. A line claims its pin here when the
+/// program that owns it is loaded, and a pin that is held cannot be claimed again until its line is
+/// dropped (specification 34 STATE-08, TARGET-01).
+#[derive(Debug, Clone, Default)]
+pub struct PinClaims(Rc<Cell<u32>>);
+
+impl PinClaims {
+    /// Claims `pin` for a line.
+    ///
+    /// # Errors
+    ///
+    /// [`PinError::Claimed`] when a line holds the pin, and [`PinError::NoSuchPin`] for a number
+    /// above 31, which the one-word set cannot hold.
+    pub fn claim(&self, pin: GpioPin) -> Result<PinClaim, PinError> {
+        let bit = 1_u32
+            .checked_shl(u32::from(pin.number()))
+            .ok_or(PinError::NoSuchPin(pin))?;
+        if self.0.get() & bit != 0 {
+            return Err(PinError::Claimed(pin));
+        }
+        self.0.set(self.0.get() | bit);
+        Ok(PinClaim {
+            claims: self.clone(),
+            bit,
+        })
+    }
+
+    /// Whether a line holds `pin` now.
+    #[must_use]
+    pub fn holds(&self, pin: GpioPin) -> bool {
+        1_u32
+            .checked_shl(u32::from(pin.number()))
+            .is_some_and(|bit| self.0.get() & bit != 0)
+    }
+}
+
+/// A pin held by a line. Dropping it frees the pin, so the program that is loaded next can claim it.
+#[derive(Debug)]
+pub struct PinClaim {
+    claims: PinClaims,
+    bit: u32,
+}
+
+impl Drop for PinClaim {
+    fn drop(&mut self) {
+        self.claims.0.set(self.claims.0.get() & !self.bit);
     }
 }
 
 #[cfg(all(target_arch = "riscv32", target_os = "none"))]
 mod gpio {
-    use alloc::vec;
     use alloc::vec::Vec;
 
     use esp_hal::gpio::{AnyPin, Flex, Input, InputConfig, Level};
-    use trust_runtime_core::deployment::{GpioInput, GpioOutput};
-    use trust_runtime_core::error::RuntimeError;
-    use trust_runtime_services::runner::engine::ProcessIo;
-    use trust_runtime_services::status::{IoDriverHealth, IoDriverStatus};
+    use trust_runtime_core::deployment::{Configuration, GpioInput, GpioOutput};
+    use trust_runtime_services::chip::process_io::{safe_value, GpioPins, ProcessImage};
 
     use super::{
-        check_pin, GpioPin, InputLine, OutputLine, PinError, CHIP_GPIO_PINS, CHIP_GPIO_RESERVED,
+        check_pin, GpioPin, InputLine, OutputLine, PinClaim, PinClaims, PinError, CHIP_GPIO_PINS,
+        CHIP_GPIO_RESERVED,
     };
 
-    /// The chip's GPIO bank, one entry per pin, taken once from the HAL's `Peripherals`. A line
-    /// claims its pin by name, so no board's pins are built in (specification 34, ARCH-10 and
-    /// TARGET-01).
+    /// The chip's GPIO bank, one entry per pin, taken once from the HAL's `Peripherals`. A line claims
+    /// its pin by name, so no board's pins are built in (specification 34, ARCH-10 and TARGET-01). The
+    /// bank keeps every pin for the life of the boot and lends one to the line that claims it, so a
+    /// program loaded later claims the pins the program before it released (specification 34 STATE-08).
     pub struct GpioBank {
         pins: [Option<AnyPin<'static>>; CHIP_GPIO_PINS as usize],
+        claims: PinClaims,
     }
 
     impl GpioBank {
         /// The bank of every pin of the chip, in pin order.
         #[must_use]
         pub fn new(pins: [Option<AnyPin<'static>>; CHIP_GPIO_PINS as usize]) -> Self {
-            Self { pins }
+            Self {
+                pins,
+                claims: PinClaims::default(),
+            }
         }
 
-        /// The pin `pin`, or `None` when another line already claimed it.
-        fn take(&mut self, pin: GpioPin) -> Option<AnyPin<'static>> {
-            self.pins.get_mut(usize::from(pin.number()))?.take()
+        /// A copy of `pin` for a line to drive, and the claim that holds it. The claim is refused while
+        /// another line holds the pin.
+        fn claim(&self, pin: GpioPin) -> Result<(AnyPin<'static>, PinClaim), PinError> {
+            let claim = self.claims.claim(pin)?;
+            let owned = self
+                .pins
+                .get(usize::from(pin.number()))
+                .and_then(Option::as_ref)
+                .ok_or(PinError::NoSuchPin(pin))?;
+            // SAFETY: `PinClaims::claim` above refused the pin if a line held it, and a line keeps
+            // its `PinClaim` next to the driver built from this copy (`ClaimedInput` and
+            // `ClaimedOutput` own both and drop them together), so the claim is released only when
+            // that driver is gone. At most one driver of the pin exists at a time, which is what
+            // `clone_unchecked` asks of its caller.
+            let copy = unsafe { owned.clone_unchecked() };
+            Ok((copy, claim))
         }
     }
 
-    /// The claimed GPIO lines of the installed application: the esp-hal input pins with their
-    /// image lines, and the output pins with theirs, in `io.toml` order.
+    /// A claimed input line: its esp-hal driver and the claim on its pin.
+    pub struct ClaimedInput {
+        pin: Input<'static>,
+        _claim: PinClaim,
+    }
+
+    /// A claimed output line: its esp-hal driver and the claim on its pin. It is registered with the
+    /// terminal fault path, and forgotten there when it is dropped.
+    pub struct ClaimedOutput {
+        pin: Flex<'static>,
+        number: GpioPin,
+        _claim: PinClaim,
+    }
+
+    impl Drop for ClaimedOutput {
+        fn drop(&mut self) {
+            // The fault path drives only the outputs of the program that runs (TARGET-08).
+            crate::hardware::emergency::forget_output(self.number);
+        }
+    }
+
+    /// The claimed GPIO lines of the installed application: the input pins with their image lines, and
+    /// the output pins with theirs, in `io.toml` order.
     pub type ClaimedLines = (
-        Vec<(Input<'static>, InputLine)>,
-        Vec<(Flex<'static>, OutputLine)>,
+        Vec<(ClaimedInput, InputLine)>,
+        Vec<(ClaimedOutput, OutputLine)>,
     );
 
     /// Claims the record's GPIO lines by pin name, in `io.toml` order: each pin is checked against
     /// the chip's file and taken from the bank, and an output is driven to its initial level
-    /// before its driver is enabled (specification 34, STATE-01 and TARGET-01).
+    /// before its driver is enabled (specification 34, STATE-01 and TARGET-01). Each output's safe
+    /// level, its `[[io.safe_state]]` value in `config`, is recorded for the terminal fault path
+    /// (TARGET-08). A line that fails releases the pins of the lines before it.
     ///
     /// # Errors
     ///
     /// The [`PinError`] of a line that is not a pin name, a pin the chip lacks or keeps, or one
     /// pin named by two lines.
     pub fn claim_lines(
-        bank: &mut GpioBank,
+        bank: &GpioBank,
         inputs: &[GpioInput],
         outputs: &[GpioOutput],
+        config: &Configuration,
     ) -> Result<ClaimedLines, PinError> {
         let reserved = CHIP_GPIO_RESERVED.map(GpioPin::from_number);
         let mut input_lines = Vec::with_capacity(inputs.len());
         for input in inputs {
             let pin = check_pin(&input.line, CHIP_GPIO_PINS, &reserved)?;
-            let any = bank.take(pin).ok_or(PinError::Claimed(pin))?;
+            let (any, claim) = bank.claim(pin)?;
             input_lines.push((
-                Input::new(any, InputConfig::default()),
+                ClaimedInput {
+                    pin: Input::new(any, InputConfig::default()),
+                    _claim: claim,
+                },
                 InputLine {
                     byte: input.address.byte as usize,
                     bit: input.address.bit,
@@ -243,88 +422,75 @@ mod gpio {
         let mut output_lines = Vec::with_capacity(outputs.len());
         for output in outputs {
             let pin = check_pin(&output.line, CHIP_GPIO_PINS, &reserved)?;
-            let any = bank.take(pin).ok_or(PinError::Claimed(pin))?;
+            let (any, claim) = bank.claim(pin)?;
             let line = OutputLine {
                 byte: output.address.byte as usize,
                 bit: output.address.bit,
                 pin,
                 invert: output.invert,
                 initial: output.initial,
+                safe: safe_value(config, &output.address),
             };
             let mut handle = Flex::new(any);
             handle.set_level(level(line.level(line.initial)));
             handle.set_output_enable(true);
-            // The terminal fault path drives this pin to its safe level (design §1.1, R4).
-            crate::hardware::emergency::register_output(pin);
-            output_lines.push((handle, line));
+            // The terminal fault path drives this pin to its safe level (specification 34,
+            // TARGET-08; design §1.1, R4).
+            crate::hardware::emergency::register_output(pin, line.safe_level());
+            output_lines.push((
+                ClaimedOutput {
+                    pin: handle,
+                    number: pin,
+                    _claim: claim,
+                },
+                line,
+            ));
         }
         Ok((input_lines, output_lines))
     }
 
-    /// The installed program's GPIO process image over esp-hal pins, one pin per configured line
-    /// and in the same order.
-    pub struct GpioIo {
-        inputs: Vec<(Input<'static>, InputLine)>,
-        outputs: Vec<(Flex<'static>, OutputLine)>,
-    }
+    /// The esp-hal pins behind the shared process image: an input is read, and an output is driven,
+    /// through the handle its claim returned (specification 34, TARGET-01).
+    pub struct Esp32Pins;
 
-    impl GpioIo {
-        /// Binds each configured line to its esp-hal pin, in `io.toml` order, and drives every
-        /// output to its initial level before it becomes an output (specification 34, STATE-01).
-        /// The caller has already configured each pin.
-        #[must_use]
-        pub fn new(
-            inputs: Vec<(Input<'static>, InputLine)>,
-            outputs: Vec<(Flex<'static>, OutputLine)>,
-        ) -> Self {
-            let mut this = Self { inputs, outputs };
-            for (pin, line) in &mut this.outputs {
-                pin.set_level(level(line.level(line.initial)));
-            }
-            this
+    impl GpioPins for Esp32Pins {
+        type Input = ClaimedInput;
+        type Output = ClaimedOutput;
+
+        fn is_high(&self, input: &ClaimedInput) -> bool {
+            input.pin.is_high()
+        }
+
+        fn drive(&mut self, output: &mut ClaimedOutput, high: bool) {
+            output.pin.set_level(level(high));
         }
     }
 
-    impl ProcessIo for GpioIo {
-        fn read_inputs(&mut self, image: &mut [u8]) -> Result<(), RuntimeError> {
-            for (pin, line) in &self.inputs {
-                write_bit(image, line.byte, line.bit, line.level(pin.is_high()))?;
-            }
-            Ok(())
-        }
+    /// The installed program's GPIO process image over the esp-hal pins, one entry per configured line
+    /// in `io.toml` order.
+    pub type GpioIo = ProcessImage<Esp32Pins>;
 
-        fn write_outputs(&mut self, image: &[u8]) -> Result<(), RuntimeError> {
-            for (pin, line) in &mut self.outputs {
-                let value = line.level(read_bit(image, line.byte, line.bit)?);
-                pin.set_level(level(value));
-            }
-            Ok(())
+    /// Binds the claimed lines to the shared process image. Each output is driven to its initial level
+    /// before the program runs, as the claim left it (specification 34, STATE-01).
+    #[must_use]
+    pub fn bind_lines(
+        inputs: Vec<(ClaimedInput, InputLine)>,
+        mut outputs: Vec<(ClaimedOutput, OutputLine)>,
+    ) -> GpioIo {
+        for (claimed, line) in &mut outputs {
+            claimed.pin.set_level(level(line.level(line.initial)));
         }
-
-        fn write_safe_outputs(&mut self, image: &[u8]) -> Result<(), RuntimeError> {
-            // Specification 34, STATE-04: every output is attempted even when one fails, and the
-            // first failure is reported. A GPIO write cannot fail; an unreadable image bit is a
-            // mapping fault.
-            let mut first = None;
-            for (pin, line) in &mut self.outputs {
-                match read_bit(image, line.byte, line.bit) {
-                    Ok(raw) => pin.set_level(level(line.level(raw))),
-                    Err(error) => {
-                        if first.is_none() {
-                            first = Some(error);
-                        }
-                    }
-                }
-            }
-            first.map_or(Ok(()), Err)
-        }
-
-        fn driver_health(&self) -> Vec<IoDriverStatus> {
-            vec![IoDriverStatus {
-                name: "gpio".into(),
-                health: IoDriverHealth::Ok,
-            }]
-        }
+        ProcessImage::new(
+            Esp32Pins,
+            inputs
+                .into_iter()
+                .map(|(pin, line)| (pin, line.image_bit()))
+                .collect(),
+            outputs
+                .into_iter()
+                .map(|(pin, line)| (pin, line.image_bit()))
+                .collect(),
+        )
     }
 
     /// The pin level of a logical value.
@@ -335,39 +501,9 @@ mod gpio {
             Level::Low
         }
     }
-
-    /// Reads bit `bit` of byte `byte` in `image`.
-    fn read_bit(image: &[u8], byte: usize, bit: u8) -> Result<bool, RuntimeError> {
-        if bit > 7 {
-            return Err(invalid("gpio bit index must be between 0 and 7"));
-        }
-        let Some(value) = image.get(byte) else {
-            return Err(invalid("gpio output mapping outside the image"));
-        };
-        Ok(value & (1 << bit) != 0)
-    }
-
-    /// Writes `value` to bit `bit` of byte `byte` in `image`.
-    fn write_bit(image: &mut [u8], byte: usize, bit: u8, value: bool) -> Result<(), RuntimeError> {
-        if bit > 7 {
-            return Err(invalid("gpio bit index must be between 0 and 7"));
-        }
-        let Some(target) = image.get_mut(byte) else {
-            return Err(invalid("gpio input mapping outside the image"));
-        };
-        if value {
-            *target |= 1 << bit;
-        } else {
-            *target &= !(1 << bit);
-        }
-        Ok(())
-    }
-
-    /// A driver error with the message `message`.
-    fn invalid(message: &str) -> RuntimeError {
-        RuntimeError::InvalidConfig(message.into())
-    }
 }
 
 #[cfg(all(target_arch = "riscv32", target_os = "none"))]
-pub use gpio::{claim_lines, ClaimedLines, GpioBank, GpioIo};
+pub use gpio::{
+    bind_lines, claim_lines, ClaimedInput, ClaimedLines, ClaimedOutput, Esp32Pins, GpioBank, GpioIo,
+};

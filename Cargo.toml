@@ -14,19 +14,24 @@ members = [
     "crates/verification-cases",
     "crates/trust-runtime-core",
     "crates/trust-runtime-services",
+    "crates/trust-platform-stm32",
     "crates/trust-platform-stm32f4",
+    "crates/trust-platform-stm32u5",
     "crates/trust-platform-esp32",
     "crates/trust-platform-memory",
     "crates/trust-board-fixture",
     "crates/trust-chips",
     "crates/trust-runtime",
+    "crates/trust-runtime-client",
+    "crates/trust-devices",
     "crates/trust-tcads-native",
     "crates/trust-wasm-analysis",
 ]
 exclude = [
     "third_party/tiverse-mmap",
     "firmware/trust-stm32f407",
-    "firmware/trust-esp32c6-reference",
+    "firmware/trust-esp32c6",
+    "firmware/trust-stm32u5a9",
 ]
 
 [workspace.package]
@@ -105,6 +110,10 @@ rumqttc = { version = "0.25.1", default-features = false, features = ["use-nativ
 native-tls = { version = "0.2.18", features = ["alpn", "vendored"] }
 time = "0.3.55"
 rapier3d = { version = "0.36.1", default-features = false, features = ["dim3", "f32", "enhanced-determinism"] }
+# The USB and serial listings of the one search (specification 11): they read what the operating
+# system lists and never open a device. No libudev: Linux reads sysfs.
+nusb = "0.2.8"
+serialport = { version = "4.10.1", default-features = false }
 
 # Internal crates
 trust-syntax = { path = "crates/trust-syntax" }
@@ -119,8 +128,11 @@ trust-runtime-core = { path = "crates/trust-runtime-core", default-features = fa
 trust-runtime-services = { path = "crates/trust-runtime-services" }
 trust-board-fixture = { path = "crates/trust-board-fixture" }
 trust-platform-memory = { path = "crates/trust-platform-memory" }
+trust-platform-stm32 = { path = "crates/trust-platform-stm32" }
 trust-chips = { path = "crates/trust-chips" }
 trust-runtime = { path = "crates/trust-runtime" }
+trust-runtime-client = { path = "crates/trust-runtime-client" }
+trust-devices = { path = "crates/trust-devices" }
 trust-tcads-native = { path = "crates/trust-tcads-native" }
 trust-wasm-analysis = { path = "crates/trust-wasm-analysis" }
 

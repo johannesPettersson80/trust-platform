@@ -503,14 +503,14 @@ mod tests {
         }
         out.push_str("B1,NUM_STATE,15000000,1,40,200,16800,1000000000,0,101\n");
         for phase in PHASES {
-            writeln!(out, "B1,MEM,{phase},0,4096,10,0,4096,12288,24,8").unwrap();
+            writeln!(out, "B1,MEM,{phase},0,4096,10,0,4096,20480,24,8").unwrap();
         }
         for phase in ["main-prepare", "numeric-prepare", "gpio-prepare"] {
             writeln!(out, "B1,PREP,{phase},12000,20000").unwrap();
         }
         out.push_str("B1,GPIO,physical,10,1,0,0,0,0\nB1,GPIO,injected,20,1,0,0,0,0\nB1,GPIO,injected,30,1,0,1,1,1\nB1,GPIO,injected,40,1,0,0,0,0\nB1,IO,gpio-STOP,1,0,0,0\n");
         for depth in 1..=4 {
-            writeln!(out, "B1,STACK,{depth},4096,12288,{}", 1100 + depth * 10).unwrap();
+            writeln!(out, "B1,STACK,{depth},4096,20480,{}", 1100 + depth * 10).unwrap();
         }
         out.push_str("B1,STACK_PEAK,4096\nB1,IO,gpio-pre-safe,1,0,1,1\nB1,IO,gpio-STOP-high,1,0,0,0\nB1,IO,gpio-pre-safe,1,0,1,1\nB1,IO,gpio-FAULT,1,0,0,0\nB1,STATE,WATCHDOG_ARM\n");
         writeln!(out, "{C6_SECOND}").unwrap();
@@ -553,7 +553,7 @@ mod tests {
                 "B1,GPIO,injected,30,1,0,1,1,1",
                 "B1,GPIO,injected,30,1,0,1,1,0",
             ),
-            ("B1,STACK,4,4096,12288,1140", "B1,STACK,4,15000,1384,1140"),
+            ("B1,STACK,4,4096,20480,1140", "B1,STACK,4,22529,2047,1140"),
             (
                 "B1,STATE,WATCHDOG_ARM",
                 "B1,STATE,WATCHDOG_ARM\nB1,STATE,WATCHDOG_ARM",
@@ -694,11 +694,13 @@ mod tests {
     }
 
     /// The synthetic protocol as the DISC1 firmware prints it: the F407's IDENTITY words with a
-    /// CLOCK record right after each, and a released button reading low.
+    /// CLOCK record right after each, a released button reading low, and the F407's 16 KiB stack
+    /// window, where the C6 synthetic protocol carries 24 KiB (specification 34, D.4).
     fn f407_synthetic() -> String {
         button_high_when_pressed(&synthetic())
             .replace(C6_FIRST, &format!("{F407_FIRST}\n{F407_CLOCK}"))
             .replace(C6_SECOND, &format!("{F407_SECOND}\n{F407_CLOCK}"))
+            .replace(",4096,20480,", ",4096,12288,")
     }
 
     #[test]

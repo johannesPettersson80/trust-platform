@@ -2,7 +2,6 @@
 //! composition owns the static arenas and the addresses; this module owns the logic.
 #[cfg(target_os = "none")]
 use crate::board::{Measurement, Memory};
-use crate::stack;
 use core::{
     alloc::{GlobalAlloc, Layout},
     sync::atomic::{AtomicUsize, Ordering},
@@ -143,7 +142,8 @@ unsafe impl GlobalAlloc for MeasuredHeap {
     }
 }
 
-/// Main-stack window in RAM, measured from the bottom up. Its span is one stack budget.
+/// Main-stack window in RAM, measured from the bottom up. Each composition sets its own span: the
+/// ESP32-C6 uses 24 KiB and the STM32F407 16 KiB (specification 34, D.2 and D.4).
 #[derive(Debug, Clone, Copy)]
 pub struct StackWindow {
     bottom: usize,
@@ -151,12 +151,13 @@ pub struct StackWindow {
 }
 
 impl StackWindow {
-    /// Build the window; a span other than [`stack::STACK_BYTES`] fails at compile time
-    /// when this is evaluated in a constant.
+    /// Build the window from `bottom` up to `top`. The span is a non-empty whole number of 32-bit
+    /// words, which the paint and the measurement step through; any other span fails at compile
+    /// time when this is evaluated in a constant.
     pub const fn new(bottom: usize, top: usize) -> Self {
         assert!(
-            top.wrapping_sub(bottom) == stack::STACK_BYTES,
-            "stack window must span STACK_BYTES"
+            top > bottom && (top - bottom).is_multiple_of(4),
+            "stack window must be a non-empty whole number of words"
         );
         Self { bottom, top }
     }

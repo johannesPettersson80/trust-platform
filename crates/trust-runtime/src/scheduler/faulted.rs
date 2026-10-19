@@ -71,15 +71,25 @@ pub(super) fn wait_while_faulted<C: Clock + Clone>(
         if stop.load(Ordering::SeqCst) {
             return FaultedWait::Stopped;
         }
+        // A `shutdown` of a faulted program stops nothing more: the fault has stopped it
+        // (specification 34, STATE-08). The request released the debugger's hold, so the
+        // debugger is armed again for the program's next start.
+        if supervision.take_program_stop()
+            && let Some(debug) = runner.runtime.debug_control()
+        {
+            debug.rearm_after_stop();
+        }
         let online_change_applied = match next_command(runner) {
             Some(command) => serve_command(runner, command),
             None => false,
         };
         if online_change_applied {
+            // The running program is the one the online change gave it, not a stopped one.
+            runner.reload_required = false;
             return finish_recovery(state, last_error, supervision, automatic_restarts);
         }
         if let Some(mode) = take_pending_restart(runner) {
-            match runner.restart_with_retain_store(mode) {
+            match runner.restart_or_reload(mode) {
                 Ok(()) => {
                     return finish_recovery(state, last_error, supervision, automatic_restarts);
                 }
@@ -123,7 +133,9 @@ pub(super) fn take_pending_restart<C: Clock + Clone>(
 }
 
 /// Waits up to one poll period for a command. A missing or closed channel still paces the wait.
-fn next_command<C: Clock + Clone>(runner: &ResourceRunner<C>) -> Option<ResourceCommand> {
+pub(super) fn next_command<C: Clock + Clone>(
+    runner: &ResourceRunner<C>,
+) -> Option<ResourceCommand> {
     let Some(commands) = runner.command_rx.as_ref() else {
         thread::sleep(FAULTED_WAIT_POLL);
         return None;

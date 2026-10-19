@@ -150,12 +150,32 @@ pub enum Problem {
         /// The region's key.
         region: &'static str,
     },
+    /// A boot counter sector is not exactly one erase unit.
+    #[error("layout.{region} is not exactly one erase unit")]
+    NotOneEraseUnit {
+        /// The region's key.
+        region: &'static str,
+    },
     /// Two layout regions overlap.
     #[error("layout.{first} and layout.{second} overlap")]
     RegionsOverlap {
         /// The earlier region's key.
         first: &'static str,
         /// The later region's key.
+        second: &'static str,
+    },
+    /// A program slot lies outside `application`.
+    #[error("layout.{slot} lies outside layout.application")]
+    OutsideApplication {
+        /// The slot's key.
+        slot: &'static str,
+    },
+    /// The two program slots are not of one size.
+    #[error("layout.{first} and layout.{second} are not the same size")]
+    UnequalSlots {
+        /// The first slot's key.
+        first: &'static str,
+        /// The second slot's key.
         second: &'static str,
     },
     /// The region the chip starts from is not where the chip starts.

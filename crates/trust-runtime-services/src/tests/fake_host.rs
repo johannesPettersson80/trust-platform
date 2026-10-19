@@ -9,6 +9,7 @@ use core::cell::{Cell, RefCell};
 
 use serde_json::json;
 use smol_str::SmolStr;
+use trust_runtime_core::deployment::DeviceDescriptor;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{Generation, InstanceId};
@@ -18,7 +19,9 @@ use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::Value;
 
 use crate::access::{resolve_role, AccessRole, AuthFailure};
+use crate::capabilities::LastReset;
 use crate::events::{RuntimeEvent, EVENT_STORE_CAPACITY};
+use crate::installation::Admitted;
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use crate::live_values::queues::{
     ForcedSnapshot, ForcedVarTarget, LiveValueQueues, PendingVarTarget,
@@ -27,12 +30,14 @@ use crate::live_values::var_requests::VariableQueuePort;
 use crate::live_values::RequestQueueFull;
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::ports::{
-    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, RecordsPort, ResourcePort,
-    StatusPort,
+    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl,
+    ProgramIdentities, ProgramIdentity, RecordsPort, ResourcePort, StatusPort,
+    TransferSessionError,
 };
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::resource::commands::CommandSendError;
 use crate::status::{IoDriverStatus, StatusSettings};
+use crate::transfer::TransferSession;
 
 /// The wall time the fake platform reports, in Unix milliseconds.
 pub(crate) const WALL_TIME_MS: u64 = 1_792_108_800_000;
@@ -62,6 +67,10 @@ pub(crate) enum Action {
 #[allow(clippy::struct_excessive_bools)] // one flag per platform condition under test
 pub(crate) struct FakeHost {
     pub(crate) resource_name: &'static str,
+    /// The platform the fake host reports, standing for the computer the tests run on.
+    pub(crate) platform: &'static str,
+    /// The stable runtime ID the fake host reports.
+    pub(crate) runtime_id: &'static str,
     pub(crate) control_token: Option<&'static str>,
     pub(crate) requires_auth: bool,
     pub(crate) pairing: Option<(&'static str, AccessRole)>,
@@ -98,6 +107,24 @@ pub(crate) struct FakeHost {
     pub(crate) generation: Generation,
     /// Why a device has no installed program, when it has none.
     pub(crate) missing_program: Option<&'static str>,
+    /// The device descriptor the `capabilities` operation reports; a computer's by default.
+    pub(crate) device_descriptor: DeviceDescriptor,
+    /// The reset the platform's boot read; `None` for a computer, which starts as a new process.
+    pub(crate) last_reset: Option<LastReset>,
+    /// The program-control posture the fake host reports.
+    pub(crate) program_control: ProgramControl,
+    /// The transfer session the transfer operations use; `None` for a platform without one.
+    pub(crate) transfers: Option<RefCell<TransferSession>>,
+    /// The identities `program.active` reports; `None` for a platform without a program store.
+    pub(crate) program_identities: Option<ProgramIdentities>,
+    /// Whether the platform keeps a program store that `program.install` commits to.
+    pub(crate) has_program_store: bool,
+    /// The retained-value check's refusal text, when the check refuses.
+    pub(crate) retained_refusal: Option<&'static str>,
+    /// The containers the commit was asked to store, in order.
+    pub(crate) commits: RefCell<Vec<Vec<u8>>>,
+    /// The identity a commit gives the program; `None` refuses every commit.
+    pub(crate) commit_identity: Option<ProgramIdentity>,
 }
 
 impl FakeHost {
@@ -105,6 +132,8 @@ impl FakeHost {
     pub(crate) fn running() -> Self {
         Self {
             resource_name: "RESOURCE",
+            platform: "test-platform",
+            runtime_id: "test-runtime-id",
             control_token: None,
             requires_auth: false,
             pairing: None,
@@ -131,6 +160,15 @@ impl FakeHost {
             io_snapshot: RefCell::new(IoSnapshotRead::Missing),
             generation: Generation::FIRST,
             missing_program: None,
+            device_descriptor: DeviceDescriptor::hosted(),
+            last_reset: None,
+            program_control: ProgramControl::Process,
+            transfers: None,
+            program_identities: None,
+            has_program_store: false,
+            retained_refusal: None,
+            commits: RefCell::new(Vec::new()),
+            commit_identity: None,
         }
     }
 
@@ -266,6 +304,18 @@ impl StatusPort for FakeHost {
         self.resource_name
     }
 
+    fn platform(&self) -> &str {
+        self.platform
+    }
+
+    fn runtime_id(&self) -> &str {
+        self.runtime_id
+    }
+
+    fn program_control(&self) -> ProgramControl {
+        self.program_control
+    }
+
     fn status_settings(&self) -> Option<StatusSettings> {
         self.readable("settings").then(|| StatusSettings {
             execution_backend: "vm",
@@ -293,6 +343,14 @@ impl StatusPort for FakeHost {
     fn openot_persistence(&self) -> Option<serde_json::Value> {
         self.readable("openot")
             .then(|| json!({"state": "disabled"}))
+    }
+
+    fn device_descriptor(&self) -> DeviceDescriptor {
+        self.device_descriptor.clone()
+    }
+
+    fn last_reset(&self) -> Option<LastReset> {
+        self.last_reset.clone()
     }
 }
 
@@ -326,6 +384,40 @@ impl RecordsPort for FakeHost {
         let events = self.events.borrow();
         let store: &VecDeque<RuntimeEvent> = &events;
         Some(read(store))
+    }
+
+    fn with_transfers<R>(
+        &self,
+        use_session: impl FnOnce(&mut TransferSession) -> R,
+    ) -> Result<R, TransferSessionError> {
+        let Some(session) = &self.transfers else {
+            return Err(TransferSessionError::Unsupported);
+        };
+        match session.try_borrow_mut() {
+            Ok(mut session) => Ok(use_session(&mut session)),
+            Err(_) => Err(TransferSessionError::Unavailable),
+        }
+    }
+
+    fn program_identities(&self) -> Option<ProgramIdentities> {
+        self.program_identities
+    }
+
+    fn has_program_store(&self) -> bool {
+        self.has_program_store
+    }
+
+    fn check_retained_values(&self, _admitted: &Admitted<'_>) -> Result<(), RuntimeError> {
+        match self.retained_refusal {
+            Some(text) => Err(RuntimeError::RetainMigration(text.into())),
+            None => Ok(()),
+        }
+    }
+
+    fn commit_program(&self, container: &[u8]) -> Result<ProgramIdentity, String> {
+        self.commits.borrow_mut().push(container.to_vec());
+        self.commit_identity
+            .ok_or_else(|| String::from("the fake store refuses the commit"))
     }
 }
 

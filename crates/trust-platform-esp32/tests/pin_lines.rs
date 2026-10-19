@@ -4,7 +4,8 @@
 
 use trust_chips::Catalog;
 use trust_platform_esp32::process_io::{
-    check_pin, GpioPin, InputLine, OutputLine, PinError, CHIP_GPIO_PINS, CHIP_GPIO_RESERVED,
+    check_pin, GpioPin, InputLine, OutputLine, PinClaims, PinError, SafeLevels, CHIP_GPIO_PINS,
+    CHIP_GPIO_RESERVED,
 };
 
 /// The C6's GPIO count and reserved pins, read from `chips/esp32c6.toml`.
@@ -81,7 +82,105 @@ fn an_inverted_input_reads_the_opposite_level() {
         pin: GpioPin::parse("GPIO18").expect("GPIO18 is a pin name"),
         invert: true,
         initial: false,
+        safe: false,
     };
     assert!(output.level(false));
     assert!(!output.level(true));
+}
+
+#[test]
+fn the_terminal_fault_path_drives_each_output_to_its_safe_level() {
+    // Specification 34, TARGET-08: each output goes to its `[[io.safe_state]]` value, and an output
+    // without one is de-energized; an inverted line drives the opposite level. GPIO2 is safe true,
+    // GPIO5 safe false, GPIO7 safe true on an inverted line and GPIO9 has no entry, so the fault path
+    // drives GPIO2 high and GPIO5, GPIO7 and GPIO9 low: masks 1 << 2 and (1 << 5) | (1 << 7) | (1 << 9).
+    // A pin recorded again takes its newer level. Catches every output driven low (the M2E rule this
+    // replaces), an inversion that is ignored, and a pin that was never an output being driven.
+    let line = |pin: &str, invert: bool, safe: bool| OutputLine {
+        byte: 0,
+        bit: 0,
+        pin: GpioPin::parse(pin).expect("a pin name"),
+        invert,
+        initial: false,
+        safe,
+    };
+    let levels = SafeLevels::new();
+    for output in [
+        line("GPIO2", false, true),
+        line("GPIO5", false, false),
+        line("GPIO7", true, true),
+        line("GPIO9", false, false),
+    ] {
+        levels.record(output.pin, output.safe_level());
+    }
+    assert_eq!(levels.masks(), (1 << 2, (1 << 5) | (1 << 7) | (1 << 9)));
+    levels.record(GpioPin::parse("GPIO5").expect("a pin name"), true);
+    assert_eq!(
+        levels.masks(),
+        ((1 << 2) | (1 << 5), (1 << 7) | (1 << 9)),
+        "a pin recorded again takes its newer level"
+    );
+    assert_eq!(
+        SafeLevels::new().masks(),
+        (0, 0),
+        "no output, no pin driven"
+    );
+}
+
+#[test]
+fn a_forgotten_output_is_no_longer_driven_by_the_terminal_fault_path() {
+    // Specification 34 STATE-08 and TARGET-08: the fault path drives the outputs of the program that
+    // runs. An output whose line was dropped with its program is forgotten, and an output the next
+    // program claims is recorded again, with its own safe level. GPIO2 (safe high) and GPIO5 (safe
+    // low) are recorded; forgetting GPIO2 leaves only GPIO5 to drive low; recording GPIO2 again with
+    // a low safe level drives both low; forgetting a pin that was never recorded changes nothing.
+    // Catches a fault path that keeps driving the pins of a program that is gone, and a forget that
+    // clears the level of the wrong pin.
+    let pin = |name: &str| GpioPin::parse(name).expect("a pin name");
+    let levels = SafeLevels::new();
+    levels.record(pin("GPIO2"), true);
+    levels.record(pin("GPIO5"), false);
+    assert_eq!(levels.masks(), (1 << 2, 1 << 5));
+    levels.forget(pin("GPIO2"));
+    assert_eq!(levels.masks(), (0, 1 << 5));
+    levels.forget(pin("GPIO7"));
+    assert_eq!(levels.masks(), (0, 1 << 5));
+    levels.record(pin("GPIO2"), false);
+    assert_eq!(levels.masks(), (0, (1 << 2) | (1 << 5)));
+}
+
+#[test]
+fn a_claimed_pin_is_free_again_when_its_line_is_dropped() {
+    // Specification 34 STATE-08 and TARGET-01: a pin belongs to one line at a time. GPIO18 is claimed
+    // and held; a second claim of it is refused with `GPIO18 is already claimed by another line`
+    // while GPIO19 is free; dropping the line frees GPIO18 and only GPIO18, and the program loaded
+    // next claims it again. Catches a claim that is never given back (the second program could claim
+    // no pin the first one used), a release that frees every pin, and a claim that refuses a pin
+    // another line does not hold.
+    let pin = |name: &str| GpioPin::parse(name).expect("a pin name");
+    let claims = PinClaims::default();
+    let line = claims.claim(pin("GPIO18")).expect("a free pin is claimed");
+    let other = claims.claim(pin("GPIO19")).expect("another pin is free");
+    assert!(claims.holds(pin("GPIO18")));
+    let refused = claims
+        .claim(pin("GPIO18"))
+        .expect_err("a held pin is refused");
+    assert_eq!(
+        refused.to_string(),
+        "GPIO18 is already claimed by another line"
+    );
+
+    drop(line);
+    assert!(
+        !claims.holds(pin("GPIO18")),
+        "the dropped line freed its pin"
+    );
+    assert!(claims.holds(pin("GPIO19")), "and only its pin");
+    let again = claims
+        .claim(pin("GPIO18"))
+        .expect("the program loaded next claims the pin again");
+    assert!(claims.holds(pin("GPIO18")));
+    drop((again, other));
+    assert!(!claims.holds(pin("GPIO18")));
+    assert!(!claims.holds(pin("GPIO19")));
 }

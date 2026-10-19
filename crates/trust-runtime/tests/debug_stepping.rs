@@ -137,7 +137,6 @@ END_PROGRAM
 
     let session = CompileSession::from_sources(vec![SourceFile::new(source)]);
     let mut runtime = session.build_runtime().unwrap();
-    let if_location = resolve_location(&runtime, source, 0, "IF Flag THEN");
     let then_location = resolve_location(&runtime, source, 0, "Flag := TRUE");
 
     let control = runtime.enable_debug();
@@ -154,24 +153,17 @@ END_PROGRAM
 
     let received = stop_rx.recv_timeout(Duration::from_millis(500));
 
-    // Breakpoint matching can be precise (non-taken branch does not stop) or coarse when
-    // statement ranges overlap (stop snaps to the enclosing IF location). Accept either behavior.
-    // Always clean up the cycle thread before asserting.
+    // The breakpoint is on the THEN branch, which does not run because Flag is FALSE. A statement
+    // matches a breakpoint only when it starts inside the breakpoint's span (spec 13, hook
+    // contract), and the enclosing IF starts before the branch, so no stop comes. Catches the old
+    // overlap rule, which stopped at the enclosing IF. Always clean up the cycle thread first.
     control.continue_run();
     handle.join().unwrap();
 
-    if let Ok(stop) = received {
-        assert_eq!(stop.reason, DebugStopReason::Breakpoint);
-        let stop_location = stop.location.expect("stop location");
-        assert_eq!(
-            stop_location.start, if_location.start,
-            "non-taken branch stop should only come from enclosing IF location"
-        );
-        assert!(
-            stop_location.end >= then_location.end,
-            "enclosing IF stop should cover the branch assignment range"
-        );
-    }
+    assert!(
+        received.is_err(),
+        "a breakpoint on a branch that does not run must not stop the scan, got {received:?}"
+    );
 }
 
 #[test]
@@ -209,8 +201,11 @@ END_PROGRAM
     control.continue_run();
     handle.join().unwrap();
 
+    // The branch runs because Flag is TRUE, so the breakpoint stops at the branch statement. The
+    // enclosing IF starts before the branch and does not match it (spec 13, hook contract).
     let stop = received.expect("expected breakpoint stop in taken branch");
     assert_eq!(stop.reason, DebugStopReason::Breakpoint);
+    assert_eq!(stop.location, Some(then_location));
 }
 
 #[test]

@@ -18,9 +18,12 @@ const VIEWER: &[&str] = &[
     "ads.server.symbols",
     "ads.status",
     "breakpoints.list",
+    "capabilities",
     "comm.capabilities",
     "comm.discover",
     "comm.schema",
+    "comm.search.cancel",
+    "comm.search.status",
     "config.get",
     "connectors.status",
     "debug.breakpoint_locations",
@@ -43,6 +46,7 @@ const VIEWER: &[&str] = &[
     "hmi.values.get",
     "io.list",
     "io.read",
+    "program.active",
     "status",
     "tasks.stats",
     "var.forced",
@@ -51,6 +55,7 @@ const VIEWER: &[&str] = &[
 const OPERATOR: &[&str] = &["hmi.alarm.ack", "pair.claim", "pause", "restart", "resume"];
 
 const ENGINEER: &[&str] = &[
+    "ads.import_symbols.remove",
     "ads.server.doctor",
     "ads.server.doctor.start",
     "breakpoints.clear",
@@ -82,7 +87,13 @@ const ADMIN: &[&str] = &[
     "pair.list",
     "pair.revoke",
     "pair.start",
+    "program.install",
     "shutdown",
+    "transfer.abort",
+    "transfer.begin",
+    "transfer.get",
+    "transfer.part",
+    "transfer.status",
 ];
 
 const PARAMETER_SENSITIVE: &[(&str, RolePolicy)] = &[
@@ -91,6 +102,7 @@ const PARAMETER_SENSITIVE: &[(&str, RolePolicy)] = &[
     ("ads.import_symbols", RolePolicy::AdsImportSymbols),
     ("ads.import_symbols.apply", RolePolicy::AdsImportSymbols),
     ("comm.browse_symbols", RolePolicy::CommBrowseSymbols),
+    ("comm.search.start", RolePolicy::CommSearchStart),
     ("config.set", RolePolicy::ConfigSet),
 ];
 

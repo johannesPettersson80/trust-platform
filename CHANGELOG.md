@@ -6,6 +6,122 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- The ESP32-C6 changes its running program online. `bytecode.reload` (Admin) works on a chip as on a
+  computer: the change is applied at the program's next scan boundary, without a reset, the lines keep
+  their pins and output levels, and a change that fails leaves the program running as it was. The chip
+  and the computer build the new program with one replacement: it installs the next generation, so a
+  reference taken before the change is refused as stale after it, and the retained values carry over,
+  with the retained function-block instances and references when the new program declares the same
+  retained storage. The new program is prepared in the heap that remains less a reserve: 8 KiB of
+  working memory, and the length of the newest checkpoint's payload when the running program keeps
+  retained values. A program that needs more, by any limit of its preparation, is refused with
+  `insufficient memory` and its numbers, and not as a damaged program; the dry run of
+  `program.install` on a chip takes the same limits, so a program that cannot fit is refused instead
+  of resetting the chip.
+- The ESP32-C6 loads a newly installed program in place. `restart` of the stopped program drops the
+  program, its pins and its memory, then reads, checks and prepares the newest installed container,
+  claims its pins and starts it cold or warm, without a reset, so the USB connection stays up. A
+  program that cannot start leaves the resource faulted with the reason, and the next `restart` tries
+  again. `program.active` answers on a chip, reading only the headers and records of the two
+  containers. A chip's transfer ids now carry a boot count that it keeps in flash, so an id never
+  repeats across boots, a loss of power included. The count's two 4 KiB sectors are declared: the
+  chip file `chips/esp32c6.toml` names them (`boot_counter_a` at `0x9000`, `boot_counter_b` at
+  `0xA000`), the chip file reader refuses a counter sector that is not one erase unit or that
+  overlaps another region, and `partitions.csv` declares them as the data partitions `bootcnt_a`
+  and `bootcnt_b`, which the next firmware flash writes to the board.
+- Fixed: on the ESP32-C6 a force that names an instance by its identity (`var.force` with
+  `instance:<id>:<name>`) is applied after a restart. Every restart installs the next generation of
+  the program's state, but the loop's Live Values kept the generation of the program's first start, so
+  the scan refused such a force as stale and withdrew it with a `write_rejected` event. The loop now
+  gives its Live Values the program's generation after a `restart`, the recovery of a faulted
+  resource, the automatic restart of the fault policy and the start of a stopped program, and when it
+  takes a program that started warm, at boot or when it loads one in place.
+- Fixed: the ESP32-C6 holds a reply longer than its 8,192-byte frame, up to the 139,264 bytes of its
+  heap, as a computer does, so `trust-runtime ctl events --limit 200` over USB is no longer refused
+  with `reply longer than 8192 bytes`. A reply the heap has no room for is refused with
+  `no room for a reply longer than <n> bytes`, and never resets the chip.
+- Fixed: on the ESP32-C6 a firmware panic drove every configured output low before the chip
+  reset, whatever `[[io.safe_state]]` named. It now drives each output to its safe value, as the
+  STM32U5A9 and the stop and fault paths do.
+- Changed: `shutdown` on a computer now stops the PLC program and keeps `trust-runtime` running
+  in the Stopped state, as it does on a chip, and as CODESYS and TwinCAT keep their runtime up
+  while the application is stopped. The control server, the web UI and the other services stay up,
+  `status` reports `state: stopped` and `program_control: keeps_control`, and `restart` (Operator)
+  starts the installed program again, loading the program and the resource configuration the
+  project folder names now. The process ends on SIGINT or SIGTERM, or by the new explicit exit,
+  `shutdown` with `{"exit": true}` (Admin), which `trust-runtime ctl shutdown --exit` sends. Before,
+  `shutdown` ended the process. Scripts that waited for the process to exit after `shutdown` must
+  send the exit; `trust-runtime fleet runtime stop` does. `fleet runtime start` now starts the
+  program of a runtime whose process answers while its program is stopped.
+- Changed: a program install now works only while the PLC program is stopped, on every runtime. The
+  web deployment (`POST /api/deploy`) and the web rollback (`POST /api/rollback`) answer
+  `resource_not_running`, as `program.install` does, while the program runs, and change nothing;
+  stop the program with `shutdown` first, install, and `restart`. The web IDE's Deploy button
+  shows that refusal while the program runs.
+- Security: a web deployment (`/api/deploy`) is now checked against the signature policy of the
+  project's installed `runtime.toml`. Before, the check read `[runtime.deploy] require_signed` and
+  `keyring_path` from the `runtime.toml` the deployment itself carried, so a deployment could turn
+  the requirement off, or name a keyring of its own, and install an unsigned program.
+- New control operations to move and install a program. The transfer operations and
+  `program.install` work the same on a computer and on a chip (specification 34 PORT-05 and §11.2).
+  `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort` (Admin)
+  move a program into the runtime in checked parts of 4,096 bytes, each part with its CRC-32 and the
+  whole upload with its SHA-256; `transfer.get` reads a reply that a runtime holds whole back in
+  parts. `program.install` (Admin) installs the finished upload as the program the runtime starts
+  next. It works only while the program is stopped (send `shutdown` first) and answers
+  `resource_not_running` otherwise. It checks the container, the deployment record and its
+  admission, the retained values against the newest saved ones, and the program's preparation, in
+  that order, and changes nothing when one of them refuses. The reply is
+  `{"status":"installed","sequence":n,"program_sha256":"...","bytes":n}`. `bytecode.reload` also
+  takes `transfer` in place of `bytes`; it is still an online change that writes nothing, so a stop
+  and a `restart` start the installed program again. `program.active` (Viewer) reports the installed
+  program and the one before it, on a computer and on a chip. A chip answers `program.install` after
+  its whole commit: specification 11 §6.8.1 gives the time a client waits for that reply, worked out
+  from the container's size.
+- Changed: `trust-runtime deploy`, the web deployment and rollback, and `program.install` write a
+  computer's project through a program store. The program is admitted (its record, its admission
+  against the runtime and a dry-run preparation) before anything the runtime starts from changes,
+  so a program the runtime cannot prepare is refused and the project is left as it was; before, it
+  was written and failed at the next start. Each file is written through a temporary file and a
+  rename. `current` is replaced by one rename, and `previous` by a second, and a rollback does the
+  same, so a stop between two steps leaves a project that starts. Every bundle holds its install
+  sequence in `install-sequence`. `trust-runtime deploy` removes the `bundles/<label>` that an
+  interrupted deployment left, where it refused the label; a label that `current` or `previous` still
+  names is refused as before. A web deployment of sources only now creates a new bundle with a new
+  sequence.
+- The ESP32-C6 installs a program over its USB control link. Its `stbc` flash region is two program
+  slots of 3,056 KiB, and `program.install` writes the slot that does not hold the newest program,
+  one 4 KiB erase or one 256-byte page in each pass of the control loop, reads the bytes back, and
+  commits the container with the last four bytes of its magic, so a power loss or a failed step
+  leaves the previous program running. At power-on and after a reset the chip starts the committed
+  container with the highest install sequence; a damaged newest container refuses the start with
+  its reason, and the older one is not started in its place. `capabilities` reports one slot,
+  3,129,344 bytes, as the chip's `application_slot_bytes`, and the chip refuses a program that does
+  not fit it. The steps to install are in `firmware/trust-esp32c6/README.md`.
+- Changed: `cargo xtask portability pack-project` writes the `TRSTA002` container with install
+  sequence 1, which is the container `program.install` commits into an empty store. The ESP32-C6
+  reads `TRSTA002` only: written into slot A at `0x200000`, a packed container is a committed
+  program, and the first install after it takes slot B with sequence 2. A `TRSTA001` container that
+  an earlier `pack-project` wrote is not read any more: a chip that holds only that container
+  refuses `restart` with `no installed program: slot A holds a TRSTA001 container, which is not
+  committed (only TRSTA002 is read)`, and the project is packed again.
+- The ESP32-C6 runs truST as a runtime, first on the ESP32-C6-DevKitC-1
+  (`firmware/trust-esp32c6`), with the same runtime code as `trust-runtime`. It starts the
+  installed project at power-on, claims the GPIO pins the project's `io.toml` names, and answers
+  the control connection on its USB port as `trust-runtime` does: `status`, `health`,
+  `tasks.stats`, `events.tail`, `faults`, `pause`, `resume`, `restart` and `shutdown`, and Live
+  Values (read, write, force and release). `shutdown` stops the program and the chip stays
+  reachable; `restart` starts it again. After a panic or a hardware-watchdog reset the chip reports
+  the cause as its last fault. `cargo xtask portability pack-project` packs a project for it.
+- New control operation `capabilities` (Viewer) on every runtime: the device descriptor that
+  program admission uses (bytecode versions, scheduling profiles, limits, the application slot,
+  the event store's default and maximum) and the last reset; a computer answers `null` where only
+  a chip has a value.
+- RETAIN variables on the ESP32-C6: with `[runtime.retain] mode = "file"` the chip saves them into
+  its checkpoint flash at `save_interval_ms` and at `shutdown`, and power-on and a reset start the
+  program warm with the newest saved values, so an interrupted save loses at most that save. The
+  `path` key has no meaning on a chip. Retained values the program no longer declares, or whose
+  type changed, are reported in the event log at the start, as on a computer.
 - The work and memory a program's copies cost are now counted by what the program copies, the
   same on every computer and chip (specification 34 TIME-08). Copying a number or other scalar
   costs no memory; a STRING costs its bytes, a WSTRING two bytes per character unit, and a
@@ -54,6 +170,46 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   as `ä`, two bytes) holds fewer than n characters; `LEN` and indexing still count
   characters. A string function or conversion whose result would be longer than
   65,535 now fails with `runtime_string_capacity_exceeded`.
+
+- Every runtime has a stable runtime ID: generated once, kept in the project's
+  `.trust-runtime/runtime_id`, the same after every restart and different for two
+  runtimes on one computer. `status` reports it as `runtime_id`, and the mDNS
+  announcement carries it with the truST version, the platform and whether control
+  needs a token. Announcing and browsing follow `discovery.interfaces`, use the
+  computer's real host name, and never announce a local socket or a web server that
+  is off. `trust-runtime ide serve` and setup mode announce themselves too, and setup
+  prints its page under the computer's own `.local` name.
+- The web IDE's `/api/discovery` and `/api/probe` need the same web login as the other
+  routes, and `/api/probe` takes its target and credentials in a POST body instead of
+  the URL. `config.get` and `config.set` cover `discovery.host_group`;
+  `comm.capabilities` reports discovery and mesh peer health; a runtime listening on a
+  wildcard address reports its real network addresses instead of `127.0.0.1`.
+- `ads.import_symbols.remove` removes imported ADS tag points from a project's `ads.toml`
+  and regenerates the generated ST, and `trust-runtime ads remove-symbols` runs the same
+  function from the command line. `trust-runtime comm test` runs the `comm.test` request's
+  code from the command line.
+- `comm.apply` answers the `instance_id` of the connection it wrote for `add`, `upsert`
+  and `edit`, and an ADS tag import enables `[runtime.ads]` in the project's
+  `runtime.toml` itself, live and through `trust-runtime ads import-symbols`, keeping
+  every other line and comment.
+- The Devices & Connections ADS Browse pane's `Create route` creates the TwinCAT route
+  through the runtime's guarded `ads.route_add`, which takes the TwinCAT administrator
+  login once and never stores or echoes it, and then Browse retries. The extension host
+  no longer edits an ADS file itself: removing a tag runs `trust-runtime ads
+  remove-symbols` and shows its report.
+- `trust-runtime discover` also finds MQTT brokers and OPC UA servers by their mDNS
+  announcements, and OPC UA servers through the local discovery server's FindServers, and
+  confirms each with the same probe as a known address.
+- `trust-runtime discover` runs one search for truST runtimes, ADS, Modbus TCP, MQTT and
+  OPC UA from this computer or inside a runtime, and for EtherCAT (after you confirm the
+  scan) and GPIO inside a runtime. It shows one device per thing found, with every
+  protocol on it, while the search runs. Runtimes serve the same search as
+  `comm.search.start`, `comm.search.status` and `comm.search.cancel`.
+- The search also lists the USB devices and serial ports of the computer it runs on,
+  without opening or writing any of them: an STM32 on its boot loader, the ESP32-C6,
+  ST-LINK probes, USB-serial adapters and truST runtimes on USB, each with the serial
+  ports behind it, and every serial port with the USB device behind it
+  (`trust-runtime discover --only usb,serial`).
 - Share compact, lossless floating-point text codecs across runtime platforms,
   preserving both conversion directions and existing diagnostic spelling.
 
@@ -175,7 +331,7 @@ Target release: `v0.24.75`
   report their application failure without turning an invalid request into a PLC fault.
 
 - Add the NUCLEO-F401RE reference composition for the shared runtime, with bounded memory, separately installed STBC artifacts, and remote GPIO/watchdog evidence tooling. The full-function F401 bring-up passes saved-artifact traces, numeric checks, GPIO safe outputs, depth-four calls and independent-watchdog reset; production qualification remains separate.
-- Add the ESP32-C6-DevKitC-1 reference composition (`firmware/trust-esp32c6-reference` on the new `trust-platform-esp32` adapter). It runs the same saved application bundle, oracle and trace grammar as the NUCLEO-F401RE on RISC-V with software floating point, and executes the interpreter's scan path from internal RAM: from flash, one task activation took 11.07 ms against the 10 ms period. On the owned board the bring-up passes the 101-row trace, numeric checks, GPIO safe outputs, depth-four calls and the MWDT0 watchdog reset, with a 1.97 ms slowest main scan and a 10,856-byte stack peak; production qualification remains separate.
+- Add the ESP32-C6-DevKitC-1 reference composition (`firmware/trust-esp32c6` on the new `trust-platform-esp32` adapter). It runs the same saved application bundle, oracle and trace grammar as the NUCLEO-F401RE on RISC-V with software floating point, and executes the interpreter's scan path from internal RAM: from flash, one task activation took 11.07 ms against the 10 ms period. On the owned board the bring-up passes the 101-row trace, numeric checks, GPIO safe outputs, depth-four calls and the MWDT0 watchdog reset, with a 1.97 ms slowest main scan and a 10,856-byte stack peak; production qualification remains separate.
 
 - Add explicit STBC 2.0 authoring and portable byte-level validation for declared
   storage, construction roots, compiled initializer recipes and access bindings.

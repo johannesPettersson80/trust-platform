@@ -12,7 +12,6 @@ import {
   offlineTopologyForTarget,
   type FleetTopologyResponse,
 } from "../../networkCanvas/fleetTopology";
-import { ensureAdsRuntimeEnabled } from "../../networkCanvas/offlineComm";
 import { mergeConnectorStatusIntoTopology } from "../../networkCanvas/connectorsStatus";
 import { buildCanvasGraph } from "../../networkCanvas/graphData";
 import { buildGraph } from "../../networkCanvas/webview/layout";
@@ -259,37 +258,6 @@ suite("Network Canvas", function () {
       degraded: 1,
       unavailable: 1,
     });
-  });
-
-  test("ADS tag import enables the runtime ADS subsystem", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "trust-ads-runtime-"));
-    try {
-      fs.writeFileSync(
-        path.join(dir, "runtime.toml"),
-        [
-          "[bundle]",
-          "version = 1",
-          "",
-          "[resource]",
-          'name = "Simulator"',
-          "cycle_interval_ms = 50",
-          "",
-          "[runtime.ads]",
-          "enabled = false",
-          'config_path = "old-ads.toml"',
-          "",
-        ].join("\n")
-      );
-      const result = ensureAdsRuntimeEnabled(dir);
-      assert.deepStrictEqual(result.ok, true);
-      const runtimeToml = fs.readFileSync(path.join(dir, "runtime.toml"), "utf8");
-      assert.match(runtimeToml, /\[runtime\.ads\]/);
-      assert.match(runtimeToml, /^enabled = true$/m);
-      assert.match(runtimeToml, /^config_path = "ads\.toml"$/m);
-      assert.match(runtimeToml, /^worker_tick_interval_ms = 20$/m);
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
-    }
   });
 
   test("connector status presentation uses first-user vocabulary", () => {

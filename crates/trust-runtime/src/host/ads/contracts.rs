@@ -45,6 +45,7 @@ pub struct AdsPointConfig {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct AdsToml {
+    #[serde(default)]
     connections: Vec<ConnectionSection>,
 }
 
@@ -120,9 +121,6 @@ pub fn validate_ads_config_local_identity(
 
 impl AdsToml {
     fn into_config(self) -> Result<AdsClientConfig, RuntimeError> {
-        if self.connections.is_empty() {
-            return invalid("ads.toml requires at least one [[connections]] entry");
-        }
         let mut connection_names = BTreeSet::new();
         let mut point_names = BTreeSet::new();
         let connections = self

@@ -6,13 +6,15 @@ use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
-use trust_runtime_core::ports::MonotonicInstant;
+use trust_runtime_core::memory::Generation;
+use trust_runtime_core::ports::{MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::value::Duration;
 use trust_runtime_core::vm::{CycleHooks, RetainApplyEvent};
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
 use super::cycle::{ResourceCycle, RetainSource, TaskDescriptor};
+use super::hold::HoldHandle;
 use crate::status::IoDriverStatus;
 
 /// The program the loop runs, or the reason a device has none: its application region holds no
@@ -39,8 +41,9 @@ impl<Y> Program<Y> {
     }
 }
 
-/// The failure of a scan or a restart that would need the missing program.
-fn no_program(reason: &str) -> RuntimeError {
+/// The failure of a scan or a restart that would need the missing program, and of a program that
+/// cannot be loaded in place (specification 34 STATE-08).
+pub(super) fn no_program(reason: &str) -> RuntimeError {
     RuntimeError::ControlError(SmolStr::new(format!("no installed program: {reason}")))
 }
 
@@ -70,6 +73,14 @@ impl<Y: ResourceCycle> ResourceCycle for Program<Y> {
         match self {
             Self::Installed(cycle) => cycle.fault_policy(),
             Self::Missing(_) => FaultPolicy::Halt,
+        }
+    }
+
+    fn held_time(&self) -> TimeSpan {
+        match self {
+            Self::Installed(cycle) => cycle.held_time(),
+            // A missing program runs no scan, so no scan is held.
+            Self::Missing(_) => TimeSpan::ZERO,
         }
     }
 
@@ -122,10 +133,24 @@ impl<Y: ResourceCycle> ResourceCycle for Program<Y> {
         }
     }
 
+    fn generation(&self) -> Generation {
+        match self {
+            Self::Installed(cycle) => cycle.generation(),
+            // A missing program has no state to be in a generation; none follows it.
+            Self::Missing(_) => Generation::FIRST,
+        }
+    }
+
     fn io_drivers(&self) -> Vec<IoDriverStatus> {
         match self {
             Self::Installed(cycle) => cycle.io_drivers(),
             Self::Missing(_) => Vec::new(),
+        }
+    }
+
+    fn attach_hold(&mut self, hold: HoldHandle) {
+        if let Self::Installed(cycle) = self {
+            cycle.attach_hold(hold);
         }
     }
 }

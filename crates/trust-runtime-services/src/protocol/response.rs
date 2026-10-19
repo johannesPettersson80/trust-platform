@@ -7,8 +7,14 @@ use smol_str::SmolStr;
 /// Work the transport runs after it has written a response.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ControlAfterResponse {
-    /// Stop the resource; the reply to `shutdown` is written first.
+    /// Stop the program; the reply to `shutdown` is written first. The runtime stays reachable in
+    /// the Stopped state (specification 34, STATE-08).
     StopResource,
+    /// Stop the program and then end the runtime's process; the reply to `shutdown` with
+    /// `{"exit": true}` is written first. A platform whose firmware never ends, such as a chip,
+    /// stops the program and stays reachable, as for [`Self::StopResource`] (specification 34,
+    /// STATE-08).
+    ExitRuntime,
 }
 
 /// One control response: `{"id", "ok", "result", "error", "error_code", "audit_id"}`, where
@@ -49,10 +55,22 @@ impl ControlResponse {
         }
     }
 
-    /// The reply to `shutdown`: `{"status": "stopping"}`, and the resource stops after the reply
+    /// The reply to `shutdown`: `{"status": "stopping"}`, and the program stops after the reply
     /// has been written.
     #[must_use]
     pub fn shutdown(id: u64) -> Self {
+        Self::stopping(id, ControlAfterResponse::StopResource)
+    }
+
+    /// The reply to `shutdown` with `{"exit": true}`: the same `{"status": "stopping"}`, and the
+    /// program stops and the runtime's process ends after the reply has been written.
+    #[must_use]
+    pub fn shutdown_and_exit(id: u64) -> Self {
+        Self::stopping(id, ControlAfterResponse::ExitRuntime)
+    }
+
+    /// The `stopping` reply that defers `after_response` until the reply has been written.
+    fn stopping(id: u64, after_response: ControlAfterResponse) -> Self {
         let mut result = serde_json::Map::new();
         result.insert("status".to_string(), serde_json::Value::from("stopping"));
         Self {
@@ -62,7 +80,7 @@ impl ControlResponse {
             error: None,
             error_code: None,
             audit_id: None,
-            after_response: Some(ControlAfterResponse::StopResource),
+            after_response: Some(after_response),
         }
     }
 
@@ -116,6 +134,21 @@ impl ControlResponse {
         }
     }
 
+    /// The success `result` in place of this response, for one whose reply is held and answered with
+    /// its head: the same id and audit record id, and no error or error code.
+    #[must_use]
+    pub(crate) fn replaced_by_result(&self, result: serde_json::Value) -> Self {
+        Self {
+            id: self.id,
+            ok: true,
+            result: Some(result),
+            error: None,
+            error_code: None,
+            audit_id: self.audit_id.clone(),
+            after_response: self.after_response,
+        }
+    }
+
     /// Writes the wire text of a successful response to request `id` up to its result:
     /// `{"id":<id>,"ok":true,"result":`. With the result's JSON text after it and then
     /// [`Self::write_ok_end`], it is exactly the text that serializing the response writes.
@@ -126,10 +159,31 @@ impl ControlResponse {
     /// Writes the wire text that follows the result of this successful response: its audit
     /// record id, when it has one, and the closing brace.
     pub(crate) fn write_ok_end(&self, out: &mut impl fmt::Write) -> fmt::Result {
-        if let Some(audit_id) = &self.audit_id {
-            let audit_id = serde_json::Value::from(audit_id.as_str());
-            write!(out, r#","audit_id":{audit_id}"#)?;
-        }
+        write_text_member(out, "audit_id", self.audit_id.as_deref())?;
         out.write_char('}')
+    }
+
+    /// Writes the wire text of this response, member by member, exactly as serializing it writes
+    /// it: `id`, `ok`, then `result`, `error`, `error_code` and `audit_id` when present. The work
+    /// after the response is never written. A writer that takes its text in parts, `ReplyWriter`,
+    /// takes a response of any length this way, without a serializer that builds it whole.
+    pub(crate) fn write_to(&self, out: &mut impl fmt::Write) -> fmt::Result {
+        write!(out, r#"{{"id":{},"ok":{}"#, self.id, self.ok)?;
+        if let Some(result) = &self.result {
+            write!(out, r#","result":{result}"#)?;
+        }
+        write_text_member(out, "error", self.error.as_deref())?;
+        write_text_member(out, "error_code", self.error_code.as_deref())?;
+        write_text_member(out, "audit_id", self.audit_id.as_deref())?;
+        out.write_char('}')
+    }
+}
+
+/// Writes `,"<name>":<text as a JSON string>` when `text` is present, with the escapes that
+/// serializing a string writes.
+fn write_text_member(out: &mut impl fmt::Write, name: &str, text: Option<&str>) -> fmt::Result {
+    match text {
+        Some(text) => write!(out, r#","{name}":{}"#, serde_json::Value::from(text)),
+        None => Ok(()),
     }
 }

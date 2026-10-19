@@ -1,0 +1,97 @@
+{
+  "access_tooltip": "{access} on the device",
+  "added_aria_label": "Already added: {path}",
+  "added_label": "Added",
+  "breadcrumb": "Devices & Connections",
+  "close_label": "Close",
+  "details": {
+    "rows": [
+      {
+        "label": "AMS Net ID",
+        "value": "5.23.91.12.1.1",
+        "wide": false
+      },
+      {
+        "label": "Host",
+        "value": "192.168.10.5",
+        "wide": false
+      }
+    ],
+    "summary": "Connection details"
+  },
+  "done_label": "Done",
+  "id": "browse:ads",
+  "kind": "ads_tags",
+  "loading": true,
+  "port_help": "Each ADS port is a separate server and symbol namespace. The server must support Symbol Upload.",
+  "port_input": {
+    "browse": {
+      "emphasis": "primary",
+      "enabled": false,
+      "id": "browse_port",
+      "label": "Browse this port",
+      "op": {
+        "action": "browse.port",
+        "kind": "rust",
+        "payload": {
+          "pane": "browse:ads",
+          "request": {
+            "kind": "symbols",
+            "port": 851,
+            "seq": 3,
+            "session": "dc-golden",
+            "source": {
+              "connection": "endpoint:line",
+              "connection_name": "Line"
+            },
+            "trust_server_certificate": false
+          }
+        }
+      },
+      "reason": "Wait for the current browse to finish."
+    },
+    "hide_label": "Hide advanced",
+    "label": "ADS port",
+    "placeholder": "851",
+    "show_label": "Advanced: browse another ADS port"
+  },
+  "port_suggestions": [
+    {
+      "label": "I/O",
+      "value": "301"
+    },
+    {
+      "label": "Motion",
+      "value": "501"
+    },
+    {
+      "label": "PLC runtime 1",
+      "value": "851"
+    },
+    {
+      "label": "PLC runtime 2",
+      "value": "852"
+    }
+  ],
+  "port_summary": "1 ADS port",
+  "ports": [
+    {
+      "empty_text": "Loading tags…",
+      "port": 851,
+      "state_text": "Loading…",
+      "tags": [],
+      "title": "ADS port 851"
+    }
+  ],
+  "search": {
+    "no_match": "No matching tags on this port.",
+    "placeholder": "Search tags on all ADS ports"
+  },
+  "subtitle": "Line",
+  "title": "Browse tags",
+  "tree": [],
+  "write_toggle": {
+    "enabled": true,
+    "label": "Allow writes for newly added tags"
+  }
+}

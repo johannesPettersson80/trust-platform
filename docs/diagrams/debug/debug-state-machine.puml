@@ -60,6 +60,19 @@ note right of step
     (multi-resource ready).
 end note
 
+note right of debug
+    Every transition above is decided by
+    RunControl in trust-runtime-services
+    (debug/run.rs). trust-runtime keeps the
+    Mutex and the Condvar: a Paused scan waits
+    there while RunControl says it holds.
+    A chip keeps the same fields in ChipDebug
+    (runner/debugger.rs): a Paused scan runs
+    the hold pass (runner/hold.rs), which serves
+    the link and feeds the watchdog until
+    RunControl says it no longer holds.
+end note
+
 Configured --> Running : start_runner()\n(no pause_after_launch)
 Configured --> Paused : start_runner()\n(pause_after_launch)
 Configured --> Running : attach (runtime running)

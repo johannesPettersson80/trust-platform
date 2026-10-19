@@ -20,6 +20,7 @@ pub(crate) fn authoring_value_type(value: &crate::value::Value) -> Option<TypeId
 }
 mod pou;
 mod refs;
+mod statements;
 mod types;
 mod util;
 
@@ -36,7 +37,7 @@ use self::util::normalize_name;
 use super::{
     BytecodeError, BytecodeModule, BytecodeVersion, ConstEntry, ConstPool, DebugMap,
     InterfaceMethod, MethodEntry, RefEntry, RefTable, Section, SectionData, SectionId, StringTable,
-    TypeEntry, TypeTable,
+    TypeEntry, TypeTable, LINE_TABLE_SECTION_ID,
 };
 use trust_runtime_core::bytecode::compute_type_offsets_for_entries;
 
@@ -66,8 +67,8 @@ pub fn build_module_from_runtime(
     let mut module = runtime.deployment_artifact()?.clone();
     module.sections.retain(|section| {
         !matches!(
-            SectionId::from_raw(section.id),
-            Some(SectionId::DebugMap | SectionId::DebugStringTable)
+            section.data,
+            SectionData::DebugMap(_) | SectionData::DebugStringTable(_) | SectionData::LineTable(_)
         )
     });
     Ok(module)
@@ -545,7 +546,7 @@ impl<'a> BytecodeEncoder<'a> {
             self.collect_source_io()?;
             self.collect_source_configuration()?;
         }
-        let (pou_index, mut pou_bodies, debug_entries) = self.build_pou_index_and_bodies()?;
+        let (pou_index, mut pou_bodies, statements) = self.build_pou_index_and_bodies()?;
         if source_free {
             self.collect_declaration_actions(&pou_index)?;
             self.emit_initializer_bodies(&mut pou_bodies)?;
@@ -574,6 +575,20 @@ impl<'a> BytecodeEncoder<'a> {
             })?;
             *entry = Some(type_id);
         }
+        // §6.13: LINE_TABLE is the optional `0x0011` section of the source-free
+        // containers 2.0 and 3.0, and a 1.x producer never writes it (§11.5). The
+        // default producer is 3.0, so project the line table for every module built
+        // from ST source while the encoder's source and string state is still whole.
+        let version = if source_free {
+            self.output_version.unwrap_or(BytecodeVersion::SOURCE_FREE)
+        } else {
+            BytecodeVersion::LEGACY
+        };
+        let line_table = if !statements.is_empty() && version.is_source_free() {
+            Some(self.build_line_table(&statements)?)
+        } else {
+            None
+        };
         let type_table = TypeTable {
             offsets: type_offsets,
             entries: self.types,
@@ -643,7 +658,7 @@ impl<'a> BytecodeEncoder<'a> {
                 data: SectionData::RetainInit(retain_init),
             });
         }
-        if !debug_entries.is_empty() {
+        if !statements.is_empty() {
             sections.push(Section {
                 id: SectionId::DebugStringTable.as_raw(),
                 flags: 0,
@@ -653,16 +668,22 @@ impl<'a> BytecodeEncoder<'a> {
                 id: SectionId::DebugMap.as_raw(),
                 flags: 0,
                 data: SectionData::DebugMap(DebugMap {
-                    entries: debug_entries,
+                    entries: statements
+                        .statements
+                        .iter()
+                        .map(|statement| statement.entry.clone())
+                        .collect(),
                 }),
             });
         }
+        if let Some(line_table) = line_table {
+            sections.push(Section {
+                id: LINE_TABLE_SECTION_ID,
+                flags: 0,
+                data: SectionData::LineTable(line_table),
+            });
+        }
 
-        let version = if source_free {
-            self.output_version.unwrap_or(BytecodeVersion::SOURCE_FREE)
-        } else {
-            BytecodeVersion::LEGACY
-        };
         let flags = crate::bytecode::HEADER_FLAG_CRC32
             | if version == BytecodeVersion::SOURCE_FREE
                 && self.runtime.storage_abi() == crate::value::StorageAbi::LegacyTemporal32
@@ -787,9 +808,13 @@ END_PROGRAM
         assert_eq!(with_sources.version, with_paths.version);
         assert!(plain.section(SectionId::DebugStringTable).is_none());
         assert!(plain.section(SectionId::DebugMap).is_none());
+        assert!(plain.line_table().is_none());
         assert_eq!(debug_path(&with_sources), Some("file_0"));
         assert_eq!(debug_path(&with_paths), Some("Main.st"));
-        assert_eq!(plain.sections.len() + 2, with_sources.sections.len());
+        // The source-aware module adds the three debug sections: DEBUG_STRING_TABLE,
+        // DEBUG_MAP and the optional LINE_TABLE (spec 12 §6.13).
+        assert!(with_sources.line_table().is_some());
+        assert_eq!(plain.sections.len() + 3, with_sources.sections.len());
         assert_eq!(with_sources.sections.len(), with_paths.sections.len());
     }
 }

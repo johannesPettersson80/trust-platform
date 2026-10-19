@@ -6,6 +6,9 @@ use std::collections::HashSet;
 use std::sync::mpsc::Sender;
 
 use crate::value::Value;
+use trust_runtime_services::debug::{
+    count_hit, observe_hit, BreakpointRecord, HitCondition, Span, StatementId,
+};
 
 use super::hook::DebugRuntimeContext;
 use super::{DebugBreakpoint, DebugLog, LogFragment, SourceLocation};
@@ -21,31 +24,23 @@ pub(crate) fn matches_breakpoint(
     ctx: &mut Option<&mut DebugRuntimeContext<'_>>,
 ) -> Option<(u64, BreakpointCycleKey)> {
     for breakpoint in breakpoints.iter_mut() {
-        let bp_location = &breakpoint.location;
-        if bp_location.file_id != location.file_id {
-            continue;
-        }
-        // Source mapping can resolve to nearby-but-not-identical spans after
-        // edits/reformatting; treat overlapping ranges as the same statement.
-        let overlaps = location.start < bp_location.end && bp_location.start < location.end;
-        if !overlaps {
-            continue;
-        }
-        let cycle_key = (
-            bp_location.file_id,
-            bp_location.start,
-            bp_location.end,
-            breakpoint.generation,
+        // The shared hit rule decides the match, counts the hit and applies the hit condition, in
+        // the order of specification 13's hook contract ("Breakpoint evaluation, source resolution,
+        // and hook contract"). A statement matches when it starts inside the breakpoint's half-open
+        // span, so an enclosing statement, such as a FOR, IF, WHILE or CASE whose span covers its
+        // body, does not match a breakpoint on a body statement. A cycle-suppressed hit counts
+        // nothing, and a logpoint is never suppressed.
+        let is_logpoint = breakpoint.log_message.is_some();
+        let passes = observe_hit(
+            breakpoint,
+            |id| ordinary_stop_suppressed(stopped_this_cycle, is_logpoint, id),
+            location.file_id,
+            location.start,
         );
-        if breakpoint.log_message.is_none() && stopped_this_cycle.contains(&cycle_key) {
+        if !passes {
             continue;
         }
-        breakpoint.hits = breakpoint.hits.saturating_add(1);
-        if let Some(hit_condition) = breakpoint.hit_condition
-            && !hit_condition.is_met(breakpoint.hits)
-        {
-            continue;
-        }
+        let cycle_key = cycle_key_of(&breakpoint.statement());
         if let Some(condition) = &breakpoint.condition {
             let Some(eval_ctx) = ctx.as_deref_mut() else {
                 continue;
@@ -82,6 +77,67 @@ pub(crate) fn matches_breakpoint(
         return Some((breakpoint.generation, cycle_key));
     }
     None
+}
+
+/// The shared hit rule reads a `DebugBreakpoint` through this view: the statement it names at its
+/// generation, its hit condition and its count (specification 13).
+impl BreakpointRecord<u32> for DebugBreakpoint {
+    fn statement(&self) -> StatementId<u32> {
+        StatementId {
+            file_id: self.location.file_id,
+            span: Span::new(self.location.start, self.location.end),
+            generation: self.generation,
+        }
+    }
+
+    fn hit_condition(&self) -> Option<HitCondition> {
+        self.hit_condition
+    }
+
+    fn hits(&self) -> u64 {
+        self.hits
+    }
+
+    fn set_hits(&mut self, hits: u64) {
+        self.hits = hits;
+    }
+}
+
+/// The cycle-suppression key of a statement identity: the `(file_id,start,end,generation)` tuple
+/// the cycle set stores (specification 13). The set keeps its tuple type, which its tests build.
+fn cycle_key_of(id: &StatementId<u32>) -> BreakpointCycleKey {
+    (id.file_id, id.span.start, id.span.end, id.generation)
+}
+
+/// Whether the ordinary stop of `id` is cycle-suppressed in this scan. A logpoint never stops, so
+/// the cycle guard never suppresses its output (specification 13).
+fn ordinary_stop_suppressed(
+    stopped_this_cycle: &HashSet<BreakpointCycleKey>,
+    is_logpoint: bool,
+    id: &StatementId<u32>,
+) -> bool {
+    !is_logpoint && stopped_this_cycle.contains(&cycle_key_of(id))
+}
+
+/// Whether a breakpoint at `location` evaluates a condition or a logpoint, which needs the storage.
+/// It reads the same hit rule as `matches_breakpoint` without counting a hit, so the storage is
+/// built exactly when a condition or logpoint runs.
+pub(crate) fn any_breakpoint_needs_context(
+    breakpoints: &[DebugBreakpoint],
+    stopped_this_cycle: &HashSet<BreakpointCycleKey>,
+    location: &SourceLocation,
+) -> bool {
+    breakpoints.iter().any(|breakpoint| {
+        let is_logpoint = breakpoint.log_message.is_some();
+        (breakpoint.condition.is_some() || is_logpoint)
+            && count_hit(
+                breakpoint,
+                |id| ordinary_stop_suppressed(stopped_this_cycle, is_logpoint, id),
+                location.file_id,
+                location.start,
+            )
+            .is_some_and(|hit| hit.passes)
+    })
 }
 
 fn condition_matches(
@@ -188,7 +244,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn breakpoints_match_on_overlapping_location() {
+    fn breakpoints_match_a_statement_that_starts_inside_their_span() {
         let outer = SourceLocation::new(0, 0, 20);
         let inner = SourceLocation::new(0, 5, 10);
         let mut breakpoints = vec![DebugBreakpoint::new(inner)];
@@ -196,6 +252,9 @@ mod tests {
         let mut logs = Vec::new();
         let mut ctx = None;
 
+        // A01 decision (spec 13, "Breakpoint evaluation, source resolution, and hook contract"): a
+        // statement matches only when it starts inside the breakpoint's half-open span, so the
+        // enclosing span 0..20 does not match the breakpoint at 5..10.
         assert!(matches_breakpoint(
             &mut breakpoints,
             &stopped_this_cycle,
@@ -204,7 +263,7 @@ mod tests {
             &outer,
             &mut ctx
         )
-        .is_some());
+        .is_none());
         assert!(matches_breakpoint(
             &mut breakpoints,
             &stopped_this_cycle,
@@ -270,6 +329,101 @@ mod tests {
         );
         assert_eq!(matched, Some((7, (0, 30, 40, 7))));
         assert_eq!(breakpoints[1].hits, 1);
+    }
+
+    // Spans worked out by hand from the hosted probe program: the FOR statement spans 88..156 and
+    // its body statement `Scan := Scan + i;` spans 131..149.
+
+    #[test]
+    fn an_enclosing_statement_that_starts_before_a_body_breakpoint_does_not_match() {
+        // Wrong behaviour caught: the old overlap rule matched the enclosing FOR statement
+        // first, so a breakpoint on the body stopped at the loop header.
+        let body = SourceLocation::new(0, 131, 149);
+        let for_statement = SourceLocation::new(0, 88, 156);
+        let mut breakpoint = DebugBreakpoint::new(body);
+        breakpoint.generation = 1;
+        let mut breakpoints = vec![breakpoint];
+
+        assert_eq!(
+            matches_breakpoint(
+                &mut breakpoints,
+                &HashSet::new(),
+                &mut Vec::new(),
+                None,
+                &for_statement,
+                &mut None,
+            ),
+            None
+        );
+        assert_eq!(breakpoints[0].hits, 0);
+    }
+
+    #[test]
+    fn a_statement_starting_at_131_matches_the_body_breakpoint_at_131_to_149() {
+        // Wrong behaviour caught: a rule that needs the statement to start strictly after the
+        // breakpoint start misses the breakpoint's own body statement.
+        let body = SourceLocation::new(0, 131, 149);
+        let mut breakpoint = DebugBreakpoint::new(body);
+        breakpoint.generation = 1;
+        let mut breakpoints = vec![breakpoint];
+
+        assert_eq!(
+            matches_breakpoint(
+                &mut breakpoints,
+                &HashSet::new(),
+                &mut Vec::new(),
+                None,
+                &body,
+                &mut None,
+            ),
+            Some((1, (0, 131, 149, 1)))
+        );
+    }
+
+    #[test]
+    fn a_statement_starting_at_the_breakpoint_end_does_not_match() {
+        // Wrong behaviour caught: an inclusive end (`start <= end`) matches the next statement,
+        // so the breakpoint stops one statement late. The span is half-open.
+        let body = SourceLocation::new(0, 131, 149);
+        let next = SourceLocation::new(0, 149, 160);
+        let mut breakpoint = DebugBreakpoint::new(body);
+        breakpoint.generation = 1;
+        let mut breakpoints = vec![breakpoint];
+
+        assert_eq!(
+            matches_breakpoint(
+                &mut breakpoints,
+                &HashSet::new(),
+                &mut Vec::new(),
+                None,
+                &next,
+                &mut None,
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn a_statement_starting_inside_an_if_line_breakpoint_matches() {
+        // Wrong behaviour caught: a rule that matches only a breakpoint's exact span would
+        // miss the IF body, which the documented IF-line case relies on.
+        let if_statement = SourceLocation::new(0, 88, 156);
+        let body = SourceLocation::new(0, 131, 149);
+        let mut breakpoint = DebugBreakpoint::new(if_statement);
+        breakpoint.generation = 1;
+        let mut breakpoints = vec![breakpoint];
+
+        assert_eq!(
+            matches_breakpoint(
+                &mut breakpoints,
+                &HashSet::new(),
+                &mut Vec::new(),
+                None,
+                &body,
+                &mut None,
+            ),
+            Some((1, (0, 88, 156, 1)))
+        );
     }
 }
 

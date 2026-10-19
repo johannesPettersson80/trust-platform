@@ -85,9 +85,200 @@ package, or end-to-end evidence.
   primary action.
 - A selected stopped runtime disables every runtime-origin scan. EtherCAT and
   GPIO use the reason
-  `Start or connect a runtime before scanning EtherCAT or GPIO.`
+  `Start or connect a runtime before scanning EtherCAT or GPIO.`; every other
+  scan from it uses `Start or connect {runtime} before scanning from it.`, with
+  the runtime's name. With `This computer` selected, EtherCAT and GPIO are
+  disabled with `Choose a running runtime for EtherCAT or GPIO scans.`
 - Adopting a discovered runtime MUST retain its discovered label, refresh the
   fleet topology, and select and focus the adopted runtime node.
+
+- The pane's own actions are the view's `actions` (the old pane's
+  `networkCanvas/webview/DiscoverPane.tsx` line numbers are given):
+  - `Search` (old `Scan`, line 425; this name is the one this section gives the
+    action) starts one search with the origin, the ticked sources and the typed
+    known address and subnet. While a scan runs it is disabled with the reason
+    `A scan is running. Wait for it to end, or cancel it.` (the old pane gave no
+    reason) and reads `Scanning…` (line 425). With no ticked source that the
+    origin can scan it is disabled with `Select at least one available scan
+    type.` (line 421).
+  - `Cancel` (new: the old pane had no cancel) shows only while a scan runs, and
+    ends it.
+  - `Configure ADS ports to scan` (line 295) opens VS Code's settings at
+    `trust.ads.discoveryPorts` (`networkCanvasPanel.ts` lines 661-665).
+  - Search and Cancel are the `search` operation (`op.kind` `search`), not a
+    `devicesAct` action. The host posts the operation's `request` to
+    `trust-lsp.devicesSearch` with the panel's session. Search adds the typed
+    targets as `targets`, and both texts are sent as typed:
+    - Search: `{"verb": "start", "origin": <origin>, "params": {"only": [<the
+      ticked source IDs>]}, "targets": {"hosts": <the Known address text>, "cidr":
+      <the Subnet text>}}`.
+    - Cancel: `{"verb": "cancel", "origin": <origin>, "search_id": <the running
+      search>}`.
+    - `<origin>` is `"this_host"` or `{"runtime": <the runtime's item ID>}`, which
+      is how `trust-lsp.devicesSearch` reads an origin.
+
+    A blank text is no target. `targets.hosts` holds the Known address as one
+    entry, and `targets.cidr` holds the subnet; each follows the rule of its
+    `comm.search.start` member (specification 11, "Requests").
+  - Before the first search, and after the search is cleared, the pane shows the
+    idle view. The host asks `trust-lsp.devicesSearch` with the verb `status` and
+    no `search_id`, and the answer's `discover` is that view: the origins, every
+    scan choice with its reason (the scan rules above), empty `Known address or
+    subnet` inputs, the Search action, and no sources or cards. On the first run
+    the choice `ADS and TwinCAT` is ticked where the origin can run it, as the old
+    pane's first-run default was (`networkCanvas/webview/DiscoverPane.tsx` lines
+    136-150); after that the project's remembered ticks apply (the rules below).
+    Where the origin cannot run it, Search is disabled with `Select at least one
+    available scan type.`
+  - A search that fails at a runtime answers its error reply and also the view's
+    `error_text`. The texts are the old pane's, word for word:
+    - `unknown_runtime` and `runtime_without_endpoint`, when the origin is no
+      longer reachable: `The selected runtime is no longer reachable. Start or
+      reconnect it, then scan again.` (`networkCanvas/discoveryController.ts`
+      line 126).
+    - `runtime_unreachable` with a message that names authentication: `The
+      selected runtime rejected authentication for truST runtime discovery. Check
+      its auth token. Reconnect or start the selected runtime, then scan again.`
+      (`networkCanvas/discoveryErrors.ts` line 8).
+    - `runtime_unreachable` with a message that names a timeout: `truST runtime
+      discovery timed out on the selected runtime. Reconnect or start the selected
+      runtime, then scan again.` (`discoveryErrors.ts` line 11).
+    - any other `runtime_unreachable`: `The selected runtime could not complete
+      truST runtime discovery. Reconnect or start the selected runtime, then scan
+      again.` (`discoveryErrors.ts` line 13).
+
+    The old texts name one protocol, and a search has several, so the runtime's
+    own discovery carries the name the old pane gave it, `truST runtime`
+    (`discoveryErrors.ts` line 21). A failure that the old pane had no text for,
+    such as `search_busy`, keeps only its error reply.
+- The headings and labels: `Devices & Connections` (the breadcrumb, line 230),
+  `Close` (the close button's name, line 233), `What do you want to find?` (line
+  262), `Scan from` (line 275), `Known address or subnet` (line 300), `Advanced
+  scan settings` (line 271) and `Runtime hardware scans ⚠` (line 306).
+- The help texts: `No discovery is available yet. Load a project or connect a
+  runtime that advertises discoverable protocols.` (lines 251-252) when no source
+  is listed, and `Choose what to find, then scan. Only the selected device types
+  are searched.` (line 257) above the scan choices.
+- The notes under the source names (lines 33-49): `network broadcast` (ADS),
+  `mDNS` (truST runtimes), `local network scan` (Modbus TCP), `at host` (MQTT and
+  OPC UA), `bus enumeration` (EtherCAT) and `local pins on the runtime` (GPIO).
+  Serial, USB and Bluetooth had no row in the old pane and have no note. The
+  choices sit in the groups of the old pane: `What do you want to find?`,
+  `Known address or subnet` (MQTT, OPC UA) and `Runtime hardware scans ⚠`
+  (EtherCAT, GPIO). The note `discoverable` belongs to a protocol that a runtime
+  advertises beyond these ten sources; the view lists it (the rules below).
+- A card that is not a truST runtime shows its `Host` (line 379).
+- A simulated find carries the mark `Simulated` (new; specification 11,
+  "Confidence").
+- An empty result is drawn only when a source ran. A search in which every source
+  was skipped, such as the search of an older runtime, shows the reason of each
+  source and no empty text, so no hardware scan is claimed.
+- A status that names a source or a protocol this build does not know leaves that
+  part out, leaves out a device whose protocols are all unknown, and shows the
+  line `This search reports a source or protocol that this version of truST does
+  not know. Update truST to see its results.` (new; the old pane had no such
+  case). A find whose confidence this build does not know is left out in the same
+  way, and shows the same line.
+- The Bluetooth reason is the one that trust-runtime's search catalog gives
+  (`trust_runtime::search::BLUETOOTH_UNAVAILABLE`), read from that catalog rather
+  than copied.
+- The remembered ticks and the Ignore list are per project, in
+  `<project>/.trust-runtime/devices.toml` (decision O14), under `[discover]`:
+  `protocols` lists the ticked source IDs, and `ignored` lists the device IDs
+  that the project ignores. Rust reads and writes the file through one reader,
+  which `trust-runtime discover --project` uses too, so the CLI reads the same
+  choices (specification 11, "One search"). Without a remembered `protocols`, the
+  first run ticks `ADS and TwinCAT` where the origin can run it (old lines 136-150
+  and 512-523). A file
+  that cannot be read or saved leaves the pane with its text, `The project's
+  devices.toml could not be read: {reason}.` or `The project's devices.toml could
+  not be saved: {reason}.` (new). A tick or an Ignore with no open project is
+  refused with `Open a truST project, so that this choice is remembered.` (new).
+- A tick, an Ignore and `Show ignored` are each a status request of the search
+  with a `change` member, and the answer is the new view: `{"kind": "select",
+  "source": <source ID>, "checked": <bool>}`, `{"kind": "ignore", "device":
+  <card ID>, "ignored": <bool>}`, and `{"kind": "show_ignored", "shown": <bool>}`.
+  A tick that cannot run is disabled, drawn unticked and carries no change (old
+  `DiscoverPane.tsx` line 191: `checked && !disabledReason`). On a status, a choice
+  is ticked when the status names its source; on the idle view the first run ticks
+  ADS only. Once the project remembers its ticks, the remembered list decides both.
+- Every card offers `Ignore` after its own actions (decision O14; spec §5.14). An
+  ignored find leaves the found list until it is undone: with `Show ignored`
+  ticked, its card is shown and offers `Stop ignoring` instead. The toggle is
+  named `Show ignored`. Decision O14 calls it the toolbar filter; it sits in this
+  pane, because the cards it changes are this pane's. The toggle is not
+  remembered: it is the panel's own, and every view carries it, unticked until
+  the user ticks it.
+- The EtherCAT choice shows ⚠ with the title `Can disturb a live bus, so confirm
+  before scanning` (old line 204). A Search with EtherCAT ticked asks first:
+  `EtherCAT scans the SubDevices on {adapter}. It reads each SubDevice's identity
+  in PRE-OP with its process data mapped, and it never brings the bus to SAFE-OP
+  or OP. It can disturb a live bus.` (new; the effect is spec 11's source table).
+  `{adapter}` is `the adapter {name}` from the origin runtime's EtherCAT
+  connection, else `the adapter of the project's EtherCAT driver`. The
+  confirmation's buttons are `Search` and `Cancel`. Only that confirmed Search
+  posts `confirm_fieldbus_scan: true`, and its `params` keep the `only` list.
+  EtherCAT needs the Engineer role (decision O12): from a runtime connection with
+  another role the choice is disabled with `Scanning EtherCAT needs the Engineer
+  role; this connection has the Viewer role.` (new; the lifecycle's role reasons
+  give the same words, `role_needed`).
+- An ADS find with no responding port is left out of the cards (old lines
+  131-134). When TwinCAT identity was found and no port answered, then at the end of
+  the search the ADS source row reads `0 found` (the devices that answered, as
+  the old pane counted them, `verified.length`) and carries `TwinCAT identity was
+  found, but none of the configured ADS ports ({ports}) responded.` (`discoveryController.ts` lines 237-241). `{ports}` are the
+  `trust.ads.discoveryPorts` ports, else `301, 501, 851, 852, 853, 854`
+  (`adsDiscoveryPorts.ts`, the default list). Configured ports are sent to the
+  search as `ads_ports`.
+- An ADS card (old lines 326-373 and 400-408) shows `{n} responding ADS port`
+  (singular for one, `ports` for more; old line 345), one button per responding
+  port that browses that port's tags of the found device (old lines 358-373 showed
+  the ports as chips; they now act), and its primary action: `Add to canvas`
+  (old line 407), which adds one ADS connection per responding port to the owning
+  runtime, or `Manage tags` (old line 406) once the device is on the canvas. The
+  mark `On canvas` (old line 356) shows when a connection of a known runtime has
+  the find's AMS Net ID. Adding is disabled with `Add a runtime first, so that the
+  device has a runtime to connect through.` when no runtime owns the search.
+  A successful `Add to canvas` is followed by the tag browser of the found device,
+  as the old pane opened it after the add (old `useDiscoverPane.ts` lines 98-109).
+  The view carries that browse as the action's follow-up: the action's `op` is
+  `followed`, whose `first` is the `connection.ads_add` action and whose `then` is
+  the browse that `Manage tags` opens. The webview runs `then` only when the final
+  reply to `first` is `ok` (a `pending` reply is not final, specification 25 §5.13);
+  a failed add opens nothing.
+- A card's disabled reasons (old lines 334-340 and 385-389, `discoverySession.ts`),
+  in this order: `Discovery context changed. Scan again before adding this
+  result.` when the search was not started by this panel session; the stale-runtime
+  text of spec §2 (`The runtime that found this result is no longer available. Scan
+  again before adding it.`) when the origin runtime is no longer shown; and `This
+  discovery action is no longer available. Refresh the runtime and scan again.`
+  when the origin runtime's `comm.schema` does not advertise the find's protocol
+  (only for the protocols that `comm.schema` lists with `discover`).
+- A protocol that a runtime advertises beyond the ten sources (its `comm.schema`
+  lists `discover` for it) is an `Only search` choice under `Known address or
+  subnet`, named by its advertised label, with the note `discoverable` (old line 94).
+  It is ticked, remembered and disabled by the rules of the other choices, so it is
+  enabled wherever a scan from that runtime can run. Search names it in `only` as it
+  names the ten sources, but the panel does not send that name to
+  `comm.search.start`, which names only the sources of its table (specification 11,
+  "One search"). The panel runs it through the origin runtime's `comm.discover` for
+  that protocol: once for each Known address, once for the subnet, or once with no
+  target when neither is typed (`scope.host` and `scope.cidr`, specification 11,
+  `comm.discover`). Its finds join the same search by the rule of specification 11
+  ("Devices"): a find whose `params.host` is an address of a device of the search
+  joins that device's card, which keeps its ID, and any other find is a card of its
+  own, named `dev:ip:{host}` when it has a host. Its source row reads `searching`,
+  `{n} found` or `timed out` as the other rows do, and its protocol line on a card
+  reads the advertised label. A request that the runtime refuses leaves the row `skipped` with
+  the runtime's own error text. A request that cannot reach the runtime leaves the
+  row `skipped` with the failure text of this section, with the advertised label in
+  place of `truST runtime`: `The selected runtime rejected authentication for {label}
+  discovery. Check its auth token. Reconnect or start the selected runtime, then scan
+  again.`, `{label} discovery timed out on the selected runtime. Reconnect or start
+  the selected runtime, then scan again.`, or `The selected runtime could not complete
+  {label} discovery. Reconnect or start the selected runtime, then scan again.`. A
+  status that names an unknown source or protocol is still left out, with the update
+  line above.
 
 ## 3. Examples, project scaffolding, and packaged tools
 
@@ -262,14 +453,32 @@ package, or end-to-end evidence.
   webview or runtime-rendered strings.
 - Lifecycle ownership is exact: Simulator and managed-local targets use
   Start/Stop because the extension owns their processes; unowned remote targets
-  use Connect/Disconnect because the extension owns only their sessions. A chip
-  (specification 34 STATE-08) offers both: Connect/Disconnect for the session,
-  and Start/Stop for its program, sent as the `restart` and `shutdown`
-  requests.
+  use Connect/Disconnect because the extension owns only their sessions. Every
+  runtime reports in its `status` what `shutdown` does to it, as
+  `program_control`: `keeps_control` when it still answers after `shutdown`
+  and `restart` starts its program again, as the truST firmware of a chip does
+  (specification 34 STATE-08), and `process` when `shutdown` ends its process,
+  as it ends trust-runtime on a computer. A runtime that does not report the
+  field counts as `process`. This is a lifecycle fact of every runtime, not a
+  board flag. A runtime that the extension does not launch and that reports
+  `keeps_control` also offers Start/Stop for its program: Start, sent as
+  `restart`, while it answers with the state `stopped`, and Stop, sent as
+  `shutdown`, while it answers with another state. Start sends the mode
+  `cold`, the mode a new trust-runtime process starts with (specification 11);
+  Rust chooses it, never the extension. Start needs the Operator role and Stop
+  the Admin role, as the runtime's operation registry states (specification
+  11); below that role the action stays visible but disabled, and its reason
+  names the role needed and the role of the connection. A `process` runtime
+  keeps the rules above: one on another computer is never stopped from the
+  panel, because nothing in the panel could start it again, and the Simulator
+  and managed-local runtimes use their launchers.
   Transitional lifecycle state disables the primary action. An unreachable or
   endpoint-less remote keeps Connect visible but disabled with a recovery
   reason. A managed runtime whose status is unavailable keeps Start visible but
-  disabled and MUST NOT be represented as stopped.
+  disabled and MUST NOT be represented as stopped. The project's runtime and a
+  managed runtime that have not answered before the panel's gather deadline
+  are `Status unavailable` for that round, never unreachable or stopped; another
+  configured runtime is drawn again from its next answer.
 - An invalid saved selection falls back to Simulator. Remote labels retain the
   endpoint port so same-host targets remain distinguishable. Lifecycle success
   requires the requested terminal state (`running` after Start, `stopped` after
@@ -284,7 +493,9 @@ package, or end-to-end evidence.
   are durable fallbacks across real VS Code restart. Re-selecting an existing
   ID repairs missing fallback copies.
 - Successful Connect also selects the runtime. `Set as run target` selects
-  without connecting.
+  without connecting: the simulator as `simulator`, a managed runtime by its
+  name, and another runtime by its control endpoint; a runtime without a
+  control endpoint cannot be selected and says why.
 - Managed Start/Stop uses fleet lifecycle. Successful managed Start attaches
   through the shared helper with the reached endpoint and friendly label,
   selects the target, and makes Live Values usable. A static fake local-runtime
@@ -409,7 +620,11 @@ package, or end-to-end evidence.
   counterparts, and their wires are dimmed for presentation while their raw
   health and warnings remain in the runtime rollup. Protocol filtering MAY
   remove nodes from the visible count, but MUST report hidden endpoint,
-  attention, fault, warning, and error counts.
+  attention, fault, warning, and error counts. The filter hides the
+  connections of the protocols it names, the devices on their buses, the links
+  that reach a hidden item, the mesh bus without a shown connection, and the
+  systems that only hidden links or a hidden mesh bus reach; it never removes
+  an issue from the issues list (§5.11).
 - Connector state, health, confidence, and point counts MUST survive topology
   projection into endpoint-node data. Product labels include `Ready`,
   `Needs attention`, `OK`, `Degraded`, `Port reachable only`, and
@@ -418,9 +633,13 @@ package, or end-to-end evidence.
   and combine degraded and unavailable points as `<N> need attention`, for
   example `1 good, 2 need attention`.
 - A reachable local host is headed `This computer`; a reachable remote host is
-  headed `Computer <IP>`. The raw hostname remains supporting detail. An
-  unreachable configured peer keeps its configured label and MUST NOT be
-  relabelled `This computer`.
+  headed `Computer <IP>`. The local host is the host whose ID this computer's
+  runtimes report (specification 11), else the host of the project's
+  configuration, which is read on this computer, else the host that the
+  simulator reports. A remote host is headed by its first address that is not
+  a loopback address, and `Computer <host name>` when it reports none. The raw
+  hostname remains supporting detail. An unreachable configured peer keeps its
+  configured label and MUST NOT be relabelled `This computer`.
 
 ### 5.6 Graph projection, merge, and fallback
 
@@ -434,9 +653,15 @@ package, or end-to-end evidence.
   several responses; adding or removing an overlay or peer MUST NOT change the
   identity scheme. Each container is scoped by `(host_id, container_id)`, and
   every runtime is scoped by its lossless owner tuple
-  `(host_id, optional container_id, runtime_id)`. That tuple scopes the
-  runtime's endpoints and its configured mesh externals. Each link endpoint is
-  resolved independently; the normalized link identity includes the raw link
+  `(host_id, optional container_id, runtime_id, optional instance)`. The
+  instance tells apart the runtimes of one host that report the same runtime ID
+  (specification 34 ARCH-15): it is the stable runtime ID that the runtime's
+  report or probe carries, and without one the control endpoint through which
+  the panel reached it; a runtime that no target reached, such as one that only
+  the project's configuration or another runtime's discovery reports, has none.
+  That tuple scopes the runtime's endpoints and its configured mesh externals.
+  Each link endpoint is resolved independently; the normalized link identity
+  includes the raw link
   identity and every uniquely resolved endpoint-owner tuple. Shared-system IDs
   remain global, while each `used_by` runtime reference is rewritten to its
   unique owner tuple. Tuple encoding MUST be injective; display sanitization,
@@ -457,17 +682,39 @@ package, or end-to-end evidence.
   multiple plausible owned targets where an owned target is required.
   Equal container names, resource names, endpoint IDs, link IDs, or
   configuration indexes under different hosts or containers MUST NOT collapse
-  nodes, redirect links, duplicate handles, or hide status/detail. Repeated
-  snapshots from the same complete owner deduplicate. If a runtime or endpoint
-  reference has more than one possible owner in one response, the extension
-  retains the unambiguous host/runtime projection but omits every affected link
+  nodes, redirect links, duplicate handles, or hide status/detail. The
+  complete owner of a runtime is its whole owner tuple, instance included.
+  Repeated snapshots from the same complete owner deduplicate; two runtimes of
+  one host that share a resource name but differ in stable runtime ID or in
+  reached endpoint are two runtimes. If a runtime or endpoint reference has
+  more than one possible owner in one response, the extension retains the
+  unambiguous host/runtime projection but omits every affected link
   instead of guessing. It also omits an affected configured-mesh external and
   removes an ambiguous runtime reference from shared-system `used_by`; unrelated
   links, external systems, and shared systems remain visible.
 - Merging fleet snapshots uses the highest input schema version, unions hosts
   and runtimes by identity, deduplicates links and external systems by
-  identity, and unions each shared system's `used_by` set. Configured and live
-  endpoints for the same runtime remain on that runtime.
+  identity, and unions each shared system's `used_by` set. A host keeps the
+  facts of the first snapshot that names it; the project's own runtime and its
+  configuration come before the other configured runtimes. Configured and live
+  endpoints for the same runtime remain on that runtime: the project's
+  configuration describes the project's own runtime when it answers under the
+  configured runtime ID, and the simulator while it runs the project.
+- Each runtime's connector reports attach to the endpoints of that runtime's
+  report with the same protocol; an ADS report of a supervisory server describes
+  `ads_server`, and an OPC UA report of a supervisory client describes
+  `opcua_client`. A report attaches to at most one endpoint, and a stronger
+  match comes first for every endpoint, so a weaker match never takes a report
+  that a stronger one claims: the report whose connection name (`display_name`)
+  equals the endpoint's name, then the report whose target equals, contains, or
+  is contained in the endpoint's address or its `endpoint_url`, `broker`,
+  `host`, `listen`, or `interface` parameter, then the first unused report of
+  the protocol. A disabled endpoint runs no connection and takes no report in
+  any of these steps, so a report goes to an enabled endpoint. A report with an
+  unknown or missing state, health, or confidence attaches nothing to the
+  endpoint it claims and is shown as an error on that endpoint, or on its
+  runtime when it claims none (specification 11, "Connector status and discovery
+  truth contract").
 - A configured endpoint overlaid on a running simulator retains the running
   runtime state and explains that restart is required; it MUST NOT report the
   runtime as stopped.
@@ -481,13 +728,22 @@ package, or end-to-end evidence.
   local view stays visible.
 - A new project without a configured runtime shows one neutral local
   `Simulator` node. A stopped local control socket is a neutral stopped state,
-  leaks no socket path, and does not consume the fault channel. A running
-  local simulator is connected.
+  leaks no socket path, and does not consume the fault channel: a start failure
+  of kind `stale_runtime` whose message says that the local simulator or
+  runtime is stopped, or that a runtime at a local socket is not reachable, is
+  that state. A running local simulator is connected.
+- While the project runs in the simulator (the `simulate` run mode), the
+  project's configured runtime is the simulator's node until the simulator
+  reports itself: it is named `Simulator`, shows the simulator's lifecycle,
+  offers its Start and Stop, and carries its session and run-target marks.
 - Live local-simulator topology replaces the matching stopped project overlay
   rather than creating a twin. Configured endpoints waiting for restart remain
   visible, duplicate live endpoints are removed, and raw Structured Text
   resource names do not replace the `Simulator` product identity even when
-  runtime mode is absent.
+  runtime mode is absent. A configured endpoint duplicates the live endpoint
+  that has its protocol and its place in the configuration, which both
+  topologies number in configuration order (specification 11, "Offline
+  communication operation and fleet-topology truth").
 - Managed local runtimes share the existing `This computer` host. Selection is
   projected as one run-target flag. A managed runtime already present in fleet
   topology is not duplicated and retains managed ownership, lifecycle, and
@@ -532,7 +788,21 @@ package, or end-to-end evidence.
 - Editing a rejected add form hides only its stale apply fault; unrelated
   live faults remain visible.
 - A conditional schema field is rendered, required, validated, and serialized
-  only while its `visible_when` predicate matches the selected backend.
+  only while its `visible_when` predicate matches the selected backend. Rust
+  declares the predicate with the field; the panel uses it only to show or
+  hide the field while the user types, and on submit Rust evaluates it again
+  and ignores the values of hidden fields.
+- Rust converts each submitted value by its field's schema type. A value that
+  does not fit the type, such as text in a number field or a list that is not
+  valid JSON, is a field error of that field; it is never sent as text. The
+  items of a list that the catalog describes (specification 11) are checked
+  the same way: a required property left empty, a value outside a choice's
+  options, an item that sets none or more than one of the properties of which
+  it must set exactly one, and an entry of a number list that is not a whole
+  number of 0 or more are field errors of the list. An empty property that is
+  not required is left out of the item. The list editor offers each such
+  property beside the one the item starts with, as `Source CIDR` beside
+  `Source IP` for an allowed ADS client.
 - Runtime discovery is a separate action, not a protocol card. Empty picker
   groups are omitted. Unknown protocols are never dropped and appear last in
   an advanced `Other choices` group.
@@ -563,6 +833,11 @@ package, or end-to-end evidence.
 - Runtime start failure preserves the graph, marks the runtime node as error,
   and exposes an inline retry action rather than replacing the surface with a
   failure screen.
+- The banner shows the simulator's failed start with `Retry` and `Open logs`;
+  else the reports that cannot be read, those of the other runtimes after
+  `Peer topology degraded:`; else, while the panel draws the simulator for the
+  project, `Simulator is stopped.` with `Start simulator`, or
+  `Simulator running.` with `Stop simulator`.
 - Failure or malformed output from managed-runtime status discovery is
   `Status unavailable`, never `Stopped`. Sidebar and graph lifecycle actions
   remain disabled until an authoritative status refresh succeeds.
@@ -588,12 +863,29 @@ tomake sure we dont loose any information".
 - The project name lists the truST projects of the workspace; choosing one
   shows that project. Rust uses the chosen project for the topology, the
   configuration, and the runtimes this computer manages, so they can no longer
-  come from different folders.
+  come from different folders. The list holds the projects of every workspace
+  folder: the folder itself when it holds a `runtime.toml`, and each direct
+  subfolder that holds one; until a project is chosen, or when the chosen one
+  is no longer listed, the first is shown. The chosen project's folder is its
+  fleet root: its `fleet.toml`, when present, lists the runtimes this computer
+  manages, and otherwise the fleet is the project alone; `Add a runtime`
+  writes under the chosen project, not under the first workspace folder.
 - Search covers computers, runtimes, connections, links, devices, signals, and
   issues, with one dimming rule decided in Rust (§5.5); its placeholder is
-  `Search devices, connections, signals, issues`.
+  `Search devices, connections, signals, issues`. Ignoring case, an item
+  matches when its cells in `List` (§5.14) other than its kind, the texts of
+  its issues, or, for a connection or a device, its inspector rows (its
+  settings and signals) contain the search; a connection also matches by its
+  protocol identifier. A runtime matches when its computer matches, a
+  connection when its runtime matches, and a device on a bus when its
+  connection matches. A link is lit when it or one of its ends matches; an
+  item is lit when it matches or a lit link reaches it; a computer or a
+  runtime is lit when something it holds is lit. Every item that is not lit
+  is dimmed, and the search reports how many lit items the filter shows.
 - The summary strip on the canvas keeps the computer, runtime, and connection
-  counts and adds the running, fault, and warning counts.
+  counts and adds the running, fault, and warning counts. It counts the
+  connections that the filter shows, the runtimes whose program runs (also
+  with a failing connection), and the faults and warnings of the issues list.
 - Right-click on a runtime opens a small menu: `Add device or connection…`,
   `Set as run target`, `Settings`, and `Focus`. Edit slots hide while the
   inspector or another panel is open, as today (§5.3).
@@ -601,6 +893,12 @@ tomake sure we dont loose any information".
   computer as a frame holding its runtimes, and draws devices, links, the mesh
   bus, the summary strip, the banner, and the zoom controls. Below the network
   a tray lists the boards found on this computer's USB (§5.12).
+- A computer belongs to the network band of the IPv4 subnet of its first
+  address that is not a loopback address, from the addresses it reports or else
+  its runtimes' control endpoints, with the prefix its runtime reports or else
+  `/24`; the band is named `Network · <subnet>`, such as
+  `Network · 192.168.10.0/24`. A computer without such an address belongs to no
+  band.
 - One inspector panel, 380 px wide, fills the right while an item is selected.
   It holds every fact and every action of that item. Only one right-hand panel
   is open at a time; opening Add, Discover, Filter, a browse panel, or the
@@ -613,7 +911,14 @@ tomake sure we dont loose any information".
   button shows the number of faults and warnings and opens a list of all of
   them, grouped by item, each with `Show` and its recovery action; it never
   shows only the first fault. Lifecycle failures also keep their banner with
-  `Retry` and `Open logs` (§5.10).
+  `Retry` and `Open logs` (§5.10). A connection or a device on a fieldbus whose
+  health is `error` is a fault, and one whose health is `degraded` a warning,
+  reading `<name>: <detail>`. A runtime's own failure is a fault: a failed
+  start (with `Retry`), a refused or missing token (with `Set auth token`), a
+  status that cannot be read, a faulted program, or an error that the runtime
+  reports itself; a running runtime whose connection fails raises no issue of
+  its own. A report that cannot be read is a fault of the item it names, or of
+  the group `General` for no item, which comes first.
 - `Show` and `Focus` zoom to the item. Tab reaches every item, Enter opens its
   inspector, and Escape closes the open panel. A click on the empty canvas
   closes the inspector. Dragged positions are kept for the project when the
@@ -639,20 +944,42 @@ is specific to boards.
   system and architecture, or chip) and a `Reachable`/`Unreachable` pill. Its
   inspector shows the address, state, runtimes, connections, host name, board,
   operating system and architecture, temperature, up time, and load when the
-  runtime reports them.
+  runtime reports them. A host is a chip when one of its runtimes reports, as
+  the `platform` of its `status`, the name of a chip of truST's chip files
+  (specification 34 TARGET-03): the frame is then headed by the chip's model
+  and address, such as `STM32F407 192.168.10.31`, its platform reads
+  `STM32F407 chip`, and its runtimes have the chip icon.
+- A container that holds one runtime is drawn as a chip on that runtime's
+  card; only a container with several runtimes is drawn as a frame. Both keep
+  their inspector.
 - A runtime card shows its name, a kind icon (Simulator, computer, or chip), its
   state with the current cycle time, its link and control address (host and
   port, §5.1), the `Run target` badge when selected, and the pending or `DRAFT`
-  look of §5.3.
+  look of §5.3. The state is one title-case word of the runtime's lifecycle in
+  the tone of its rolled-up health (§5.5): `Running`, `Paused`, `Faulted`,
+  `Stopped`, `Ready`, `Starting`, `Stopping`, `Status unavailable`, `Unknown`
+  for a runtime that does not answer, or `Authentication failed`; a running
+  runtime whose connections report an error or degradation reads `Error` or
+  `Degraded`. Only a running runtime is green, and a state that nothing proves
+  yet is drawn dashed. A local control socket's path is never shown as its
+  address.
   A card without connections shows `No devices yet` with the `+ Add` and
-  `Discover` hint.
+  `Discover` hint, on the simulator and on a runtime that answers and runs; a
+  stopped runtime may have connections that it shows once it runs.
 - The runtime inspector starts with its actions: the lifecycle action of §5.1
-  (a chip offers `Connect`/`Disconnect` for the session and `Start`/`Stop` for
-  its program, as the owner's plan of 16 October 2026 states), `Live Values`,
-  `Debug`, and `Deploy` (disabled with the §6.1 text until the backend exists).
-  `Set as run target`, `Settings`, `Logs` (only with a log backend), and `Focus`
-  follow as smaller buttons. Credential recovery becomes the primary action
-  after an authentication failure.
+  (a runtime that the extension does not launch offers `Connect`/`Disconnect`
+  for the session and, when it reports `keeps_control`, `Start`/`Stop` for its
+  program, as the owner's plan of 16 October 2026 states for a chip),
+  `Live Values`, `Debug`, and `Deploy` (disabled with the §6.1 text until the
+  backend exists). `Live Values` opens the values of the runtime the extension
+  is connected to; for another runtime it is disabled and says to start the
+  simulator, start the managed runtime, or connect (§4.4). `Debug` launches the
+  simulator under the debugger and attaches to another runtime that answers
+  with its debugging on; otherwise it is disabled with its reason.
+  `Set as run target`, `Settings`, `Logs` (only with a log backend: the
+  simulator's debug log and a managed runtime's log), and `Focus` follow as
+  smaller buttons. Credential recovery becomes the primary action after an
+  authentication failure.
 - The runtime inspector then shows: state and detail; run target; mode; cycle
   time and its maximum; link and control address; truST version and the update
   it needs, if any (specification 34 TARGET-05); up time and fault count; the
@@ -661,11 +988,34 @@ is specific to boards.
   components of its firmware from its chip file and greys out a component the
   chip does not hold, naming it (specification 34 ARCH-14). Recent events come
   from the runtime's event log (TARGET-07).
-- The USB tray lists the chips, debug probes, and USB-serial adapters found on
-  this computer's USB (specification 11, one search). A chip shows its name,
-  flash and RAM, and either its truST version or `No truST yet`, with
-  `Install truST`, `Update truST`, `Connect`, or `Show` as fits. Nothing is
-  written to a board until the user starts an installation.
+- The USB tray, headed `Found on this computer (USB)`, lists the chips, debug
+  probes, and USB-serial adapters that the USB and serial sources find on this
+  computer (specification 11, one search); nothing else on USB is listed. A
+  boot loader or a chip's USB controller is named as such, such as
+  `STM32 boot loader (DFU)`, and lists the supported chips whose chip files
+  name its IDs, with the note that the chip is confirmed when connecting and
+  before any installation; a boot loader shows `No truST yet`. While only one
+  chip file names a controller's IDs, the item is that chip, with its name and
+  its flash and RAM from its chip file: the ESP32-C6 shows
+  `ESP32-C6, truST not confirmed` until a connection confirms it. A runtime
+  shows its truST version, and a probe or adapter shows what it is and its
+  serial ports. Without an item the tray reads
+  `No chips, debug probes, or USB-serial adapters on this computer's USB.`
+  Nothing is written to a board until the user starts an installation.
+- Rust decides each tray item's actions. A debug probe offers `Install truST`,
+  and so does a chip's boot loader while a chip file names its IDs. A truST
+  runtime that the panel does not show offers
+  `Connect`, and a chip whose truST is not confirmed offers `Connect` and
+  `Install truST`; `Connect` connects at `usb://<serial number>`, and it stays
+  disabled, with its reason, for a device without a serial number and while
+  this version of truST cannot connect over USB. A runtime that the panel
+  shows offers `Show`: the runtime the panel reaches at that `usb://`
+  endpoint, or the one whose runtime ID the device carries. The item then
+  names that runtime and the network address where it is also reachable: the
+  address of its network find (a device of the search with the runtime's ID),
+  or the address the panel reaches it at. It offers `Update truST` first when
+  the runtime's truST version differs from this tool's (specification 34
+  TARGET-05). A USB-serial adapter offers nothing.
 - `Install truST` opens the installation in the inspector (specification 34
   TARGET-02, TARGET-04, TARGET-05, TARGET-09), in four steps: the chip found,
   with its identity; installing the release firmware, with progress and the
@@ -681,19 +1031,35 @@ is specific to boards.
 - A connection (an endpoint of §5.5) is a pill on its runtime that shows the
   protocol and the connection's own name, a status dot, the role word of today's
   tiles (`CLIENT`, `SERVER`, `MASTER`, `PUB/SUB`, `PEER`, `ADVERTISE`,
-  `SAME-HOST`, `POLICY`, `I/O`), and the `DRAFT` and `Disabled` marks.
+  `SAME-HOST`, `POLICY`, `I/O`), and the `DRAFT` and `Disabled` marks. A
+  connection is marked `DRAFT` while it is a draft of the add flow, or while an
+  advanced integration (Mesh, OpenOT, Realtime, Runtime cloud) has no evidence
+  yet (`pending`, `configured_policy`, `not_configured`, or `unknown`), and
+  `Disabled` while its health is `disabled`.
 - Devices and systems at the other end (external and shared systems, and
   EtherCAT SubDevices) are cards that show their name, what they present (for
   example `MQTT broker`), their status, and, when the runtime reports them, the
-  last time they were seen and their response time. They can be dragged.
+  last time they were seen and their response time. They can be dragged. A
+  system's status is that of the link that names what it presents, and its
+  last time seen and response time are those that the connection at the
+  link's other end reports; a SubDevice shows its own health.
 - Links keep §5.7: dashed means not yet proven, a proven link is solid with the
   tone of its status, and an arrow shows the direction. A secure link shows a
   lock. Each link is labelled with its protocol, and its status and detail show
-  on hover and keyboard focus.
+  on hover and keyboard focus. The arrow points at the counterpart for
+  `outbound` traffic and at the runtime's end for `inbound` traffic; a link of
+  another direction, such as `publish_subscribe`, `observed`, or `policy`, has
+  none.
 - The connection inspector is titled with the connection's name and keeps the
   summaries of §5.4 and §5.8. It adds the connector rows `Connection`,
   `Health`, `Verification`, and `Signals` (§5.5) and, when reported, live
-  values, last seen, and response time.
+  values, last seen, and response time. Its live values are those its runtime
+  reports, and for the simulator's simulated and loopback I/O the first twelve
+  I/O values of the simulator. Summaries show a switch as `On` or `Off`, omit a
+  field that its `visible_when` hides (§5.9), and show of a secret only whether
+  it is set. `Test` stays visible but disabled, with its reason, while the
+  connection's runtime does not answer; an OPC UA client with several
+  connections offers one `Test` for each, naming it.
 - The edit view keeps §5.4 and §5.9, shows advanced fields under an `Advanced`
   heading (not collapsed), and keeps an edit in progress through live refreshes
   (§5.3).
@@ -717,10 +1083,15 @@ is specific to boards.
 
 ### 5.14 Add, Discover, issues, and the list
 
-- `+ Add` opens one dialog. Its catalog always comes from Rust, from the runtime
-  when one serves it and otherwise from `trust-runtime comm schema`, so it
-  works before anything runs; `Catalog unavailable` is reserved for a missing
-  `trust-runtime`. The groups are §5.9's, preceded by `Runtimes`: `Computer`
+- `+ Add` opens one dialog. It adds to the selected runtime, else to the
+  Simulator, else to the first runtime shown; opened from a runtime's menu or
+  its `Add connection` slot, it adds to that runtime. Its catalog always comes
+  from Rust, from the runtime when one serves it and otherwise from
+  `trust-runtime comm schema`, so it works before anything runs; a runtime
+  whose catalog predates the picker words of specification 11 gets the words
+  of the same protocol from the tool's own catalog. `Catalog unavailable` is
+  reserved for a missing `trust-runtime`. The groups are §5.9's, preceded by
+  `Runtimes`: `Computer`
   with `Connect existing runtime` and `Run a runtime on this computer`
   (`Install over SSH` and `Run in Docker` stay visible as later, §5.2), and one
   entry per chip of truST's chip files, which leads to `Install truST`. Results
@@ -737,7 +1108,8 @@ is specific to boards.
 - `Discover` runs one search (§2). Each device card shows every protocol found
   on it, its identity, its source and confidence labels, and when it was last
   seen, and offers what fits it: `Add`, `Adopt` for a runtime, `Browse tags`,
-  `Identify` for a runtime, `Copy address`, and `Ignore`. A card's warnings
+  `Identify` for a runtime, `Copy address`, and `Ignore` (the rules of the TwinCAT
+  cards, of `Ignore` and of the remembered ticks are in §2). A card's warnings
   from the search are shown on it. `Compare with project` lists configured
   devices not found, found devices the project does not use, and devices whose
   identity differs.
@@ -757,6 +1129,41 @@ the owner's decision of 16 October 2026). This includes today's TypeScript
 topology merging and identity (§5.6), health and status rules, the lifecycle
 button rules of §5.1, form validation, the discovery and browse rules, and the
 extension's own edits of `runtime.toml` and `ads.toml`.
+
+The extension reaches that engine through five language-server commands, which
+the language server advertises and the extension never registers:
+`trust-lsp.devicesView` returns the whole panel, `trust-lsp.devicesAct`
+performs one action a view offered, `trust-lsp.devicesBrowse` opens or
+refreshes a browse pane, `trust-lsp.devicesSearch` runs the one search of §2
+with the verb `start`, `status` or `cancel`, and `trust-lsp.devicesClose` ends
+a panel's session and the searches it started. A session that stays idle for
+ten minutes is closed.
+
+Each command waits at most 25 ms for its own work. Slow work continues on a
+thread of its own. It holds no lock that another command of the panel needs,
+so the other commands answer meanwhile:
+
+- A `devicesView` answers the panel's last projection at once and starts the
+  next gather in the background. The first view of a session is the loading
+  shell.
+- A `devicesBrowse` answers the loading pane until its tree is read.
+- A `devicesAct` whose action is not done within 25 ms answers `ok` true,
+  `refresh` `soon`, and `pending` with three fields: `operation` (such as
+  `op-7`), `pane` (the pane that started the action, §5.13) and `text`. The
+  `text` is `Starting…` for a managed Start, `Stopping…` for a managed Stop,
+  and `Working…` for any other action.
+- A `devicesSearch` with origin `runtime` waits at most 25 ms for that runtime.
+  If the runtime has not answered, the answer is the error `runtime_pending`,
+  and the panel asks again. An answer that comes later is still kept, so that
+  `devicesClose` cancels a search the runtime started.
+
+The final reply of a pending action arrives once, in `operations_done` of a
+later `devicesView` reply, with the fields of an on-time reply: `notice`
+(absent when the action reported none), `effects`, `close_pane`, `refresh` and
+`form` (set only by `form.open`). The view that delivers it applies `refresh`:
+`now` makes that reply's `next_refresh_ms` 0 and starts a gather of the new
+state as soon as none is running; `soon` caps `next_refresh_ms` at 500 ms;
+`none` changes nothing. A result is never delivered twice.
 
 ### 5.16 Nothing is lost
 
@@ -1028,6 +1435,9 @@ test checks each family.
 - Connection assembly requires a usable endpoint and at least one usable
   point. Browse failures use one product recovery action and human-facing text,
   never raw backend status tokens.
+- Browse follows the server's continuation points up to the configured depth and
+  node limits. When a limit stops the tree, the browse result carries a warning
+  naming that limit, and no truncated tree looks complete.
 
 ### 11.3 PLCopen import and export workflow
 

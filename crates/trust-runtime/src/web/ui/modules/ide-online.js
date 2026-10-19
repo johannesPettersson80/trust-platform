@@ -461,14 +461,15 @@ function onlineTimeAgo(ts) {
 // ── Connect / Disconnect ───────────────────────────────
 
 async function onlineProbeTarget(target, credentials) {
-  let probeUrl = `/api/probe?url=${encodeURIComponent(target)}`;
   const username = String(credentials?.username || "").trim();
-  if (username) {
-    probeUrl += `&username=${encodeURIComponent(username)}`;
-    probeUrl += `&password=${encodeURIComponent(String(credentials?.password || ""))}`;
-  }
-  return await apiJson(probeUrl, {
-    method: "GET",
+  return await apiJson("/api/probe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      url: target,
+      username,
+      password: username ? String(credentials?.password || "") : "",
+    }),
     timeoutMs: 2500,
   });
 }

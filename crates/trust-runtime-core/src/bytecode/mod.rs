@@ -115,6 +115,15 @@ pub enum BytecodeError {
     /// Decoder processing exceeds the admitted work budget.
     #[error("decoder work limit exceeded")]
     DecodeWorkLimit,
+    /// The validator's analysis storage exceeds the admitted limit
+    /// (`ValidationLimits::max_scratch_bytes`). It renders and codes as the section rejection it
+    /// is, and keeps its type in every build, so that a device words it as the limit it is.
+    #[error("invalid section data: validation analysis storage limit exceeded")]
+    ValidationStorageLimit,
+    /// The validator's analysis work exceeds the admitted limit (`ValidationLimits::max_work`). It
+    /// renders and codes as the section rejection it is, and keeps its type in every build.
+    #[error("invalid section data: validation analysis work limit exceeded")]
+    ValidationWorkLimit,
     /// Header fields are internally inconsistent.
     #[error("invalid bytecode header: {0}")]
     InvalidHeader(SmolStr),
@@ -182,7 +191,9 @@ impl BytecodeError {
             Self::SectionOverlap => StableErrorCode::BytecodeSectionOverlap,
             Self::SectionAlignment => StableErrorCode::BytecodeSectionAlignment,
             Self::UnexpectedEof => StableErrorCode::BytecodeUnexpectedEof,
-            Self::InvalidSection(_) => StableErrorCode::BytecodeInvalidSection,
+            Self::InvalidSection(_) | Self::ValidationStorageLimit | Self::ValidationWorkLimit => {
+                StableErrorCode::BytecodeInvalidSection
+            }
             Self::MissingSection(_) => StableErrorCode::BytecodeMissingSection,
             Self::InvalidOpcode(_) => StableErrorCode::BytecodeInvalidOpcode,
             Self::InvalidJumpTarget(_) => StableErrorCode::BytecodeInvalidJumpTarget,

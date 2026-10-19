@@ -137,11 +137,11 @@ package "Hosted cycle: borrowed adapters, common scheduler" as cyclePkg #LightBl
 }
 
 package "Device resource loop: one thread, no operating system (spec 34 STATE-08)" as deviceLoopPkg #Honeydew {
-    component "Runner\nserves the control link between scans and while Stopped;\ntakes pause / resume / restart / shutdown at the program's next boundary\n(next scan, paused interval, 10 ms faulted poll) as the host's scan thread does;\nscans when due, idle work, feeds the hardware watchdog,\nthen waits for the next boundary, the feed interval or a wake;\nRunning / Paused / Stopped / Faulted by the shared supervisor,\noperation and command rules\n(trust-runtime-services runner.rs + runner/supervision.rs + runner/state.rs)" as deviceRunner
+    component "Runner\nserves the control link between scans and while Stopped;\ntakes pause / resume / bytecode.reload / restart / shutdown at the program's next boundary\n(next scan, paused interval, 10 ms faulted poll) as the host's scan thread does;\nscans when due, idle work, feeds the hardware watchdog,\nthen waits for the next boundary, the feed interval or a wake;\nRunning / Paused / Stopped / Faulted by the shared supervisor,\noperation and command rules\n(trust-runtime-services runner.rs + runner/supervision.rs + runner/state.rs)" as deviceRunner
     component "ScanObserver\ncycle and task events, task / program / overrun metrics\n(runner/observer.rs)" as deviceObserver
     component "Shared request pipeline\ndispatch.rs + status.rs + resource/operations.rs;\nevents.tail and faults written event by event\nwithin the link's frame (status/event_reads.rs)" as deviceDispatch
     interface "trust-runtime-core::ports\nMonotonicClock (MonotonicInstant, TimeSpan), WallClock (None until set),\nRunnerWait + WakeSignal (PORT-03), HardwareWatchdog (TIME-04),\nControlLink + PeerClass (frames bounded both ways)" as corePorts
-    interface "ResourceCycle (runner/cycle.rs)\nscan, latch fault, safe outputs,\nretain save, restart cold / warm, task timing,\nI/O driver health" as cyclePort
+    interface "ResourceCycle (runner/cycle.rs)\nscan, latch fault, safe outputs,\nretain save, restart cold / warm, task timing,\ninstallation generation (the loop gives it to the Live Values\nafter each restart and when it takes a program),\nI/O driver health" as cyclePort
     component "EngineCycle (runner/engine.rs)\nthe installed program on RuntimeState<'static>:\ninputs before the scan, outputs at the engine's publication,\nsafe outputs written into the output image, then driven;\nDeviceServices: scan deadline on the monotonic clock,\nno wall clock until T6 (CURRENT_DT refused at admission);\ndevice_limits from the region and heap sizes" as deviceEngine
     interface "ProcessIo (runner/engine/process_io.rs)\nread inputs, write outputs,\nwrite safe outputs, driver health" as processIo
     interface "RunnerPlatform (runner/host.rs)\naccess, audit, wall clock, status values,\nplatform operations, hardware watchdog" as platformPort
@@ -176,11 +176,14 @@ package "Device resource loop: one thread, no operating system (spec 34 STATE-08
 package "Lifecycle and checked engineering" as lifecyclePkg #LightGray {
     component "ResourceReconfiguration\nstage admitted images/tasks; exclusive commit\n(core/engine/reconfiguration.rs)" as resourceChange
     component "Isolated code/schema candidate\nprepare_replacement + warm retain migration\n(runtime/installed_lifecycle.rs)" as codeChange
+    component "Engine replacement (trust-runtime-core vm/engine/restart.rs, one function)\nOwnedRuntimeState::prepare_replacement (computer) and\nRuntimeState::prepare_replacement (chip) call it:\nnext generation of the lineage, logical time and process images carried,\na congruent candidate keeps retained FB instances and references live,\nany other migrates a snapshot by name or is refused,\nthe saved snapshot of the retain store applied over it" as replacementBody
+    codeChange --> replacementBody : the owned state
     component "Safe-state delivery\nchecked owner images + every driver attempt\n(io_subsystem + installed_cycle.rs)" as safeState
     component "Retain checkpoint and restart\ncanonical global/program destinations\nSTRN v3: logical values + physical layout/backing\nchecked capture + transactional restoration" as retainOwner
     component "Startup composition\nselected transports / T0 SHM / Linux RT posture" as startup
     component "Launcher signals / ResourceControl\nSTOP, safe outputs, durable save" as shutdown
     component "Faulted wait\nno tasks or outputs; serves reads and config;\nrestart / online change resume; STOP ends\n(scheduler/faulted.rs; command rules:\ntrust-runtime-services resource/commands.rs)" as faultedWait
+    component "Stopped wait (computer)\nshutdown stops the program (safe outputs, then the retain save);\nthe process stays up with its control server, web UI and services;\nno tasks or outputs, polls every 10 ms for restart or exit;\nrestart loads the installed bundle again, as a new process loads it;\nthe process ends only on SIGINT / SIGTERM, shutdown with exit true or hang action abort\n(scheduler/stopped.rs; run/runtime/program.rs; spec 34 STATE-08)" as stoppedWait
     component "Hang supervisor (watchdog enabled)\nindependent thread reads the published deadline;\nWatchdogTimeout + hang_action fault | abort (exit 70)\n(scheduler/supervisor.rs)" as hangSupervisor
     runtime --> resourceChange : metadata / direct / MQTT bindings
     resourceChange --> state : preserve values, live identities, debug/IR/fault state
@@ -190,6 +193,8 @@ package "Lifecycle and checked engineering" as lifecyclePkg #LightGray {
     runner --> safeState : STOP / FAULT / watchdog
     runner --> faultedWait : halting fault (process keeps serving)
     faultedWait --> runner : successful restart / online change
+    runner --> stoppedWait : control shutdown (the process stays up)
+    stoppedWait --> runner : restart cold / warm starts the installed program
     hangSupervisor ..> runner : cycle deadline; declares a hung scan Faulted
     safeState --> state : separate checked safety entry
     startup --> runner
@@ -201,6 +206,53 @@ package "Lifecycle and checked engineering" as lifecyclePkg #LightGray {
         Binding-only edits preserve task timing; explicit task replacement samples
         SINGLE and resets registration timing while retaining thread identity history.
         Failure or discarded candidate leaves the installed state unchanged.
+    end note
+}
+
+package "Program loading: transfer, checks, commit, reply, restart (spec 34 5.1, 11.2, PORT-05)" as loadingPkg #Honeydew {
+    component "pack-project (xtask portability/pack.rs)\nTRSTA002 container with install sequence 1\n(installation::encode_sequenced, FIRST_SEQUENCE):\nthe bytes the store commits into an empty store" as packTool
+    component "Transfer session (trust-runtime-services transfer/)\none upload staged in RAM in parts of 4,096 bytes,\nevery part CRC-32 checked, the whole upload SHA-256 checked;\nids: boot number + sequence; a reset ends every transfer" as transferSession
+    component "program.install request rule (loading/program_install.rs)\nAdmin; first failing check is the reply:\nparams, hung scan, resource not Stopped (resource_not_running),\nno program store (unsupported request), complete upload taken" as installRule
+    component "Install checks (loading/install.rs check)\n1 container: magic, header CRC, length, entries, payload CRCs\n2 record and admission (DEPLOY-04)\n3 retained values against the newest checkpoint or retain file (G13)\n4 dry-run preparation with the admitted limits\nnothing is written until all four pass" as installChecks
+    component "Chip commit order (loading/install.rs Install::step)\nslot = the one without the newest committed container, or A;\nsequence = newest + 1, or 1;\nerase units, program payloads, header and first half of the magic,\nread back, program the second half of the magic = commit point" as installCommit
+    component "Chip: the commit is the reply in flight (runner/install.rs)\none step in each pass of the loop (one erase unit, or at most 256 bytes\nprogrammed or read back), watchdog fed;\nno request is read until the installed reply is written;\na failed step is the reply" as chipInstall
+    component "Computer: program store (trust-runtime host/program_store.rs)\na deployment of the program alone: admit first, stage bundles/label, temporary file + rename per file,\nrename of current = commit point, then previous, then prune;\nweb deploy, web rollback and program.install, Stopped only (Q11)" as computerStore
+    interface "ProgramFlash / ProgramStore (core ports.rs)\ntwo slots A and B: read, program, erase" as programFlash
+    component "C6 program slots (trust-platform-esp32 program_flash.rs)\napplication_a 0x200000, application_b 0x4FC000, 3,056 KiB each;\none FlashOwner shares the flash with the checkpoint slots" as c6Slots
+    component "Boot selection (loading/select.rs)\nreads both headers: the committed TRSTA002 with the highest sequence wins;\nTRSTA001 is not committed and its slot is named in the reason;\na damaged newest container refuses the boot, no fallback (Q12):\nno installed program: reason" as bootSelect
+    component "bytecode.reload rules (loading/reload.rs)\nparams (bytes or transfer), hung scan, Stopped refused, upload taken;\nreplies reloaded / reload timeout / resource stopped /\ncommit outcome unknown; shared by every runtime" as reloadRules
+    component "Reload queue and waits (trust-runtime control/program_handlers.rs)\nqueues the change for the scan thread; waits 5 s for it to be taken\nand 60 s for the commit; memory only." as reloadWait
+    component "Chip: the online change is the reply in flight (runner/online_change.rs)\nqueued by the loop when the request is admitted; the loop reads no request until it ends;\nat the next boundary, after the stop and the queued pauses and resumes, before a pending restart:\ntake (withdrawn with reload timeout after 5 s), prepare, commit, drop the old program last;\nmemory only: a stop and a restart load the installed container (spec 34 11.3, STATE-08)" as chipChange
+    component "Chip: the candidate (ProgramLoader::prepare_change; trust-platform-esp32 loader.rs)\nmodule prepared with device_limits of the heap's room less the reserve (8 KiB, and the newest\ncheckpoint's payload when the record keeps retained values),\nthe upload freed at once (insufficient memory otherwise); bindings checked against\nthe lines of the running record; built from the running state over an empty process I/O\nand the newest checkpoint as the saved snapshot (ProgramMemory::replace);\nsafe state checked; no pin claimed, no output written;\na refusal leaves the running program as it was" as chipCandidate
+    component "Chip: the commit (ProgramLoader::commit_change)\nprocess I/O and checkpoint store change places with the candidate's empty ones\n(no line released or claimed, no output written); logical time kept, scan counter 0,\nqueued writes and forces cleared; the old program is dropped last" as chipCommit
+
+    transferSession --> installRule : the complete upload, taken once
+    installRule --> installChecks : Stopped, program store present
+    installChecks --> installCommit : chip
+    installChecks --> computerStore : computer
+    installCommit --> chipInstall : the loop advances it
+    chipInstall --> programFlash : one step per pass
+    chipInstall ..> deviceRunner : the installed reply is written when the last step is done
+    c6Slots ..|> programFlash : implements
+    packTool ..> c6Slots : espflash write-bin at 0x200000\n(a first flash, sequence 1)
+    bootSelect --> programFlash : both headers, then the newest container once
+    bootSelect --> deviceEngine : program bytes + decoded record + limits;\nthe container is released
+    chipInstall ..> bootSelect : a reset starts the installed program\n(restart in place: slice S4-6b)
+    computerStore ..> stoppedWait : restart loads the bundle current names
+    transferSession --> reloadRules : bytecode.reload with transfer
+    reloadRules --> reloadWait : the program bytes (computer)
+    reloadWait --> codeChange : applied at a scan boundary
+    reloadRules --> chipChange : the program bytes (chip)
+    chipChange --> chipCandidate : at a boundary, the running program stays installed
+    chipCandidate --> replacementBody : the borrowed state
+    chipCandidate --> chipCommit : every check passed
+    chipChange ..> deviceRunner : the reloaded reply is written when the change ends
+
+    note bottom of installCommit
+        The reply of program.install carries status installed, sequence, program_sha256 and bytes.
+        On a chip it comes after the whole commit, up to 0.4 s per 4 KiB erase unit,
+        so a client reads it with the bound of spec 11 6.8.1 and not with 750 ms.
+        An interrupted install keeps the previous program selected (DEPLOY-03).
     end note
 }
 

@@ -3,16 +3,17 @@
 #![allow(missing_docs)]
 
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Condvar, Mutex};
 
 use smol_str::SmolStr;
 
+use crate::error::RuntimeError;
 use crate::io::{IoAddress, IoSnapshot};
-use crate::memory::{FrameId, Generation, InstanceId};
+use crate::memory::{FrameId, Generation, InstanceId, VariableStorage};
 use crate::program_model::{Expr, LValue};
-use crate::value::Value;
+use crate::value::{Duration, StorageAbi, Value};
 
 use trust_runtime_services::live_values::{
     ForcedSnapshot, ForcedVarTarget, LiveValueQueues, PendingLValueWrite, PendingVarTarget,
@@ -20,6 +21,7 @@ use trust_runtime_services::live_values::{
 };
 
 use super::breakpoints::{matches_breakpoint, BreakpointCycleKey};
+use super::execution_snapshot::StatementProjection;
 use super::hook::{DebugHook, DebugRuntimeContext};
 use super::trace::trace_debug;
 use super::{

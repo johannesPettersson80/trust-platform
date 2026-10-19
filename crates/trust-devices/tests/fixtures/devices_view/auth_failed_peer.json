@@ -1,0 +1,1190 @@
+{
+  "schema_version": 1,
+  "generated_ms": 1760692130112,
+  "toolbar": {
+    "add": {
+      "id": "add",
+      "label": "+ Add",
+      "enabled": true,
+      "emphasis": "primary",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "open",
+          "pane": {
+            "kind": "add"
+          }
+        }
+      }
+    },
+    "discover": {
+      "id": "discover",
+      "label": "Discover",
+      "enabled": true,
+      "emphasis": "secondary",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "open",
+          "pane": {
+            "kind": "discover"
+          }
+        }
+      }
+    },
+    "add_host_slot": {
+      "id": "add_host",
+      "label": "Add host",
+      "enabled": true,
+      "emphasis": "secondary",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "open",
+          "pane": {
+            "kind": "add"
+          }
+        }
+      }
+    },
+    "view_switch": {
+      "topology": "Topology",
+      "list": "List"
+    }
+  },
+  "project": {
+    "name": "No truST project",
+    "root": "",
+    "choices": []
+  },
+  "summary": {
+    "text": "2 computers · 2 runtimes · 0 connections · 0 running · 1 fault · 0 warnings",
+    "computers": 2,
+    "runtimes": 2,
+    "connections": 0,
+    "running": 0,
+    "faults": 1,
+    "warnings": 0,
+    "open_issues": {
+      "id": "open_issues",
+      "label": "Issues",
+      "enabled": true,
+      "emphasis": "quiet",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "open",
+          "pane": {
+            "kind": "issues"
+          }
+        }
+      }
+    }
+  },
+  "banner": {
+    "tone": "neutral",
+    "text": "Simulator is stopped.",
+    "actions": [
+      {
+        "id": "start_simulator",
+        "label": "Start simulator",
+        "enabled": true,
+        "emphasis": "primary",
+        "op": {
+          "kind": "host",
+          "effect": {
+            "kind": "start_simulator"
+          }
+        }
+      }
+    ]
+  },
+  "issues": {
+    "button": {
+      "text": "1 issue",
+      "tone": "error",
+      "faults": 1,
+      "warnings": 0
+    },
+    "groups": [
+      {
+        "item": "trust-fleet-v1:WyJydW50aW1lIiwiZmxlZXQ6dGNwOi8vMTkyLjE2OC4xMC40NDo1NjgwIixudWxsLCJmbGVldDp0Y3A6Ly8xOTIuMTY4LjEwLjQ0OjU2ODA6cnVudGltZSJd",
+        "item_name": "Sensor hub",
+        "issues": [
+          {
+            "id": "runtime:trust-fleet-v1:WyJydW50aW1lIiwiZmxlZXQ6dGNwOi8vMTkyLjE2OC4xMC40NDo1NjgwIixudWxsLCJmbGVldDp0Y3A6Ly8xOTIuMTY4LjEwLjQ0OjU2ODA6cnVudGltZSJd",
+            "severity": "error",
+            "severity_word": "Fault",
+            "severity_tone": "error",
+            "text": "Sensor hub: Auth token rejected — check it and try again.",
+            "show": {
+              "id": "show",
+              "label": "Show",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "focus",
+                  "item": "trust-fleet-v1:WyJydW50aW1lIiwiZmxlZXQ6dGNwOi8vMTkyLjE2OC4xMC40NDo1NjgwIixudWxsLCJmbGVldDp0Y3A6Ly8xOTIuMTY4LjEwLjQ0OjU2ODA6cnVudGltZSJd"
+                }
+              }
+            },
+            "recovery": {
+              "id": "set_auth_token",
+              "label": "Set auth token",
+              "enabled": true,
+              "emphasis": "primary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "prompt_token",
+                  "endpoint": "tcp://192.168.10.44:5680"
+                }
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "filter": {
+    "protocols": [],
+    "lines": [
+      {
+        "text": "All protocols are visible.",
+        "tone": "neutral"
+      },
+      {
+        "text": "No connections.",
+        "tone": "muted"
+      }
+    ],
+    "hidden_connections": 0,
+    "hidden_attention": 0,
+    "hidden_errors": 0,
+    "hidden_warnings": 0
+  },
+  "search": {
+    "query": "",
+    "placeholder": "Search devices, connections, signals, issues",
+    "matches": 0
+  },
+  "networks": [
+    {
+      "id": "network:192.168.10.0/24",
+      "label": "Network · 192.168.10.0/24",
+      "computers": [
+        "trust-fleet-v1:WyJob3N0IiwiZmxlZXQ6dGNwOi8vMTkyLjE2OC4xMC40NDo1NjgwIl0"
+      ]
+    }
+  ],
+  "computers": [
+    {
+      "id": "trust-fleet-v1:WyJob3N0IiwiaG9zdDp0aGlzLWNvbXB1dGVyIl0",
+      "kind": "computer",
+      "heading": "This computer",
+      "reachability": {
+        "word": "Reachable",
+        "tone": "ok",
+        "live": true
+      },
+      "look": "normal",
+      "containers": [],
+      "runtimes": [
+        {
+          "id": "runtime:local",
+          "name": "Simulator",
+          "icon": "simulator",
+          "state": {
+            "word": "Stopped",
+            "tone": "neutral",
+            "live": false
+          },
+          "run_target": true,
+          "look": "normal",
+          "empty_hint": {
+            "title": "No devices yet",
+            "text": "Use + Add to add one, or Discover to scan the network."
+          },
+          "connections": [],
+          "hover": {
+            "title": "Simulator",
+            "rows": [
+              {
+                "label": "State",
+                "value": "Stopped",
+                "wide": false
+              },
+              {
+                "label": "Mode",
+                "value": "Simulator",
+                "wide": false
+              },
+              {
+                "label": "Connections",
+                "value": "0",
+                "wide": false
+              },
+              {
+                "label": "Detail",
+                "value": "Stopped — start the simulator to run it.",
+                "wide": false
+              }
+            ]
+          },
+          "inspector": {
+            "breadcrumb": "Devices & Connections / Runtime",
+            "kind": "Runtime",
+            "title": "Simulator",
+            "health": {
+              "word": "Stopped",
+              "tone": "neutral",
+              "live": false
+            },
+            "primary": [
+              {
+                "id": "start",
+                "label": "Start",
+                "enabled": true,
+                "emphasis": "primary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "start_simulator"
+                  }
+                }
+              },
+              {
+                "id": "live_values",
+                "label": "Live Values",
+                "enabled": false,
+                "reason": "Start the simulator to see its live values.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_live_values"
+                  }
+                }
+              },
+              {
+                "id": "debug",
+                "label": "Debug",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "debug"
+                  }
+                }
+              },
+              {
+                "id": "deploy",
+                "label": "Deploy",
+                "enabled": false,
+                "reason": "Deploy is not available for this target yet.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.deploy",
+                  "payload": {
+                    "runtime": "runtime:local"
+                  }
+                }
+              }
+            ],
+            "secondary": [
+              {
+                "id": "set_run_target",
+                "label": "Set as run target",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "set_run_target",
+                    "id": "simulator"
+                  }
+                }
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_runtime_settings"
+                  }
+                }
+              },
+              {
+                "id": "logs",
+                "label": "Logs",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_debug_log"
+                  }
+                }
+              },
+              {
+                "id": "focus",
+                "label": "Focus",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "ui",
+                  "ui": {
+                    "kind": "focus",
+                    "item": "runtime:local"
+                  }
+                }
+              }
+            ],
+            "sections": [
+              {
+                "rows": [
+                  {
+                    "label": "State",
+                    "value": "Stopped · Stopped — start the simulator to run it.",
+                    "tone": "neutral",
+                    "wide": false
+                  },
+                  {
+                    "label": "Run target",
+                    "value": "Selected",
+                    "wide": false
+                  },
+                  {
+                    "label": "Mode",
+                    "value": "Simulator",
+                    "wide": false
+                  },
+                  {
+                    "label": "Connections",
+                    "value": "0",
+                    "wide": false
+                  }
+                ]
+              }
+            ]
+          },
+          "context_menu": [
+            {
+              "id": "add",
+              "label": "Add device or connection…",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "runtime:local"
+                  }
+                }
+              }
+            },
+            {
+              "id": "set_run_target",
+              "label": "Set as run target",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "set_run_target",
+                  "id": "simulator"
+                }
+              }
+            },
+            {
+              "id": "settings",
+              "label": "Settings",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "open_runtime_settings"
+                }
+              }
+            },
+            {
+              "id": "focus",
+              "label": "Focus",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "focus",
+                  "item": "runtime:local"
+                }
+              }
+            }
+          ],
+          "slots": [
+            {
+              "id": "add_connection",
+              "label": "Add connection",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "runtime:local"
+                  }
+                }
+              }
+            }
+          ],
+          "dimmed": false,
+          "hidden": false,
+          "list": {
+            "kind": "runtime",
+            "cells": {
+              "belongs_to": "This computer",
+              "detail": "Stopped — start the simulator to run it.",
+              "kind": "Runtime",
+              "name": "Simulator",
+              "state": "Stopped",
+              "type": "Simulator"
+            }
+          }
+        }
+      ],
+      "hover": {
+        "title": "This computer",
+        "rows": [
+          {
+            "label": "State",
+            "value": "Reachable",
+            "wide": false
+          },
+          {
+            "label": "Runtimes",
+            "value": "1",
+            "wide": false
+          },
+          {
+            "label": "Connections",
+            "value": "0",
+            "wide": false
+          }
+        ]
+      },
+      "inspector": {
+        "breadcrumb": "Devices & Connections / Computer",
+        "kind": "Computer",
+        "title": "This computer",
+        "health": {
+          "word": "Reachable",
+          "tone": "ok",
+          "live": true
+        },
+        "primary": [],
+        "secondary": [
+          {
+            "id": "focus",
+            "label": "Focus",
+            "enabled": true,
+            "emphasis": "secondary",
+            "op": {
+              "kind": "ui",
+              "ui": {
+                "kind": "focus",
+                "item": "trust-fleet-v1:WyJob3N0IiwiaG9zdDp0aGlzLWNvbXB1dGVyIl0"
+              }
+            }
+          }
+        ],
+        "sections": [
+          {
+            "rows": [
+              {
+                "label": "State",
+                "value": "Reachable",
+                "tone": "ok",
+                "wide": false
+              },
+              {
+                "label": "Runtimes",
+                "value": "1",
+                "wide": false
+              },
+              {
+                "label": "Connections",
+                "value": "0",
+                "wide": false
+              }
+            ]
+          }
+        ]
+      },
+      "slots": [
+        {
+          "id": "set_up_runtime",
+          "label": "Set up runtime",
+          "enabled": true,
+          "emphasis": "secondary",
+          "op": {
+            "kind": "ui",
+            "ui": {
+              "kind": "open",
+              "pane": {
+                "kind": "add",
+                "host": "trust-fleet-v1:WyJob3N0IiwiaG9zdDp0aGlzLWNvbXB1dGVyIl0"
+              }
+            }
+          }
+        }
+      ],
+      "dimmed": false,
+      "hidden": false,
+      "list": {
+        "kind": "computer",
+        "cells": {
+          "kind": "Computer",
+          "name": "This computer",
+          "state": "Reachable"
+        }
+      }
+    },
+    {
+      "id": "trust-fleet-v1:WyJob3N0IiwiZmxlZXQ6dGNwOi8vMTkyLjE2OC4xMC40NDo1NjgwIl0",
+      "kind": "computer",
+      "heading": "Sensor hub",
+      "reachability": {
+        "word": "Unreachable",
+        "tone": "warning",
+        "live": false
+      },
+      "look": "normal",
+      "containers": [],
+      "runtimes": [
+        {
+          "id": "trust-fleet-v1:WyJydW50aW1lIiwiZmxlZXQ6dGNwOi8vMTkyLjE2OC4xMC40NDo1NjgwIixudWxsLCJmbGVldDp0Y3A6Ly8xOTIuMTY4LjEwLjQ0OjU2ODA6cnVudGltZSJd",
+          "name": "Sensor hub",
+          "icon": "computer",
+          "state": {
+            "word": "Authentication failed",
+            "tone": "error",
+            "live": false
+          },
+          "address": "192.168.10.44:5680",
+          "run_target": false,
+          "look": "normal",
+          "connections": [],
+          "hover": {
+            "title": "Sensor hub",
+            "rows": [
+              {
+                "label": "State",
+                "value": "Authentication failed",
+                "wide": false
+              },
+              {
+                "label": "Address",
+                "value": "192.168.10.44:5680",
+                "wide": false
+              },
+              {
+                "label": "Connections",
+                "value": "0",
+                "wide": false
+              },
+              {
+                "label": "Detail",
+                "value": "Auth token rejected — check it and try again.",
+                "wide": false
+              }
+            ]
+          },
+          "inspector": {
+            "breadcrumb": "Devices & Connections / Runtime",
+            "kind": "Runtime",
+            "title": "Sensor hub",
+            "health": {
+              "word": "Authentication failed",
+              "tone": "error",
+              "live": false
+            },
+            "primary": [
+              {
+                "id": "set_auth_token",
+                "label": "Set auth token",
+                "enabled": true,
+                "emphasis": "primary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "prompt_token",
+                    "endpoint": "tcp://192.168.10.44:5680"
+                  }
+                }
+              },
+              {
+                "id": "connect",
+                "label": "Connect",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.connect",
+                  "payload": {
+                    "endpoint": "tcp://192.168.10.44:5680",
+                    "label": "Sensor hub",
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiZmxlZXQ6dGNwOi8vMTkyLjE2OC4xMC40NDo1NjgwIixudWxsLCJmbGVldDp0Y3A6Ly8xOTIuMTY4LjEwLjQ0OjU2ODA6cnVudGltZSJd"
+                  }
+                }
+              },
+              {
+                "id": "live_values",
+                "label": "Live Values",
+                "enabled": false,
+                "reason": "Connect to this runtime to see its live values.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_live_values"
+                  }
+                }
+              },
+              {
+                "id": "debug",
+                "label": "Debug",
+                "enabled": false,
+                "reason": "Debug is unavailable until the target is reachable.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "debug",
+                    "endpoint": "tcp://192.168.10.44:5680"
+                  }
+                }
+              },
+              {
+                "id": "deploy",
+                "label": "Deploy",
+                "enabled": false,
+                "reason": "Deploy is not available for this target yet.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.deploy",
+                  "payload": {
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiZmxlZXQ6dGNwOi8vMTkyLjE2OC4xMC40NDo1NjgwIixudWxsLCJmbGVldDp0Y3A6Ly8xOTIuMTY4LjEwLjQ0OjU2ODA6cnVudGltZSJd"
+                  }
+                }
+              }
+            ],
+            "secondary": [
+              {
+                "id": "set_run_target",
+                "label": "Set as run target",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "set_run_target",
+                    "id": "tcp://192.168.10.44:5680"
+                  }
+                }
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_runtime_settings"
+                  }
+                }
+              },
+              {
+                "id": "focus",
+                "label": "Focus",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "ui",
+                  "ui": {
+                    "kind": "focus",
+                    "item": "trust-fleet-v1:WyJydW50aW1lIiwiZmxlZXQ6dGNwOi8vMTkyLjE2OC4xMC40NDo1NjgwIixudWxsLCJmbGVldDp0Y3A6Ly8xOTIuMTY4LjEwLjQ0OjU2ODA6cnVudGltZSJd"
+                  }
+                }
+              }
+            ],
+            "sections": [
+              {
+                "rows": [
+                  {
+                    "label": "State",
+                    "value": "Authentication failed · Auth token rejected — check it and try again.",
+                    "tone": "error",
+                    "wide": false
+                  },
+                  {
+                    "label": "Run target",
+                    "value": "Not selected",
+                    "wide": false
+                  },
+                  {
+                    "label": "Address",
+                    "value": "192.168.10.44:5680",
+                    "wide": false,
+                    "copy": "192.168.10.44:5680"
+                  },
+                  {
+                    "label": "Connections",
+                    "value": "0",
+                    "wide": false
+                  }
+                ]
+              }
+            ]
+          },
+          "context_menu": [
+            {
+              "id": "add",
+              "label": "Add device or connection…",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiZmxlZXQ6dGNwOi8vMTkyLjE2OC4xMC40NDo1NjgwIixudWxsLCJmbGVldDp0Y3A6Ly8xOTIuMTY4LjEwLjQ0OjU2ODA6cnVudGltZSJd"
+                  }
+                }
+              }
+            },
+            {
+              "id": "set_run_target",
+              "label": "Set as run target",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "set_run_target",
+                  "id": "tcp://192.168.10.44:5680"
+                }
+              }
+            },
+            {
+              "id": "settings",
+              "label": "Settings",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "open_runtime_settings"
+                }
+              }
+            },
+            {
+              "id": "focus",
+              "label": "Focus",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "focus",
+                  "item": "trust-fleet-v1:WyJydW50aW1lIiwiZmxlZXQ6dGNwOi8vMTkyLjE2OC4xMC40NDo1NjgwIixudWxsLCJmbGVldDp0Y3A6Ly8xOTIuMTY4LjEwLjQ0OjU2ODA6cnVudGltZSJd"
+                }
+              }
+            }
+          ],
+          "slots": [
+            {
+              "id": "add_connection",
+              "label": "Add connection",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiZmxlZXQ6dGNwOi8vMTkyLjE2OC4xMC40NDo1NjgwIixudWxsLCJmbGVldDp0Y3A6Ly8xOTIuMTY4LjEwLjQ0OjU2ODA6cnVudGltZSJd"
+                  }
+                }
+              }
+            }
+          ],
+          "dimmed": false,
+          "hidden": false,
+          "list": {
+            "kind": "runtime",
+            "cells": {
+              "address": "192.168.10.44:5680",
+              "belongs_to": "Sensor hub",
+              "detail": "Auth token rejected — check it and try again.",
+              "kind": "Runtime",
+              "name": "Sensor hub",
+              "state": "Authentication failed",
+              "type": "Runtime on a computer"
+            }
+          }
+        }
+      ],
+      "hover": {
+        "title": "Sensor hub",
+        "rows": [
+          {
+            "label": "State",
+            "value": "Unreachable",
+            "wide": false
+          },
+          {
+            "label": "Runtimes",
+            "value": "1",
+            "wide": false
+          },
+          {
+            "label": "Connections",
+            "value": "0",
+            "wide": false
+          }
+        ]
+      },
+      "inspector": {
+        "breadcrumb": "Devices & Connections / Computer",
+        "kind": "Computer",
+        "title": "Sensor hub",
+        "health": {
+          "word": "Unreachable",
+          "tone": "warning",
+          "live": false
+        },
+        "primary": [],
+        "secondary": [
+          {
+            "id": "focus",
+            "label": "Focus",
+            "enabled": true,
+            "emphasis": "secondary",
+            "op": {
+              "kind": "ui",
+              "ui": {
+                "kind": "focus",
+                "item": "trust-fleet-v1:WyJob3N0IiwiZmxlZXQ6dGNwOi8vMTkyLjE2OC4xMC40NDo1NjgwIl0"
+              }
+            }
+          }
+        ],
+        "sections": [
+          {
+            "rows": [
+              {
+                "label": "Address",
+                "value": "192.168.10.44",
+                "wide": false
+              },
+              {
+                "label": "State",
+                "value": "Unreachable",
+                "tone": "warning",
+                "wide": false
+              },
+              {
+                "label": "Runtimes",
+                "value": "1",
+                "wide": false
+              },
+              {
+                "label": "Connections",
+                "value": "0",
+                "wide": false
+              }
+            ]
+          }
+        ]
+      },
+      "slots": [
+        {
+          "id": "set_up_runtime",
+          "label": "Set up runtime",
+          "enabled": true,
+          "emphasis": "secondary",
+          "op": {
+            "kind": "ui",
+            "ui": {
+              "kind": "open",
+              "pane": {
+                "kind": "add",
+                "host": "trust-fleet-v1:WyJob3N0IiwiZmxlZXQ6dGNwOi8vMTkyLjE2OC4xMC40NDo1NjgwIl0"
+              }
+            }
+          }
+        }
+      ],
+      "dimmed": false,
+      "hidden": false,
+      "list": {
+        "kind": "computer",
+        "cells": {
+          "address": "192.168.10.44",
+          "belongs_to": "Network · 192.168.10.0/24",
+          "kind": "Computer",
+          "name": "Sensor hub",
+          "state": "Unreachable"
+        }
+      }
+    }
+  ],
+  "devices": [],
+  "links": [],
+  "mesh": [],
+  "usb": {
+    "heading": "",
+    "items": []
+  },
+  "add": {
+    "title": "Add device or connection",
+    "target": {
+      "id": "runtime:local",
+      "name": "Simulator"
+    },
+    "runtime_choices": [
+      {
+        "id": "runtime:local",
+        "name": "Simulator"
+      },
+      {
+        "id": "trust-fleet-v1:WyJydW50aW1lIiwiZmxlZXQ6dGNwOi8vMTkyLjE2OC4xMC40NDo1NjgwIixudWxsLCJmbGVldDp0Y3A6Ly8xOTIuMTY4LjEwLjQ0OjU2ODA6cnVudGltZSJd",
+        "name": "Sensor hub"
+      }
+    ],
+    "discover": {
+      "id": "discover",
+      "label": "Discover devices and runtimes",
+      "enabled": true,
+      "emphasis": "secondary",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "open",
+          "pane": {
+            "kind": "discover"
+          }
+        }
+      }
+    },
+    "discover_help": "Scan first when hardware is already on the network.",
+    "found_heading": "Found on the network",
+    "found": [],
+    "runtimes": {
+      "label": "Runtimes",
+      "advanced": false,
+      "entries": [
+        {
+          "protocol": "runtime.connect",
+          "title": "Connect existing runtime",
+          "badge": "Computer",
+          "purpose": "Use a runtime already running on another computer or controller.",
+          "action": {
+            "id": "runtime.connect",
+            "label": "Connect existing runtime",
+            "enabled": true,
+            "emphasis": "secondary",
+            "op": {
+              "kind": "rust",
+              "action": "form.open",
+              "payload": {
+                "setup": "connect"
+              }
+            }
+          }
+        },
+        {
+          "protocol": "runtime.local",
+          "title": "Run a runtime on this computer",
+          "badge": "Computer",
+          "purpose": "Create a managed runtime project here, then select it as the Target and click Start.",
+          "action": {
+            "id": "runtime.local",
+            "label": "Run a runtime on this computer",
+            "enabled": true,
+            "emphasis": "secondary",
+            "op": {
+              "kind": "rust",
+              "action": "form.open",
+              "payload": {
+                "setup": "local"
+              }
+            }
+          }
+        },
+        {
+          "protocol": "chip.stm32f407",
+          "title": "STM32F407",
+          "badge": "Chip",
+          "purpose": "truST firmware · Ethernet, USB",
+          "action": {
+            "id": "chip.stm32f407",
+            "label": "STM32F407",
+            "enabled": true,
+            "emphasis": "secondary",
+            "op": {
+              "kind": "rust",
+              "action": "runtime.install_chip",
+              "payload": {
+                "chip": "stm32f407"
+              }
+            }
+          }
+        },
+        {
+          "protocol": "chip.esp32c6",
+          "title": "ESP32-C6",
+          "badge": "Chip",
+          "purpose": "truST firmware · Wi-Fi, Bluetooth, USB",
+          "action": {
+            "id": "chip.esp32c6",
+            "label": "ESP32-C6",
+            "enabled": true,
+            "emphasis": "secondary",
+            "op": {
+              "kind": "rust",
+              "action": "runtime.install_chip",
+              "payload": {
+                "chip": "esp32c6"
+              }
+            }
+          }
+        },
+        {
+          "protocol": "chip.stm32u5a9",
+          "title": "STM32U5A9",
+          "badge": "Chip",
+          "purpose": "truST firmware · USB",
+          "action": {
+            "id": "chip.stm32u5a9",
+            "label": "STM32U5A9",
+            "enabled": true,
+            "emphasis": "secondary",
+            "op": {
+              "kind": "rust",
+              "action": "runtime.install_chip",
+              "payload": {
+                "chip": "stm32u5a9"
+              }
+            }
+          }
+        },
+        {
+          "protocol": "runtime.ssh",
+          "title": "Install over SSH",
+          "badge": "Computer",
+          "purpose": "Install on another computer over SSH.",
+          "action": {
+            "id": "runtime.ssh",
+            "label": "Install over SSH",
+            "enabled": false,
+            "reason": "Available in a later release.",
+            "emphasis": "quiet",
+            "op": {
+              "kind": "rust",
+              "action": "runtime.install_ssh",
+              "payload": {}
+            }
+          }
+        },
+        {
+          "protocol": "runtime.docker",
+          "title": "Run in Docker",
+          "badge": "Computer",
+          "purpose": "Run the runtime as a container.",
+          "action": {
+            "id": "runtime.docker",
+            "label": "Run in Docker",
+            "enabled": false,
+            "reason": "Available in a later release.",
+            "emphasis": "quiet",
+            "op": {
+              "kind": "rust",
+              "action": "runtime.run_docker",
+              "payload": {}
+            }
+          }
+        }
+      ]
+    },
+    "groups": [],
+    "quick_starts": [],
+    "catalog_state": "No device or connection types are available.",
+    "close_label": "Close"
+  },
+  "list": {
+    "columns": [
+      {
+        "id": "kind",
+        "label": "Kind"
+      },
+      {
+        "id": "name",
+        "label": "Name"
+      },
+      {
+        "id": "state",
+        "label": "State"
+      },
+      {
+        "id": "address",
+        "label": "Address"
+      },
+      {
+        "id": "type",
+        "label": "Type"
+      },
+      {
+        "id": "belongs_to",
+        "label": "Belongs to"
+      },
+      {
+        "id": "detail",
+        "label": "Detail"
+      },
+      {
+        "id": "values",
+        "label": "Live values"
+      },
+      {
+        "id": "last_seen",
+        "label": "Last seen"
+      },
+      {
+        "id": "response_time",
+        "label": "Response time"
+      },
+      {
+        "id": "identity",
+        "label": "Identity"
+      }
+    ]
+  },
+  "notices": []
+}

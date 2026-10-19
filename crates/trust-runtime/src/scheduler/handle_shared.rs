@@ -5,6 +5,29 @@
 /// the debugger holds the scan").
 fn request_stop<C: Clock>(stop: &AtomicBool, debug: Option<&DebugControl>, clock: &C) {
     stop.store(true, Ordering::SeqCst);
+    release_hold_and_wake(debug, clock);
+}
+
+/// Requests the stop of the program that a resource thread runs, for the control `shutdown`: the
+/// thread stops the program, as for [`request_stop`], and then waits in the Stopped state instead
+/// of ending (specification 34, STATE-08). The end of a debugger hold and the wake of a sleeping
+/// clock are the same as for a stop of the thread.
+///
+/// The debugger is released before the request is made, so the arming of the debugger at the
+/// program's next start always follows the release, however quickly the thread acts on the request.
+fn request_program_stop<C: Clock>(
+    supervision: &supervisor::ScanSupervision,
+    debug: Option<&DebugControl>,
+    clock: &C,
+) {
+    if let Some(debug) = debug {
+        debug.release_for_stop();
+    }
+    supervision.request_program_stop();
+    clock.wake();
+}
+
+fn release_hold_and_wake<C: Clock>(debug: Option<&DebugControl>, clock: &C) {
     if let Some(debug) = debug {
         debug.release_for_stop();
     }
@@ -44,6 +67,12 @@ impl<C: Clock + Clone> ResourceHandle<C> {
     /// the thread ends without a `resume`.
     pub fn stop(&self) {
         request_stop(&self.stop, self.debug.as_ref(), &self.clock);
+    }
+
+    /// Ask the resource thread to stop the program and keep waiting in the Stopped state, as the
+    /// control `shutdown` does. The thread ends only on [`Self::stop`].
+    pub fn stop_program(&self) {
+        request_program_stop(&self.supervision, self.debug.as_ref(), &self.clock);
     }
 
     /// Retrieve the last error if the resource faulted.
@@ -173,16 +202,29 @@ impl<C: Clock + Clone> ResourceControl<C> {
         Ok(())
     }
 
-    /// Signal the resource thread to stop. The control `shutdown` and the termination signals
-    /// call this. A debugger hold on the scan ends with the request, so the thread ends without a
-    /// `resume`.
+    /// Signal the resource thread to stop, which ends it. The termination signals and the
+    /// explicit exit, `shutdown` with `{"exit": true}`, call this. A debugger hold on the scan
+    /// ends with the request, so the thread ends without a `resume`.
     pub fn stop(&self) {
         request_stop(&self.stop, self.debug.as_ref(), &self.clock);
+    }
+
+    /// Ask the resource thread to stop the program and keep waiting in the Stopped state, where
+    /// the runtime stays reachable and a `restart` starts the installed program again. The control
+    /// `shutdown` calls this (specification 34, STATE-08). A debugger hold on the scan ends with
+    /// the request.
+    pub fn stop_program(&self) {
+        request_program_stop(&self.supervision, self.debug.as_ref(), &self.clock);
     }
 
     #[cfg(test)]
     pub(crate) fn stop_requested(&self) -> bool {
         self.stop.load(Ordering::SeqCst)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn program_stop_requested(&self) -> bool {
+        self.supervision.program_stop_requested()
     }
 
     /// Current resource state.

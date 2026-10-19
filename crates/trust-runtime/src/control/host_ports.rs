@@ -9,10 +9,13 @@ use std::collections::VecDeque;
 use std::sync::atomic::Ordering;
 
 use smol_str::SmolStr;
+use trust_runtime_core::deployment::DeviceDescriptor;
 use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::ports::WallClock;
 use trust_runtime_services::access::{AccessRole, AuthFailure};
+use trust_runtime_services::capabilities::LastReset;
 use trust_runtime_services::events::{store_event, RuntimeEvent};
+use trust_runtime_services::installation::{self, Admitted};
 use trust_runtime_services::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use trust_runtime_services::live_values::io_snapshot::IoSnapshot as PortableIoSnapshot;
 use trust_runtime_services::live_values::queues::{
@@ -22,11 +25,13 @@ use trust_runtime_services::live_values::var_requests::VariableQueuePort;
 use trust_runtime_services::live_values::RequestQueueFull;
 use trust_runtime_services::metrics::RuntimeMetricsSnapshot;
 use trust_runtime_services::ports::{
-    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, RecordsPort, ResourcePort,
-    StatusPort,
+    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl,
+    ProgramIdentities, ProgramIdentity, RecordsPort, ResourcePort, StatusPort,
+    TransferSessionError,
 };
 use trust_runtime_services::resource::commands::CommandSendError;
 use trust_runtime_services::status::{IoDriverStatus, StatusSettings};
+use trust_runtime_services::transfer::TransferSession;
 
 use crate::config::ControlMode;
 use crate::debug::ControlAction;
@@ -133,16 +138,37 @@ impl ResourcePort for ControlState {
         }
     }
 
-    /// `shutdown` ends the trust-runtime process, so a stopped resource has no scan thread to take
-    /// a restart (spec 34 STATE-08).
+    /// `shutdown` stops the program and leaves the process and its scan thread running, so a
+    /// stopped resource takes a restart and starts the installed program again (spec 34 STATE-08).
     fn starts_when_stopped(&self) -> bool {
-        false
+        true
     }
 }
 
 impl StatusPort for ControlState {
     fn resource_name(&self) -> &str {
         self.resource_name.as_str()
+    }
+
+    /// The operating system and CPU architecture this binary is built for, for example
+    /// `linux-x86_64`.
+    fn platform(&self) -> &str {
+        crate::runtime_id::platform()
+    }
+
+    /// The runtime's stable runtime ID (specification 11, `status` and runtime discovery): the
+    /// same value the runtime announces by mDNS. It is resolved once, where the state is built: a
+    /// project's `.trust-runtime/runtime_id`, or the resource name for a state without an
+    /// installed project, which never creates a file.
+    fn runtime_id(&self) -> &str {
+        self.runtime_id.as_str()
+    }
+
+    /// `shutdown` stops the program and keeps trust-runtime running, so a stopped runtime still
+    /// answers and takes a `restart` (spec 34 STATE-08). Only the explicit exit, a signal or a
+    /// stopped service ends the process.
+    fn program_control(&self) -> ProgramControl {
+        ProgramControl::KeepsControl
     }
 
     fn status_settings(&self) -> Option<StatusSettings> {
@@ -174,6 +200,18 @@ impl StatusPort for ControlState {
     fn openot_persistence(&self) -> Option<serde_json::Value> {
         status_handlers::openot_persistence_status_json(self).ok()
     }
+
+    /// A computer's descriptor (specification 34, HOST-02); the `capabilities` operation reports
+    /// it (specification 11, the runtime device capabilities contract).
+    fn device_descriptor(&self) -> DeviceDescriptor {
+        DeviceDescriptor::hosted()
+    }
+
+    /// A computer starts as a new process and has no last reset (specification 11, the runtime
+    /// device capabilities contract).
+    fn last_reset(&self) -> Option<LastReset> {
+        None
+    }
 }
 
 impl RecordsPort for ControlState {
@@ -199,6 +237,54 @@ impl RecordsPort for ControlState {
         let events = self.events.lock().ok()?;
         let store: &VecDeque<RuntimeEvent> = &events;
         Some(read(store))
+    }
+
+    /// The process's transfer session. A session whose lock is poisoned cannot be used, so the
+    /// transfer operations answer `transfer session unavailable`, as the other values do.
+    fn with_transfers<R>(
+        &self,
+        use_session: impl FnOnce(&mut TransferSession) -> R,
+    ) -> Result<R, TransferSessionError> {
+        match self.transfers.lock() {
+            Ok(mut session) => Ok(use_session(&mut session)),
+            Err(_) => Err(TransferSessionError::Unavailable),
+        }
+    }
+
+    /// The program of the project (specification 34 §11.2): the bundle `current` names and the one
+    /// before it when the project is a store's `current` link, and otherwise the project's own program,
+    /// with no previous one (see `program_store::identities`).
+    fn program_identities(&self) -> Option<ProgramIdentities> {
+        crate::deployment::program_store::identities(self.project_root.as_deref()?)
+    }
+
+    /// The project folder is the program store `program.install` commits to (specification 34
+    /// §11.2). A state with no project folder is an IDE shell with nothing to install into.
+    fn has_program_store(&self) -> bool {
+        self.project_root.is_some()
+    }
+
+    /// The retained-value check of specification 11 §6.7.1 (decision G13): the warm start of `admitted`
+    /// with the project's retain file, which is only read.
+    fn check_retained_values(&self, admitted: &Admitted<'_>) -> Result<(), RuntimeError> {
+        let root = self
+            .project_root
+            .as_deref()
+            .ok_or_else(|| RuntimeError::InvalidBundle("no project folder".into()))?;
+        crate::deployment::program_store::check_retained(root, admitted.program)
+    }
+
+    /// Commits the checked container as the project's program through the program store (specification
+    /// 34 §11.2), and returns the identity the store gives it.
+    fn commit_program(&self, container: &[u8]) -> Result<ProgramIdentity, String> {
+        let root = self
+            .project_root
+            .as_deref()
+            .ok_or_else(|| String::from("no project folder"))?;
+        let sequenced =
+            installation::decode_sequenced(container).map_err(|error| error.to_string())?;
+        crate::deployment::program_store::install(root, sequenced.installed.program)
+            .map_err(|error| error.to_string())
     }
 }
 

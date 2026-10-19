@@ -147,6 +147,29 @@ fn openot_status_projects_every_applicable_operator_warning() {
 }
 
 #[test]
+fn host_status_reports_the_os_and_architecture_as_platform() {
+    let value = result(handle_status(24, &state()));
+    assert_eq!(
+        value.get("platform"),
+        Some(&json!(format!(
+            "{}-{}",
+            std::env::consts::OS,
+            std::env::consts::ARCH
+        )))
+    );
+}
+
+#[test]
+fn host_status_reports_that_it_keeps_control_after_shutdown() {
+    // Specification 11 `status` and 34 STATE-08 (decision Q11 on computers, 18 October 2026):
+    // `shutdown` stops the program and trust-runtime keeps running, so it reports `keeps_control`.
+    // Wrong behaviour: it still reports `process`, which tells the Devices panel that nothing could
+    // start it again.
+    let value = result(handle_status(25, &state()));
+    assert_eq!(value.get("program_control"), Some(&json!("keeps_control")));
+}
+
+#[test]
 fn status_preserves_io_driver_registration_order() {
     let state = state();
     state.io_health.lock().expect("io health").extend([

@@ -63,6 +63,20 @@ export function run(): Promise<void> {
   require("./snippets.test");
   require("./st-tests.integration.test");
   require("./mocha-selection.test");
+  require("./devices-toolbar-render.test");
+  require("./devices-canvas-render.test");
+  require("./devices-inspector-render.test");
+  require("./devices-list-editor.test");
+  require("./devices-forms-render.test");
+  require("./devices-form-actions.test");
+  require("./devices-issues-list.test");
+  require("./devices-list-view.test");
+  require("./devices-keyboard.test");
+  require("./devices-readability.test");
+  require("./devices-add-dialog.test");
+  require("./devices-browse-render.test");
+  require("./devices-ads-tag-browser.test");
+  require("./devices-discover-render.test");
 
   return new Promise((resolve, reject) => {
     const runner = mocha.run((failures: number) => {

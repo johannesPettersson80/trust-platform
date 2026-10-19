@@ -2,9 +2,12 @@
 
 #![allow(missing_docs)]
 
+use std::collections::BTreeMap;
+
 use indexmap::IndexMap;
 use smol_str::SmolStr;
 
+use crate::bytecode::{BytecodeModule, LineStatement, LineTable, SectionData, SectionId};
 use crate::debug::SourceLocation;
 use crate::memory::{AccessMap, FrameId, LocalFrame, VariableStorage};
 use crate::program_model::{ClassDef, FunctionBlockDef, FunctionDef, InterfaceDef};
@@ -12,6 +15,7 @@ use crate::stdlib::StandardLibrary;
 use crate::task::{ProgramDef, TaskConfig};
 use crate::value::DateTimeProfile;
 use trust_hir::types::TypeRegistry;
+use trust_runtime_core::debug::LineResolver;
 
 mod prepared;
 
@@ -22,6 +26,183 @@ use retained::{RetainedBinding, RetainedLabel};
 pub(crate) struct GlobalDeclarationInfo {
     pub(crate) type_id: trust_hir::TypeId,
     pub(crate) retain: crate::RetainPolicy,
+}
+
+/// The installed module's LINE_TABLE, bound to this installation's source text (specification 12
+/// §6.13; specification 13, "Source Mapping").
+///
+/// The table decides every statement start, breakpoint and stop position. The text only projects
+/// the table's positions to the byte offsets that hooks and adapters carry, using the same
+/// coordinates as the statement index it replaces, so it decides no answer. Built once at install:
+/// each lookup afterwards is an index read, never a scan.
+#[derive(Debug, Clone)]
+pub(crate) struct LineIndex {
+    table: LineTable,
+    /// DEBUG_STRING_TABLE: `labels[path_idx]` names a file entry.
+    labels: Vec<SmolStr>,
+    /// The installation's file id of each file entry, when it has one.
+    file_ids: Vec<Option<u32>>,
+    /// The byte span of each table statement, when its file's text is installed.
+    spans: Vec<Option<SourceLocation>>,
+    /// The innermost statement that starts at `(pou_id, start_code_offset)`: the last such entry,
+    /// because the table lists an outer statement first (specification 12 §6.13).
+    by_start: BTreeMap<(u32, u32), usize>,
+    /// The statements that start at `(file entry, start line, start column)`, 1-based, in table order.
+    by_position: BTreeMap<(u32, u32, u32), Vec<usize>>,
+    /// The spans of each file id's statements, in table order: the breakpoint-location listing.
+    listing: BTreeMap<u32, Vec<SourceLocation>>,
+}
+
+impl LineIndex {
+    /// Bind the module's LINE_TABLE to the installation. `None` when the module has no LINE_TABLE, so
+    /// the installation keeps resolving through its statement index (specification 12 §10).
+    fn bind(module: &BytecodeModule, metadata: &RuntimeMetadata) -> Option<Self> {
+        let table = module.line_table()?.clone();
+        let Some(SectionData::DebugStringTable(strings)) =
+            module.section(SectionId::DebugStringTable)
+        else {
+            return None;
+        };
+        let labels = strings.entries.clone();
+        let file_ids: Vec<Option<u32>> = table
+            .files
+            .iter()
+            .map(|file| {
+                labels
+                    .get(file.path_idx as usize)
+                    .and_then(|label| metadata.source_file_id(label))
+            })
+            .collect();
+        let mut coordinates: BTreeMap<u32, LineStarts> = BTreeMap::new();
+        for file_id in file_ids.iter().flatten() {
+            if let Some(starts) = metadata.source_text(*file_id).and_then(LineStarts::of) {
+                coordinates.insert(*file_id, starts);
+            }
+        }
+        let spans: Vec<Option<SourceLocation>> = table
+            .statements
+            .iter()
+            .map(|statement| {
+                let file_id = file_ids
+                    .get(statement.file_index as usize)
+                    .copied()
+                    .flatten()?;
+                span(statement, file_id, coordinates.get(&file_id)?)
+            })
+            .collect();
+        let mut by_start = BTreeMap::new();
+        let mut by_position: BTreeMap<(u32, u32, u32), Vec<usize>> = BTreeMap::new();
+        for (index, statement) in table.statements.iter().enumerate() {
+            by_start.insert((statement.pou_id, statement.start_code_offset), index);
+            by_position
+                .entry((
+                    statement.file_index,
+                    statement.start_line,
+                    statement.start_column,
+                ))
+                .or_default()
+                .push(index);
+        }
+        let mut listing: BTreeMap<u32, Vec<SourceLocation>> = BTreeMap::new();
+        for location in spans.iter().flatten() {
+            listing.entry(location.file_id).or_default().push(*location);
+        }
+        Some(Self {
+            table,
+            labels,
+            file_ids,
+            spans,
+            by_start,
+            by_position,
+            listing,
+        })
+    }
+
+    /// The byte span of the statement that starts at `(pou_id, code_offset)`, when the table has
+    /// one there and its file's text is installed.
+    #[must_use]
+    pub(crate) fn start_location(&self, pou_id: u32, code_offset: u32) -> Option<SourceLocation> {
+        let index = *self.by_start.get(&(pou_id, code_offset))?;
+        self.spans.get(index).copied().flatten()
+    }
+
+    /// Resolve a 1-based `(line, column)` request on `file_id` to the statement the table selects
+    /// (specification 13, "Breakpoint evaluation, source resolution, and hook contract"). Returns
+    /// its byte span and its 1-based start.
+    #[must_use]
+    fn resolve_breakpoint(
+        &self,
+        file_id: u32,
+        line: u32,
+        column: u32,
+    ) -> Option<(SourceLocation, u32, u32)> {
+        let file_index = self.file_ids.iter().position(|id| *id == Some(file_id))?;
+        let path_idx = self.table.files.get(file_index)?.path_idx;
+        let label = self.labels.get(path_idx as usize)?;
+        let resolved = LineResolver::new(&self.table, &self.labels).resolve_breakpoint(
+            label.as_str(),
+            line,
+            column,
+        )?;
+        let index = self
+            .by_position
+            .get(&(
+                u32::try_from(file_index).ok()?,
+                resolved.line,
+                resolved.column,
+            ))?
+            .iter()
+            .copied()
+            .find(|index| {
+                self.table.statements.get(*index).is_some_and(|statement| {
+                    statement.pou_id == resolved.pou_id
+                        && statement.start_code_offset == resolved.code_offset
+                        && statement.end_line == resolved.end_line
+                        && statement.end_column == resolved.end_column
+                })
+            })?;
+        let location = self.spans.get(index).copied().flatten()?;
+        Some((location, resolved.line, resolved.column))
+    }
+}
+
+/// The line starts of one source text and its byte length, counted as the runtime counts byte
+/// offsets: offset zero, then the byte after every LF (specification 13, "Runtime source
+/// coordinates").
+#[derive(Debug, Clone)]
+struct LineStarts {
+    starts: Vec<u32>,
+    len: u32,
+}
+
+impl LineStarts {
+    fn of(text: &str) -> Option<Self> {
+        let len = u32::try_from(text.len()).ok()?;
+        let mut starts = vec![0];
+        for (index, byte) in text.bytes().enumerate() {
+            if byte == b'\n' {
+                starts.push(u32::try_from(index + 1).ok()?);
+            }
+        }
+        Some(Self { starts, len })
+    }
+
+    /// The byte offset of a 1-based `(line, column)`, when it lies inside the text.
+    fn offset(&self, line: u32, column: u32) -> Option<u32> {
+        let line_start = *self
+            .starts
+            .get(usize::try_from(line.checked_sub(1)?).ok()?)?;
+        let offset = line_start.checked_add(column.checked_sub(1)?)?;
+        (offset <= self.len).then_some(offset)
+    }
+}
+
+/// The byte span of a table statement, from its first token to the end of its source span with
+/// trailing trivia (specification 12 §6.13).
+fn span(statement: &LineStatement, file_id: u32, starts: &LineStarts) -> Option<SourceLocation> {
+    let start = starts.offset(statement.start_line, statement.start_column)?;
+    let end = starts.offset(statement.end_line, statement.end_column)?;
+    Some(SourceLocation::new(file_id, start, end))
 }
 
 /// Snapshot of runtime metadata needed by external tooling.
@@ -48,12 +229,26 @@ pub struct RuntimeMetadata {
     pub(super) statement_index: IndexMap<u32, Vec<SourceLocation>>,
     pub(super) source_text_index: IndexMap<u32, String>,
     pub(super) source_label_index: std::collections::HashMap<SmolStr, u32>,
+    /// The installed module's LINE_TABLE, when the installed module carries one.
+    pub(super) line_table: Option<LineIndex>,
 }
 
 impl RuntimeMetadata {
     /// Storage widths certified by the installed artifact, independent of source defaults.
     pub fn storage_abi(&self) -> crate::value::StorageAbi {
         self.storage_abi
+    }
+
+    /// Bind the installed module's LINE_TABLE, replacing any earlier binding. A module without a
+    /// LINE_TABLE leaves the installation on its statement index.
+    pub(crate) fn bind_line_table(&mut self, module: &BytecodeModule) {
+        self.line_table = LineIndex::bind(module, self);
+    }
+
+    /// The bound LINE_TABLE, when the installed module carries one.
+    #[must_use]
+    pub(crate) fn line_table(&self) -> Option<&LineIndex> {
+        self.line_table.as_ref()
     }
 
     /// Access the type registry snapshot.
@@ -75,6 +270,7 @@ impl RuntimeMetadata {
         self.statement_index.clear();
         self.source_text_index.clear();
         self.source_label_index.clear();
+        self.line_table = None;
     }
 
     /// Associate path-only artifact relabels after the authoring boundary proved
@@ -206,13 +402,27 @@ impl RuntimeMetadata {
         .map(|using| using.to_vec())
     }
 
-    /// Return statement locations for a file id, if known.
+    /// The statement list the source text provides for a file id: the statement index that the
+    /// source-based resolver answered from before a LINE_TABLE did (specification 13, "Breakpoint
+    /// evaluation, source resolution, and hook contract"). The reference a line table is compared
+    /// with; the installation's own answers read the table once one is bound.
     #[must_use]
-    pub fn statement_locations(&self, file_id: u32) -> Option<&[SourceLocation]> {
+    pub fn source_statement_locations(&self, file_id: u32) -> Option<&[SourceLocation]> {
         self.statement_index.get(&file_id).map(Vec::as_slice)
     }
 
-    /// Resolve a line/column breakpoint to the nearest statement boundary.
+    /// Return statement locations for a file id, if known. With a LINE_TABLE these are the table's
+    /// statements (specification 13, "Breakpoint Locations"); without one, the statement index.
+    #[must_use]
+    pub fn statement_locations(&self, file_id: u32) -> Option<&[SourceLocation]> {
+        match &self.line_table {
+            Some(table) => table.listing.get(&file_id).map(Vec::as_slice),
+            None => self.statement_index.get(&file_id).map(Vec::as_slice),
+        }
+    }
+
+    /// Resolve a line/column breakpoint to the nearest statement boundary. `line` and `column` are
+    /// 0-based, as the control layer sends them; with a LINE_TABLE the table decides the statement.
     #[must_use]
     pub fn resolve_breakpoint_location(
         &self,
@@ -221,6 +431,12 @@ impl RuntimeMetadata {
         line: u32,
         column: u32,
     ) -> Option<SourceLocation> {
+        if let Some(table) = &self.line_table {
+            // The table is 1-based (specification 12 §6.13); the boundary converts once.
+            let (location, _, _) =
+                table.resolve_breakpoint(file_id, line.checked_add(1)?, column.checked_add(1)?)?;
+            return Some(location);
+        }
         let locations = self.statement_index.get(&file_id)?;
         crate::debug::resolve_breakpoint_location(source, file_id, locations, line, column)
     }
@@ -247,7 +463,7 @@ impl RuntimeMetadata {
         )
     }
 
-    /// Resolve a breakpoint to a statement boundary and return adjusted line/column.
+    /// Resolve a breakpoint to a statement boundary and return its 0-based line and column.
     #[must_use]
     pub fn resolve_breakpoint_position(
         &self,
@@ -256,6 +472,16 @@ impl RuntimeMetadata {
         line: u32,
         column: u32,
     ) -> Option<(SourceLocation, u32, u32)> {
+        if let Some(table) = &self.line_table {
+            // The table's 1-based start answers the reply; the boundary converts it to 0-based.
+            let (location, resolved_line, resolved_column) =
+                table.resolve_breakpoint(file_id, line.checked_add(1)?, column.checked_add(1)?)?;
+            return Some((
+                location,
+                resolved_line.checked_sub(1)?,
+                resolved_column.checked_sub(1)?,
+            ));
+        }
         let location = self.resolve_breakpoint_location(source, file_id, line, column)?;
         let (resolved_line, resolved_col) = crate::debug::location_to_line_col(source, &location);
         Some((location, resolved_line, resolved_col))

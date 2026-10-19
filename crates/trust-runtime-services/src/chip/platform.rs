@@ -1,0 +1,552 @@
+//! The platform every chip's resource loop runs over (specification 34, ARCH-11 and §3.3): the values
+//! the chip reports, the access rights of its USB control link, the Live Values the loop applies, its
+//! hardware watchdog and the reset its boot reports. A chip supplies its profile ([`ChipProfile`]: its
+//! name, its descriptor, the reason of its watchdog reset and its checkpoint step), and passes its
+//! watchdog, its runtime ID and its settings to [`ChipPlatform::new`]; the rest is the same on every
+//! chip.
+//!
+//! A USB client is local (specification 11 §6.9.5), so the link carries no transport label and no
+//! control token is configured yet; a local client therefore acts as `Admin`, exactly as
+//! trust-runtime's local socket without a configured token. A chip has no wall clock until slice T6,
+//! no audit store and no platform operation yet, so those ports answer as an absent value does, not
+//! with an invented one. The chip answers the `io.*`, `set` and `var.*` operations from its own Live
+//! Values, the queues the runner applies and the snapshot it publishes (specification 11, "Live
+//! Values"; specification 34 §4.3.1).
+
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::marker::PhantomData;
+
+use smol_str::SmolStr;
+use trust_platform_memory::reset::{ResetCause, ResetRecord};
+use trust_runtime_core::deployment::{ControlMode, DeviceDescriptor};
+use trust_runtime_core::io_address::IoAddress;
+use trust_runtime_core::memory::{Generation, InstanceId};
+use trust_runtime_core::ports::{
+    CheckpointStorage, CheckpointStore, HardwareWatchdog, TimeSpan, WallClock,
+};
+use trust_runtime_core::retain::checkpoint::CheckpointFlash;
+use trust_runtime_core::value::Value;
+use trust_runtime_core::watchdog::RetainMode;
+
+use crate::access::{resolve_role, AccessRole, AuthFailure};
+use crate::capabilities::{LastReset, ResetCauseName};
+use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
+use crate::live_values::queues::{ForcedSnapshot, ForcedVarTarget, PendingVarTarget};
+use crate::live_values::var_requests::VariableQueuePort;
+use crate::live_values::RequestQueueFull;
+use crate::ports::{
+    AccessPort, AuditRecord, AuditSink, ExtensionDispatch, ProgramControl, StatusPort,
+};
+use crate::protocol::{ControlRequest, ControlResponse};
+use crate::runner::{EngineLiveValues, RunnerPlatform};
+use crate::status::{
+    absent_realtime_profile, disabled_openot_persistence, IoDriverStatus, StatusSettings,
+};
+
+/// What a chip supplies to the shared platform as its profile (specification 34, ARCH-11): the values
+/// that name it and describe it, and the reason of its watchdog reset.
+pub trait ChipProfile {
+    /// The hardware reset reason as the chip's boot reads it.
+    type Reason: Copy + PartialEq;
+
+    /// The reason of a watchdog reset, which writes no reset record.
+    fn watchdog_reset() -> Self::Reason;
+
+    /// The chip's name, which `status` reports as the platform (specification 11, `status`).
+    fn platform_name() -> &'static str;
+
+    /// The device descriptor admission reads (specification 34 §5.1.1, COMPAT-02 and TARGET-03).
+    fn device_descriptor() -> DeviceDescriptor;
+
+    /// The most bytes one checkpoint step programs between two scans (specification 34 §10), or
+    /// `None` while the chip keeps no checkpoint store.
+    fn checkpoint_step_bytes() -> Option<usize>;
+}
+
+/// The values of an installed program's record that its platform reports and answers from
+/// (specification 34 §5.1.1 and STATE-08): what a chip sets on its platform when it loads a program.
+#[derive(Clone)]
+pub struct ProgramValues {
+    /// `resource.name` of the record, which `status` reports.
+    pub resource_name: SmolStr,
+    /// `runtime.control.debug_enabled` of the record.
+    pub debug_enabled: bool,
+    /// `runtime.control.mode` of the record.
+    pub control_mode: ControlMode,
+    /// The Live Values of the program, which the runner applies and the `io.*`, `set` and `var.*`
+    /// operations answer from.
+    pub live: EngineLiveValues,
+}
+
+/// A chip's platform for the single-thread resource loop: the ports of [`ChipPlatform`] over the chip's
+/// profile `C` and its hardware watchdog `W`.
+pub struct ChipPlatform<C, W> {
+    chip: PhantomData<C>,
+    watchdog: W,
+    resource_name: SmolStr,
+    settings: StatusSettings,
+    debug_enabled: bool,
+    /// `runtime.control.mode` of the installed application's deployment record (specification 34
+    /// §5.1.1, section 7): the mode `status` reports and the path `pause` and `resume` take.
+    control_mode: ControlMode,
+    /// The Live Values the runner applies at its cycle phases and the `io.*`, `set` and `var.*`
+    /// operations answer from (specification 11, "Live Values"; specification 34 §4.3.1).
+    live: EngineLiveValues,
+    /// The reset the boot reports, for the `capabilities` reply (specification 11, the runtime device
+    /// capabilities contract), built by [`ChipPlatform::boot_last_reset`].
+    last_reset: LastReset,
+    /// The chip's stable runtime ID that `status` reports (specification 11, `status`).
+    runtime_id: SmolStr,
+    /// The chip's checkpoint flash, held until the installed program takes its store (specification 34
+    /// §10); `None` unless the record's retain mode is `file`, and after the store is taken.
+    checkpoint: Option<Box<dyn CheckpointFlash>>,
+}
+
+impl<C: ChipProfile, W> ChipPlatform<C, W> {
+    /// A platform over `watchdog` that reports `resource_name`, the runtime `settings`, whether the
+    /// debug surface is `debug_enabled` and the record's `control_mode`, with the Live Values `live` of
+    /// the installed program (or [`EngineLiveValues::empty`] for a chip without one), the `last_reset`
+    /// the boot reports, and the chip's stable `runtime_id`.
+    #[must_use]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "one argument for each value the installed record and the chip supply"
+    )]
+    pub fn new(
+        watchdog: W,
+        resource_name: SmolStr,
+        settings: StatusSettings,
+        debug_enabled: bool,
+        control_mode: ControlMode,
+        live: EngineLiveValues,
+        last_reset: LastReset,
+        runtime_id: SmolStr,
+    ) -> Self {
+        Self {
+            chip: PhantomData,
+            watchdog,
+            resource_name,
+            settings,
+            debug_enabled,
+            control_mode,
+            live,
+            last_reset,
+            runtime_id,
+            checkpoint: None,
+        }
+    }
+
+    /// Keeps `flash` as the chip's checkpoint flash when the record's retain mode is `file`
+    /// (specification 34 §10): the installed program takes it as its checkpoint store. With `none` the
+    /// flash is not kept and the platform gives no store.
+    #[must_use]
+    pub fn with_checkpoint(mut self, retain: RetainMode, flash: Box<dyn CheckpointFlash>) -> Self {
+        self.checkpoint = (retain == RetainMode::File).then_some(flash);
+        self
+    }
+
+    /// The watchdog the platform holds, for the stopped loop that serves the link when the installed
+    /// program cannot start.
+    #[must_use]
+    pub fn into_watchdog(self) -> W {
+        self.watchdog
+    }
+
+    /// The watchdog the platform holds, for a loader that sets its interval from the record of the
+    /// program it loads (specification 34 TIME-04).
+    pub fn watchdog_mut(&mut self) -> &mut W {
+        &mut self.watchdog
+    }
+
+    /// Gives the platform the values of the record of a program that was loaded: its resource name,
+    /// the debug surface, the control mode and the Live Values (specification 34 STATE-08).
+    pub fn set_program(&mut self, program: ProgramValues) {
+        self.resource_name = program.resource_name;
+        self.debug_enabled = program.debug_enabled;
+        self.control_mode = program.control_mode;
+        self.live = program.live;
+    }
+
+    /// The reset the boot reports (specification 11, the runtime device capabilities contract). Its
+    /// cause and text are the record the previous boot left. When it left none, the boot's hardware
+    /// reset reason `reason` decides: the chip's watchdog reset writes no record (specification 34,
+    /// the chip's supervision), and any other reason is `power_on`. `boot_count` is the chip's boot
+    /// counter for this boot, reported for every reset, record or not.
+    #[must_use]
+    pub fn boot_last_reset(
+        reason: C::Reason,
+        record: Option<ResetRecord>,
+        boot_count: u32,
+    ) -> LastReset {
+        match record {
+            Some(record) => LastReset {
+                cause: reset_cause(record.cause()),
+                text: SmolStr::new(String::from_utf8_lossy(record.text()).as_ref()),
+                boot_count,
+            },
+            None => LastReset {
+                cause: if reason == C::watchdog_reset() {
+                    ResetCauseName::Watchdog
+                } else {
+                    ResetCauseName::PowerOn
+                },
+                text: SmolStr::default(),
+                boot_count,
+            },
+        }
+    }
+}
+
+/// The runtime settings `status` reports for a chip: the VM backend, production control and no
+/// simulation (specification 11, `status`).
+#[must_use]
+pub fn status_settings() -> StatusSettings {
+    StatusSettings {
+        execution_backend: "vm",
+        execution_backend_source: "default",
+        simulation_enabled: false,
+        simulation_time_scale: 1,
+        simulation_mode: SmolStr::new_static("production"),
+        simulation_warning: SmolStr::default(),
+    }
+}
+
+impl<C, W> AccessPort for ChipPlatform<C, W> {
+    /// A chip has no configured control token yet, so a local client (no transport label) acts as
+    /// `Admin`; a network label would be a `Viewer`, as on trust-runtime.
+    fn request_role(
+        &self,
+        request: &ControlRequest,
+        client: Option<&str>,
+    ) -> Result<AccessRole, AuthFailure> {
+        resolve_role(request.auth.as_deref(), None, false, client, |_| None)
+    }
+
+    fn debug_enabled(&self) -> bool {
+        self.debug_enabled
+    }
+}
+
+impl<C, W> AuditSink for ChipPlatform<C, W> {
+    /// A chip has no audit store, so no record id is reported.
+    fn record_audit(&self, _record: AuditRecord<'_>) -> Option<SmolStr> {
+        None
+    }
+}
+
+/// A device whose clock nobody has set yet (specification 34, TARGET-06).
+impl<C, W> WallClock for ChipPlatform<C, W> {
+    fn utc_ms(&self) -> Option<u64> {
+        None
+    }
+}
+
+impl<C: ChipProfile, W> StatusPort for ChipPlatform<C, W> {
+    fn resource_name(&self) -> &str {
+        self.resource_name.as_str()
+    }
+
+    /// The chip's name (specification 11, `status`).
+    fn platform(&self) -> &str {
+        C::platform_name()
+    }
+
+    /// The chip's name and USB serial number (specification 11, `status`).
+    fn runtime_id(&self) -> &str {
+        self.runtime_id.as_str()
+    }
+
+    /// A chip keeps control after `shutdown`: the program takes the place of the process (specification
+    /// 34, STATE-08).
+    fn program_control(&self) -> ProgramControl {
+        ProgramControl::KeepsControl
+    }
+
+    fn status_settings(&self) -> Option<StatusSettings> {
+        Some(self.settings.clone())
+    }
+
+    /// The installed program's own drivers are reported by the cycle; the platform runs none.
+    fn io_drivers(&self) -> Option<Vec<IoDriverStatus>> {
+        Some(Vec::new())
+    }
+
+    fn realtime_status(&self) -> Option<serde_json::Value> {
+        Some(absent_realtime_profile())
+    }
+
+    fn realtime_has_errors(&self) -> Option<bool> {
+        Some(false)
+    }
+
+    fn openot_persistence(&self) -> Option<serde_json::Value> {
+        Some(disabled_openot_persistence())
+    }
+
+    /// The chip's descriptor, the same admission reads (specification 34 §5.1.1, COMPAT-02 and
+    /// TARGET-03).
+    fn device_descriptor(&self) -> DeviceDescriptor {
+        C::device_descriptor()
+    }
+
+    /// The reset the boot reported (specification 11, the runtime device capabilities contract).
+    fn last_reset(&self) -> Option<LastReset> {
+        Some(self.last_reset.clone())
+    }
+}
+
+/// The wire name of the reset record's cause (specification 11, the runtime device capabilities
+/// contract).
+fn reset_cause(cause: ResetCause) -> ResetCauseName {
+    match cause {
+        ResetCause::Panic => ResetCauseName::Panic,
+        ResetCause::Watchdog => ResetCauseName::Watchdog,
+        ResetCause::Requested => ResetCauseName::Requested,
+    }
+}
+
+/// The chip's checkpoint store, given once (specification 34 §10): its flash, and the chip's step
+/// budget, at most one flash page per persister step so a step takes a few milliseconds between two
+/// scans. A chip without a step budget gives no store.
+impl<C: ChipProfile, W> CheckpointStorage for ChipPlatform<C, W> {
+    fn take_checkpoint_store(&mut self) -> Option<CheckpointStore> {
+        let program_budget = C::checkpoint_step_bytes()?;
+        let flash = self.checkpoint.take()?;
+        Some(CheckpointStore {
+            flash,
+            program_budget,
+        })
+    }
+}
+
+/// The chip answers no platform operation yet.
+impl<C, W> ExtensionDispatch for ChipPlatform<C, W> {
+    fn dispatch_extension(&self, _request: &ControlRequest) -> Option<ControlResponse> {
+        None
+    }
+
+    fn audit_details(&self, _request: &ControlRequest) -> Option<serde_json::Value> {
+        None
+    }
+}
+
+impl<C, W: HardwareWatchdog> HardwareWatchdog for ChipPlatform<C, W> {
+    fn feed_interval(&self) -> TimeSpan {
+        self.watchdog.feed_interval()
+    }
+
+    fn feed(&mut self) {
+        self.watchdog.feed();
+    }
+}
+
+impl<C: ChipProfile, W: HardwareWatchdog> RunnerPlatform for ChipPlatform<C, W> {
+    fn live_values(&self) -> &EngineLiveValues {
+        &self.live
+    }
+
+    /// The installed application's record carries the mode (specification 34 §5.1.1, section 7).
+    fn control_mode(&self) -> ControlMode {
+        self.control_mode
+    }
+
+    /// The Live Values of the program that ended give way to those of no program, so that their
+    /// memory is free for the next program (specification 34 STATE-08).
+    fn unload_program(&mut self) {
+        self.live = EngineLiveValues::empty();
+    }
+}
+
+/// The platform forwards the `io.*`, `set` and `var.*` operations to the Live Values of the installed
+/// program, as trust-runtime's `ControlState` forwards them.
+impl<C, W> IoQueuePort for ChipPlatform<C, W> {
+    fn io_snapshot(&self) -> IoSnapshotRead {
+        self.live.io_snapshot()
+    }
+
+    fn enqueue_io_write(&self, address: IoAddress, value: Value) -> Result<(), RequestQueueFull> {
+        self.live.enqueue_io_write(address, value)
+    }
+
+    fn force_io(&self, address: IoAddress, value: Value) -> Result<(), RequestQueueFull> {
+        self.live.force_io(address, value)
+    }
+
+    fn release_io(&self, address: &IoAddress) {
+        self.live.release_io(address);
+    }
+}
+
+impl<C, W> VariableQueuePort for ChipPlatform<C, W> {
+    fn generation(&self) -> Generation {
+        self.live.generation()
+    }
+
+    fn enqueue_var_write(
+        &self,
+        target: PendingVarTarget,
+        value: Value,
+    ) -> Result<(), RequestQueueFull> {
+        self.live.enqueue_var_write(target, value)
+    }
+
+    fn force_var(&self, target: ForcedVarTarget, value: Value) -> Result<(), RequestQueueFull> {
+        self.live.force_var(target, value)
+    }
+
+    fn release_global(&self, name: &str) {
+        self.live.release_global(name);
+    }
+
+    fn release_retain(&self, name: &str) {
+        self.live.release_retain(name);
+    }
+
+    fn release_instance(&self, instance: InstanceId, name: &str) {
+        self.live.release_instance(instance, name);
+    }
+
+    fn forced_snapshot(&self) -> ForcedSnapshot {
+        self.live.forced_snapshot()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use core::time::Duration;
+
+    use super::*;
+
+    /// A chip profile of the tests: its watchdog reset is reason 7, and its name is `test-chip`.
+    struct TestChip;
+
+    impl ChipProfile for TestChip {
+        type Reason = u8;
+
+        fn watchdog_reset() -> u8 {
+            7
+        }
+
+        fn platform_name() -> &'static str {
+            "test-chip"
+        }
+
+        fn device_descriptor() -> DeviceDescriptor {
+            DeviceDescriptor::hosted()
+        }
+
+        fn checkpoint_step_bytes() -> Option<usize> {
+            None
+        }
+    }
+
+    /// A watchdog that counts its feeds, so a test can see that the platform forwards them.
+    #[derive(Default)]
+    struct CountingWatchdog {
+        feeds: u32,
+    }
+
+    impl HardwareWatchdog for CountingWatchdog {
+        fn feed_interval(&self) -> TimeSpan {
+            TimeSpan::new(Duration::from_millis(1_000))
+        }
+
+        fn feed(&mut self) {
+            self.feeds += 1;
+        }
+    }
+
+    /// A platform of the test chip over a counting watchdog, which reports the reset `last_reset`.
+    fn platform_with(last_reset: LastReset) -> ChipPlatform<TestChip, CountingWatchdog> {
+        ChipPlatform::new(
+            CountingWatchdog::default(),
+            SmolStr::new_static("Controller"),
+            status_settings(),
+            false,
+            ControlMode::Production,
+            EngineLiveValues::empty(),
+            last_reset,
+            SmolStr::new_static("test-chip-01"),
+        )
+    }
+
+    /// A reset as the tests expect it: its cause, its text and the boot counter.
+    fn reset_of(cause: ResetCauseName, text: &str, boot_count: u32) -> LastReset {
+        LastReset {
+            cause,
+            text: SmolStr::new(text),
+            boot_count,
+        }
+    }
+
+    /// A watchdog reset (reason 7) that left no record reads as `watchdog` with empty text, and the
+    /// boot's counter is reported. Catches a watchdog reason that is taken for power-on, and a counter
+    /// that is left at zero.
+    #[test]
+    fn a_watchdog_reset_that_left_no_record_reads_as_watchdog() {
+        assert_eq!(
+            ChipPlatform::<TestChip, ()>::boot_last_reset(7, None, 4),
+            reset_of(ResetCauseName::Watchdog, "", 4)
+        );
+    }
+
+    /// Any other reason that left no record reads as `power_on`, with this boot's counter. Catches a
+    /// reason that is compared the wrong way round, which would read a power-on as a watchdog reset.
+    #[test]
+    fn any_other_reason_that_left_no_record_reads_as_power_on() {
+        for (reason, count) in [(1_u8, 2_u32), (0, 3)] {
+            assert_eq!(
+                ChipPlatform::<TestChip, ()>::boot_last_reset(reason, None, count),
+                reset_of(ResetCauseName::PowerOn, "", count),
+                "reason {reason} with no record reads as power_on"
+            );
+        }
+    }
+
+    /// A record the previous boot left wins over the reason: its cause and text are reported with this
+    /// boot's counter (6), not the record's own counter (5). Catches a reason that overrides the record,
+    /// and a record that reports its own boot counter.
+    #[test]
+    fn a_record_the_boot_read_wins_over_the_reason_and_keeps_this_boots_counter() {
+        let record = ResetRecord::with_text(ResetCause::Panic, "main.rs:42", 5);
+        assert_eq!(
+            ChipPlatform::<TestChip, ()>::boot_last_reset(7, Some(record), 6),
+            reset_of(ResetCauseName::Panic, "main.rs:42", 6)
+        );
+    }
+
+    /// The platform names itself with its profile's name and its runtime ID, and keeps control after
+    /// `shutdown` (specification 34, STATE-08). Catches a platform name taken from the runtime ID, and
+    /// a program that gives up control.
+    #[test]
+    fn the_platform_names_its_chip_and_keeps_control_after_shutdown() {
+        let platform = platform_with(reset_of(ResetCauseName::PowerOn, "", 1));
+        assert_eq!(StatusPort::platform(&platform), "test-chip");
+        assert_eq!(StatusPort::runtime_id(&platform), "test-chip-01");
+        assert_eq!(
+            StatusPort::program_control(&platform),
+            ProgramControl::KeepsControl
+        );
+    }
+
+    /// The platform reports the reset its boot read, as the chip gives it (specification 11). Catches a
+    /// platform that reports the reset of another boot.
+    #[test]
+    fn the_platform_reports_the_reset_its_boot_read() {
+        let boot = reset_of(ResetCauseName::Watchdog, "", 4);
+        let platform = platform_with(boot.clone());
+        assert_eq!(StatusPort::last_reset(&platform), Some(boot));
+    }
+
+    /// The watchdog feeds reach the chip's watchdog, one for each feed the runner makes. Catches a
+    /// platform that keeps the feed for itself, so the hardware watchdog would reset the chip.
+    #[test]
+    fn the_runner_feeds_reach_the_chips_watchdog() {
+        let mut platform = platform_with(reset_of(ResetCauseName::PowerOn, "", 1));
+        HardwareWatchdog::feed(&mut platform);
+        HardwareWatchdog::feed(&mut platform);
+        assert_eq!(platform.into_watchdog().feeds, 2);
+    }
+}

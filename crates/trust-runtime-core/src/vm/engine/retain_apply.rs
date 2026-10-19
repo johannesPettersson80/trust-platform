@@ -32,7 +32,6 @@ pub enum RetainApplyEvent {
 }
 
 impl EngineState<'_> {
-    #[cfg(feature = "std")]
     pub(super) fn require_serializable_retained_values(&self) -> Result<(), RuntimeError> {
         let check = |value: &Value| -> Result<(), RuntimeError> {
             self.check_retention_walk(value, 0)?;

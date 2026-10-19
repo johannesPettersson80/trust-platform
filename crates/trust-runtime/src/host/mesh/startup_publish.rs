@@ -16,21 +16,27 @@ use crate::runtime_cloud::contracts::{CatalogEntry, IdentityPayload, RUNTIME_CLO
 use crate::runtime_cloud::keyspace::{
     meta_catalog_key, meta_identity_key, meta_shm_channels_key, svc_liveliness_key,
 };
+use crate::runtime_id::platform;
 use crate::scheduler::{ResourceCommand, ResourceControl, StdClock};
 
 use super::mapping::{
     build_mesh_payload, decode_mesh_payload, mesh_data_key, mesh_liveliness_expr,
     mesh_qos_profile_for_key, now_ns, parse_subscribe_mapping, snapshot_globals, DEFAULT_SITE,
 };
-use super::models::{MeshPeerRegistry, MeshQosProfile, MeshReadiness, MeshService};
+use super::models::{
+    MeshIdentityReply, MeshPeerRegistry, MeshQosProfile, MeshReadiness, MeshService,
+};
 use super::version::validate_zenoh_version_policy;
 
 const MESH_PUBLISH_INTERVAL: StdDuration = StdDuration::from_millis(1000);
 const LIVELINESS_HISTORY_LIMIT: usize = 128;
 
+/// Starts the runtime's mesh. `name` keys its queryables and its identity answer; `stable_runtime_id`
+/// is the runtime ID that its announcement and `status` give (specification 11, "Sources").
 pub fn start_mesh(
     config: &MeshConfig,
     name: SmolStr,
+    stable_runtime_id: SmolStr,
     resource: ResourceControl<StdClock>,
 ) -> Result<Option<MeshService>, RuntimeError> {
     if !config.enabled {
@@ -98,7 +104,12 @@ pub fn start_mesh(
         .is_ok();
 
     let (identity_queryable_ready, catalog_queryable_ready) =
-        declare_identity_and_catalog_queryables(&session, name.as_str(), config);
+        declare_identity_and_catalog_queryables(
+            &session,
+            name.as_str(),
+            stable_runtime_id.as_str(),
+            config,
+        );
     let _shm_queryable_ready = declare_meta_shm_queryable(&session, name.as_str());
     let _cfg_queryable_ready = declare_cfg_queryable(&session, name.as_str());
     let _cmd_queryable_ready = declare_cmd_queryable(&session, name.as_str());
@@ -197,20 +208,29 @@ fn normalize_endpoint(endpoint: &str) -> Result<String, String> {
 fn declare_identity_and_catalog_queryables(
     session: &zenoh::Session,
     runtime_id: &str,
+    stable_runtime_id: &str,
     config: &MeshConfig,
 ) -> (bool, bool) {
     let identity_key = meta_identity_key(DEFAULT_SITE, runtime_id);
-    let identity_payload = serde_json::to_string(&IdentityPayload {
-        api_version: RUNTIME_CLOUD_API_VERSION.to_string(),
-        runtime_id: runtime_id.to_string(),
-        site: DEFAULT_SITE.to_string(),
-        catalog_epoch: 1,
-        build: "runtime-cloud-mesh".to_string(),
-        capabilities: vec![
-            format!("mesh_role={}", config.role.as_str()),
-            format!("zenoh_baseline={}", crate::mesh::ZENOH_BASELINE_VERSION),
-            format!("zenohd_baseline={}", crate::mesh::ZENOHD_BASELINE_VERSION),
-        ],
+    // The mesh names a runtime by the resource name that keys its queryables, so that name is also
+    // the name in its identity answer (specification 11, "Sources").
+    let identity_payload = serde_json::to_string(&MeshIdentityReply {
+        identity: IdentityPayload {
+            api_version: RUNTIME_CLOUD_API_VERSION.to_string(),
+            runtime_id: runtime_id.to_string(),
+            site: DEFAULT_SITE.to_string(),
+            catalog_epoch: 1,
+            build: "runtime-cloud-mesh".to_string(),
+            capabilities: vec![
+                format!("mesh_role={}", config.role.as_str()),
+                format!("zenoh_baseline={}", crate::mesh::ZENOH_BASELINE_VERSION),
+                format!("zenohd_baseline={}", crate::mesh::ZENOHD_BASELINE_VERSION),
+            ],
+        },
+        name: Some(runtime_id.to_string()),
+        version: Some(env!("CARGO_PKG_VERSION").to_string()),
+        platform: Some(platform().to_string()),
+        stable_runtime_id: Some(stable_runtime_id.to_string()),
     })
     .unwrap_or_else(|_| "{}".to_string());
     let identity_ready = session

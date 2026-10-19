@@ -14,22 +14,25 @@ use core::time::Duration;
 
 use serde_json::json;
 use smol_str::SmolStr;
-use trust_runtime_core::deployment::ControlMode;
+use trust_runtime_core::deployment::{ControlMode, DeviceDescriptor};
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::ports::{
-    CheckpointStorage, CheckpointStore, HardwareWatchdog, TimeSpan, WallClock,
+    CheckpointStorage, CheckpointStore, HardwareWatchdog, MonotonicClock, TimeSpan, WallClock,
 };
 use trust_runtime_core::retain::checkpoint::CheckpointFlash;
 use trust_runtime_core::value::Value;
 
-use super::runner_ports::{ms, TestWait};
+use super::runner_ports::{ms, TestClock, TestWait};
 use crate::access::{resolve_role, AccessRole, AuthFailure};
+use crate::capabilities::LastReset;
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use crate::live_values::queues::{ForcedSnapshot, ForcedVarTarget, PendingVarTarget};
 use crate::live_values::var_requests::VariableQueuePort;
 use crate::live_values::RequestQueueFull;
-use crate::ports::{AccessPort, AuditRecord, AuditSink, ExtensionDispatch, StatusPort};
+use crate::ports::{
+    AccessPort, AuditRecord, AuditSink, ExtensionDispatch, ProgramControl, StatusPort,
+};
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::runner::{EngineLiveValues, RunnerPlatform};
 use crate::status::{
@@ -38,6 +41,10 @@ use crate::status::{
 
 /// The longest wait between two feeds of the hardware watchdog, unless a test sets its own.
 pub(crate) const FEED_INTERVAL_MS: u64 = 1_000;
+
+/// The feeds after which the test platform stops a loop that never waits: no test feeds the
+/// watchdog so often, so a loop that does has spun.
+const MAX_FEEDS: u32 = 100_000;
 
 /// The test platform.
 pub(crate) struct TestPlatform {
@@ -51,6 +58,13 @@ pub(crate) struct TestPlatform {
     pub(crate) feed_interval: Duration,
     /// The watchdog's feeds; a test keeps a clone to read them.
     pub(crate) feeds: Rc<Cell<u32>>,
+    /// The times on the clock at which the watchdog was fed, once the fixture has given the
+    /// platform its clock; a test keeps a clone to read them.
+    pub(crate) feed_times: Rc<RefCell<Vec<Duration>>>,
+    /// The clock that stamps the feeds.
+    pub(crate) clock: Option<TestClock>,
+    /// Whether the platform enables the debug surface (specification 11 §6.9).
+    pub(crate) debug_enabled: bool,
     /// The Live Values the runner applies and the shared `io.*`, `set` and `var.*` operations
     /// answer from: the queues and the published snapshot. The fixture replaces it with the one
     /// built from the prepared board probe.
@@ -59,6 +73,13 @@ pub(crate) struct TestPlatform {
     pub(crate) checkpoint: Option<CheckpointStore>,
     /// The control mode the platform's deployment record carries, `production` by default.
     pub(crate) control_mode: ControlMode,
+    /// The device descriptor the `capabilities` operation reports; a computer's by default.
+    pub(crate) device_descriptor: DeviceDescriptor,
+    /// The reset the platform's boot read; `None` for a computer, which starts as a new process.
+    pub(crate) last_reset: Option<LastReset>,
+    /// How many times the loop dropped the program that ended (`unload_program`); a test keeps a
+    /// clone to read them.
+    pub(crate) unloads: Rc<Cell<u32>>,
 }
 
 impl Default for TestPlatform {
@@ -72,9 +93,15 @@ impl Default for TestPlatform {
             extension_calls: RefCell::new(Vec::new()),
             feed_interval: ms(FEED_INTERVAL_MS),
             feeds: Rc::new(Cell::new(0)),
+            feed_times: Rc::new(RefCell::new(Vec::new())),
+            clock: None,
+            debug_enabled: true,
             live_values: Rc::new(EngineLiveValues::empty()),
             checkpoint: None,
             control_mode: ControlMode::Production,
+            device_descriptor: DeviceDescriptor::hosted(),
+            last_reset: None,
+            unloads: Rc::new(Cell::new(0)),
         }
     }
 }
@@ -110,7 +137,7 @@ impl AccessPort for TestPlatform {
     }
 
     fn debug_enabled(&self) -> bool {
-        true
+        self.debug_enabled
     }
 }
 
@@ -131,6 +158,22 @@ impl WallClock for TestPlatform {
 impl StatusPort for TestPlatform {
     fn resource_name(&self) -> &'static str {
         "Controller"
+    }
+
+    /// The test platform stands for the board fixture, not for the computer the tests run on.
+    fn platform(&self) -> &'static str {
+        "stm32f407"
+    }
+
+    /// A device without an operating system has no project ID; the runner reports its platform's
+    /// value (specification 11, `status`).
+    fn runtime_id(&self) -> &'static str {
+        "stm32f407"
+    }
+
+    /// A device without an operating system keeps control after `shutdown` (spec 34 STATE-08).
+    fn program_control(&self) -> ProgramControl {
+        ProgramControl::KeepsControl
     }
 
     fn status_settings(&self) -> Option<StatusSettings> {
@@ -161,6 +204,14 @@ impl StatusPort for TestPlatform {
     fn openot_persistence(&self) -> Option<serde_json::Value> {
         Some(disabled_openot_persistence())
     }
+
+    fn device_descriptor(&self) -> DeviceDescriptor {
+        self.device_descriptor.clone()
+    }
+
+    fn last_reset(&self) -> Option<LastReset> {
+        self.last_reset.clone()
+    }
 }
 
 impl ExtensionDispatch for TestPlatform {
@@ -183,7 +234,17 @@ impl HardwareWatchdog for TestPlatform {
     }
 
     fn feed(&mut self) {
-        self.feeds.set(self.feeds.get() + 1);
+        let feeds = self.feeds.get() + 1;
+        assert!(
+            feeds <= MAX_FEEDS,
+            "the loop fed the watchdog {MAX_FEEDS} times: it spins instead of waiting"
+        );
+        self.feeds.set(feeds);
+        if let Some(clock) = &self.clock {
+            self.feed_times
+                .borrow_mut()
+                .push(clock.now().since_origin());
+        }
     }
 }
 
@@ -207,6 +268,11 @@ impl RunnerPlatform for TestPlatform {
         if let Some(wait) = &self.wake_during_idle {
             wait.wake();
         }
+    }
+
+    fn unload_program(&mut self) {
+        self.unloads.set(self.unloads.get() + 1);
+        self.live_values = Rc::new(EngineLiveValues::empty());
     }
 }
 

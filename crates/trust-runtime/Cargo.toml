@@ -19,6 +19,8 @@ trust-tcads-native = { workspace = true, optional = true }
 trust-ads-server = { workspace = true, optional = true }
 trust-runtime-core = { workspace = true, default-features = false, features = ["std"] }
 trust-runtime-services = { workspace = true, optional = true }
+# The one control client of the command line's runtime requests (`trust-runtime discover`).
+trust-runtime-client = { workspace = true, optional = true }
 trust-wasm-analysis = { workspace = true, optional = true }
 smol_str = { workspace = true, features = ["std"] , optional = true }
 rustc-hash = { workspace = true, features = ["std"] , optional = true }
@@ -46,6 +48,9 @@ rumqttc = { workspace = true, optional = true }
 native-tls = { workspace = true, optional = true }
 time = { workspace = true, optional = true }
 rapier3d = { workspace = true, optional = true }
+# The USB and serial sources of the one search list devices without opening them.
+nusb = { workspace = true, optional = true }
+serialport = { workspace = true, optional = true }
 notify = { version = "8.2.0", optional = true }
 tiny_http = { version = "0.12.0", features = ["ssl-rustls"] , optional = true }
 tungstenite = { version = "0.30.0", optional = true }
@@ -71,6 +76,7 @@ open-ot-document = { git = "https://github.com/johannesPettersson80/open-ot-expe
 open-ot-carriage = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" , optional = true }
 opcua = { version = "0.12.0", default-features = false, features = ["server", "client", "vendored-openssl"], optional = true }
 ads = { version = "=0.4.4", optional = true }
+encoding_rs = { version = "0.8.42", optional = true }
 crossbeam-channel = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 tokio-util = { version = "0.7.20", features = ["compat"], optional = true }
@@ -78,6 +84,7 @@ tiberius = { version = "0.13.0", default-features = false, features = ["tds73", 
 [target.'cfg(unix)'.dependencies]
 
 ethercrab = { version = "0.7.1", optional = true }
+pnet_datalink = { version = "0.35.0", optional = true }
 # OpenOT Rust crates are pinned so fresh source builds do not need a sibling
 # checkout. scripts/checkout_openot_ref.sh is still used for OpenOT IEC example
 # sources and conformance fixtures that are not Cargo crates.
@@ -89,6 +96,9 @@ rustix = { version = "1.1.5", features = ["fs", "mm", "net", "thread"], optional
 proptest.workspace = true
 verification-cases.workspace = true
 trust-runtime-core = { workspace = true, default-features = false, features = ["test-support"] }
+# The Devices & Connections engine integration test drives the panel engine, which depends on this
+# runtime, against a real `trust-runtime`: a dev edge only, so no firmware build resolves it.
+trust-devices.workspace = true
 
 [target.'cfg(unix)'.dev-dependencies]
 open-ot-conformance = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
@@ -158,6 +168,7 @@ full = [
     "dep:trust-ads-core",
     "dep:trust-tcads-native",
     "dep:trust-runtime-services",
+    "dep:trust-runtime-client",
     "dep:trust-wasm-analysis",
     "dep:smol_str",
     "dep:rustc-hash",
@@ -185,6 +196,8 @@ full = [
     "dep:native-tls",
     "dep:time",
     "dep:rapier3d",
+    "dep:nusb",
+    "dep:serialport",
     "dep:notify",
     "dep:tiny_http",
     "dep:tungstenite",
@@ -211,8 +224,8 @@ full = [
 development = ["full", "debug", "register-ir"]
 debug = ["full"]
 opcua-wire = ["full", "dep:opcua"]
-ethercat-wire = ["full", "dep:ethercrab", "dep:tokio"]
-ads-wire = ["full", "dep:ads"]
+ethercat-wire = ["full", "dep:ethercrab", "dep:tokio", "dep:pnet_datalink"]
+ads-wire = ["full", "dep:ads", "dep:encoding_rs"]
 ads-server = ["full", "dep:trust-ads-server"]
 openot-real-database-tests = ["full"]
 openot-database-all = [

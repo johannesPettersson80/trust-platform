@@ -102,6 +102,14 @@ impl Runtime {
         resource_index: usize,
         limits: PreparationLimits,
     ) -> Result<Self, RuntimeError> {
+        // The statement starts and stop positions come from this module's own LINE_TABLE
+        // (specification 13, "Source Mapping"). The binding replaces whatever the snapshot held, so
+        // a module without a table never inherits another module's table.
+        let metadata = metadata.map(|source| {
+            let mut bound = (*source).clone();
+            bound.bind_line_table(&module);
+            Arc::new(bound)
+        });
         let bytes = module.encode().map_err(RuntimeError::from)?;
         let (prepared, raw) = PreparedModule::from_bytes_with_artifact(&bytes, limits)?;
         let mut runtime =

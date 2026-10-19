@@ -1,0 +1,86 @@
+{
+  "access_tooltip": "{access} on the device",
+  "add": {
+    "action": {
+      "emphasis": "primary",
+      "enabled": true,
+      "id": "add",
+      "label": "Add channels",
+      "op": {
+        "action": "browse.add",
+        "kind": "rust",
+        "payload": {
+          "pane": "browse:ethercat",
+          "request": {
+            "kind": "channels",
+            "seq": 3,
+            "session": "dc-golden",
+            "source": {
+              "connection": "endpoint:line",
+              "connection_name": "Line"
+            },
+            "trust_server_certificate": false
+          }
+        }
+      }
+    },
+    "counted_label": "Add channels ({count})",
+    "enabled": true,
+    "label": "Add channels",
+    "no_selection_reason": "Select at least one symbol to add."
+  },
+  "added_aria_label": "Already added: {path}",
+  "added_label": "Added",
+  "breadcrumb": "Devices & Connections",
+  "close_label": "Close",
+  "id": "browse:ethercat",
+  "kind": "channels",
+  "loading": false,
+  "port_help": "",
+  "port_suggestions": [],
+  "ports": [],
+  "search": {
+    "no_match": "No matching symbols.",
+    "placeholder": "Search symbols"
+  },
+  "subtitle": "Line",
+  "title": "Browse PDO channels",
+  "tree": [
+    {
+      "added": false,
+      "children": [
+        {
+          "access": "read/write",
+          "added": true,
+          "children": [],
+          "key": "ec:Term2.Output1",
+          "name": "Output 1",
+          "path": "Term2.Output1",
+          "select_label": "Select Term2.Output1",
+          "selectable": true,
+          "type_label": "BOOL"
+        },
+        {
+          "access": "read-only",
+          "added": false,
+          "children": [],
+          "key": "ec:Term2.Output2",
+          "name": "Output 2",
+          "path": "Term2.Output2",
+          "select_label": "Select Term2.Output2",
+          "selectable": true,
+          "type_label": "BOOL"
+        }
+      ],
+      "key": "ec:Term2",
+      "name": "EL2008",
+      "path": "Term2",
+      "selectable": false,
+      "type_label": "Terminal"
+    }
+  ],
+  "write_toggle": {
+    "enabled": true,
+    "label": "Allow writes (default: read-only)"
+  }
+}

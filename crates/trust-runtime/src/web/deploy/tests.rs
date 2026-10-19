@@ -49,7 +49,7 @@ policy = "halt"
             .to_string(),
         ),
         io_toml: None,
-        program_stbc_b64: Some(STANDARD.encode([1u8, 2, 3])),
+        program_stbc_b64: Some(STANDARD.encode(admitted_program())),
         sources: Some(vec![DeploySource {
             path: "main.st".to_string(),
             content: "PROGRAM Main\nEND_PROGRAM\n".to_string(),
@@ -204,11 +204,19 @@ policy = "halt"
     .to_string()
 }
 
+/// The bytes of an empty program that the runtime prepares: a deployment admits its program first
+/// (spec 34 §11.2 step 6), so a test program must be real bytecode.
+fn admitted_program() -> Vec<u8> {
+    crate::harness::CompileSession::from_source("PROGRAM Main\nEND_PROGRAM\n")
+        .build_bytecode_bytes()
+        .expect("the test program compiles")
+}
+
 fn signed_request(root: &Path, key_id: &str, secret: &str) -> DeployRequest {
     let mut request = DeployRequest {
         runtime_toml: Some(runtime_with_signed_policy()),
         io_toml: None,
-        program_stbc_b64: Some(STANDARD.encode([9u8, 8, 7])),
+        program_stbc_b64: Some(STANDARD.encode(admitted_program())),
         sources: Some(vec![DeploySource {
             path: "main.st".to_string(),
             content: "PROGRAM Main\nEND_PROGRAM\n".to_string(),
@@ -380,11 +388,218 @@ policy = "halt"
         DeploymentRecord::decode(&fs::read(root.join(DEPLOYMENT_RECORD_FILE)).unwrap()).unwrap();
     assert_eq!(record.application.program_sha256, sha256(&program));
 
-    // A program the runtime cannot prepare has no record, so the previous one is removed.
-    let result = apply_deploy(&root, request(&[1, 2, 3])).unwrap();
-    assert!(!result.written.contains(&DEPLOYMENT_RECORD_FILE.to_string()));
-    assert!(!root.join(DEPLOYMENT_RECORD_FILE).exists());
+    // A program the runtime cannot prepare is refused before anything is written, so the deployed
+    // program and its record stay (spec 34 §11.2 step 6; D2).
+    let refused = apply_deploy(&root, request(&[1, 2, 3]))
+        .expect_err("a program that does not prepare is refused");
+    assert!(
+        refused.to_string().contains("does not prepare"),
+        "unexpected refusal: {refused}"
+    );
+    assert_eq!(fs::read(root.join("program.stbc")).unwrap(), program);
+    let record_after =
+        DeploymentRecord::decode(&fs::read(root.join(DEPLOYMENT_RECORD_FILE)).unwrap()).unwrap();
+    assert_eq!(record_after.application.program_sha256, sha256(&program));
     let _ = fs::remove_dir_all(root);
 }
 
 use super::*;
+
+/// The project's installed configuration with the signed-deploy policy and the keyring of
+/// `signed_request`, as a running project holds it before the next deployment.
+fn install_signed_policy(root: &Path) {
+    fs::write(root.join("runtime.toml"), runtime_with_signed_policy())
+        .expect("install runtime.toml");
+}
+
+/// Spec 11, deployment signature policy: the policy in force is the installed one. Catches a
+/// deployment that turns `require_signed` off with the `runtime.toml` it carries and so
+/// installs an unsigned program.
+#[test]
+fn a_request_cannot_turn_off_require_signed() {
+    let mut root = std::env::temp_dir();
+    root.push(format!("trust-deploy-lift-policy-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).expect("create root");
+    install_signed_policy(&root);
+    let unsigned = DeployRequest {
+        runtime_toml: Some(
+            runtime_with_signed_policy().replace("require_signed = true", "require_signed = false"),
+        ),
+        io_toml: None,
+        program_stbc_b64: Some(STANDARD.encode([4u8, 5, 6])),
+        sources: None,
+        signature: None,
+        restart: None,
+    };
+    let error =
+        apply_deploy(&root, unsigned).expect_err("the installed policy requires a signature");
+    assert!(
+        error.to_string().contains("signed deploy required"),
+        "unexpected error: {error}"
+    );
+    assert!(
+        !root.join("program.stbc").exists(),
+        "a refused deployment writes nothing"
+    );
+    let installed = fs::read_to_string(root.join("runtime.toml")).expect("installed runtime.toml");
+    assert!(
+        installed.contains("require_signed = true"),
+        "the installed policy stays"
+    );
+    let _ = fs::remove_dir_all(root);
+}
+
+/// Spec 11, deployment signature policy: the keyring is the installed policy's. Catches a
+/// deployment that names a keyring it controls and signs with a key of its own.
+#[test]
+fn a_request_cannot_name_its_own_keyring() {
+    let mut root = std::env::temp_dir();
+    root.push(format!("trust-deploy-own-keyring-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).expect("create root");
+    install_signed_policy(&root);
+    // The installed keyring trusts "ci"; a file under src/ that an earlier deployment left trusts
+    // "intruder".
+    fs::create_dir_all(root.join("security")).expect("security dir");
+    fs::write(
+        root.join("security/deploy-keys.toml"),
+        "[[keys]]\nid = \"ci\"\nsecret = \"super-secret\"\nenabled = true\nnot_after_unix = 4102444800\n",
+    )
+    .expect("write the installed keyring");
+    fs::create_dir_all(root.join("src")).expect("src dir");
+    fs::write(
+        root.join("src/keys.toml"),
+        "[[keys]]\nid = \"intruder\"\nsecret = \"own-secret\"\nenabled = true\nnot_after_unix = 4102444800\n",
+    )
+    .expect("write the other keyring");
+    let mut request = DeployRequest {
+        runtime_toml: Some(runtime_with_signed_policy().replace(
+            "keyring_path = \"security/deploy-keys.toml\"",
+            "keyring_path = \"src/keys.toml\"",
+        )),
+        io_toml: None,
+        program_stbc_b64: Some(STANDARD.encode([7u8, 7, 7])),
+        sources: None,
+        signature: None,
+        restart: None,
+    };
+    let payload_sha = deploy_payload_sha256(&request);
+    request.signature = Some(DeploySignature {
+        key_id: "intruder".to_string(),
+        signature: deploy_signature_digest("own-secret", &payload_sha),
+        payload_sha256: payload_sha,
+    });
+    assert!(
+        apply_deploy(&root, request).is_err(),
+        "a key the installed keyring does not hold must not sign a deployment"
+    );
+    assert!(
+        !root.join("program.stbc").exists(),
+        "a refused deployment writes nothing"
+    );
+    let _ = fs::remove_dir_all(root);
+}
+
+/// A resource that reports a fixed state, for the gate of a deployment.
+struct FixedResource {
+    state: ResourceState,
+    hung: bool,
+}
+
+impl ResourcePort for FixedResource {
+    fn resource_state(&self) -> ResourceState {
+        self.state
+    }
+
+    fn last_error(&self) -> Option<RuntimeError> {
+        None
+    }
+
+    fn is_hung(&self) -> bool {
+        self.hung
+    }
+
+    fn pause_resource(&self) -> Result<(), crate::scheduler::CommandSendError> {
+        Ok(())
+    }
+
+    fn resume_resource(&self) -> Result<(), crate::scheduler::CommandSendError> {
+        Ok(())
+    }
+
+    fn debug_control_mode(&self) -> bool {
+        false
+    }
+
+    fn debugger_pause(&self) {}
+
+    fn debugger_continue(&self) {}
+
+    fn update_pending_restart(&self, _update: impl FnOnce(&mut Option<crate::RestartMode>)) {}
+
+    fn starts_when_stopped(&self) -> bool {
+        true
+    }
+}
+
+#[test]
+fn a_deployment_is_refused_with_the_reply_of_program_install_unless_the_resource_is_stopped() {
+    // Specification 34 §11.2 (decision Q11) and 11 §6.8.2: a deployment installs a program, so it
+    // is accepted only while the resource is Stopped, and every other state is refused with the
+    // message and the code that `program.install` gives for it. Wrong behaviour: a running
+    // resource accepts the deployment, or the refusal is a text of the web interface alone.
+    for (state, message) in [
+        (
+            ResourceState::Running,
+            "resource is running and its scheduler does not accept commands",
+        ),
+        (
+            ResourceState::Paused,
+            "resource is paused and its scheduler does not accept commands",
+        ),
+        (
+            ResourceState::Ready,
+            "resource is ready and its scheduler does not accept commands",
+        ),
+        (
+            ResourceState::Faulted,
+            "resource is faulted; restart required",
+        ),
+    ] {
+        let resource = FixedResource { state, hung: false };
+        assert_eq!(
+            refusal_unless_stopped(&resource),
+            Some(json!({
+                "ok": false,
+                "error": message,
+                "error_code": "resource_not_running",
+            })),
+            "{state:?}"
+        );
+    }
+    let stopped = FixedResource {
+        state: ResourceState::Stopped,
+        hung: false,
+    };
+    assert_eq!(refusal_unless_stopped(&stopped), None);
+}
+
+#[test]
+fn a_deployment_to_a_hung_resource_is_refused_before_its_state_is_read() {
+    // Specification 11 §6.8.2: a hung scan thread is refused as `program.install` refuses it,
+    // even when its state reads Stopped. Wrong behaviour: the state decides and the deployment
+    // goes on while no scan thread can take the program.
+    let hung = FixedResource {
+        state: ResourceState::Stopped,
+        hung: true,
+    };
+    assert_eq!(
+        refusal_unless_stopped(&hung),
+        Some(json!({
+            "ok": false,
+            "error": "resource scan thread did not return; the runtime process must be restarted",
+            "error_code": "resource_not_running",
+        }))
+    );
+}

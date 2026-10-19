@@ -17,6 +17,9 @@ pub fn run_runtime(
     execution_backend: Option<crate::cli::ExecutionBackendArg>,
 ) -> anyhow::Result<()> {
     let restart_mode = validate_runtime_launch_options(&restart, time_scale)?;
+    // Where the program comes from, kept for a `restart` that finds the resource Stopped: it loads
+    // the installed program again from the same place (specification 34, STATE-08).
+    let program_source = (project.clone(), config.clone(), runtime_root.clone());
     let LoadedRuntime {
         bundle,
         mut runtime,
@@ -26,6 +29,7 @@ pub fn run_runtime(
     let (selected_execution_backend, selected_execution_backend_source) =
         resolve_execution_backend_selection(bundle.as_ref(), execution_backend)?;
 
+    let simulation_requested = simulation;
     let simulation = build_simulation_plan(bundle.as_ref(), simulation, time_scale)?;
     let SimulationPlan {
         enabled: simulation_enabled,
@@ -34,14 +38,29 @@ pub fn run_runtime(
         controller: simulation_controller,
     } = simulation;
 
-    let debug = runtime.enable_debug();
+    // The debugger is attached for every run so that `config.set` can enable it later. The
+    // configured `runtime.control.debug_enabled` is the initial value of the switch that both the
+    // debugger's hook and the control state read, so the setting decides whether the hook runs
+    // (specification 11 section 6.9).
+    let debug_enabled = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(
+        bundle
+            .as_ref()
+            .map(|bundle| bundle.runtime.control_debug_enabled)
+            .unwrap_or(true),
+    ));
+    // Attached the way `enable_debug` attaches a control, but with the shared switch.
+    let debug = trust_runtime::debug::DebugControl::new()
+        .with_enabled_flag(std::sync::Arc::clone(&debug_enabled));
     let metrics = Arc::new(Mutex::new(RuntimeMetrics::new()));
     if let Ok(mut guard) = metrics.lock() {
         guard.set_execution_backend(selected_execution_backend);
     }
-    runtime.set_metrics_sink(metrics.clone());
     let io_health = Arc::new(Mutex::new(Vec::new()));
-    runtime.set_io_health_sink(Some(io_health.clone()));
+    let wiring = ProgramWiring {
+        debug: debug.clone(),
+        metrics: metrics.clone(),
+        io_health: io_health.clone(),
+    };
     let io_snapshot = Arc::new(Mutex::new(None));
     let io_snapshot_seen_ms = Arc::new(std::sync::atomic::AtomicU64::new(0));
     let (io_tx, io_rx) = std::sync::mpsc::channel();
@@ -65,15 +84,13 @@ pub fn run_runtime(
         });
     }
 
-    if let Some(bundle) = &bundle {
-        apply_bundle_runtime_services(&mut runtime, bundle)?;
-    }
-    runtime
-        .set_execution_backend(selected_execution_backend)
-        .map_err(|err| anyhow::anyhow!("{err}"))?;
-
-    runtime.restart(restart_mode)?;
-    load_startup_retain(&mut runtime, restart_mode)?;
+    start_runtime_program(
+        &mut runtime,
+        bundle.as_ref(),
+        selected_execution_backend,
+        &wiring,
+        restart_mode,
+    )?;
     let mut openot_persistence = bundle
         .as_ref()
         .map(start_openot_persistence_service)
@@ -139,19 +156,40 @@ pub fn run_runtime(
 
     let default_watchdog = runtime.watchdog_policy();
     let default_fault = runtime.fault_policy();
-    let cycle_interval = bundle
-        .as_ref()
-        .map(|bundle| bundle.runtime.cycle_interval)
-        .unwrap_or_else(|| Duration::from_millis(10));
-    let hang_action = bundle
-        .as_ref()
-        .map(|bundle| bundle.runtime.watchdog_hang_action)
-        .unwrap_or_default();
+    let cycle_interval = bundle_cycle_interval(bundle.as_ref());
+    let hang_action = bundle_hang_action(bundle.as_ref());
+    let initial_settings = build_runtime_settings(
+        bundle.as_ref(),
+        ide_shell_mode,
+        default_watchdog,
+        default_fault,
+        &SimulationPlan {
+            enabled: simulation_enabled,
+            time_scale: simulation_time_scale,
+            warning: simulation_warning.clone(),
+            controller: None,
+        },
+        selected_execution_backend,
+        selected_execution_backend_source,
+    );
+    let web_config = resolve_web_config(bundle.as_ref(), &initial_settings);
+    let settings = Arc::new(Mutex::new(initial_settings));
+    let program_reload = ProgramReload {
+        source: program_source,
+        execution_backend,
+        simulation: simulation_requested,
+        time_scale,
+        wiring,
+        metadata: metadata.clone(),
+        events: events.clone(),
+        settings: settings.clone(),
+    };
     let mut runner = ResourceRunner::new(runtime, StdClock::new(), cycle_interval)
         .with_restart_signal(pending_restart.clone())
         .with_start_gate(start_gate.clone())
         .with_time_scale(simulation_time_scale)
-        .with_hang_action(hang_action);
+        .with_hang_action(hang_action)
+        .with_program_loader(program_reload.into_loader());
     if realtime_config.enabled {
         runner = runner.with_thread_init_hook(make_thread_init_hook(
             realtime_config.clone(),
@@ -199,22 +237,7 @@ pub fn run_runtime(
     let control = handle.control();
     let _signal_shutdown = install_runtime_signal_shutdown(control.clone())?;
 
-    let settings = build_runtime_settings(
-        bundle.as_ref(),
-        ide_shell_mode,
-        default_watchdog,
-        default_fault,
-        &SimulationPlan {
-            enabled: simulation_enabled,
-            time_scale: simulation_time_scale,
-            warning: simulation_warning.clone(),
-            controller: None,
-        },
-        selected_execution_backend,
-        selected_execution_backend_source,
-    );
     let auth_token_value = control_auth_token_value(bundle.as_ref());
-    let web_config = resolve_web_config(bundle.as_ref(), &settings);
     let auth_token = Arc::new(Mutex::new(
         bundle
             .as_ref()
@@ -283,7 +306,21 @@ pub fn run_runtime(
     #[cfg(feature = "ads-server")]
     let ads_server_runtime = Arc::new(Mutex::new(None));
 
+    let resource_name = bundle
+        .as_ref()
+        .map(|bundle| bundle.runtime.resource_name.clone())
+        .unwrap_or_else(|| smol_str::SmolStr::new("RESOURCE"));
+    // The stable runtime ID is read back, or generated once, on every start, even while
+    // announcing is disabled, so a file that cannot be read or holds an invalid ID is an error
+    // rather than a silently new ID (spec 11, runtime discovery; O36). One value serves both
+    // `status` and the announcement.
+    let runtime_id = match &bundle {
+        Some(bundle) => trust_runtime::runtime_id::stable_runtime_id(bundle.root.as_path())?,
+        None => resource_name.clone(),
+    };
+
     let state = Arc::new(ControlState {
+        transfers: trust_runtime::control::new_transfer_session(),
         debug: debug.clone(),
         resource: control.clone(),
         metadata: metadata.clone(),
@@ -302,24 +339,17 @@ pub fn run_runtime(
         audit_tx: Some(audit_tx.clone()),
         metrics: metrics.clone(),
         events: events.clone(),
-        settings: Arc::new(Mutex::new(settings)),
+        settings,
         discovery: discovery_state.clone(),
         mesh_topology: mesh_topology.clone(),
         realtime_status: realtime_status.clone(),
         web_listener_bound: web_listener_bound.clone(),
         opcua_server_bound: opcua_server_bound.clone(),
         project_root: bundle.as_ref().map(|bundle| bundle.root.clone()),
-        resource_name: bundle
-            .as_ref()
-            .map(|bundle| bundle.runtime.resource_name.clone())
-            .unwrap_or_else(|| smol_str::SmolStr::new("RESOURCE")),
+        resource_name: resource_name.clone(),
+        runtime_id: runtime_id.clone(),
         io_health: io_health.clone(),
-        debug_enabled: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(
-            bundle
-                .as_ref()
-                .map(|bundle| bundle.runtime.control_debug_enabled)
-                .unwrap_or(true),
-        )),
+        debug_enabled,
         debug_variables: Arc::new(Mutex::new(trust_runtime::debug::DebugVariableHandles::new())),
         hmi_live: Arc::new(Mutex::new(
             hmi_persistence
@@ -335,6 +365,7 @@ pub fn run_runtime(
             .as_ref()
             .map(OpenOtPersistenceService::status_handle),
         pairing: pairing.clone(),
+        search: Default::default(),
         ads_doctor_jobs: Arc::new(Mutex::new(
             trust_runtime::control::AdsDoctorJobStore::default(),
         )),
@@ -375,6 +406,7 @@ pub fn run_runtime(
         start_mesh(
             &bundle.runtime.mesh,
             bundle.runtime.resource_name.clone(),
+            runtime_id.clone(),
             control.clone(),
         )?
     } else {
@@ -388,14 +420,16 @@ pub fn run_runtime(
     let _discovery_handle = if let Some(bundle) = &bundle {
         if bundle.runtime.discovery.enabled {
             let web_listen = bundle.runtime.web.listen.as_str();
+            let web_listen = web_config.enabled.then_some(web_listen);
             let mesh_listen = _mesh
                 .as_ref()
                 .and_then(|service| service.discovery_mesh_listen());
             let handle = start_discovery_with_state(
                 &bundle.runtime.discovery,
                 &bundle.runtime.resource_name,
-                &control_endpoint,
-                Some(web_listen),
+                runtime_id.as_str(),
+                Some(&control_endpoint),
+                web_listen,
                 bundle.runtime.web.tls,
                 mesh_listen,
                 discovery_state.clone(),
@@ -564,6 +598,9 @@ pub fn run_runtime(
         );
     }
 
+    // The control server, the web server and the other services above stay up while the program is
+    // stopped: `shutdown` stops the program and not the scan thread, so the join returns only when
+    // a signal or the explicit exit ends the thread (specification 34, STATE-08).
     let join_result = handle
         .join()
         .map_err(|_| anyhow::anyhow!("runtime thread panicked"));

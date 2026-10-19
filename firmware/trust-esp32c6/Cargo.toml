@@ -1,0 +1,33 @@
+[package]
+name = "trust-esp32c6"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[workspace]
+resolver = "3"
+
+[dependencies]
+# The chip's hardware adapter (the USB link, wait, clock, GPIO claim, platform and watchdog
+# rule), the two-region measured heap and the persistent reset record, and the shared single-thread
+# resource loop, container admission and engine cycle.
+trust-platform-esp32 = { path = "../../crates/trust-platform-esp32" }
+trust-platform-memory = { path = "../../crates/trust-platform-memory" }
+trust-runtime-core = { path = "../../crates/trust-runtime-core", default-features = false }
+trust-runtime-services = { path = "../../crates/trust-runtime-services" }
+smol_str = { version = "0.3.6", default-features = false }
+esp-hal = { version = "=1.2.2", features = ["esp32c6", "unstable"] }
+esp-bootloader-esp-idf = { version = "=0.6.0", features = ["esp32c6"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+debug = 1
+panic = "abort"
+overflow-checks = true
+
+[profile.dev]
+panic = "abort"

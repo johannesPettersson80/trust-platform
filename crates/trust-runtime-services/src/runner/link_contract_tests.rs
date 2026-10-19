@@ -6,12 +6,13 @@
 use alloc::string::ToString;
 use alloc::vec;
 use core::net::{IpAddr, Ipv4Addr, SocketAddr};
+use core::time::Duration;
 
 use serde_json::{json, Value};
-use trust_runtime_core::ports::PeerClass;
+use trust_runtime_core::ports::{ControlLink, LinkFrame, PeerClass, PortError};
 
 use super::FRAMES_PER_PASS;
-use crate::tests::runner_ports::{ms, Fixture, TestPlatform, WaitCall};
+use crate::tests::runner_ports::{ms, Fixture, TestClock, TestLink, TestPlatform, WaitCall};
 
 fn request(id: u64, kind: &str) -> Value {
     json!({"id": id, "type": kind})
@@ -109,20 +110,86 @@ fn a_busy_link_cannot_hold_back_a_due_scan() {
         fixture.link.send(&request(id, "health"));
     }
     runner.run_pass().expect("the test wait does not fail");
-    assert_eq!(fixture.link.take_replies().len(), FRAMES_PER_PASS);
     assert_eq!(
         fixture.take_scan_times(),
         [10],
-        "the due scan runs in the same pass"
+        "the due scan runs before any queued request is answered"
+    );
+    assert_eq!(
+        fixture.link.take_replies(),
+        [] as [Value; 0],
+        "no request is started while the scan is due"
     );
     assert_eq!(
         fixture.wait.take_calls(),
         [] as [WaitCall; 0],
-        "a pass that reached the bound serves the rest at once instead of waiting"
+        "a pass that held a request back serves the rest at once instead of waiting"
     );
+    runner.run_pass().expect("the test wait does not fail");
+    assert_eq!(fixture.link.take_replies().len(), FRAMES_PER_PASS);
     runner.run_pass().expect("the test wait does not fail");
     assert_eq!(fixture.link.take_replies().len(), 10 - FRAMES_PER_PASS);
     assert_eq!(fixture.wait.take_deadlines(), vec![ms(20)]);
+}
+
+/// A control link whose every reply takes `time` on the test clock, as a `status` reply takes on
+/// the chip's flash. Its requests and replies are the test link's.
+struct SlowReplies {
+    link: TestLink,
+    clock: TestClock,
+    time: Duration,
+}
+
+impl ControlLink for SlowReplies {
+    fn max_frame_len(&self) -> usize {
+        self.link.max_frame_len()
+    }
+
+    fn poll_frame(&mut self, buffer: &mut [u8]) -> Option<LinkFrame> {
+        self.link.poll_frame(buffer)
+    }
+
+    fn send_frame(&mut self, frame: &[u8]) -> Result<(), PortError> {
+        self.clock.advance(self.time);
+        self.link.send_frame(frame)
+    }
+}
+
+#[test]
+fn a_due_cycle_is_not_delayed_by_queued_requests() {
+    // Specification 34, STATE-08: a due cycle waits at most for the request already being
+    // answered. The first reply takes 10 ms, so the scan due at 10 ms falls due after request 0 is
+    // answered: the scan must run before request 1 is answered, not after all eight.
+    let fixture = Fixture::board_probe();
+    let slow = SlowReplies {
+        link: fixture.link.clone(),
+        clock: fixture.clock.clone(),
+        time: ms(10),
+    };
+    let mut runner = fixture.runner_with_link(slow);
+    runner.run_pass().expect("the test wait does not fail");
+    assert_eq!(
+        fixture.take_scan_times(),
+        [0],
+        "the power-on scan runs at 0 ms"
+    );
+    for id in 0..8 {
+        fixture.link.send(&request(id, "health"));
+    }
+    runner.run_pass().expect("the test wait does not fail");
+    assert_eq!(
+        fixture.take_scan_times(),
+        [10],
+        "the scan due at 10 ms runs in that pass"
+    );
+    let replies = fixture.link.take_replies();
+    assert_eq!(
+        replies.len(),
+        1,
+        "only request 0 is answered before the scan; a loop that checks the boundary once per pass \
+         would answer all eight first"
+    );
+    assert_eq!(replies[0]["id"], json!(0));
 }
 
 #[test]

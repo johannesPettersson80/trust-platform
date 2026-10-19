@@ -6,6 +6,7 @@ use trust_chips::{ChipFile, Family, Problem};
 
 const F407: &str = include_str!("../../../chips/stm32f407.toml");
 const C6: &str = include_str!("../../../chips/esp32c6.toml");
+const U5: &str = include_str!("../../../chips/stm32u5a9.toml");
 
 /// A TOML text as a table.
 fn table(text: &str) -> toml::Table {
@@ -68,6 +69,10 @@ fn c6(edit: impl FnOnce(&mut toml::Table)) -> Result<ChipFile, Problem> {
     edited("esp32c6", C6, edit)
 }
 
+fn u5(edit: impl FnOnce(&mut toml::Table)) -> Result<ChipFile, Problem> {
+    edited("stm32u5a9", U5, edit)
+}
+
 /// The TOML message of a refusal.
 fn toml_message(result: Result<ChipFile, Problem>) -> String {
     match result {
@@ -118,6 +123,8 @@ fn an_unknown_key_is_refused_in_every_table() {
         "memory.spi_flash",
         "layout.bootloader",
         "layout.partition_table",
+        "layout.boot_counter_a",
+        "layout.boot_counter_b",
     ] {
         let message = toml_message(c6(|file| set(file, path, "colour", "blue")));
         assert!(
@@ -522,6 +529,114 @@ fn layout_regions_do_not_overlap_and_the_chip_starts_from_the_first() {
     );
 }
 
+/// The program slots lie inside `application` and apart from one another and from the checkpoint
+/// slots (specification 34 Appendix H.2). The refusal names the two regions that overlap. Catches a
+/// check that compares a slot with `application` only, which lets the two slots share flash, and a
+/// slot that could erase a checkpoint unit.
+#[test]
+fn the_chip_file_refuses_overlapping_slots() {
+    let region = |text: &str| toml::Value::Table(table(text));
+    // application_b starts 0xC000 below application_a's end (0x4F_C000), inside application_a.
+    assert_eq!(
+        c6(|file| set(
+            file,
+            "layout",
+            "application_b",
+            region("start = 0x4F_0000\nkib = 3056")
+        )),
+        Err(Problem::RegionsOverlap {
+            first: "application_b",
+            second: "application_a"
+        })
+    );
+    assert_eq!(
+        c6(|file| set(
+            file,
+            "layout",
+            "application_a",
+            region("start = 0x4F_0000\nkib = 3056")
+        )),
+        Err(Problem::RegionsOverlap {
+            first: "application_b",
+            second: "application_a"
+        })
+    );
+    // From 0x7F_0000, 3,056 KiB reach past checkpoint_a, which begins at 0x7F_8000.
+    assert_eq!(
+        c6(|file| set(
+            file,
+            "layout",
+            "application_b",
+            region("start = 0x7F_0000\nkib = 3056")
+        )),
+        Err(Problem::RegionsOverlap {
+            first: "checkpoint_a",
+            second: "application_b"
+        })
+    );
+    assert_eq!(
+        c6(|file| set(
+            file,
+            "layout",
+            "application_a",
+            region("start = 0x7F_0000\nkib = 3056")
+        )),
+        Err(Problem::RegionsOverlap {
+            first: "checkpoint_a",
+            second: "application_a"
+        })
+    );
+}
+
+/// The program slots are named both or neither, have one size, and lie inside `application` on
+/// erase-unit boundaries (specification 34 §5.1 and Appendix H.2: "two application slots of equal
+/// size, which the chip file names"). Catches a file that gives the program store one slot, two
+/// slots of different sizes, a slot below `application`, an empty slot, and a slot that starts
+/// off an erase unit, whose erase would clear the bytes before it.
+#[test]
+fn the_program_slots_are_named_in_pairs_of_one_size_inside_application() {
+    assert_eq!(
+        c6(|file| remove(file, "layout", "application_b")),
+        Err(Problem::MissingRegion {
+            region: "application_b"
+        })
+    );
+    assert_eq!(
+        c6(|file| remove(file, "layout", "application_a")),
+        Err(Problem::MissingRegion {
+            region: "application_a"
+        })
+    );
+    // 3,000 KiB is 3,072,000 bytes: slot B then ends at 0x7E_A000, inside application.
+    assert_eq!(
+        c6(|file| set(file, "layout.application_b", "kib", 3000_i64)),
+        Err(Problem::UnequalSlots {
+            first: "application_a",
+            second: "application_b"
+        })
+    );
+    // Slot A starts 0x1_0000 below application, which begins at 0x20_0000.
+    assert_eq!(
+        c6(|file| set(file, "layout.application_a", "start", 0x1F_0000_i64)),
+        Err(Problem::OutsideApplication {
+            slot: "application_a"
+        })
+    );
+    assert_eq!(
+        c6(|file| set(file, "layout.application_b", "kib", 0_i64)),
+        Err(Problem::ZeroSize {
+            what: "layout.application_b".to_owned()
+        })
+    );
+    // 0x20_0800 is 2 KiB into an erase unit.
+    assert_eq!(
+        c6(|file| set(file, "layout.application_a", "start", 0x20_0800_i64)),
+        Err(Problem::RegionNotAligned {
+            region: "application_a"
+        })
+    );
+}
+
 #[test]
 fn each_interface_list_names_each_peripheral_once() {
     assert_eq!(
@@ -734,4 +849,80 @@ fn a_source_path_is_listed_once_and_not_inside_another() {
             "{path}"
         );
     }
+}
+
+#[test]
+fn an_stm32u5_file_describes_its_flash_in_memory_flash_and_keeps_its_vectors() {
+    // Appendix H.5 rules 5 and 7: an STM32 chip describes its flash in memory.flash and not in
+    // spi_flash, and its layout has the vector table and no bootloader. Catches an STM32U5 file that
+    // names an SPI flash, that drops its vectors, or that takes the ESP32's bootloader region.
+    let spi = || toml::Value::Table(table("erase_kib = 4"));
+    assert_eq!(
+        u5(|file| set(file, "memory", "spi_flash", spi())),
+        Err(Problem::FlashKind {
+            family: Family::Stm32u5
+        })
+    );
+    assert_eq!(
+        u5(|file| remove(file, "layout", "vectors")),
+        Err(Problem::MissingRegion { region: "vectors" })
+    );
+    assert_eq!(
+        u5(|file| set(
+            file,
+            "layout",
+            "bootloader",
+            toml::Value::Table(table("start = 0\nkib = 4"))
+        )),
+        Err(Problem::UnexpectedRegion {
+            region: "bootloader"
+        })
+    );
+}
+
+#[test]
+fn an_stm32u5_device_id_has_twelve_bits_and_its_pins_are_named_by_port() {
+    // Appendix H.5 rules 2 and 8: the STM32 families share the twelve bits of DEV_ID and name their
+    // pins by port, not by a count. Catches an STM32U5 device ID that is not bounded, or pins given as
+    // a count.
+    for device_id in [0_i64, 0x1000] {
+        assert_eq!(
+            u5(|file| set(file, "identity", "device_id", device_id)),
+            Err(Problem::DeviceId {
+                device_id: u32::try_from(device_id).expect("a u32")
+            })
+        );
+    }
+    assert_eq!(
+        u5(|file| set(file, "identity", "device_id", 0xFFF_i64)).err(),
+        None
+    );
+    assert_eq!(
+        u5(|file| set(file, "gpio", "pins", 156_i64)),
+        Err(Problem::GpioKind {
+            family: Family::Stm32u5
+        })
+    );
+}
+
+#[test]
+fn an_stm32u5_target_is_the_thumb_hard_float_target_of_its_chip() {
+    // Appendix H.5 rule 4: the U5's target is a thumb target with hardware floating point, because the
+    // chip has a single-precision FPU. A RISC-V target and a soft-float target are refused. Catches
+    // an STM32U5 file that takes another family's target or disagrees with its FPU.
+    let riscv = "riscv32imac-unknown-none-elf";
+    assert_eq!(
+        u5(|file| set(file, "processor", "rust_target", riscv)),
+        Err(Problem::TargetFamily {
+            target: riscv.to_owned()
+        })
+    );
+    let soft = "thumbv8m.main-none-eabi";
+    assert_eq!(
+        u5(|file| set(file, "processor", "rust_target", soft)),
+        Err(Problem::TargetFpu {
+            target: soft.to_owned()
+        })
+    );
+    assert_eq!(u5(|_| {}).err(), None);
 }

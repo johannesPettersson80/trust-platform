@@ -2,11 +2,11 @@
 //! I/O drivers, and the resource state, metrics and events that the loop keeps itself.
 
 use alloc::collections::VecDeque;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
-use trust_runtime_core::deployment::ControlMode;
+use trust_runtime_core::deployment::{ControlMode, DeviceDescriptor};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{Generation, InstanceId};
@@ -16,23 +16,32 @@ use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::Value;
 
 use super::cycle::ResourceCycle;
+use super::debugger::ChipDebug;
 use super::engine::EngineLiveValues;
+use super::install::InstallState;
+use super::online_change::ChangeState;
 use super::program::Program;
 use super::state::{Records, ResourceCell};
 use crate::access::{AccessRole, AuthFailure};
+use crate::capabilities::LastReset;
 use crate::events::RuntimeEvent;
+use crate::installation::Admitted;
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use crate::live_values::queues::{ForcedSnapshot, ForcedVarTarget, PendingVarTarget};
 use crate::live_values::var_requests::VariableQueuePort;
 use crate::live_values::RequestQueueFull;
+use crate::loading::reload;
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::ports::{
-    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, RecordsPort, ResourcePort,
-    StatusPort,
+    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl,
+    ProgramIdentities, ProgramIdentity, RecordsPort, ResourcePort, StatusPort,
+    TransferSessionError,
 };
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::resource::commands::{CommandClass, CommandSendError};
+use crate::resource::replies::no_installed_program;
 use crate::status::{IoDriverStatus, StatusSettings};
+use crate::transfer::TransferSession;
 
 /// What the platform supplies to the resource loop besides the link, the wait, the clock and the
 /// installed program: the access rights, the audit sink, the wall clock, the values the platform
@@ -55,11 +64,17 @@ pub trait RunnerPlatform:
 {
     /// The Live Values the runner applies at its cycle phases and the platform answers the
     /// `io.*`, `set` and `var.*` requests from (specification 11, "Live Values"; specification 34
-    /// §4.3.1). The platform owns it and the runner borrows it for a scan.
+    /// §4.3.1). The platform owns it, and the runner takes a handle on the same state when it
+    /// starts ([`EngineLiveValues`] is a handle), so a platform returns the same one for as long as
+    /// its program lives. A device that loads a program in place gives the platform the Live Values
+    /// of each program it loads (`unload_program`, then its loader), and the loop takes a handle on
+    /// them as that program starts (specification 34 STATE-08).
     fn live_values(&self) -> &EngineLiveValues;
 
     /// Work between scans, for example servicing a communication driver; the loop runs it once
-    /// per pass, and it must not wait. The default does nothing.
+    /// per pass, and so does the pass of a debugger hold on a scan, which keeps communication
+    /// drivers running as trust-runtime's threads keep running (specification 34, STATE-07). It
+    /// must not wait. The default does nothing.
     fn idle(&mut self) {}
 
     /// The control mode the platform's deployment record carries (specification 34 §5.1.1,
@@ -68,17 +83,76 @@ pub trait RunnerPlatform:
     fn control_mode(&self) -> ControlMode {
         ControlMode::Production
     }
+
+    /// The transfer session the platform keeps for the transfer operations (specification 34,
+    /// PORT-05). A platform without one keeps the default, and the transfer operations are then
+    /// unsupported on it, unless the device gave its loop a session of its own
+    /// ([`Runner::with_transfers`](crate::runner::Runner::with_transfers)), which the loop uses first.
+    ///
+    /// # Errors
+    ///
+    /// [`TransferSessionError::Unsupported`] when the platform keeps no session, and
+    /// [`TransferSessionError::Unavailable`] when the session cannot be locked.
+    fn with_transfers<R>(
+        &self,
+        _use_session: impl FnOnce(&mut TransferSession) -> R,
+    ) -> Result<R, TransferSessionError> {
+        Err(TransferSessionError::Unsupported)
+    }
+
+    /// The selected program and the program before it, which `program.active` reports (specification
+    /// 34 §11.2). A platform without a program store keeps the default. A loop that was given a
+    /// program store answers `program.active` from that store instead
+    /// ([`Runner::with_program_store`](crate::runner::Runner::with_program_store)).
+    fn program_identities(&self) -> Option<ProgramIdentities> {
+        None
+    }
+
+    /// The program that ended is dropped: the platform lets go of the values of its record, which a
+    /// device that loads a program in place replaces when it loads the next (specification 34
+    /// STATE-08). The Live Values of the program that ended hold memory the next program needs, so
+    /// they are emptied here. The default does nothing, for a platform that never loads in place.
+    fn unload_program(&mut self) {}
+}
+
+/// What the dispatcher reads of the installed program while the loop serves a request: whether
+/// there is one, and the health of its I/O drivers.
+///
+/// Between scans that is the program itself. While a debugger holds a scan the program is inside
+/// its scan and cannot be asked, so the view is the health its cycle published before the program
+/// ran (specification 34, STATE-07).
+pub(super) trait ProgramView {
+    /// Why no program is installed, when none is.
+    fn missing_program(&self) -> Option<&str>;
+
+    /// The health of the program's I/O drivers, in `io.toml` order.
+    fn driver_health(&self) -> Vec<IoDriverStatus>;
+}
+
+impl<Y: ResourceCycle> ProgramView for Program<Y> {
+    fn missing_program(&self) -> Option<&str> {
+        self.missing()
+    }
+
+    fn driver_health(&self) -> Vec<IoDriverStatus> {
+        self.io_drivers()
+    }
 }
 
 /// The ports the dispatcher reads and acts through while the loop serves a request.
-pub(super) struct RunnerHost<'a, P, Y, C> {
+pub(super) struct RunnerHost<'a, P, C> {
     pub(super) platform: &'a P,
-    pub(super) program: &'a Program<Y>,
+    pub(super) program: &'a dyn ProgramView,
     pub(super) resource: &'a ResourceCell,
     pub(super) records: &'a Records<C>,
+    pub(super) debug: &'a ChipDebug,
+    /// The transfers, the program store and the install the loop keeps.
+    pub(super) install: &'a InstallState,
+    /// The online change that waits for the program's next boundary.
+    pub(super) change: &'a ChangeState,
 }
 
-impl<P: RunnerPlatform, Y, C> AccessPort for RunnerHost<'_, P, Y, C> {
+impl<P: RunnerPlatform, C> AccessPort for RunnerHost<'_, P, C> {
     fn request_role(
         &self,
         request: &ControlRequest,
@@ -92,19 +166,19 @@ impl<P: RunnerPlatform, Y, C> AccessPort for RunnerHost<'_, P, Y, C> {
     }
 }
 
-impl<P: RunnerPlatform, Y, C> AuditSink for RunnerHost<'_, P, Y, C> {
+impl<P: RunnerPlatform, C> AuditSink for RunnerHost<'_, P, C> {
     fn record_audit(&self, record: AuditRecord<'_>) -> Option<SmolStr> {
         self.platform.record_audit(record)
     }
 }
 
-impl<P, Y, C: MonotonicClock> EventSink for RunnerHost<'_, P, Y, C> {
+impl<P, C: MonotonicClock> EventSink for RunnerHost<'_, P, C> {
     fn record_event(&self, event: RuntimeEvent) {
         self.records.push_event(event);
     }
 }
 
-impl<P: RunnerPlatform, Y, C> WallClock for RunnerHost<'_, P, Y, C> {
+impl<P: RunnerPlatform, C> WallClock for RunnerHost<'_, P, C> {
     fn utc_ms(&self) -> Option<u64> {
         self.platform.utc_ms()
     }
@@ -112,10 +186,10 @@ impl<P: RunnerPlatform, Y, C> WallClock for RunnerHost<'_, P, Y, C> {
 
 /// The resource loop's own resource. The control mode comes from the platform's deployment
 /// record, so `pause` and `resume` take trust-runtime's path for that mode (specification 11
-/// §6.9): the scheduler between cycles in production, the debugger in debug. The debugger hold of
-/// specification 13 is not part of the loop yet, so a debugger request reaches the loop's empty
-/// debugger operations.
-impl<P: RunnerPlatform, Y, C> ResourcePort for RunnerHost<'_, P, Y, C> {
+/// §6.9): the scheduler between cycles in production, the debugger in debug. The debugger holds
+/// the scan at a statement start (specification 13, "Pause"), and `resume` releases the hold in
+/// either mode.
+impl<P: RunnerPlatform, C> ResourcePort for RunnerHost<'_, P, C> {
     fn resource_state(&self) -> ResourceState {
         self.resource.state()
     }
@@ -124,7 +198,8 @@ impl<P: RunnerPlatform, Y, C> ResourcePort for RunnerHost<'_, P, Y, C> {
         self.resource.last_error()
     }
 
-    /// The loop itself runs the scan, so a request is never served while a scan has not returned.
+    /// The loop itself runs the scan, so a request is served only between scans, or while a
+    /// debugger holds a scan, which waits by design and is no hang (specification 11 §6.9).
     fn is_hung(&self) -> bool {
         false
     }
@@ -141,9 +216,13 @@ impl<P: RunnerPlatform, Y, C> ResourcePort for RunnerHost<'_, P, Y, C> {
         matches!(self.platform.control_mode(), ControlMode::Debug)
     }
 
-    fn debugger_pause(&self) {}
+    fn debugger_pause(&self) {
+        self.debug.pause();
+    }
 
-    fn debugger_continue(&self) {}
+    fn debugger_continue(&self) {
+        self.debug.resume();
+    }
 
     fn update_pending_restart(&self, update: impl FnOnce(&mut Option<RestartMode>)) {
         self.resource.update_pending_restart(update);
@@ -154,14 +233,39 @@ impl<P: RunnerPlatform, Y, C> ResourcePort for RunnerHost<'_, P, Y, C> {
         true
     }
 
+    /// Why the resource has no program, unless the store holds a container newer than the one the loop
+    /// refused or lacked: a `restart` then loads it in place (specification 34 STATE-08). A store that
+    /// cannot be ordered keeps the refusal.
     fn missing_program(&self) -> Option<&str> {
-        self.program.missing()
+        let reason = self.program.missing_program()?;
+        if self.install.newer_container().unwrap_or(false) {
+            None
+        } else {
+            Some(reason)
+        }
     }
 }
 
-impl<P: RunnerPlatform, Y: ResourceCycle, C> StatusPort for RunnerHost<'_, P, Y, C> {
+impl<P: RunnerPlatform, C> StatusPort for RunnerHost<'_, P, C> {
     fn resource_name(&self) -> &str {
         self.platform.resource_name()
+    }
+
+    fn platform(&self) -> &str {
+        self.platform.platform()
+    }
+
+    /// The runner's runtime ID is its platform's, which the device without an operating system
+    /// knows on its own (specification 11, `status`).
+    fn runtime_id(&self) -> &str {
+        self.platform.runtime_id()
+    }
+
+    /// A device without an operating system keeps control after `shutdown`: its program takes the
+    /// place of the process, so it still answers and `restart` starts the program again
+    /// (spec 34 STATE-08). The device never asks the platform, which cannot answer otherwise.
+    fn program_control(&self) -> ProgramControl {
+        ProgramControl::KeepsControl
     }
 
     fn status_settings(&self) -> Option<StatusSettings> {
@@ -170,7 +274,7 @@ impl<P: RunnerPlatform, Y: ResourceCycle, C> StatusPort for RunnerHost<'_, P, Y,
 
     /// The installed program's I/O drivers, then those the platform runs itself.
     fn io_drivers(&self) -> Option<Vec<IoDriverStatus>> {
-        let mut drivers = self.program.io_drivers();
+        let mut drivers = self.program.driver_health();
         drivers.extend(self.platform.io_drivers()?);
         Some(drivers)
     }
@@ -186,11 +290,23 @@ impl<P: RunnerPlatform, Y: ResourceCycle, C> StatusPort for RunnerHost<'_, P, Y,
     fn openot_persistence(&self) -> Option<serde_json::Value> {
         self.platform.openot_persistence()
     }
+
+    /// The platform's descriptor, so a device answers its own and a hosted runtime the computer's.
+    fn device_descriptor(&self) -> DeviceDescriptor {
+        self.platform.device_descriptor()
+    }
+
+    /// The reset the platform's boot read, `None` on a computer.
+    fn last_reset(&self) -> Option<LastReset> {
+        self.platform.last_reset()
+    }
 }
 
-impl<P: RunnerPlatform, Y, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, Y, C> {
+impl<P: RunnerPlatform, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, C> {
+    /// The reason a debugger holds the scan, as trust-runtime's `status` reports it (specification
+    /// 11 §6.9).
     fn debug_hold(&self) -> Option<&'static str> {
-        None
+        self.debug.hold_label()
     }
 
     fn control_mode_label(&self) -> Option<String> {
@@ -212,10 +328,78 @@ impl<P: RunnerPlatform, Y, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, 
     fn read_events<R>(&self, read: impl FnOnce(&VecDeque<RuntimeEvent>) -> R) -> Option<R> {
         self.records.read_events(read)
     }
+
+    /// The loop's own session when the device gave it one, else the platform's.
+    fn with_transfers<R>(
+        &self,
+        use_session: impl FnOnce(&mut TransferSession) -> R,
+    ) -> Result<R, TransferSessionError> {
+        if self.install.keeps_transfers() {
+            self.install.with_transfers(use_session)
+        } else {
+            self.platform.with_transfers(use_session)
+        }
+    }
+
+    fn program_identities(&self) -> Option<ProgramIdentities> {
+        self.platform.program_identities()
+    }
+
+    /// The identities of the loop's own program store when it has one, read in bounded reads, else the
+    /// platform's (specification 34 §11.2).
+    fn read_program_identities(&self) -> Result<Option<ProgramIdentities>, String> {
+        match self.install.identities() {
+            Some(identities) => identities.map(Some).map_err(|error| error.to_string()),
+            None => Ok(self.platform.program_identities()),
+        }
+    }
+
+    /// Whether the device gave its loop a program store (specification 34 §11.2).
+    fn has_program_store(&self) -> bool {
+        self.install.has_store()
+    }
+
+    /// The retained-value check of an install, read from the newest checkpoint (decision G13).
+    fn check_retained_values(&self, admitted: &Admitted<'_>) -> Result<(), RuntimeError> {
+        self.install.check_retained(admitted)
+    }
+
+    /// Begins the stepped commit of the checked container; the loop writes the `installed` reply
+    /// when the last step is done (specification 34 §11.2, PORT-05).
+    fn commit_program(&self, container: &[u8]) -> Result<ProgramIdentity, String> {
+        self.install.begin(container)
+    }
 }
 
-impl<P: RunnerPlatform, Y, C> ExtensionDispatch for RunnerHost<'_, P, Y, C> {
+impl<P: RunnerPlatform, C: MonotonicClock> RunnerHost<'_, P, C> {
+    /// `bytecode.reload` on a loop that can change its program online (specification 34 §11.3): the
+    /// shared rule admits the request ([`reload::admit`]), and the change is queued for the program's
+    /// next boundary. The reply built here is `reloaded`, which the loop holds and writes when the
+    /// change is applied; a failure replaces it (the loop's `finish_change`). A loop that has no
+    /// program to change refuses with the reason it has none.
+    fn queue_online_change(&self, request: &ControlRequest) -> ControlResponse {
+        let id = request.id;
+        let program = match reload::admit(id, request.params.clone(), self) {
+            Ok(program) => program,
+            Err(refusal) => return refusal,
+        };
+        if let Some(reason) = self.program.missing_program() {
+            return no_installed_program(id, reason);
+        }
+        match self.change.begin(program) {
+            Ok(()) => ControlResponse::ok(id, serde_json::json!({"status": "reloaded"})),
+            Err(refusal) => ControlResponse::error(id, refusal),
+        }
+    }
+}
+
+impl<P: RunnerPlatform, C: MonotonicClock> ExtensionDispatch for RunnerHost<'_, P, C> {
+    /// The loop answers `bytecode.reload` itself when it was given a loader that builds candidates;
+    /// every other operation, and `bytecode.reload` on a loop without one, goes to the platform.
     fn dispatch_extension(&self, request: &ControlRequest) -> Option<ControlResponse> {
+        if request.r#type == reload::OPERATION && self.change.enabled() {
+            return Some(self.queue_online_change(request));
+        }
         self.platform.dispatch_extension(request)
     }
 
@@ -226,7 +410,7 @@ impl<P: RunnerPlatform, Y, C> ExtensionDispatch for RunnerHost<'_, P, Y, C> {
 
 /// The platform owns the Live Values queues and the published snapshot, as `ControlState` does
 /// for trust-runtime; the loop only passes them through.
-impl<P: RunnerPlatform, Y, C> IoQueuePort for RunnerHost<'_, P, Y, C> {
+impl<P: RunnerPlatform, C> IoQueuePort for RunnerHost<'_, P, C> {
     fn io_snapshot(&self) -> IoSnapshotRead {
         self.platform.io_snapshot()
     }
@@ -244,7 +428,7 @@ impl<P: RunnerPlatform, Y, C> IoQueuePort for RunnerHost<'_, P, Y, C> {
     }
 }
 
-impl<P: RunnerPlatform, Y, C> VariableQueuePort for RunnerHost<'_, P, Y, C> {
+impl<P: RunnerPlatform, C> VariableQueuePort for RunnerHost<'_, P, C> {
     fn generation(&self) -> Generation {
         self.platform.generation()
     }

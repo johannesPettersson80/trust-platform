@@ -95,11 +95,6 @@ pub(super) struct HistorianAlertsParams {
 }
 
 #[derive(Debug, Deserialize)]
-pub(super) struct BytecodeReloadParams {
-    pub(super) bytes: String,
-}
-
-#[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct EvalParams {
     pub(super) expr: String,

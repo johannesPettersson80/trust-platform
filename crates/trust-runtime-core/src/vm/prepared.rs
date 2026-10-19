@@ -2,9 +2,10 @@
 use super::module::{invalid_bytecode, VmModule};
 use super::validated_source::{OwnedValidatedSource, ValidatedSource};
 use crate::bytecode::{
-    AccessBindings, BytecodeModule, CallDepth, ConstructionRoots, InitializerIndex, ResourceMeta,
-    SectionData, SectionId, StorageLayout, ValidationLimits,
+    AccessBindings, BytecodeModule, BytecodeModuleView, CallDepth, ConstructionRoots,
+    InitializerIndex, ResourceMeta, SectionData, SectionId, StorageLayout, ValidationLimits,
 };
+use crate::debug::{StatementSpan, StatementTable};
 use crate::error::RuntimeError;
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 mod admission;
@@ -94,6 +95,9 @@ pub struct PreparedModule {
     /// Canonical recipe context, type, member (None for type default), initializer id.
     pub(crate) method_owners: BTreeMap<u32, u32>,
     pub(crate) recipes: Vec<(u32, u32, Option<u32>, u32)>,
+    /// The statement starts of an artifact with a LINE_TABLE, built once at preparation
+    /// (specification 12 §6.13); `None` for an artifact without one.
+    statements: Option<StatementTable>,
 }
 
 impl PreparedModule {
@@ -272,6 +276,7 @@ impl PreparedModule {
                 )))
             }
         }
+        let statements = statement_table(token.view(), &mut preparation)?;
         let mut vm = VmModule::from_source_free(&mut token, &mut preparation)?;
         for reference in &vm.refs {
             match reference {
@@ -414,12 +419,31 @@ impl PreparedModule {
             call_depth: stats.call_depth,
             method_owners,
             recipes,
+            statements,
         })
     }
 
     /// Conservative cumulative logical demand observed during preparation.
     pub fn preparation_usage(&self) -> PreparationUsage {
         self.preparation_usage
+    }
+
+    /// Whether the artifact carries a LINE_TABLE, so that its statement starts are indexed
+    /// (specification 12 §6.13). A debugging request on an artifact without one answers with
+    /// the rebuild error, not with an empty answer.
+    #[must_use]
+    pub fn has_statement_index(&self) -> bool {
+        self.statements.is_some()
+    }
+
+    /// The source span of the statement that starts at `code_offset` in `pou_id`, or `None`
+    /// when no statement starts there or the artifact has no LINE_TABLE (specification 12
+    /// §6.13). Check [`PreparedModule::has_statement_index`] to tell the two apart.
+    #[must_use]
+    pub fn statement_start(&self, pou_id: u32, code_offset: u32) -> Option<StatementSpan> {
+        self.statements
+            .as_ref()?
+            .statement_start(pou_id, code_offset)
     }
 
     pub(crate) fn validate_services(
@@ -444,4 +468,20 @@ impl PreparedModule {
             .ok()
             .map(|index| self.recipes[index].3)
     }
+}
+
+/// Build the statement table of an artifact that carries a LINE_TABLE. The bytes it takes are
+/// charged before it reserves them, so admission refuses a program too large to debug rather
+/// than failing on the heap later (specification 12 §6.13; specification 34 preparation charges).
+fn statement_table(
+    view: BytecodeModuleView<'_>,
+    preparation: &mut PreparationBudget,
+) -> Result<Option<StatementTable>, RuntimeError> {
+    let Some(line_table) = view.line_table() else {
+        return Ok(None);
+    };
+    let (bytes, work) =
+        StatementTable::preparation_demand(line_table).ok_or(RuntimeError::Overflow)?;
+    preparation.charge(bytes, work)?;
+    Ok(Some(StatementTable::new(line_table)))
 }
