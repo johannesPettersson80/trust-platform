@@ -17,6 +17,8 @@ mod footprint;
 mod indexes;
 mod layouts;
 mod metadata;
+/// The most a scan keeps beside its operands (C1-19c2).
+mod operand_bounds;
 mod reference_names;
 pub(crate) use budget::PreparationBudget;
 pub use budget::PreparationUsage;
@@ -91,6 +93,8 @@ pub struct PreparedModule {
     /// The deepest operand stack of any initializer body, from validation (construction reserves
     /// the execution buffers of initializer bodies from it, spec 34 MEM-09).
     pub(crate) max_initializer_operand_depth: usize,
+    /// The most a scan keeps beside its operands: temporaries, text-call buffers (C1-19c2).
+    pub(crate) operand_bounds: operand_bounds::OperandBounds,
     /// The module's static call depth, or that its call graph is recursive (spec 34 MEM-09).
     pub(crate) call_depth: CallDepth,
     preparation_usage: PreparationUsage,
@@ -403,7 +407,7 @@ impl PreparedModule {
                 preparation.charge(bytes, work)
             })?;
         let preparation_usage = preparation.usage();
-        Ok(Self {
+        let mut prepared = Self {
             preparation_usage,
             indexes,
             call_plans,
@@ -423,11 +427,15 @@ impl PreparedModule {
             max_operand_depth: stats.max_operand_depth,
             max_call_operand_residue: stats.max_call_operand_residue,
             max_initializer_operand_depth: stats.max_initializer_operand_depth,
+            operand_bounds: operand_bounds::OperandBounds::default(),
             call_depth: stats.call_depth,
             method_owners,
             recipes,
             statements,
-        })
+        };
+        // The walk reads the layouts and the tables above (C1-19c2).
+        prepared.operand_bounds = operand_bounds::OperandBounds::of(&prepared);
+        Ok(prepared)
     }
 
     /// Conservative cumulative logical demand observed during preparation.

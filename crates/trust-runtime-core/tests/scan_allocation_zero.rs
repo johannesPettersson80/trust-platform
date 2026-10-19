@@ -683,6 +683,13 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// text a character write edits and the retain capture. On the flat store `scalar`, `gpio`, the
 /// saved `gpio` and `numeric`, `sizeof`, `methods`, `instances` and `retain` make no allocator call
 /// in any scan, the first included, measured on the builder on 19 October 2026.
+///
+/// C1-19c2 bounds, by a walk of every body at preparation, the texts and copies the operand stack's
+/// temporary area holds at once and the text-call buffers, which construction reserves; a call that
+/// takes texts as values now gives their room back. On the flat store `operands` makes no allocator
+/// call in any scan, and `retained_values` and `unions` none after their first scan, whose text
+/// branches grew the buffers before; what the first scans still allocate are reference path and
+/// index buffers, measured on the builder on 19 October 2026.
 const CEILINGS: [(&str, usize, Calls); 36] = [
     ("faults/division", 2, Calls::ZERO),
     ("faults/index", 2, Calls::ZERO),
@@ -748,12 +755,12 @@ const CEILINGS: [(&str, usize, Calls); 36] = [
     ("cells/strings", 1, Calls::ZERO),
     ("cells/initializers", 1, Calls::ZERO),
     ("cells/retained_blocks", 1, Calls::ZERO),
-    ("cells/retained_values", 2, Calls::ZERO),
+    ("cells/retained_values", 1, Calls::ZERO),
     ("cells/copies", 1, Calls::ZERO),
     ("cells/structures", 1, Calls::ZERO),
     ("cells/overlays", 1, Calls::ZERO),
-    ("cells/unions", 3, Calls::ZERO),
-    ("cells/operands", 1, Calls::ZERO),
+    ("cells/unions", 1, Calls::ZERO),
+    ("cells/operands", 0, Calls::ZERO),
 ];
 
 /// The ceilings are asserted on the chips' stack executor and printed with the register tier.

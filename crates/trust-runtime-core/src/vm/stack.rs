@@ -239,11 +239,34 @@ impl OperandStack {
         self.temp_bytes.clear();
     }
 
-    /// Empty the temporary area when no operand stands for a text or a copy in it.
+    /// End the temporary area where the room of its topmost live temporary ends, the text or copy
+    /// an operand stands for whose room ends last, so that the room of every temporary released
+    /// above it comes back (C1-19c2). The area then never holds more than the temporaries that were
+    /// alive when its topmost live one was pushed, so construction can reserve it.
     fn forget_temps(&mut self) {
         if self.texts == 0 && self.copies == 0 {
             self.temp_bytes.clear();
+            return;
         }
+        let end = self
+            .values
+            .iter()
+            .filter_map(|operand| match operand {
+                Operand::Text(temp) => Some(temp.start as usize + temp.len as usize),
+                Operand::Copy(temp) => Some(temp.start as usize + temp.len as usize),
+                _ => None,
+            })
+            .max()
+            .unwrap_or(0);
+        self.temp_bytes.truncate(end);
+    }
+
+    /// Room for `bytes` bytes of temporary texts and copies, so that no scan grows the area
+    /// (spec 34 MEM-09; C1-19c2).
+    pub(crate) fn reserve_temporaries(&mut self, bytes: usize) -> Result<(), VmTrap> {
+        self.temp_bytes
+            .try_reserve_exact(bytes.saturating_sub(self.temp_bytes.len()))
+            .map_err(|_| VmTrap::BudgetExceeded)
     }
 
     /// Shorten the stack to `len` operands, counting the places, texts, enumerations and copies
@@ -334,10 +357,10 @@ impl OperandStack {
         text_of(&self.temp_bytes, temp)
     }
 
-    /// Give back the room of the popped temporary text `temp`: the area ends where it began when no
-    /// text or copy follows it (C1-12).
-    pub(crate) fn release_text(&mut self, temp: TextTemp) {
-        self.release(temp.start, temp.len);
+    /// Give back the room of the popped temporary text `temp`: the area ends where the room of the
+    /// topmost temporary still alive ends (C1-12, C1-19c2).
+    pub(crate) fn release_text(&mut self, _temp: TextTemp) {
+        self.forget_temps();
     }
 
     /// The bytes of the copy `temp`. A popped copy stays readable until its room is given back with
@@ -352,15 +375,8 @@ impl OperandStack {
 
     /// Give back the room of the popped copy `temp`, as [`Self::release_text`] gives back a text's
     /// (C1-19b).
-    pub(crate) fn release_copy(&mut self, temp: CopyTemp) {
-        self.release(temp.start, temp.len);
-    }
-
-    /// End the temporary area at `start` when the `len` bytes from there are its last.
-    fn release(&mut self, start: u32, len: u32) {
-        if start as usize + len as usize == self.temp_bytes.len() {
-            self.temp_bytes.truncate(start as usize);
-        }
+    pub(crate) fn release_copy(&mut self, _temp: CopyTemp) {
+        self.forget_temps();
     }
 
     fn push_operand(&mut self, operand: Operand) -> Result<(), VmTrap> {
@@ -637,6 +653,7 @@ impl OperandStack {
                 self.copies -= 1;
             }
         }
+        self.forget_temps();
         Ok(())
     }
 
@@ -994,6 +1011,26 @@ mod text_tests {
         }
         assert_eq!(stack.temp_bytes.len(), 8);
         assert_eq!(stack.temp_bytes.capacity(), capacity);
+    }
+
+    /// Spec 34 MEM-09 (C1-19c2): a call that takes texts as values gives their room back while an
+    /// older text lives below them, so a loop that passes a text result to a call keeps the area at
+    /// the room of the texts alive. A live "pump" takes 4 bytes; each of 100 rounds pushes
+    /// "station", 7 bytes, and a call takes it: after each round the area holds 4 bytes. Catches a
+    /// call that gives no room back while another temporary lives, whose area grows by 7 bytes a
+    /// round, to 704 after 100, which no reservation bounds.
+    #[test]
+    fn a_call_gives_back_the_room_of_its_texts_above_a_live_text() {
+        let mut stack = OperandStack::default();
+        stack.push_text("pump", false).unwrap();
+        for _ in 0..100 {
+            stack.push_text("station", false).unwrap();
+            let taken: Vec<Value> = stack.drain_top(1).unwrap().collect();
+            assert_eq!(taken, [Value::String("station".into())]);
+            assert_eq!(stack.temp_bytes.len(), 4);
+        }
+        assert_eq!(stack.pop().unwrap(), Value::String("pump".into()));
+        assert!(stack.temp_bytes.is_empty());
     }
 
     /// Spec 34 ARCH-05 (C1-12): a second operand for a text copies its characters, and a call that

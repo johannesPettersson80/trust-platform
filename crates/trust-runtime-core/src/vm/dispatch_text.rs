@@ -43,6 +43,36 @@ pub struct TextBuffers {
     scratch: String,
 }
 
+impl TextBuffers {
+    /// Room for a result of `result` UTF-8 bytes, for `arguments` UTF-8 bytes of the texts one
+    /// call reads, decoded or parsed, and for `count` arguments, so that no call grows a buffer
+    /// (spec 34 MEM-09; C1-19c2).
+    pub(crate) fn reserve(
+        &mut self,
+        result: usize,
+        arguments: usize,
+        count: usize,
+    ) -> Result<(), RuntimeError> {
+        let refused = |_| RuntimeError::Overflow;
+        self.result.try_reserve_exact(result).map_err(refused)?;
+        self.decoded.try_reserve_exact(arguments).map_err(refused)?;
+        self.spans.try_reserve_exact(count).map_err(refused)?;
+        self.scratch.try_reserve_exact(arguments).map_err(refused)
+    }
+
+    /// The bytes [`TextBuffers::reserve`] takes.
+    pub(crate) fn reservation_bytes(
+        result: usize,
+        arguments: usize,
+        count: usize,
+    ) -> Option<usize> {
+        arguments
+            .checked_mul(2)?
+            .checked_add(result)?
+            .checked_add(count.checked_mul(core::mem::size_of::<(usize, usize)>())?)
+    }
+}
+
 /// A call of a built-in text function that runs on its arguments where they lie.
 #[derive(Debug, Clone, Copy)]
 pub(super) struct TextCall {

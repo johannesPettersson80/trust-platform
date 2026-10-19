@@ -1356,6 +1356,15 @@ allocation allowance before reserving any of it (TIME-09), as HOST-04 does for r
   process-image binding, and the key of each published hierarchical image entry, which the entry
   takes when its binding first publishes;
 - the text a character write edits, as large as the largest text the module declares;
+- the operand stack's temporary area, for the most bytes of texts and copies ("Places",
+  "Texts") the deepest body holds at once plus, for every further call level, those a body keeps
+  below a call, and the text-call buffers, for the longest text a text function writes and the
+  most bytes of the texts one call reads (checklist C1-19c2). Preparation finds them by walking
+  every POU and initializer body as the validator walks it, each operand bounded by its type: a
+  text at its capacity in UTF-8 (a `WSTRING`'s code units at up to three bytes), a place by its
+  bytes, a text function's result by its arguments (`CONCAT` their sum, `LEFT`, `RIGHT`, `MID`,
+  `DELETE` and a cut the first, `INSERT` and `REPLACE` the first two, a conversion to a text the
+  longest text its source type gives, an `LREAL` 343 bytes);
 - the retain capture of services that persist through one, its staged payload and the buffer the
   first accepted payload leaves, for the largest payload of the resource: each retained variable
   whose value holds no reference and no instance, under its key, at the largest encoding of its
@@ -1448,16 +1457,18 @@ enumeration allocates nothing (ARCH-05).
 and a conversion from or to a text) whose arguments are inputs reads each argument where it lies: a
 text in a block, a text an earlier call made, or a value, a `WSTRING` in a block from its code units
 (checklist C1-12). Its text result goes into the temporary area of the operand stack, which keeps
-its room and gives a text's room back once the text is used, and a `WSTRING` constant is loaded
-there. A conversion reads a number from a text where it lies, and `=` and `<>` compare two texts
-where they lie, as their values compare: equal when both are `STRING`s or both `WSTRING`s with the
-same characters (checklist C1-19b). A store writes the text into its destination's leaf, cut to the
-leaf's capacity and charged as the store of its value is, and an instruction that needs the value
-reads it into one. A character written into a text (`s[i] := c`) replaces the character in the leaf,
-the text then cut to the leaf's capacity. A function a program registers under such a name, a call
-with an output and a call by name that does not bind one argument to each formal bind values as any
-call does. Every result, charge and refusal is the value store's (TIME-08), so such a call allocates
-nothing once the engine is warm (ARCH-05).
+its room and, whenever a temporary is used, ends where the room of the topmost temporary still alive
+ends, so a call that takes texts as values gives their room back even while an older one lives below
+them (C1-19c2), and a `WSTRING` constant is loaded there. A conversion reads a number from a text
+where it lies, and `=` and `<>` compare two texts where they lie, as their values compare: equal
+when both are `STRING`s or both `WSTRING`s with the same characters (checklist C1-19b). A store
+writes the text into its destination's leaf, cut to the leaf's capacity and charged as the store of
+its value is, and an instruction that needs the value reads it into one. A character written into a
+text (`s[i] := c`) replaces the character in the leaf, the text then cut to the leaf's capacity. A
+function a program registers under such a name, a call with an output and a call by name that does
+not bind one argument to each formal bind values as any call does. Every result, charge and refusal
+is the value store's (TIME-08), so such a call allocates nothing, the first one included (ARCH-05,
+MEM-09).
 
 **Activation stack.** On the flat store every call's frame lies on the activation stack, on top of
 its caller's (MEM-12; checklist C1-11). Preparation gives each POU a frame layout, every typed

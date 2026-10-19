@@ -393,6 +393,16 @@ struct ScratchPlan {
     /// The most instances on the activation stack that one call creates (C1-11c): each owner of
     /// instances and each bookkeeping list a call takes has room for them (C1-19c).
     call_instances: usize,
+    /// The bytes of the temporary area: of the scan's operand stack, the deepest body's
+    /// temporaries and, for every further call level, those a body keeps below a call; of each
+    /// initializer body's (C1-19c2).
+    temporaries: usize,
+    initializer_temporaries: usize,
+    /// The text-call buffers: the longest result, the most bytes of the texts one call reads, and
+    /// the most arguments of one call.
+    text_result: usize,
+    text_arguments: usize,
+    text_count: usize,
     /// Nested typed value operations.
     types: usize,
     /// Destinations of one output copy-back group: the most parameters of any POU, or the most
@@ -472,6 +482,15 @@ impl ScratchPlan {
             initializer_buffers: if bodies { levels } else { 0 },
             initializer_operands: prepared.max_initializer_operand_depth,
             call_instances: prepared.largest_call_instances()?,
+            temporaries: levels
+                .saturating_sub(1)
+                .checked_mul(prepared.operand_bounds.temporaries_below_call)
+                .and_then(|below| below.checked_add(prepared.operand_bounds.temporaries))
+                .ok_or(RuntimeError::Overflow)?,
+            initializer_temporaries: prepared.operand_bounds.initializer_temporaries,
+            text_result: prepared.operand_bounds.text_result,
+            text_arguments: prepared.operand_bounds.text_arguments,
+            text_count: prepared.operand_bounds.text_count,
             types: crate::bytecode::BYTECODE_MAX_TYPE_NESTING + 1,
             journal: journal.max(call_args),
             call_scratch: crate::vm::call::scratch::CallScratchSizes {
@@ -498,11 +517,19 @@ impl ScratchPlan {
     fn bytes(&self) -> Option<usize> {
         let buffer = ExecutionBuffers::reservation_bytes(self.operands, self.levels)?
             .checked_add(core::mem::size_of::<ExecutionBuffers>())?;
-        // Each initializer body's buffers: its operands and the one frame it runs in.
+        // Each initializer body's buffers: its operands, its temporaries and the one frame it runs in.
         let initializer_buffers = self.initializer_buffers.checked_mul(
             ExecutionBuffers::reservation_bytes(self.initializer_operands, 1)?
-                .checked_add(core::mem::size_of::<ExecutionBuffers>())?,
+                .checked_add(core::mem::size_of::<ExecutionBuffers>())?
+                .checked_add(self.initializer_temporaries)?,
         )?;
+        let temporaries =
+            self.temporaries
+                .checked_add(crate::vm::TextBuffers::reservation_bytes(
+                    self.text_result,
+                    self.text_arguments,
+                    self.text_count,
+                )?)?;
         let frame_locals = FrameLocals::reservation_bytes(self.levels, self.slots)?;
         // One frame payload per call depth, `levels` local slots and presence bits wide.
         let frame_payloads =
@@ -533,6 +560,7 @@ impl ScratchPlan {
         )?;
         buffer
             .checked_add(initializer_buffers)?
+            .checked_add(temporaries)?
             .checked_add(frame_locals)?
             .checked_add(frame_payloads)?
             .checked_add(edges)?
@@ -594,9 +622,20 @@ impl EngineState<'_> {
             nested
                 .reserve(plan.initializer_operands, 1)
                 .map_err(VmTrap::into_runtime_error)?;
+            nested
+                .operand_stack
+                .reserve_temporaries(plan.initializer_temporaries)
+                .map_err(VmTrap::into_runtime_error)?;
             resources.buffers.push(nested);
         }
+        buffers
+            .operand_stack
+            .reserve_temporaries(plan.temporaries)
+            .map_err(VmTrap::into_runtime_error)?;
         resources.buffers.push(buffers);
+        resources
+            .text_call
+            .reserve(plan.text_result, plan.text_arguments, plan.text_count)?;
         resources.frame_locals.reserve(plan.levels, plan.slots)?;
         // One edge-input list and one restore list, reused by every edge-affected call
         // (spec 34 MEM-09; census A5).
