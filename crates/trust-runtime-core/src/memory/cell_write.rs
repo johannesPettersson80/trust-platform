@@ -125,21 +125,17 @@ impl<'a> CellWriter<'a> {
     ) -> bool {
         let prepared = self.prepared;
         let holds_value = !matches!(leaf, Value::Null);
-        let (persistent, references) = self.arm.cells.regions_mut().split_mut();
-        let written = match persistent.bytes_mut(range) {
-            None => false,
-            Some(bytes) if is_reference_type(prepared, type_id) => {
+        // The activation stack keeps no reference table: its frames hold no reference leaf (C1-11).
+        let (block, references) = self.arm.cells.regions_mut().block_mut(range.region);
+        let written = match (block.bytes_mut(range), references) {
+            (None, _) => false,
+            (Some(bytes), Some(references)) if is_reference_type(prepared, type_id) => {
                 store_reference_leaf(bytes, range.start, leaf, references)
             }
-            Some(bytes) => write_value_in(
-                bytes,
-                type_id,
-                &leaf,
-                prepared,
-                Some(references),
-                range.start,
-            )
-            .is_ok(),
+            (Some(_), None) if is_reference_type(prepared, type_id) => false,
+            (Some(bytes), references) => {
+                write_value_in(bytes, type_id, &leaf, prepared, references, range.start).is_ok()
+            }
         };
         let Some(offset) = presence.filter(|_| written) else {
             return written;
@@ -149,7 +145,7 @@ impl<'a> CellWriter<'a> {
             bytes: 1,
             ..range
         };
-        match persistent.bytes_mut(flag) {
+        match block.bytes_mut(flag) {
             Some(byte) => {
                 byte[0] = u8::from(holds_value);
                 true
@@ -266,7 +262,7 @@ impl CellReader<'_> {
         let Some((length, capacity, wide)) = text_geometry(self.prepared, type_id) else {
             return Ok(None);
         };
-        let Some(bytes) = self.arm.cells.regions().persistent().bytes(range) else {
+        let Some(bytes) = self.arm.cells.regions().block(range.region).bytes(range) else {
             return Ok(None);
         };
         let current = match flat::read_text(bytes, length, wide) {

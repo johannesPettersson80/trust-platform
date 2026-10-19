@@ -178,6 +178,7 @@ impl CallContext for Context {
             super::super::dispatch::VmPouStackResult {
                 return_value: None,
                 locals: Vec::new(),
+                block: None,
             },
         ))
     }

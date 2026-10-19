@@ -105,6 +105,7 @@ pub(in crate::vm) fn execute_leaf_call(
     let result = VmPouStackResult {
         return_value: result.return_value,
         locals: result.locals,
+        block: None,
     };
     let caller = frames
         .current_mut()

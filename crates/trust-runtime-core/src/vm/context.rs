@@ -162,6 +162,35 @@ pub trait ReferenceContext {
     fn copy_place(&mut self, _place: super::Place, _destination: super::PlaceDestination) -> bool {
         false
     }
+    /// Whether slot `slot` of `frame` lies in the frame's bytes on the activation stack (C1-11): it
+    /// is then read and written through the store as `MemoryLocation::Local` of the frame's
+    /// activation, not as a value of the frame. A composition without an activation stack has none.
+    fn frame_slot_in_block(&self, _frame: &super::VmFrame, _slot: usize) -> bool {
+        false
+    }
+    /// The value of slot `slot` of `frame` read from the frame's bytes on the activation stack, or
+    /// `None` when the frame keeps the slot as a value (C1-11).
+    fn read_frame_slot(
+        &self,
+        _frame: &super::VmFrame,
+        _slot: usize,
+    ) -> Option<Result<Value, crate::error::RuntimeError>> {
+        None
+    }
+    /// The frame `frame` has on the activation stack, for reading its outputs after it finishes
+    /// (C1-11).
+    fn frame_block(&self, _frame: &super::VmFrame) -> Option<crate::memory::regions::FrameBlock> {
+        None
+    }
+    /// The value of slot `slot` of the finished frame `block`, read from its bytes, or `None` when
+    /// the frame kept the slot as a value (C1-11).
+    fn read_finished_slot(
+        &self,
+        _block: crate::memory::regions::FrameBlock,
+        _slot: usize,
+    ) -> Option<Result<Value, crate::error::RuntimeError>> {
+        None
+    }
     /// Admit a private call-transaction snapshot: a VAR_IN_OUT copy-in. IEC passes
     /// IN_OUT by reference, so a work-charging composition admits only its
     /// allocation (spec 34 TIME-08). Other compositions treat it as a copy.

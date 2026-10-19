@@ -232,7 +232,7 @@ fn text_bytes<'a>(
     type_id: u32,
 ) -> Option<&'a [u8]> {
     let (length, _, wide) = text_geometry(prepared, type_id)?;
-    match flat::read_text(regions.persistent().bytes(range)?, length, wide).ok()? {
+    match flat::read_text(regions.block(range.region).bytes(range)?, length, wide).ok()? {
         TextBytes::Narrow(text) => Some(text.as_bytes()),
         TextBytes::Wide(units) => Some(units),
     }
@@ -346,7 +346,7 @@ impl<'a> CellsView<'a> {
         }
         let bytes = self
             .regions
-            .persistent()
+            .block(range.region)
             .bytes(range)
             .ok_or(RuntimeError::InvalidExecutionState)?;
         Ok(match flat::decode(LeafKind::Instance, bytes)? {

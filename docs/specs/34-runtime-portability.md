@@ -1410,6 +1410,21 @@ pops such an operand as a value, the engine reads it into a value, so a store al
 value its load read, whatever the program wrote in between. An assignment of such a compound
 allocates nothing (ARCH-05).
 
+**Activation stack.** On the flat store every call's frame lies on the activation stack, on top of
+its caller's (MEM-12; checklist C1-11). Preparation gives each POU a frame layout, every typed
+variable of the frame at its declared size and alignment and the frame rounded up to 8 bytes, and
+construction reserves the stack once, charged with the persistent block: one frame of the largest
+POU for each call level it reserves (§6.2), which no chain of calls exceeds. A frame takes the bytes
+above its caller's when its activation begins, zeroed; the inputs its call bound and a return value
+its caller supplied move into them, the defaults and initializers of its other variables are written
+there, every read and write of its variables reaches them through the store, its return value is
+read from them, and after it returns its outputs are copied back from them, before any other frame
+takes the bytes. A compiler scratch slot, which has no declared type, and a variable whose value
+holds a reference stay values of the frame until references are flat addresses; a function block
+instance that a function or method declares stays where it is until per-call instances join the
+stack. The register tier runs on the value store only until it reads frames on the stack (C1-18).
+Every result, charge and refusal is the value store's (TIME-08).
+
 ### 6.4 Physical memory
 
 The BSP shall identify memory regions available to the engine, CPU stack, DMA, communication, and boot/update storage. Capacity shall be checked per usable region, not only as a sum of all SRAM on the chip. Cache maintenance, DMA ownership, alignment, and interrupt-stack reservations are platform obligations.

@@ -50,6 +50,9 @@ pub struct VmPouStackResult {
     pub return_value: Option<Value>,
     /// Final or initially bound local values in slot order.
     pub locals: Vec<Value>,
+    /// The finished frame's bytes on the activation stack, whose slots its outputs are read from
+    /// until the next frame takes them (C1-11).
+    pub(crate) block: Option<crate::memory::regions::FrameBlock>,
 }
 
 /// Reusable operand and frame buffers owned by an execution context.
@@ -315,6 +318,7 @@ fn execute_with_buffers(
             return Ok(StackProgress::Complete(VmPouStackResult {
                 return_value: None,
                 locals: Vec::new(),
+                block: None,
             }));
         }
 
@@ -892,10 +896,26 @@ fn finish_stack_result(
     capture_return: bool,
     retire: bool,
 ) -> Result<VmPouStackResult, RuntimeError> {
+    // A return slot on the activation stack is read from the frame's bytes (C1-11); the copy is
+    // charged from the value it gives, as a copy of the frame's value is.
+    let read_return = if capture_return {
+        runtime.read_frame_slot(&frame, 0).transpose()
+    } else {
+        Ok(None)
+    };
+    let from_block = match read_return {
+        Ok(value) => value,
+        Err(error) => {
+            if retire {
+                let _ = runtime.retire_frame(&frame);
+            }
+            return Err(error);
+        }
+    };
     let checked_copy = if capture_return {
-        frame
-            .locals
-            .first()
+        from_block
+            .as_ref()
+            .or_else(|| frame.locals.first())
             .map(|value| runtime.before_value_clone(value))
             .transpose()
     } else {
@@ -908,10 +928,11 @@ fn finish_stack_result(
         return Err(error);
     }
     let return_value = if capture_return {
-        frame.locals.first().cloned()
+        from_block.or_else(|| frame.locals.first().cloned())
     } else {
         None
     };
+    let block = runtime.frame_block(&frame);
     let checked = if let Some(value) = &return_value {
         runtime.check_frame_return(&frame, value)
     } else {
@@ -927,6 +948,7 @@ fn finish_stack_result(
     Ok(VmPouStackResult {
         return_value,
         locals: frame.locals,
+        block,
     })
 }
 

@@ -164,6 +164,7 @@ impl PreparedCall {
         let VmPouStackResult {
             return_value,
             mut locals,
+            block,
         } = result;
         let completed = match outputs {
             Outputs::Function(out_bindings) => complete_function(
@@ -171,7 +172,10 @@ impl PreparedCall {
                 module,
                 caller_frame,
                 return_value,
-                &mut locals,
+                Callee {
+                    locals: &mut locals,
+                    block,
+                },
                 out_bindings,
             ),
             Outputs::FunctionBlock(out_bindings) => {
@@ -204,12 +208,37 @@ fn recycle_outputs(runtime: &mut impl ExecutionContext, outputs: Outputs) {
     }
 }
 
+/// The finished callee's slots: the values its frame kept, and its bytes on the activation stack
+/// when its slots lie there (C1-11).
+struct Callee<'a> {
+    locals: &'a mut [Value],
+    block: Option<crate::memory::regions::FrameBlock>,
+}
+
+impl Callee<'_> {
+    /// Take the value of slot `slot`: read from the frame's bytes when the slot lies there, else
+    /// moved out of the frame's values. Neither is a copy the program makes, so neither is charged.
+    fn take(&mut self, runtime: &impl ExecutionContext, slot: usize) -> Result<Value, VmTrap> {
+        if let Some(block) = self.block
+            && let Some(value) = runtime.read_finished_slot(block, slot)
+        {
+            return value.map_err(VmTrap::Runtime);
+        }
+        let value = self.locals.get_mut(slot).ok_or_else(|| {
+            VmTrap::InvalidNativeCall(
+                format!("native call output slot {slot} out of bounds").into(),
+            )
+        })?;
+        Ok(core::mem::replace(value, Value::Null))
+    }
+}
+
 fn complete_function(
     runtime: &mut impl ExecutionContext,
     module: &VmModule,
     caller_frame: &mut VmFrame,
     return_value: Option<Value>,
-    locals: &mut [Value],
+    mut callee: Callee<'_>,
     out_bindings: Vec<VmOutBinding>,
 ) -> Result<Value, VmTrap> {
     // The output bindings and the copy-back group come from the call's reserved scratch and are
@@ -220,7 +249,7 @@ fn complete_function(
         runtime,
         module,
         caller_frame,
-        locals,
+        &mut callee,
         &mut out_bindings,
         &mut prepared_outputs,
     );
@@ -237,7 +266,7 @@ fn prepare_function_outputs(
     runtime: &mut impl ExecutionContext,
     module: &VmModule,
     caller_frame: &mut VmFrame,
-    locals: &mut [Value],
+    callee: &mut Callee<'_>,
     out_bindings: &mut Vec<VmOutBinding>,
     prepared_outputs: &mut Vec<(VmWriteTarget, Value)>,
 ) -> Result<(), VmTrap> {
@@ -245,12 +274,7 @@ fn prepare_function_outputs(
         // Binding assigns one distinct local slot per parameter. Caller targets
         // may alias, but the completed callee payload is private and is recycled
         // after this group. Transfer it while retaining ordered preflight/commit.
-        let slot = locals.get_mut(binding.slot).ok_or_else(|| {
-            VmTrap::InvalidNativeCall(
-                format!("native call output slot {} out of bounds", binding.slot).into(),
-            )
-        })?;
-        let value = core::mem::replace(slot, Value::Null);
+        let value = callee.take(runtime, binding.slot)?;
         let value = normalize_output_copyback_value(
             runtime,
             module,

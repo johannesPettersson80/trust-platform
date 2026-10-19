@@ -44,8 +44,12 @@ impl EngineState<'_> {
         frame: Option<&VmFrame>,
         reference: ValueRefView<'_>,
     ) -> Result<Key, RuntimeError> {
+        // A slot on the activation stack is resolved through the store, as any other (C1-11).
         let is_current = frame.is_some_and(|frame| {
             reference.location == MemoryLocation::Local(frame.reference_frame_id())
+                && self
+                    .frame_slot_activation(frame, reference.offset)
+                    .is_none()
         });
         let resolved = if is_current {
             let root = frame
@@ -105,7 +109,10 @@ impl EngineState<'_> {
         frame: Option<&'s VmFrame>,
         key: Key,
     ) -> Result<ValueView<'s>, RuntimeError> {
-        if frame.is_some_and(|frame| key.0 == MemoryLocation::Local(frame.reference_frame_id())) {
+        if frame.is_some_and(|frame| {
+            key.0 == MemoryLocation::Local(frame.reference_frame_id())
+                && self.frame_slot_activation(frame, key.1).is_none()
+        }) {
             return frame
                 .and_then(|frame| frame.locals.get(key.1))
                 .map(ValueView::Value)
@@ -206,13 +213,14 @@ impl EngineState<'_> {
         saved: &mut SavedDestinations,
     ) {
         for ((location, offset), value) in saved.drain() {
-            if let Some(frame) = frame
-                .as_deref_mut()
-                .filter(|frame| location == MemoryLocation::Local(frame.reference_frame_id()))
-            {
-                frame.locals[offset] = value;
-            } else {
-                self.restore_slot(location, offset, value);
+            let current = frame.as_deref().is_some_and(|frame| {
+                location == MemoryLocation::Local(frame.reference_frame_id())
+                    && self.frame_slot_activation(frame, offset).is_none()
+            });
+            match frame.as_deref_mut().filter(|_| current) {
+                Some(frame) => frame.locals[offset] = value,
+                // A slot on the activation stack is restored through the store (C1-11).
+                None => self.restore_slot(location, offset, value),
             }
         }
     }

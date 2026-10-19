@@ -1210,7 +1210,10 @@ fn peek_vm_reference_path<'a>(
     runtime
         .check_reference_read(reference.as_view())
         .map_err(VmTrap::Runtime)?;
-    if is_current_location(reference.location, caller_frame) {
+    // A slot on the activation stack is read through the store (C1-11).
+    if is_current_location(reference.location, caller_frame)
+        && !runtime.frame_slot_in_block(caller_frame, reference.offset as usize)
+    {
         let root = caller_frame
             .locals
             .get(reference.offset as usize)
@@ -1290,7 +1293,10 @@ pub fn write_vm_reference(
         .check_native_write(Some(caller_frame), reference, &value)
         .map_err(VmTrap::Runtime)?;
     let capacity = runtime.reference_string_capacity(reference.as_view());
-    if is_current_location(reference.location, caller_frame) {
+    // A slot on the activation stack is written through the store (C1-11).
+    if is_current_location(reference.location, caller_frame)
+        && !runtime.frame_slot_in_block(caller_frame, reference.offset as usize)
+    {
         let local_count = caller_frame.locals.len();
         let Some(slot) = caller_frame.locals.get_mut(reference.offset as usize) else {
             return Err(VmTrap::InvalidNativeCall(

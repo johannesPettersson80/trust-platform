@@ -9,6 +9,7 @@
 //! `engineering.rs` (C1-9d3a).
 
 mod engineering;
+mod frames;
 mod identities;
 mod keeper;
 mod retain;

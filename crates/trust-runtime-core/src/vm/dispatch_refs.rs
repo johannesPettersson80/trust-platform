@@ -125,8 +125,20 @@ pub fn peek_ref_view<'a>(
         VmRef::Global { offset, path } => storage.read_path(MemoryLocation::Global, *offset, path),
         VmRef::Local { offset, path, .. } => {
             let frame = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
+            let slot = if path.is_empty() {
+                frame.local_slot_index(ref_idx)?
+            } else {
+                *offset
+            };
+            // A slot on the activation stack is read where it lies (C1-11).
+            if runtime.frame_slot_in_block(frame, slot) {
+                return storage.read_path(
+                    MemoryLocation::Local(frame.reference_frame_id()),
+                    slot,
+                    path,
+                );
+            }
             if path.is_empty() {
-                let slot = frame.local_slot_index(ref_idx)?;
                 frame.locals.get(slot).map(ValueView::Value).ok_or_else(|| {
                     VmTrap::InvalidLocalRef {
                         ref_index: ref_idx,
@@ -135,7 +147,6 @@ pub fn peek_ref_view<'a>(
                     }
                 })
             } else {
-                let slot = *offset;
                 peek_vm_local_ref(frame, slot, path)
             }
         }
@@ -330,10 +341,26 @@ pub fn store_ref(
             let frame = frames
                 .current_mut()
                 .ok_or_else(|| VmTrap::CallStackUnderflow)?;
+            let slot = if path.is_empty() {
+                frame.local_slot_index(ref_idx)?
+            } else {
+                *offset
+            };
+            // A slot on the activation stack is written where it lies (C1-11).
+            if runtime.frame_slot_in_block(frame, slot) {
+                let location = MemoryLocation::Local(frame.reference_frame_id());
+                return if runtime
+                    .write_typed_storage(location, slot, path, value, capacity)
+                    .map_err(VmTrap::Runtime)?
+                {
+                    Ok(())
+                } else {
+                    Err(VmTrap::NullReference)
+                };
+            }
             if path.is_empty() {
                 frame.store_local(ref_idx, value)
             } else {
-                let slot = *offset;
                 write_vm_local_ref(frame, slot, path, value, runtime, capacity)
             }
         }
@@ -637,6 +664,7 @@ fn peek_dynamic_ref_path<'a>(
         .map_err(VmTrap::Runtime)?;
     if frames.current().is_some_and(|frame| {
         reference.location == MemoryLocation::Local(frame.reference_frame_id())
+            && !runtime.frame_slot_in_block(frame, reference.offset)
     }) {
         let frame = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
         let root = frame
@@ -751,10 +779,10 @@ pub fn dynamic_store_ref(
     let capacity = runtime.reference_string_capacity(reference.as_view());
     let frame = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
     let value = normalize_dynamic_store_value(runtime, module, frame, reference, value)?;
-    if frames
-        .current()
-        .is_some_and(|frame| frame.owns_local_reference(reference))
-    {
+    if frames.current().is_some_and(|frame| {
+        frame.owns_local_reference(reference)
+            && !runtime.frame_slot_in_block(frame, reference.offset as usize)
+    }) {
         let frame = frames
             .current_mut()
             .ok_or_else(|| VmTrap::CallStackUnderflow)?;

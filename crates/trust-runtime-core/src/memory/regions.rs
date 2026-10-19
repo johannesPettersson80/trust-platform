@@ -20,11 +20,20 @@ use crate::error::RuntimeError;
 use crate::memory::cells::{write_value_in, FlatBlock, ReferenceTable};
 use crate::memory::instance_table::{InstanceTable, PersistentInstance};
 use crate::memory::layout::{align_up, ByteRange, LayoutRegion, INSTANCE_ALIGN};
-use crate::memory::{ActivationStore, Generation, Identities, InstanceId};
+use crate::memory::{ActivationStore, FrameId, Generation, Identities, InstanceId};
 use crate::value::{DateTimeProfile, EnumValue, Value, ValueRef};
 use crate::vm::construction::values::scalar;
 use crate::vm::type_policy::{normalize_primitive_value, resolved_primitive_shape};
 use crate::vm::PreparedModule;
+
+/// One frame on the activation stack (C1-11): its activation identity, its bytes and its POU,
+/// whose frame layout places each variable in those bytes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FrameBlock {
+    pub(crate) id: FrameId,
+    pub(crate) range: ByteRange,
+    pub(crate) pou: u32,
+}
 
 /// The persistent region's byte ranges, its flat block and its reference table (specification 34
 /// §6.2, MEM-12).
@@ -37,6 +46,11 @@ pub struct CellRegions {
     roots: Vec<Option<ByteRange>>,
     /// The region's flat block.
     persistent: FlatBlock,
+    /// The activation stack: the frames of the running calls, each on top of its caller's
+    /// (specification 34 MEM-12; C1-11). Reserved at construction for the deepest call chain.
+    activation: FlatBlock,
+    /// The frames on the activation stack, bottom first, reserved for the call levels.
+    frames: Vec<FrameBlock>,
     /// The reference leaves and the `ValueRef` each non-null one holds, by byte offset (O9, R3,
     /// R5). Reserved at construction, one entry per reference leaf.
     references: ReferenceTable,
@@ -64,6 +78,67 @@ impl CellRegions {
     #[must_use]
     pub fn persistent(&self) -> &FlatBlock {
         &self.persistent
+    }
+
+    /// The activation stack's block (C1-11).
+    #[must_use]
+    pub fn activation(&self) -> &FlatBlock {
+        &self.activation
+    }
+
+    /// The first free byte of the activation stack: the end of the topmost frame, or 0.
+    pub(crate) fn activation_top(&self) -> u32 {
+        self.frames.last().map_or(0, |frame| {
+            frame.range.start.saturating_add(frame.range.bytes)
+        })
+    }
+
+    /// Record `frame` on top of the activation stack. Refused when its bytes leave the reserved block
+    /// or the reserved frame records are all in use; neither grows (MEM-09).
+    pub(crate) fn push_frame(&mut self, frame: FrameBlock) -> Result<(), RuntimeError> {
+        let end = frame
+            .range
+            .start
+            .checked_add(frame.range.bytes)
+            .ok_or(RuntimeError::Overflow)?;
+        if frame.range.region != LayoutRegion::Activation
+            || end as usize > self.activation.reserved()
+            || self.frames.len() == self.frames.capacity()
+        {
+            return Err(crate::vm::VmTrap::CallStackOverflow.into_runtime_error());
+        }
+        self.frames.push(frame);
+        Ok(())
+    }
+
+    /// The frame of activation `id`, when it is on the activation stack.
+    pub(crate) fn frame(&self, id: FrameId) -> Option<FrameBlock> {
+        self.frames
+            .iter()
+            .rev()
+            .find(|frame| frame.id == id)
+            .copied()
+    }
+
+    /// Take the frame of activation `id` off the activation stack.
+    pub(crate) fn release_frame(&mut self, id: FrameId) {
+        if let Some(at) = self.frames.iter().rposition(|frame| frame.id == id) {
+            self.frames.remove(at);
+        }
+    }
+
+    /// The bytes of `range` on the activation stack, mutably (C1-11).
+    pub(crate) fn activation_bytes_mut(&mut self, range: ByteRange) -> Option<&mut [u8]> {
+        self.activation.bytes_mut(range)
+    }
+
+    /// The block that holds the bytes of `region`.
+    #[must_use]
+    pub fn block(&self, region: LayoutRegion) -> &FlatBlock {
+        match region {
+            LayoutRegion::Persistent => &self.persistent,
+            LayoutRegion::Activation => &self.activation,
+        }
     }
 
     /// The region's reference table.
@@ -123,6 +198,19 @@ impl CellRegions {
     /// The flat block and the reference table, mutably at once (C1-9c).
     pub(crate) fn split_mut(&mut self) -> (&mut FlatBlock, &mut ReferenceTable) {
         (&mut self.persistent, &mut self.references)
+    }
+
+    /// The block that holds the bytes of `region`, mutably, with the reference table of that region:
+    /// the persistent block's table, and none for the activation stack, whose frames hold no
+    /// reference leaf until references are flat (C1-11).
+    pub(crate) fn block_mut(
+        &mut self,
+        region: LayoutRegion,
+    ) -> (&mut FlatBlock, Option<&mut ReferenceTable>) {
+        match region {
+            LayoutRegion::Persistent => (&mut self.persistent, Some(&mut self.references)),
+            LayoutRegion::Activation => (&mut self.activation, None),
+        }
     }
 
     /// Write every declared leaf's initial value into its bytes (R2): the declaration's constant
@@ -222,15 +310,32 @@ impl CellStorage {
             .ok_or(RuntimeError::Overflow)?;
         let bookkeeping_bytes = extent.bookkeeping_bytes()?;
         let instance_count = extent.instance_roots();
+        // The stack and one frame record for each call level, when some POU has a frame (C1-11).
+        let activation_bytes = prepared.activation_reservation()?;
+        let levels = match activation_bytes {
+            0 => 0,
+            _ => prepared.reserved_call_levels(),
+        };
+        let frame_bytes = levels
+            .checked_mul(FRAME_RECORD_BYTES)
+            .ok_or(RuntimeError::Overflow)?;
         let bytes = block_bytes
             .checked_add(table_bytes)
             .and_then(|bytes| bytes.checked_add(bookkeeping_bytes))
+            .and_then(|bytes| bytes.checked_add(usize::try_from(activation_bytes).ok()?))
+            .and_then(|bytes| bytes.checked_add(frame_bytes))
             .ok_or(RuntimeError::Overflow)?;
         charge(bytes)?;
+        let mut frames = Vec::new();
+        frames
+            .try_reserve_exact(levels)
+            .map_err(|_| crate::vm::VmTrap::BudgetExceeded.into_runtime_error())?;
         let mut regions = CellRegions {
             globals: extent.globals,
             roots: extent.roots,
             persistent: FlatBlock::reserve(extent.bytes)?,
+            activation: FlatBlock::reserve_in(LayoutRegion::Activation, activation_bytes)?,
+            frames,
             references: ReferenceTable::reserve(extent.references)?,
             instances: InstanceTable::reserve(instance_count)?,
         };
@@ -299,6 +404,8 @@ impl CellStorage {
     /// one counter's own (R4).
     pub(crate) fn begin_execution_entry(&mut self) {
         self.identities.begin_entry();
+        // No activation of an earlier entry is live, so no frame of one is on the stack (C1-11).
+        self.regions.frames.clear();
     }
 
     /// Move the next instance identity, so that a test reaches the identity limit without issuing
@@ -445,10 +552,14 @@ const RANGE_ENTRY_BYTES: usize = 12;
 const REFERENCE_LEAF_BYTES: usize = 4;
 /// The bytes of one entry of the transient initial-value list (R6).
 const INITIAL_VALUE_BYTES: usize = 24;
+/// The bytes of one record of a frame on the activation stack (C1-11): its activation identity, its
+/// byte range and its POU.
+const FRAME_RECORD_BYTES: usize = 20;
 
 // The entries have the sizes the specification states on every target, since none holds a pointer.
 const _: () = assert!(core::mem::size_of::<Option<ByteRange>>() == RANGE_ENTRY_BYTES);
 const _: () = assert!(core::mem::size_of::<Initial>() == INITIAL_VALUE_BYTES);
+const _: () = assert!(core::mem::size_of::<FrameBlock>() == FRAME_RECORD_BYTES);
 
 /// A declared leaf whose initial value construction writes (R2): its bytes, its type and the
 /// constant its declaration names, when it names one.

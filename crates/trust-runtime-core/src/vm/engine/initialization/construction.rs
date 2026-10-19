@@ -522,6 +522,12 @@ impl EngineState<'_> {
         // are consulted for instance storage, never for local declaration IDs.
         if declared.owner == StorageOwner::Frame {
             self.check_value_lifetime(&value, frame.as_ref().and_then(|frame| frame.activation))?;
+            let slot = declared.slot as usize;
+            // A slot on the activation stack is written there (C1-11); which one is known before the
+            // once marker borrows the construction state.
+            let on_stack = frame
+                .as_deref()
+                .and_then(|frame| self.frame_slot_activation(frame, slot));
             let prepared_once_marker = if let Some(marker) = once_marker {
                 let plan = self.data.construction.once.insertion_plan(marker)?;
                 self.charge_allocation_bytes(plan.demand().0)?;
@@ -532,10 +538,25 @@ impl EngineState<'_> {
             let Some(frame) = frame else {
                 return Err(RuntimeError::InvalidExecutionState);
             };
-            let Some(slot) = frame.locals.get_mut(declared.slot as usize) else {
-                return Err(RuntimeError::InvalidExecutionState);
-            };
-            *slot = value;
+            match on_stack {
+                Some(id) => {
+                    let mut store = super::super::store_access::routed_mut_fields(
+                        &mut self.data.storage,
+                        &mut self.data.store,
+                        self.prepared,
+                    );
+                    if !StoreMutate::write_slot(&mut store, MemoryLocation::Local(id), slot, value)
+                    {
+                        return Err(RuntimeError::InvalidExecutionState);
+                    }
+                }
+                None => {
+                    let Some(target) = frame.locals.get_mut(slot) else {
+                        return Err(RuntimeError::InvalidExecutionState);
+                    };
+                    *target = value;
+                }
+            }
             if let Some(prepared_once_marker) = prepared_once_marker {
                 prepared_once_marker.publish();
             }
@@ -604,11 +625,15 @@ impl EngineState<'_> {
         Ok(())
     }
 
+    /// Run the frame actions of `frame`'s declarations, phase by phase. `return_supplied` says
+    /// whether the caller supplied the return value at slot zero, read before the frame moved its
+    /// values onto the activation stack (C1-11).
     pub(in crate::vm::engine) fn initialize_frame_declarations(
         &mut self,
         _module: &VmModule,
         frame: &mut VmFrame,
         depth: u32,
+        return_supplied: bool,
     ) -> Result<(), RuntimeError> {
         let Some(owner) = frame.pou_id else {
             return Err(RuntimeError::InvalidExecutionState);
@@ -642,14 +667,9 @@ impl EngineState<'_> {
                 trigger,
                 actions.len(),
             );
-            // Admission fixes the return declaration at slot zero. Snapshot its
-            // presence before Default runs: rereading it before Explicit would
-            // mistake the newly initialized value for a caller-supplied return.
-            let return_supplied = phase == InitializationPhase::Return
-                && frame
-                    .locals
-                    .first()
-                    .is_some_and(|value| !matches!(value, Value::Null));
+            // Admission fixes the return declaration at slot zero; its presence was read before
+            // Default runs, so a newly initialized value is not taken for a caller-supplied return.
+            let return_supplied = phase == InitializationPhase::Return && return_supplied;
             for &id in actions {
                 let supplied = prepared.initializers.entries[id as usize]
                     .declaration_idx

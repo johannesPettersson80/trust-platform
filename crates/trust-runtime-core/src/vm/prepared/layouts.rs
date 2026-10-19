@@ -288,6 +288,44 @@ impl PreparedModule {
         self.layouts.locals.get(&pou).copied()
     }
 
+    /// The bytes the activation stack reserves on the flat store (specification 34 MEM-12; C1-11):
+    /// one frame of the largest POU for each call level construction reserves. A frame takes its
+    /// locals' bytes on top of its caller's, and no chain of calls is deeper than those levels, so
+    /// no chain needs more.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::Overflow`] when the bytes exceed `u32`.
+    pub(crate) fn activation_reservation(&self) -> Result<u32, RuntimeError> {
+        let largest = self
+            .layouts
+            .locals
+            .values()
+            .map(|range| range.bytes)
+            .max()
+            .unwrap_or(0);
+        u32::try_from(self.reserved_call_levels())
+            .ok()
+            .and_then(|levels| levels.checked_mul(largest))
+            .ok_or(RuntimeError::Overflow)
+    }
+
+    /// Where slot `slot` of a frame of `pou` lies in the frame's bytes on the activation stack
+    /// (specification 34 MEM-12; C1-11): its offset from the frame's first byte and its type. A
+    /// compiler scratch slot, which has no type, and a variable whose value holds a reference stay
+    /// values of the frame until references are flat, so they have none.
+    pub(crate) fn frame_slot(&self, pou: u32, slot: usize) -> Option<(u32, u32)> {
+        let (id, declaration) = self.declaration(StorageOwner::Frame, Some(pou), slot)?;
+        if !declaration.owns_storage() || declaration.owner_pou_id != Some(pou) {
+            return None;
+        }
+        let type_id = declaration.type_id?;
+        if !self.type_layout(type_id)?.reference_leaves.is_empty() {
+            return None;
+        }
+        Some((self.declaration_offset(id)?, type_id))
+    }
+
     /// The activation byte range of an initializer's staged result.
     #[must_use]
     pub fn initializer_result_range(&self, initializer: u32) -> Option<ByteRange> {

@@ -48,6 +48,7 @@ mod destinations;
 mod io;
 mod literal_admission;
 mod output_transaction;
+mod frame_blocks;
 mod path_write;
 mod places;
 mod policy;

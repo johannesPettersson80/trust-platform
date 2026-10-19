@@ -91,6 +91,22 @@ impl<'e> ReferenceContext for EngineState<'e> {
             }
         }
     }
+    fn frame_slot_in_block(&self, frame: &VmFrame, slot: usize) -> bool {
+        self.frame_slot_activation(frame, slot).is_some()
+    }
+    fn read_frame_slot(&self, frame: &VmFrame, slot: usize) -> Option<Result<Value, RuntimeError>> {
+        EngineState::read_frame_slot(self, frame, slot)
+    }
+    fn frame_block(&self, frame: &VmFrame) -> Option<crate::memory::regions::FrameBlock> {
+        EngineState::frame_block(self, frame)
+    }
+    fn read_finished_slot(
+        &self,
+        block: crate::memory::regions::FrameBlock,
+        slot: usize,
+    ) -> Option<Result<Value, RuntimeError>> {
+        EngineState::read_finished_slot(self, block, slot)
+    }
     fn place_of(&self, view: &ValueView<'_>) -> Option<crate::vm::Place> {
         EngineState::place_of(self, view)
     }
@@ -374,6 +390,7 @@ impl CallContext for EngineState<'_> {
             result.map(|result| crate::vm::dispatch::VmPouStackResult {
                 return_value: result.return_value,
                 locals: result.locals,
+                block: None,
             })
         })
     }
@@ -405,6 +422,7 @@ impl CallContext for EngineState<'_> {
             result.map(|result| crate::vm::dispatch::VmPouStackResult {
                 return_value: result.return_value,
                 locals: result.locals,
+                block: None,
             })
         })
     }
@@ -674,7 +692,14 @@ impl ExecutionContext for EngineState<'_> {
             })?,
             frame.runtime_instance,
         )?;
-        self.initialize_frame_declarations(module, frame, depth)
+        // Admission fixes the return declaration at slot zero. Whether the caller supplied it is
+        // read before the frame moves its values onto the activation stack.
+        let return_supplied = frame
+            .locals
+            .first()
+            .is_some_and(|value| !matches!(value, Value::Null));
+        self.place_frame(frame, id)?;
+        self.initialize_frame_declarations(module, frame, depth, return_supplied)
     }
     fn retire_frame(&mut self, frame: &VmFrame) -> Result<(), RuntimeError> {
         #[cfg(all(feature = "std", feature = "test-support"))]
@@ -683,6 +708,7 @@ impl ExecutionContext for EngineState<'_> {
         if let Some(id) = frame.activation {
             let owned_work = self.remove_owned_instances(id);
             self.data.storage.release_execution_frame(id);
+            self.release_frame_block(id);
             owned_work?;
         }
         Ok(())
@@ -763,6 +789,12 @@ impl ExecutionContext for EngineState<'_> {
         entry: crate::vm::budget::ExecutionEntry,
         capture_result_locals: bool,
     ) -> Result<Option<crate::vm::register_ir::RegisterActivation>, RuntimeError> {
+        // The register tier keeps a frame's locals as values; on the flat store every frame lies
+        // on the activation stack, so its POUs run on the stack tier until the register tier reads
+        // the stack (C1-18).
+        if self.holds_cells() {
+            return Ok(None);
+        }
         crate::vm::register_ir::start_register_activation(
             self,
             module,
@@ -779,7 +811,8 @@ impl ExecutionContext for EngineState<'_> {
     }
     #[cfg(feature = "register-ir")]
     fn has_register_activation_pump(&self) -> bool {
-        true
+        // As `start_register_activation`: no register tier on the flat store yet (C1-18).
+        !self.holds_cells()
     }
     #[cfg(feature = "register-ir")]
     fn step_register_activation(

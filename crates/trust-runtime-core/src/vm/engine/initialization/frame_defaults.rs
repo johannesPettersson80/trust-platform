@@ -112,7 +112,7 @@ impl EngineState<'_> {
             };
             scalar::default(primitive, self.data.profile)?
         };
-        frame.locals[slot] = value;
+        self.store_frame_slot(frame, slot, value)?;
         Ok(true)
     }
 }

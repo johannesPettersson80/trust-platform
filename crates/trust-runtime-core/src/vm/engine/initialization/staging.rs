@@ -107,15 +107,25 @@ impl EngineState<'_> {
         if let Some(reference) = &configured {
             self.check_read(reference.as_view())?;
         }
-        let frame_value = lexical.and_then(|frame| frame.locals.get(declaration.slot as usize));
-        let value = seed_source_value(
-            &*self,
-            configured.as_ref(),
-            name,
-            declaration.owner,
-            instance,
-            frame_value,
-        )?;
+        // A slot on the activation stack is read from its bytes once, the copy the value store makes
+        // of the frame's value (C1-11).
+        let block_value = match (declaration.owner, lexical, &configured) {
+            (StorageOwner::Frame, Some(frame), None) => self
+                .read_frame_slot(frame, declaration.slot as usize)
+                .transpose()?,
+            _ => None,
+        };
+        let value = match block_value {
+            Some(value) => value,
+            None => seed_source_value(
+                &*self,
+                configured.as_ref(),
+                name,
+                declaration.owner,
+                instance,
+                lexical.and_then(|frame| frame.locals.get(declaration.slot as usize)),
+            )?,
+        };
         if matches!(
             self.prepared.vm.types.entries[type_id as usize].data,
             TypeData::Pou { .. }

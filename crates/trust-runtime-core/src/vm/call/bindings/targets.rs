@@ -160,6 +160,27 @@ impl VmWriteTarget {
         })
     }
 
+    /// The caller's slot this target names when the slot lies on the caller's frame on the
+    /// activation stack (C1-11).
+    fn caller_block_slot(
+        &self,
+        runtime: &impl CallContext,
+        caller_frame: &VmFrame,
+    ) -> Option<usize> {
+        let offset = match self {
+            Self::CallerLocalDirect { offset } => *offset,
+            Self::DirectStorage { location, offset }
+                if is_current_location(*location, caller_frame) =>
+            {
+                *offset
+            }
+            _ => return None,
+        };
+        runtime
+            .frame_slot_in_block(caller_frame, offset)
+            .then_some(offset)
+    }
+
     /// Check destination visibility, lifetime and native-output policy.
     pub fn check_write(
         &self,
@@ -182,6 +203,16 @@ impl VmWriteTarget {
         runtime
             .check_reference_read(self.reference_view(caller_frame, runtime.storage().generation()))
             .map_err(VmTrap::Runtime)?;
+        // A caller's slot on the activation stack is read through the store (C1-11).
+        if let Some(offset) = self.caller_block_slot(runtime, caller_frame) {
+            return runtime
+                .storage()
+                .read_slot(
+                    MemoryLocation::Local(caller_frame.reference_frame_id()),
+                    offset,
+                )
+                .map_err(|_| VmTrap::Runtime(RuntimeError::NullReference));
+        }
         match self {
             Self::CallerLocalDirect { offset } => caller_frame
                 .locals
@@ -290,6 +321,15 @@ impl VmWriteTarget {
         runtime
             .before_output_write(caller_frame, self.reference_view(caller_frame, generation))
             .map_err(VmTrap::Runtime)?;
+        // A caller's slot on the activation stack is written through the store (C1-11).
+        if let Some(offset) = self.caller_block_slot(runtime, caller_frame) {
+            let location = MemoryLocation::Local(caller_frame.reference_frame_id());
+            return runtime
+                .storage_mut()
+                .write_slot(location, offset, value)
+                .then_some(())
+                .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference));
+        }
         match self {
             Self::CallerLocalDirect { offset } => {
                 let local_count = caller_frame.locals.len();

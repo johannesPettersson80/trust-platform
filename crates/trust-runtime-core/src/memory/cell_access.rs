@@ -24,10 +24,12 @@ use crate::memory::cells::{
 };
 use crate::memory::flat::{self, LeafKind, TextBytes};
 use crate::memory::instance_table::PersistentInstance;
-use crate::memory::layout::ByteRange;
-use crate::memory::regions::{CellRegions, CellStorage};
+use crate::memory::layout::{ByteRange, LayoutRegion};
+use crate::memory::regions::{CellRegions, CellStorage, FrameBlock};
 use crate::memory::view::ValueView;
-use crate::memory::{Generation, InstanceData, InstanceId, MemoryLocation, VariableStorage};
+use crate::memory::{
+    FrameId, Generation, InstanceData, InstanceId, MemoryLocation, VariableStorage,
+};
 use crate::value::{array_offset_i64, RefPath, RefSegment, Value, ValueRef, ValueRefView};
 use crate::vm::{PreparedModule, VmTrap};
 
@@ -87,7 +89,13 @@ impl<'a> CellsView<'a> {
         if wide {
             return None;
         }
-        match flat::read_text(self.regions.persistent().bytes(range)?, length, false).ok()? {
+        match flat::read_text(
+            self.regions.block(range.region).bytes(range)?,
+            length,
+            false,
+        )
+        .ok()?
+        {
             TextBytes::Narrow(text) => Some(text),
             TextBytes::Wide(_) => None,
         }
@@ -98,16 +106,13 @@ impl<'a> CellsView<'a> {
     pub(crate) fn materialize(self, range: ByteRange, type_id: u32) -> Result<Value, RuntimeError> {
         let bytes = self
             .regions
-            .persistent()
+            .block(range.region)
             .bytes(range)
             .ok_or(RuntimeError::InvalidExecutionState)?;
-        read_value_in(
-            bytes,
-            type_id,
-            self.prepared,
-            Some(self.regions.references()),
-            range.start,
-        )
+        // Only the persistent block keeps reference leaves (C1-11).
+        let references =
+            (range.region == LayoutRegion::Persistent).then(|| self.regions.references());
+        read_value_in(bytes, type_id, self.prepared, references, range.start)
     }
 
     /// The `ValueRef` a reference leaf at `range` holds, when it holds one: `None` for a leaf of
@@ -122,7 +127,7 @@ impl<'a> CellsView<'a> {
         }
         let bytes = self
             .regions
-            .persistent()
+            .block(range.region)
             .bytes(range)
             .ok_or(RuntimeError::InvalidExecutionState)?;
         match flat::decode(LeafKind::Reference, bytes)? {
@@ -141,7 +146,7 @@ impl<'a> CellsView<'a> {
     pub(crate) fn leaf(self, range: ByteRange, type_id: u32) -> Result<CellLeaf<'a>, RuntimeError> {
         let bytes = self
             .regions
-            .persistent()
+            .block(range.region)
             .bytes(range)
             .ok_or(RuntimeError::InvalidExecutionState)?;
         leaf_in(bytes, type_id, self.prepared)
@@ -275,6 +280,38 @@ impl CellArm {
             byte[0] = 1;
         }
         true
+    }
+
+    /// The first free byte of the activation stack (C1-11).
+    pub(crate) fn activation_top(&self) -> u32 {
+        self.cells.regions().activation_top()
+    }
+
+    /// Record `frame` on top of the activation stack (C1-11).
+    pub(crate) fn push_frame(&mut self, frame: FrameBlock) -> Result<(), RuntimeError> {
+        self.cells.regions_mut().push_frame(frame)
+    }
+
+    /// The frame of activation `id`, when it is on the activation stack (C1-11).
+    pub(crate) fn frame(&self, id: FrameId) -> Option<FrameBlock> {
+        self.cells.regions().frame(id)
+    }
+
+    /// Take the frame of activation `id` off the activation stack (C1-11).
+    pub(crate) fn release_frame(&mut self, id: FrameId) {
+        self.cells.regions_mut().release_frame(id);
+    }
+
+    /// Set every byte of `range` on the activation stack to zero, so a new frame starts from no
+    /// value of an earlier one (C1-11). `false` when the range leaves the stack's block.
+    pub(crate) fn clear_activation(&mut self, range: ByteRange) -> bool {
+        match self.cells.regions_mut().activation_bytes_mut(range) {
+            Some(bytes) => {
+                bytes.fill(0);
+                true
+            }
+            None => false,
+        }
     }
 
     /// The reference the last write into a reference leaf replaced, for the engine to take its path
@@ -768,13 +805,46 @@ impl<'a> CellReader<'a> {
         None
     }
 
+    /// The bytes and the type of slot `slot` of activation `id`, when that activation's frame is on
+    /// the activation stack and the slot lies in it (C1-11).
+    fn frame_slot(self, id: FrameId, slot: usize) -> Option<(ByteRange, u32)> {
+        let frame = self.arm.cells.regions().frame(id)?;
+        self.slot_in(frame.range, frame.pou, slot)
+    }
+
+    /// The bytes and the type of slot `slot` of a frame of `pou` whose bytes are `frame` (C1-11).
+    fn slot_in(self, frame: ByteRange, pou: u32, slot: usize) -> Option<(ByteRange, u32)> {
+        let (offset, type_id) = self.prepared.frame_slot(pou, slot)?;
+        let bytes = self.prepared.type_layout(type_id)?.shape.bytes;
+        Some((
+            ByteRange {
+                region: LayoutRegion::Activation,
+                start: frame.start.checked_add(offset)?,
+                bytes,
+            },
+            type_id,
+        ))
+    }
+
+    /// The view of slot `slot` of a frame of `pou` whose bytes are `frame`, read where the frame
+    /// lies even after its activation has ended, until the next frame takes its bytes (C1-11).
+    pub(crate) fn frame_slot_view(
+        self,
+        frame: ByteRange,
+        pou: u32,
+        slot: usize,
+    ) -> Option<ValueView<'a>> {
+        let (range, type_id) = self.slot_in(frame, pou, slot)?;
+        Some(self.view(range, type_id, None))
+    }
+
     /// The instance an instance leaf names.
     fn instance_at(self, range: ByteRange) -> Result<InstanceId, VmTrap> {
         let bytes = self
             .arm
             .cells
             .regions()
-            .persistent()
+            .block(range.region)
             .bytes(range)
             .ok_or(VmTrap::NullReference)?;
         match flat::decode(LeafKind::Instance, bytes) {
@@ -805,6 +875,10 @@ impl<'a> CellReader<'a> {
                     .ok_or(VmTrap::NullReference)?;
                 self.walk(range, type_id, presence, path)
             }
+            MemoryLocation::Local(id) => match self.frame_slot(id, offset) {
+                Some((range, type_id)) => self.walk(range, type_id, None, path),
+                None => Ok(Target::Values(location, offset, path)),
+            },
             _ => Ok(Target::Values(location, offset, path)),
         }
     }

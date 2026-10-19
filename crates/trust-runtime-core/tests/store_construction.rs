@@ -52,26 +52,35 @@ fn range_tables_are_charged_before_they_are_reserved() {
     //   tracker's `history`. The static `calls` has no initial value: its function's static action gives
     //   it one (specification 34 §6.2).
     //
-    // The charge is 64 + 228 + 96 + 56 + 240 = 684 bytes, requested once. An allowance of 683 refuses it
-    // and returns the allowance's error, so no store exists; an allowance of 684 admits the region. A
-    // construction that left the instance table out would request 628 bytes, one that left the range
-    // tables or the lists out 360 or 444, and one that still counted 19 cells of 16 bytes 924.
+    // - the activation stack (C1-11): one frame of the largest POU for each reserved call level. The
+    //   frames are `Pick`'s, the INT `Pick` at 0, the INT `slot` at 2, the 16-byte reference `chosen`
+    //   at 8 and `window` (two INTs) at 24, 28 bytes rounded up to 32, and `Tracker.Look`'s, 24 bytes.
+    //   The deepest chain is two levels: the body of `Initializers` calls `Pick` (and
+    //   `Tracker.Look`), which call nothing; the program instance itself is no level of the chain,
+    //   since only a function block or a class nests construction. That is 2 x 32 = 64 bytes, and
+    //   one 20-byte frame record for each level, 40 bytes.
+    //
+    // The charge is 64 + 228 + 96 + 56 + 240 + 64 + 40 = 788 bytes, requested once. An allowance of 787
+    // refuses it and returns the allowance's error, so no store exists; an allowance of 788 admits the
+    // region. A construction that left the instance table out would request 732 bytes, one that left
+    // the range tables or the lists out 464 or 548, one that left the activation stack out 684, and one
+    // that still counted 19 cells of 16 bytes 1,028.
     let prepared = PreparedModule::from_bytes(INITIALIZERS, PreparationLimits::default())
         .expect("the initializers program prepares");
     let requests = std::cell::RefCell::new(Vec::new());
     let refused = CellStorage::construct(&prepared, Generation::FIRST, |bytes| {
         requests.borrow_mut().push(bytes);
-        if bytes > 683 {
+        if bytes > 787 {
             Err(RuntimeError::Overflow)
         } else {
             Ok(())
         }
     });
     assert_eq!(refused.err(), Some(RuntimeError::Overflow));
-    assert_eq!(*requests.borrow(), [684]);
+    assert_eq!(*requests.borrow(), [788]);
 
     let admitted = CellStorage::construct(&prepared, Generation::FIRST, |bytes| {
-        if bytes > 684 {
+        if bytes > 788 {
             Err(RuntimeError::Overflow)
         } else {
             Ok(())
