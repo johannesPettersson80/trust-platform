@@ -433,3 +433,51 @@ fn an_online_changes_heap_peak_is_the_two_programs_and_the_upload_within_the_roo
         ONLINE_CHANGE_WORKING_MEMORY_BYTES + largest
     );
 }
+
+/// Where a loaded program's heap goes (for checklist C1, spec 34 MEM-12): the prepared module alone,
+/// and the rest of the loaded program (its engine state, its execution services, its Live Values and
+/// its records), for each fixture program. The figures are printed; only their order is asserted.
+#[test]
+fn where_a_loaded_programs_heap_goes() {
+    let programs: [(&str, &[u8]); 4] = [
+        ("the A4 program", PROGRAM),
+        (
+            "numeric-v2",
+            include_bytes!(
+                "../../trust-runtime/tests/fixtures/portability/stbc-2.0/numeric-v2.stbc"
+            ),
+        ),
+        (
+            "bounded-c calls",
+            include_bytes!("../../trust-runtime/tests/fixtures/bounded-c/calls/program.stbc"),
+        ),
+        ("the retained blocks", BLOCKS),
+    ];
+    for (name, program) in programs {
+        arm();
+        let before = live_bytes();
+        let decoded = BytecodeModule::decode(program).expect("the program decodes");
+        let container = live_bytes() - before;
+        drop(decoded);
+        disarm();
+        arm();
+        let before = live_bytes();
+        let prepared = trust_runtime_core::vm::PreparedModule::from_bytes(
+            program,
+            trust_runtime_services::runner::engine::device_limits(MEMORY),
+        )
+        .expect("the program prepares");
+        let module = live_bytes() - before;
+        drop(prepared);
+        disarm();
+        let whole = resident(program, false, None).expect("the program loads");
+        println!(
+            "footprint: {name}: {} B of bytecode; the decoded container alone {container} B; the \
+             prepared module {module} B; the whole loaded program {whole} B, of which the state, \
+             services and the rest {} B",
+            program.len(),
+            whole - module
+        );
+        assert!(module > 0 && whole > module, "{name}");
+    }
+}
