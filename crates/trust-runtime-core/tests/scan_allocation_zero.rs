@@ -625,6 +625,11 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// `io` from 8 to 7. C1-12c runs the conversions from and to texts the same way, loads `WSTRING`
 /// constants into the text area and replaces a written character in its leaf: `strings` makes no
 /// allocator call after its first scan, measured on the builder on 19 October 2026.
+///
+/// C1-13a gives the path buffers of the references a finished activation's locals hold back to the
+/// engine and keeps the staged initializer slot's buffer in the scratch: `instances` makes no
+/// allocator call after its first scan on the flat store, and `initializers` falls from 17 to 13 on
+/// both stores (its array initializer, C1-13b), measured on the builder on 20 October 2026.
 const CEILINGS: [(&str, usize, Calls); 31] = [
     ("faults/division", 2, Calls::ZERO),
     ("faults/index", 2, Calls::ZERO),
@@ -647,9 +652,9 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
         "initializers",
         1,
         Calls {
-            alloc: 17,
+            alloc: 13,
             realloc: 0,
-            dealloc: 17,
+            dealloc: 13,
         },
     ),
     ("sizeof", 1, Calls::ZERO),
@@ -716,15 +721,7 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
             dealloc: 1,
         },
     ),
-    (
-        "cells/instances",
-        1,
-        Calls {
-            alloc: 2,
-            realloc: 0,
-            dealloc: 2,
-        },
-    ),
+    ("cells/instances", 1, Calls::ZERO),
     ("cells/arrays", 1, Calls::ZERO),
     ("cells/references", 1, Calls::ZERO),
     ("cells/strings", 1, Calls::ZERO),
@@ -732,9 +729,9 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
         "cells/initializers",
         1,
         Calls {
-            alloc: 17,
+            alloc: 13,
             realloc: 0,
-            dealloc: 17,
+            dealloc: 13,
         },
     ),
     ("cells/retained_blocks", 1, Calls::ZERO),

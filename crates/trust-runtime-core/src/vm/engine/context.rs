@@ -374,8 +374,9 @@ impl CallContext for EngineState<'_> {
     fn recycle_optimized_result_locals(
         &mut self,
         _pou_id: u32,
-        locals: Vec<Value>,
+        mut locals: Vec<Value>,
     ) -> Result<(), RuntimeError> {
+        self.recycle_local_references(&mut locals);
         self.data.resources.frame_locals.recycle(locals);
         Ok(())
     }
@@ -888,7 +889,8 @@ impl ExecutionContext for EngineState<'_> {
     fn take_frame_locals(&mut self, count: usize) -> Vec<Value> {
         self.data.resources.frame_locals.take(count)
     }
-    fn recycle_frame_locals(&mut self, locals: Vec<Value>) {
+    fn recycle_frame_locals(&mut self, mut locals: Vec<Value>) {
+        self.recycle_local_references(&mut locals);
         self.data.resources.frame_locals.recycle(locals);
     }
     fn take_frame_presence(&mut self) -> Vec<bool> {

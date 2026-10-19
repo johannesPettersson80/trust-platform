@@ -234,7 +234,9 @@ impl EngineState<'_> {
         instance: Option<InstanceId>,
         mut backups: Vec<(InstanceId, crate::memory::InstanceData)>,
     ) -> Result<Value, RuntimeError> {
-        let mut values = self.data.resources.bookkeeping.take_slot();
+        // The staged slot comes back with the buffer its seed was suspended in, which then goes
+        // back to the scratch, so an evaluation allocates no slot once the engine is warm (C1-13).
+        let mut values = Vec::new();
         let value = outcome.and_then(|()| {
             self.data
                 .storage

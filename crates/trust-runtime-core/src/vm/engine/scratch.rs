@@ -77,7 +77,9 @@ impl BookkeepingScratch {
     }
     pub(super) fn return_slot(&mut self, mut slot: Vec<Value>) {
         slot.clear();
-        if self.slots.len() < self.levels {
+        // A slot whose buffer a suspended evaluation took has no room to keep; the buffer comes
+        // back when the evaluation finishes (C1-13).
+        if slot.capacity() > 0 && self.slots.len() < self.levels {
             self.slots.push(slot);
         }
     }
@@ -211,6 +213,21 @@ impl FrameLocals {
             .checked_mul(core::mem::size_of::<Vec<bool>>())?
             .checked_add(slots.checked_mul(core::mem::size_of::<bool>())?)?;
         locals.checked_add(presence)
+    }
+}
+
+impl EngineState<'_> {
+    /// Give back the path buffers of the references a finished activation's `locals` hold, before
+    /// the locals are kept for the next activation (spec 34 ARCH-05): a call-time reference
+    /// initializer then takes the same buffers on every call (C1-13).
+    pub(super) fn recycle_local_references(&self, locals: &mut [Value]) {
+        for local in locals {
+            if let Value::Reference(Some(_)) = local
+                && let Value::Reference(Some(reference)) = core::mem::replace(local, Value::Null)
+            {
+                self.data.resources.references.recycle(reference.path);
+            }
+        }
     }
 }
 
