@@ -199,6 +199,12 @@ impl CellArm {
         }
     }
 
+    /// The reference leaves of the persistent block, each of which may hold a reference that keeps a
+    /// path (C1-19c3).
+    pub(crate) fn persistent_reference_leaves(&self) -> usize {
+        self.cells.regions().references().leaf_count()
+    }
+
     /// Room for `bytes` bytes of the text a character write edits, so that no write grows it
     /// (spec 34 MEM-09; C1-19c).
     pub(crate) fn reserve_text_edit(&mut self, bytes: usize) -> Result<(), RuntimeError> {

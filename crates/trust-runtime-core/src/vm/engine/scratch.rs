@@ -258,6 +258,10 @@ impl EngineState<'_> {
 pub(super) struct ReferenceBuffers {
     paths: core::cell::RefCell<Vec<RefPath>>,
     indices: core::cell::RefCell<Vec<RefIndices>>,
+    /// The room of a reserved path and index buffer, the longest path and the most subscripts of
+    /// the module's types (C1-19c3).
+    path_room: usize,
+    index_room: usize,
 }
 
 /// The most buffers of each kind kept; the references a program holds beyond them allocate.
@@ -268,20 +272,69 @@ const KEPT_REFERENCE_BUFFERS: usize = 64;
 const REFERENCE_BUFFER_ROOM: usize = 4;
 
 impl ReferenceBuffers {
+    /// Keep `paths` more path buffers with room for `path_room` segments and `indices` more index
+    /// buffers with room for `index_room` subscripts, as construction reserves them for the
+    /// references a scan can hold at once (spec 34 MEM-09; C1-19c3).
+    pub(super) fn reserve(
+        &mut self,
+        (paths, path_room): (usize, usize),
+        (indices, index_room): (usize, usize),
+    ) -> Result<(), RuntimeError> {
+        let refused = |_| VmTrap::BudgetExceeded.into_runtime_error();
+        self.path_room = self.path_room.max(path_room);
+        self.index_room = self.index_room.max(index_room);
+        let kept = self.paths.get_mut();
+        kept.try_reserve_exact(paths).map_err(refused)?;
+        for _ in 0..paths {
+            let mut path = RefPath::new();
+            path.try_reserve_exact(self.path_room).map_err(refused)?;
+            kept.push(path);
+        }
+        let kept = self.indices.get_mut();
+        kept.try_reserve_exact(indices).map_err(refused)?;
+        for _ in 0..indices {
+            let mut index = RefIndices::new();
+            index.try_reserve_exact(self.index_room).map_err(refused)?;
+            kept.push(index);
+        }
+        Ok(())
+    }
+
+    /// The bytes [`ReferenceBuffers::reserve`] takes.
+    pub(super) fn reservation_bytes(
+        (paths, path_room): (usize, usize),
+        (indices, index_room): (usize, usize),
+    ) -> Option<usize> {
+        let path = path_room
+            .checked_mul(core::mem::size_of::<RefSegment>())?
+            .checked_add(core::mem::size_of::<RefPath>())?;
+        let index = index_room
+            .checked_mul(core::mem::size_of::<i64>())?
+            .checked_add(core::mem::size_of::<RefIndices>())?;
+        paths
+            .checked_mul(path)?
+            .checked_add(indices.checked_mul(index)?)
+    }
+
+    /// The path buffers and the index buffers kept (test support).
+    #[cfg(test)]
+    pub(super) fn kept(&self) -> (usize, usize) {
+        (self.paths.borrow().len(), self.indices.borrow().len())
+    }
+
     /// An empty path buffer: a kept one, else a new one.
     pub(super) fn take_path(&self) -> RefPath {
         self.paths
             .borrow_mut()
             .pop()
-            .unwrap_or_else(|| RefPath::with_capacity(REFERENCE_BUFFER_ROOM))
+            .unwrap_or_else(|| RefPath::with_capacity(self.path_room.max(REFERENCE_BUFFER_ROOM)))
     }
 
     /// An empty index buffer: a kept one, else a new one.
     pub(super) fn take_indices(&self) -> RefIndices {
-        self.indices
-            .borrow_mut()
-            .pop()
-            .unwrap_or_else(|| RefIndices::with_capacity(REFERENCE_BUFFER_ROOM))
+        self.indices.borrow_mut().pop().unwrap_or_else(|| {
+            RefIndices::with_capacity(self.index_room.max(REFERENCE_BUFFER_ROOM))
+        })
     }
 
     /// Keep the buffers of a path the execution has used: the path's and each index segment's.
@@ -296,10 +349,11 @@ impl ReferenceBuffers {
     }
 }
 
-/// Keep an emptied buffer with room in it, unless [`KEPT_REFERENCE_BUFFERS`] are kept already.
+/// Keep an emptied buffer with room in it, unless as many as were reserved, and at least
+/// [`KEPT_REFERENCE_BUFFERS`], are kept already.
 fn keep<T>(spares: &core::cell::RefCell<Vec<Vec<T>>>, buffer: Vec<T>) {
     let mut spares = spares.borrow_mut();
-    if buffer.capacity() > 0 && spares.len() < KEPT_REFERENCE_BUFFERS {
+    if buffer.capacity() > 0 && spares.len() < spares.capacity().max(KEPT_REFERENCE_BUFFERS) {
         spares.push(buffer);
     }
 }
@@ -403,6 +457,11 @@ struct ScratchPlan {
     text_result: usize,
     text_arguments: usize,
     text_count: usize,
+    /// The path buffers the references a scan holds at once take, those its operands hold on
+    /// every call level and those its frames hold, with one more for a path that moves into a
+    /// larger buffer, and their index buffers (C1-19c3).
+    reference_paths: usize,
+    path_shape: crate::vm::prepared::operand_bounds::PathShape,
     /// Nested typed value operations.
     types: usize,
     /// Destinations of one output copy-back group: the most parameters of any POU, or the most
@@ -491,6 +550,20 @@ impl ScratchPlan {
             text_result: prepared.operand_bounds.text_result,
             text_arguments: prepared.operand_bounds.text_arguments,
             text_count: prepared.operand_bounds.text_count,
+            reference_paths: levels
+                .saturating_sub(1)
+                .checked_mul(prepared.operand_bounds.references_below_call)
+                .and_then(|below| below.checked_add(prepared.operand_bounds.references))
+                .and_then(|operands| {
+                    levels
+                        .checked_mul(crate::vm::prepared::operand_bounds::frame_references(
+                            prepared,
+                        ))?
+                        .checked_add(operands)?
+                        .checked_add(1)
+                })
+                .ok_or(RuntimeError::Overflow)?,
+            path_shape: crate::vm::prepared::operand_bounds::PathShape::of(prepared),
             types: crate::bytecode::BYTECODE_MAX_TYPE_NESTING + 1,
             journal: journal.max(call_args),
             call_scratch: crate::vm::call::scratch::CallScratchSizes {
@@ -522,6 +595,13 @@ impl ScratchPlan {
             ExecutionBuffers::reservation_bytes(self.initializer_operands, 1)?
                 .checked_add(core::mem::size_of::<ExecutionBuffers>())?
                 .checked_add(self.initializer_temporaries)?,
+        )?;
+        let references = ReferenceBuffers::reservation_bytes(
+            (self.reference_paths, self.path_shape.segments),
+            (
+                self.reference_paths.checked_mul(self.path_shape.indexes)?,
+                self.path_shape.subscripts,
+            ),
         )?;
         let temporaries =
             self.temporaries
@@ -561,6 +641,7 @@ impl ScratchPlan {
         buffer
             .checked_add(initializer_buffers)?
             .checked_add(temporaries)?
+            .checked_add(references)?
             .checked_add(frame_locals)?
             .checked_add(frame_payloads)?
             .checked_add(edges)?
@@ -574,6 +655,30 @@ impl ScratchPlan {
 }
 
 impl EngineState<'_> {
+    /// Reserve a path buffer, and its index buffers, for each reference leaf of the persistent block,
+    /// whose reference may keep a path (C1-19c3), charged as construction memory.
+    pub(super) fn reserve_stored_references(&mut self) -> Result<(), RuntimeError> {
+        let EngineStore::Cells(arm) = &self.data.store else {
+            return Ok(());
+        };
+        let leaves = arm.persistent_reference_leaves();
+        if leaves == 0 {
+            return Ok(());
+        }
+        let shape = crate::vm::prepared::operand_bounds::PathShape::of(self.prepared);
+        let paths = (leaves, shape.segments);
+        let indices = (
+            leaves
+                .checked_mul(shape.indexes)
+                .ok_or(RuntimeError::Overflow)?,
+            shape.subscripts,
+        );
+        self.charge_allocation_bytes(
+            ReferenceBuffers::reservation_bytes(paths, indices).ok_or(RuntimeError::Overflow)?,
+        )?;
+        self.data.resources.references.reserve(paths, indices)
+    }
+
     /// Reserve the lifetime check's visited set for the persistent instances construction made and
     /// the most per-call instances the activation stack holds, charged as construction memory, so
     /// that a call that creates instances does not grow it (spec 34 MEM-09; C1-19c).
@@ -636,6 +741,16 @@ impl EngineState<'_> {
         resources
             .text_call
             .reserve(plan.text_result, plan.text_arguments, plan.text_count)?;
+        let shape = plan.path_shape;
+        resources.references.reserve(
+            (plan.reference_paths, shape.segments),
+            (
+                plan.reference_paths
+                    .checked_mul(shape.indexes)
+                    .ok_or(RuntimeError::Overflow)?,
+                shape.subscripts,
+            ),
+        )?;
         resources.frame_locals.reserve(plan.levels, plan.slots)?;
         // One edge-input list and one restore list, reused by every edge-affected call
         // (spec 34 MEM-09; census A5).

@@ -1418,13 +1418,20 @@ TIME-08). A standard function's arguments and a split function's outputs are bou
 depth's reserved values, and a named argument is matched without building an uppercase name, with
 every result, count, charge and refusal unchanged (MEM-09; TIME-08).
 
-**Reference buffers.** The engine keeps the path and index buffers of the references a scan builds,
-at most 64 of each: a reference whose path grows (a member, an element, a further subscript), a
-copy of a static path and a loaded reference variable take kept buffers, and a load, a store or a
-discard through a reference gives them back, as do a write that replaces a stored reference, a
-comparison of references and a refused assignment attempt, so after the first scan a dynamic index
-or member and a reference variable that takes a new reference allocate nothing (ARCH-05). A
-buffer's room changes no charge: each segment and each subscript costs what it cost (TIME-08).
+**Reference buffers.** The engine keeps the path and index buffers of the references a scan builds:
+a reference whose path grows (a member, an element, a further subscript), a copy of a static path
+and a loaded reference variable take kept buffers, and a load, a store or a discard through a
+reference gives them back, as do a write that replaces a stored reference, a comparison of
+references and a refused assignment attempt. Construction reserves a path buffer for every
+reference a scan can hold at once (checklist C1-19c3): those the walk ("Execution scratch") finds
+among a body's operands at once, on every call level, the references the frame variables hold as
+values, the reference leaves of the persistent block, and one for a path that moves into another
+buffer. Each path buffer has room for the longest path of the module (a segment for each member
+and array level, a static reference's own path followed by any path into its target), and each
+has an index buffer for every index segment such a path takes, with room for the most subscripts.
+So a dynamic index or member and a reference variable that takes a new reference allocate
+nothing, the first scan included (ARCH-05, MEM-09). A buffer's room changes no charge: each
+segment and each subscript costs what it cost (TIME-08).
 
 **Places.** On the flat store, a load of a text, or of an array or a structure whose leaves are
 numbers, bits, characters, texts, times, dates and enumerations, leaves the value where it lies: the

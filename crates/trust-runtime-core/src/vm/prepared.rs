@@ -18,7 +18,7 @@ mod indexes;
 mod layouts;
 mod metadata;
 /// The most a scan keeps beside its operands (C1-19c2).
-mod operand_bounds;
+pub(crate) mod operand_bounds;
 mod reference_names;
 pub(crate) use budget::PreparationBudget;
 pub use budget::PreparationUsage;

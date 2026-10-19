@@ -443,6 +443,7 @@ impl<'a> EngineState<'a> {
         }
         state.construct_resource(retained)?;
         state.reserve_call_lifetimes()?;
+        state.reserve_stored_references()?;
         state.reserve_retain_capture()?;
         state.reserve_input_snapshot()?;
         // A variable located at %M starts with its initial value (or, after a warm restart, its

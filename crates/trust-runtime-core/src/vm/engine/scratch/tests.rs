@@ -26,6 +26,8 @@ const FAULTS: &[u8] =
     include_bytes!("../../../../../trust-runtime/tests/fixtures/bounded-c/faults/program.stbc");
 const RETAIN: &[u8] =
     include_bytes!("../../../../../trust-runtime/tests/fixtures/bounded-c/retain/program.stbc");
+const REFERENCES: &[u8] =
+    include_bytes!("../../../../../trust-runtime/tests/fixtures/bounded-c/references/program.stbc");
 
 /// The chips' call depth, with the hosted preparation allowances the register tier needs.
 fn prepared(bytes: &[u8]) -> PreparedModule {
@@ -448,6 +450,43 @@ fn the_retain_capture_is_reserved_for_the_largest_payload() {
     let mut data = EngineState::construct_data(&prepared, 0, services).unwrap();
     let state = EngineState::borrow(&mut data, &prepared, services);
     assert_eq!(state.retained_payload_bound(), Some(118));
+}
+
+/// Spec 34 MEM-09 (C1-19c3): construction keeps a path buffer for every reference a scan can hold
+/// at once. For the `references` corpus program, worked out by hand from
+/// `references/src/main.st`: its statements hold at most two references at once (`whole^ :=
+/// whole^ + 1` and `member^ := member^ + element^` keep the destination's reference while they load
+/// through another), it makes no call and has no frame variable, and one more buffer takes a path
+/// that moves into a larger one: 3. The program's five `REF_TO DINT` variables lie in the
+/// persistent block, each a leaf whose reference may keep a path: 5 more, 8 in all. A path goes
+/// through at most one member (`reading.amount`) or one array level (`store[slot]`), so each path
+/// buffer has room for one segment and each of the 8 index buffers for one subscript. Catches a
+/// pool sized for the operands alone (3) or the persistent leaves alone (5), one not reserved (0,
+/// so the first scan allocates) and buffers without room for the longest path.
+#[test]
+fn the_reference_pool_holds_every_reference_a_scan_can_hold() {
+    let prepared = prepared(REFERENCES);
+    let plan = ScratchPlan::of(&prepared).unwrap();
+    assert_eq!(plan.reference_paths, 3);
+    assert_eq!(
+        plan.path_shape,
+        crate::vm::prepared::operand_bounds::PathShape {
+            segments: 1,
+            indexes: 1,
+            subscripts: 1,
+        }
+    );
+    let data = EngineState::construct_data_with(
+        &prepared,
+        0,
+        &services::LOGICAL_ONLY,
+        Construction {
+            store: StoreKind::Cells,
+            profile: crate::value::DateTimeProfile::default(),
+        },
+    )
+    .unwrap();
+    assert_eq!(data.resources.references.kept(), (8, 8));
 }
 
 /// Spec 34 MEM-09: a reserved visited set is reused, and it comes back empty. Catches a set handed

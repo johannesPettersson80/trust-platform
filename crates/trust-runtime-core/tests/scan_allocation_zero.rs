@@ -690,7 +690,13 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// call in any scan, and `retained_values` and `unions` none after their first scan, whose text
 /// branches grew the buffers before; what the first scans still allocate are reference path and
 /// index buffers, measured on the builder on 19 October 2026.
-const CEILINGS: [(&str, usize, Calls); 36] = [
+///
+/// C1-19c3 reserves the reference path and index buffers for every reference a scan can hold at
+/// once: the walk's reference operands on every call level, the references frame variables hold
+/// and the persistent reference leaves, each buffer with room for the longest path. Every corpus
+/// run on the flat store, the saved `main` included, makes no allocator call in any scan, the
+/// first included, measured on the builder on 19 October 2026.
+const CEILINGS: [(&str, usize, Calls); 37] = [
     ("faults/division", 2, Calls::ZERO),
     ("faults/index", 2, Calls::ZERO),
     ("faults/null", 2, Calls::ZERO),
@@ -739,27 +745,28 @@ const CEILINGS: [(&str, usize, Calls); 36] = [
     ("methods", 1, Calls::ZERO),
     // The same runs on the flat store (C1-10 on): those at zero, and each other at the allocator
     // calls of its steady scans when the reference buffers were kept (19 October 2026).
+    ("cells/saved/main", 0, Calls::ZERO),
     ("cells/scalar", 0, Calls::ZERO),
     ("cells/gpio", 0, Calls::ZERO),
     ("cells/saved/gpio", 0, Calls::ZERO),
     ("cells/saved/numeric", 0, Calls::ZERO),
     ("cells/sizeof", 0, Calls::ZERO),
     ("cells/retain", 0, Calls::ZERO),
-    ("cells/io", 1, Calls::ZERO),
-    ("cells/calls", 1, Calls::ZERO),
-    ("cells/blocks", 1, Calls::ZERO),
+    ("cells/io", 0, Calls::ZERO),
+    ("cells/calls", 0, Calls::ZERO),
+    ("cells/blocks", 0, Calls::ZERO),
     ("cells/methods", 0, Calls::ZERO),
     ("cells/instances", 0, Calls::ZERO),
-    ("cells/arrays", 1, Calls::ZERO),
-    ("cells/references", 1, Calls::ZERO),
-    ("cells/strings", 1, Calls::ZERO),
-    ("cells/initializers", 1, Calls::ZERO),
-    ("cells/retained_blocks", 1, Calls::ZERO),
-    ("cells/retained_values", 1, Calls::ZERO),
-    ("cells/copies", 1, Calls::ZERO),
-    ("cells/structures", 1, Calls::ZERO),
-    ("cells/overlays", 1, Calls::ZERO),
-    ("cells/unions", 1, Calls::ZERO),
+    ("cells/arrays", 0, Calls::ZERO),
+    ("cells/references", 0, Calls::ZERO),
+    ("cells/strings", 0, Calls::ZERO),
+    ("cells/initializers", 0, Calls::ZERO),
+    ("cells/retained_blocks", 0, Calls::ZERO),
+    ("cells/retained_values", 0, Calls::ZERO),
+    ("cells/copies", 0, Calls::ZERO),
+    ("cells/structures", 0, Calls::ZERO),
+    ("cells/overlays", 0, Calls::ZERO),
+    ("cells/unions", 0, Calls::ZERO),
     ("cells/operands", 0, Calls::ZERO),
 ];
 
@@ -1049,6 +1056,10 @@ fn every_fixture_reports_its_scans_on_the_flat_store() {
                 let name = format!("cells/{}", fixture.name);
                 report(&name, &scans);
                 failures.extend(ceiling_violations(&name, &scans));
+                // The whole corpus is in the zero list from its first scan (MEM-09; C1-19c3).
+                if ceiling_of(&name) != Some((0, Calls::ZERO)) {
+                    failures.push(format!("{name} is not zero from its first scan"));
+                }
             }
             Ok(_) => failures.push(format!("cells/{} is admitted now", fixture.name)),
             Err(error) if !listed => failures.push(format!("cells/{}: {error}", fixture.name)),

@@ -195,6 +195,11 @@ impl ReferenceTable {
             .ok()
     }
 
+    /// The reference leaves the table holds an entry for.
+    pub(crate) fn leaf_count(&self) -> usize {
+        self.leaves.len()
+    }
+
     /// The reserved capacity, which the store never grows (test support).
     #[cfg(test)]
     pub(crate) fn capacity(&self) -> usize {

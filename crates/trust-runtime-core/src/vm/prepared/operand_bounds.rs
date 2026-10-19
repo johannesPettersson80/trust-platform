@@ -23,8 +23,8 @@ use crate::bytecode::{opcodes, StorageOwner, TypeData, NATIVE_CALL_KIND_STDLIB};
 use crate::memory::cells::{is_reference_type, text_geometry};
 use crate::stdlib::conversions::{ConversionSpec, ConversionType};
 use crate::stdlib::text_kernels::TextKernel;
-use crate::value::Value;
-use crate::vm::module::VmNativeSymbolSpec;
+use crate::value::{RefSegment, Value};
+use crate::vm::module::{VmNativeSymbolSpec, VmRef};
 use crate::vm::prepared::byte_types::{backing_place, copies_as_bytes, resolve};
 use crate::vm::PreparedModule;
 
@@ -55,6 +55,10 @@ pub(crate) struct OperandBounds {
     pub(crate) text_arguments: usize,
     /// The most arguments of one text function.
     pub(crate) text_count: usize,
+    /// The most operands that can be references one activation holds at once, and the most it
+    /// keeps below a call (C1-19c3).
+    pub(crate) references: usize,
+    pub(crate) references_below_call: usize,
 }
 
 impl OperandBounds {
@@ -73,6 +77,10 @@ impl OperandBounds {
             let walked = walk(prepared, &types, &body, &mut bounds);
             bounds.temporaries = bounds.temporaries.max(walked.peak);
             bounds.temporaries_below_call = bounds.temporaries_below_call.max(walked.below_call);
+            bounds.references = bounds.references.max(walked.references);
+            bounds.references_below_call = bounds
+                .references_below_call
+                .max(walked.references_below_call);
         }
         for entry in &prepared.initializers.entries {
             let start = entry.code_offset as usize;
@@ -85,9 +93,140 @@ impl OperandBounds {
             };
             let walked = walk(prepared, &types, &body, &mut bounds);
             bounds.initializer_temporaries = bounds.initializer_temporaries.max(walked.peak);
+            bounds.references = bounds.references.max(walked.references);
         }
         bounds
     }
+}
+
+/// The longest path of a reference into a value of any type of the module, and the most of its
+/// segments that are index segments and subscripts one of them takes (C1-19c3): a path takes a
+/// segment for each member and each array level it goes through, and one for a text's character.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct PathShape {
+    pub(crate) segments: usize,
+    pub(crate) indexes: usize,
+    pub(crate) subscripts: usize,
+}
+
+impl PathShape {
+    /// The shape of every path of `prepared`: into a value of any of its types, and a static
+    /// reference's path, which may start in an instance's member, followed by any path into its
+    /// target's type.
+    pub(crate) fn of(prepared: &PreparedModule) -> Self {
+        let mut shape = Self::default();
+        for type_id in 0..prepared.vm.types.entries.len() {
+            let Ok(type_id) = u32::try_from(type_id) else {
+                break;
+            };
+            shape = shape.max(Self::of_type(prepared, type_id, 0));
+        }
+        for (index, reference) in prepared.vm.refs.iter().enumerate() {
+            let (VmRef::InitializerResult { path, .. }
+            | VmRef::Global { path, .. }
+            | VmRef::Local { path, .. }
+            | VmRef::Instance { path, .. }
+            | VmRef::Retain { path, .. }) = reference
+            else {
+                // A process-image reference has no path.
+                continue;
+            };
+            let target = u32::try_from(index)
+                .ok()
+                .and_then(|index| prepared.vm.ref_type(index))
+                .map_or_else(Self::default, |ty| Self::of_type(prepared, ty, 0));
+            let mut own = Self {
+                segments: path.len(),
+                ..Self::default()
+            };
+            for segment in path {
+                if let RefSegment::Index(subscripts) = segment {
+                    own.indexes += 1;
+                    own.subscripts = own.subscripts.max(subscripts.len());
+                }
+            }
+            shape = shape.max(Self {
+                segments: own.segments + target.segments,
+                indexes: own.indexes + target.indexes,
+                subscripts: own.subscripts.max(target.subscripts),
+            });
+        }
+        shape
+    }
+
+    /// The larger of two shapes, part by part.
+    fn max(self, other: Self) -> Self {
+        Self {
+            segments: self.segments.max(other.segments),
+            indexes: self.indexes.max(other.indexes),
+            subscripts: self.subscripts.max(other.subscripts),
+        }
+    }
+
+    /// The longest path into a value of `type_id`.
+    fn of_type(prepared: &PreparedModule, type_id: u32, depth: usize) -> Self {
+        if depth > crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
+            return Self::default();
+        }
+        match resolve(prepared, type_id).map(|entry| &entry.data) {
+            Some(TypeData::Array { elem_type_id, dims }) => {
+                let inner = Self::of_type(prepared, *elem_type_id, depth + 1);
+                Self {
+                    segments: inner.segments + 1,
+                    indexes: inner.indexes + 1,
+                    subscripts: inner.subscripts.max(dims.len()),
+                }
+            }
+            Some(TypeData::Struct { fields } | TypeData::Union { fields }) => {
+                let inner = fields.iter().fold(Self::default(), |shape, field| {
+                    let found = Self::of_type(prepared, field.type_id, depth + 1);
+                    Self {
+                        segments: shape.segments.max(found.segments),
+                        indexes: shape.indexes.max(found.indexes),
+                        subscripts: shape.subscripts.max(found.subscripts),
+                    }
+                });
+                Self {
+                    segments: inner.segments + 1,
+                    ..inner
+                }
+            }
+            _ if text_geometry(prepared, type_id).is_some() => Self {
+                segments: 1,
+                indexes: 1,
+                subscripts: 1,
+            },
+            _ => Self::default(),
+        }
+    }
+}
+
+/// The most references the variables of one frame hold as values (C1-19c3): a frame variable whose
+/// value holds a reference stays a value of the frame (C1-11b), each of its reference leaves a
+/// reference that may keep a path.
+pub(crate) fn frame_references(prepared: &PreparedModule) -> usize {
+    // `PouMap::keys` exists only with the register feature, so the identity and payload pairs are
+    // iterated and the payloads ignored; clippy's `keys()` suggestion does not compile on the chips.
+    #[allow(
+        clippy::iter_kv_map,
+        reason = "PouMap::keys exists only with register-ir"
+    )]
+    let most = prepared
+        .vm
+        .pou_by_id
+        .iter()
+        .map(|(pou, _)| {
+            prepared
+                .declarations(StorageOwner::Frame, Some(*pou))
+                .iter()
+                .filter_map(|&id| prepared.layout.entries.get(id as usize)?.type_id)
+                .filter_map(|ty| prepared.type_layout(ty))
+                .map(|layout| layout.reference_leaves.len())
+                .sum::<usize>()
+        })
+        .max()
+        .unwrap_or(0);
+    most
 }
 
 /// The module-wide fallbacks for an operand whose type the walk does not know.
@@ -127,6 +266,8 @@ struct Body<'a> {
 struct Walked {
     peak: usize,
     below_call: usize,
+    references: usize,
+    references_below_call: usize,
 }
 
 /// The walk's bound of one operand.
@@ -142,6 +283,8 @@ struct Operand {
     ty: Option<u32>,
     /// The POU of an instance the operand is, when the walk knows it.
     pou: Option<u32>,
+    /// Whether the operand can be a reference, whose path may hold a kept buffer (C1-19c3).
+    reference: bool,
 }
 
 impl Operand {
@@ -152,6 +295,7 @@ impl Operand {
         copy: 0,
         ty: None,
         pou: None,
+        reference: false,
     };
 
     /// The operand a load of a value of `ty` pushes: its text, and its bytes when a store may copy
@@ -162,6 +306,7 @@ impl Operand {
                 Some(types) => Self {
                     text: types.longest_text,
                     copy: types.largest_place,
+                    reference: true,
                     ..Self::VALUE
                 },
                 None => Self::VALUE,
@@ -202,6 +347,7 @@ impl Operand {
     fn reference(target: Option<u32>) -> Self {
         Self {
             ty: target,
+            reference: true,
             ..Self::VALUE
         }
     }
@@ -229,6 +375,7 @@ impl Operand {
             } else {
                 None
             },
+            reference: self.reference || other.reference,
         }
     }
 
@@ -240,6 +387,7 @@ impl Operand {
             copy: types.largest_place,
             ty: None,
             pou: None,
+            reference: true,
         }
         .join(self)
     }
@@ -345,6 +493,7 @@ fn walk(
                 bounds,
             );
             walked.peak = walked.peak.max(held(&stack));
+            walked.references = walked.references.max(references(&stack));
             let ends = matches!(instruction.opcode, 0x02..=0x04 | 0x06);
             if !ends && index + 1 < instructions.len() && !leader[index + 1] {
                 index += 1;
@@ -405,6 +554,11 @@ fn held(stack: &[Operand]) -> usize {
         .iter()
         .map(|operand| operand.temporary as usize)
         .fold(0usize, usize::saturating_add)
+}
+
+/// The operands of `stack` that can be references.
+fn references(stack: &[Operand]) -> usize {
+    stack.iter().filter(|operand| operand.reference).count()
 }
 
 /// Pop one operand; a stack the validator admitted holds it.
@@ -480,9 +634,14 @@ fn step(
             pop(stack);
             pop(stack);
         }
-        0x45 | 0x49 | 0x61 | 0x62 | 0x64 => {
+        0x45 | 0x49 | 0x61 | 0x62 => {
             pop(stack);
             stack.push(Operand::VALUE);
+        }
+        // An attempt `?=` gives a reference or an instance.
+        0x64 => {
+            pop(stack);
+            stack.push(Operand::reference(None));
         }
         0x40..=0x44 | 0x46..=0x48 | 0x4C | 0x50..=0x55 | 0x63 => {
             pop(stack);
@@ -586,10 +745,15 @@ fn call(
         }
         walked.below_call = walked.below_call.max(held(&stack[..below]));
         walked.peak = walked.peak.max(held(stack));
+        walked.references_below_call = walked
+            .references_below_call
+            .max(references(&stack[..below]));
         stack.truncate(below);
-        // A user function's result is a value: bounded as any text, it holds no room.
+        // A user function's result is a value: bounded as any text, it holds no room, and it can
+        // be a reference.
         stack.push(Operand {
             text: types.longest_text,
+            reference: true,
             ..Operand::VALUE
         });
         return;
