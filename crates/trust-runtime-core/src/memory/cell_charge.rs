@@ -287,7 +287,7 @@ impl CellReader<'_> {
             let Target::Cells(range, type_id, presence) = target else {
                 continue;
             };
-            if !self.present(presence) {
+            if !self.present(range.region, presence) {
                 continue;
             }
             let Some(prim_id @ (STRING_PRIMITIVE | WSTRING_PRIMITIVE)) =

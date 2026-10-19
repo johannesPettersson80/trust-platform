@@ -1,5 +1,5 @@
 //! Typed identity boundaries over compact sorted live entries.
-use super::ordered::{growth_demand, reserve_growth, Entries};
+use super::ordered::{fresh_growth_demand, reserve_growth, Entries};
 use super::{FrameId, InstanceId, RuntimeError, Vec};
 
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -12,8 +12,20 @@ impl InstanceSet {
     pub(super) fn insertion_demand(&self, id: InstanceId) -> Result<(usize, usize), RuntimeError> {
         self.0.insertion_demand(&id.0)
     }
+    /// The demand of inserting `id` into a set reused from the reserved lists, charged as a set
+    /// that grew on demand from empty (spec 34 TIME-08; C1-11c).
+    pub(super) fn fresh_insertion_demand(
+        &self,
+        id: InstanceId,
+    ) -> Result<(usize, usize), RuntimeError> {
+        self.0.fresh_insertion_demand(&id.0)
+    }
     pub(super) fn insert(&mut self, id: InstanceId) -> Result<bool, RuntimeError> {
         Ok(self.0.insert(id.0, ())?.is_none())
+    }
+    /// Remove every identity and keep the room they took.
+    pub(super) fn clear(&mut self) {
+        self.0.clear();
     }
     pub(super) fn contains(&self, id: &InstanceId) -> bool {
         self.0.get(&id.0).is_some()
@@ -25,7 +37,6 @@ impl InstanceSet {
     pub(super) fn remove(&mut self, id: &InstanceId) -> bool {
         self.0.remove(&id.0).is_some()
     }
-    #[cfg(test)]
     pub(super) fn iter(&self) -> impl Iterator<Item = InstanceId> + '_ {
         self.0.iter().map(|(id, _)| InstanceId(*id))
     }
@@ -101,7 +112,13 @@ impl InstanceLifetimes {
     }
 }
 #[derive(Default)]
-pub(super) struct OwnedInstances(Entries<u32, Vec<u32>>, #[cfg(test)] core::cell::Cell<usize>);
+pub(super) struct OwnedInstances(
+    Entries<u32, Vec<u32>>,
+    /// The emptied lists of owners that ended, kept for the next owner, so that the instances of a
+    /// call take no allocation once the engine is warm (spec 34 MEM-09; C1-11c).
+    Vec<Vec<u32>>,
+    #[cfg(test)] core::cell::Cell<usize>,
+);
 impl OwnedInstances {
     pub(super) fn reservation_demand(
         &self,
@@ -117,10 +134,10 @@ impl OwnedInstances {
     }
     pub(super) fn push_demand(&self, owner: FrameId) -> Result<(usize, usize), RuntimeError> {
         let (outer_bytes, outer_work) = self.0.insertion_demand(&owner.0)?;
-        let (bytes, moved) = match self.0.get(&owner.0) {
-            Some(entries) => growth_demand(entries)?,
-            None => (4 * core::mem::size_of::<u32>(), 0),
-        };
+        // An owner's list is charged as a list that grows from empty, also when it reuses the
+        // list of an owner that ended (TIME-08).
+        let held = self.0.get(&owner.0).map_or(0, Vec::len);
+        let (bytes, moved) = fresh_growth_demand::<u32>(held)?;
         Ok((
             outer_bytes
                 .checked_add(bytes)
@@ -139,7 +156,7 @@ impl OwnedInstances {
             reserve_growth(entries)?;
             entries.push(instance.0);
         } else {
-            let mut entries = Vec::new();
+            let mut entries = self.1.pop().unwrap_or_default();
             reserve_growth(&mut entries)?;
             entries.push(instance.0);
             self.0.insert(owner.0, entries)?;
@@ -164,20 +181,49 @@ impl OwnedInstances {
     }
     #[cfg(test)]
     fn note_snapshot_copy(&self) {
-        self.1.set(self.1.get() + 1);
+        self.2.set(self.2.get() + 1);
     }
     #[cfg(not(test))]
     fn note_snapshot_copy(&self) {}
     #[cfg(test)]
     pub(super) fn snapshot_copy_count(&self) -> usize {
-        self.1.get()
+        self.2.get()
     }
-    pub(super) fn take(&mut self, owner: FrameId) -> impl Iterator<Item = InstanceId> + use<> {
-        self.0
-            .remove(&owner.0)
-            .unwrap_or_default()
-            .into_iter()
-            .map(InstanceId)
+    /// The instances `owner`'s list holds, in the order they were pushed, taken off the owner. The
+    /// emptied list is kept for the next owner when the iterator is dropped.
+    pub(super) fn take(&mut self, owner: FrameId) -> TakenInstances<'_> {
+        TakenInstances {
+            entries: self.0.remove(&owner.0).unwrap_or_default(),
+            next: 0,
+            spare: &mut self.1,
+        }
+    }
+}
+
+/// The instances taken off an owner (see [`OwnedInstances::take`]).
+pub(super) struct TakenInstances<'a> {
+    entries: Vec<u32>,
+    next: usize,
+    spare: &'a mut Vec<Vec<u32>>,
+}
+impl Iterator for TakenInstances<'_> {
+    type Item = InstanceId;
+    fn next(&mut self) -> Option<InstanceId> {
+        let id = *self.entries.get(self.next)?;
+        self.next += 1;
+        Some(InstanceId(id))
+    }
+}
+impl Drop for TakenInstances<'_> {
+    fn drop(&mut self) {
+        let mut entries = core::mem::take(&mut self.entries);
+        // A list that never held an instance has no room to keep. The spare lists grow only while
+        // the engine warms up; a list they have no room for is freed.
+        if entries.capacity() == 0 || self.spare.try_reserve(1).is_err() {
+            return;
+        }
+        entries.clear();
+        self.spare.push(entries);
     }
 }
 
@@ -357,6 +403,35 @@ mod tests {
         assert_eq!(
             lifetimes.get(&InstanceId(frames[0].0)),
             Some(Some(FrameId(u32::MAX)))
+        );
+    }
+
+    /// Spec 34 MEM-09 and TIME-08: the list of an owner that ended is kept for the next owner, and
+    /// the next owner is charged as for a new list. Five instances grow a list to 8 entries; reused,
+    /// its first instance is charged a new list's 4 entries of 4 bytes (16), and its fifth the
+    /// growth from 4 to 8 entries (32), as a list growing from empty is. Catches a reused list
+    /// charged by the room it kept (nothing for the fifth instance), and a taken list that is freed
+    /// instead of kept.
+    #[test]
+    fn the_list_of_an_ended_owner_is_reused_and_charged_as_a_new_one() {
+        let mut owners = OwnedInstances::default();
+        for id in 0..5 {
+            owners.push(FrameId(1), InstanceId(id)).unwrap();
+        }
+        assert_eq!(owners.take(FrameId(1)).count(), 5);
+        assert_eq!(owners.1.len(), 1);
+        assert_eq!(owners.1[0].capacity(), 8);
+        assert_eq!(
+            owners.push_demand(FrameId(2)).map(|(bytes, _)| bytes),
+            Ok(16)
+        );
+        for id in 0..4 {
+            owners.push(FrameId(2), InstanceId(id)).unwrap();
+        }
+        assert!(owners.1.is_empty());
+        assert_eq!(
+            owners.push_demand(FrameId(2)).map(|(bytes, _)| bytes),
+            Ok(32)
         );
     }
 

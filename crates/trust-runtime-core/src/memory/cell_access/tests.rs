@@ -28,10 +28,11 @@ use std::sync::Arc;
 use smol_str::SmolStr;
 
 use super::fixture::{
-    pair_value, prepared, prepared_without_parent_root, series_value, BASE, BASE_DECL, BASE_G,
-    BASE_G_INSTANCE, BASE_INSTANCE, BASE_POU, BASE_ROOT, DERIVED, DERIVED_INSTANCE, DERIVED_POU,
-    DINT, DINT_DECL, DINT_G, FB_DECL, FB_G, FB_ROOT, GLOBAL_NAMES, INT_ARRAY, PAIR, PARENT_ROOT,
-    REAL, REAL_DECL, REF_DECL, REF_DINT, STRING_10, TEXT_DECL, WIDE_DECL, WSTRING_5,
+    pair_value, prepared, prepared_with_held_reference, prepared_without_parent_root, series_value,
+    BASE, BASE_DECL, BASE_G, BASE_G_INSTANCE, BASE_INSTANCE, BASE_POU, BASE_ROOT, DERIVED,
+    DERIVED_INSTANCE, DERIVED_POU, DINT, DINT_DECL, DINT_G, FB_DECL, FB_G, FB_ROOT, GLOBAL_NAMES,
+    INT_ARRAY, PAIR, PARENT_ROOT, REAL, REAL_DECL, REF_DECL, REF_DINT, STRING_10, TEXT_DECL,
+    WIDE_DECL, WSTRING_5,
 };
 use super::{CellArm, CellReader, CellWriter};
 use crate::collections::OrderedMap;
@@ -773,4 +774,21 @@ fn the_persistent_instance_table_never_grows() {
     );
     assert_eq!(arm.persistent_count(), 4);
     assert_eq!(arm.cells().regions().instance_capacity(), 4);
+}
+
+/// Spec 34 §6.3 (C1-11c): an instance whose inheritance chain has an own variable that holds a
+/// reference stays a value when a call creates it, and the whole chain with it. In the fixture,
+/// where `Derived`'s `own_v` is a REAL, `Derived` and its parent `Base` go on the activation stack;
+/// in the variant where `own_v` is a `Holder`, a structure that holds a `REF_TO DINT`, both stay
+/// values. Catches a rule that reads only a variable's own type (`Holder` is a structure, not a
+/// reference), and one that puts `Base`, which holds no reference itself, on the stack while
+/// `Derived` stays a value, so that one instance would lie in two stores.
+#[test]
+fn an_instance_chain_that_holds_a_reference_stays_a_value() {
+    let plain = prepared();
+    assert!(plain.call_instance_on_stack(BASE_POU));
+    assert!(plain.call_instance_on_stack(DERIVED_POU));
+    let held = prepared_with_held_reference();
+    assert!(!held.call_instance_on_stack(DERIVED_POU));
+    assert!(!held.call_instance_on_stack(BASE_POU));
 }

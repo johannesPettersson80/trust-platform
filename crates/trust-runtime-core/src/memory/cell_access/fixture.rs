@@ -748,6 +748,56 @@ pub(crate) fn prepared_without_parent_root() -> PreparedModule {
     .expect("the module without the parent root prepares")
 }
 
+/// The fixture with `Derived`'s own variable `own_v` a `Holder`, a structure of a `REF_TO DINT` and a
+/// `DINT`, instead of a REAL, and `fb_g`'s construction demand grown with it: the inheritance chain of
+/// `Derived` and `Base` then holds a reference in `Derived`'s own variables only (C1-11c).
+pub(super) fn prepared_with_held_reference() -> PreparedModule {
+    let mut module = fixture();
+    let SectionData::StorageLayout(layout) = module
+        .section_mut(SectionId::StorageLayout)
+        .expect("the storage layout section")
+    else {
+        unreachable!("the storage layout section holds a storage layout")
+    };
+    let own = layout
+        .entries
+        .iter_mut()
+        .find(|declaration| {
+            declaration.owner == StorageOwner::Instance
+                && declaration.owner_pou_id == Some(DERIVED_POU)
+        })
+        .expect("Derived declares own_v");
+    own.type_id = Some(HOLDER);
+    own.construction_nodes = 3;
+    // `Derived`'s demand grows with `own_v`'s, from 1 + 9 + 1 = 11 to 1 + 9 + 3 = 13.
+    layout
+        .entries
+        .iter_mut()
+        .find(|declaration| declaration.type_id == Some(DERIVED))
+        .expect("fb_g is a Derived")
+        .construction_nodes = 13;
+    let SectionData::VarMeta(meta) = module
+        .section_mut(SectionId::VarMeta)
+        .expect("the variable metadata section")
+    else {
+        unreachable!("the variable metadata section holds variable metadata")
+    };
+    // The metadata of `own_v`'s initializer result (reference 16) gives its type.
+    meta.entries
+        .iter_mut()
+        .find(|entry| entry.ref_idx == 16)
+        .expect("own_v's initializer result has metadata")
+        .type_id = HOLDER;
+    module
+        .validate()
+        .expect("the held-reference fixture is a valid source-free module");
+    PreparedModule::from_bytes(
+        &module.encode().expect("encode"),
+        PreparationLimits::default(),
+    )
+    .expect("the held-reference fixture prepares")
+}
+
 /// The fixture plus one global, `holder_g : Holder` ([`HOLDER_G`]), a structure of a `REF_TO DINT` and a
 /// `DINT` (R3). Its cells follow the seven globals of [`fixture`], so it is a module of its own: the other
 /// fixtures keep the cells their tests check.

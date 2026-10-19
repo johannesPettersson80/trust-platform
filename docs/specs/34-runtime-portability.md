@@ -1413,17 +1413,23 @@ allocates nothing (ARCH-05).
 **Activation stack.** On the flat store every call's frame lies on the activation stack, on top of
 its caller's (MEM-12; checklist C1-11). Preparation gives each POU a frame layout, every typed
 variable of the frame at its declared size and alignment and the frame rounded up to 8 bytes, and
-construction reserves the stack once, charged with the persistent block: one frame of the largest
-POU for each call level it reserves (§6.2), which no chain of calls exceeds. A frame takes the bytes
-above its caller's when its activation begins, zeroed; the inputs its call bound and a return value
-its caller supplied move into them, the defaults and initializers of its other variables are written
-there, every read and write of its variables reaches them through the store, its return value is
-read from them, and after it returns its outputs are copied back from them, before any other frame
-takes the bytes. A compiler scratch slot, which has no declared type, and a variable whose value
-holds a reference stay values of the frame until references are flat addresses; a function block
-instance that a function or method declares stays where it is until per-call instances join the
-stack. The register tier runs on the value store only until it reads frames on the stack (C1-18).
-Every result, charge and refusal is the value store's (TIME-08).
+construction reserves the stack once, charged with the persistent block: for each call level it
+reserves (§6.2), the largest frame together with the instances its variables hold, which no chain of
+calls exceeds. A frame takes the bytes above its caller's when its activation begins, zeroed; the
+inputs its call bound and a return value its caller supplied move into them, the defaults and
+initializers of its other variables are written there, every read and write of its variables reaches
+them through the store, its return value is read from them, and after it returns its outputs are
+copied back from them, before any other frame takes the bytes. A compiler scratch slot, which has no
+declared type, and a variable whose value holds a reference stay values of the frame until
+references are flat addresses. A function block or class instance that a call creates for a variable
+of its frame lies on the stack too, above the frame (checklist C1-11c): each level of its
+inheritance chain in a range of that level's own variables, zeroed and then given their declared
+constants, and the instances those variables hold above it. It leaves the stack when the frame that
+owns it ends, and construction reserves a record for each instance the stack can hold. An instance
+whose inheritance chain has an own variable that holds a reference, and an instance created while no
+call runs, such as the one an engineering entry runs, stay values until references are flat. The
+register tier runs on the value store only until it reads frames on the stack (C1-18). Every result,
+charge and refusal is the value store's (TIME-08).
 
 **Flat references.** On the flat store a reference to a whole variable, member or element that can
 be written and lies in the persistent block is flat as soon as the program takes it: the block and

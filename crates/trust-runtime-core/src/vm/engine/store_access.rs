@@ -653,6 +653,20 @@ impl RoutedMut<'_> {
         }
     }
 
+    /// Create an instance of template `pou` that a call owns: on the activation stack of the cell
+    /// store, above the frame that runs (specification 34 MEM-12; C1-11c), and as a record of the
+    /// `Value` store.
+    pub(super) fn create_call_instance(
+        &mut self,
+        pou: u32,
+        type_name: &str,
+    ) -> Result<InstanceId, RuntimeError> {
+        match self {
+            RoutedMut::Values(store) => StoreMutate::try_create_instance(&mut **store, type_name),
+            RoutedMut::Cells(writer) => writer.create_call_instance(pou),
+        }
+    }
+
     /// Give the instance `child` the parent `parent`, or none; `false` when `child` does not exist.
     pub(super) fn set_instance_parent(
         &mut self,
@@ -694,6 +708,24 @@ impl EngineState<'_> {
         type_name: &str,
     ) -> Result<InstanceId, RuntimeError> {
         routed_mut(&mut *self.data, self.prepared).create_root_instance(root, pou, type_name)
+    }
+
+    /// Create an instance of template `pou` that a call owns (see [`RoutedMut::create_call_instance`]).
+    pub(super) fn create_call_instance(
+        &mut self,
+        pou: u32,
+        type_name: &str,
+    ) -> Result<InstanceId, RuntimeError> {
+        routed_mut(&mut *self.data, self.prepared).create_call_instance(pou, type_name)
+    }
+
+    /// Whether an instance of `pou` that a call creates now lies on the activation stack
+    /// (specification 34 MEM-12; C1-11c): on the cell store while a frame is on the stack, for a
+    /// POU whose inheritance chains hold no reference leaf. The instances an entry or construction
+    /// creates outside any call stay in the `Value` half.
+    pub(super) fn call_instance_on_stack(&self, pou: u32) -> bool {
+        matches!(&self.data.store, EngineStore::Cells(arm) if arm.holds_frames())
+            && self.prepared.call_instance_on_stack(pou)
     }
 
     /// Give the instance `child` the parent `parent`, or none; `false` when `child` does not exist.

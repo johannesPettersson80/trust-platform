@@ -145,6 +145,9 @@ impl EngineState<'_> {
         // root and a retained object that no root of the replacement names. The `Value` store has no range
         // to fill and keeps both.
         let persistent_cells = self.holds_cells() && lifetime.is_none();
+        // An instance a call owns lies on the activation stack of the cell store, above the frame
+        // that runs (MEM-12; C1-11c).
+        let on_stack = lifetime.is_some() && self.call_instance_on_stack(pou);
         if persistent_cells && root.is_none() {
             return Err(RuntimeError::InitFailed {
                 owner: name.into(),
@@ -166,8 +169,9 @@ impl EngineState<'_> {
                 self.before_value_clone(value)?;
             }
         }
-        // A persistent instance of the cell store is recorded in its table, which takes no array growth.
-        let bytes = if persistent_cells {
+        // A persistent instance of the cell store is recorded in its table and one on the activation
+        // stack in the records reserved for it, neither of which grows.
+        let bytes = if persistent_cells || on_stack {
             0
         } else {
             self.data
@@ -189,6 +193,7 @@ impl EngineState<'_> {
             .reserve_lifetime_visited(live_instances)?;
         let instance = match root {
             Some(index) => self.create_root_instance(index, pou, name)?,
+            None if on_stack => self.create_call_instance(pou, name)?,
             None => self.try_create_instance(name)?,
         };
         // Each fallible metadata insertion is charged before mutation. If any
@@ -228,7 +233,8 @@ impl EngineState<'_> {
         }
         // The members of a persistent instance on the cell store hold their declared defaults and
         // constants from the moment the store was constructed (R3), and writing the empty value over them
-        // would erase them. The `Value` store and a per-call instance name every member here.
+        // would erase them. The `Value` store and a per-call instance name every member here; on the
+        // activation stack the members start at zero and take their declared constants.
         if persistent_cells {
             return Ok(instance);
         }
@@ -723,9 +729,24 @@ impl EngineState<'_> {
     ) -> Result<(), RuntimeError> {
         // Traverse borrowed payloads first. Cloning aggregate fields here would
         // allocate before charging and duplicate large arrays merely to find IDs.
-        let mut instances = InstanceSet::default();
-        self.collect_owned_instance_graph(value, 0, &mut instances)?;
-        for instance in instances {
+        // The walk's set is one of the reserved lists, so a call's promotion
+        // allocates nothing once the engine is warm (spec 34 MEM-09; C1-11c).
+        let mut instances = self.data.resources.bookkeeping.take_visited();
+        let promoted = self
+            .collect_owned_instance_graph(value, 0, &mut instances)
+            .and_then(|()| self.promote_instances(&instances, source, destination));
+        self.data.resources.bookkeeping.return_visited(instances);
+        promoted
+    }
+
+    /// Give each of `instances` that `source` owns to `destination`.
+    fn promote_instances(
+        &mut self,
+        instances: &InstanceSet,
+        source: FrameId,
+        destination: Option<FrameId>,
+    ) -> Result<(), RuntimeError> {
+        for instance in instances.iter() {
             if self.data.lifetimes.instance_lifetimes.get(&instance) == Some(Some(source)) {
                 // Reserve the new owner's list before changing lifetime. Rollback
                 // restores existing lifetimes without allocating or using fuel.
@@ -792,9 +813,10 @@ impl EngineState<'_> {
                 if visited.contains(instance) {
                     return Ok(());
                 }
-                // Conservative B-tree entry plus possible destination owner entry.
+                // Conservative B-tree entry plus possible destination owner entry. The set
+                // is reused from the reserved lists and charged as one that grows from empty.
                 self.charge_allocation_bytes(8 * core::mem::size_of::<InstanceId>())?;
-                self.charge_sorted_growth(visited.insertion_demand(*instance))?;
+                self.charge_sorted_growth(visited.fresh_insertion_demand(*instance))?;
                 visited.insert(*instance)?;
                 let members = self
                     .instance_member_count(*instance)
@@ -846,8 +868,13 @@ impl EngineState<'_> {
     // Terminal cleanup must complete even after a refused check. Check at the
     // fallible boundary before calling this; preserve the original fault.
     pub(in crate::vm::engine) fn remove_owned_instances_unchecked(&mut self, owner: FrameId) {
-        let mut removed = self.data.lifetimes.owned_instances.take(owner);
-        if !removed.any(|id| self.data.lifetimes.instance_lifetimes.get(&id) == Some(Some(owner))) {
+        let owns_any = self
+            .data
+            .lifetimes
+            .owned_instances
+            .take(owner)
+            .any(|id| self.data.lifetimes.instance_lifetimes.get(&id) == Some(Some(owner)));
+        if !owns_any {
             return;
         }
         let lifetimes = &self.data.lifetimes.instance_lifetimes;

@@ -54,6 +54,19 @@ impl<K: Ord, V> Entries<K, V> {
         Some(&mut self.0[index].1)
     }
     pub(super) fn insertion_demand(&self, key: &K) -> Result<(usize, usize), RuntimeError> {
+        self.insertion_demand_by(key, || growth_demand::<(K, V)>(&self.0))
+    }
+    /// The demand of inserting `key` into entries reused from a reserved list: the growth is the
+    /// one entries that grew on demand from empty would make, whatever capacity the reused list
+    /// kept (spec 34 TIME-08; C1-11c).
+    pub(super) fn fresh_insertion_demand(&self, key: &K) -> Result<(usize, usize), RuntimeError> {
+        self.insertion_demand_by(key, || fresh_growth_demand::<(K, V)>(self.0.len()))
+    }
+    fn insertion_demand_by(
+        &self,
+        key: &K,
+        growth: impl FnOnce() -> Result<(usize, usize), RuntimeError>,
+    ) -> Result<(usize, usize), RuntimeError> {
         // Demand, optional preparation, lookup and insertion may each search.
         // Four searches bound the common insertion path. The work component is
         // bookkeeping and is never charged (TIME-08); allocation bytes are.
@@ -68,7 +81,7 @@ impl<K: Ord, V> Entries<K, V> {
             Err(index) => index,
             Ok(_) => return Ok((0, search)),
         };
-        let (bytes, moved) = growth_demand::<(K, V)>(&self.0)?;
+        let (bytes, moved) = growth()?;
         let Some(work) = search
             .checked_add(self.0.len() - index)
             .and_then(|n| n.checked_add(moved))
@@ -112,6 +125,10 @@ impl<K: Ord, V> Entries<K, V> {
     pub(super) fn into_entries(self) -> alloc::vec::IntoIter<(K, V)> {
         self.0.into_iter()
     }
+    /// Remove every entry and keep the room they took.
+    pub(super) fn clear(&mut self) {
+        self.0.clear();
+    }
 }
 
 pub(super) fn growth_demand<T>(entries: &Vec<T>) -> Result<(usize, usize), RuntimeError> {
@@ -128,6 +145,32 @@ pub(super) fn growth_demand<T>(entries: &Vec<T>) -> Result<(usize, usize), Runti
             .checked_mul(core::mem::size_of::<T>())
             .ok_or_else(|| RuntimeError::Overflow)?,
         entries.len(),
+    ))
+}
+/// The growth that a list of `len` entries which grew on demand from empty makes for one more
+/// entry: [`growth_demand`] of such a list, whose capacity is 0, then 4, then each power of two.
+/// A list reused from a reserved list is charged by it, so that reusing changes no charge (spec 34
+/// TIME-08; C1-11c).
+pub(super) fn fresh_growth_demand<T>(len: usize) -> Result<(usize, usize), RuntimeError> {
+    let capacity = match len {
+        0 => 0,
+        _ => len
+            .checked_next_power_of_two()
+            .ok_or_else(|| RuntimeError::Overflow)?
+            .max(4),
+    };
+    if len < capacity {
+        return Ok((0, 0));
+    }
+    let grown = capacity
+        .checked_mul(2)
+        .ok_or_else(|| RuntimeError::Overflow)?
+        .max(4);
+    Ok((
+        grown
+            .checked_mul(core::mem::size_of::<T>())
+            .ok_or_else(|| RuntimeError::Overflow)?,
+        len,
     ))
 }
 pub(super) fn reserve_growth<T>(entries: &mut Vec<T>) -> Result<(), RuntimeError> {
@@ -359,6 +402,28 @@ mod tests {
         marks.retain(|_| false);
         assert_eq!(marks.len(), 0);
         assert_eq!(state.data.storage.instances().len(), before);
+    }
+
+    /// Spec 34 TIME-08: a list reused from the reserved lists is charged the growth that a list
+    /// growing on demand from empty makes, which is its capacity 0, then 4, then each power of two.
+    /// Each expected value is that list's own `growth_demand` as it grows one entry at a time.
+    /// Catches a rule that grows at a length one too early or late (4 to 8 at the fourth or the
+    /// sixth entry) and one that charges the old capacity instead of the new.
+    #[test]
+    fn a_reused_list_is_charged_as_a_list_that_grows_from_empty() {
+        let mut grown: Vec<u64> = Vec::new();
+        for len in 0..70usize {
+            assert_eq!(
+                fresh_growth_demand::<u64>(len),
+                growth_demand(&grown),
+                "length {len}"
+            );
+            reserve_growth(&mut grown).unwrap();
+            grown.push(0);
+        }
+        // By hand: the fifth entry finds 4 of capacity 4 and grows the list to 8 entries of 8 bytes.
+        assert_eq!(fresh_growth_demand::<u64>(4), Ok((64, 4)));
+        assert_eq!(fresh_growth_demand::<u64>(5), Ok((0, 0)));
     }
 }
 

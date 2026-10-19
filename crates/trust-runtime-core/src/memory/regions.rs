@@ -51,6 +51,9 @@ pub struct CellRegions {
     activation: FlatBlock,
     /// The frames on the activation stack, bottom first, reserved for the call levels.
     frames: Vec<FrameBlock>,
+    /// The function-block and class instances that frames on the activation stack own, each above
+    /// the frame that created it, in creation order, reserved for the call levels (C1-11c).
+    call_instances: Vec<(InstanceId, PersistentInstance)>,
     /// The reference leaves and the `ValueRef` each non-null one holds, by byte offset (O9, R3,
     /// R5). Reserved at construction, one entry per reference leaf.
     references: ReferenceTable,
@@ -86,11 +89,16 @@ impl CellRegions {
         &self.activation
     }
 
-    /// The first free byte of the activation stack: the end of the topmost frame, or 0.
+    /// The first free byte of the activation stack: the end of the topmost frame or of the
+    /// instance a frame created last, whichever lies higher, or 0.
     pub(crate) fn activation_top(&self) -> u32 {
-        self.frames.last().map_or(0, |frame| {
+        let frame = self.frames.last().map_or(0, |frame| {
             frame.range.start.saturating_add(frame.range.bytes)
-        })
+        });
+        let instance = self.call_instances.last().map_or(0, |(_, instance)| {
+            instance.range.start.saturating_add(instance.range.bytes)
+        });
+        frame.max(instance)
     }
 
     /// Record `frame` on top of the activation stack. Refused when its bytes leave the reserved block
@@ -151,9 +159,69 @@ impl CellRegions {
         self.references.get(offset)
     }
 
-    /// The persistent instance `id`, or `None` for an identity that is not one.
+    /// The instance `id` the block holds: a persistent instance, or one that a frame on the
+    /// activation stack owns (C1-11c). `None` for an identity that is neither.
     pub(crate) fn instance(&self, id: InstanceId) -> Option<&PersistentInstance> {
-        self.instances.get(id)
+        self.instances.get(id).or_else(|| {
+            self.call_instances
+                .iter()
+                .rev()
+                .find(|(candidate, _)| *candidate == id)
+                .map(|(_, instance)| instance)
+        })
+    }
+
+    /// Whether `id` is a persistent instance, which lives as long as its generation.
+    pub(crate) fn is_persistent_instance(&self, id: InstanceId) -> bool {
+        self.instances.get(id).is_some()
+    }
+
+    /// Record the instance `id` that a frame on the activation stack owns, placed at the top of the
+    /// stack. Refused, as a frame is, when its bytes leave the stack or the reserved records are
+    /// all in use; neither grows (MEM-09).
+    pub(crate) fn push_call_instance(
+        &mut self,
+        id: InstanceId,
+        instance: PersistentInstance,
+    ) -> Result<(), RuntimeError> {
+        let end = instance
+            .range
+            .start
+            .checked_add(instance.range.bytes)
+            .ok_or(RuntimeError::Overflow)?;
+        if end as usize > self.activation.reserved()
+            || self.call_instances.len() == self.call_instances.capacity()
+        {
+            return Err(crate::vm::VmTrap::CallStackOverflow.into_runtime_error());
+        }
+        self.call_instances.push((id, instance));
+        Ok(())
+    }
+
+    /// Release the instance `id` that a frame on the activation stack owned; `false` when it is not
+    /// one.
+    pub(crate) fn release_call_instance(&mut self, id: InstanceId) -> bool {
+        match self
+            .call_instances
+            .iter()
+            .rposition(|(candidate, _)| *candidate == id)
+        {
+            Some(at) => {
+                self.call_instances.remove(at);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// The number of instances that frames on the activation stack own.
+    pub(crate) fn call_instance_count(&self) -> usize {
+        self.call_instances.len()
+    }
+
+    /// Whether a frame is on the activation stack, that is, a call runs.
+    pub(crate) fn holds_frames(&self) -> bool {
+        !self.frames.is_empty()
     }
 
     /// The persistent instance whose own members hold the byte at `offset` (C1-11d).
@@ -185,7 +253,16 @@ impl CellRegions {
         id: InstanceId,
         parent: Option<InstanceId>,
     ) -> bool {
-        match self.instances.get_mut(id) {
+        let instance = match self.instances.get_mut(id) {
+            Some(instance) => Some(instance),
+            None => self
+                .call_instances
+                .iter_mut()
+                .rev()
+                .find(|(candidate, _)| *candidate == id)
+                .map(|(_, instance)| instance),
+        };
+        match instance {
             Some(instance) => {
                 instance.parent = parent;
                 true
@@ -315,14 +392,19 @@ impl CellStorage {
             .ok_or(RuntimeError::Overflow)?;
         let bookkeeping_bytes = extent.bookkeeping_bytes()?;
         let instance_count = extent.instance_roots();
-        // The stack and one frame record for each call level, when some POU has a frame (C1-11).
+        // The stack and one frame record for each call level, when some POU has a frame (C1-11),
+        // and a record for each instance the frames on it can own (C1-11c).
         let activation_bytes = prepared.activation_reservation()?;
         let levels = match activation_bytes {
             0 => 0,
             _ => prepared.reserved_call_levels(),
         };
+        let call_instance_count = prepared.call_instance_reservation()?;
         let frame_bytes = levels
             .checked_mul(FRAME_RECORD_BYTES)
+            .and_then(|bytes| {
+                bytes.checked_add(InstanceTable::reservation_bytes(call_instance_count)?)
+            })
             .ok_or(RuntimeError::Overflow)?;
         let bytes = block_bytes
             .checked_add(table_bytes)
@@ -335,12 +417,17 @@ impl CellStorage {
         frames
             .try_reserve_exact(levels)
             .map_err(|_| crate::vm::VmTrap::BudgetExceeded.into_runtime_error())?;
+        let mut call_instances = Vec::new();
+        call_instances
+            .try_reserve_exact(call_instance_count)
+            .map_err(|_| crate::vm::VmTrap::BudgetExceeded.into_runtime_error())?;
         let mut regions = CellRegions {
             globals: extent.globals,
             roots: extent.roots,
             persistent: FlatBlock::reserve(extent.bytes)?,
             activation: FlatBlock::reserve_in(LayoutRegion::Activation, activation_bytes)?,
             frames,
+            call_instances,
             references: ReferenceTable::reserve(extent.references)?,
             instances: InstanceTable::reserve(instance_count)?,
         };
@@ -408,9 +495,32 @@ impl CellStorage {
     /// still live, and the persistent instances that construction created never are. The floor is the
     /// one counter's own (R4).
     pub(crate) fn begin_execution_entry(&mut self) {
+        // No activation of an earlier entry is live, so no frame of one is on the stack (C1-11),
+        // and no instance such a frame owned (C1-11c).
+        for (id, _) in self.regions.call_instances.drain(..) {
+            self.identities.release_instance(id);
+        }
         self.identities.begin_entry();
-        // No activation of an earlier entry is live, so no frame of one is on the stack (C1-11).
         self.regions.frames.clear();
+    }
+
+    /// Release every instance that a frame on the activation stack owns and `keep` refuses, and
+    /// record each release in the counter that issued the identity (C1-11c). Answers how many were
+    /// released.
+    pub(crate) fn retain_call_instances(
+        &mut self,
+        mut keep: impl FnMut(InstanceId) -> bool,
+    ) -> usize {
+        let before = self.regions.call_instances.len();
+        let identities = &mut self.identities;
+        self.regions.call_instances.retain(|&(id, _)| {
+            let kept = keep(id);
+            if !kept {
+                identities.release_instance(id);
+            }
+            kept
+        });
+        before - self.regions.call_instances.len()
     }
 
     /// Move the next instance identity, so that a test reaches the identity limit without issuing

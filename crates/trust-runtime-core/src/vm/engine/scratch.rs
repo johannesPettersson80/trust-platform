@@ -93,7 +93,10 @@ impl BookkeepingScratch {
     pub(super) fn take_visited(&mut self) -> InstanceSet {
         self.visited.pop().unwrap_or_default()
     }
-    pub(super) fn return_visited(&mut self, visited: InstanceSet) {
+    pub(super) fn return_visited(&mut self, mut visited: InstanceSet) {
+        // A set comes back empty, so that no later initializer may write the instances of the
+        // one that used it before, nor skip their backups.
+        visited.clear();
         if self.visited.len() < self.levels {
             self.visited.push(visited);
         }

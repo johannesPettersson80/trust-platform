@@ -111,6 +111,13 @@ impl<'a> CellWriter<'a> {
         }
     }
 
+    /// Create an instance of template `pou` that a frame on the activation stack owns, on top of the
+    /// stack (specification 34 MEM-12; C1-11c): its own variables take their template's bytes.
+    pub(crate) fn create_call_instance(&mut self, pou: u32) -> Result<InstanceId, RuntimeError> {
+        let own = crate::memory::regions::own_bytes(self.prepared, pou);
+        self.arm.create_call_instance(pou, own)
+    }
+
     /// Store the checked `leaf` of `type_id` into the cells of `range`. The check ran before the copy
     /// (R4), so the store answers `false` only when the cells disagree with the layout.
     /// Write `leaf` into the bytes of `range`, a value of `type_id`, and mark the declaration's
@@ -255,7 +262,7 @@ impl CellReader<'_> {
             return Ok(None);
         };
         // A character of a text that holds no value yet names nothing, as in the null value.
-        if !self.present(presence) {
+        if !self.present(range.region, presence) {
             return Ok(None);
         }
         let Some((length, capacity, wide)) = text_geometry(self.prepared, type_id) else {
@@ -446,8 +453,12 @@ impl StoreMutate for CellWriter<'_> {
     fn remove_instance(&mut self, id: InstanceId) -> bool {
         // A persistent instance ends with its generation, so only a per-call instance is released. The
         // release is recorded in the counter that issued the identity (R4).
-        if self.arm.is_persistent(id) {
+        if self.arm.is_root_instance(id) {
             return false;
+        }
+        // A per-call instance on the activation stack leaves it (C1-11c).
+        if self.arm.release_call_instance(id) {
+            return true;
         }
         let removed = self.values.take_instance(id).is_some();
         if removed {
@@ -456,13 +467,15 @@ impl StoreMutate for CellWriter<'_> {
         removed
     }
 
-    fn retain_instances(&mut self, keep: impl FnMut(InstanceId) -> bool) -> usize {
-        // Only per-call instances are in the `Value` half; their release is recorded against the entry
-        // floor of the counter that issued the identities (R4).
+    fn retain_instances(&mut self, mut keep: impl FnMut(InstanceId) -> bool) -> usize {
+        // A persistent instance ends with its generation. The per-call instances lie on the activation
+        // stack (C1-11c) or in the `Value` half; each release is recorded in the counter that issued the
+        // identity, the `Value` half's against its entry floor (R4).
+        let released = self.arm.retain_call_instances(&mut keep);
         let floor = self.arm.cells.entry_instance_floor();
         let (removed, released_since_floor) = self.values.retain_instances_above(floor, keep);
         self.arm.cells.release_instances(released_since_floor);
-        removed
+        released.saturating_add(removed)
     }
 
     fn restore_instance(&mut self, instance: InstanceId, data: InstanceData) {

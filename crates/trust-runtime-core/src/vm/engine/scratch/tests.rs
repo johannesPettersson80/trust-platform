@@ -430,3 +430,20 @@ fn nested_calls_use_their_own_depths_scratch() {
         "every nested call returns its scratch"
     );
 }
+
+/// Spec 34 MEM-09: a reserved visited set is reused, and it comes back empty. Catches a set handed
+/// to an initializer with the instances of the one that used it before: the write policy would
+/// let the new initializer write them, and its staging would skip their backups.
+#[test]
+fn a_returned_visited_set_is_empty_when_taken_again() {
+    let mut scratch = BookkeepingScratch::default();
+    scratch.reserve(1).unwrap();
+    let mut visited = scratch.take_visited();
+    assert!(visited.insert(InstanceId(7)).unwrap());
+    scratch.return_visited(visited);
+    let visited = scratch.take_visited();
+    assert!(!visited.contains(&InstanceId(7)));
+    assert_eq!(visited.iter().count(), 0);
+    scratch.return_visited(visited);
+    assert!(scratch.all_buffers_returned());
+}

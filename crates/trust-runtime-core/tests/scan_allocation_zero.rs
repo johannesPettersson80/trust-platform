@@ -600,6 +600,12 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// `initializers` to 17; on the flat store `calls` to 1, `blocks` and `retained_blocks` to 0,
 /// `methods` to 1, `instances` to 16 (its per-call class instance, C1-11c), `initializers` to 17 and
 /// `copies` to 8, measured on the builder on 19 October 2026.
+///
+/// C1-11c puts the function-block and class instances a call creates on the activation stack, keeps
+/// the instance lists of the frames that ended for the next frame and walks a promoted value's
+/// instances in a reserved set: on the flat store `instances` falls from 16 to 2, the staged result
+/// of the initializer that creates the instance (C1-13), and on the value store from 16 to 10,
+/// measured on the builder on 19 October 2026.
 const CEILINGS: [(&str, usize, Calls); 31] = [
     ("faults/division", 2, Calls::ZERO),
     ("faults/index", 2, Calls::ZERO),
@@ -695,9 +701,9 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
         "cells/instances",
         1,
         Calls {
-            alloc: 16,
+            alloc: 2,
             realloc: 0,
-            dealloc: 16,
+            dealloc: 2,
         },
     ),
     ("cells/arrays", 1, Calls::ZERO),

@@ -236,19 +236,84 @@ impl CellArm {
         self.cells.regions_mut().set_instance_parent(child, parent)
     }
 
-    /// The number of persistent instances the arm records.
+    /// The number of instances the arm records: the persistent ones and those frames on the
+    /// activation stack own (C1-11c).
     pub(crate) fn persistent_count(&self) -> usize {
-        self.cells.regions().instance_count()
+        self.cells
+            .regions()
+            .instance_count()
+            .saturating_add(self.cells.regions().call_instance_count())
     }
 
-    /// The persistent instance `instance`, or `None` for an identity that is not one.
+    /// The instance `instance` the arm holds in its blocks, persistent or owned by a frame on the
+    /// activation stack, or `None` for an identity it does not hold.
     fn instance(&self, instance: InstanceId) -> Option<&PersistentInstance> {
         self.cells.regions().instance(instance)
     }
 
-    /// Whether `instance` is a persistent instance of the arm.
+    /// Whether the arm holds `instance` in its blocks: its members are read and written there.
     fn is_persistent(&self, instance: InstanceId) -> bool {
         self.instance(instance).is_some()
+    }
+
+    /// Create an instance of template `pou` that a frame on the activation stack owns, on top of the
+    /// stack, its own variables' bytes zero, with an identity from the store's one counter
+    /// (specification 34 MEM-12; C1-11c).
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::Overflow`] when the counter is exhausted, and the call stack overflow when
+    /// the stack or its instance records are full; nothing is issued then.
+    pub(crate) fn create_call_instance(
+        &mut self,
+        pou: u32,
+        own: u32,
+    ) -> Result<InstanceId, RuntimeError> {
+        let range = ByteRange {
+            region: LayoutRegion::Activation,
+            start: self.cells.regions().activation_top(),
+            bytes: own,
+        };
+        let (instance, following) = self.cells.next_instance_id()?;
+        if !self.clear_activation(range) {
+            return Err(crate::vm::VmTrap::CallStackOverflow.into_runtime_error());
+        }
+        self.cells.regions_mut().push_call_instance(
+            instance,
+            PersistentInstance {
+                pou,
+                range,
+                parent: None,
+            },
+        )?;
+        self.cells.issue_instance(instance, following);
+        Ok(instance)
+    }
+
+    /// Whether a frame is on the activation stack, that is, a call runs (C1-11c).
+    pub(crate) fn holds_frames(&self) -> bool {
+        self.cells.regions().holds_frames()
+    }
+
+    /// Release every instance that a frame on the activation stack owns and `keep` refuses, each
+    /// recorded in the counter that issued it; answers how many were released (C1-11c).
+    pub(crate) fn retain_call_instances(&mut self, keep: impl FnMut(InstanceId) -> bool) -> usize {
+        self.cells.retain_call_instances(keep)
+    }
+
+    /// Release the instance `instance` that a frame on the activation stack owned, and record the
+    /// release in the counter that issued it. `false` when it is not one.
+    pub(crate) fn release_call_instance(&mut self, instance: InstanceId) -> bool {
+        let released = self.cells.regions_mut().release_call_instance(instance);
+        if released {
+            self.cells.release_instance(instance);
+        }
+        released
+    }
+
+    /// Whether `instance` is a persistent instance, which lives as long as its generation.
+    fn is_root_instance(&self, instance: InstanceId) -> bool {
+        self.cells.regions().is_persistent_instance(instance)
     }
 
     /// Begin a top-level execution entry for the instance identities the cell store issues
@@ -681,7 +746,7 @@ impl<'a> CellReader<'a> {
 
     /// The view of the cells of `range`, a value of `type_id`, through this reader's region.
     fn view(self, range: ByteRange, type_id: u32, presence: Option<u32>) -> ValueView<'a> {
-        if !self.present(presence) {
+        if !self.present(range.region, presence) {
             return ValueView::Value(&NULL_VALUE);
         }
         ValueView::Cells {
@@ -694,16 +759,16 @@ impl<'a> CellReader<'a> {
         }
     }
 
-    /// Whether the declaration whose presence byte is at block offset `presence` holds a value:
-    /// always for a declaration that keeps no presence byte (MEM-12).
-    fn present(self, presence: Option<u32>) -> bool {
+    /// Whether the declaration whose presence byte is at offset `presence` of the block of `region`
+    /// holds a value: always for a declaration that keeps no presence byte (MEM-12).
+    fn present(self, region: LayoutRegion, presence: Option<u32>) -> bool {
         presence.is_none_or(|offset| {
             self.arm
                 .cells
                 .regions()
-                .persistent()
+                .block(region)
                 .bytes(ByteRange {
-                    region: crate::memory::layout::LayoutRegion::Persistent,
+                    region,
                     start: offset,
                     bytes: 1,
                 })
@@ -1061,7 +1126,7 @@ impl<'a> CellReader<'a> {
         if path.is_empty() {
             return Ok(Target::Cells(range, type_id, presence));
         }
-        if !self.present(presence) {
+        if !self.present(range.region, presence) {
             return Err(VmTrap::NullReference);
         }
         for (index, segment) in path.iter().enumerate() {

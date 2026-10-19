@@ -8,6 +8,7 @@
 //! both stores are in `scans.rs`, and the engineering and host paths that a scan does not reach are in
 //! `engineering.rs` (C1-9d3a).
 
+mod call_instances;
 mod engineering;
 mod flat_references;
 mod frames;

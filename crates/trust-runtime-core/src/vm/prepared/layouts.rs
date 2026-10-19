@@ -7,11 +7,12 @@
 //! and charged when construction reserves the region (specification 34 §6.2).
 
 use super::*;
-use crate::bytecode::{StorageOwner, StorageRole};
+use crate::bytecode::{StorageOwner, StorageRole, TypeData, TypeKind, BYTECODE_MAX_TYPE_NESTING};
 use crate::memory::layout::{
     align_up, compute_type_layouts, ByteRange, ByteShape, InstanceTemplateLayout, LayoutRegion,
     TypeLayout, INSTANCE_ALIGN,
 };
+use alloc::collections::BTreeSet;
 
 /// The layouts of one prepared module: one per TYPE_TABLE entry, plus the byte ranges of its
 /// globals, instance templates, POU locals and initializer results, and each declaration's byte
@@ -21,6 +22,10 @@ pub(crate) struct PreparedLayouts {
     types: Vec<TypeLayout>,
     globals: Vec<Option<ByteRange>>,
     templates: BTreeMap<u32, InstanceTemplateLayout>,
+    /// The POUs whose instances a call creates in the store's `Value` half, not on the activation
+    /// stack: each POU of an inheritance chain in which some POU's own variables hold a reference
+    /// leaf (C1-11c).
+    reference_chains: BTreeSet<u32>,
     locals: BTreeMap<u32, ByteRange>,
     initializer_results: Vec<Option<ByteRange>>,
     /// Each storage declaration's byte offset: a global's in the persistent block, an instance
@@ -79,6 +84,7 @@ impl PreparedLayouts {
 
         // Each POU's own instance variables, at their alignment from the template's first byte.
         let mut own: BTreeMap<u32, u32> = BTreeMap::new();
+        let mut own_references = BTreeSet::new();
         for (index, declaration) in layout.entries.iter().enumerate() {
             if declaration.owner != StorageOwner::Instance || !declaration.owns_storage() {
                 continue;
@@ -87,6 +93,12 @@ impl PreparedLayouts {
                 continue;
             };
             let shape = shape_of(&types, type_id)?;
+            if types
+                .get(type_id as usize)
+                .is_some_and(|layout| !layout.reference_leaves.is_empty())
+            {
+                own_references.insert(pou);
+            }
             let cursor = own.entry(pou).or_insert(0);
             let start = align_up(*cursor, shape.align)?;
             offsets[index] = start;
@@ -107,6 +119,22 @@ impl PreparedLayouts {
             );
         }
         budget.map::<u32, InstanceTemplateLayout>(templates.len())?;
+
+        // The activation stack keeps no reference table until references are flat, so an instance
+        // whose own variables hold a reference leaf stays in the `Value` half when a call creates it,
+        // as a frame's reference slot does. Its whole inheritance chain stays with it, so that an
+        // instance and its parent parts are found in one store (C1-11c).
+        let mut reference_chains = BTreeSet::new();
+        for &pou in templates.keys() {
+            let chain = || {
+                core::iter::successors(Some(pou), |member| vm.parent_pou_ids.get(member).copied())
+                    .take(BYTECODE_MAX_TYPE_NESTING + 1)
+            };
+            if chain().any(|member| own_references.contains(&member)) {
+                reference_chains.extend(chain());
+            }
+        }
+        budget.map::<u32, ()>(reference_chains.len())?;
 
         // Each POU's frame variables, then the initializer results, on the activation stack.
         let mut activation_cursor = 0u32;
@@ -157,6 +185,7 @@ impl PreparedLayouts {
             types,
             globals,
             templates,
+            reference_chains,
             locals,
             initializer_results,
             offsets,
@@ -297,17 +326,129 @@ impl PreparedModule {
     ///
     /// [`RuntimeError::Overflow`] when the bytes exceed `u32`.
     pub(crate) fn activation_reservation(&self) -> Result<u32, RuntimeError> {
-        let largest = self
-            .layouts
-            .locals
-            .values()
-            .map(|range| range.bytes)
-            .max()
-            .unwrap_or(0);
+        let mut largest = 0u32;
+        for (&pou, range) in &self.layouts.locals {
+            let (instances, _) = self.call_instance_room(pou).ok_or(RuntimeError::Overflow)?;
+            largest = largest.max(
+                range
+                    .bytes
+                    .checked_add(instances)
+                    .ok_or(RuntimeError::Overflow)?,
+            );
+        }
         u32::try_from(self.reserved_call_levels())
             .ok()
             .and_then(|levels| levels.checked_mul(largest))
             .ok_or(RuntimeError::Overflow)
+    }
+
+    /// The per-call instances the activation stack holds at most (C1-11c): for each reserved call
+    /// level, as many as the frame of any POU creates.
+    pub(crate) fn call_instance_reservation(&self) -> Result<usize, RuntimeError> {
+        let mut largest = 0u32;
+        for &pou in self.layouts.locals.keys() {
+            let (_, count) = self.call_instance_room(pou).ok_or(RuntimeError::Overflow)?;
+            largest = largest.max(count);
+        }
+        usize::try_from(largest)
+            .ok()
+            .and_then(|count| count.checked_mul(self.reserved_call_levels()))
+            .ok_or(RuntimeError::Overflow)
+    }
+
+    /// Whether a call creates the instances of `pou` on the activation stack of the flat store: no
+    /// POU of an inheritance chain it belongs to holds a reference leaf in its own variables
+    /// (C1-11c).
+    pub(crate) fn call_instance_on_stack(&self, pou: u32) -> bool {
+        !self.layouts.reference_chains.contains(&pou)
+    }
+
+    /// The bytes and the number of the instances a frame of `pou` creates for its function-block and
+    /// class variables, which lie on the activation stack above the frame (C1-11c).
+    fn call_instance_room(&self, pou: u32) -> Option<(u32, u32)> {
+        let mut room = (0u32, 0u32);
+        for declaration in &self.layout.entries {
+            if declaration.owner != StorageOwner::Frame
+                || declaration.owner_pou_id != Some(pou)
+                || !declaration.owns_storage()
+            {
+                continue;
+            }
+            let Some(type_id) = declaration.type_id else {
+                continue;
+            };
+            let (bytes, count) = self.instance_tree(type_id, 0)?;
+            room = (room.0.checked_add(bytes)?, room.1.checked_add(count)?);
+        }
+        Some(room)
+    }
+
+    /// The bytes and the number of the instances on the activation stack a value of `type_id` holds:
+    /// a function block or a class its instance, one for each level of its inheritance chain with
+    /// that level's own variables unless the chain stays in the `Value` half, and the instances
+    /// those variables hold; an array each element's; a structure each member's.
+    fn instance_tree(&self, type_id: u32, depth: usize) -> Option<(u32, u32)> {
+        if depth > BYTECODE_MAX_TYPE_NESTING {
+            return None;
+        }
+        let mut current = type_id;
+        let entry = loop {
+            let entry = self.vm.types.entries.get(current as usize)?;
+            match &entry.data {
+                TypeData::Alias { target_type_id } => current = *target_type_id,
+                _ => break entry,
+            }
+        };
+        match &entry.data {
+            TypeData::Pou { pou_id }
+                if matches!(entry.kind, TypeKind::FunctionBlock | TypeKind::Class) =>
+            {
+                let mut total = (0u32, 0u32);
+                let mut level = Some(*pou_id);
+                for _ in 0..=BYTECODE_MAX_TYPE_NESTING {
+                    let Some(pou) = level else {
+                        break;
+                    };
+                    if self.call_instance_on_stack(pou) {
+                        let own = self
+                            .instance_template(pou)
+                            .map_or(0, |template| template.range.bytes);
+                        total = (total.0.checked_add(own)?, total.1.checked_add(1)?);
+                    }
+                    for &id in self.declarations(StorageOwner::Instance, Some(pou)) {
+                        let member = self.layout.entries.get(id as usize)?;
+                        let Some(member_type) = member.type_id.filter(|_| member.owns_storage())
+                        else {
+                            continue;
+                        };
+                        let (bytes, count) = self.instance_tree(member_type, depth + 1)?;
+                        total = (total.0.checked_add(bytes)?, total.1.checked_add(count)?);
+                    }
+                    level = self.vm.parent_pou_ids.get(&pou).copied();
+                }
+                Some(total)
+            }
+            TypeData::Array { elem_type_id, dims } => {
+                let (bytes, count) = self.instance_tree(*elem_type_id, depth + 1)?;
+                // An array of values that hold no instance holds none, whatever its bounds (an
+                // `ARRAY[*]` parameter has none of its own).
+                if (bytes, count) == (0, 0) {
+                    return Some((0, 0));
+                }
+                let elements = dims.iter().try_fold(1u32, |elements, (lower, upper)| {
+                    let length = u32::try_from(upper.checked_sub(*lower)?.checked_add(1)?).ok()?;
+                    elements.checked_mul(length)
+                })?;
+                Some((bytes.checked_mul(elements)?, count.checked_mul(elements)?))
+            }
+            TypeData::Struct { fields } | TypeData::Union { fields } => {
+                fields.iter().try_fold((0u32, 0u32), |total, field| {
+                    let (bytes, count) = self.instance_tree(field.type_id, depth + 1)?;
+                    Some((total.0.checked_add(bytes)?, total.1.checked_add(count)?))
+                })
+            }
+            _ => Some((0, 0)),
+        }
     }
 
     /// Where slot `slot` of a frame of `pou` lies in the frame's bytes on the activation stack
