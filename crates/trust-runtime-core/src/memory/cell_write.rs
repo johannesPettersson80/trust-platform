@@ -224,10 +224,7 @@ impl<'a> CellWriter<'a> {
 
     /// Make the staged write of one scalar leaf in its backing (C1-15b).
     fn write_leaf(&mut self, patch: &LeafPatch) -> bool {
-        let (block, _) = self.arm.cells.regions_mut().block_mut(patch.backing.region);
-        block
-            .bytes_mut(patch.backing)
-            .is_some_and(|bytes| patch.write.commit(bytes))
+        self.arm.write_leaf_patch(patch)
     }
 
     /// The write of `value` into the slot at `location`/`offset` and `path`, answering as the `Value`

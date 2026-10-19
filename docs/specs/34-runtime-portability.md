@@ -1416,6 +1416,15 @@ Before an instruction that may write a block or call, other than a call of a bui
 always stores the value its load read, whatever the program wrote in between. An assignment of such
 a value allocates nothing (ARCH-05).
 
+**Enumerations.** On the flat store a load of an enumeration, a variable or a member of an
+overlapping structure, and a load of an enumeration constant push it as its type and the number of
+its variant, the enumeration cell of MEM-12 (checklist C1-19a). A store writes the number into the
+destination's leaf, after the checks a store of the value makes (its type name and its variant) and
+with the same charges, a member of an overlapping structure as the value store's physical writer
+writes it; `=` and `<>` compare two enumerations by type and number, as their values compare. Any
+other instruction that pops one is given its value first. A load, store or comparison of an
+enumeration allocates nothing (ARCH-05).
+
 **Texts.** On the flat store a call of a built-in text function (`CONCAT`, `DELETE`, `FIND`,
 `INSERT`, `LEFT`, `LEN`, `MID`, `REPLACE`, `RIGHT`, the cut that assigns a text to a shorter one,
 and a conversion from or to a text) whose arguments are inputs reads each argument where it lies: a

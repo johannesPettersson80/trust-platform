@@ -12,9 +12,10 @@ use super::dispatch_ops::{
     apply_jump, execute_binary, execute_unary, read_i32, read_u32, reference_equality,
 };
 use super::dispatch_refs::{
-    dynamic_load_operand, dynamic_ref_field, dynamic_ref_index, dynamic_store_place,
-    dynamic_store_ref, dynamic_store_text, index_to_i64, load_ref_addr, load_ref_operand,
-    materialize_place, pop_reference, store_ref, store_ref_place, store_ref_text,
+    dynamic_load_operand, dynamic_ref_field, dynamic_ref_index, dynamic_store_enum,
+    dynamic_store_place, dynamic_store_ref, dynamic_store_text, index_to_i64, load_ref_addr,
+    load_ref_operand, materialize_place, pop_reference, store_ref, store_ref_enum, store_ref_place,
+    store_ref_text,
 };
 use super::dispatch_sizeof::sizeof_type_from_table_with_abi;
 use super::module::VmModule;
@@ -456,6 +457,9 @@ fn execute_with_buffers(
         {
             operand_stack.materialize_places(|place| materialize_place(&*runtime, place))?;
         }
+        if operand_stack.enums() != 0 && !keeps_enums(opcode, operand_stack) {
+            operand_stack.materialize_enums(|temp| runtime.enum_value(temp))?;
+        }
 
         match opcode {
             0x00 => {}
@@ -648,15 +652,19 @@ fn execute_with_buffers(
                     .ok_or(VmTrap::InvalidConstIndex(const_idx))
                     .map_err(VmTrap::into_runtime_error)?;
                 runtime.before_value_clone(value)?;
-                match value {
-                    // A WSTRING constant goes into the text area, so its load allocates nothing
-                    // (C1-12); a STRING constant's copy shares its characters.
-                    Value::WString(text) if runtime.keeps_texts() => {
-                        operand_stack.push_text(text, true)
-                    }
-                    _ => operand_stack.push(value.clone()),
-                }
-                .map_err(VmTrap::into_runtime_error)?;
+                let pushed = match runtime.enum_constant(value) {
+                    // An enumeration constant is pushed as its type and number (C1-19a).
+                    Some(temp) => operand_stack.push_enum(temp),
+                    None => match value {
+                        // A WSTRING constant goes into the text area, so its load allocates
+                        // nothing (C1-12); a STRING constant's copy shares its characters.
+                        Value::WString(text) if runtime.keeps_texts() => {
+                            operand_stack.push_text(text, true)
+                        }
+                        _ => operand_stack.push(value.clone()),
+                    },
+                };
+                pushed.map_err(VmTrap::into_runtime_error)?;
             }
             0x11 => {
                 if let Some(place) = operand_stack.top_place() {
@@ -667,6 +675,12 @@ fn execute_with_buffers(
                     runtime.before_view_clone(&view)?;
                     operand_stack
                         .push_place(place)
+                        .map_err(VmTrap::into_runtime_error)?;
+                } else if let Some(temp) = operand_stack.top_enum() {
+                    // A second enumeration is charged as one more copy of its value (C1-19a).
+                    runtime.before_enum_clone(temp)?;
+                    operand_stack
+                        .push_enum(temp)
                         .map_err(VmTrap::into_runtime_error)?;
                 } else if let Some(temp) = operand_stack.top_text() {
                     // A second text copies its characters, charged as one more copy (C1-12).
@@ -719,6 +733,7 @@ fn execute_with_buffers(
                     Operand::Place(place) => {
                         store_ref_place(runtime, module, frames, ref_idx, place)
                     }
+                    Operand::Enum(temp) => store_ref_enum(runtime, module, frames, ref_idx, temp),
                     Operand::Text(temp) => {
                         let stored = operand_stack.text(temp).and_then(|text| {
                             store_ref_text(runtime, module, frames, ref_idx, text, temp.wide())
@@ -832,6 +847,9 @@ fn execute_with_buffers(
                     }
                     Operand::Place(place) => {
                         dynamic_store_place(runtime, module, frames, &reference, place)
+                    }
+                    Operand::Enum(temp) => {
+                        dynamic_store_enum(runtime, module, frames, &reference, temp)
                     }
                     Operand::Text(temp) => {
                         let stored = operand_stack.text(temp).and_then(|text| {
@@ -1001,6 +1019,7 @@ fn push_loaded(stack: &mut OperandStack, operand: Operand) -> Result<(), VmTrap>
     match operand {
         Operand::Value(value) => stack.push(value),
         Operand::Place(place) => stack.push_place(place),
+        Operand::Enum(temp) => stack.push_enum(temp),
         Operand::Text(_) => Err(VmTrap::Runtime(RuntimeError::InvalidExecutionState)),
     }
 }
@@ -1128,6 +1147,32 @@ fn keeps_places(opcode: u8, stack: &OperandStack) -> bool {
     }
 }
 
+/// Whether `opcode` takes the enumerations on `stack` as they are (C1-19a): it pops none of them,
+/// moves one as an operand, stores one, or compares two with `=` or `<>`. Before any other
+/// instruction the dispatcher replaces every enumeration with the value it stands for.
+fn keeps_enums(opcode: u8, stack: &OperandStack) -> bool {
+    match opcode {
+        // NOP, JMP, CONST, LOAD, REF, SELF, SUPER and NULL push without popping.
+        0x00 | 0x02 | 0x10 | 0x20 | 0x22..=0x25 => true,
+        // DUP, POP and SWAP move an operand; STORE and STORE_DYNAMIC store one.
+        0x11..=0x13 | 0x21 | 0x33 => true,
+        // `=` and `<>` compare two enumerations as they are, and an enumeration beside an operand of
+        // another kind as its value.
+        0x50 | 0x51 => match stack.top_operands(2) {
+            Some([Operand::Enum(_), Operand::Enum(_)]) => true,
+            Some(top) => !top
+                .iter()
+                .any(|operand| matches!(operand, Operand::Enum(_))),
+            None => true,
+        },
+        // The conditional jumps, REF_FIELD, LOAD_DYNAMIC, NEG and NOT pop one value, and REF_INDEX
+        // and the other binary operators two, so the enumerations below them stay as they are.
+        0x03 | 0x04 | 0x30 | 0x32 | 0x45 | 0x49 => !stack.top_holds_enum(1),
+        0x31 | 0x40..=0x44 | 0x46..=0x48 | 0x4C | 0x52..=0x55 => !stack.top_holds_enum(2),
+        _ => false,
+    }
+}
+
 /// `=` (`equal`) or `<>` of the top two operands. When one of them is a reference they compare as
 /// `apply_binary` compares them, and the path buffers of the references go back to the engine
 /// (spec 34 ARCH-05), so a test such as `r <> NULL` allocates nothing once the engine is warm.
@@ -1136,6 +1181,13 @@ fn compare_equality(
     stack: &mut OperandStack,
     equal: bool,
 ) -> Result<(), VmTrap> {
+    // Two enumerations are equal when they have one type and one number, as their values are
+    // (C1-19a).
+    if let Some([Operand::Enum(left), Operand::Enum(right)]) = stack.top_operands(2) {
+        let same = runtime.enums_equal(*left, *right);
+        stack.discard_top(2)?;
+        return stack.push(Value::Bool(same == equal));
+    }
     let (left, right) = stack.pop_pair()?;
     // Two references to one target compare equal whichever form they were taken in (C1-11d).
     let canonical = |operand: Value| match operand {

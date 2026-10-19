@@ -196,6 +196,44 @@ pub(super) fn checked_leaf_bits(
     }
 }
 
+/// The bits of the variant numbered `numeric`, named `variant`, of the enumeration `type_name` in
+/// the enumeration leaf `leaf`, checked as [`checked_leaf_bits`] checks the value of that variant
+/// against a leaf whose enumeration type is `enum_type` (C1-19a).
+pub(super) fn checked_enum_bits(
+    leaf: &Leaf,
+    (type_name, variant, numeric): (&str, &str, i64),
+    enum_type: &str,
+) -> Result<u64, RuntimeError> {
+    let Some(enumeration) = &leaf.enumeration else {
+        return Err(RuntimeError::TypeMismatch);
+    };
+    if type_name != enum_type {
+        return Err(RuntimeError::TypeMismatch);
+    }
+    let bits = numeric as u64;
+    validate_kind(Kind::Enumeration, bits, leaf)?;
+    if !enumeration
+        .variants
+        .iter()
+        .any(|(name, ordinal)| *ordinal == numeric && name.eq_ignore_ascii_case(variant))
+    {
+        return Err(RuntimeError::TypeMismatch);
+    }
+    Ok(bits)
+}
+
+/// The number of the enumeration leaf `leaf` whose bits are `bits`, when it is a declared variant
+/// (C1-19a).
+pub(super) fn enum_leaf_number(bits: u64, leaf: &Leaf) -> Option<i64> {
+    let enumeration = leaf.enumeration.as_ref()?;
+    let numeric = enum_number(bits, leaf, enumeration);
+    enumeration
+        .variants
+        .iter()
+        .any(|(_, ordinal)| *ordinal == numeric)
+        .then_some(numeric)
+}
+
 fn checked_kind_bits(
     value: &Value,
     kind: Kind<'_>,

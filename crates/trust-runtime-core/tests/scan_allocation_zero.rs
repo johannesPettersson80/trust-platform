@@ -665,8 +665,13 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// starts at scan 3.
 ///
 /// C1-18 adds `operands`, whose comparisons of globals the register tier reads within one
-/// operation; it is measured and printed, with no ceiling yet.
-const CEILINGS: [(&str, usize, Calls); 35] = [
+/// operation.
+///
+/// C1-19a pushes an enumeration as its type and number on the flat store, so its loads, stores and
+/// comparisons build no boxed value: `structures` falls from 7 to 0, `overlays` from 7 to 1 (a call
+/// target's path) and `copies` from 4 to 3 (a structure read as a value); `operands` makes 2 (its
+/// WSTRINGs read as values for `=`), measured on the builder on 19 October 2026.
+const CEILINGS: [(&str, usize, Calls); 36] = [
     ("faults/division", 2, Calls::ZERO),
     ("faults/index", 2, Calls::ZERO),
     ("faults/null", 2, Calls::ZERO),
@@ -736,30 +741,31 @@ const CEILINGS: [(&str, usize, Calls); 35] = [
         "cells/copies",
         1,
         Calls {
-            alloc: 4,
+            alloc: 3,
             realloc: 0,
-            dealloc: 4,
+            dealloc: 3,
         },
     ),
-    (
-        "cells/structures",
-        1,
-        Calls {
-            alloc: 7,
-            realloc: 0,
-            dealloc: 7,
-        },
-    ),
+    ("cells/structures", 1, Calls::ZERO),
     (
         "cells/overlays",
         1,
         Calls {
-            alloc: 7,
+            alloc: 1,
             realloc: 0,
-            dealloc: 7,
+            dealloc: 1,
         },
     ),
     ("cells/unions", 3, Calls::ZERO),
+    (
+        "cells/operands",
+        1,
+        Calls {
+            alloc: 2,
+            realloc: 0,
+            dealloc: 2,
+        },
+    ),
 ];
 
 /// The ceilings are asserted on the chips' stack executor and printed with the register tier.

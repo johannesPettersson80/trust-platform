@@ -27,7 +27,7 @@ mod leaf;
 mod overlay;
 mod read;
 pub(crate) use leaf::{leaf_in, structure_member_name, CellLeaf};
-pub(crate) use read::read_value_in;
+pub(crate) use read::{enumeration_number, enumeration_value, read_value_in};
 
 use super::{Cell, ReferenceTable};
 use crate::bytecode::{Field, TypeData, TypeEntry, BYTECODE_MAX_TYPE_NESTING};

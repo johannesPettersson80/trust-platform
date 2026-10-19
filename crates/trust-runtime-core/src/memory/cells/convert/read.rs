@@ -136,12 +136,47 @@ fn read_enumeration(
     bytes: &[u8],
     prepared: &PreparedModule,
 ) -> Result<Value, RuntimeError> {
-    let TypeData::Enum { variants, .. } = &type_entry(prepared, enum_type)?.data else {
-        return Err(RuntimeError::InvalidExecutionState);
-    };
     let Cell::Enum { value, .. } = flat::decode(enumeration_kind(prepared, enum_type)?, bytes)?
     else {
         return Err(refusal(prepared, type_id, "leaf", KIND_REASON));
+    };
+    enumeration_value(enum_type, value, prepared)
+}
+
+/// The enumeration type, aliases resolved, and the number of the enumeration leaf `bytes` of
+/// `type_id`: the operand a load of the leaf pushes (C1-19a). `None` when `type_id` is no
+/// enumeration, or the bytes name no variant of it, which a read of the value refuses.
+pub(crate) fn enumeration_number(
+    bytes: &[u8],
+    type_id: u32,
+    prepared: &PreparedModule,
+) -> Option<(u32, i64)> {
+    let Shape::Enumeration(enum_type) = shape(prepared, type_id).ok()? else {
+        return None;
+    };
+    let TypeData::Enum { variants, .. } = &type_entry(prepared, enum_type).ok()?.data else {
+        return None;
+    };
+    let Cell::Enum { value, .. } =
+        flat::decode(enumeration_kind(prepared, enum_type).ok()?, bytes).ok()?
+    else {
+        return None;
+    };
+    variants
+        .iter()
+        .any(|variant| variant.value == value)
+        .then_some((enum_type, value))
+}
+
+/// The value of the variant numbered `value` of the enumeration `enum_type`, as a read of its leaf
+/// gives it: the value an enumeration operand stands for (C1-19a).
+pub(crate) fn enumeration_value(
+    enum_type: u32,
+    value: i64,
+    prepared: &PreparedModule,
+) -> Result<Value, RuntimeError> {
+    let TypeData::Enum { variants, .. } = &type_entry(prepared, enum_type)?.data else {
+        return Err(RuntimeError::InvalidExecutionState);
     };
     let Some(variant) = variants.iter().find(|variant| variant.value == value) else {
         return Err(refusal(

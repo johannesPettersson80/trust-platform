@@ -279,6 +279,8 @@ fn lying<'a>(
             stack.text(*temp).map_err(VmTrap::into_runtime_error)?,
             temp.wide(),
         )),
+        // The dispatcher gives a text call's enumerations their values first (C1-19a).
+        Operand::Enum(_) => None,
     })
 }
 

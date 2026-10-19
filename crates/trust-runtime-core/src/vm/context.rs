@@ -209,6 +209,44 @@ pub trait ReferenceContext {
     ) -> Result<(), crate::error::RuntimeError> {
         Ok(())
     }
+    /// The enumeration operand that a load of `view` pushes (C1-19a): an enumeration leaf of the
+    /// flat store, as its type and number. `None`, the default, has the load push the value.
+    fn enum_operand(&self, _view: &crate::memory::view::ValueView<'_>) -> Option<super::EnumTemp> {
+        None
+    }
+    /// The enumeration operand that a load of the constant `value` pushes (C1-19a). `None`, the
+    /// default, has the load push a copy of the value.
+    fn enum_constant(&self, _value: &Value) -> Option<super::EnumTemp> {
+        None
+    }
+    /// The value the enumeration operand `temp` stands for (C1-19a). Only a composition that
+    /// pushes enumeration operands is asked.
+    fn enum_value(&self, _temp: super::EnumTemp) -> Result<Value, crate::error::RuntimeError> {
+        Err(crate::error::RuntimeError::InvalidExecutionState)
+    }
+    /// Whether the enumeration operands `left` and `right` are equal, as `=` compares their values:
+    /// the same type and the same number (C1-19a).
+    fn enums_equal(&self, left: super::EnumTemp, right: super::EnumTemp) -> bool {
+        left == right
+    }
+    /// Charge a copy of the enumeration operand `temp` as [`Self::before_value_clone`] charges a
+    /// copy of its value (C1-19a). Only a composition that pushes enumeration operands copies one.
+    fn before_enum_clone(&self, _temp: super::EnumTemp) -> Result<(), crate::error::RuntimeError> {
+        Ok(())
+    }
+    /// Store the enumeration `temp` through `reference` into an enumeration leaf of the flat store,
+    /// checked against `declared`, the type the store normalizes to when it has one, and as a write,
+    /// as a store of its value is (C1-19a). Neither check charges, and an enumeration they would
+    /// refuse is stored as its value, so their order is a store's of its value. `None` when the
+    /// store is given the value instead; `Some(Ok(false))` when the block refuses the write.
+    fn store_enum(
+        &mut self,
+        _reference: crate::value::ValueRefView<'_>,
+        _temp: super::EnumTemp,
+        _declared: Option<u32>,
+    ) -> Option<Result<bool, crate::error::RuntimeError>> {
+        None
+    }
     /// `reference` in its canonical form (C1-11d): a composition with a flat store makes a
     /// reference to a whole writable target in its persistent block flat, and gives the path's
     /// buffers back; any other reference, and every reference of another composition, comes back

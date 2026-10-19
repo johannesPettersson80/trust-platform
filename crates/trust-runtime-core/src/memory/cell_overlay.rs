@@ -14,7 +14,8 @@ use super::cell_charge::CopyCharge;
 use super::*;
 use crate::memory::layout::{OverlayLayout, OverlaySlot};
 use crate::value::overlap::{
-    decode_overlay, overlay_node_type, paths_match, stage_leaf_write, LeafWrite, PhysicalLayout,
+    decode_overlay, overlay_node_type, paths_match, stage_enum_leaf_write, stage_leaf_write,
+    LeafWrite, PhysicalLayout,
 };
 
 /// A write of one scalar leaf of a backing, staged and checked, to be made where the backing lies
@@ -380,6 +381,67 @@ impl<'a> CellsView<'a> {
             .bytes(backing)
             .ok_or(RuntimeError::InvalidExecutionState)?;
         let write = stage_leaf_write(layout, anchor, value, enum_type, bytes)?;
+        Ok(Some(LeafPatch { backing, write }))
+    }
+
+    /// The enumeration type, aliases resolved, and the number of the enumeration leaf at the node
+    /// `anchor`/`depth` of the structure `type_id` whose cells are `range` (C1-19a): the operand a
+    /// load of the leaf pushes. `None` for any other node, and for bits no variant has.
+    pub(crate) fn overlay_enum_number(
+        self,
+        range: ByteRange,
+        type_id: u32,
+        anchor: u32,
+        depth: u8,
+    ) -> Option<(u32, i64)> {
+        let layout = self.overlay_layout(type_id)?;
+        if depth == 0
+            || layout.leaf_path(anchor)?.len() != usize::from(depth)
+            || !layout.leaf_is_enumeration(anchor)
+        {
+            return None;
+        }
+        let number = layout.enum_leaf_number(anchor, self.backing(range, type_id)?)?;
+        let node = self.overlay_node_type(type_id, anchor, depth)?;
+        let enum_type =
+            crate::vm::type_policy::resolved_alias_type(&self.prepared.vm.types, node, 0)?;
+        Some((enum_type, number))
+    }
+
+    /// The patch that writes the variant `variant` of an enumeration (its type's name, its name
+    /// and its number) into the enumeration leaf at the node `anchor`/`depth` of the structure
+    /// `type_id` whose cells are `range`, checked as [`CellsView::leaf_patch`] checks the write of
+    /// that variant's value (C1-19a). `None` when the node is no enumeration leaf.
+    pub(crate) fn enum_leaf_patch(
+        self,
+        range: ByteRange,
+        type_id: u32,
+        (anchor, depth): (u32, u8),
+        variant: (&str, &str, i64),
+    ) -> Result<Option<LeafPatch>, RuntimeError> {
+        let Some(layout) = self.prepared.vm.physical_layout_ref(type_id) else {
+            return Ok(None);
+        };
+        if depth == 0
+            || layout
+                .leaf_path(anchor)
+                .is_none_or(|leaf| leaf.len() != usize::from(depth))
+            || !layout.leaf_is_enumeration(anchor)
+        {
+            return Ok(None);
+        }
+        let enum_type = self.leaf_enum_type(type_id, anchor, depth);
+        let (_, placed) = self
+            .overlay_parts(type_id)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        let backing = ByteRange {
+            bytes: placed.backing_bytes,
+            ..range
+        };
+        let bytes = self
+            .bytes(backing)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        let write = stage_enum_leaf_write(layout, anchor, variant, enum_type, bytes)?;
         Ok(Some(LeafPatch { backing, write }))
     }
 

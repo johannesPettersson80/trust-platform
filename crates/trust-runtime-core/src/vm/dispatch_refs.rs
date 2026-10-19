@@ -61,6 +61,12 @@ fn view_operand(
     view: &ValueView<'_>,
     places: bool,
 ) -> Result<Operand, VmTrap> {
+    // An enumeration leaf is pushed as its type and number, charged as the copy of its value
+    // (C1-19a).
+    if places && let Some(temp) = runtime.enum_operand(view) {
+        runtime.before_enum_clone(temp).map_err(VmTrap::Runtime)?;
+        return Ok(Operand::Enum(temp));
+    }
     if places && let Some(place) = runtime.place_of(view) {
         runtime.before_view_clone(view).map_err(VmTrap::Runtime)?;
         return Ok(Operand::Place(place));
@@ -76,7 +82,7 @@ fn view_operand(
 fn value_operand(operand: Operand) -> Result<Value, VmTrap> {
     match operand {
         Operand::Value(value) => Ok(value),
-        Operand::Place(_) | Operand::Text(_) => {
+        Operand::Place(_) | Operand::Text(_) | Operand::Enum(_) => {
             Err(VmTrap::Runtime(RuntimeError::InvalidExecutionState))
         }
     }
@@ -501,10 +507,37 @@ pub(crate) fn store_ref_text(
         if let Some(stored) =
             runtime.store_text(address, text, wide, module.ref_type(ref_idx), false)
         {
-            return stored_text(stored);
+            return stored_leaf(stored);
         }
     }
     store_ref(runtime, module, frames, ref_idx, text_value(text, wide))
+}
+
+/// Store the enumeration `temp` through a static reference (C1-19a), as [`store_ref`] stores its
+/// value: into an enumeration leaf of the flat block as its number, and anywhere else as its value.
+pub(crate) fn store_ref_enum(
+    runtime: &mut impl ReferenceContext,
+    module: &VmModule,
+    frames: &mut FrameStack,
+    ref_idx: u32,
+    temp: super::EnumTemp,
+) -> Result<(), VmTrap> {
+    let reference = module
+        .refs
+        .get(ref_idx as usize)
+        .ok_or_else(|| VmTrap::InvalidRefIndex(ref_idx))?;
+    // Locals and initializer results are stored as values, as texts are (C1-12).
+    if !matches!(
+        reference,
+        VmRef::Local { .. } | VmRef::InitializerResult { .. }
+    ) {
+        let address = load_ref_view(runtime, module, frames, ref_idx)?;
+        if let Some(stored) = runtime.store_enum(address, temp, module.ref_type(ref_idx)) {
+            return stored_leaf(stored);
+        }
+    }
+    let value = runtime.enum_value(temp).map_err(VmTrap::Runtime)?;
+    store_ref(runtime, module, frames, ref_idx, value)
 }
 
 /// Store the temporary text `text` through a dynamic reference (C1-12), as [`store_ref_text`]
@@ -521,15 +554,35 @@ pub(crate) fn dynamic_store_text(
     if !frame.owns_local_reference(reference) {
         let declared = dynamic_ref_type(runtime, module, frame, reference)?;
         if let Some(stored) = runtime.store_text(reference.as_view(), text, wide, declared, true) {
-            return stored_text(stored);
+            return stored_leaf(stored);
         }
     }
     dynamic_store_ref(runtime, module, frames, reference, text_value(text, wide))
 }
 
-/// The outcome of a text store into a leaf (C1-12): a write the block refuses names no target, as
-/// a refused copy does.
-fn stored_text(stored: Result<bool, RuntimeError>) -> Result<(), VmTrap> {
+/// Store the enumeration `temp` through a dynamic reference (C1-19a), as [`store_ref_enum`] stores
+/// it through a static one.
+pub(crate) fn dynamic_store_enum(
+    runtime: &mut impl ReferenceContext,
+    module: &VmModule,
+    frames: &mut FrameStack,
+    reference: &ValueRef,
+    temp: super::EnumTemp,
+) -> Result<(), VmTrap> {
+    let frame = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
+    if !frame.owns_local_reference(reference) {
+        let declared = dynamic_ref_type(runtime, module, frame, reference)?;
+        if let Some(stored) = runtime.store_enum(reference.as_view(), temp, declared) {
+            return stored_leaf(stored);
+        }
+    }
+    let value = runtime.enum_value(temp).map_err(VmTrap::Runtime)?;
+    dynamic_store_ref(runtime, module, frames, reference, value)
+}
+
+/// The outcome of a store into a leaf, of a text (C1-12) or an enumeration (C1-19a): a write the
+/// block refuses names no target, as a refused copy does.
+fn stored_leaf(stored: Result<bool, RuntimeError>) -> Result<(), VmTrap> {
     match stored {
         Ok(true) => Ok(()),
         Ok(false) => Err(VmTrap::NullReference),

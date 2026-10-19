@@ -23,8 +23,9 @@ use crate::vm::{PreparedModule, VmTrap};
 
 pub use convert::{byte_offset, read_value, write_value};
 pub(crate) use convert::{
-    check_value, flat_cell, flat_reference, is_reference_type, leaf_in, read_value_in,
-    structure_member_name, text_geometry, write_enum_in, write_value_in, CellLeaf,
+    check_value, enumeration_number, enumeration_value, flat_cell, flat_reference,
+    is_reference_type, leaf_in, read_value_in, structure_member_name, text_geometry, write_enum_in,
+    write_value_in, CellLeaf,
 };
 
 /// The decoded value of one leaf of a flat block (specification 34 MEM-12): a scalar, an

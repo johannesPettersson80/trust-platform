@@ -67,7 +67,21 @@ impl TextTemp {
     }
 }
 
-/// One operand: a value, a place on the flat store (C1-10c) or a temporary text (C1-12).
+/// An enumeration as its type and the number of its variant (specification 34 MEM-12; C1-19a), the
+/// enumeration cell of the flat store's design. A load of an enumeration leaf of the flat store and
+/// a load of an enumeration constant push it, a store writes its number into the destination's leaf
+/// and `=` and `<>` compare it, so none of them builds a value; before any other instruction that
+/// pops it the dispatcher replaces it with the value it stands for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EnumTemp {
+    /// The enumeration's `TYPE_TABLE` type, aliases resolved.
+    pub type_id: u32,
+    /// The number of the variant.
+    pub value: i64,
+}
+
+/// One operand: a value, a place on the flat store (C1-10c), a temporary text (C1-12) or an
+/// enumeration (C1-19a).
 #[derive(Debug)]
 pub(crate) enum Operand {
     /// A value.
@@ -76,6 +90,8 @@ pub(crate) enum Operand {
     Place(Place),
     /// A text in the operand stack's text area.
     Text(TextTemp),
+    /// An enumeration as its type and number.
+    Enum(EnumTemp),
 }
 
 /// An operand holds a place in the room of a value, so the operand storage that construction
@@ -91,6 +107,8 @@ pub struct OperandStack {
     places: usize,
     /// The temporary texts among `values` (C1-12).
     texts: usize,
+    /// The enumerations among `values` (C1-19a).
+    enums: usize,
     /// The UTF-8 of the temporary texts, in the order of their operands (C1-12). It keeps its room,
     /// so a text result allocates nothing once the engine is warm.
     text_bytes: Vec<u8>,
@@ -151,7 +169,7 @@ impl OperandStack {
         let start = self.values.len() - count;
         if self.values[start..]
             .iter()
-            .any(|operand| matches!(operand, Operand::Place(_)))
+            .any(|operand| matches!(operand, Operand::Place(_) | Operand::Enum(_)))
         {
             return Err(VmTrap::Runtime(RuntimeError::InvalidExecutionState));
         }
@@ -167,8 +185,9 @@ impl OperandStack {
         }
         Ok(self.values.drain(start..).map(|operand| match operand {
             Operand::Value(value) => value,
-            // Refused or read above: the drained operands hold no place and no text.
-            Operand::Place(_) | Operand::Text(_) => Value::Null,
+            // Refused or read above: the drained operands hold no place, no text and no
+            // enumeration.
+            Operand::Place(_) | Operand::Text(_) | Operand::Enum(_) => Value::Null,
         }))
     }
 
@@ -179,16 +198,18 @@ impl OperandStack {
         self.floor = 0;
         self.places = 0;
         self.texts = 0;
+        self.enums = 0;
         self.text_bytes.clear();
     }
 
     /// Shorten the stack to `len` operands, counting the places and the texts that go.
     fn truncate(&mut self, len: usize) {
-        if self.places != 0 || self.texts != 0 {
+        if self.places != 0 || self.texts != 0 || self.enums != 0 {
             for operand in self.values.get(len..).unwrap_or_default() {
                 match operand {
                     Operand::Place(_) => self.places -= 1,
                     Operand::Text(_) => self.texts -= 1,
+                    Operand::Enum(_) => self.enums -= 1,
                     Operand::Value(_) => {}
                 }
             }
@@ -209,6 +230,13 @@ impl OperandStack {
     pub(crate) fn push_place(&mut self, place: Place) -> Result<(), VmTrap> {
         self.push_operand(Operand::Place(place))?;
         self.places += 1;
+        Ok(())
+    }
+
+    /// Push an enumeration as its type and number, enforcing the VM stack limit (C1-19a).
+    pub(crate) fn push_enum(&mut self, temp: EnumTemp) -> Result<(), VmTrap> {
+        self.push_operand(Operand::Enum(temp))?;
+        self.enums += 1;
         Ok(())
     }
 
@@ -286,7 +314,10 @@ impl OperandStack {
     pub fn pop(&mut self) -> Result<Value, VmTrap> {
         match self.pop_operand()? {
             Operand::Value(value) => Ok(value),
-            Operand::Place(_) => Err(VmTrap::Runtime(RuntimeError::InvalidExecutionState)),
+            // The dispatcher replaces an enumeration with its value first, as a place (C1-19a).
+            Operand::Place(_) | Operand::Enum(_) => {
+                Err(VmTrap::Runtime(RuntimeError::InvalidExecutionState))
+            }
             Operand::Text(temp) => {
                 let value = text_value(&self.text_bytes, temp);
                 self.release_text(temp);
@@ -305,6 +336,7 @@ impl OperandStack {
         match operand {
             Operand::Place(_) => self.places -= 1,
             Operand::Text(_) => self.texts -= 1,
+            Operand::Enum(_) => self.enums -= 1,
             Operand::Value(_) => {}
         }
         Ok(operand)
@@ -346,7 +378,7 @@ impl OperandStack {
     pub fn peek(&self) -> Result<&Value, VmTrap> {
         match self.values[self.floor..].last() {
             Some(Operand::Value(value)) => Ok(value),
-            Some(Operand::Place(_) | Operand::Text(_)) => {
+            Some(Operand::Place(_) | Operand::Text(_) | Operand::Enum(_)) => {
                 Err(VmTrap::Runtime(RuntimeError::InvalidExecutionState))
             }
             None => Err(VmTrap::StackUnderflow),
@@ -360,6 +392,53 @@ impl OperandStack {
             Some(Operand::Text(temp)) => Some(*temp),
             _ => None,
         }
+    }
+
+    /// The enumeration on top of the active frame's operands, when the top operand is one
+    /// (C1-19a).
+    pub(crate) fn top_enum(&self) -> Option<EnumTemp> {
+        match self.values[self.floor..].last() {
+            Some(Operand::Enum(temp)) => Some(*temp),
+            _ => None,
+        }
+    }
+
+    /// Whether one of the active frame's top `count` operands is an enumeration (C1-19a).
+    pub(crate) fn top_holds_enum(&self, count: usize) -> bool {
+        self.enums != 0
+            && self.values[self.floor..]
+                .iter()
+                .rev()
+                .take(count)
+                .any(|operand| matches!(operand, Operand::Enum(_)))
+    }
+
+    /// The enumerations on the stack (C1-19a).
+    #[inline]
+    pub(crate) fn enums(&self) -> usize {
+        self.enums
+    }
+
+    /// Replace every enumeration on the stack with the value `value_of` gives for it, bottom first
+    /// (C1-19a).
+    ///
+    /// # Errors
+    ///
+    /// The first error of `value_of`; the enumerations before it are values then, and the rest stay.
+    pub(crate) fn materialize_enums(
+        &mut self,
+        mut value_of: impl FnMut(EnumTemp) -> Result<Value, RuntimeError>,
+    ) -> Result<(), RuntimeError> {
+        if self.enums == 0 {
+            return Ok(());
+        }
+        for operand in &mut self.values {
+            if let Operand::Enum(temp) = *operand {
+                *operand = Operand::Value(value_of(temp)?);
+                self.enums -= 1;
+            }
+        }
+        Ok(())
     }
 
     /// The place on top of the active frame's operands, when the top operand is one (C1-10c).

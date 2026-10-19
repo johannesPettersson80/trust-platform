@@ -31,6 +31,7 @@ mod context;
 mod cycle;
 mod cycle_port;
 mod entry;
+mod enums;
 #[cfg(feature = "std")]
 mod owned;
 #[cfg(feature = "register-ir")]

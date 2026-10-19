@@ -52,6 +52,51 @@ pub(crate) fn stage_leaf_write(
         .get(leaf as usize)
         .ok_or(RuntimeError::InvalidExecutionState)?;
     let bits = scalar::checked_leaf_bits(value, written, layout.abi, enum_type)?;
+    stage_leaf_bits(layout, leaf, bits, bytes)
+}
+
+/// Stage the write of the variant `(type_name, variant, numeric)` of an enumeration into the
+/// enumeration leaf `leaf` of the backing `bytes`, checked as [`stage_leaf_write`] checks the write
+/// of that variant's value (C1-19a).
+pub(crate) fn stage_enum_leaf_write(
+    layout: &Arc<PhysicalLayout>,
+    leaf: u32,
+    variant: (&str, &str, i64),
+    enum_type: &str,
+    bytes: &[u8],
+) -> Result<LeafWrite, RuntimeError> {
+    let written = layout
+        .leaves
+        .get(leaf as usize)
+        .ok_or(RuntimeError::InvalidExecutionState)?;
+    let bits = scalar::checked_enum_bits(written, variant, enum_type)?;
+    stage_leaf_bits(layout, leaf, bits, bytes)
+}
+
+impl PhysicalLayout {
+    /// The number of the enumeration leaf `leaf` of the backing `bytes`, when the leaf is an
+    /// enumeration and its bits name a declared variant (C1-19a).
+    pub(crate) fn enum_leaf_number(&self, leaf: u32, bytes: &[u8]) -> Option<i64> {
+        let leaf = self.leaves.get(leaf as usize)?;
+        if (leaf.offset + u32::from(leaf.width)).div_ceil(8) as usize > bytes.len() {
+            return None;
+        }
+        scalar::enum_leaf_number(read_bits(bytes, leaf.offset, leaf.width), leaf)
+    }
+}
+
+/// Stage the write of the checked `bits` into scalar leaf `leaf` of the backing `bytes`: the window
+/// around the leaf as it will read, and each leaf that shares a bit with it checked in bit order.
+fn stage_leaf_bits(
+    layout: &Arc<PhysicalLayout>,
+    leaf: u32,
+    bits: u64,
+    bytes: &[u8],
+) -> Result<LeafWrite, RuntimeError> {
+    let written = layout
+        .leaves
+        .get(leaf as usize)
+        .ok_or(RuntimeError::InvalidExecutionState)?;
     let window_start = written.offset.saturating_sub(64) / 8;
     let window_end = written
         .offset

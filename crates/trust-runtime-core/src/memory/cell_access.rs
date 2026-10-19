@@ -489,6 +489,46 @@ impl CellArm {
         crate::memory::cells::write_enum_in(bytes, type_id, numeric, prepared)
     }
 
+    /// Make the staged write `patch` of one scalar leaf in its backing, as a committed write of the
+    /// leaf makes it (C1-15b, C1-19a). `false` when the block refuses the backing.
+    pub(crate) fn write_leaf_patch(&mut self, patch: &LeafPatch) -> bool {
+        let (block, _) = self.cells.regions_mut().block_mut(patch.backing.region);
+        block
+            .bytes_mut(patch.backing)
+            .is_some_and(|bytes| patch.write.commit(bytes))
+    }
+
+    /// Write the variant numbered `numeric` of the enumeration `type_id` into its leaf at `range`, and
+    /// mark the presence byte at `presence`, when the declaration keeps one, as holding a value
+    /// (C1-19a). `Ok(false)`, and nothing written, when the block refuses either range; a number no
+    /// variant of the type has is refused before anything is written.
+    pub(crate) fn write_enum(
+        &mut self,
+        range: ByteRange,
+        presence: Option<u32>,
+        type_id: u32,
+        numeric: i64,
+        prepared: &PreparedModule,
+    ) -> Result<bool, RuntimeError> {
+        let (block, _) = self.cells.regions_mut().block_mut(range.region);
+        let flag = presence.map(|start| ByteRange {
+            start,
+            bytes: 1,
+            ..range
+        });
+        if flag.is_some_and(|flag| block.bytes(flag).is_none()) {
+            return Ok(false);
+        }
+        let Some(bytes) = block.bytes_mut(range) else {
+            return Ok(false);
+        };
+        crate::memory::cells::write_enum_in(bytes, type_id, numeric, prepared)?;
+        if let Some(byte) = flag.and_then(|flag| block.bytes_mut(flag)) {
+            byte[0] = 1;
+        }
+        Ok(true)
+    }
+
     /// The bytes a staged result of `bytes` bytes would take at the top of the activation stack,
     /// when they and a record are free (C1-13).
     pub(crate) fn result_room(&self, bytes: u32) -> Option<ByteRange> {

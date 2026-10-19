@@ -176,6 +176,32 @@ impl<'e> ReferenceContext for EngineState<'e> {
         }
         self.charge_allocation_bytes(super::allocation::text_copy_allocation(text, wide)?)
     }
+    fn enum_operand(
+        &self,
+        view: &crate::memory::view::ValueView<'_>,
+    ) -> Option<crate::vm::EnumTemp> {
+        EngineState::enum_operand(self, view)
+    }
+    fn enum_constant(&self, value: &Value) -> Option<crate::vm::EnumTemp> {
+        EngineState::enum_constant(self, value)
+    }
+    fn enum_value(&self, temp: crate::vm::EnumTemp) -> Result<Value, RuntimeError> {
+        EngineState::enum_value(self, temp)
+    }
+    fn enums_equal(&self, left: crate::vm::EnumTemp, right: crate::vm::EnumTemp) -> bool {
+        EngineState::enums_equal(self, left, right)
+    }
+    fn before_enum_clone(&self, _temp: crate::vm::EnumTemp) -> Result<(), RuntimeError> {
+        self.charge_enum_copy()
+    }
+    fn store_enum(
+        &mut self,
+        reference: crate::value::ValueRefView<'_>,
+        temp: crate::vm::EnumTemp,
+        declared: Option<u32>,
+    ) -> Option<Result<bool, RuntimeError>> {
+        EngineState::store_enum(self, reference, temp, declared)
+    }
     fn normalize_assignment(
         &self,
         _module: &super::super::module::VmModule,
