@@ -84,6 +84,14 @@
     },
     {
       "from": "trust-platform-esp32",
+      "to": "trust-runtime-core",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "runtime portability C1 (memory figures, spec 34 MEM-12)",
+      "rationale": "The heap test enables the core's footprint feature to drop a prepared module part by part and attribute its heap; a dev edge only, so no firmware build enables the measurement."
+    },
+    {
+      "from": "trust-platform-esp32",
       "to": "trust-runtime-services",
       "kind": "normal",
       "status": "allowed",

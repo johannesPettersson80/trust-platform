@@ -468,8 +468,19 @@ fn where_a_loaded_programs_heap_goes() {
         )
         .expect("the program prepares");
         let module = live_bytes() - before;
-        drop(prepared);
+        let mut last = live_bytes();
+        let mut parts = Vec::new();
+        prepared.drop_in_parts(|part| {
+            let now = live_bytes();
+            if part != "start" {
+                parts.push((part, last - now));
+            }
+            last = now;
+        });
         disarm();
+        for (part, bytes) in &parts {
+            println!("footprint: {name}: {part}: {bytes} B");
+        }
         let whole = resident(program, false, None).expect("the program loads");
         println!(
             "footprint: {name}: {} B of bytecode; the decoded container alone {container} B; the \

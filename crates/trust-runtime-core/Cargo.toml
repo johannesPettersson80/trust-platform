@@ -13,6 +13,9 @@ std = ["dep:crc32fast", "crc32fast/std", "indexmap/std", "rustc-hash/std", "smol
 register-ir = []
 # Raw optimization fixtures are not part of the production execution API.
 test-support = ["register-ir"]
+# The measurement of where a prepared module's heap goes (`PreparedModule::drop_in_parts`), for the
+# chips' memory figures (spec 34 MEM-12). It changes nothing else.
+footprint = []
 hir = ["std", "dep:trust-hir"]
 
 [dependencies]

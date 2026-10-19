@@ -31,4 +31,6 @@ serde_json = { version = "1.0.152", default-features = false, features = ["alloc
 # The host test tests/chip_file.rs compares the profile with chips/esp32c6.toml. A dev-dependency
 # is resolved only for this workspace's own tests, never for a firmware build.
 [dev-dependencies]
+# The heap test measures a prepared module part by part (spec 34 MEM-12).
+trust-runtime-core = { workspace = true, features = ["footprint"] }
 trust-chips.workspace = true
