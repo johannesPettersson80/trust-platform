@@ -6,7 +6,13 @@
  * requests, its services and JSON, and the platform glue) execute from flash. Patterns match
  * v0-mangled paths, whose length prefixes keep module and function names exact. The USB-Serial/JTAG
  * interrupt handler and the FIFO servicing it calls are in RAM through esp-hal's `#[ram]` attribute
- * (design §2.2), not through a pattern here. The ROM supplies soft-float and memory routines. */
+ * (design §2.2), not through a pattern here. The ROM supplies soft-float and memory routines.
+ *
+ * Wi-Fi (checklist L3, spec 34 ARCH-10 and D.2) needs about 200 KiB of the C6's RAM, so only the
+ * interpreter loop, the call machinery and the per-scan path stay here. The standard functions and function blocks (`stdlib`, about 45 KB), and REAL to text, string
+ * semantics, value display, date and time and sorting (about 12 KB) run from flash, where each
+ * instruction costs about 50 ns more (`~/projects/.artifacts/l3/wifi-budget.md` §3.2; measured on
+ * the C6 after the move). */
 
 /* The dispatcher and its callees: the bytecode interpreter, the value model it evaluates and the
  * process-image path it publishes through. */
@@ -29,14 +35,9 @@
  * slices after S4-6 need (18 October 2026; spec 34 D.2). */
 *(.text.*18trust_runtime_core5value5types*)
 *(.text.*18trust_runtime_core5value9reference*)
-*(.text.*18trust_runtime_core5value10float_text*)
-*(.text.*18trust_runtime_core5value16string_semantics*)
 *(.text.*18trust_runtime_core5value4size*)
-*(.text.*18trust_runtime_core5value7display*)
 *(.text.*18trust_runtime_core5value14partial_access*)
-*(.text.*18trust_runtime_core5value8datetime*)
 *(.text.*18trust_runtime_core5value11storage_abi*)
-*(.text.*18trust_runtime_core6stdlib*)
 *(.text.*18trust_runtime_core13program_model*)
 *(.text.*18trust_runtime_core8io_image*)
 *(.text.*18trust_runtime_core10io_address*)
@@ -59,9 +60,7 @@
 *(.text.*18trust_runtime_core5cycle*)
 *(.text.*18trust_runtime_core4task*)
 *(.text.*18trust_runtime_core7numeric*)
-*(.text.*18trust_runtime_core8datetime*)
 *(.text.*18trust_runtime_core5error*)
-*(.text.*18trust_runtime_core4sort*)
 
 /* The engine's scan modules: the resource cycle and its hooks, the process image, the variable
  * access policy and the assignment and path-write paths a scan runs. `initialization` (the

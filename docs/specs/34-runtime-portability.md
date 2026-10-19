@@ -3296,7 +3296,14 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   `_stack_start - _stack_end` is at least the 24 KiB window plus a 4 KiB margin (28 KiB), and
   `build-firmware esp32c6` reads the linked `.stack` region, reports it with its margin above the
   window, and fails below that margin. The linked `.stack` region of the current C6 build is
-  71,676 bytes, which leaves 47,100 bytes above the 24 KiB window. Interrupts use the same stack on
+  129,172 bytes, which leaves 104,596 bytes above the 24 KiB window. Only the interpreter loop, the
+  call machinery and the per-scan path run from RAM (`rwtext_hook.x`, 225,660 bytes); the standard
+  functions and function blocks, REAL to text, string semantics, value display, date and time and
+  sorting run from flash (57,500 bytes moved on 19 October 2026), so that the radio's RAM fits
+  (checklist L3). Measured on the C6 with the perf bench program, the move costs 1.5 ms of its
+  83.4 ms cycle (P1 23.0 to 24.5 ms, P2 21.9 to 23.4, P3 17.7 to 18.3, P4 unchanged); moving the
+  call machinery as well would free 47,724 bytes more but makes call-heavy programs a third slower
+  (P1 30.7 ms), so it stays in RAM. Interrupts use the same stack on
   RISC-V, so the window includes them. The allocator serves two heap regions on the C6: the 72 KiB
   arena and the boot loader's reclaimed RAM. A program's prepared module and its execution services
   are allocated on the heap when the program starts, and the program's cycle owns them: they are
