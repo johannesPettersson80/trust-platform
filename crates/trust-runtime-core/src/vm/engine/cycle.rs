@@ -199,7 +199,7 @@ impl EngineState<'_> {
             {
                 let bytes = self.snapshot_entry_charge(&view, name.len())?;
                 self.charge_allocation_bytes(bytes)?;
-                payload.entry_view(name.as_str(), &view)?;
+                payload.entry_view(name, &view)?;
             }
         }
         for (index, root) in prepared.roots.entries.iter().enumerate() {
@@ -224,7 +224,7 @@ impl EngineState<'_> {
                         .ok_or(RuntimeError::Overflow)?;
                     let bytes = self.snapshot_entry_charge(&view, key_len)?;
                     self.charge_allocation_bytes(bytes)?;
-                    if self.retained_program_key_conflicts(program_name.as_str(), name.as_str()) {
+                    if self.retained_program_key_conflicts(program_name, name) {
                         return Err(RuntimeError::RetainMigration(
                             "ambiguous retained checkpoint label".into(),
                         ));
@@ -232,10 +232,7 @@ impl EngineState<'_> {
                     // The reserved `@program/<program-identity>/<variable-identity>` key is
                     // appended as pieces, so an identity of any length builds no key string
                     // (specification 11 §6.7).
-                    payload.entry_view_pieces(
-                        &["@program/", program_name.as_str(), "/", name.as_str()],
-                        &view,
-                    )?;
+                    payload.entry_view_pieces(&["@program/", program_name, "/", name], &view)?;
                 }
             }
         }
@@ -258,7 +255,6 @@ impl EngineState<'_> {
                 let declaration = &prepared.layout.entries[id as usize];
                 let global = &prepared.vm.strings[declaration.name_idx as usize];
                 global
-                    .as_str()
                     .strip_prefix("@program/")
                     .and_then(|rest| rest.rsplit_once('/'))
                     == Some((program, name))

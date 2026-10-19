@@ -379,14 +379,8 @@ fn view_global_name_by_slot_reads_the_declared_name_in_declaration_order() {
 
     // A lookup that reorders the slots, or that reads a neighbour's name, fails one of
     // these; a slot past the last global names nothing.
-    assert_eq!(
-        StoreAccess::global_name(&storage, 0).map(SmolStr::as_str),
-        Some("first")
-    );
-    assert_eq!(
-        StoreAccess::global_name(&storage, 1).map(SmolStr::as_str),
-        Some("second")
-    );
+    assert_eq!(StoreAccess::global_name(&storage, 0), Some("first"));
+    assert_eq!(StoreAccess::global_name(&storage, 1), Some("second"));
     assert_eq!(StoreAccess::global_name(&storage, 2), None);
 }
 

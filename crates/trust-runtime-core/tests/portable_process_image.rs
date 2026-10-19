@@ -67,7 +67,7 @@ fn typed_time_image_rejects_negative_durations_before_truncating_to_millis() {
 
 #[test]
 fn preparation_restores_declared_string_window_and_overflow_is_nonmutating() {
-    let strings = vec!["%QB20".into()];
+    let strings: trust_runtime_core::vm::Names = ["%QB20"].into_iter().collect();
     let types = TypeTable {
         offsets: vec![],
         entries: vec![TypeEntry {
@@ -109,7 +109,7 @@ fn preparation_restores_declared_string_window_and_overflow_is_nonmutating() {
 fn a_string_without_a_length_binds_its_default_80_byte_window() {
     // docs/IEC_DECISIONS.md 2026-10-17: an earlier producer wrote capacity 0 for STRING without a
     // length, which is STRING[80].
-    let strings = vec!["%IB4".into()];
+    let strings: trust_runtime_core::vm::Names = ["%IB4"].into_iter().collect();
     let types = TypeTable {
         offsets: vec![],
         entries: vec![TypeEntry {

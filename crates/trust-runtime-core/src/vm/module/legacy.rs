@@ -23,7 +23,7 @@ impl VmModule {
             version,
             storage_abi: version.storage_abi().map_err(RuntimeError::from)?,
             code,
-            strings,
+            strings: crate::vm::Names::from_entries(&strings)?,
             types,
             physical_layouts: Vec::new(),
             ref_types: alloc::vec![None; refs.len()],
@@ -31,15 +31,15 @@ impl VmModule {
             consts,
             native_symbol_specs,
             pou_by_id: PouMap::default(),
-            program_ids: HashMap::default(),
-            function_ids: HashMap::default(),
-            function_block_ids: HashMap::default(),
-            class_ids: HashMap::default(),
+            program_ids: NameIndex::default(),
+            function_ids: NameIndex::default(),
+            function_block_ids: NameIndex::default(),
+            class_ids: NameIndex::default(),
             parent_pou_ids: IdMap::default(),
             interface_type_ids_by_pou: PouMap::default(),
             pou_params: PouMap::default(),
             pou_has_return_slot: IdSet::default(),
-            method_table_by_owner: PouMap::default(),
+            method_table_by_owner: MethodIndex::default(),
             debug_map: debug_map::VmDebugMap::default(),
             instruction_budget: super::super::VM_MAX_EXECUTED_INSTRUCTIONS,
         })
@@ -57,21 +57,20 @@ impl VmModule {
         self.assert_legacy();
         let mut entry = entry;
         entry.kind = kind;
-        let key = SmolStr::new(entry.name.to_ascii_uppercase());
-        match kind {
-            PouKind::Program => {
-                self.program_ids.insert(key, id);
-            }
-            PouKind::Function => {
-                self.function_ids.insert(key, id);
-            }
-            PouKind::FunctionBlock => {
-                self.function_block_ids.insert(key, id);
-            }
-            PouKind::Class => {
-                self.class_ids.insert(key, id);
-            }
-            _ => {}
+        let found = self.strings.iter().position(|text| text == entry.name);
+        let name_idx = match found {
+            Some(index) => index as u32,
+            None => self.strings.push(&entry.name),
+        };
+        let index = match kind {
+            PouKind::Program => Some(&mut self.program_ids),
+            PouKind::Function => Some(&mut self.function_ids),
+            PouKind::FunctionBlock => Some(&mut self.function_block_ids),
+            PouKind::Class => Some(&mut self.class_ids),
+            _ => None,
+        };
+        if let Some(index) = index {
+            index.set(&self.strings, name_idx, id);
         }
         self.pou_by_id.insert(id, entry);
         self.pou_params.insert(id, params);
@@ -80,7 +79,11 @@ impl VmModule {
         } else {
             self.pou_has_return_slot.remove(&id);
         }
-        symbols::resolve_native_symbol_specs(&mut self.native_symbol_specs, &self.function_ids);
+        symbols::resolve_native_symbol_specs(
+            &mut self.native_symbol_specs,
+            &self.strings,
+            &self.function_ids,
+        );
     }
 
     /// Replace the type table of a legacy instruction fixture.
@@ -102,8 +105,12 @@ impl VmModule {
         let index = u32::try_from(self.strings.len()).unwrap_or(u32::MAX);
         self.native_symbol_specs
             .push(index, symbols::preparse_native_symbol_spec(&text));
-        self.strings.push(text);
-        symbols::resolve_native_symbol_specs(&mut self.native_symbol_specs, &self.function_ids);
+        self.strings.push(&text);
+        symbols::resolve_native_symbol_specs(
+            &mut self.native_symbol_specs,
+            &self.strings,
+            &self.function_ids,
+        );
     }
 
     /// Replace one legacy POU body; old code remains unused so other ranges stay stable.

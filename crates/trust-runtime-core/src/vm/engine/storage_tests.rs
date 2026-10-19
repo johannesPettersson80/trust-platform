@@ -414,14 +414,10 @@ fn executable_initializer_fails_cleanly_when_staging_frame_capacity_is_full() {
             if !name.eq_ignore_ascii_case("enabled") {
                 return None;
             }
-            Some((u32::try_from(id).ok()?, name.clone()))
+            Some((u32::try_from(id).ok()?, name))
         })
         .expect("fixture executable BOOL initializer");
-    let original = state
-        .data
-        .storage
-        .get_instance_var(plant, name.as_str())
-        .cloned();
+    let original = state.data.storage.get_instance_var(plant, name).cloned();
 
     assert_eq!(state.data.storage.execution_frame_count(), 0);
     state.data.storage.reserve_execution_frames(1).unwrap();
@@ -437,7 +433,7 @@ fn executable_initializer_fails_cleanly_when_staging_frame_capacity_is_full() {
     assert!(state.data.construction.frames.is_empty());
     assert!(state.data.construction.types.is_empty());
     assert_eq!(
-        state.data.storage.get_instance_var(plant, name.as_str()),
+        state.data.storage.get_instance_var(plant, name),
         original.as_ref()
     );
     assert!(state.data.storage.release_execution_frame(occupied));
@@ -463,7 +459,11 @@ fn zero_allowance_cleanup_still_retires_owned_instances_and_preserves_promoted_o
     let new = state.data.storage.reserve_execution_frame().unwrap();
     state.data.storage.activate_execution_frame(old).unwrap();
     state.data.storage.activate_execution_frame(new).unwrap();
-    let pou = *prepared.vm.function_block_ids.get("COUNTER").unwrap();
+    let pou = prepared
+        .vm
+        .function_block_ids
+        .get(&prepared.vm.strings, "COUNTER")
+        .unwrap();
     let retired = state.reserve_instance(pou, Some(old)).unwrap();
     let promoted = state.reserve_instance(pou, Some(old)).unwrap();
     state

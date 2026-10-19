@@ -75,12 +75,12 @@ fn program_observation_finishes_even_when_execution_deadline_faults() {
         fn has_program_hooks(&self) -> bool {
             true
         }
-        fn program_started(&mut self, name: &smol_str::SmolStr) {
-            self.observations.push(("start", name.clone()));
+        fn program_started(&mut self, name: &str) {
+            self.observations.push(("start", name.into()));
             self.expired.set(true);
         }
-        fn program_finished(&mut self, name: &smol_str::SmolStr) {
-            self.observations.push(("finish", name.clone()));
+        fn program_finished(&mut self, name: &str) {
+            self.observations.push(("finish", name.into()));
         }
     }
     let expired = Rc::new(Cell::new(false));

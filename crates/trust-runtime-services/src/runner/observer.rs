@@ -2,7 +2,6 @@
 //! events, and the task, program and overrun metrics, as trust-runtime's hosted cycle records
 //! them (`runtime/installed_cycle.rs`). The loop itself records the end of a successful scan.
 
-use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
 use trust_runtime_core::vm::{CycleAccess, CycleHooks, CyclePhase};
@@ -61,11 +60,11 @@ impl<C: MonotonicClock> CycleHooks for ScanObserver<'_, C> {
         true
     }
 
-    fn program_started(&mut self, _name: &SmolStr) {
+    fn program_started(&mut self, _name: &str) {
         self.program_started = Some(self.clock.now());
     }
 
-    fn program_finished(&mut self, name: &SmolStr) {
+    fn program_finished(&mut self, name: &str) {
         if let Some(started) = self.program_started.take() {
             let duration = self.since(started);
             self.records

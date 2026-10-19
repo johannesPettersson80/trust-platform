@@ -389,7 +389,7 @@ impl<'a> CellReader<'a> {
     }
 
     /// The declared name of the global at `offset`, in declaration order.
-    pub(crate) fn global_name(self, offset: usize) -> Option<&'a SmolStr> {
+    pub(crate) fn global_name(self, offset: usize) -> Option<&'a str> {
         let declaration = *self
             .prepared
             .declarations(StorageOwner::Global, None)
@@ -795,10 +795,7 @@ impl<'a> CellReader<'a> {
 
 /// The member name of a `STRING_TABLE` record.
 fn member_name(prepared: &PreparedModule, name_idx: u32) -> Option<&str> {
-    prepared
-        .strings()
-        .get(name_idx as usize)
-        .map(SmolStr::as_str)
+    prepared.strings().get(name_idx as usize)
 }
 
 /// The `TYPE_TABLE` ordinal of `type_id` with its aliases resolved, and the type's data.

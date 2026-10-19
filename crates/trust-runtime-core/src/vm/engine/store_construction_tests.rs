@@ -187,7 +187,7 @@ fn member(state: &EngineState<'_>, instance: InstanceId, name: &str) -> Value {
 
 fn declaration_name(prepared: &PreparedModule, declaration: u32) -> &str {
     let entry = &prepared.layout.entries[declaration as usize];
-    prepared.vm.strings[entry.name_idx as usize].as_str()
+    &prepared.vm.strings[entry.name_idx as usize]
 }
 
 /// Every declared variable of `prepared` as `state` holds it: the globals in declaration order, then each
@@ -474,7 +474,7 @@ fn explicit_initializers_land_in_the_cells() {
     let phases: Vec<&str> = prepared
         .instance_declarations(pulse_pou)
         .filter(|declaration| declaration.role == StorageRole::EdgePhase)
-        .map(|declaration| prepared.vm.strings[declaration.name_idx as usize].as_str())
+        .map(|declaration| &prepared.vm.strings[declaration.name_idx as usize])
         .collect();
     assert_eq!(phases.len(), 1);
     assert_eq!(member(&state, pulse, phases[0]), Value::Bool(false));

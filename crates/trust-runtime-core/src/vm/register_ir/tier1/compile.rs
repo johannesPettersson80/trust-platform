@@ -23,7 +23,7 @@ pub fn compile_tier1_block(
                 let field = module
                     .strings()
                     .get(*field_idx as usize)
-                    .cloned()
+                    .map(smol_str::SmolStr::new)
                     .ok_or_else(|| format!("invalid_string_index:{field_idx}"))?;
                 Tier1CompiledInstr::LoadSelfFieldDynamic { field, dest: *dest }
             }
@@ -31,7 +31,7 @@ pub fn compile_tier1_block(
                 let field = module
                     .strings()
                     .get(*field_idx as usize)
-                    .cloned()
+                    .map(smol_str::SmolStr::new)
                     .ok_or_else(|| format!("invalid_string_index:{field_idx}"))?;
                 Tier1CompiledInstr::StoreSelfFieldDynamic {
                     field,
@@ -73,7 +73,7 @@ pub fn compile_tier1_block(
                 let field = module
                     .strings()
                     .get(*field_idx as usize)
-                    .cloned()
+                    .map(smol_str::SmolStr::new)
                     .ok_or_else(|| "invalid_string_idx".to_string())?;
                 Tier1CompiledInstr::RefField {
                     base: *base,

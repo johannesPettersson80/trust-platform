@@ -255,7 +255,7 @@ fn same_execution(a: &PreparedModule, b: &PreparedModule) -> bool {
         && x.types == y.types
         && x.refs == y.refs
         && x.strings.len() <= y.strings.len()
-        && x.strings.iter().zip(&y.strings).all(|(x, y)| x == y)
+        && x.strings.iter().zip(y.strings.iter()).all(|(x, y)| x == y)
         && x.consts.len() == y.consts.len()
         && x.consts
             .iter()

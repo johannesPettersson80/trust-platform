@@ -344,13 +344,13 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
 
     /// Records one call of `kind` `name` that took `duration`, while profiling is on. Calls whose
     /// text `kind:name` is the same share one entry.
-    pub fn record_call(&mut self, kind: &str, name: &SmolStr, duration: Duration) {
+    pub fn record_call(&mut self, kind: &str, name: &str, duration: Duration) {
         if !self.profiling_enabled {
             return;
         }
         let key = CallKey {
             kind: SmolStr::new(kind),
-            name: name.clone(),
+            name: SmolStr::new(name),
         };
         if let Some(entry) = self.profile_calls.get_mut(&key) {
             entry.stats.record(duration);

@@ -49,7 +49,7 @@ impl MetricsSubsystem {
         }
     }
 
-    pub(super) fn record_profile_call(&self, kind: &str, name: &SmolStr, duration: StdDuration) {
+    pub(super) fn record_profile_call(&self, kind: &str, name: &str, duration: StdDuration) {
         if let Some(metrics) = self.sink.as_ref()
             && let Ok(mut guard) = metrics.lock()
         {
@@ -84,7 +84,7 @@ mod tests {
         assert!(subsystem.start_timer().is_none());
         subsystem.record_cycle(StdDuration::from_millis(1));
         subsystem.record_task(&"Fast".into(), StdDuration::from_millis(2));
-        subsystem.record_profile_call("program", &"Main".into(), StdDuration::from_millis(3));
+        subsystem.record_profile_call("program", "Main", StdDuration::from_millis(3));
         subsystem.record_overrun(&"Fast".into(), 4);
         subsystem.record_fault();
 
@@ -94,7 +94,7 @@ mod tests {
         subsystem.set_execution_backend(ExecutionBackend::BytecodeVm);
         subsystem.record_cycle(StdDuration::from_millis(1));
         subsystem.record_task(&"Fast".into(), StdDuration::from_millis(2));
-        subsystem.record_profile_call("program", &"Main".into(), StdDuration::from_millis(3));
+        subsystem.record_profile_call("program", "Main", StdDuration::from_millis(3));
         subsystem.record_overrun(&"Fast".into(), 4);
         subsystem.record_fault();
 

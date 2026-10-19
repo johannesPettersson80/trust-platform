@@ -222,11 +222,11 @@ impl EngineState<'_> {
     fn restore_program_value(
         &mut self,
         instance: InstanceId,
-        name: &smol_str::SmolStr,
+        name: &str,
         value: &Value,
     ) -> Result<(), RuntimeError> {
         self.charge_allocation_bytes(self.value_clone_charge(value, 0)?)?;
-        if !StoreMutate::write_instance_var(self, instance, name.clone(), value.clone()) {
+        if !StoreMutate::write_instance_var(self, instance, name, value.clone()) {
             return Err(RuntimeError::InvalidExecutionState);
         }
         Ok(())
@@ -281,7 +281,7 @@ pub(super) fn warm_graph_congruent(old: &PreparedModule, new: &PreparedModule) -
             .vm
             .strings
             .iter()
-            .zip(&new.vm.strings)
+            .zip(new.vm.strings.iter())
             .all(|(a, b)| a == b)
         && old.vm.parent_pou_ids == new.vm.parent_pou_ids
         && old.vm.interface_type_ids_by_pou == new.vm.interface_type_ids_by_pou

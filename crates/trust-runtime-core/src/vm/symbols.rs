@@ -1,8 +1,4 @@
-#[cfg(not(feature = "std"))]
-use alloc::collections::BTreeMap as HashMap;
 use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::collections::HashMap;
 
 use smol_str::SmolStr;
 
@@ -173,7 +169,8 @@ pub fn preparse_native_symbol_spec(symbol: &SmolStr) -> VmNativeSymbolSpec {
 /// Associate parsed call descriptors with known function POU identities.
 pub fn resolve_native_symbol_specs(
     specs: &mut NativeSymbols,
-    function_ids: &HashMap<SmolStr, u32>,
+    names: &super::Names,
+    function_ids: &super::names::NameIndex,
 ) {
     for spec in specs.iter_mut() {
         if let VmNativeSymbolSpec::Parsed {
@@ -182,7 +179,7 @@ pub fn resolve_native_symbol_specs(
             ..
         } = spec
         {
-            *resolved_function_pou_id = function_ids.get(normalized_target_name).copied();
+            *resolved_function_pou_id = function_ids.get(names, normalized_target_name);
         }
     }
 }
@@ -215,4 +212,39 @@ fn parse_native_symbol(symbol: &SmolStr) -> Result<(SmolStr, Vec<VmNativeArgSpec
         args.push(VmNativeArgSpec { name, is_target });
     }
     Ok((target, args))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::vm::names::NameIndex;
+    use crate::vm::Names;
+    use alloc::vec;
+
+    /// A native call names its function in any case, and resolution caches that function's POU
+    /// (specification 34 MEM-14); a symbol the module has no function for resolves to none. Catches
+    /// a lookup by exact bytes, which misses "Add" for the function "ADD", and one that resolves
+    /// every symbol.
+    #[test]
+    fn resolve_native_symbol_specs_caches_resolved_function_id() {
+        let mut specs = NativeSymbols::from_dense(vec![
+            preparse_native_symbol_spec(&SmolStr::new("Add|E:a")),
+            preparse_native_symbol_spec(&SmolStr::new("Len|E:in")),
+        ]);
+        let names: Names = ["ADD"].into_iter().collect();
+        let mut function_ids = NameIndex::with_capacity(1).unwrap();
+        assert!(function_ids.insert(&names, 0, 7));
+
+        resolve_native_symbol_specs(&mut specs, &names, &function_ids);
+
+        let resolved = |index| match specs.get(index) {
+            Some(VmNativeSymbolSpec::Parsed {
+                resolved_function_pou_id,
+                ..
+            }) => *resolved_function_pou_id,
+            other => panic!("symbol {index} did not parse: {other:?}"),
+        };
+        assert_eq!(resolved(0), Some(7));
+        assert_eq!(resolved(1), None);
+    }
 }

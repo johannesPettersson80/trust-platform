@@ -53,7 +53,7 @@ pub fn resource_tasks(prepared: &PreparedModule, resource_index: usize) -> Vec<T
                     name: usize::try_from(task.name_idx)
                         .ok()
                         .and_then(|index| strings.get(index))
-                        .cloned()
+                        .map(SmolStr::new)
                         .unwrap_or_default(),
                     priority: task.priority,
                 })

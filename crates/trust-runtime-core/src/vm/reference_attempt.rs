@@ -311,7 +311,7 @@ mod tests {
             offsets: vec![],
             entries,
         };
-        module.strings = vec!["First".into(), "Second".into()];
+        module.strings = ["First", "Second"].into_iter().collect();
         module
     }
 
@@ -568,7 +568,8 @@ mod tests {
         }
         module.parent_pou_ids.insert(10, 9);
         module.parent_pou_ids.insert(9, 8);
-        module.class_ids.insert("DRIVE".into(), 10);
+        let name = module.strings.push("DRIVE");
+        module.class_ids.insert(&module.strings, name, 10);
         module.interface_type_ids_by_pou.insert(8, vec![0]);
         module
     }
@@ -647,7 +648,8 @@ mod tests {
     #[test]
     fn an_interface_attempt_compares_templates_but_charges_the_type_name_bytes() {
         let mut module = interface_attempt_module();
-        module.class_ids.insert("MOTORDRIVE".into(), 10);
+        let name = module.strings.push("MOTORDRIVE");
+        module.class_ids.insert(&module.strings, name, 10);
         let mut context = AttemptContext::new(20);
         let instance = context.storage.create_instance("MOTORDRIVE");
         // TIME-08: the attempt still copies the 10-byte type name, so it costs 10 units, and

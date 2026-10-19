@@ -3,7 +3,6 @@
 use super::PreparedModule;
 use crate::bytecode::{ResourceEntry, StorageDeclaration, StorageOwner, TypeTable};
 use alloc::vec::Vec;
-use smol_str::SmolStr;
 
 impl PreparedModule {
     /// Internal storage and SIZEOF ABI carried by this exact admitted artifact.
@@ -24,7 +23,7 @@ impl PreparedModule {
         &self.io_bindings
     }
     /// Symbols retained by this installation, indexed by their artifact identity.
-    pub fn strings(&self) -> &[SmolStr] {
+    pub fn strings(&self) -> &crate::vm::Names {
         &self.vm.strings
     }
 

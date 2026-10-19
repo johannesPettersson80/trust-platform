@@ -326,12 +326,12 @@ fn declared_member_type(
 /// The single class-like owner declaring `method_upper`, when exactly one does.
 fn sole_method_owner(vm: &VmModule, method_upper: &str) -> Option<(u32, u32)> {
     let mut found = None;
-    for (owner, table) in vm.method_table_by_owner.iter() {
-        if let Some(pou) = table.get(method_upper) {
+    for (owner, name, pou) in vm.method_table_by_owner.iter() {
+        if vm.strings[name as usize].eq_ignore_ascii_case(method_upper) {
             if found.is_some() {
                 return None;
             }
-            found = Some((*owner, *pou));
+            found = Some((owner, pou));
         }
     }
     found
@@ -339,18 +339,12 @@ fn sole_method_owner(vm: &VmModule, method_upper: &str) -> Option<(u32, u32)> {
 
 /// The function-block POU whose prepared name matches `name`, without a type-name key.
 pub(crate) fn function_block_pou_by_name(module: &VmModule, name: &str) -> Option<u32> {
-    module
-        .function_block_ids
-        .iter()
-        .find_map(|(key, id)| key.eq_ignore_ascii_case(name).then_some(*id))
+    module.function_block_ids.get(&module.strings, name)
 }
 
 /// The class POU whose prepared name matches `name`, without a type-name key.
 pub(crate) fn class_pou_by_name(module: &VmModule, name: &str) -> Option<u32> {
-    module
-        .class_ids
-        .iter()
-        .find_map(|(key, id)| key.eq_ignore_ascii_case(name).then_some(*id))
+    module.class_ids.get(&module.strings, name)
 }
 
 /// The module's POU of `kind` whose name matches `name`, case-insensitively (test support).
@@ -461,7 +455,7 @@ mod tests {
             })
             .expect("the Raise call has a prepared plan");
         assert_eq!(
-            prepared.vm.resolve_method_pou_id_uppercase(owner, "RAISE"),
+            prepared.vm.resolve_method_pou_id(owner, "RAISE"),
             Some(raise)
         );
         // Raise declares one input, delta.

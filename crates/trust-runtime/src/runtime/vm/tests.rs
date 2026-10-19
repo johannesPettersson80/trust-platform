@@ -72,10 +72,10 @@ fn vm_module_materialization_preserves_case_insensitive_pou_metadata() {
 
     let materialized = crate::runtime::vm::materialize_test_module(&module).unwrap();
 
-    assert_eq!(materialized.program_ids().get("MAINPROGRAM"), Some(&1));
-    assert_eq!(materialized.function_ids().get("COMPUTE"), Some(&2));
-    assert_eq!(materialized.function_block_ids().get("MOTORFB"), Some(&3));
-    assert_eq!(materialized.class_ids().get("MOTORCLASS"), Some(&4));
+    assert_eq!(materialized.program_ids().get("MAINPROGRAM"), Some(1));
+    assert_eq!(materialized.function_ids().get("COMPUTE"), Some(2));
+    assert_eq!(materialized.function_block_ids().get("MOTORFB"), Some(3));
+    assert_eq!(materialized.class_ids().get("MOTORCLASS"), Some(4));
     assert_eq!(materialized.pou_name(1), Some("MainProgram"));
     assert!(materialized.pou_has_return_slot(2));
     let params = materialized.pou_params(2).expect("function parameters");
@@ -84,14 +84,8 @@ fn vm_module_materialization_preserves_case_insensitive_pou_metadata() {
     assert_eq!(params[0].type_id, TypeId::INT.0);
     assert_eq!(params[0].direction, 2);
     assert_eq!(params[0].default_const_idx, Some(7));
-    assert_eq!(
-        materialized.resolve_method_pou_id_uppercase(4, "START"),
-        Some(5)
-    );
-    assert_eq!(
-        materialized.resolve_method_pou_id_uppercase(3, "START"),
-        None
-    );
+    assert_eq!(materialized.resolve_method_pou_id(4, "START"), Some(5));
+    assert_eq!(materialized.resolve_method_pou_id(3, "START"), None);
 }
 
 #[test]

@@ -51,7 +51,11 @@ mod frames;
 mod helpers;
 mod limits;
 mod materialization_limits;
+mod names;
 mod stack;
+#[cfg(feature = "hir")]
+pub use names::NameLookup;
+pub use names::Names;
 mod symbols;
 pub(crate) mod type_policy;
 

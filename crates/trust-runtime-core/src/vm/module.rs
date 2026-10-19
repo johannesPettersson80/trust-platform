@@ -5,6 +5,7 @@
 
 #[cfg(feature = "hir")]
 use super::debug_map;
+use super::names::{MethodIndex, NameIndex};
 use super::validated_source::ValidatedSource;
 use super::{const_pool, materialization_limits, opcode_operand_len, symbols, VmTrap};
 use crate::bytecode::{
@@ -14,15 +15,17 @@ use crate::bytecode::{
 use crate::error::{PreparationDiagnostic, RuntimeError};
 use crate::memory::IoArea;
 use crate::value::{ref_indices_from_iter, RefPath, RefSegment as ValueRefSegment, Value};
+#[cfg(all(not(feature = "std"), feature = "hir"))]
+use alloc::collections::BTreeMap as HashMap;
 #[cfg(not(feature = "std"))]
-use alloc::collections::{BTreeMap as HashMap, BTreeMap as IdMap, BTreeSet as IdSet};
+use alloc::collections::{BTreeMap as IdMap, BTreeSet as IdSet};
 use alloc::vec::Vec;
 use smol_str::SmolStr;
 // POU ids are integer keys that the call path looks up on every invocation, so
 // hosted builds hash them with Fx rather than SipHash.
 #[cfg(feature = "std")]
 use rustc_hash::{FxHashMap as IdMap, FxHashSet as IdSet};
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", feature = "hir"))]
 use std::collections::HashMap;
 
 #[cfg(not(feature = "std"))]
@@ -74,24 +77,24 @@ pub struct VmModule {
     pub(crate) version: crate::bytecode::BytecodeVersion,
     pub(crate) storage_abi: crate::value::StorageAbi,
     pub(crate) code: Vec<u8>,
-    pub(crate) strings: Vec<SmolStr>,
+    pub(crate) strings: super::Names,
     pub(crate) types: TypeTable,
     pub(crate) physical_layouts:
         Vec<Option<alloc::sync::Arc<crate::value::overlap::PhysicalLayout>>>,
     pub(crate) refs: Vec<VmRef>,
     pub(crate) consts: Vec<Value>,
     pub(crate) pou_by_id: PouMap<VmPouEntry>,
-    pub(crate) program_ids: HashMap<SmolStr, u32>,
+    pub(crate) program_ids: NameIndex,
     #[cfg(feature = "hir")]
-    pub(crate) function_ids: HashMap<SmolStr, u32>,
-    pub(crate) function_block_ids: HashMap<SmolStr, u32>,
-    pub(crate) class_ids: HashMap<SmolStr, u32>,
+    pub(crate) function_ids: NameIndex,
+    pub(crate) function_block_ids: NameIndex,
+    pub(crate) class_ids: NameIndex,
     pub(crate) parent_pou_ids: IdMap<u32, u32>,
     pub(crate) interface_type_ids_by_pou: PouMap<Vec<u32>>,
     pub(crate) native_symbol_specs: super::symbols::NativeSymbols,
     pub(crate) pou_params: PouMap<Vec<VmParamMeta>>,
     pub(crate) pou_has_return_slot: IdSet<u32>,
-    pub(crate) method_table_by_owner: PouMap<HashMap<SmolStr, u32>>,
+    pub(crate) method_table_by_owner: MethodIndex,
     pub(crate) ref_types: Vec<Option<u32>>,
     #[cfg(feature = "hir")]
     pub(crate) debug_map: debug_map::VmDebugMap,
@@ -273,16 +276,31 @@ impl VmModule {
             .count();
         #[cfg(feature = "std")]
         let class_count = 0;
+        let names = super::Names::from_entries(&strings.entries)?;
+        let kind_count = |kind: PouKind| {
+            pou_index
+                .entries
+                .iter()
+                .filter(|entry| entry.kind == kind)
+                .count()
+        };
         let mut pou_by_id = pou_map(count)?;
-        let mut program_ids = HashMap::default();
-        let mut function_ids = HashMap::default();
-        let mut function_block_ids = HashMap::default();
-        let mut class_ids = HashMap::default();
+        let mut program_ids = NameIndex::with_capacity(kind_count(PouKind::Program))?;
+        let mut function_ids = NameIndex::with_capacity(kind_count(PouKind::Function))?;
+        let mut function_block_ids = NameIndex::with_capacity(kind_count(PouKind::FunctionBlock))?;
+        let mut class_ids = NameIndex::with_capacity(kind_count(PouKind::Class))?;
         let mut parent_pou_ids = IdMap::default();
         let mut interface_type_ids_by_pou = pou_map(class_count)?;
         let mut pou_params = pou_map(count)?;
         let mut pou_has_return_slot = IdSet::default();
-        let mut method_table_by_owner: PouMap<HashMap<SmolStr, u32>> = pou_map(class_count)?;
+        let mut method_table_by_owner = MethodIndex::with_capacity(
+            pou_index
+                .entries
+                .iter()
+                .filter_map(|entry| entry.class_meta.as_ref())
+                .map(|meta| meta.methods.len())
+                .sum(),
+        )?;
 
         // Admission has already checked POU identities and name indexes. Read
         // the canonical string table directly instead of rebuilding an id/name
@@ -344,37 +362,19 @@ impl VmModule {
             }
             insert_pou(&mut pou_params, entry.id, params)?;
 
-            let key = SmolStr::new(name.to_ascii_uppercase());
-            if matches!(entry.kind, PouKind::Program) {
-                if program_ids.insert(key.clone(), entry.id).is_some() {
-                    return Err(PreparationDiagnostic::DuplicateName {
-                        kind: "PROGRAM",
-                        name: key.clone(),
-                    }
-                    .into_runtime_error());
-                }
-            } else if matches!(entry.kind, PouKind::FunctionBlock) {
-                if function_block_ids.insert(key.clone(), entry.id).is_some() {
-                    return Err(PreparationDiagnostic::DuplicateName {
-                        kind: "FUNCTION_BLOCK",
-                        name: key.clone(),
-                    }
-                    .into_runtime_error());
-                }
-            } else if matches!(entry.kind, PouKind::Function) {
-                if function_ids.insert(key.clone(), entry.id).is_some() {
-                    return Err(PreparationDiagnostic::DuplicateName {
-                        kind: "FUNCTION",
-                        name: key.clone(),
-                    }
-                    .into_runtime_error());
-                }
-            } else if matches!(entry.kind, PouKind::Class)
-                && class_ids.insert(key.clone(), entry.id).is_some()
+            let (index, kind) = match entry.kind {
+                PouKind::Program => (Some(&mut program_ids), "PROGRAM"),
+                PouKind::FunctionBlock => (Some(&mut function_block_ids), "FUNCTION_BLOCK"),
+                PouKind::Function => (Some(&mut function_ids), "FUNCTION"),
+                PouKind::Class => (Some(&mut class_ids), "CLASS"),
+                _ => (None, ""),
+            };
+            if let Some(index) = index
+                && !index.insert(&names, entry.name_idx, entry.id)
             {
                 return Err(PreparationDiagnostic::DuplicateName {
-                    kind: "CLASS",
-                    name: key.clone(),
+                    kind,
+                    name: SmolStr::new(name.to_ascii_uppercase()),
                 }
                 .into_runtime_error());
             }
@@ -393,32 +393,28 @@ impl VmModule {
                         .map(|interface| interface.interface_type_id)
                         .collect(),
                 )?;
-                let mut table = HashMap::default();
                 for method in &class_meta.methods {
-                    let method_name = strings
-                        .entries
-                        .get(method.name_idx as usize)
-                        .cloned()
-                        .ok_or_else(|| {
-                            PreparationDiagnostic::InvalidIndex {
-                                kind: "method name string",
-                                index: method.name_idx,
-                            }
-                            .into_runtime_error()
-                        })?;
-                    let method_key = SmolStr::new(method_name.to_ascii_uppercase());
-                    if table.insert(method_key.clone(), method.pou_id).is_some() {
+                    let method_name = names.get(method.name_idx as usize).ok_or_else(|| {
+                        PreparationDiagnostic::InvalidIndex {
+                            kind: "method name string",
+                            index: method.name_idx,
+                        }
+                        .into_runtime_error()
+                    })?;
+                    if !method_table_by_owner.insert(&names, owner, method.name_idx, method.pou_id)
+                    {
                         return Err(PreparationDiagnostic::DuplicateMethod {
-                            name: method_key.clone(),
+                            name: SmolStr::new(method_name.to_ascii_uppercase()),
                             owner,
                         }
                         .into_runtime_error());
                     }
                 }
-                insert_pou(&mut method_table_by_owner, owner, table)?;
             }
         }
-        symbols::resolve_native_symbol_specs(&mut native_symbol_specs, &function_ids);
+        symbols::resolve_native_symbol_specs(&mut native_symbol_specs, &names, &function_ids);
+        // The names are held in `names` from here on; the container's table is freed (MEM-14).
+        drop(module.take_strings());
 
         Ok(Self {
             version: module.view().version,
@@ -426,10 +422,7 @@ impl VmModule {
             code: module
                 .take_bodies()
                 .ok_or_else(|| invalid_bytecode(SmolStr::new_static("missing POU_BODIES")))?,
-            strings: module
-                .take_strings()
-                .ok_or_else(|| invalid_bytecode(SmolStr::new_static("missing STRING_TABLE")))?
-                .entries,
+            strings: names,
             types: module
                 .take_types()
                 .ok_or_else(|| invalid_bytecode(SmolStr::new_static("missing TYPE_TABLE")))?,
@@ -482,16 +475,10 @@ impl VmModule {
             .and_then(|index| self.ref_types.get(index).copied().flatten())
     }
 
-    /// Resolve a canonical uppercase method name within its owner.
-    pub fn resolve_method_pou_id_uppercase(
-        &self,
-        owner_pou_id: u32,
-        method_name_upper: &str,
-    ) -> Option<u32> {
+    /// Resolve a method name, in any case, within its owner.
+    pub fn resolve_method_pou_id(&self, owner_pou_id: u32, method_name: &str) -> Option<u32> {
         self.method_table_by_owner
-            .get(&owner_pou_id)
-            .and_then(|table| table.get(method_name_upper))
-            .copied()
+            .get(&self.strings, owner_pou_id, method_name)
     }
 
     /// Return a parsed native-call descriptor or its preserved parse error.

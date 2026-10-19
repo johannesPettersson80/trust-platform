@@ -22,11 +22,6 @@ use crate::value::{StorageAbi, Value, ValueRef};
 
 const FUNCTION_ID: u32 = 7;
 
-#[cfg(feature = "std")]
-type TestMap<K, V> = std::collections::HashMap<K, V>;
-#[cfg(not(feature = "std"))]
-type TestMap<K, V> = alloc::collections::BTreeMap<K, V>;
-
 fn function_module(
     params: Vec<VmParamMeta>,
     arg_specs: Vec<VmNativeArgSpec>,
@@ -50,7 +45,7 @@ fn function_module(
         version: BytecodeVersion::LEGACY,
         storage_abi: StorageAbi::LegacyTemporal32,
         code: Vec::new(),
-        strings: vec![SmolStr::new("callee")],
+        strings: ["callee"].into_iter().collect(),
         types: TypeTable {
             offsets: vec![0],
             entries: vec![TypeEntry {
@@ -66,11 +61,11 @@ fn function_module(
         refs: Vec::new(),
         consts,
         pou_by_id,
-        program_ids: TestMap::new(),
+        program_ids: Default::default(),
         #[cfg(feature = "hir")]
-        function_ids: TestMap::new(),
-        function_block_ids: TestMap::new(),
-        class_ids: TestMap::new(),
+        function_ids: Default::default(),
+        function_block_ids: Default::default(),
+        class_ids: Default::default(),
         parent_pou_ids: Default::default(),
         interface_type_ids_by_pou: PouMap::default(),
         native_symbol_specs: crate::vm::symbols::NativeSymbols::from_dense(vec![
@@ -84,7 +79,7 @@ fn function_module(
         ]),
         pou_params,
         pou_has_return_slot: Default::default(),
-        method_table_by_owner: PouMap::default(),
+        method_table_by_owner: Default::default(),
         ref_types: Vec::new(),
         #[cfg(feature = "hir")]
         debug_map: crate::vm::debug_map::VmDebugMap::default(),
@@ -274,13 +269,12 @@ fn private_method_route_uses_the_owned_expression_binder() {
             arg_specs: vec![arg_spec("A", false)],
         },
     );
-    module.class_ids.insert(SmolStr::new("OWNER"), 8);
-    module.method_table_by_owner.insert(
-        8,
-        [(SmolStr::new("METHOD"), FUNCTION_ID)]
-            .into_iter()
-            .collect(),
-    );
+    let owner = module.strings.push("OWNER");
+    module.class_ids.insert(&module.strings, owner, 8);
+    let method = module.strings.push("METHOD");
+    module
+        .method_table_by_owner
+        .insert(&module.strings, 8, method, FUNCTION_ID);
 
     let mut context = TestContext::new();
     let instance = context.storage.create_instance("Owner");

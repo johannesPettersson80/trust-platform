@@ -466,7 +466,11 @@ mod tests {
             .activate_execution_frame(destination)
             .unwrap();
         state.data.storage.activate_execution_frame(source).unwrap();
-        let pou = *prepared.vm.function_block_ids.get("COUNTER").unwrap();
+        let pou = prepared
+            .vm
+            .function_block_ids
+            .get(&prepared.vm.strings, "COUNTER")
+            .unwrap();
         let instance = state.reserve_instance(pou, Some(source)).unwrap();
         state
             .data

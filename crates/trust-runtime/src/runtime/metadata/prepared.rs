@@ -44,7 +44,7 @@ impl RuntimeMetadata {
             let name = prepared
                 .strings()
                 .get(declaration.name_idx as usize)
-                .cloned()
+                .map(SmolStr::new)
                 .ok_or(RuntimeError::InvalidExecutionState)?;
             let type_id = declaration
                 .type_id

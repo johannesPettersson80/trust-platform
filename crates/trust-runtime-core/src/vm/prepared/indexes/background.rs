@@ -83,7 +83,6 @@ mod tests {
     use super::*;
     use crate::vm::{PreparationLimits, PreparedModule};
     use alloc::vec;
-    use smol_str::SmolStr;
 
     #[test]
     fn prepared_background_order_ignores_unrelated_declarations_and_scheduled_name_case() {
@@ -102,10 +101,9 @@ mod tests {
             .unwrap()
             .clone();
         let base = prepared.vm.strings.len() as u32;
-        prepared
-            .vm
-            .strings
-            .extend(["First", "Scheduled", "Last", "sChEdUlEd"].map(SmolStr::from));
+        for text in ["First", "Scheduled", "Last", "sChEdUlEd"] {
+            prepared.vm.strings.push(text);
+        }
         let mut layout = prepared.layout.clone();
         layout.entries.clear();
         for offset in 0..3 {

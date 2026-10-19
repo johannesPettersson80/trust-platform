@@ -20,7 +20,11 @@ fn initializer_snapshot_refusal_skips_owned_clone_and_retires_instances() {
         .storage
         .suspend_execution_frame(result, &mut slot)
         .unwrap();
-    let pou = *prepared.vm.function_block_ids.get("COUNTER").unwrap();
+    let pou = prepared
+        .vm
+        .function_block_ids
+        .get(&prepared.vm.strings, "COUNTER")
+        .unwrap();
     let temporary = state.reserve_instance(pou, Some(result)).unwrap();
     let entry = prepared.initializers.entries[0].clone();
     state

@@ -29,7 +29,6 @@ fn tier1_compiler_accepts_call_native_function_blocks() {
     let main_pou_id = vm_module
         .program_ids()
         .get(&SmolStr::new("MAIN"))
-        .copied()
         .expect("main pou id");
     let lowered = lower_pou_to_register_ir(&vm_module, main_pou_id).expect("lower register ir");
     verify_register_program(&lowered).expect("verify register ir");

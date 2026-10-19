@@ -128,7 +128,11 @@ fn expired_operation_retires_owned_state_without_resampling_and_reset_rearms_it(
     let mut state = EngineState::borrow(&mut state_data, &prepared, &probe);
     let owner = state.data.storage.reserve_execution_frame().unwrap();
     state.data.storage.activate_execution_frame(owner).unwrap();
-    let pou = *prepared.vm.function_block_ids.get("COUNTER").unwrap();
+    let pou = prepared
+        .vm
+        .function_block_ids
+        .get(&prepared.vm.strings, "COUNTER")
+        .unwrap();
     state
         .data
         .storage

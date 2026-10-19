@@ -238,11 +238,11 @@ impl CycleHooks for HostedCycle<'_> {
         true
     }
 
-    fn program_started(&mut self, _: &smol_str::SmolStr) {
+    fn program_started(&mut self, _: &str) {
         self.program_timer = self.metrics.start_timer();
     }
 
-    fn program_finished(&mut self, name: &smol_str::SmolStr) {
+    fn program_finished(&mut self, name: &str) {
         if let Some(start) = self.program_timer.take() {
             self.metrics
                 .record_profile_call("program", name, start.elapsed());

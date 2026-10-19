@@ -27,7 +27,7 @@ impl IoValueCodec {
     pub fn from_type(
         type_id: Option<u32>,
         types: &TypeTable,
-        strings: &[SmolStr],
+        strings: &crate::vm::Names,
     ) -> Result<Self, RuntimeError> {
         let Some(mut ty) = type_id else {
             return Ok(Self::default());
@@ -48,14 +48,14 @@ impl IoValueCodec {
                     let name = entry
                         .name_idx
                         .and_then(|idx| strings.get(idx as usize))
-                        .cloned()
+                        .map(SmolStr::new)
                         .ok_or(RuntimeError::TypeMismatch)?;
                     let mut names = Vec::with_capacity(variants.len());
                     for variant in variants {
                         names.push((
                             strings
                                 .get(variant.name_idx as usize)
-                                .cloned()
+                                .map(SmolStr::new)
                                 .ok_or(RuntimeError::TypeMismatch)?,
                             variant.value,
                         ));
@@ -150,7 +150,7 @@ impl PreparedIoBinding {
     pub fn from_tables(
         binding: &IoBinding,
         types: &TypeTable,
-        strings: &[SmolStr],
+        strings: &crate::vm::Names,
     ) -> Result<Self, RuntimeError> {
         let text = strings
             .get(binding.address_str_idx as usize)

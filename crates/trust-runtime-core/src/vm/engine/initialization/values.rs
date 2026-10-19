@@ -4,7 +4,6 @@ use crate::value::{DateTimeProfile, Value};
 use crate::vm::construction::values::{ValueConstructionContext, ValueOperation};
 use crate::vm::{engine::EngineState, module::invalid_bytecode, VmTrap};
 use core::mem::size_of;
-use smol_str::SmolStr;
 
 // Three operation bits per admitted type; two types share a byte. The ordered
 // stack remains the authority for depth and cleanup, while this mask avoids
@@ -79,7 +78,7 @@ impl ValueConstructionContext for EngineState<'_> {
         }
         value.initialize_physical_layout(layout)
     }
-    fn strings(&self) -> &[SmolStr] {
+    fn strings(&self) -> &crate::vm::Names {
         &self.prepared.vm.strings
     }
     fn profile(&self) -> DateTimeProfile {

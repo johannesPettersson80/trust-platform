@@ -2,6 +2,7 @@
 use super::*;
 use crate::bytecode::{InitializationPhase, InitializationTrigger, StorageOwner};
 use crate::vm::call::context::VmEdgeInput;
+use crate::vm::names::compare_names;
 use core::cmp::Ordering;
 
 mod actions;
@@ -54,12 +55,6 @@ pub(super) struct PreparedIndexes {
     max_name_bytes: usize,
     reference_candidates: Groups<(u8, usize), u32>,
     background_programs: Vec<Vec<u32>>,
-}
-
-fn compare_names(left: &str, right: &str) -> Ordering {
-    left.bytes()
-        .map(|byte| byte.to_ascii_uppercase())
-        .cmp(right.bytes().map(|byte| byte.to_ascii_uppercase()))
 }
 
 // Preparation budgets charge this bound for each build-time sorted search.

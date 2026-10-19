@@ -99,7 +99,7 @@ impl EngineState<'_> {
                     .vm
                     .strings
                     .get(operand as usize)
-                    .cloned()
+                    .map(SmolStr::new)
                     .ok_or(RuntimeError::TypeMismatch)?;
                 if structure
                     .fields()

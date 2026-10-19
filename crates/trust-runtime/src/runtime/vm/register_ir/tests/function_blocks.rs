@@ -28,7 +28,6 @@ fn register_ir_lowering_handles_function_block_self_fields_without_fallback() {
     let fb_pou_id = vm_module
         .function_block_ids()
         .get(&SmolStr::new("COUNTER"))
-        .copied()
         .expect("counter pou id");
     let lowered = lower_pou_to_register_ir(&vm_module, fb_pou_id).expect("lower register ir");
     verify_register_program(&lowered).expect("verify register ir");
@@ -61,7 +60,6 @@ fn tier1_compiler_accepts_function_block_self_field_dynamic_ops() {
     let fb_pou_id = vm_module
         .function_block_ids()
         .get(&SmolStr::new("COUNTER"))
-        .copied()
         .expect("counter pou id");
     let lowered = lower_pou_to_register_ir(&vm_module, fb_pou_id).expect("lower register ir");
     verify_register_program(&lowered).expect("verify register ir");
@@ -109,7 +107,6 @@ fn register_ir_lowering_fuses_self_field_dynamic_load_store() {
     let fb_pou_id = vm_module
         .function_block_ids()
         .get(&SmolStr::new("COUNTER"))
-        .copied()
         .expect("counter pou id");
     let lowered = lower_pou_to_register_ir(&vm_module, fb_pou_id).expect("lower register ir");
     verify_register_program(&lowered).expect("verify register ir");
@@ -169,7 +166,6 @@ fn tier1_compiler_accepts_function_block_index_dynamic_ops() {
     let fb_pou_id = vm_module
         .function_block_ids()
         .get(&SmolStr::new("COUNTERARRAY"))
-        .copied()
         .expect("counterarray pou id");
     let lowered = lower_pou_to_register_ir(&vm_module, fb_pou_id).expect("lower register ir");
     verify_register_program(&lowered).expect("verify register ir");

@@ -207,7 +207,7 @@ impl EngineState<'_> {
                 }
                 .ok_or(RuntimeError::InvalidExecutionState)?;
                 self.charge_allocation_bytes(self.view_clone_charge(&view)?)?;
-                journal.push((instance, name.clone(), view.materialize()?));
+                journal.push((instance, SmolStr::new(name), view.materialize()?));
                 let action = *indexes
                     .actions
                     .get(&id)
@@ -251,12 +251,10 @@ impl EngineState<'_> {
                 context.engine.check_entry_deadline()?;
                 match instance {
                     Some(instance) => {
-                        context
-                            .engine
-                            .write_instance_var(instance, name.clone(), migrated);
+                        context.engine.write_instance_var(instance, name, migrated);
                     }
                     None => {
-                        context.engine.set_global(name.clone(), migrated);
+                        context.engine.set_global(name, migrated);
                     }
                 }
             }
@@ -373,7 +371,7 @@ impl MigrationContext<'_, '_> {
                 }
                 let name = entry
                     .name_idx
-                    .map(|id| self.engine.prepared.vm.strings[id as usize].clone())
+                    .map(|id| SmolStr::new(&self.engine.prepared.vm.strings[id as usize]))
                     .unwrap_or_default();
                 let fields = fields.clone();
                 let mut values = OrderedMap::default();
@@ -387,7 +385,8 @@ impl MigrationContext<'_, '_> {
                         .len()
                         .checked_add(1)
                         .ok_or(RuntimeError::Overflow)?;
-                    let name = self.engine.prepared.vm.strings[field.name_idx as usize].clone();
+                    let name =
+                        SmolStr::new(&self.engine.prepared.vm.strings[field.name_idx as usize]);
                     let next = if let Some((_, value)) = value
                         .fields()
                         .iter()
@@ -505,7 +504,7 @@ impl ValueConstructionContext for MigrationContext<'_, '_> {
     ) -> Result<StructValue, RuntimeError> {
         self.engine.initialize_structure_layout(ty, value)
     }
-    fn strings(&self) -> &[SmolStr] {
+    fn strings(&self) -> &crate::vm::Names {
         &self.engine.prepared.vm.strings
     }
     fn profile(&self) -> DateTimeProfile {

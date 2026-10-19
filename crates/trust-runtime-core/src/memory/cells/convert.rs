@@ -758,7 +758,6 @@ pub(super) fn string(prepared: &PreparedModule, name_idx: u32) -> Result<&str, R
     prepared
         .strings()
         .get(name_idx as usize)
-        .map(SmolStr::as_str)
         .ok_or(RuntimeError::InvalidExecutionState)
 }
 
@@ -770,7 +769,7 @@ pub(super) fn value_type_name(prepared: &PreparedModule, type_id: u32) -> SmolSt
         .get(type_id as usize)
         .and_then(|entry| entry.name_idx)
         .and_then(|name_idx| prepared.strings().get(name_idx as usize))
-        .cloned()
+        .map(SmolStr::new)
         .unwrap_or_default()
 }
 
@@ -782,7 +781,7 @@ fn type_label(prepared: &PreparedModule, type_id: u32) -> SmolStr {
         .get(type_id as usize)
         .and_then(|entry| entry.name_idx)
         .and_then(|name_idx| prepared.strings().get(name_idx as usize))
-        .cloned()
+        .map(SmolStr::new)
         .unwrap_or_else(|| SmolStr::new(format!("#{type_id}")))
 }
 

@@ -11,7 +11,7 @@ use alloc::vec;
 
 struct Recorder {
     types: Arc<TypeTable>,
-    strings: Vec<SmolStr>,
+    strings: crate::vm::Names,
     type_recipes: Vec<(u32, u32)>,
     member_recipes: Vec<(u32, u32, u32)>,
     responses: Vec<Value>,
@@ -33,14 +33,9 @@ impl Recorder {
                 offsets: Vec::new(),
                 entries: types,
             }),
-            strings: vec![
-                "Record".into(),
-                "A".into(),
-                "B".into(),
-                "Mode".into(),
-                "First".into(),
-                "Second".into(),
-            ],
+            strings: ["Record", "A", "B", "Mode", "First", "Second"]
+                .into_iter()
+                .collect(),
             type_recipes: Vec::new(),
             member_recipes: Vec::new(),
             responses: Vec::new(),
@@ -65,7 +60,7 @@ impl ValueConstructionContext for Recorder {
             .ok_or(RuntimeError::Overflow)?;
         Ok(())
     }
-    fn strings(&self) -> &[SmolStr] {
+    fn strings(&self) -> &crate::vm::Names {
         &self.strings
     }
     fn profile(&self) -> DateTimeProfile {

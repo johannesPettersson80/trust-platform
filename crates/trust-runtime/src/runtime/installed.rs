@@ -176,7 +176,7 @@ impl Runtime {
         let name = prepared
             .strings()
             .get(resource.name_idx as usize)
-            .cloned()
+            .map(SmolStr::new)
             .ok_or(RuntimeError::InvalidExecutionState)?;
         let mut metadata = match metadata {
             Some(metadata) => (*metadata).clone(),
@@ -196,7 +196,7 @@ impl Runtime {
             let partial = PartialAccess::from_wire(binding.partial_kind, binding.partial_index)
                 .map_err(RuntimeError::from)?;
             let reference = state.resolve_access_reference(name)?;
-            access.bind_with_mode(name.clone(), reference, partial, binding.is_writable());
+            access.bind_with_mode(name.into(), reference, partial, binding.is_writable());
         }
         metadata.access = access;
         let mut tasks = Vec::with_capacity(resource.tasks.len());
@@ -205,7 +205,7 @@ impl Runtime {
                 prepared
                     .strings()
                     .get(id as usize)
-                    .cloned()
+                    .map(SmolStr::new)
                     .ok_or(RuntimeError::InvalidExecutionState)
             };
             let mut fb_instances = Vec::with_capacity(task.fb_ref_idx.len());

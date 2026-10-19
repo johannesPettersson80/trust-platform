@@ -41,11 +41,7 @@ fn vm_module_and_main_pou(source: &str) -> (VmModule, u32) {
     let vm_module =
         crate::runtime::vm::materialize_test_module(&bytecode).expect("decode vm module");
     let main_key = SmolStr::new("MAIN");
-    let pou_id = vm_module
-        .program_ids()
-        .get(&main_key)
-        .copied()
-        .expect("main pou id");
+    let pou_id = vm_module.program_ids().get(&main_key).expect("main pou id");
     (vm_module, pou_id)
 }
 

@@ -12,7 +12,7 @@ impl VmModule {
         &self.code
     }
     /// Immutable symbol and literal strings.
-    pub fn strings(&self) -> &[SmolStr] {
+    pub fn strings(&self) -> &crate::vm::Names {
         &self.strings
     }
     /// Declared type metadata.
@@ -41,25 +41,25 @@ impl VmModule {
     pub fn instruction_budget(&self) -> usize {
         self.instruction_budget
     }
-    /// Canonical names mapped to program identities.
+    /// The program identities by name, looked up in any case.
     #[cfg(feature = "hir")]
-    pub fn program_ids(&self) -> &HashMap<SmolStr, u32> {
-        &self.program_ids
+    pub fn program_ids(&self) -> crate::vm::NameLookup<'_> {
+        crate::vm::NameLookup::new(&self.strings, &self.program_ids)
     }
-    /// Canonical names mapped to function identities.
+    /// The function identities by name, looked up in any case.
     #[cfg(feature = "hir")]
-    pub fn function_ids(&self) -> &HashMap<SmolStr, u32> {
-        &self.function_ids
+    pub fn function_ids(&self) -> crate::vm::NameLookup<'_> {
+        crate::vm::NameLookup::new(&self.strings, &self.function_ids)
     }
-    /// Canonical names mapped to function block identities.
+    /// The function block identities by name, looked up in any case.
     #[cfg(feature = "hir")]
-    pub fn function_block_ids(&self) -> &HashMap<SmolStr, u32> {
-        &self.function_block_ids
+    pub fn function_block_ids(&self) -> crate::vm::NameLookup<'_> {
+        crate::vm::NameLookup::new(&self.strings, &self.function_block_ids)
     }
-    /// Canonical names mapped to class identities.
+    /// The class identities by name, looked up in any case.
     #[cfg(feature = "hir")]
-    pub fn class_ids(&self) -> &HashMap<SmolStr, u32> {
-        &self.class_ids
+    pub fn class_ids(&self) -> crate::vm::NameLookup<'_> {
+        crate::vm::NameLookup::new(&self.strings, &self.class_ids)
     }
     /// Declared inheritance parent identities.
     #[cfg(feature = "hir")]
@@ -70,11 +70,6 @@ impl VmModule {
     #[cfg(feature = "hir")]
     pub fn interface_type_ids_by_pou(&self) -> &PouMap<Vec<u32>> {
         &self.interface_type_ids_by_pou
-    }
-    /// Resolved method identities for each owning POU.
-    #[cfg(feature = "hir")]
-    pub fn method_table_by_owner(&self) -> &PouMap<HashMap<SmolStr, u32>> {
-        &self.method_table_by_owner
     }
     /// Set the execution limit for an explicitly legacy hosted module.
     #[cfg(feature = "hir")]

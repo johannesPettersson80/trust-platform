@@ -149,7 +149,7 @@ mod tests {
                     && prepared
                         .strings()
                         .get(declaration.name_idx as usize)
-                        .is_some_and(|name| name.as_str() == "probe_depth")
+                        .is_some_and(|name| name == "probe_depth")
             })
             .and_then(|declaration| declaration.ref_idx)
             .expect("the fixture binds its global probe_depth to a reference");

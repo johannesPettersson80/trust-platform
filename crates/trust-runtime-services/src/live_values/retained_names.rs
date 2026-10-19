@@ -142,7 +142,7 @@ pub fn bind_retained_declarations(
         prepared
             .strings()
             .get(id as usize)
-            .cloned()
+            .map(SmolStr::new)
             .ok_or(RuntimeError::InvalidExecutionState)
     };
     for declaration in prepared.storage_declarations() {

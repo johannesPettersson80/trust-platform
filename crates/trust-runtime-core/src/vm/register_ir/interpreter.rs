@@ -311,7 +311,7 @@ pub(super) fn execute_register_block_interpreted_slice(
                 let field = module
                     .strings()
                     .get(*field_idx as usize)
-                    .cloned()
+                    .map(smol_str::SmolStr::new)
                     .ok_or_else(|| {
                         VmTrap::BytecodeDecode(
                             format!("invalid index {field_idx} for string").into(),

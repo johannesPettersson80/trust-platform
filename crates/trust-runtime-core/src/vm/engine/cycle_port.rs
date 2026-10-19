@@ -55,11 +55,11 @@ pub trait CycleHooks {
 
     /// Begin observing one canonical program instance, scheduled or background.
     /// Observation does not grant mutable access to PLC state.
-    fn program_started(&mut self, _name: &smol_str::SmolStr) {}
+    fn program_started(&mut self, _name: &str) {}
 
     /// Finish that observation on success or execution failure. This callback
     /// cannot replace the program's original execution result.
-    fn program_finished(&mut self, _name: &smol_str::SmolStr) {}
+    fn program_finished(&mut self, _name: &str) {}
 
     /// Run one existing boundary against the authoritative owner-local state.
     fn on_phase(
@@ -144,7 +144,7 @@ impl StoreAccess for CycleStore<'_, '_> {
         StoreAccess::read_global(self.engine, name)
     }
 
-    fn global_name(&self, offset: usize) -> Option<&SmolStr> {
+    fn global_name(&self, offset: usize) -> Option<&str> {
         StoreAccess::global_name(self.engine, offset)
     }
 

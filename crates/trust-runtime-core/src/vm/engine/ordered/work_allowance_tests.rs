@@ -57,7 +57,11 @@ fn reserve_instance_refuses_its_construct_node_before_publishing_metadata() {
     let lifetimes = state.data.lifetimes.instance_lifetimes.len();
     let owner = state.data.storage.reserve_execution_frame().unwrap();
     state.data.storage.activate_execution_frame(owner).unwrap();
-    let pou = *prepared.vm.function_block_ids.get("COUNTER").unwrap();
+    let pou = prepared
+        .vm
+        .function_block_ids
+        .get(&prepared.vm.strings, "COUNTER")
+        .unwrap();
 
     // TIME-08 CONSTRUCT: the instance node costs one unit. With none left it is refused at
     // the first unit, before any instance identity or metadata is published.

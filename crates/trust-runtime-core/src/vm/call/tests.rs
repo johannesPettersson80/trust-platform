@@ -366,7 +366,11 @@ fn edge_transaction_preserves_rising_falling_and_phase_restore() {
         crate::vm::PreparationLimits::default(),
     )
     .unwrap();
-    let pou_id = *prepared.vm.function_block_ids.get("COUNTER").unwrap();
+    let pou_id = prepared
+        .vm
+        .function_block_ids
+        .get(&prepared.vm.strings, "COUNTER")
+        .unwrap();
     let owner = SmolStr::new(prepared.vm.pou_name(pou_id).unwrap());
 
     let mut context = TestContext::new();

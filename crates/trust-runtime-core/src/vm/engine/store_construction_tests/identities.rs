@@ -44,10 +44,10 @@ fn the_entry_floor_comes_from_the_one_identity_counter() {
     // issue the identity of a persistent instance (the first assertion), and a counter with no floor
     // would give 3, 4, 5 and then fail with `Overflow` at the limit.
     let prepared = prepare(INITIALIZERS);
-    let tracker = *prepared
+    let tracker = prepared
         .vm
         .function_block_ids
-        .get("TRACKER")
+        .get(&prepared.vm.strings, "TRACKER")
         .expect("the program declares the function block Tracker");
     let mut data = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);

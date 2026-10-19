@@ -392,10 +392,11 @@ impl CallContext for EngineState<'_> {
         &self.prepared.stdlib
     }
     fn builtin_params(&self, key: &str) -> Option<Vec<BuiltinParam>> {
-        let pou = self.prepared.vm.function_block_ids.get(key)?;
+        let vm = &self.prepared.vm;
+        let pou = vm.function_block_ids.get(&vm.strings, key)?;
         self.prepared
             .vm
-            .pou_params(*pou)?
+            .pou_params(pou)?
             .iter()
             .map(|param| {
                 Some(BuiltinParam {
@@ -411,21 +412,15 @@ impl CallContext for EngineState<'_> {
             .collect()
     }
     fn edge_inputs(&self, owner: &str) -> Vec<VmEdgeInput> {
-        let Some(pou) = self
-            .prepared
-            .vm
+        let vm = &self.prepared.vm;
+        let Some(pou) = vm
             .function_block_ids
-            .get(owner.to_ascii_uppercase().as_str())
-            .or_else(|| {
-                self.prepared
-                    .vm
-                    .program_ids
-                    .get(owner.to_ascii_uppercase().as_str())
-            })
+            .get(&vm.strings, owner)
+            .or_else(|| vm.program_ids.get(&vm.strings, owner))
         else {
             return Vec::new();
         };
-        self.prepared.edge_inputs(*pou).to_vec()
+        self.prepared.edge_inputs(pou).to_vec()
     }
     fn edge_inputs_for_pou(
         &self,

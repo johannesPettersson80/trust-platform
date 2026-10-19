@@ -470,8 +470,9 @@ mod tests {
                     && prepared.vm.strings[entry.name_idx as usize].eq_ignore_ascii_case("counter")
             })
             .unwrap();
-        let name =
-            prepared.vm.strings[prepared.layout.entries[declaration].name_idx as usize].clone();
+        let name = SmolStr::new(
+            &prepared.vm.strings[prepared.layout.entries[declaration].name_idx as usize],
+        );
         let Some(Value::Instance(counter)) = data.storage.get_instance_var(program, &name) else {
             panic!("counter")
         };

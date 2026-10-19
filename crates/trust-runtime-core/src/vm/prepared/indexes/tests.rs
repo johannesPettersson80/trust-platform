@@ -18,10 +18,9 @@ fn named_types_preserve_first_declared_case_insensitive_lookup() {
     use crate::bytecode::{TypeData, TypeEntry, TypeKind};
     let mut prepared = prepared();
     let name = prepared.vm.strings.len() as u32;
-    prepared
-        .vm
-        .strings
-        .extend(["FirstName".into(), "FIRSTNAME".into(), "SecondName".into()]);
+    for text in ["FirstName", "FIRSTNAME", "SecondName"] {
+        prepared.vm.strings.push(text);
+    }
     let first = prepared.vm.types.entries.len() as u32;
     for (offset, prim_id) in [(0, 16), (1, 17), (2, 7)] {
         prepared.vm.types.entries.push(TypeEntry {
@@ -85,7 +84,13 @@ fn physical_indexes_keep_case_insensitive_identity_and_ignore_external_aliases()
     assert!(prepared
         .declaration(StorageOwner::Instance, Some(pou), u32::MAX as usize)
         .is_none());
-    let phase = &prepared.edge_inputs(*prepared.vm.function_block_ids.get("COUNTER").unwrap())[0];
+    let phase = &prepared.edge_inputs(
+        prepared
+            .vm
+            .function_block_ids
+            .get(&prepared.vm.strings, "COUNTER")
+            .unwrap(),
+    )[0];
     assert!(phase.rising);
     assert_eq!(phase.name.as_str(), "pulse");
 }
@@ -276,8 +281,8 @@ fn grouped_indexes_match_wire_collections_for_every_fixture_owner() {
             edges.entry(input_id).or_default().push(id as u32);
             let input = &prepared.layout.entries[input_id as usize];
             edge_inputs.entry(physical.unwrap()).or_default().push((
-                prepared.vm.strings[input.name_idx as usize].clone(),
-                prepared.vm.strings[declaration.name_idx as usize].clone(),
+                SmolStr::new(&prepared.vm.strings[input.name_idx as usize]),
+                SmolStr::new(&prepared.vm.strings[declaration.name_idx as usize]),
                 declaration.is_rising_edge(),
             ));
         }

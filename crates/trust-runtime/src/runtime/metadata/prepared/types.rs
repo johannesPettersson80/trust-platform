@@ -149,7 +149,7 @@ impl<'a> Projection<'a> {
         self.prepared
             .strings()
             .get(id as usize)
-            .cloned()
+            .map(SmolStr::new)
             .ok_or(RuntimeError::InvalidExecutionState)
     }
 
@@ -181,9 +181,9 @@ fn reserve_wire_types(
                     .transpose()?;
                 match name {
                     Some(name) if TypeId::from_builtin_name(name).is_none() => registry.register(
-                        name.clone(),
+                        name,
                         Type::Alias {
-                            name: name.clone(),
+                            name: name.into(),
                             target: builtin,
                         },
                     ),
@@ -200,7 +200,7 @@ fn reserve_wire_types(
                         prepared
                             .strings()
                             .get(id as usize)
-                            .cloned()
+                            .map(SmolStr::new)
                             .ok_or(RuntimeError::InvalidExecutionState)
                     })
                     .transpose()?

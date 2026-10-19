@@ -460,6 +460,8 @@ fn where_a_loaded_programs_heap_goes() {
         let container = live_bytes() - before;
         drop(decoded);
         disarm();
+        // Reserved before the meter is armed, so that recording a part allocates nothing.
+        let mut parts = Vec::with_capacity(32);
         arm();
         let before = live_bytes();
         let prepared = trust_runtime_core::vm::PreparedModule::from_bytes(
@@ -469,7 +471,6 @@ fn where_a_loaded_programs_heap_goes() {
         .expect("the program prepares");
         let module = live_bytes() - before;
         let mut last = live_bytes();
-        let mut parts = Vec::new();
         prepared.drop_in_parts(|part| {
             let now = live_bytes();
             if part != "start" {

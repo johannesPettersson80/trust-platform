@@ -500,7 +500,7 @@ pub trait StoreAccess {
     /// value leaves the seam here. C1-9 serves the name from the prepared global
     /// declaration (specification 34 §6.2, MEM-10). Callers:
     /// `vm::engine::retained_graph`.
-    fn global_name(&self, offset: usize) -> Option<&SmolStr>;
+    fn global_name(&self, offset: usize) -> Option<&str>;
 
     /// The view of one instance member resolved through the instance's inheritance
     /// chain.

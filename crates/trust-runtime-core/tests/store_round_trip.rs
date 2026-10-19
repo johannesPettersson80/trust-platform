@@ -1301,7 +1301,7 @@ fn entry_name(prepared: &PreparedModule, type_id: u32) -> SmolStr {
         .get(type_id as usize)
         .and_then(|entry| entry.name_idx)
         .and_then(|name_idx| prepared.strings().get(name_idx as usize))
-        .cloned()
+        .map(SmolStr::new)
         .unwrap_or_default()
 }
 
@@ -1323,14 +1323,14 @@ fn generate(prepared: &PreparedModule, type_id: u32, rng: &mut Rng) -> Value {
             let variant = &variants[index];
             enumeration(
                 &entry_name(prepared, type_id),
-                prepared.strings()[variant.name_idx as usize].as_str(),
+                &prepared.strings()[variant.name_idx as usize],
                 variant.value,
             )
         }
         TypeData::Struct { fields } | TypeData::Union { fields } => {
             let mut members: OrderedMap<SmolStr, Value> = OrderedMap::default();
             for field in fields {
-                let name = prepared.strings()[field.name_idx as usize].clone();
+                let name = SmolStr::new(&prepared.strings()[field.name_idx as usize]);
                 members.insert(name, generate(prepared, field.type_id, rng));
             }
             Value::Struct(Arc::new(StructValue::from_canonical_parts(

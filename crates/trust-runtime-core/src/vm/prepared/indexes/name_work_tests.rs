@@ -2,7 +2,6 @@ use super::*;
 use crate::bytecode::{TypeData, TypeEntry, TypeKind};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
-use smol_str::SmolStr;
 
 #[test]
 fn lookup_work_bounds_real_binary_search_comparisons() {
@@ -111,7 +110,7 @@ fn query_result_is_independent_of_an_unrelated_long_admitted_name() {
     )
     .unwrap();
     let unused_name = prepared.vm.strings.len() as u32;
-    prepared.vm.strings.push("UnusedShortName".into());
+    prepared.vm.strings.push("UnusedShortName");
     let unused_type = prepared.vm.types.entries.len() as u32;
     prepared.vm.types.entries.push(TypeEntry {
         kind: TypeKind::Primitive,
@@ -139,7 +138,10 @@ fn query_result_is_independent_of_an_unrelated_long_admitted_name() {
     let member = prepared.member(owner, "ACTIVATIONS").unwrap().clone();
     assert_eq!(prepared.named_type("unusedshortname"), Some(unused_type));
 
-    prepared.vm.strings[unused_name as usize] = SmolStr::new("UnrelatedLongName".repeat(256));
+    prepared
+        .vm
+        .strings
+        .replace(unused_name as usize, &"UnrelatedLongName".repeat(256));
     rebuild(&mut prepared);
     assert_eq!(prepared.global("PLANT").unwrap().0, root);
     assert_eq!(prepared.member(owner, "activations"), Some(&member));

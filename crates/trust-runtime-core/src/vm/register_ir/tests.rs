@@ -662,7 +662,7 @@ fn duplicated_self_survives_lowering_and_register_self_field_store() {
         vec![0x23, 0x11, 0x30, 0, 0, 0, 0, 0x13, 0x33, 0x06],
         Value::DInt(0),
     );
-    module.strings = vec!["self_value".into()];
+    module.strings = ["self_value"].into_iter().collect();
     module.pou_by_id.get_mut(&1).unwrap().primary_instance_owner = Some(1);
     let program = lower_pou_to_register_ir(&module, 1).unwrap();
     assert!(program

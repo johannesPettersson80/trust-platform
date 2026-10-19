@@ -350,7 +350,7 @@ fn installed_snapshot_uses_prepared_alias_enum_and_real_codecs_without_hir_index
             },
         ],
     };
-    let strings = vec!["OperatingMode".into(), "Auto".into()];
+    let strings: trust_runtime_core::vm::Names = ["OperatingMode", "Auto"].into_iter().collect();
     io.interface_mut().bind_prepared_ref(
         reference.clone(),
         real.clone(),

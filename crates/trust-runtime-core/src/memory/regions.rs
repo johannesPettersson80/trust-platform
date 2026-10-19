@@ -753,7 +753,7 @@ fn type_name(prepared: &PreparedModule, entry: &TypeEntry) -> SmolStr {
     entry
         .name_idx
         .and_then(|index| prepared.strings().get(index as usize))
-        .cloned()
+        .map(SmolStr::new)
         .unwrap_or_default()
 }
 
@@ -762,7 +762,7 @@ fn string_of(prepared: &PreparedModule, name_idx: u32) -> Result<SmolStr, Runtim
     prepared
         .strings()
         .get(name_idx as usize)
-        .cloned()
+        .map(SmolStr::new)
         .ok_or(RuntimeError::InvalidExecutionState)
 }
 

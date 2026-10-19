@@ -204,33 +204,6 @@ fn dispatch_native_split_named_rejects_duplicate_output_name() {
 }
 
 #[test]
-fn resolve_native_symbol_specs_caches_resolved_function_id() {
-    let mut specs = trust_runtime_core::vm::hosted::symbols::NativeSymbols::from_dense(vec![
-        preparse_native_symbol_spec(&SmolStr::new("Add|E:a")),
-        preparse_native_symbol_spec(&SmolStr::new("Len|E:in")),
-    ]);
-    let mut function_ids = HashMap::new();
-    function_ids.insert(SmolStr::new("ADD"), 7);
-
-    super::resolve_native_symbol_specs(&mut specs, &function_ids);
-
-    match specs.get(0).expect("the first symbol") {
-        VmNativeSymbolSpec::Parsed {
-            resolved_function_pou_id,
-            ..
-        } => assert_eq!(*resolved_function_pou_id, Some(7)),
-        VmNativeSymbolSpec::ParseError(err) => panic!("unexpected parse error: {err}"),
-    }
-    match specs.get(1).expect("the second symbol") {
-        VmNativeSymbolSpec::Parsed {
-            resolved_function_pou_id,
-            ..
-        } => assert_eq!(*resolved_function_pou_id, None),
-        VmNativeSymbolSpec::ParseError(err) => panic!("unexpected parse error: {err}"),
-    }
-}
-
-#[test]
 fn bind_vm_call_arguments_rejects_too_many_positional_arguments() {
     let mut runtime = Runtime::new();
     let (module, pou_id) = manual_vm_function_module(

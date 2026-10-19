@@ -13,9 +13,7 @@ use trust_runtime_core::vm::hosted::call::stdlib::{
 };
 pub(super) use trust_runtime_core::vm::hosted::context::VM_LOCAL_SENTINEL_FRAME_ID;
 #[cfg(test)]
-use trust_runtime_core::vm::hosted::symbols::{
-    preparse_native_symbol_spec, resolve_native_symbol_specs,
-};
+use trust_runtime_core::vm::hosted::symbols::preparse_native_symbol_spec;
 #[cfg(test)]
 use trust_runtime_core::vm::VmTrap;
 #[cfg(test)]

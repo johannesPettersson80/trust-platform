@@ -18,8 +18,9 @@ impl ValueConstructionContext for Coercion {
     fn charge_value(&mut self) -> Result<(), RuntimeError> {
         Ok(())
     }
-    fn strings(&self) -> &[SmolStr] {
-        &[]
+    fn strings(&self) -> &crate::vm::Names {
+        const NONE: &crate::vm::Names = &crate::vm::Names::new();
+        NONE
     }
     fn profile(&self) -> DateTimeProfile {
         DateTimeProfile::default()

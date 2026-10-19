@@ -271,7 +271,11 @@ mod tests {
         let lifetimes = state.data.lifetimes.instance_lifetimes.len();
         let owner = state.data.storage.reserve_execution_frame().unwrap();
         state.data.storage.activate_execution_frame(owner).unwrap();
-        let pou = *prepared.vm.function_block_ids.get("COUNTER").unwrap();
+        let pou = prepared
+            .vm
+            .function_block_ids
+            .get(&prepared.vm.strings, "COUNTER")
+            .unwrap();
         // The entry node and the first declaration preflight are the work boundary.
         // TIME-08 VERIFY: both remain CONSTRUCT units charged by reserve_instance.
         state.data.resources.work_budget.reset(1);

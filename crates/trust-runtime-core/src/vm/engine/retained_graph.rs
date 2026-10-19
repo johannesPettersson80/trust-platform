@@ -7,7 +7,7 @@ use crate::memory::MemoryLocation;
 use alloc::sync::Arc;
 
 /// The declared name of the layout entry `declaration` (C1-9d1).
-fn member_name(prepared: &PreparedModule, declaration: u32) -> &SmolStr {
+fn member_name(prepared: &PreparedModule, declaration: u32) -> &str {
     let entry = &prepared.layout.entries[declaration as usize];
     &prepared.vm.strings[entry.name_idx as usize]
 }
@@ -107,7 +107,7 @@ impl EngineState<'_> {
                 &mut self.data.store,
                 self.prepared,
             );
-            if !StoreMutate::set_global(&mut routed, name.clone(), value.clone()) {
+            if !StoreMutate::set_global(&mut routed, name, value.clone()) {
                 return Err(RuntimeError::InvalidExecutionState);
             }
             self.data
@@ -257,7 +257,7 @@ impl RetainedGraph<'_, '_> {
         for &declaration in members {
             let name = member_name(source.prepared, declaration);
             if target.read_instance_var(new, name).is_none() {
-                StoreMutate::write_instance_var(target, new, name.clone(), Value::Null);
+                StoreMutate::write_instance_var(target, new, name, Value::Null);
             }
         }
         let parent = source
@@ -276,7 +276,7 @@ impl RetainedGraph<'_, '_> {
                 None => None,
             };
             let value = self.value(target, ty, &old_value, depth + 1)?;
-            if !StoreMutate::write_instance_var(target, new, name.clone(), value) {
+            if !StoreMutate::write_instance_var(target, new, name, value) {
                 return Err(RuntimeError::NullReference);
             }
         }
@@ -413,7 +413,7 @@ mod tests {
             .map(|(index, entry)| {
                 (
                     u32::try_from(index).expect("fixture declaration fits u32"),
-                    prepared.vm.strings[entry.name_idx as usize].clone(),
+                    SmolStr::new(&prepared.vm.strings[entry.name_idx as usize]),
                 )
             })
             .expect("GPIO fixture has a global variable");
@@ -929,7 +929,12 @@ mod tests {
             .find(|(_, entry)| {
                 entry.owner == StorageOwner::Global && entry.role == StorageRole::Variable
             })
-            .map(|(index, entry)| (index, prepared.vm.strings[entry.name_idx as usize].clone()))
+            .map(|(index, entry)| {
+                (
+                    index,
+                    SmolStr::new(&prepared.vm.strings[entry.name_idx as usize]),
+                )
+            })
             .expect("GPIO fixture has a global variable");
         // A WSTRING declaration (primitive id 25) for the retained global.
         let wstring_type = u32::try_from(prepared.vm.types.entries.len()).unwrap();

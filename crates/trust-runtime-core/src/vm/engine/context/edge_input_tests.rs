@@ -14,12 +14,15 @@ fn prepared() -> PreparedModule {
 #[test]
 fn engine_uses_canonical_pou_id_and_keeps_foreign_module_name_fallback() {
     let prepared = prepared();
-    let counter_id = *prepared.vm.function_block_ids.get("COUNTER").unwrap();
-    let main_id = *prepared
+    let counter_id = prepared
+        .vm
+        .function_block_ids
+        .get(&prepared.vm.strings, "COUNTER")
+        .unwrap();
+    let main_id = prepared
         .vm
         .program_ids
-        .iter()
-        .find_map(|(name, id)| name.eq_ignore_ascii_case("Main").then_some(id))
+        .get(&prepared.vm.strings, "Main")
         .unwrap();
     let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);

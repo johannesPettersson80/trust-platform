@@ -572,7 +572,7 @@ fn a_character_write_charges_the_utf8_length_of_its_text() {
         None
     );
     // The declared name of the global at ordinal FB_G (6) is `fb_g`, in declaration order.
-    assert_eq!(reader.global_name(FB_G).map(SmolStr::as_str), Some("fb_g"));
+    assert_eq!(reader.global_name(FB_G), Some("fb_g"));
 }
 
 #[test]

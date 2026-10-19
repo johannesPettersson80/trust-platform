@@ -377,11 +377,11 @@ impl<I: ProcessIo> CycleHooks for ScanHooks<'_, '_, I> {
         self.observer.has_program_hooks()
     }
 
-    fn program_started(&mut self, name: &SmolStr) {
+    fn program_started(&mut self, name: &str) {
         self.observer.program_started(name);
     }
 
-    fn program_finished(&mut self, name: &SmolStr) {
+    fn program_finished(&mut self, name: &str) {
         self.observer.program_finished(name);
     }
 
@@ -718,11 +718,11 @@ impl<C: MonotonicClock> CycleHooks for LiveValuesHooks<'_, '_, C> {
         self.observer.has_program_hooks()
     }
 
-    fn program_started(&mut self, name: &SmolStr) {
+    fn program_started(&mut self, name: &str) {
         self.observer.program_started(name);
     }
 
-    fn program_finished(&mut self, name: &SmolStr) {
+    fn program_finished(&mut self, name: &str) {
         self.observer.program_finished(name);
     }
 

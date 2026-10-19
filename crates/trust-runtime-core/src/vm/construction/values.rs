@@ -38,7 +38,7 @@ impl ValueConstructionMode {
 /// Recipe results are already typed by their own COERCE/APPLY bytecode. Their
 /// evaluation inherits the active action context; the helper never commits storage.
 pub trait ValueConstructionContext {
-    fn strings(&self) -> &[SmolStr];
+    fn strings(&self) -> &crate::vm::Names;
     /// Bind rebuilt fields to the active installation's immutable physical layout.
     fn bind_structure_layout(
         &mut self,
@@ -554,7 +554,7 @@ fn string(ctx: &mut impl ValueConstructionContext, idx: u32) -> Result<SmolStr, 
     ctx.charge_allocation(len)?;
     ctx.strings()
         .get(idx as usize)
-        .cloned()
+        .map(SmolStr::new)
         .ok_or_else(|| RuntimeError::TypeMismatch)
 }
 fn array_len(dims: &[(i64, i64)]) -> Result<usize, RuntimeError> {

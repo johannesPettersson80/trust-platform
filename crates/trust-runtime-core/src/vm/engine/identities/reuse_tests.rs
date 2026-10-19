@@ -193,7 +193,11 @@ fn engineering_entries_reissue_the_identities_the_entry_before_them_released() {
     }
     // The same building blocks show the reissued values: each entry's first activation is 0,
     // and its invocation-owned instance takes the identity the previous entry released.
-    let pou = *prepared.vm.function_block_ids.get("COUNTER").unwrap();
+    let pou = prepared
+        .vm
+        .function_block_ids
+        .get(&prepared.vm.strings, "COUNTER")
+        .unwrap();
     for _ in 0..4 {
         let (scope, owned) = state
             .engineering_operation(|engine| {
@@ -214,7 +218,11 @@ fn engineering_entries_reissue_the_identities_the_entry_before_them_released() {
 #[test]
 fn a_local_reference_from_a_finished_entry_never_resolves_after_its_identity_is_reissued() {
     let prepared = prepared();
-    let counter = *prepared.vm.function_block_ids.get("COUNTER").unwrap();
+    let counter = prepared
+        .vm
+        .function_block_ids
+        .get(&prepared.vm.strings, "COUNTER")
+        .unwrap();
     let observer = Observer::default();
     let mut data = EngineState::construct_data(&prepared, 0, &observer).unwrap();
     let mut state = EngineState::borrow(&mut data, &prepared, &observer);

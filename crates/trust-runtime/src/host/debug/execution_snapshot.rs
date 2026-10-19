@@ -186,7 +186,7 @@ impl DebugSnapshot {
                     .locals()
                     .get(declaration.slot as usize)
                     .ok_or(RuntimeError::InvalidExecutionState)?;
-                frame.variables.insert(name.clone(), value.clone());
+                frame.variables.insert(name.into(), value.clone());
                 if declaration.role == StorageRole::Return {
                     frame.return_value = Some(value.clone());
                 }

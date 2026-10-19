@@ -12,11 +12,6 @@ use crate::value::{StorageAbi, Value};
 
 const FUNCTION_ID: u32 = 7;
 
-#[cfg(feature = "std")]
-type TestMap<K, V> = std::collections::HashMap<K, V>;
-#[cfg(not(feature = "std"))]
-type TestMap<K, V> = alloc::collections::BTreeMap<K, V>;
-
 fn function_module(params: Vec<VmParamMeta>, local_ref_count: u32) -> VmModule {
     let pou = VmPouEntry {
         kind: PouKind::Function,
@@ -35,23 +30,23 @@ fn function_module(params: Vec<VmParamMeta>, local_ref_count: u32) -> VmModule {
         version: BytecodeVersion::LEGACY,
         storage_abi: StorageAbi::LegacyTemporal32,
         code: Vec::new(),
-        strings: vec![SmolStr::new("callee")],
+        strings: ["callee"].into_iter().collect(),
         types: TypeTable::default(),
         physical_layouts: Vec::new(),
         refs: Vec::new(),
         consts: Vec::new(),
         pou_by_id,
-        program_ids: TestMap::new(),
+        program_ids: Default::default(),
         #[cfg(feature = "hir")]
-        function_ids: TestMap::new(),
-        function_block_ids: TestMap::new(),
-        class_ids: TestMap::new(),
+        function_ids: Default::default(),
+        function_block_ids: Default::default(),
+        class_ids: Default::default(),
         parent_pou_ids: Default::default(),
         interface_type_ids_by_pou: PouMap::default(),
         native_symbol_specs: crate::vm::symbols::NativeSymbols::default(),
         pou_params,
         pou_has_return_slot: Default::default(),
-        method_table_by_owner: PouMap::default(),
+        method_table_by_owner: Default::default(),
         ref_types: Vec::new(),
         #[cfg(feature = "hir")]
         debug_map: crate::vm::debug_map::VmDebugMap::default(),

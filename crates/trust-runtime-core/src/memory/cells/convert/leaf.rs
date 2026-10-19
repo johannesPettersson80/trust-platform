@@ -10,8 +10,6 @@
 
 use alloc::format;
 
-use smol_str::SmolStr;
-
 use super::read::read_scalar;
 use super::{
     check_slice_length, element_count, layout_of, refusal, shape, string, type_entry, Shape,
@@ -151,7 +149,7 @@ fn type_name_of(prepared: &PreparedModule, type_id: u32) -> &str {
         .get(type_id as usize)
         .and_then(|entry| entry.name_idx)
         .and_then(|name_idx| prepared.strings().get(name_idx as usize))
-        .map_or("", SmolStr::as_str)
+        .unwrap_or("")
 }
 
 /// The enumeration value one cell holds, with the names its type declares for it.

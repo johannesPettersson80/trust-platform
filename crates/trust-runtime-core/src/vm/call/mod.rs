@@ -409,8 +409,7 @@ fn dispatch_native_vm_call(
             let type_key = SmolStr::new(instance_type_name.to_ascii_uppercase());
             let pou_id = module
                 .function_block_ids
-                .get(&type_key)
-                .copied()
+                .get(&module.strings, &type_key)
                 .ok_or_else(|| {
                     VmTrap::Runtime(RuntimeError::UndefinedFunctionBlock(
                         instance_type_name.clone(),
@@ -456,8 +455,7 @@ fn dispatch_native_vm_call(
             if let Some(planned) = plan
                 && let CallCallee::Method { owner, pou } = planned.callee
                 && instance_owner_pou(runtime, module, instance_id) == Some(owner)
-                && module.resolve_method_pou_id_uppercase(owner, normalized_target_name.as_str())
-                    == Some(pou)
+                && module.resolve_method_pou_id(owner, normalized_target_name.as_str()) == Some(pou)
             {
                 return PreparedCall::function(
                     runtime,
@@ -477,14 +475,13 @@ fn dispatch_native_vm_call(
             let type_key = SmolStr::new(instance_type_name.to_ascii_uppercase());
             let owner_pou_id = module
                 .function_block_ids
-                .get(&type_key)
-                .copied()
-                .or_else(|| module.class_ids.get(&type_key).copied())
+                .get(&module.strings, &type_key)
+                .or_else(|| module.class_ids.get(&module.strings, &type_key))
                 .ok_or_else(|| {
                     VmTrap::Runtime(RuntimeError::UndefinedField(target_name.clone()))
                 })?;
             let pou_id = module
-                .resolve_method_pou_id_uppercase(owner_pou_id, normalized_target_name.as_str())
+                .resolve_method_pou_id(owner_pou_id, normalized_target_name.as_str())
                 .ok_or_else(|| {
                     VmTrap::Runtime(RuntimeError::UndefinedField(target_name.clone()))
                 })?;

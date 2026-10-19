@@ -380,7 +380,7 @@ fn build_init_plan_for_pou(
     let pou = module.pou(pou_id)?;
     let key = SmolStr::new(pou.name.to_ascii_uppercase());
 
-    if module.program_ids().get(&key).copied() == Some(pou_id) {
+    if module.program_ids().get(&key) == Some(pou_id) {
         return programs
             .values()
             .find(|program| {
@@ -394,7 +394,7 @@ fn build_init_plan_for_pou(
                 locals: program.temps.clone(),
             });
     }
-    if module.function_ids().get(&key).copied() == Some(pou_id) {
+    if module.function_ids().get(&key) == Some(pou_id) {
         return functions.get(&key).map(|function| VmPouInitPlan::Function {
             frame_owner: function.name.clone(),
             params: function.params.clone(),
@@ -403,7 +403,7 @@ fn build_init_plan_for_pou(
             return_slot: (function.name.clone(), function.return_type),
         });
     }
-    if module.function_block_ids().get(&key).copied() == Some(pou_id) {
+    if module.function_block_ids().get(&key) == Some(pou_id) {
         return function_blocks
             .get(&key)
             .map(|function_block| VmPouInitPlan::FunctionBlock {
@@ -413,15 +413,11 @@ fn build_init_plan_for_pou(
     }
 
     for (owner_key, function_block) in function_blocks {
-        let Some(owner_id) = module.function_block_ids().get(owner_key).copied() else {
-            continue;
-        };
-        let Some(method_table) = module.method_table_by_owner().get(&owner_id) else {
+        let Some(owner_id) = module.function_block_ids().get(owner_key) else {
             continue;
         };
         for method in &function_block.methods {
-            let method_key = SmolStr::new(method.name.to_ascii_uppercase());
-            if method_table.get(&method_key).copied() == Some(pou_id) {
+            if module.resolve_method_pou_id(owner_id, &method.name) == Some(pou_id) {
                 return Some(VmPouInitPlan::Method {
                     owner: function_block.name.clone(),
                     frame_owner: method.name.clone(),
@@ -435,15 +431,11 @@ fn build_init_plan_for_pou(
     }
 
     for (owner_key, class_def) in classes {
-        let Some(owner_id) = module.class_ids().get(owner_key).copied() else {
-            continue;
-        };
-        let Some(method_table) = module.method_table_by_owner().get(&owner_id) else {
+        let Some(owner_id) = module.class_ids().get(owner_key) else {
             continue;
         };
         for method in &class_def.methods {
-            let method_key = SmolStr::new(method.name.to_ascii_uppercase());
-            if method_table.get(&method_key).copied() == Some(pou_id) {
+            if module.resolve_method_pou_id(owner_id, &method.name) == Some(pou_id) {
                 return Some(VmPouInitPlan::Method {
                     owner: class_def.name.clone(),
                     frame_owner: method.name.clone(),

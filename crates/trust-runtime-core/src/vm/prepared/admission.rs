@@ -144,10 +144,11 @@ pub(super) fn check_imports(
             pc = next;
         }
     }
-    for (name, pou) in &vm.function_block_ids {
-        if let Some(import) = contracts::function_block(name) {
-            check_builtin_state(vm, layout, *pou, name, &import, budget)?;
-            check_builtin_parameters(vm, *pou, name, &import, budget)?;
+    for (name_idx, pou) in vm.function_block_ids.iter() {
+        let name = SmolStr::new(vm.strings[name_idx as usize].to_ascii_uppercase());
+        if let Some(import) = contracts::function_block(&name) {
+            check_builtin_state(vm, layout, pou, &name, &import, budget)?;
+            check_builtin_parameters(vm, pou, &name, &import, budget)?;
         }
     }
     Ok(wall_clock)
@@ -241,7 +242,7 @@ fn check_builtin_state(
     for (slot, primitive) in expected {
         let entry = actual
             .iter()
-            .find(|entry| vm.strings[entry.name_idx as usize].as_str() == *slot)
+            .find(|entry| &vm.strings[entry.name_idx as usize] == *slot)
             .ok_or_else(|| refused(name, ImportRefusal::StateLayout))?;
         let ty = entry
             .type_id

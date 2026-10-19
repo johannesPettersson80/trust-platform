@@ -280,7 +280,7 @@ fn vmpar_nested_boundary(source: &str, arm: VmparNestedArm, budget: usize) -> Pr
         .as_deref()
         .expect("harness must load a VM module")
         .clone();
-    let main_id = *module
+    let main_id = module
         .program_ids()
         .get(&SmolStr::new("MAIN"))
         .expect("main POU id");
@@ -362,11 +362,11 @@ fn vmpar_nested_function_call_shares_the_top_level_instruction_budget() {
             .as_mut()
             .expect("harness must load a VM module"),
     );
-    let main_id = *module
+    let main_id = module
         .program_ids()
         .get(&SmolStr::new("MAIN"))
         .expect("main POU id");
-    let add_one_id = *module
+    let add_one_id = module
         .function_ids()
         .get(&SmolStr::new("ADDONE"))
         .expect("AddOne POU id");

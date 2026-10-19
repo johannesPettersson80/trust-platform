@@ -74,7 +74,7 @@ impl StoreAccess for EngineState<'_> {
     }
 
     #[inline]
-    fn global_name(&self, offset: usize) -> Option<&SmolStr> {
+    fn global_name(&self, offset: usize) -> Option<&str> {
         match self.data.routed(self.prepared) {
             Routed::Values(store) => store.global_name(offset),
             Routed::Cells(reader) => reader.global_name(offset),
@@ -446,7 +446,7 @@ impl StoreAccess for RuntimeState<'_> {
     }
 
     #[inline]
-    fn global_name(&self, offset: usize) -> Option<&SmolStr> {
+    fn global_name(&self, offset: usize) -> Option<&str> {
         match self.routed() {
             Routed::Values(store) => store.global_name(offset),
             Routed::Cells(reader) => reader.global_name(offset),

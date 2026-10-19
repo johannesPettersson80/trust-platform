@@ -94,8 +94,8 @@ impl PreparedIndexes {
                     .get(input_id as usize)
                     .ok_or(RuntimeError::InvalidExecutionState)?;
                 let plan = VmEdgeInput {
-                    name: vm.strings[input.name_idx as usize].clone(),
-                    phase_name: name.clone(),
+                    name: smol_str::SmolStr::new(&vm.strings[input.name_idx as usize]),
+                    phase_name: smol_str::SmolStr::new(name),
                     rising: declaration.is_rising_edge(),
                 };
                 push_group(

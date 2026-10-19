@@ -266,7 +266,8 @@ fn member_default_preflight_cannot_strand_an_instance_or_lifetime_metadata() {
         .position(|entry| entry.owner == StorageOwner::Instance && entry.type_id.is_some())
         .unwrap();
     let pou = prepared.layout.entries[declaration].owner_pou_id.unwrap();
-    let name = prepared.vm.strings[prepared.layout.entries[declaration].name_idx as usize].clone();
+    let name =
+        SmolStr::new(&prepared.vm.strings[prepared.layout.entries[declaration].name_idx as usize]);
     let constant = prepared.vm.consts.len() as u32;
     prepared.vm.consts.push(Value::WString("A".repeat(8192)));
     prepared.layout.entries[declaration].default_const_idx = Some(constant);

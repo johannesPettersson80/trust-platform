@@ -168,10 +168,7 @@ pub fn read_register_with_counts(
     }
 }
 
-pub fn register_field_name(
-    module: &VmModule,
-    field_idx: u32,
-) -> Result<&smol_str::SmolStr, RuntimeError> {
+pub fn register_field_name(module: &VmModule, field_idx: u32) -> Result<&str, RuntimeError> {
     module.strings().get(field_idx as usize).ok_or_else(|| {
         VmTrap::BytecodeDecode(format!("invalid index {field_idx} for string").into())
             .into_runtime_error()
@@ -190,13 +187,14 @@ pub fn current_self_instance(frames: &FrameStack) -> Result<InstanceId, RuntimeE
 pub fn resolve_instance_field_ref(
     runtime: &impl RegisterContext,
     instance_id: InstanceId,
-    field: &smol_str::SmolStr,
+    field: &str,
 ) -> Result<crate::value::ValueRef, RuntimeError> {
     runtime
         .storage()
-        .resolved_instance_field_ref(instance_id, field.as_str())
+        .resolved_instance_field_ref(instance_id, field)
         .ok_or_else(|| {
-            VmTrap::Runtime(RuntimeError::UndefinedField(field.clone())).into_runtime_error()
+            VmTrap::Runtime(RuntimeError::UndefinedField(smol_str::SmolStr::new(field)))
+                .into_runtime_error()
         })
 }
 

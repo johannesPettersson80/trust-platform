@@ -25,7 +25,7 @@ impl EngineState<'_> {
             if value.is_none() && self.holds_cells() && prepared.global_cells(id).is_some() {
                 continue;
             }
-            self.set_global(name.clone(), value.unwrap_or(Value::Null));
+            self.set_global(name, value.unwrap_or(Value::Null));
         }
         // Reserve all persistent identities before executing any default. This does
         // not expose uninitialized members through the initializer visibility view.
@@ -60,7 +60,7 @@ impl EngineState<'_> {
             } else {
                 let declaration = &prepared.layout.entries[root.declaration_idx as usize];
                 if declaration.role == StorageRole::ProgramRoot {
-                    let name = prepared.vm.strings[declaration.name_idx as usize].clone();
+                    let name = SmolStr::new(&prepared.vm.strings[declaration.name_idx as usize]);
                     self.set_global(name, Value::Instance(instance));
                     self.data
                         .construction
@@ -239,8 +239,8 @@ impl EngineState<'_> {
                 .vm
                 .strings
                 .get(declaration.name_idx as usize)
-                .ok_or_else(|| RuntimeError::InvalidExecutionState)?
-                .clone();
+                .map(SmolStr::new)
+                .ok_or_else(|| RuntimeError::InvalidExecutionState)?;
             let value = declaration
                 .default_const_idx
                 .and_then(|index| self.prepared.vm.consts.get(index as usize))
@@ -541,8 +541,6 @@ impl EngineState<'_> {
             }
             return Ok(());
         }
-        // Persistent destinations still retain their name before lifetime checks.
-        let name = name.clone();
         let destination = if declared.owner == StorageOwner::Instance {
             instance.and_then(|id| self.data.lifetimes.instance_lifetimes.get(&id).flatten())
         } else {

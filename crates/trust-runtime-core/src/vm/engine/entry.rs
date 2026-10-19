@@ -60,8 +60,7 @@ impl EngineState<'_> {
             .prepared
             .vm
             .function_block_ids
-            .get(name.to_ascii_uppercase().as_str())
-            .copied()
+            .get(&self.prepared.vm.strings, name)
             .ok_or_else(|| RuntimeError::UndefinedFunctionBlock(name.into()))?;
         if self.data.storage.execution_activation_count()
             == self.data.storage.execution_frame_capacity()

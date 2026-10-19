@@ -262,7 +262,7 @@ fn marker_allocation_refusals_precede_instance_publication() {
         .position(|entry| {
             entry.owner == StorageOwner::Instance
                 && entry.role == StorageRole::Variable
-                && prepared.vm.strings[entry.name_idx as usize] == "value"
+                && &prepared.vm.strings[entry.name_idx as usize] == "value"
         })
         .unwrap() as u32;
     let owner = prepared.layout.entries[declaration as usize]
@@ -373,10 +373,10 @@ fn marker_allocation_refusals_precede_instance_publication() {
 #[test]
 fn native_state_mark_is_admitted_before_publication() {
     let mut prepared = prepared();
-    let pou = *prepared
+    let pou = prepared
         .vm
         .function_block_ids
-        .get("COUNTER")
+        .get(&prepared.vm.strings, "COUNTER")
         .expect("fixture Counter FB");
     let declarations = prepared
         .declarations(StorageOwner::Instance, Some(pou))
@@ -430,9 +430,9 @@ fn native_state_mark_is_admitted_before_publication() {
         &super::super::super::services::LOGICAL_ONLY,
     );
     let marker = key;
-    let field_name = prepared.vm.strings
-        [prepared.layout.entries[declaration as usize].name_idx as usize]
-        .clone();
+    let field_name = SmolStr::new(
+        &prepared.vm.strings[prepared.layout.entries[declaration as usize].name_idx as usize],
+    );
     let before_value = state
         .data
         .storage
@@ -522,7 +522,7 @@ fn lifecycle_mark_allocation_refusal_precedes_global_and_instance_value_writes()
         let prepared = prepared();
         let declaration = declaration(&prepared, owner);
         let entry = &prepared.layout.entries[declaration as usize];
-        let name = prepared.vm.strings[entry.name_idx as usize].as_str();
+        let name = &prepared.vm.strings[entry.name_idx as usize];
         let mut data = state_data(&prepared);
         let instance = if owner == StorageOwner::Instance {
             let template = entry.owner_pou_id.expect("instance declaration owner");
@@ -633,8 +633,9 @@ fn lifecycle_mark_allocation_refusal_precedes_global_and_instance_value_writes()
 fn initialized_marker_refusal_does_not_publish_prepared_once_marker_or_global_value() {
     let mut prepared = prepared();
     let declaration = declaration(&prepared, StorageOwner::Global);
-    let name = prepared.vm.strings[prepared.layout.entries[declaration as usize].name_idx as usize]
-        .clone();
+    let name = SmolStr::new(
+        &prepared.vm.strings[prepared.layout.entries[declaration as usize].name_idx as usize],
+    );
     let mut data = state_data(&prepared);
     let previous = data
         .storage
@@ -786,8 +787,9 @@ fn lifetime_fault_still_precedes_once_marker_admission() {
     let prepared = prepared();
     let declaration = declaration(&prepared, StorageOwner::Global);
     let mut data = state_data(&prepared);
-    let name = prepared.vm.strings[prepared.layout.entries[declaration as usize].name_idx as usize]
-        .clone();
+    let name = SmolStr::new(
+        &prepared.vm.strings[prepared.layout.entries[declaration as usize].name_idx as usize],
+    );
     let value_before = data
         .storage
         .get_global(&name)

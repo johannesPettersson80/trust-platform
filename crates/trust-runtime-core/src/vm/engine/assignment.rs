@@ -5,6 +5,7 @@ use crate::collections::OrderedMap;
 use crate::error::RuntimeError;
 use crate::value::{StructValue, Value};
 use alloc::{sync::Arc, vec::Vec};
+use smol_str::SmolStr;
 
 mod canonical;
 #[cfg(test)]
@@ -201,12 +202,12 @@ impl EngineState<'_> {
                 .get_index(position)
                 .ok_or_else(|| RuntimeError::TypeMismatch)?;
             normalized.insert(
-                name.clone(),
+                SmolStr::new(name),
                 self.normalize_assignment_inner(field.type_id, child.clone(), depth + 1)?,
             );
         }
         let layout = self.prepared.vm.physical_layout(ty);
-        let value = StructValue::from_canonical_parts(name.clone(), normalized);
+        let value = StructValue::from_canonical_parts(SmolStr::new(name), normalized);
         if let Some(layout) = &layout {
             self.charge_allocation_bytes(layout.byte_len()?)?;
             self.charge_allocation_bytes(layout.initialization_staging_allocation(&value)?)?;

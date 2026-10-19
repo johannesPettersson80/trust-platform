@@ -72,7 +72,6 @@ pub(super) fn execute_program_by_name(
     let pou_id = module
         .program_ids()
         .get(&key)
-        .copied()
         .ok_or_else(|| VmTrap::MissingProgram(program_name.clone()).into_runtime_error())?;
 
     let instance_id = match runtime.storage.get_global(program_name.as_ref()) {
@@ -104,13 +103,9 @@ pub(super) fn execute_function_block_ref(
         .get_instance(instance_id)
         .ok_or(RuntimeError::NullReference)?;
     let key = SmolStr::new(instance.type_name.to_ascii_uppercase());
-    let pou_id = module
-        .function_block_ids()
-        .get(&key)
-        .copied()
-        .ok_or_else(|| {
-            VmTrap::MissingFunctionBlock(instance.type_name.clone()).into_runtime_error()
-        })?;
+    let pou_id = module.function_block_ids().get(&key).ok_or_else(|| {
+        VmTrap::MissingFunctionBlock(instance.type_name.clone()).into_runtime_error()
+    })?;
 
     execute_pou(runtime, module.as_ref(), pou_id, Some(instance_id))
 }

@@ -661,7 +661,7 @@ fn execute_with_buffers(
                 let field = module
                     .strings
                     .get(field_idx as usize)
-                    .cloned()
+                    .map(smol_str::SmolStr::new)
                     .ok_or_else(|| super::errors::invalid_field_string_index(field_idx))?;
                 let base = operand_stack.pop().map_err(VmTrap::into_runtime_error)?;
                 let next = match base {
