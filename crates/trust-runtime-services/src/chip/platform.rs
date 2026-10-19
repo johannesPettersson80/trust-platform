@@ -65,6 +65,21 @@ pub trait ChipProfile {
     fn checkpoint_step_bytes() -> Option<usize>;
 }
 
+/// The values of an installed program's record that its platform reports and answers from
+/// (specification 34 §5.1.1 and STATE-08): what a chip sets on its platform when it loads a program.
+#[derive(Clone)]
+pub struct ProgramValues {
+    /// `resource.name` of the record, which `status` reports.
+    pub resource_name: SmolStr,
+    /// `runtime.control.debug_enabled` of the record.
+    pub debug_enabled: bool,
+    /// `runtime.control.mode` of the record.
+    pub control_mode: ControlMode,
+    /// The Live Values of the program, which the runner applies and the `io.*`, `set` and `var.*`
+    /// operations answer from.
+    pub live: EngineLiveValues,
+}
+
 /// A chip's platform for the single-thread resource loop: the ports of [`ChipPlatform`] over the chip's
 /// profile `C` and its hardware watchdog `W`.
 pub struct ChipPlatform<C, W> {
@@ -137,6 +152,21 @@ impl<C: ChipProfile, W> ChipPlatform<C, W> {
     #[must_use]
     pub fn into_watchdog(self) -> W {
         self.watchdog
+    }
+
+    /// The watchdog the platform holds, for a loader that sets its interval from the record of the
+    /// program it loads (specification 34 TIME-04).
+    pub fn watchdog_mut(&mut self) -> &mut W {
+        &mut self.watchdog
+    }
+
+    /// Gives the platform the values of the record of a program that was loaded: its resource name,
+    /// the debug surface, the control mode and the Live Values (specification 34 STATE-08).
+    pub fn set_program(&mut self, program: ProgramValues) {
+        self.resource_name = program.resource_name;
+        self.debug_enabled = program.debug_enabled;
+        self.control_mode = program.control_mode;
+        self.live = program.live;
     }
 
     /// The reset the boot reports (specification 11, the runtime device capabilities contract). Its
@@ -320,6 +350,12 @@ impl<C: ChipProfile, W: HardwareWatchdog> RunnerPlatform for ChipPlatform<C, W> 
     /// The installed application's record carries the mode (specification 34 §5.1.1, section 7).
     fn control_mode(&self) -> ControlMode {
         self.control_mode
+    }
+
+    /// The Live Values of the program that ended give way to those of no program, so that their
+    /// memory is free for the next program (specification 34 STATE-08).
+    fn unload_program(&mut self) {
+        self.live = EngineLiveValues::empty();
     }
 }
 

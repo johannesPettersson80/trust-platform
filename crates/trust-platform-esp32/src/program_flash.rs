@@ -3,16 +3,21 @@
 //!
 //! The chip has one flash. [`FlashOwner`] owns it once and hands out each region as a handle over
 //! that one flash: [`ProgramSlots`] reaches the two program slots, the checkpoint log's
-//! [`SlotFlash`] reaches the checkpoint slots, and
+//! [`CheckpointWriter`] reaches the checkpoint slots, and
 //! [`FlashOwner::read_application`] reads the installed application where it begins. Each handle
 //! refuses every access outside its own region before the flash sees it, so a program write can
-//! never reach a checkpoint slot, and a checkpoint write never reaches a program slot.
+//! never reach a checkpoint slot, and a checkpoint write never reaches a program slot. The program
+//! slots are handed out once. The checkpoint writer is handed out once at a time: a chip that loads a
+//! newer program in place drops the writer of the program that ended, and the next program takes the
+//! writer again (specification 34 STATE-08).
 
 use alloc::rc::Rc;
-use core::cell::RefCell;
+use core::cell::{Cell, RefCell};
 
 use trust_runtime_core::ports::ProgramFlash;
-use trust_runtime_core::retain::checkpoint::{CheckpointError, FlashError, FlashGeometry, Slot};
+use trust_runtime_core::retain::checkpoint::{
+    CheckpointError, CheckpointFlash, FlashError, FlashGeometry, Slot,
+};
 
 use crate::checkpoint::{RawFlash, SlotFlash};
 use crate::profile::{FLASH_ERASE_BYTES, FLASH_PROGRAM_BYTES};
@@ -139,15 +144,47 @@ impl<R: RawFlash> RawFlash for SharedFlash<R> {
     }
 }
 
+/// The checkpoint slots as one writer at a time (specification 34 §10.1 and STATE-08). It is the
+/// checkpoint log's [`CheckpointFlash`], and dropping it frees the slots for the next writer.
+pub struct CheckpointWriter<R> {
+    slots: SlotFlash<R>,
+    live: Rc<Cell<bool>>,
+}
+
+impl<R: RawFlash> CheckpointFlash for CheckpointWriter<R> {
+    fn geometry(&self) -> FlashGeometry {
+        self.slots.geometry()
+    }
+
+    fn read(&mut self, slot: Slot, offset: u32, bytes: &mut [u8]) -> Result<(), FlashError> {
+        self.slots.read(slot, offset, bytes)
+    }
+
+    fn program(&mut self, slot: Slot, offset: u32, bytes: &[u8]) -> Result<(), FlashError> {
+        self.slots.program(slot, offset, bytes)
+    }
+
+    fn erase(&mut self, slot: Slot, offset: u32) -> Result<(), FlashError> {
+        self.slots.erase(slot, offset)
+    }
+}
+
+impl<R> Drop for CheckpointWriter<R> {
+    fn drop(&mut self) {
+        self.live.set(false);
+    }
+}
+
 /// The chip's one flash, owned once and split between its regions (specification 34 §5.1 and
 /// §10.1): the two program slots, the two checkpoint slots and the installed application, which
-/// begins at slot A. The program slots and the checkpoint slots are each handed out once; the boot
-/// read is available at any time, so the boot can read the installed application after both are
-/// taken.
+/// begins at slot A. The program slots are handed out once, and the checkpoint slots to one writer at
+/// a time; the boot read is available at any time, so the boot can read the installed application
+/// after both are taken.
 pub struct FlashOwner<R> {
     flash: SharedFlash<R>,
     program_taken: bool,
-    checkpoint_taken: bool,
+    /// Whether a [`CheckpointWriter`] exists now.
+    checkpoint_live: Rc<Cell<bool>>,
 }
 
 impl<R: RawFlash> FlashOwner<R> {
@@ -159,7 +196,7 @@ impl<R: RawFlash> FlashOwner<R> {
                 flash: Rc::new(RefCell::new(raw)),
             },
             program_taken: false,
-            checkpoint_taken: false,
+            checkpoint_live: Rc::new(Cell::new(false)),
         }
     }
 
@@ -179,20 +216,33 @@ impl<R: RawFlash> FlashOwner<R> {
         Ok(Some(program))
     }
 
-    /// The checkpoint slots, handed out once: the second call answers `None`.
+    /// The checkpoint slots, handed out to one writer at a time: the call answers `None` while a writer
+    /// exists, and hands the slots out again once it is dropped, which is how the program loaded next
+    /// takes the checkpoint flash of the program that ended (specification 34 STATE-08).
     ///
     /// # Errors
     ///
     /// [`CheckpointError::Geometry`] when the flash geometry cannot hold the checkpoint log.
     pub fn take_checkpoint(
         &mut self,
-    ) -> Result<Option<SlotFlash<SharedFlash<R>>>, CheckpointError> {
-        if self.checkpoint_taken {
+    ) -> Result<Option<CheckpointWriter<SharedFlash<R>>>, CheckpointError> {
+        if self.checkpoint_live.get() {
             return Ok(None);
         }
-        let checkpoint = SlotFlash::new(self.flash.clone())?;
-        self.checkpoint_taken = true;
-        Ok(Some(checkpoint))
+        let slots = SlotFlash::new(self.flash.clone())?;
+        self.checkpoint_live.set(true);
+        Ok(Some(CheckpointWriter {
+            slots,
+            live: Rc::clone(&self.checkpoint_live),
+        }))
+    }
+
+    /// A handle on the whole flash at absolute addresses, for the boot counter, whose two sectors lie
+    /// outside the program and checkpoint slots (specification 34 Appendix D.2). The counter confines
+    /// itself to those sectors.
+    #[must_use]
+    pub fn raw(&self) -> SharedFlash<R> {
+        self.flash.clone()
     }
 
     /// A second handle on the checkpoint slots, for reading the newest checkpoint while the handle

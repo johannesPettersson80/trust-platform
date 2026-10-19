@@ -3062,11 +3062,19 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/mod.rs",
-        "line": 278,
+        "line": 337,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the misa CSR only; no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
         "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/process_io.rs",
+        "line": 355,
+        "owner": "runtime portability S4-6b (program loading in place)",
+        "invariant": "clone_unchecked copies a pin of the bank only after PinClaims::claim refused every line that holds it. A line keeps its PinClaim next to the driver built from the copy (ClaimedInput and ClaimedOutput own both and drop them together), so a pin is claimed again only after the driver that held it is gone, and at most one driver of a pin exists at a time.",
+        "test_evidence": "cargo test -p trust-platform-esp32 --test pin_lines (a_claimed_pin_is_free_again_when_its_line_is_dropped) and --test reload (the_new_program_claims_the_pins_the_old_one_released); the esp-hal driver is exercised only by the chip build and the planned C6 bench run.",
+        "review_date": "2026-10-19"
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/reset.rs",
@@ -3123,6 +3131,22 @@
         "invariant": "Writes one byte into the USB-Serial/JTAG EP1 FIFO data field (every eight-bit value is valid there), after the pass has checked that the IN FIFO has room for it and only while the reply in flight has unsent bytes.",
         "test_evidence": "cargo test -p trust-platform-esp32 (the fake-FIFO servicing tests, tests/usb_service.rs)",
         "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/program_memory.rs",
+        "line": 64,
+        "owner": "runtime portability S4-6b (program loading in place)",
+        "invariant": "Both pointers came from Box::leak a few lines above, so they are valid and nothing else reaches the boxes. The 'static borrows are stored only in the cycle built next, which owns the memory as its last field and returns no reference of its lifetime, or they are dropped in this function; an early return drops the memory after their last use.",
+        "test_evidence": "cargo test -p trust-platform-esp32 --test reload (install_and_restart_rounds_leave_the_heap_where_one_round_left_it).",
+        "review_date": "2026-10-19"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/program_memory.rs",
+        "line": 80,
+        "owner": "runtime portability S4-6b (program loading in place)",
+        "invariant": "Both pointers came from Box::leak in start and are freed here and nowhere else, once, because ProgramMemory is neither Clone nor Copy. The cycle that owns this memory drops its engine state, its process I/O and its checkpoint store before it drops the memory (the last field), so no borrow of either box is alive; the services go first because they hold a borrow of the module.",
+        "test_evidence": "cargo test -p trust-platform-esp32 --test reload (install_and_restart_rounds_leave_the_heap_where_one_round_left_it).",
+        "review_date": "2026-10-19"
       },
       {
         "path": "firmware/trust-esp32c6/src/memory.rs",

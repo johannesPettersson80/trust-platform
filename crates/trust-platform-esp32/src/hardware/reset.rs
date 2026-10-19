@@ -216,3 +216,11 @@ fn read_words() -> [u32; 2] {
     // loads are volatile, so the value comes from RTC memory and not a cached copy.
     unsafe { [read_volatile(words), read_volatile(words.add(1))] }
 }
+
+/// The loader sets the interval of MWDT0 from the cycle watchdog of the record it loads (specification
+/// 34 TIME-04).
+impl crate::loader::CycleWatchdog for Watchdog {
+    fn apply_cycle_timeout_ms(&mut self, cycle_timeout_ms: u32) -> bool {
+        self.set_cycle_timeout_ms(cycle_timeout_ms).is_ok()
+    }
+}

@@ -149,9 +149,11 @@ where
     /// A restart of a program that has ended starts it as a new trust-runtime process would,
     /// cold or warm from the retain checkpoint: its logical time and uptime start again from
     /// zero, the events, metrics and task statistics start empty, and its first scan is due at
-    /// once. A program that cannot start stays ended and faulted with the reason.
+    /// once. When the program store holds a committed container newer than the one the program came
+    /// from, the loop loads that container in place first ([`Self::load_or_restart`]). A program that
+    /// cannot start stays ended and faulted with the reason, and the next restart tries again.
     pub(super) fn start(&mut self, mode: RestartMode) {
-        match self.cycle.restart(mode, RetainSource::Checkpoint) {
+        match self.load_or_restart(mode) {
             Ok(events) => {
                 self.live.clear();
                 let start = self.clock.now();

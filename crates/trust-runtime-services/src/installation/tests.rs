@@ -19,8 +19,8 @@ use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::vm::PreparationLimits;
 
 use super::{
-    admit, committed_header, decode, decode_sequenced, encode, encode_sequenced, set_sequence,
-    AdmissionError, InstallationError, SequencedHeader,
+    admit, committed_header, decode, decode_sequenced, encode, encode_sequenced, sequenced_layout,
+    set_sequence, AdmissionError, InstallationError, SequencedHeader, SequencedLayout,
 };
 
 /// The program `[1, 2, 3]` and the record `[0xaa, 0xbb]` in a version-1 container, byte for byte.
@@ -380,4 +380,51 @@ fn a_trsta001_container_still_reads() {
         decode_sequenced(&CONTAINER),
         Err(InstallationError::NoProgram)
     ));
+}
+
+#[test]
+fn the_layout_of_a_trsta002_container_is_read_from_its_header_alone() {
+    // Specification 34 §5.1 and §11.2 (`program.active`): the 60 header bytes name the program's
+    // length and the record's place. Worked out by hand for the container above: the program takes
+    // bytes 60 to 63 (3 bytes), the record bytes 63 to 65, and the record's CRC-32 is 0x49822c98
+    // (the value the version-1 container above carries for the same two bytes). Catches a layout
+    // that reads the entries of version 1 (4 bytes too early), one that swaps the two payloads, and
+    // a record CRC-32 taken from the program.
+    let bytes = encode_sequenced(5, &[1, 2, 3], &[0xaa, 0xbb]).expect("the container encodes");
+    assert_eq!(
+        sequenced_layout(&bytes[..60], 65),
+        Ok(SequencedLayout {
+            program_bytes: 3,
+            record: 63..65,
+            record_crc: 0x4982_2c98,
+        })
+    );
+}
+
+#[test]
+fn a_layout_is_refused_for_a_header_that_fails_a_check_of_the_container() {
+    // Specification 34 §5.1: the header checks of the whole container hold for the header alone, in
+    // their order. A flipped sequence bit fails the header CRC-32; a total length below what the
+    // header declares (64 of 65) fails the length check; a version-1 header has no TRSTA002 magic;
+    // 59 bytes end inside the header. Catches a layout that trusts a header the container check
+    // would refuse.
+    let bytes = encode_sequenced(5, &[1, 2, 3], &[0xaa, 0xbb]).expect("the container encodes");
+    let mut damaged = bytes.clone();
+    damaged[16] ^= 1;
+    assert_eq!(
+        sequenced_layout(&damaged[..60], 65),
+        Err(InstallationError::HeaderChecksum)
+    );
+    assert_eq!(
+        sequenced_layout(&bytes[..60], 64),
+        Err(InstallationError::TotalLength)
+    );
+    assert_eq!(
+        sequenced_layout(&CONTAINER[..52], 57),
+        Err(InstallationError::NoProgram)
+    );
+    assert_eq!(
+        sequenced_layout(&bytes[..59], 65),
+        Err(InstallationError::Truncated)
+    );
 }

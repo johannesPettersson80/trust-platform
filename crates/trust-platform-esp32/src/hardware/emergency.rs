@@ -53,3 +53,10 @@ fn drive_outputs_to_safe_levels() {
     // their output driver, which is already latched at its safe level, and no other pin.
     gpio.enable_w1ts().write(|w| unsafe { w.bits(high | low) });
 }
+
+/// Forgets a configured output whose line was dropped with its program, so that [`emergency_halt`] no
+/// longer drives it: the fault path drives the outputs of the program that runs (specification 34
+/// STATE-08 and TARGET-08).
+pub(crate) fn forget_output(pin: GpioPin) {
+    SAFE_LEVELS.forget(pin);
+}

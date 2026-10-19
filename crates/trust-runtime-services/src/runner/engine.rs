@@ -95,7 +95,7 @@ pub struct CycleSettings {
 /// with the platform's process I/O.
 ///
 /// `'a` is the life of the prepared module and the execution services, which the engine state
-/// borrows; a firmware keeps both for the rest of the boot (`'static`). `C` is the platform's
+/// borrows; a firmware keeps both as long as the program lives (`'static`). `C` is the platform's
 /// monotonic clock, `I` its process I/O.
 ///
 /// A cycle built with [`Self::with_retain`] also holds the chip's checkpoint store
@@ -103,13 +103,23 @@ pub struct CycleSettings {
 /// resource loop advances a pending checkpoint between scans, a stop completes it, and a warm
 /// restart from the checkpoint restores it. A cycle built with [`Self::start`] has no store: a stop
 /// saves nothing, and a warm restart keeps the retained values the device holds in its memory.
-pub struct EngineCycle<'a, C, I> {
+///
+/// `M` is what the module and the services live in. A device that loads programs in place gives each
+/// cycle the memory of its own program with [`Self::with_memory`], and the cycle drops it after every
+/// other field, so the borrows of `'a` end before the memory is freed (specification 34 STATE-08,
+/// Appendix D.2). A device that keeps its program for the whole boot borrows a module and services it
+/// leaked, and `M` is `()`.
+pub struct EngineCycle<'a, C, I, M = ()> {
     state: RuntimeState<'a>,
     prepared: &'a PreparedModule,
     services: &'a DeviceServices<C>,
     io: I,
     settings: CycleSettings,
     retain: Option<RetainStore>,
+    /// The memory the module and the services live in. It must stay the last field: fields drop in the
+    /// order they are declared, and the memory may be freed only after the engine state, the process
+    /// I/O and the checkpoint store are gone.
+    memory: M,
 }
 
 impl<'a, C: MonotonicClock, I: ProcessIo> EngineCycle<'a, C, I> {
@@ -164,6 +174,7 @@ impl<'a, C: MonotonicClock, I: ProcessIo> EngineCycle<'a, C, I> {
             io,
             settings,
             retain: retain.map(RetainStore::open).transpose()?,
+            memory: (),
         })
     }
 
@@ -174,12 +185,42 @@ impl<'a, C: MonotonicClock, I: ProcessIo> EngineCycle<'a, C, I> {
     }
 }
 
-impl<C: MonotonicClock, I: ProcessIo> EngineCycle<'static, C, I> {
+impl<'a, C, I> EngineCycle<'a, C, I> {
+    /// The same program with `memory` as the memory its module and services live in, which the cycle
+    /// drops after every other field (see [`EngineCycle`]). The memory must be what the module and
+    /// the services of this cycle live in: the device that builds the memory builds the cycle from
+    /// it, with borrows that it extends to `'static` and that end when the cycle is dropped. No
+    /// method of the cycle returns a reference of its lifetime `'a`, so a borrow cannot outlive
+    /// the cycle that owns the memory.
+    #[must_use]
+    pub fn with_memory<M>(self, memory: M) -> EngineCycle<'a, C, I, M> {
+        let Self {
+            state,
+            prepared,
+            services,
+            io,
+            settings,
+            retain,
+            memory: (),
+        } = self;
+        EngineCycle {
+            state,
+            prepared,
+            services,
+            io,
+            settings,
+            retain,
+            memory,
+        }
+    }
+}
+
+impl<C: MonotonicClock, I: ProcessIo, M> EngineCycle<'static, C, I, M> {
     /// Lets the debugger hold this program's scans at the first instruction of each statement
     /// (specification 13, "Safe Points"; specification 34, STATE-07).
     ///
     /// The statement starts come from the prepared module's `LINE_TABLE` (specification 12 §6.13),
-    /// which the execution services keep for the rest of the boot, so the module and the services
+    /// which the execution services keep as long as they live, so the module and the services
     /// are `'static` as a firmware keeps them. A module without a `LINE_TABLE` has no statement
     /// start, and no scan of it is held. The statement hook costs one check per instruction while
     /// the platform does not enable debugging.
@@ -190,7 +231,7 @@ impl<C: MonotonicClock, I: ProcessIo> EngineCycle<'static, C, I> {
     }
 }
 
-impl<C: MonotonicClock, I: ProcessIo> ResourceCycle for EngineCycle<'_, C, I> {
+impl<C: MonotonicClock, I: ProcessIo, M> ResourceCycle for EngineCycle<'_, C, I, M> {
     fn tasks(&self) -> Vec<TaskDescriptor> {
         resource_tasks(self.prepared, RESOURCE_INDEX)
     }
@@ -378,7 +419,7 @@ impl<I: ProcessIo> CycleHooks for ScanHooks<'_, '_, I> {
 /// and answers the control requests from it, and the resource loop takes a clone when it starts,
 /// so a scan applies the queues without borrowing the platform, which a debugger hold needs for
 /// its idle work and its watchdog feed (specification 34, STATE-07). It is single-owner, so it
-/// holds no lock; a chip keeps it for the rest of the boot.
+/// holds no lock; a chip keeps the Live Values of its program as long as the program lives.
 #[derive(Clone)]
 pub struct EngineLiveValues {
     inner: Rc<LiveInner>,

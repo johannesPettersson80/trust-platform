@@ -6,6 +6,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- The ESP32-C6 loads a newly installed program in place. `restart` of the stopped program drops the
+  program, its pins and its memory, then reads, checks and prepares the newest installed container,
+  claims its pins and starts it cold or warm, without a reset, so the USB connection stays up. A
+  program that cannot start leaves the resource faulted with the reason, and the next `restart` tries
+  again. `program.active` answers on a chip, reading only the headers and records of the two
+  containers. A chip's transfer ids now carry a boot count that it keeps in flash, so an id never
+  repeats across boots, a loss of power included.
 - Fixed: on the ESP32-C6 a firmware panic drove every configured output low before the chip
   reset, whatever `[[io.safe_state]]` named. It now drives each output to its safe value, as the
   STM32U5A9 and the stop and fault paths do.
@@ -42,9 +49,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   `bytecode.reload` also takes `transfer` in place of `bytes`; it is still an online change that
   writes nothing, so a stop and a `restart` start the installed program again, and a chip has no
   online change yet and answers `unsupported request`. `program.active` (Viewer) reports the
-  installed program and the one before it on a computer; a chip answers `unsupported request` for
-  now. A chip answers `program.install` after its whole commit: specification 11 §6.8.1 gives the
-  time a client waits for that reply, worked out from the container's size.
+  installed program and the one before it, on a computer and on a chip. A chip answers
+  `program.install` after its whole commit: specification 11 §6.8.1 gives the time a client waits
+  for that reply, worked out from the container's size.
 - Changed: `trust-runtime deploy`, the web deployment and rollback, and `program.install` write a
   computer's project through a program store. The program is admitted (its record, its admission
   against the runtime and a dry-run preparation) before anything the runtime starts from changes,
@@ -62,11 +69,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   commits the container with the last four bytes of its magic, so a power loss or a failed step
   leaves the previous program running. At power-on and after a reset the chip starts the committed
   container with the highest install sequence; a damaged newest container refuses the start with
-  its reason, and the older one is not started in its place. A chip starts a newly installed program
-  at its next reset, because it does not reload in place yet; `restart` does not start it.
-  `capabilities` reports one slot, 3,129,344 bytes, as the chip's `application_slot_bytes`, and the
-  chip refuses a program that does not fit it. The steps to install are in
-  `firmware/trust-esp32c6/README.md`.
+  its reason, and the older one is not started in its place. `capabilities` reports one slot,
+  3,129,344 bytes, as the chip's `application_slot_bytes`, and the chip refuses a program that does
+  not fit it. The steps to install are in `firmware/trust-esp32c6/README.md`.
 - Changed: `cargo xtask portability pack-project` writes the `TRSTA002` container with install
   sequence 1, which is the container `program.install` commits into an empty store. The ESP32-C6
   reads `TRSTA002` only: written into slot A at `0x200000`, a packed container is a committed

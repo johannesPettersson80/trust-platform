@@ -39,6 +39,13 @@
 //! steps, one in each pass while the resource is Stopped, and its `installed` reply is the one reply
 //! in flight until the last step is done: the loop reads no request from its link meanwhile
 //! (specification 34 §11.2 and PORT-05; the install state is in `install.rs`).
+//!
+//! A device that can build a program from an admitted container also gives the loop a
+//! [`ProgramLoader`] ([`Runner::with_program_loader`]). A `restart` of the Stopped resource then loads
+//! the newest committed container in place when it is newer than the one the program came from: the
+//! loop drops the program, reads and admits the container, and has the loader build and start it,
+//! without a reset (specification 34 STATE-08; the order is in `reload.rs`). With a program store the
+//! loop also answers `program.active` from the store, in bounded reads.
 
 mod cycle;
 mod debugger;
@@ -48,6 +55,7 @@ mod host;
 mod install;
 mod observer;
 mod program;
+mod reload;
 mod retain;
 mod shell;
 mod state;
@@ -72,6 +80,7 @@ pub use engine::EngineLiveValues;
 pub use hold::HoldHandle;
 pub use host::RunnerPlatform;
 pub use install::check_retained_values;
+pub use reload::{Loaded, ProgramLoader};
 pub use retain::RetainConfig;
 
 use crate::installation::Admitted;
@@ -115,6 +124,11 @@ pub struct Runner<L, W, Y, P, C> {
     /// The Live Values the platform answers the control requests from, which the scan applies. The
     /// loop holds its own handle so that a scan does not borrow the platform.
     live: EngineLiveValues,
+    /// The loop's pass for a scan that a debugger holds, which every program of the loop gets when it
+    /// is loaded in place ([`Runner::with_program_loader`]).
+    hold: HoldHandle,
+    /// What loads the installed program in place, when the device gave the loop one.
+    loader: Option<Box<dyn ProgramLoader<P, Y>>>,
     tasks: Vec<TaskDescriptor>,
     /// Where the program's logical time and uptime start: its start, as a new trust-runtime
     /// process starts its scheduler clock and its metrics.
@@ -181,12 +195,15 @@ where
             records,
         ));
         let mut cycle = Program::Installed(cycle);
-        cycle.attach_hold(HoldHandle::new(&shell));
+        let hold = HoldHandle::new(&shell);
+        cycle.attach_hold(hold.clone());
         Self {
             shell,
             cycle,
             clock,
             live,
+            hold,
+            loader: None,
             tasks,
             program_start: start,
             next_boundary: Some(start),
@@ -225,11 +242,14 @@ where
             ResourceCell::stopped(),
             records,
         ));
+        let hold = HoldHandle::new(&shell);
         Self {
             shell,
             cycle: Program::Missing(reason),
             clock,
             live,
+            hold,
+            loader: None,
             tasks: Vec::new(),
             program_start: start,
             next_boundary: None,
@@ -453,6 +473,9 @@ mod live_values_contract_tests;
 
 #[cfg(test)]
 mod retain_contract_tests;
+
+#[cfg(test)]
+mod reload_contract_tests;
 
 #[cfg(test)]
 mod reply_contract_tests;

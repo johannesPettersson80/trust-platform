@@ -165,11 +165,13 @@ fn session_refusal(id: u64, error: &TransferError) -> ControlResponse {
 }
 
 /// `program.active`: the selected program and the program before it, each `null` when the store
-/// holds none. A platform without a program store refuses it.
+/// holds none. A platform without a program store refuses it, and a store that cannot be read answers
+/// with its failure.
 pub(super) fn program_active<H: RecordsPort>(id: u64, host: &H) -> ControlResponse {
-    match host.program_identities() {
-        Some(identities) => ControlResponse::ok(id, identities_json(identities)),
-        None => ControlResponse::error(id, "unsupported request".into()),
+    match host.read_program_identities() {
+        Ok(Some(identities)) => ControlResponse::ok(id, identities_json(identities)),
+        Ok(None) => ControlResponse::error(id, "unsupported request".into()),
+        Err(error) => ControlResponse::error(id, error),
     }
 }
 

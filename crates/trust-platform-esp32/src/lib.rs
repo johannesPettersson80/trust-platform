@@ -8,6 +8,7 @@
 
 extern crate alloc;
 
+pub mod boot_counter;
 pub mod checkpoint;
 mod console_budget;
 pub use console_budget::ConsoleError;
@@ -18,12 +19,14 @@ pub use cookie::{ResetCookie, RUNNING_PHASE, WATCHDOG_PHASE};
 pub use trust_platform_memory::reset::{ResetCause, ResetRecord};
 mod image;
 pub use image::{decode_image_header, ImageHeader};
+pub mod loader;
 mod platform;
 pub use platform::Platform;
 #[path = "hardware/process_io.rs"]
 pub mod process_io;
 pub mod profile;
 pub mod program_flash;
+pub mod program_memory;
 mod record;
 pub use record::{fail_record, FAIL_RECORD_MAX};
 pub mod usb_service;
@@ -33,6 +36,6 @@ pub mod watchdog_rule;
 mod hardware;
 #[cfg(all(target_arch = "riscv32", target_os = "none"))]
 pub use hardware::{
-    emergency_halt, Board, BoardError, Console, Identity, Monotonic, ResetControl, UsbLink, Wait,
-    Watchdog,
+    emergency_halt, Board, BoardError, BoardHardware, BoardParts, Console, Identity, Monotonic,
+    ResetControl, UsbLink, Wait, Watchdog,
 };

@@ -155,8 +155,9 @@ impl<C: MonotonicClock> MonotonicClock for ProgramClock<C> {
 pub(super) struct Records<C> {
     metrics: RefCell<RuntimeMetrics<ProgramClock<C>>>,
     events: RefCell<VecDeque<RuntimeEvent>>,
-    /// The newest events the event store keeps (`runtime.events.capacity`, specification 11).
-    capacity: usize,
+    /// The newest events the event store keeps (`runtime.events.capacity`, specification 11). A
+    /// program loaded in place brings the capacity of its own record ([`Records::resize`]).
+    capacity: Cell<usize>,
 }
 
 impl<C: MonotonicClock> Records<C> {
@@ -171,13 +172,35 @@ impl<C: MonotonicClock> Records<C> {
             // One spare slot, so appending the event that displaces the oldest does not
             // reallocate mid-scan.
             events: RefCell::new(VecDeque::with_capacity(capacity + 1)),
-            capacity,
+            capacity: Cell::new(capacity),
         }
     }
 
     /// The newest events the event store keeps.
     pub(super) fn event_capacity(&self) -> usize {
-        self.capacity
+        self.capacity.get()
+    }
+
+    /// Gives the event store room for the newest `capacity` events and empties it, for a program
+    /// loaded in place whose record asks for another capacity (specification 34 STATE-08). The old
+    /// store is freed before the new one is reserved, so the heap never holds both, and a capacity
+    /// that is the store's own keeps its memory. The store takes its whole bound at once, so a heap
+    /// too small for it refuses here, never in the middle of a scan (specification 34, ARCH-05).
+    ///
+    /// Returns whether the store has room for `capacity` events now. When it has not, the store is
+    /// empty and holds no room, and the program that asked for it does not start.
+    pub(super) fn resize(&self, capacity: usize) -> bool {
+        let Ok(mut events) = self.events.try_borrow_mut() else {
+            return false;
+        };
+        if capacity == self.capacity.get() {
+            events.clear();
+            return true;
+        }
+        *events = VecDeque::new();
+        self.capacity.set(capacity);
+        // One spare slot, so appending the event that displaces the oldest does not reallocate.
+        events.try_reserve_exact(capacity + 1).is_ok()
     }
 
     /// Empties the records of a program that starts again at `start` as a new trust-runtime
@@ -195,7 +218,7 @@ impl<C: MonotonicClock> Records<C> {
     /// Stores `event` as the newest event, within the store's bound.
     pub(super) fn push_event(&self, event: RuntimeEvent) {
         if let Ok(mut events) = self.events.try_borrow_mut() {
-            store_event(&mut events, event, self.capacity);
+            store_event(&mut events, event, self.capacity.get());
         }
     }
 

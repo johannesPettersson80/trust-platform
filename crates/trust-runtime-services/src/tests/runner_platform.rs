@@ -77,6 +77,9 @@ pub(crate) struct TestPlatform {
     pub(crate) device_descriptor: DeviceDescriptor,
     /// The reset the platform's boot read; `None` for a computer, which starts as a new process.
     pub(crate) last_reset: Option<LastReset>,
+    /// How many times the loop dropped the program that ended (`unload_program`); a test keeps a
+    /// clone to read them.
+    pub(crate) unloads: Rc<Cell<u32>>,
 }
 
 impl Default for TestPlatform {
@@ -98,6 +101,7 @@ impl Default for TestPlatform {
             control_mode: ControlMode::Production,
             device_descriptor: DeviceDescriptor::hosted(),
             last_reset: None,
+            unloads: Rc::new(Cell::new(0)),
         }
     }
 }
@@ -264,6 +268,11 @@ impl RunnerPlatform for TestPlatform {
         if let Some(wait) = &self.wake_during_idle {
             wait.wake();
         }
+    }
+
+    fn unload_program(&mut self) {
+        self.unloads.set(self.unloads.get() + 1);
+        self.live_values = Rc::new(EngineLiveValues::empty());
     }
 }
 

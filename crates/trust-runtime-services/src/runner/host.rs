@@ -2,7 +2,7 @@
 //! I/O drivers, and the resource state, metrics and events that the loop keeps itself.
 
 use alloc::collections::VecDeque;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
@@ -62,8 +62,10 @@ pub trait RunnerPlatform:
     /// The Live Values the runner applies at its cycle phases and the platform answers the
     /// `io.*`, `set` and `var.*` requests from (specification 11, "Live Values"; specification 34
     /// §4.3.1). The platform owns it, and the runner takes a handle on the same state when it
-    /// starts ([`EngineLiveValues`] is a handle), so a platform returns the same one for the rest
-    /// of the boot.
+    /// starts ([`EngineLiveValues`] is a handle), so a platform returns the same one for as long as
+    /// its program lives. A device that loads a program in place gives the platform the Live Values
+    /// of each program it loads (`unload_program`, then its loader), and the loop takes a handle on
+    /// them as that program starts (specification 34 STATE-08).
     fn live_values(&self) -> &EngineLiveValues;
 
     /// Work between scans, for example servicing a communication driver; the loop runs it once
@@ -96,10 +98,18 @@ pub trait RunnerPlatform:
     }
 
     /// The selected program and the program before it, which `program.active` reports (specification
-    /// 34 §11.2). A platform without a program store keeps the default.
+    /// 34 §11.2). A platform without a program store keeps the default. A loop that was given a
+    /// program store answers `program.active` from that store instead
+    /// ([`Runner::with_program_store`](crate::runner::Runner::with_program_store)).
     fn program_identities(&self) -> Option<ProgramIdentities> {
         None
     }
+
+    /// The program that ended is dropped: the platform lets go of the values of its record, which a
+    /// device that loads a program in place replaces when it loads the next (specification 34
+    /// STATE-08). The Live Values of the program that ended hold memory the next program needs, so
+    /// they are emptied here. The default does nothing, for a platform that never loads in place.
+    fn unload_program(&mut self) {}
 }
 
 /// What the dispatcher reads of the installed program while the loop serves a request: whether
@@ -218,8 +228,16 @@ impl<P: RunnerPlatform, C> ResourcePort for RunnerHost<'_, P, C> {
         true
     }
 
+    /// Why the resource has no program, unless the store holds a container newer than the one the loop
+    /// refused or lacked: a `restart` then loads it in place (specification 34 STATE-08). A store that
+    /// cannot be ordered keeps the refusal.
     fn missing_program(&self) -> Option<&str> {
-        self.program.missing_program()
+        let reason = self.program.missing_program()?;
+        if self.install.newer_container().unwrap_or(false) {
+            None
+        } else {
+            Some(reason)
+        }
     }
 }
 
@@ -320,6 +338,15 @@ impl<P: RunnerPlatform, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, C> 
 
     fn program_identities(&self) -> Option<ProgramIdentities> {
         self.platform.program_identities()
+    }
+
+    /// The identities of the loop's own program store when it has one, read in bounded reads, else the
+    /// platform's (specification 34 §11.2).
+    fn read_program_identities(&self) -> Result<Option<ProgramIdentities>, String> {
+        match self.install.identities() {
+            Some(identities) => identities.map(Some).map_err(|error| error.to_string()),
+            None => Ok(self.platform.program_identities()),
+        }
     }
 
     /// Whether the device gave its loop a program store (specification 34 §11.2).

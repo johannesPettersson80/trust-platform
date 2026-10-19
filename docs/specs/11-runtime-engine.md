@@ -2652,7 +2652,13 @@ bytes) gives 4 + 305.6 + 122.24, about 432 seconds. The bound is the same on
 every runtime, because a client sends the same request to each: a computer
 commits with no erase or program step and replies sooner, and the bound is then
 only a limit. Every other request keeps the 750 millisecond read bound,
-the transfer operations included.
+the transfer operations included, with one exception: a chip answers a `restart` that makes it
+load a newer container (specification 34 STATE-08) with `restart queued` at once, and then serves no
+request until the load ends, because it reads, checks, prepares and constructs the container in one
+step of its control loop. The first request after such a `restart` waits for the whole load, which the
+bench has not measured yet; a client that must not time out reads that reply with the bound T of
+the `program.install` of the same container, which covers the load: the load does the checks of
+that install once, where the install did them twice, and writes nothing.
 
 ###### Runtime control request, job, and state-surface contract
 

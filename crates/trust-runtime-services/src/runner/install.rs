@@ -14,6 +14,11 @@
 //! The retained-value check of the install (decision G13) is the device's own: it gives the loop the
 //! check with its program store, built from [`check_retained_values`], which reads the newest
 //! checkpoint through a handle on the checkpoint slots.
+//!
+//! The same state tells the loop which container its program came from, so that a `restart` of the
+//! Stopped resource can find a newer committed container and load it in place
+//! ([`Runner::with_program_loader`](crate::runner::Runner::with_program_loader)), and it answers
+//! `program.active` from the store in bounded reads.
 
 mod retained;
 
@@ -26,12 +31,15 @@ use alloc::vec::Vec;
 use core::cell::RefCell;
 
 use smol_str::SmolStr;
+use trust_runtime_core::deployment::DeviceDescriptor;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::ProgramStore;
 
 use crate::installation::Admitted;
+use crate::loading::identity::{self, IdentityError};
 use crate::loading::install::{self, Install, InstallError, Progress};
-use crate::ports::{ProgramIdentity, TransferSessionError};
+use crate::loading::select::{self, Booted, ScanError, SelectError};
+use crate::ports::{ProgramIdentities, ProgramIdentity, TransferSessionError};
 use crate::protocol::ControlResponse;
 use crate::transfer::TransferSession;
 
@@ -70,6 +78,15 @@ struct Parts {
     pending: Option<Pending>,
     /// The request being answered began the commit; the loop takes this once it has answered.
     began: bool,
+    /// What the loop knows of the container its program came from, once it can load another in place.
+    reload: Option<Reload>,
+}
+
+/// What the loop knows of the container its program came from (specification 34 STATE-08).
+struct Reload {
+    /// The install sequence of the container that the loop's program was loaded from, or that the
+    /// boot refused. `None` when the program came from no container, or the store held none.
+    loaded: Option<u64>,
 }
 
 /// The retained-value check that the device gives the loop: the warm start of an admitted program with
@@ -143,6 +160,47 @@ impl InstallState {
         self.with(|parts| parts.store.is_some()).unwrap_or(false)
     }
 
+    /// Lets the loop load a newer container in place, and says which container its program came from:
+    /// `loaded` is its install sequence, or `None` when the program came from no container or the store
+    /// held none.
+    pub(super) fn set_loaded(&self, loaded: Option<u64>) {
+        let _ = self.with(|parts| parts.reload = Some(Reload { loaded }));
+    }
+
+    /// Whether the store holds a committed container newer than the one the loop's program came from,
+    /// which a `restart` of the Stopped resource then loads. False for a loop that cannot load in place
+    /// or keeps no store (specification 34 STATE-08).
+    ///
+    /// # Errors
+    ///
+    /// The [`ScanError`] of a store whose containers cannot be ordered.
+    pub(super) fn newer_container(&self) -> Result<bool, ScanError> {
+        self.with(Parts::newer_container).unwrap_or(Ok(false))
+    }
+
+    /// Reads the newest committed container within `room` bytes of memory and admits it, as the boot
+    /// does. `None` when the loop keeps no store, or the store is in use.
+    pub(super) fn boot(
+        &self,
+        device: &DeviceDescriptor,
+        room: usize,
+    ) -> Option<Result<Booted, SelectError>> {
+        self.with(|parts| {
+            parts
+                .store
+                .as_mut()
+                .map(|store| select::boot(store, device, room))
+        })
+        .flatten()
+    }
+
+    /// The identities `program.active` reports, read from the store in bounded reads. `None` when the
+    /// loop keeps no store, and the platform answers.
+    pub(super) fn identities(&self) -> Option<Result<ProgramIdentities, IdentityError>> {
+        self.with(|parts| parts.store.as_mut().map(identity::identities))
+            .flatten()
+    }
+
     /// The retained-value check of an install (decision G13), which the device built: the warm start
     /// of `admitted` with the newest checkpoint.
     ///
@@ -207,6 +265,19 @@ impl InstallState {
 }
 
 impl Parts {
+    /// Whether the store's newest committed container is newer than the one the program came from.
+    fn newer_container(&mut self) -> Result<bool, ScanError> {
+        let (Some(store), Some(reload)) = (self.store.as_mut(), self.reload.as_ref()) else {
+            return Ok(false);
+        };
+        let newest = select::order(store)?.newest;
+        Ok(newest.is_some_and(|newest| {
+            reload
+                .loaded
+                .is_none_or(|loaded| newest.header.sequence > loaded)
+        }))
+    }
+
     /// Begins the commit of `container` in the store.
     fn begin(&mut self, container: &[u8]) -> Result<ProgramIdentity, String> {
         let store = self

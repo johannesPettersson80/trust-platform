@@ -368,8 +368,8 @@ fn preparation_error(
 }
 
 /// The bytes one step of a program or a read-back covers: the budget rounded down to whole program
-/// units, and at least one unit.
-fn step_bytes(budget: usize, program_unit: u32) -> u32 {
+/// units, and at least one unit. The reads of `program.active` are no longer than a step either.
+pub(super) fn step_bytes(budget: usize, program_unit: u32) -> u32 {
     // A budget above what a `u32` holds is far above any container, so it is clamped, not refused.
     let budget = u32::try_from(budget).unwrap_or(u32::MAX);
     (budget / program_unit).max(1) * program_unit

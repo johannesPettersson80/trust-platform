@@ -2,17 +2,17 @@
 //!
 //! A chip keeps its installed program and its deployment record in one container. Version
 //! `TRSTA002` holds the two payloads and an install sequence under the header CRC-32, which the
-//! program store uses to order its two slots. It is the only version that the program store reads
-//! and the only one that a tool writes: [`encode_sequenced`] is the one writer, and
+//! program store uses to order its two slots. It is the only version that the program store reads,
+//! that any boot reads and that a tool writes: [`encode_sequenced`] is the one writer, and
 //! `cargo xtask portability pack-project` calls it with [`FIRST_SEQUENCE`]. Version `TRSTA001` is
-//! the same container without the sequence. It is not committed in the program store
-//! (specification 34 §5.1), and [`decode`] and [`admit`] read it only for a firmware that has no
-//! program store and reads one container in place (the STM32U5A9's). This module checks a
-//! container before exposing either payload, so a damaged or half-written container reads as no
-//! installed program (DEPLOY-03) and never as a program. [`admit`] and [`admit_sequenced`] then
-//! decode the container's record and admit the deployment against the device's descriptor before
-//! any state exists (specification 34 §5.1.1, DEPLOY-04); the checks in [`decode`] and
-//! [`decode_sequenced`] are the only paths to the payloads.
+//! the same container without the sequence. It is not committed (specification 34 §5.1): only the
+//! tests of this module build and read one, to prove that the store refuses it. This module checks
+//! a container before exposing either payload, so a damaged or half-written container reads as no
+//! installed program (DEPLOY-03) and never as a program. [`admit_sequenced`] then decodes the
+//! container's record and admits the deployment against the device's descriptor before any state
+//! exists (specification 34 §5.1.1, DEPLOY-04); the checks in [`decode_sequenced`] are the only
+//! path to the payloads. [`sequenced_layout`] reads only the header of a container, which is how
+//! `program.active` finds the record of a container too large to hold in memory.
 
 use alloc::vec::Vec;
 use core::fmt;
@@ -55,10 +55,12 @@ const ENTRY_COUNT: usize = 2;
 const WORD_BYTES: usize = 4;
 
 /// The two container versions. Version 2 has the install sequence between the total length and
-/// the entry count; the rest of the layout is the same.
+/// the entry count; the rest of the layout is the same. Version 1 exists in the tests only: no
+/// boot and no tool reads or writes it (specification 34 §5.1).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Version {
     /// `TRSTA001`.
+    #[cfg(test)]
     Plain,
     /// `TRSTA002`.
     Sequenced,
@@ -67,6 +69,7 @@ enum Version {
 impl Version {
     const fn magic(self) -> [u8; 8] {
         match self {
+            #[cfg(test)]
             Self::Plain => MAGIC,
             Self::Sequenced => SEQUENCED_MAGIC,
         }
@@ -75,6 +78,7 @@ impl Version {
     /// Offset of the entry count.
     const fn count_offset(self) -> usize {
         match self {
+            #[cfg(test)]
             Self::Plain => 16,
             Self::Sequenced => 24,
         }
@@ -248,42 +252,62 @@ struct Payloads {
     record: Range<usize>,
 }
 
-/// Checks a container of `version` in the order of specification 34 §5.1 and returns where its
-/// payloads lie. Nothing is returned before every check has passed.
-fn check(region: &[u8], version: Version) -> Result<Payloads, InstallationError> {
+/// One entry of a container's table: the kind of payload, where it lies and the CRC-32 it must have.
+#[derive(Debug, Clone, Copy)]
+struct Entry {
+    kind: u32,
+    offset: usize,
+    end: usize,
+    crc: u32,
+}
+
+/// Checks the header of a container of `version` in the order of specification 34 §5.1, up to and
+/// including its entry table, and returns the entries in the table's order. `header` holds at
+/// least the header and the entry table, and `limit` is the bytes the container may take: the
+/// region's length, or the total length of a container whose payloads are not in memory. The
+/// payloads' CRC-32 are not checked here.
+fn entries(
+    header: &[u8],
+    version: Version,
+    limit: usize,
+) -> Result<[Entry; ENTRY_COUNT], InstallationError> {
     // The magic is checked first: a write that stopped before its last step leaves erased bytes
     // where the magic goes, so every partial write reads as no program (DEPLOY-03).
     let magic = version.magic();
-    if region.get(..magic.len()) != Some(magic.as_slice()) {
+    if header.get(..magic.len()) != Some(magic.as_slice()) {
         return Err(InstallationError::NoProgram);
     }
     let header_end = version.header_end();
-    if region.len() < header_end {
+    if header.len() < header_end {
         return Err(InstallationError::Truncated);
     }
     let word = |offset: usize| {
         u32::from_le_bytes([
-            region[offset],
-            region[offset + 1],
-            region[offset + 2],
-            region[offset + 3],
+            header[offset],
+            header[offset + 1],
+            header[offset + 2],
+            header[offset + 3],
         ])
     };
-    if crc32::checksum(&region[HEADER_CRC_START..header_end]) != word(HEADER_CRC_OFFSET) {
+    if crc32::checksum(&header[HEADER_CRC_START..header_end]) != word(HEADER_CRC_OFFSET) {
         return Err(InstallationError::HeaderChecksum);
     }
     let total = word(TOTAL_LENGTH_OFFSET) as usize;
-    if total < header_end || total > region.len() {
+    if total < header_end || total > limit {
         return Err(InstallationError::TotalLength);
     }
     let count = word(version.count_offset());
     if count as usize != ENTRY_COUNT {
         return Err(InstallationError::EntryCount(count));
     }
-    // Kind, payload offset, payload end and payload CRC-32 of each entry.
-    let mut entries = [(0u32, 0usize, 0usize, 0u32); ENTRY_COUNT];
+    let mut table = [Entry {
+        kind: 0,
+        offset: 0,
+        end: 0,
+        crc: 0,
+    }; ENTRY_COUNT];
     let mut seen = [false; ENTRY_COUNT];
-    for (index, entry) in entries.iter_mut().enumerate() {
+    for (index, entry) in table.iter_mut().enumerate() {
         let base = version.entries_offset() + index * ENTRY_BYTES;
         let kind = word(base);
         let position = match kind {
@@ -304,31 +328,43 @@ fn check(region: &[u8], version: Version) -> Result<Payloads, InstallationError>
         if offset < header_end || end > total {
             return Err(InstallationError::EntryRange);
         }
-        *entry = (kind, offset, end, crc);
+        *entry = Entry {
+            kind,
+            offset,
+            end,
+            crc,
+        };
     }
-    if entries[0].1 < entries[1].2 && entries[1].1 < entries[0].2 {
+    if table[0].offset < table[1].end && table[1].offset < table[0].end {
         return Err(InstallationError::EntryOverlap);
     }
-    for (kind, offset, end, crc) in entries {
-        if crc32::checksum(&region[offset..end]) != crc {
-            return Err(InstallationError::PayloadChecksum(kind));
+    Ok(table)
+}
+
+/// Checks a container of `version` in the order of specification 34 §5.1 and returns where its
+/// payloads lie. Nothing is returned before every check has passed.
+fn check(region: &[u8], version: Version) -> Result<Payloads, InstallationError> {
+    let table = entries(region, version, region.len())?;
+    for entry in table {
+        if crc32::checksum(&region[entry.offset..entry.end]) != entry.crc {
+            return Err(InstallationError::PayloadChecksum(entry.kind));
         }
     }
     // Each kind appears once, so the two entries are the program and the record in some order.
-    let [first, second] = entries;
-    let (program, record) = if first.0 == PROGRAM_KIND {
+    let [first, second] = table;
+    let (program, record) = if first.kind == PROGRAM_KIND {
         (first, second)
     } else {
         (second, first)
     };
     Ok(Payloads {
-        program: program.1..program.2,
-        record: record.1..record.2,
+        program: program.offset..program.end,
+        record: record.offset..record.end,
     })
 }
 
-/// Check a `TRSTA001` region and return the program and record it holds. The program store does not
-/// call this: it reads `TRSTA002` only (see the module documentation).
+/// Check a `TRSTA001` region and return the program and record it holds. Only the tests call this: no
+/// boot reads `TRSTA001` (see the module documentation).
 ///
 /// Nothing is returned before every check has passed: the magic, the header CRC-32, the total
 /// length against the region, the entry count, each kind once, every entry's range and overlap,
@@ -338,6 +374,7 @@ fn check(region: &[u8], version: Version) -> Result<Payloads, InstallationError>
 ///
 /// [`InstallationError::NoProgram`] when the region is erased or does not start with the magic;
 /// otherwise the [`InstallationError`] naming the first check that failed.
+#[cfg(test)]
 pub fn decode(region: &[u8]) -> Result<Installed<'_>, InstallationError> {
     let Payloads { program, record } = check(region, Version::Plain)?;
     Ok(Installed {
@@ -346,14 +383,16 @@ pub fn decode(region: &[u8]) -> Result<Installed<'_>, InstallationError> {
     })
 }
 
-/// Check a `TRSTA002` region and return its payloads and its install sequence, with the same
-/// checks as [`decode`] (specification 34 §5.1). The sequence sits under the header CRC-32, so a
-/// sequence other than the one written fails the header check.
+/// Check a `TRSTA002` region and return its payloads and its install sequence. Nothing is returned
+/// before every check has passed: the magic, the header CRC-32, the total length against the region,
+/// the entry count, each kind once, every entry's range and overlap, and every payload's CRC-32
+/// (specification 34 §5.1). The sequence sits under the header CRC-32, so a sequence other than the
+/// one written fails the header check.
 ///
 /// # Errors
 ///
-/// As [`decode`], with [`InstallationError::NoProgram`] when the region does not start with the
-/// `TRSTA002` magic.
+/// [`InstallationError::NoProgram`] when the region is erased or does not start with the `TRSTA002`
+/// magic; otherwise the [`InstallationError`] naming the first check that failed.
 pub fn decode_sequenced(region: &[u8]) -> Result<Sequenced<'_>, InstallationError> {
     let Payloads { program, record } = check(region, Version::Sequenced)?;
     let mut sequence = [0u8; 8];
@@ -431,6 +470,49 @@ pub fn committed_header(header: &[u8], slot_len: u32) -> Option<SequencedHeader>
     })
 }
 
+/// Where the record of a committed `TRSTA002` container lies, and how long its program is, read from
+/// the container's header alone.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SequencedLayout {
+    /// The program's length in bytes.
+    pub program_bytes: usize,
+    /// The record's range in the container, in bytes from its start.
+    pub record: Range<usize>,
+    /// The CRC-32 that the record's bytes must have.
+    pub record_crc: u32,
+}
+
+/// Reads the layout of the committed `TRSTA002` container whose header is `header` and whose total
+/// length is `total_len`, without a byte of its payloads (specification 34 §5.1, `program.active`).
+/// `header` holds at least the first [`SEQUENCED_HEADER_BYTES`] of the container.
+///
+/// The checks are those of [`decode_sequenced`] up to and including the entry table, in the same
+/// order: the magic, the header CRC-32, the total length (against `total_len`, which the caller took
+/// from [`committed_header`]), the entry count, each kind once, every entry's range and that no two
+/// entries overlap. The payloads' CRC-32 are not checked: the caller reads the record and checks its
+/// CRC-32 against [`SequencedLayout::record_crc`].
+///
+/// # Errors
+///
+/// The [`InstallationError`] of the first check that failed.
+pub fn sequenced_layout(
+    header: &[u8],
+    total_len: u32,
+) -> Result<SequencedLayout, InstallationError> {
+    let table = entries(header, Version::Sequenced, total_len as usize)?;
+    let [first, second] = table;
+    let (program, record) = if first.kind == PROGRAM_KIND {
+        (first, second)
+    } else {
+        (second, first)
+    };
+    Ok(SequencedLayout {
+        program_bytes: program.end - program.offset,
+        record: record.offset..record.end,
+        record_crc: record.crc,
+    })
+}
+
 /// An installed application a chip admitted from its `application` region: the program, its
 /// decoded record and the preparation limits the device granted (specification 34 §5.1, §5.1.1).
 #[derive(Debug, Clone, PartialEq)]
@@ -482,8 +564,8 @@ impl core::error::Error for AdmissionError {}
 
 /// Admit the `TRSTA001` container in a chip's `application` region before any state exists:
 /// [`decode`] the container, decode its deployment record and run the core's admission with the
-/// device's descriptor, in that order (specification 34 §5.1, §5.1.1, DEPLOY-04). The program store
-/// does not call this: it admits with [`admit_sequenced`].
+/// device's descriptor, in that order (specification 34 §5.1, §5.1.1, DEPLOY-04). Only the tests call
+/// this: every boot admits with [`admit_sequenced`].
 ///
 /// Nothing is constructed on any path: the checks run on the container's bytes alone, and an
 /// admitted container returns the program, its decoded record and the limits to prepare it with.
@@ -494,6 +576,7 @@ impl core::error::Error for AdmissionError {}
 /// [`AdmissionError::Record`] when its record is not one this runtime reads, and
 /// [`AdmissionError::Deployment`] when admission refuses the deployment; each keeps the error and
 /// the numbers of the step that refused.
+#[cfg(test)]
 pub fn admit<'a>(
     region: &'a [u8],
     device: &DeviceDescriptor,
@@ -507,13 +590,18 @@ pub fn admit<'a>(
     })
 }
 
-/// Admit the `TRSTA002` container in a chip's `application` region, as [`admit`] does for
-/// version 1, and return the install sequence it holds with the admitted program (specification
-/// 34 §5.1, §5.1.1, DEPLOY-04).
+/// Admit the `TRSTA002` container in a chip's `application` region before any state exists: decode
+/// the container ([`decode_sequenced`]), decode its deployment record and run the core's admission
+/// with the device's descriptor, in that order, and return the install sequence it holds with the
+/// admitted program (specification 34 §5.1, §5.1.1, DEPLOY-04). Nothing is constructed on any path:
+/// the checks run on the container's bytes alone.
 ///
 /// # Errors
 ///
-/// As [`admit`].
+/// [`AdmissionError::Container`] when the region holds no whole container,
+/// [`AdmissionError::Record`] when its record is not one this runtime reads, and
+/// [`AdmissionError::Deployment`] when admission refuses the deployment; each keeps the error and
+/// the numbers of the step that refused.
 pub fn admit_sequenced<'a>(
     region: &'a [u8],
     device: &DeviceDescriptor,

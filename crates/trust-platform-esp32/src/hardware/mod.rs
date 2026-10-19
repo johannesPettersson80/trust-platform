@@ -1,20 +1,26 @@
 //! Bare-metal ownership and initialization of the fixed ESP32-C6 board peripherals.
 use crate::{
+    boot_counter::{BootCounter, BootCounterError},
     image::{decode_image_header, IMAGE_HEADER_BYTES},
-    process_io::{claim_lines, ClaimedLines, GpioBank, PinError},
+    loader::ProgramHardware,
+    process_io::{bind_lines, claim_lines, GpioBank, GpioIo},
     profile::{CPU_HZ, FACTORY_OFFSET, STBC_BYTES},
     program_flash::FlashOwner,
 };
 use alloc::boxed::Box;
+use alloc::format;
+use alloc::string::String;
 use core::sync::atomic::{AtomicBool, Ordering};
 use esp_hal::{
     clock::CpuClock, efuse, gpio::Pin, timer::systimer::Alarm, usb::usb_serial_jtag::UsbSerialJtag,
     Config,
 };
 use esp_storage::FlashStorage;
-use trust_runtime_core::deployment::{Configuration, GpioInput, GpioOutput};
+use trust_platform_memory::reset::ResetStore;
+use trust_runtime_core::deployment::Configuration;
 use trust_runtime_core::ports::ProgramFlash;
 use trust_runtime_core::retain::checkpoint::{CheckpointError, CheckpointFlash};
+use trust_runtime_services::chip::process_io::record_lines;
 
 mod checkpoint_flash;
 mod clock;
@@ -45,7 +51,7 @@ pub enum BoardError {
     ResetCookie,
     /// The flash driver rejected a read.
     FlashRead,
-    /// The checkpoint flash or the program slots were handed out already; each is handed out once.
+    /// The program slots were handed out already (once), or a writer on the checkpoint flash exists.
     FlashTaken,
     /// The checkpoint slots' geometry cannot hold the checkpoint log.
     Checkpoint(CheckpointError),
@@ -57,6 +63,8 @@ pub enum BoardError {
     TickTimer,
     /// The caller's buffer is larger than the `stbc` partition.
     BufferTooLarge,
+    /// The boot could not be counted in the flash (specification 34 PORT-05).
+    BootCounter(BootCounterError),
 }
 
 /// Chip, MAC, ISA and clock identity captured at boot. The reset reason is
@@ -77,8 +85,9 @@ pub struct Identity {
     pub cpu_hz: u32,
 }
 
-/// Separately owned peripherals: the resource loop borrows the clock and the wait, claims the
-/// record's GPIO lines, reads the installed application from flash, and feeds the watchdog.
+/// Separately owned peripherals: the boot counts itself in the flash and reads the program store,
+/// and [`Board::into_parts`] hands the resource loop its clock, wait and watchdog and the hardware
+/// that each program claims its lines and its checkpoint flash from.
 pub struct Board {
     /// SYSTIMER time, read by the resource loop's clock.
     pub clock: Monotonic,
@@ -90,8 +99,8 @@ pub struct Board {
     pub reset: ResetControl,
     /// Identity captured at boot.
     pub identity: Identity,
-    /// The flash, owned once: the program slots, the checkpoint slots and the installed application
-    /// read share it (specification 34 §5.1 and §10.1).
+    /// The flash, owned once: the program slots, the checkpoint slots, the boot counter and the
+    /// installed application read share it (specification 34 §5.1 and §10.1).
     flash: FlashOwner<FlashStorage<'static>>,
     /// The chip's GPIO bank, from which the record's lines are claimed by pin name.
     gpio: GpioBank,
@@ -176,21 +185,19 @@ impl Board {
             .map_err(|_| BoardError::FlashRead)
     }
 
-    /// Claims the record's GPIO lines by pin name, in `io.toml` order, and drives each output to
-    /// its initial level before it becomes an output (design §1.1, specification 34 STATE-01 and
-    /// TARGET-01), recording its `[[io.safe_state]]` level in `config` for the terminal fault path
-    /// (TARGET-08). A pin the chip lacks or keeps, or one named by two lines, is refused.
+    /// Counts this boot in the flash and returns the new count, which is the boot number of the transfer
+    /// ids (specification 34 PORT-05). The count survives a loss of power; the reset record's copy in
+    /// RTC fast memory is set to it, so a record the next panic writes carries the same count.
     ///
     /// # Errors
     ///
-    /// The [`PinError`] of the first line that cannot be claimed.
-    pub fn claim_lines(
-        &mut self,
-        inputs: &[GpioInput],
-        outputs: &[GpioOutput],
-        config: &Configuration,
-    ) -> Result<ClaimedLines, PinError> {
-        claim_lines(&mut self.gpio, inputs, outputs, config)
+    /// [`BoardError::BootCounter`] when the flash fails or the record does not read back.
+    pub fn count_boot(&mut self) -> Result<u32, BoardError> {
+        let count = BootCounter::new(self.flash.raw())
+            .count_boot()
+            .map_err(BoardError::BootCounter)?;
+        self.reset.set_boot_count(count);
+        Ok(count)
     }
 
     /// The SYSTIMER alarm the resource loop's wait arms; taken once, so the wait owns it.
@@ -198,27 +205,9 @@ impl Board {
         self.wait_alarm.take()
     }
 
-    /// The chip's checkpoint flash (specification 34 §10.1), handed out once. It shares the flash
-    /// with the program slots and with [`Board::read_application`], so it may be taken at any point
-    /// after the board is taken.
-    ///
-    /// # Errors
-    ///
-    /// [`BoardError::FlashTaken`] when the checkpoint flash was handed out already, and
-    /// [`BoardError::Checkpoint`] when the slots' geometry cannot hold the checkpoint log.
-    pub fn take_checkpoint_flash(&mut self) -> Result<Box<dyn CheckpointFlash>, BoardError> {
-        let checkpoint = self
-            .flash
-            .take_checkpoint()
-            .map_err(BoardError::Checkpoint)?
-            .ok_or(BoardError::FlashTaken)?;
-        let checkpoint: Box<dyn CheckpointFlash> = Box::new(checkpoint);
-        Ok(checkpoint)
-    }
-
     /// A second handle on the checkpoint slots, which the resource loop only reads: the retained-value
     /// check of an install reads the newest checkpoint through it (specification 11 §6.7.1, decision
-    /// G13), while the handle of [`Board::take_checkpoint_flash`] belongs to the installed program's
+    /// G13), while the writer that [`BoardHardware`] hands out belongs to the installed program's
     /// cycle. It may be taken at any point after the board is taken.
     ///
     /// # Errors
@@ -248,6 +237,76 @@ impl Board {
             .ok_or(BoardError::FlashTaken)?;
         let program: Box<dyn ProgramFlash> = Box::new(program);
         Ok(program)
+    }
+
+    /// Splits the board into what the resource loop owns and what each program claims its hardware
+    /// from. The console and the reset control are dropped, which does not stop the USB-Serial/JTAG
+    /// controller that the control link uses.
+    #[must_use]
+    pub fn into_parts(self) -> BoardParts {
+        BoardParts {
+            watchdog: self.watchdog,
+            clock: self.clock,
+            identity: self.identity,
+            wait_alarm: self.wait_alarm,
+            hardware: BoardHardware {
+                gpio: self.gpio,
+                flash: self.flash,
+            },
+        }
+    }
+}
+
+/// What the resource loop owns after the boot has counted itself and read its program store.
+pub struct BoardParts {
+    /// MWDT0 supervisor: configured, and started by the firmware once the program is built.
+    pub watchdog: Watchdog,
+    /// SYSTIMER time, read by the resource loop's clock.
+    pub clock: Monotonic,
+    /// Identity captured at boot.
+    pub identity: Identity,
+    /// The SYSTIMER alarm the resource loop's wait arms at its deadline.
+    pub wait_alarm: Option<Alarm<'static>>,
+    /// What each program claims its lines and its checkpoint flash from.
+    pub hardware: BoardHardware,
+}
+
+/// The hardware that each program claims from, kept for the life of the boot so that a program loaded in
+/// place claims the pins and the checkpoint flash that the program before it released (specification 34
+/// STATE-08): the GPIO bank, which lends a pin to one line at a time, and the flash owner, which hands
+/// the checkpoint slots to one writer at a time.
+pub struct BoardHardware {
+    gpio: GpioBank,
+    flash: FlashOwner<FlashStorage<'static>>,
+}
+
+impl ProgramHardware for BoardHardware {
+    type Io = GpioIo;
+
+    /// Claims the record's GPIO lines by pin name, in `io.toml` order, and drives each output to its
+    /// initial level before it becomes an output (design §1.1, specification 34 STATE-01 and
+    /// TARGET-01), recording its `[[io.safe_state]]` level for the terminal fault path (TARGET-08). A
+    /// pin the chip lacks or keeps, or one named by two lines, is refused.
+    fn claim_lines(&mut self, config: &Configuration) -> Result<GpioIo, String> {
+        let (inputs, outputs) = record_lines(config, "C6")?;
+        let (inputs, outputs) =
+            claim_lines(&self.gpio, &inputs, &outputs, config).map_err(|error| {
+                format!("the installed application's GPIO lines cannot be claimed: {error}")
+            })?;
+        Ok(bind_lines(inputs, outputs))
+    }
+
+    /// The chip's checkpoint flash (specification 34 §10.1), for one program at a time: it is free again
+    /// when the writer of the program before it is dropped.
+    fn checkpoint_flash(&mut self) -> Result<Box<dyn CheckpointFlash>, String> {
+        let writer = self
+            .flash
+            .take_checkpoint()
+            .map_err(|error| format!("the chip's checkpoint flash is not available: {error:?}"))?
+            .ok_or_else(|| {
+                String::from("the chip's checkpoint flash is not available: it is still in use")
+            })?;
+        Ok(Box::new(writer))
     }
 }
 

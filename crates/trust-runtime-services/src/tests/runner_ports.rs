@@ -497,6 +497,21 @@ pub(crate) struct ScriptedCycle<'a> {
 }
 
 impl<'a> ScriptedCycle<'a> {
+    /// The engine cycle `engine` behind the script, which records what the loop asks of it: the
+    /// program a loader built (specification 34 STATE-08).
+    pub(crate) fn new(
+        engine: EngineCycle<'a, TestClock, TestIo>,
+        clock: TestClock,
+        script: Rc<RefCell<CycleScript>>,
+    ) -> Self {
+        Self {
+            engine,
+            clock,
+            script,
+            hold: None,
+        }
+    }
+
     /// The engine cycle behind the script, for a test that reads the program's values.
     pub(crate) fn engine(&self) -> &EngineCycle<'a, TestClock, TestIo> {
         &self.engine

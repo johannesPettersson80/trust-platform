@@ -65,8 +65,9 @@ impl fmt::Display for ScanError {
 
 impl core::error::Error for ScanError {}
 
-/// The installed program the store selects, with the identity `program.active` reports
-/// (specification 34 §11.2).
+/// The installed program the store selects, read whole into memory with the identity of its record
+/// (specification 34 §11.2). A chip answers `program.active` from [`identities`](super::identity::identities)
+/// instead, which reads no program; this is for a host that has the memory, and for the tests.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Stored {
     /// The container's install sequence.
@@ -237,7 +238,8 @@ fn slot_name(slot: Slot) -> &'static str {
 }
 
 /// The installed program the store selects at boot: the newest committed container, with its
-/// payloads checked and its admission granted by `device` (specification 34 §5.1.1, DEPLOY-04).
+/// payloads checked and its admission granted by `device` (specification 34 §5.1.1, DEPLOY-04). The
+/// whole container is read into memory.
 ///
 /// # Errors
 ///
@@ -249,7 +251,7 @@ pub fn active(store: &mut ProgramStore, device: &DeviceDescriptor) -> Result<Sto
 }
 
 /// The other committed container, when both slots hold one: the program the store kept before the
-/// newest. It is checked as [`active`] checks the selected one.
+/// newest. It is checked as [`active`] checks the selected one, and is read whole into memory.
 ///
 /// # Errors
 ///

@@ -42,6 +42,7 @@ use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 
 use serde::Deserialize;
+use trust_runtime_core::deployment::DeviceDescriptor;
 use trust_runtime_core::ports::{
     ControlLink, HardwareWatchdog, LinkFrame, MonotonicClock, MonotonicInstant, PeerClass,
     PortError, RunnerWait, TimeSpan, WakeReason, WakeToken,
@@ -53,7 +54,7 @@ use super::install::{InstallState, Step};
 use super::state::{Records, ResourceCell};
 use super::RunnerPlatform;
 use crate::dispatch::{invalid_line, prepare_line_within, PreparedLine};
-use crate::ports::AccessPort;
+use crate::ports::{AccessPort, StatusPort};
 use crate::protocol::ControlAfterResponse;
 
 /// What a test does at each pass of a hold with the halted state that the statement hook lent: it
@@ -195,6 +196,18 @@ where
     /// Feeds the platform's hardware watchdog (TIME-04).
     pub(super) fn feed(&self) {
         self.update(&self.platform, HardwareWatchdog::feed);
+    }
+
+    /// Runs `operation` on the platform, for the load of a program in place (specification 34
+    /// STATE-08): the device's loader sets the values of the new record there. `None`, with the
+    /// shell's fault raised, when the platform is in use, which the call structure rules out.
+    pub(super) fn with_platform<R>(&self, operation: impl FnOnce(&mut P) -> R) -> Option<R> {
+        self.update(&self.platform, operation)
+    }
+
+    /// The device descriptor admission reads, from the platform.
+    pub(super) fn device_descriptor(&self) -> Option<DeviceDescriptor> {
+        self.read(&self.platform, StatusPort::device_descriptor)
     }
 
     /// The longest wait between two feeds of the hardware watchdog.

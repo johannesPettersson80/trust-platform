@@ -8,8 +8,10 @@
 //! Only a `TRSTA002` container is committed, and the bench packer writes one with the install
 //! sequence of a first commit. A damaged container refuses the boot; the other slot never runs in
 //! its place. [`program_install`] is the request rule of `program.install`, which every runtime
-//! shares. Nothing here reads a link or a clock: the platform composes these with its control loop.
+//! shares. [`identity`] reads the identities `program.active` reports, in bounded reads. Nothing here
+//! reads a link or a clock: the platform composes these with its control loop.
 
+pub mod identity;
 pub mod install;
 pub mod program_install;
 pub mod reload;
@@ -17,6 +19,8 @@ pub mod select;
 
 #[cfg(test)]
 mod boot_contract_tests;
+#[cfg(test)]
+mod identity_contract_tests;
 #[cfg(test)]
 mod tests;
 

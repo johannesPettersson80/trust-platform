@@ -302,6 +302,18 @@ pub trait RecordsPort {
         None
     }
 
+    /// As [`Self::program_identities`], for a store whose read can fail: a chip reads the identities
+    /// from its flash (specification 34 §11.2). `Ok(None)` is a platform without a program store, and
+    /// the error is the reply of `program.active`. The default is what `program_identities` answers,
+    /// so a platform that cannot fail keeps that method alone.
+    ///
+    /// # Errors
+    ///
+    /// The text of the store's failure: its containers cannot be ordered, or its flash cannot be read.
+    fn read_program_identities(&self) -> Result<Option<ProgramIdentities>, String> {
+        Ok(self.program_identities())
+    }
+
     /// Whether the platform keeps a program store that `program.install` commits to (specification
     /// 34 §11.2). The default is none: `program.install` then answers `unsupported request` after its
     /// state check, and takes nothing.

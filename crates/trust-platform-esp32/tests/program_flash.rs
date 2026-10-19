@@ -274,9 +274,11 @@ fn read_application_still_works_after_the_flash_is_shared() {
     assert_eq!(&magic, b"TRSTA002");
 }
 
-/// Each region is handed out once, and the boot read stays available. The second hand-out answers
-/// `None`, so two writers never drive the same slots, and the boot read succeeds after both were taken.
-/// Catches a second hand-out that gives a second writer to the same slots or to the checkpoint log.
+/// The program slots are handed out once, and the checkpoint slots to one writer at a time, and the boot
+/// read stays available. The second hand-out of the program slots answers `None`, and so does the second
+/// hand-out of the checkpoint slots while the first writer is alive, so two writers never drive the same
+/// slots; the boot read succeeds after both were taken. Catches a second hand-out that gives a second
+/// writer to the same slots or to the checkpoint log.
 #[test]
 fn each_region_is_handed_out_once() {
     let mut owner = FlashOwner::new(RamFlash::erased());
@@ -291,18 +293,55 @@ fn each_region_is_handed_out_once() {
             .is_none(),
         "the program slots are handed out once"
     );
-    assert!(owner
+    let writer = owner
         .take_checkpoint()
         .expect("the checkpoint slots have a geometry")
-        .is_some());
+        .expect("the checkpoint slots are handed out");
     assert!(
         owner
             .take_checkpoint()
             .expect("the checkpoint slots have a geometry")
             .is_none(),
-        "the checkpoint slots are handed out once"
+        "the checkpoint slots are handed out to one writer at a time"
     );
     assert_eq!(owner.read_application(&mut [0; 4]), Ok(()));
+    drop(writer);
+}
+
+/// The program that is loaded in place takes the checkpoint flash of the program that ended (specification
+/// 34 STATE-08): the checkpoint slots are handed out again once the writer that holds them is dropped,
+/// and the new writer reaches the same flash, so a word the first one wrote at offset 8 of checkpoint
+/// slot A (flash address 0x7F_8008) reads back through the second. Catches slots that are lost with the
+/// first writer, which would leave the next program without a checkpoint store, and a second writer over
+/// another flash.
+#[test]
+fn the_checkpoint_slots_are_handed_out_again_when_their_writer_is_dropped() {
+    let mut owner = FlashOwner::new(RamFlash::erased());
+    let mut first = owner
+        .take_checkpoint()
+        .expect("the checkpoint slots have a geometry")
+        .expect("the checkpoint slots are handed out");
+    first
+        .program(Slot::A, 8, b"TRCK")
+        .expect("checkpoint slot A is erased, so the word programs");
+    assert!(
+        owner
+            .take_checkpoint()
+            .expect("the checkpoint slots have a geometry")
+            .is_none(),
+        "no second writer while the first one lives"
+    );
+    drop(first);
+
+    let mut second = owner
+        .take_checkpoint()
+        .expect("the checkpoint slots have a geometry")
+        .expect("the slots are handed out again once the first writer is gone");
+    let mut word = [0_u8; 4];
+    second
+        .read(Slot::A, 8, &mut word)
+        .expect("the second writer reads slot A");
+    assert_eq!(&word, b"TRCK");
 }
 
 /// The retained-value check of an install reads the newest checkpoint through a second handle on the

@@ -112,12 +112,10 @@ pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
     application_slot_bytes: Some(SLOT_BYTES as u64),
 };
 
-/// The transfer session of the boot that counted `boot` resets (specification 34, PORT-05). A transfer
-/// id carries the boot number in its high 32 bits, so an id of an earlier boot never names a transfer
-/// of this one. The boot number is the chip's boot counter, which the reset record keeps in persistent
-/// RTC fast memory (`BOOT_COUNT` of `hardware/reset.rs`): it rises by one at every reset (a watchdog
-/// reset, a USB-Serial/JTAG reset or a software reset) and survives it, and it starts again at power-on,
-/// when the host's session ended with the power.
+/// The transfer session of boot number `boot` (specification 34, PORT-05). A transfer id carries the
+/// boot number in its high 32 bits, so an id of an earlier boot never names a transfer of this one. The
+/// boot number is the chip's boot counter, which it keeps in its flash (`boot_counter.rs`): it rises
+/// by one at every boot, whatever its cause, power-on included, so an id never repeats across boots.
 ///
 /// An upload takes at most one program slot, since a larger container can never be installed, and a
 /// reply is held to the frame the link moves, so a reply longer than a frame is refused as it is

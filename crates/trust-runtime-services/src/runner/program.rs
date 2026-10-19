@@ -40,8 +40,9 @@ impl<Y> Program<Y> {
     }
 }
 
-/// The failure of a scan or a restart that would need the missing program.
-fn no_program(reason: &str) -> RuntimeError {
+/// The failure of a scan or a restart that would need the missing program, and of a program that
+/// cannot be loaded in place (specification 34 STATE-08).
+pub(super) fn no_program(reason: &str) -> RuntimeError {
     RuntimeError::ControlError(SmolStr::new(format!("no installed program: {reason}")))
 }
 
