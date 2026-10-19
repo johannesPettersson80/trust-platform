@@ -284,18 +284,22 @@ pub(super) fn value(template: &Value, bits: u64, leaf: &Leaf) -> Option<Value> {
         Value::LTod(_) => Value::LTod(LTimeOfDayValue::new(bits as i64)),
         Value::Dt(_) => Value::Dt(DateTimeValue::new(temporal_number(bits, leaf))),
         Value::Ldt(_) => Value::Ldt(LDateTimeValue::new(bits as i64)),
-        Value::Enum(value) => {
-            let enumeration = leaf.enumeration.as_ref()?;
-            let numeric = enum_number(bits, leaf, enumeration);
-            let (name, _) = enumeration.variants.iter().find(|(_, n)| *n == numeric)?;
-            Value::Enum(Box::new(EnumValue::from_canonical_parts(
-                value.type_name().clone(),
-                name.clone(),
-                numeric,
-            )))
-        }
+        Value::Enum(value) => return enum_value(value.type_name().clone(), bits, leaf),
         _ => return None,
     })
+}
+
+/// The value of the enumeration leaf `leaf` whose bits are `bits`, of the enumeration type named
+/// `type_name`, with no template value: `None` when the bits name no variant.
+pub(super) fn enum_value(type_name: SmolStr, bits: u64, leaf: &Leaf) -> Option<Value> {
+    let enumeration = leaf.enumeration.as_ref()?;
+    let numeric = enum_number(bits, leaf, enumeration);
+    let (name, _) = enumeration.variants.iter().find(|(_, n)| *n == numeric)?;
+    Some(Value::Enum(Box::new(EnumValue::from_canonical_parts(
+        type_name,
+        name.clone(),
+        numeric,
+    ))))
 }
 
 fn temporal_number(bits: u64, leaf: &Leaf) -> i64 {

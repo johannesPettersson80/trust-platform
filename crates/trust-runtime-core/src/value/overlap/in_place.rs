@@ -142,3 +142,50 @@ impl LeafWrite {
         true
     }
 }
+
+impl PhysicalLayout {
+    /// The bits of the backing that the structure nested at `path` holds, or `None` when no
+    /// nested structure lies at `path`. A nested structure starts and ends on a byte.
+    pub(crate) fn node_bits(&self, path: &[RefSegment]) -> Option<core::ops::Range<u32>> {
+        self.child_at_path(path)
+            .map(|child| child.offset..child.offset + child.bits)
+    }
+}
+
+/// Check the copy of `source`, the backing of a structure of the type of the structure nested at
+/// `path`, into that nested structure of a backing of `layout` that holds `bytes`, as
+/// [`StructValue::prepare_physical_write`] checks the write of the structure's value there: each
+/// leaf below `path` with the bits it takes, in path order, then each leaf that shares a bit with
+/// the nested structure, in bit order, with the bits it will hold (C1-15b).
+pub(crate) fn check_node_write(
+    layout: &PhysicalLayout,
+    path: &[RefSegment],
+    source: &[u8],
+    bytes: &[u8],
+) -> Result<(), RuntimeError> {
+    let selection = layout.selection(path).ok_or(RuntimeError::TypeMismatch)?;
+    let bits = selection.bits.clone();
+    let leaf_bits = |leaf: &Leaf| {
+        (0..u32::from(leaf.width)).fold(0u64, |value, bit| {
+            let position = leaf.offset + bit;
+            let read = if bits.contains(&position) {
+                read_bits(source, position - bits.start, 1)
+            } else {
+                read_bits(bytes, position, 1)
+            };
+            value | (read << bit)
+        })
+    };
+    for &index in &layout.path_order[selection.leaves.clone()] {
+        let leaf = &layout.leaves[index];
+        scalar::validate_leaf(leaf_bits(leaf), leaf)?;
+    }
+    for &index in &layout.bit_order[layout.affected_leaves(&bits)] {
+        let leaf = &layout.leaves[index];
+        if leaf.offset + u32::from(leaf.width) <= bits.start {
+            continue;
+        }
+        scalar::validate_leaf(leaf_bits(leaf), leaf)?;
+    }
+    Ok(())
+}

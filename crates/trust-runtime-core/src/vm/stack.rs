@@ -20,6 +20,21 @@ pub struct Place {
     pub type_id: u32,
 }
 
+/// A structure nested in the backing of a structure with a physical layout, which a store's
+/// destination is (specification 34 MEM-12; C1-15): the cells and the type of the structure that
+/// holds it, and the anchor and the depth that name it there.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlaceNode {
+    /// The cells of the structure that holds the node.
+    pub root: ByteRange,
+    /// The type of the structure that holds the node.
+    pub root_type: u32,
+    /// A leaf or a member beside the backing below the node.
+    pub anchor: u32,
+    /// The number of the anchor's path segments that name the node.
+    pub depth: u8,
+}
+
 /// Where a store copies a place: the destination's bytes and the presence byte of the declaration
 /// they are, when it keeps one (MEM-12).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,6 +43,11 @@ pub struct PlaceDestination {
     pub range: ByteRange,
     /// The block offset of the declaration's presence byte.
     pub presence: Option<u32>,
+    /// The node of a backing the destination is, when it is one (C1-15).
+    pub node: Option<PlaceNode>,
+    /// Whether the value store stages the same write as a physical patch, which samples the
+    /// deadline before it is published: a node of a backing, or a member beside one (C1-15).
+    pub physical: bool,
 }
 
 /// A text that a standard text function made, held in the operand stack's text area (specification

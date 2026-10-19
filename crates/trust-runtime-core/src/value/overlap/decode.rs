@@ -9,7 +9,7 @@
 //! a layout of its own with its bits, and the root with the whole backing.
 
 use super::*;
-use crate::value::{ArrayValue, EnumValue};
+use crate::value::ArrayValue;
 use crate::vm::PreparedModule;
 use alloc::boxed::Box;
 
@@ -109,12 +109,7 @@ pub(crate) fn decode(
                 .and_then(|index| vm.strings.get(index as usize))
                 .map(SmolStr::new)
                 .unwrap_or_default();
-            let template = Value::Enum(Box::new(EnumValue::from_canonical_parts(
-                name,
-                SmolStr::default(),
-                0,
-            )));
-            scalar::value(&template, read_bits(bytes, leaf.offset, leaf.width), leaf)
+            scalar::enum_value(name, read_bits(bytes, leaf.offset, leaf.width), leaf)
         }
         _ => {
             let leaf = layout.leaf_at_path(path)?;
@@ -149,6 +144,17 @@ impl PhysicalLayout {
                 .then(|| u32::try_from(index).ok())
                 .flatten()
         })
+    }
+
+    /// The value of leaf `leaf` read from `bytes`, the root's backing, an enumeration of the type
+    /// named `enum_type` (C1-15b). `None` when its bits name no variant.
+    pub(crate) fn leaf_value(&self, leaf: u32, bytes: &[u8], enum_type: &str) -> Option<Value> {
+        let leaf = self.leaves.get(leaf as usize)?;
+        let bits = read_bits(bytes, leaf.offset, leaf.width);
+        match leaf.enumeration {
+            Some(_) => scalar::enum_value(SmolStr::new(enum_type), bits, leaf),
+            None => scalar::value(&scalar::zero(leaf.primitive_id)?, bits, leaf),
+        }
     }
 
     /// The scalar leaf `leaf` read from `bytes`, the root's backing, without allocating: `None` for an

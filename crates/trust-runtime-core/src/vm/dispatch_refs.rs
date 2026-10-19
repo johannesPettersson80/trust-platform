@@ -467,7 +467,10 @@ fn copy_place_to(
     if order == StoreOrder::CheckFirst {
         normalize(runtime).map_err(VmTrap::Runtime)?;
     }
-    if runtime.copy_place(place, destination) {
+    if runtime
+        .copy_place(place, destination)
+        .map_err(VmTrap::Runtime)?
+    {
         Ok(())
     } else {
         Err(VmTrap::NullReference)

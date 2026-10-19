@@ -653,7 +653,13 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// their bytes. On the flat store its scans write each of them in place; the first scan through its
 /// text branch, scan 1, grows the text buffers once, so its ceiling of zero starts at scan 2,
 /// measured on the builder on 19 October 2026.
-const CEILINGS: [(&str, usize, Calls); 32] = [
+///
+/// C1-15 places a `STRUCT OVERLAP` on the flat store as its backing, and C1-15b reads and writes its
+/// leaves, and copies it and the structures nested in it, where they lie. Left on the flat store:
+/// `structures` the boxes of its enumeration values (7 calls each way per scan), and `overlays` those
+/// and the default its function's local overlay is constructed as per call (12 each way), measured
+/// on the builder on 19 October 2026.
+const CEILINGS: [(&str, usize, Calls); 34] = [
     ("faults/division", 2, Calls::ZERO),
     ("faults/index", 2, Calls::ZERO),
     ("faults/null", 2, Calls::ZERO),
@@ -734,6 +740,24 @@ const CEILINGS: [(&str, usize, Calls); 32] = [
             alloc: 4,
             realloc: 0,
             dealloc: 4,
+        },
+    ),
+    (
+        "cells/structures",
+        1,
+        Calls {
+            alloc: 7,
+            realloc: 0,
+            dealloc: 7,
+        },
+    ),
+    (
+        "cells/overlays",
+        1,
+        Calls {
+            alloc: 12,
+            realloc: 0,
+            dealloc: 12,
         },
     ),
 ];

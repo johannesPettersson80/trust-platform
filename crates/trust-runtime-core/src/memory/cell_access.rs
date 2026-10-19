@@ -525,6 +525,25 @@ impl CellArm {
     }
 }
 
+/// Where a store copies a place (C1-15b): cells of their own, with their type, the presence byte of
+/// their declaration and whether they lie beside a backing, or a structure nested in a backing.
+pub(crate) enum PlaceTarget {
+    Cells {
+        range: ByteRange,
+        type_id: u32,
+        presence: Option<u32>,
+        beside: bool,
+    },
+    Node {
+        /// The cells of the structure that holds the node.
+        range: ByteRange,
+        root_type: u32,
+        anchor: u32,
+        depth: u8,
+        presence: Option<u32>,
+    },
+}
+
 /// Where a path ends: in the arm's block, or in a place of the `Value` half.
 enum Target<'p> {
     /// The bytes of a value of this type at this range, the block offset of the presence byte of
@@ -859,6 +878,46 @@ impl<'a> CellReader<'a> {
         self.view(range, type_id, None)
     }
 
+    /// Where a store through the slot `offset` of `location` and the path copies a place: cells of
+    /// their own, or a structure nested in a backing (C1-15b). `None` for a place of the `Value`
+    /// half, for a path that names nothing, and for any other node of a backing.
+    pub(crate) fn place_target(
+        self,
+        location: MemoryLocation,
+        offset: usize,
+        path: &[RefSegment],
+    ) -> Option<PlaceTarget> {
+        match self.locate(location, offset, path) {
+            Ok(Target::Cells(range, type_id, presence, beside)) => Some(PlaceTarget::Cells {
+                range,
+                type_id,
+                presence,
+                beside,
+            }),
+            Ok(Target::Bits(range, root_type, presence, rest)) => {
+                let cells = self.view_cells();
+                let (mut anchor, mut depth) = (0, 0);
+                for segment in rest {
+                    match cells.overlay_step(range, root_type, anchor, depth, segment)? {
+                        OverlayNode::Bits {
+                            anchor: next,
+                            depth: deeper,
+                        } => (anchor, depth) = (next, deeper),
+                        OverlayNode::Beside { .. } => return None,
+                    }
+                }
+                Some(PlaceTarget::Node {
+                    range,
+                    root_type,
+                    anchor,
+                    depth,
+                    presence,
+                })
+            }
+            _ => None,
+        }
+    }
+
     /// The cells the slot `offset` of `location` and the path lead to, as their range, their type
     /// and the presence byte of the declaration they are, when it keeps one. `None` for a place of
     /// the `Value` half and for a path that names nothing (C1-10c).
@@ -875,7 +934,7 @@ impl<'a> CellReader<'a> {
     }
 
     /// The cells of this reader's region, for the questions a view asks of them.
-    fn view_cells(self) -> CellsView<'a> {
+    pub(crate) fn view_cells(self) -> CellsView<'a> {
         CellsView {
             prepared: self.prepared,
             regions: self.arm.cells.regions(),

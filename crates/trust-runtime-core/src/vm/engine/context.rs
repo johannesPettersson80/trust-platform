@@ -1,5 +1,7 @@
 //! Artifact-backed services for the shared dispatcher and native call path.
-use super::super::call::bindings::{VmFbOutBinding, VmNativeArg, VmOutBinding, VmWriteTarget};
+use super::super::call::bindings::{
+    VmFbOutBinding, VmNativeArg, VmNativeArgValue, VmOutBinding, VmWriteTarget,
+};
 use super::super::call::context::{
     BuiltinParam, BuiltinParamDirection, CallContext, RegisterCallOpKind, RegisterValueOpKind,
     VmEdgeInput,
@@ -141,7 +143,7 @@ impl<'e> ReferenceContext for EngineState<'e> {
         &mut self,
         place: crate::vm::Place,
         destination: crate::vm::PlaceDestination,
-    ) -> bool {
+    ) -> Result<bool, RuntimeError> {
         EngineState::copy_place(self, place, destination)
     }
     fn charge_place_normalization(&self, place: crate::vm::Place) -> Result<(), RuntimeError> {
@@ -562,7 +564,16 @@ impl CallContext for EngineState<'_> {
         self.data.resources.call_scratch.take_args()
     }
 
-    fn recycle_call_args(&mut self, args: Vec<VmNativeArg>) {
+    fn recycle_call_args(&mut self, mut args: Vec<VmNativeArg>) {
+        // A reference an argument holds gives its path back to the engine's buffers, as a reference
+        // the engine discards does (C1-10): a reference into a backing keeps its path (C1-15).
+        for arg in args.drain(..) {
+            if let VmNativeArgValue::Target(reference)
+            | VmNativeArgValue::Expr(Value::Reference(Some(reference))) = arg.value
+            {
+                self.data.resources.references.recycle(reference.path);
+            }
+        }
         self.data.resources.call_scratch.recycle_args(args);
     }
 

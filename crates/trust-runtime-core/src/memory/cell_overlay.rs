@@ -26,6 +26,17 @@ pub(crate) struct LeafPatch {
     pub(crate) write: LeafWrite,
 }
 
+/// The cells of a structure with a physical layout, or of a structure nested in its backing, that a
+/// place or a store's destination stands for (C1-15b): the bytes of the backing that hold its bits,
+/// and its members beside the backing, as the index of the first in the list of the structure that
+/// holds them, and their count.
+#[derive(Clone, Copy)]
+pub(crate) struct NodeCells {
+    pub(crate) backing: ByteRange,
+    pub(crate) first_slot: usize,
+    pub(crate) slots: usize,
+}
+
 /// Where a step inside a structure with a physical layout lands.
 #[derive(Clone, Copy)]
 pub(crate) enum OverlayNode {
@@ -142,7 +153,24 @@ impl<'a> CellsView<'a> {
         overlay_node_type(self.prepared, type_id, path)
     }
 
-    /// The value of the node `anchor`/`depth` of the structure `type_id` whose cells are `range`.
+    /// The name of the enumeration type of the leaf node `anchor`/`depth` of the structure `type_id`,
+    /// or the empty name for a leaf of another type.
+    fn leaf_enum_type(self, type_id: u32, anchor: u32, depth: u8) -> &'a str {
+        let enumeration = self
+            .overlay_layout(type_id)
+            .is_some_and(|layout| layout.leaf_is_enumeration(anchor));
+        if !enumeration {
+            return "";
+        }
+        self.overlay_node_type(type_id, anchor, depth)
+            .and_then(|node| resolve_entry(self.prepared, node))
+            .and_then(|(_, entry)| entry.name_idx)
+            .and_then(|name| self.prepared.vm.strings.get(name as usize))
+            .unwrap_or_default()
+    }
+
+    /// The value of the node `anchor`/`depth` of the structure `type_id` whose cells are `range`. A
+    /// leaf is read from its bits alone (C1-15b).
     pub(crate) fn overlay_value(
         self,
         range: ByteRange,
@@ -155,6 +183,19 @@ impl<'a> CellsView<'a> {
             .vm
             .physical_layout_ref(type_id)
             .ok_or(RuntimeError::InvalidExecutionState)?;
+        if depth > 0
+            && layout
+                .leaf_path(anchor)
+                .is_some_and(|leaf| leaf.len() == usize::from(depth))
+        {
+            let backing = self
+                .backing(range, type_id)
+                .ok_or(RuntimeError::InvalidExecutionState)?;
+            let enum_type = self.leaf_enum_type(type_id, anchor, depth);
+            return layout
+                .leaf_value(anchor, backing, enum_type)
+                .ok_or(RuntimeError::InvalidExecutionState);
+        }
         let (_, placed) = self
             .overlay_parts(type_id)
             .ok_or(RuntimeError::InvalidExecutionState)?;
@@ -326,15 +367,7 @@ impl<'a> CellsView<'a> {
         {
             return Ok(None);
         }
-        let enum_type = if layout.leaf_is_enumeration(anchor) {
-            self.overlay_node_type(type_id, anchor, depth)
-                .and_then(|node| resolve_entry(self.prepared, node))
-                .and_then(|(_, entry)| entry.name_idx)
-                .and_then(|name| self.prepared.vm.strings.get(name as usize))
-                .unwrap_or_default()
-        } else {
-            ""
-        };
+        let enum_type = self.leaf_enum_type(type_id, anchor, depth);
         let (_, placed) = self
             .overlay_parts(type_id)
             .ok_or(RuntimeError::InvalidExecutionState)?;
@@ -347,6 +380,59 @@ impl<'a> CellsView<'a> {
             .ok_or(RuntimeError::InvalidExecutionState)?;
         let write = stage_leaf_write(layout, anchor, value, enum_type, bytes)?;
         Ok(Some(LeafPatch { backing, write }))
+    }
+
+    /// The cells of the structure `type_id` whose cells are `range`, or of the structure nested in
+    /// it at the node `anchor`/`depth` when `node` names one (C1-15b). `None` when the node is no
+    /// structure.
+    pub(crate) fn node_cells(
+        self,
+        range: ByteRange,
+        type_id: u32,
+        node: Option<(u32, u8)>,
+    ) -> Option<NodeCells> {
+        let (layout, placed) = self.overlay_parts(type_id)?;
+        let Some((anchor, depth)) = node else {
+            return Some(NodeCells {
+                backing: ByteRange {
+                    bytes: placed.backing_bytes,
+                    ..range
+                },
+                first_slot: 0,
+                slots: placed.slots.len(),
+            });
+        };
+        let path = self.overlay_path(type_id, anchor, depth)?;
+        let bits = layout.node_bits(path)?;
+        if bits.start % 8 != 0 || bits.end % 8 != 0 {
+            return None;
+        }
+        let first_slot = self.first_slot_below(type_id, path)?;
+        let slots = placed.slots[first_slot..]
+            .iter()
+            .take_while(|slot| {
+                slot.path.len() >= path.len() && paths_match(&slot.path[..path.len()], path)
+            })
+            .count();
+        Some(NodeCells {
+            backing: ByteRange {
+                start: range.start.checked_add(bits.start / 8)?,
+                bytes: (bits.end - bits.start) / 8,
+                ..range
+            },
+            first_slot,
+            slots,
+        })
+    }
+
+    /// The path, from the structure `type_id`, of its node `anchor`/`depth`.
+    pub(crate) fn overlay_node_path(
+        self,
+        type_id: u32,
+        anchor: u32,
+        depth: u8,
+    ) -> Option<&'a [RefSegment]> {
+        self.overlay_path(type_id, anchor, depth)
     }
 
     /// Whether a value of `type_id` holds a reference leaf, null or not.

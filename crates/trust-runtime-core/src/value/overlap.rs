@@ -17,7 +17,7 @@ mod layout;
 mod scalar;
 mod writer;
 pub(crate) use decode::{decode as decode_overlay, node_type as overlay_node_type};
-pub(crate) use in_place::{stage_leaf_write, LeafWrite};
+pub(crate) use in_place::{check_node_write, stage_leaf_write, LeafWrite};
 pub(crate) use layout::prepare_layouts;
 pub(crate) use writer::PreparedPhysicalWrite;
 

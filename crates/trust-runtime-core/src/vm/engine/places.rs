@@ -4,12 +4,16 @@
 //! overlap, leaves the value where it lies, as a [`Place`], and a store copies its bytes to a
 //! destination of its type, checked and charged as a write of the value is. A text a standard text
 //! function made is written into its destination's text leaf, cut to that leaf's capacity (C1-12).
-//! So such an assignment builds no value and allocates nothing.
+//! So such an assignment builds no value and allocates nothing. A structure with a physical layout
+//! is a place too, copied as its cells, and so is a structure nested in its backing whose members all
+//! lie in the backing, whose bytes there are the cells of a structure of its type (C1-15b,
+//! `places/backing.rs`).
 
 use super::store_access::Routed;
 use super::*;
 use crate::bytecode::{TypeData, BYTECODE_MAX_TYPE_NESTING};
 use crate::memory::cell_access::CellReader;
+use crate::memory::cell_access::PlaceTarget;
 use crate::memory::cells::text_geometry;
 use crate::memory::layout::{ByteRange, LayoutRegion};
 use crate::memory::view::ValueView;
@@ -18,17 +22,37 @@ use crate::vm::prepared::byte_types::{
     copies_as_bytes, element_count, holds_text, is_compound, resolve, same_type, text_primitive,
     TEXT_PRIMITIVES,
 };
-use crate::vm::{Place, PlaceDestination};
+use crate::vm::{Place, PlaceDestination, PlaceNode};
+
+/// Places of structures with a physical layout and of the structures nested in their backings
+/// (C1-15b).
+#[path = "places/backing.rs"]
+mod backing;
 
 impl EngineState<'_> {
     /// The place of `view`: an array or a structure in the persistent block whose value a store may
-    /// copy as bytes.
+    /// copy as bytes, or a structure there that lies as its backing, or a structure nested in a
+    /// backing whose bytes there are the cells of a structure of its type (C1-15b).
     pub(super) fn place_of(&self, view: &ValueView<'_>) -> Option<Place> {
-        let ValueView::Cells { range, type_id, .. } = *view else {
-            return None;
-        };
-        (range.region == LayoutRegion::Persistent && copies_as_bytes(self.prepared, type_id))
-            .then_some(Place { range, type_id })
+        match *view {
+            ValueView::Cells { range, type_id, .. } => (range.region == LayoutRegion::Persistent
+                && (copies_as_bytes(self.prepared, type_id) || self.backing_place(type_id)))
+            .then_some(Place { range, type_id }),
+            ValueView::Bits {
+                cells,
+                range,
+                type_id,
+                leaf,
+                depth,
+            } => {
+                let (range, node_type) = self.nested_cells(cells, range, type_id, leaf, depth)?;
+                (range.region == LayoutRegion::Persistent).then_some(Place {
+                    range,
+                    type_id: node_type,
+                })
+            }
+            ValueView::Value(_) => None,
+        }
     }
 
     /// The view of the compound `place` stands for.
@@ -53,14 +77,45 @@ impl EngineState<'_> {
         let Routed::Cells(reader) = self.data.routed(self.prepared) else {
             return None;
         };
-        let (range, type_id, presence) =
-            reader.cells_target(reference.location, reference.offset, reference.path)?;
         let same = |other: u32| same_type(self.prepared, other, place.type_id, 0);
+        let (range, type_id, presence, node, physical) =
+            match reader.place_target(reference.location, reference.offset, reference.path)? {
+                PlaceTarget::Cells {
+                    range,
+                    type_id,
+                    presence,
+                    beside,
+                } => (range, type_id, presence, None, beside),
+                // A structure nested in a backing takes a structure of its type where its bits lie,
+                // written as the value store's physical patch writes it (C1-15b).
+                PlaceTarget::Node {
+                    range: root,
+                    root_type,
+                    anchor,
+                    depth,
+                    presence,
+                } => {
+                    let (range, node_type) =
+                        self.nested_cells(reader.view_cells(), root, root_type, anchor, depth)?;
+                    let node = PlaceNode {
+                        root,
+                        root_type,
+                        anchor,
+                        depth,
+                    };
+                    (range, node_type, presence, Some(node), true)
+                }
+            };
         (range.region == place.range.region
             && range.bytes == place.range.bytes
             && same(type_id)
             && declared.is_none_or(same))
-        .then_some(PlaceDestination { range, presence })
+        .then_some(PlaceDestination {
+            range,
+            presence,
+            node,
+            physical,
+        })
     }
 
     /// The checks of a write of the value `place` stands for through `reference`: those of
@@ -241,6 +296,10 @@ impl EngineState<'_> {
                 }
                 Ok(())
             }
+            // A structure with a physical layout holds its texts beside its backing (C1-15b).
+            TypeData::Struct { .. } if layout.overlay.is_some() => {
+                self.charge_slot_texts(reader, range, type_id, rule, depth)
+            }
             TypeData::Struct { fields } => {
                 for (field, member) in fields.iter().zip(&layout.members) {
                     if !holds_text(self.prepared, field.type_id) {
@@ -297,9 +356,17 @@ impl EngineState<'_> {
             }
             None => None,
         };
-        let (range, type_id, presence) = match self.data.routed(self.prepared) {
+        let (range, type_id, presence, beside) = match self.data.routed(self.prepared) {
             Routed::Cells(reader) => {
-                reader.cells_target(reference.location, reference.offset, reference.path)?
+                match reader.place_target(reference.location, reference.offset, reference.path)? {
+                    PlaceTarget::Cells {
+                        range,
+                        type_id,
+                        presence,
+                        beside,
+                    } => (range, type_id, presence, beside),
+                    PlaceTarget::Node { .. } => return None,
+                }
             }
             Routed::Values(_) => return None,
         };
@@ -325,6 +392,11 @@ impl EngineState<'_> {
             if !check_first {
                 self.check_write_target(reference)?;
             }
+            // A text beside a backing is written as the value store's physical patch writes it,
+            // after a sample of the deadline (C1-15b).
+            if beside {
+                self.check_entry_deadline()?;
+            }
             Ok(match &mut self.data.store {
                 EngineStore::Cells(arm) => arm.write_text(range, geometry, presence, &text[..kept]),
                 EngineStore::Values => false,
@@ -332,14 +404,27 @@ impl EngineState<'_> {
         })())
     }
 
-    /// Copy the bytes of `place` to `destination`.
-    pub(super) fn copy_place(&mut self, place: Place, destination: PlaceDestination) -> bool {
-        match &mut self.data.store {
+    /// Copy the bytes of `place` to `destination`. A copy into a structure nested in a backing is
+    /// charged and checked as the value store charges and checks the write of the place's value
+    /// there, and a copy the value store makes as a physical patch samples the deadline first
+    /// (C1-15b). `Ok(false)` when the block refuses the copy.
+    pub(super) fn copy_place(
+        &mut self,
+        place: Place,
+        destination: PlaceDestination,
+    ) -> Result<bool, RuntimeError> {
+        if let Some(node) = destination.node {
+            self.charge_and_check_node_copy(place, destination.range, node)?;
+        }
+        if destination.physical {
+            self.check_entry_deadline()?;
+        }
+        Ok(match &mut self.data.store {
             EngineStore::Cells(arm) => {
                 arm.copy_place(place.range, destination.range, destination.presence)
             }
             EngineStore::Values => false,
-        }
+        })
     }
 
     /// The lifetime check of the value of `type_id` a place stands for, as `check_value_lifetime`

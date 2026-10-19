@@ -167,10 +167,15 @@ pub trait ReferenceContext {
     ) -> Result<(), crate::error::RuntimeError> {
         Err(crate::error::RuntimeError::InvalidExecutionState)
     }
-    /// Copy the bytes of `place` to `destination` (C1-10c); `false` when the block refuses either
-    /// range.
-    fn copy_place(&mut self, _place: super::Place, _destination: super::PlaceDestination) -> bool {
-        false
+    /// Copy the bytes of `place` to `destination` (C1-10c); `Ok(false)` when the block refuses
+    /// either range. A copy into a structure nested in a backing is charged and checked first, as a
+    /// write of the value there is, and may be refused (C1-15b).
+    fn copy_place(
+        &mut self,
+        _place: super::Place,
+        _destination: super::PlaceDestination,
+    ) -> Result<bool, crate::error::RuntimeError> {
+        Ok(false)
     }
     /// Charge what normalizing the value `place` stands for to its own type charges, so that a copy
     /// of its bytes charges what a store of the value does (C1-12): the capacity checks of its

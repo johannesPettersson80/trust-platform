@@ -82,7 +82,10 @@ impl EngineState<'_> {
     }
 
     /// The data of `type_id` with its aliases resolved.
-    fn resolved_data(&self, type_id: u32) -> Option<&crate::bytecode::TypeData> {
+    pub(in crate::vm::engine) fn resolved_data(
+        &self,
+        type_id: u32,
+    ) -> Option<&crate::bytecode::TypeData> {
         let resolved =
             crate::vm::type_policy::resolved_alias_type(&self.prepared.vm.types, type_id, 0)?;
         self.prepared
@@ -95,7 +98,11 @@ impl EngineState<'_> {
 
     /// The bytes of the type name of the enumeration at `leaf` inside a structure of `type_id`, as
     /// the value the backing decodes to names it; 0 for a leaf of another type.
-    fn enumeration_name_len(&self, type_id: u32, leaf: &[RefSegment]) -> usize {
+    pub(in crate::vm::engine) fn enumeration_name_len(
+        &self,
+        type_id: u32,
+        leaf: &[RefSegment],
+    ) -> usize {
         let Some(node) = overlay_node_type(self.prepared, type_id, leaf) else {
             return 0;
         };
