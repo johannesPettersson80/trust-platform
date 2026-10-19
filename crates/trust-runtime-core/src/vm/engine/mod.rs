@@ -121,6 +121,8 @@ struct ExecutionResources {
     bookkeeping: scratch::BookkeepingScratch,
     /// Reusable per-depth call-binding scratch (spec 34 MEM-09; census C1, C3, C4, C5, C7).
     call_scratch: CallScratch,
+    /// Kept path and index buffers of the references a scan builds (spec 34 ARCH-05).
+    references: scratch::ReferenceBuffers,
     ready_tasks: Vec<crate::cycle::ReadyTask>,
     constructed_values: usize,
     work_budget: crate::vm::budget::ExecutionBudget,
@@ -288,6 +290,7 @@ impl<'a> EngineState<'a> {
                 edge_restores: Vec::new(),
                 bookkeeping: scratch::BookkeepingScratch::default(),
                 call_scratch: CallScratch::default(),
+                references: scratch::ReferenceBuffers::default(),
                 ready_tasks: Vec::new(),
                 constructed_values: 0,
                 // TIME-09: construction is one entry under its own allowance.

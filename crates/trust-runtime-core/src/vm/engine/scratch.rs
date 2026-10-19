@@ -4,6 +4,7 @@
 use super::io::staging::StagingDemand;
 use super::output_transaction::SavedDestinations;
 use super::*;
+use crate::value::{RefIndices, RefPath, RefSegment};
 use crate::vm::construction::values::ValueOperation;
 use crate::vm::module::VmNativeSymbolSpec;
 use crate::vm::VmTrap;
@@ -176,6 +177,61 @@ impl FrameLocals {
             .map_err(|_| VmTrap::BudgetExceeded.into_runtime_error())?;
         self.spares.push(locals);
         Ok(())
+    }
+}
+
+/// The path and index buffers of the references a scan builds (spec 34 ARCH-05). A reference
+/// whose path grows takes a kept buffer, and one the execution has used gives its buffers back,
+/// so after the first scan a program's references allocate nothing. The charges stay those of an
+/// owned path (TIME-08): a buffer's capacity changes no charge. The references borrow the engine
+/// immutably while they grow, so the kept buffers are behind a `RefCell`.
+#[derive(Debug, Default)]
+pub(super) struct ReferenceBuffers {
+    paths: core::cell::RefCell<Vec<RefPath>>,
+    indices: core::cell::RefCell<Vec<RefIndices>>,
+}
+
+/// The most buffers of each kind kept; the references a program holds beyond them allocate.
+const KEPT_REFERENCE_BUFFERS: usize = 64;
+
+/// The room of a new path buffer and of a new index buffer: the segments and the dimensions of
+/// the deepest paths and arrays programs commonly build. A buffer that has to grow is kept grown.
+const REFERENCE_BUFFER_ROOM: usize = 4;
+
+impl ReferenceBuffers {
+    /// An empty path buffer: a kept one, else a new one.
+    pub(super) fn take_path(&self) -> RefPath {
+        self.paths
+            .borrow_mut()
+            .pop()
+            .unwrap_or_else(|| RefPath::with_capacity(REFERENCE_BUFFER_ROOM))
+    }
+
+    /// An empty index buffer: a kept one, else a new one.
+    pub(super) fn take_indices(&self) -> RefIndices {
+        self.indices
+            .borrow_mut()
+            .pop()
+            .unwrap_or_else(|| RefIndices::with_capacity(REFERENCE_BUFFER_ROOM))
+    }
+
+    /// Keep the buffers of a path the execution has used: the path's and each index segment's.
+    pub(super) fn recycle(&self, mut path: RefPath) {
+        for segment in path.drain(..) {
+            if let RefSegment::Index(mut indices) = segment {
+                indices.clear();
+                keep(&self.indices, indices);
+            }
+        }
+        keep(&self.paths, path);
+    }
+}
+
+/// Keep an emptied buffer with room in it, unless [`KEPT_REFERENCE_BUFFERS`] are kept already.
+fn keep<T>(spares: &core::cell::RefCell<Vec<Vec<T>>>, buffer: Vec<T>) {
+    let mut spares = spares.borrow_mut();
+    if buffer.capacity() > 0 && spares.len() < KEPT_REFERENCE_BUFFERS {
+        spares.push(buffer);
     }
 }
 

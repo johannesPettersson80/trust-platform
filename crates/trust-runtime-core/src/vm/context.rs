@@ -45,6 +45,20 @@ pub trait ReferenceContext {
         Ok(())
     }
 
+    /// An empty buffer for a reference's path: one the composition keeps, so that after the first
+    /// scan a reference allocates nothing (spec 34 ARCH-05), else a new one.
+    fn take_reference_path(&self) -> crate::value::RefPath {
+        crate::value::RefPath::new()
+    }
+
+    /// An empty buffer for an index segment's subscripts, kept as [`Self::take_reference_path`]'s.
+    fn take_reference_indices(&self) -> crate::value::RefIndices {
+        crate::value::RefIndices::new()
+    }
+
+    /// Give back the buffers of a reference path the execution has used.
+    fn recycle_reference_path(&self, _path: crate::value::RefPath) {}
+
     /// Admit backing storage and copy work before extending an owned reference.
     fn before_reference_path_growth(
         &self,

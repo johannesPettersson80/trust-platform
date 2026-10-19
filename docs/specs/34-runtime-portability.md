@@ -1392,6 +1392,13 @@ TIME-08). A standard function's arguments and a split function's outputs are bou
 depth's reserved values, and a named argument is matched without building an uppercase name, with
 every result, count, charge and refusal unchanged (MEM-09; TIME-08).
 
+**Reference buffers.** The engine keeps the path and index buffers of the references a scan builds,
+at most 64 of each: a reference whose path grows (a member, an element, a further subscript), a
+copy of a static path and a loaded reference variable take kept buffers, and a load, a store or a
+discard through a reference gives them back, so after the first scan a dynamic index or member
+allocates nothing (ARCH-05). A buffer's room changes no charge: each segment and each subscript
+costs what it cost (TIME-08).
+
 ### 6.4 Physical memory
 
 The BSP shall identify memory regions available to the engine, CPU stack, DMA, communication, and boot/update storage. Capacity shall be checked per usable region, not only as a sum of all SRAM on the chip. Cache maintenance, DMA ownership, alignment, and interrupt-stack reservations are platform obligations.

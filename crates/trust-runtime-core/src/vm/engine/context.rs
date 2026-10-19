@@ -198,6 +198,15 @@ impl<'e> ReferenceContext for EngineState<'e> {
     fn storage_mut(&mut self) -> &mut Self::Store {
         self
     }
+    fn take_reference_path(&self) -> crate::value::RefPath {
+        self.data.resources.references.take_path()
+    }
+    fn take_reference_indices(&self) -> crate::value::RefIndices {
+        self.data.resources.references.take_indices()
+    }
+    fn recycle_reference_path(&self, path: crate::value::RefPath) {
+        self.data.resources.references.recycle(path);
+    }
     fn check_reference_write(
         &self,
         reference: crate::value::ValueRefView<'_>,

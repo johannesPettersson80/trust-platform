@@ -4,7 +4,7 @@ use crate::error::RuntimeError;
 use crate::memory::layout::CELL_BYTES;
 use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
 use crate::memory::MemoryLocation;
-use crate::value::{single_ref_index, string_element_position_in, RefSegment, Value, ValueRef};
+use crate::value::{string_element_position_in, RefSegment, Value, ValueRef, ValueRefView};
 
 use super::context::ReferenceContext;
 use super::errors::VmTrap;
@@ -23,7 +23,7 @@ pub fn load_ref(
         Ok(view) => {
             // The copy is charged from the value it produces: a copy charges what it copies, so the
             // owned value and the stored view have the same charge (TIME-08).
-            let value = view.materialize().map_err(VmTrap::Runtime)?;
+            let value = materialize_in_buffers(runtime, &view)?;
             runtime
                 .before_value_clone(&value)
                 .map_err(VmTrap::Runtime)?;
@@ -99,7 +99,69 @@ pub fn load_ref_addr(
     runtime
         .before_reference_path_clone(reference)
         .map_err(VmTrap::Runtime)?;
-    reference.to_owned().map_err(VmTrap::Runtime)
+    owned_reference(runtime, reference)
+}
+
+/// An owned copy of `reference` whose path and index segments are in the buffers `runtime` keeps
+/// (spec 34 ARCH-05), so copying a static path allocates nothing after the first scan.
+fn owned_reference(
+    runtime: &impl ReferenceContext,
+    reference: ValueRefView<'_>,
+) -> Result<ValueRef, VmTrap> {
+    // A reference to a whole variable has no path, and an empty path needs no buffer.
+    let mut path = if reference.path.is_empty() {
+        crate::value::RefPath::new()
+    } else {
+        runtime.take_reference_path()
+    };
+    path.try_reserve_exact(reference.path.len())
+        .map_err(|_| RuntimeError::Overflow)?;
+    for segment in reference.path {
+        path.push(match segment {
+            RefSegment::Field(name) => RefSegment::Field(name.clone()),
+            RefSegment::Index(indices) => {
+                let mut copy = runtime.take_reference_indices();
+                copy.try_reserve_exact(indices.len())
+                    .map_err(|_| RuntimeError::Overflow)?;
+                copy.extend_from_slice(indices);
+                RefSegment::Index(copy)
+            }
+        });
+    }
+    Ok(ValueRef {
+        location: reference.location,
+        offset: u32::try_from(reference.offset).map_err(|_| RuntimeError::Overflow)?,
+        generation: reference.generation,
+        path,
+    })
+}
+
+/// The owned value of `view`. A reference is copied into the buffers `runtime` keeps, so loading
+/// a reference variable allocates nothing once the runtime keeps buffers (spec 34 ARCH-05); any
+/// other value is materialized as the view gives it.
+fn materialize_in_buffers(
+    runtime: &impl ReferenceContext,
+    view: &ValueView<'_>,
+) -> Result<Value, VmTrap> {
+    let borrowed = match view.borrowed_value() {
+        Some(Value::Reference(Some(reference))) => Some(reference),
+        Some(_) => None,
+        None => view.cell_reference().map_err(VmTrap::Runtime)?,
+    };
+    match borrowed {
+        Some(reference) => Ok(Value::Reference(Some(owned_reference(
+            runtime,
+            reference.as_view(),
+        )?))),
+        None => view.materialize().map_err(VmTrap::Runtime),
+    }
+}
+
+/// A one-subscript index segment in an index buffer `runtime` keeps (spec 34 ARCH-05).
+fn index_segment(runtime: &impl ReferenceContext, index: i64) -> RefSegment {
+    let mut indices = runtime.take_reference_indices();
+    indices.push(index);
+    RefSegment::Index(indices)
 }
 
 fn load_ref_view<'a>(
@@ -373,7 +435,7 @@ pub fn dynamic_ref_index(
             }));
         }
         reserve_reference_segment(runtime, &mut reference, 1)?;
-        reference.path.push(single_ref_index(index));
+        reference.path.push(index_segment(runtime, index));
         return Ok(reference);
     }
     // A STRING or a WSTRING: its length is charged before the element is checked (TIME-08). The
@@ -391,13 +453,15 @@ pub fn dynamic_ref_index(
         .ok_or_else(|| VmTrap::Runtime(RuntimeError::TypeMismatch))?;
     string_element_position_in(count, index).map_err(VmTrap::Runtime)?;
     reserve_reference_segment(runtime, &mut reference, 1)?;
-    reference.path.push(single_ref_index(index));
+    reference.path.push(index_segment(runtime, index));
     Ok(reference)
 }
 
 /// Admit one new owned path segment that carries `subscripts` subscripts, then reserve its
 /// slot. Each added segment and each added subscript costs one unit and one cell, whatever the
-/// path vector's capacity (spec 34 TIME-08).
+/// path vector's capacity (spec 34 TIME-08). A path with no room left moves into a buffer the
+/// runtime keeps, and its own buffer is given back, so the reservation allocates nothing once the
+/// runtime keeps buffers (ARCH-05).
 fn reserve_reference_segment(
     runtime: &impl ReferenceContext,
     reference: &mut ValueRef,
@@ -415,6 +479,11 @@ fn reserve_reference_segment(
     runtime
         .before_reference_path_growth(bytes, work)
         .map_err(VmTrap::Runtime)?;
+    if reference.path.len() == reference.path.capacity() {
+        let mut path = runtime.take_reference_path();
+        path.append(&mut reference.path);
+        runtime.recycle_reference_path(core::mem::replace(&mut reference.path, path));
+    }
     reference
         .path
         .try_reserve_exact(1)
@@ -473,7 +542,7 @@ fn dynamic_load_view(
 ) -> Result<Value, VmTrap> {
     match peek_dynamic_ref_path(runtime, frames, reference, reference.path) {
         Ok(view) => {
-            let value = view.materialize().map_err(VmTrap::Runtime)?;
+            let value = materialize_in_buffers(runtime, &view)?;
             runtime
                 .before_value_clone(&value)
                 .map_err(VmTrap::Runtime)?;

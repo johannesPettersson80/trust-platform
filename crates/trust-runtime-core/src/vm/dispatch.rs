@@ -588,7 +588,11 @@ fn execute_with_buffers(
                     .map_err(VmTrap::into_runtime_error)?;
             }
             0x12 => {
-                let _ = operand_stack.pop().map_err(VmTrap::into_runtime_error)?;
+                if let Value::Reference(Some(reference)) =
+                    operand_stack.pop().map_err(VmTrap::into_runtime_error)?
+                {
+                    runtime.recycle_reference_path(reference.path);
+                }
             }
             0x13 => operand_stack
                 .swap_top()
@@ -701,6 +705,7 @@ fn execute_with_buffers(
                 let reference = pop_reference(operand_stack).map_err(VmTrap::into_runtime_error)?;
                 let value = dynamic_load_ref(runtime, frames, &reference)
                     .map_err(VmTrap::into_runtime_error)?;
+                runtime.recycle_reference_path(reference.path);
                 operand_stack
                     .push(value)
                     .map_err(VmTrap::into_runtime_error)?;
@@ -710,6 +715,7 @@ fn execute_with_buffers(
                 let reference = pop_reference(operand_stack).map_err(VmTrap::into_runtime_error)?;
                 dynamic_store_ref(runtime, module, frames, &reference, value)
                     .map_err(VmTrap::into_runtime_error)?;
+                runtime.recycle_reference_path(reference.path);
             }
             0x40 => execute_binary(runtime.profile(), operand_stack, BinaryOp::Add)
                 .map_err(VmTrap::into_runtime_error)?,
