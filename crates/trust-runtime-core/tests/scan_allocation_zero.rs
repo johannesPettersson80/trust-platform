@@ -463,7 +463,7 @@ impl Fixture {
 /// Every measured application. Each corpus program runs in a 10 ms task, so each of its scans
 /// activates it once. The saved main and numeric artifacts keep the boards' schedule: 101 scans
 /// from 0 ms to 1,000 ms with a 25 ms task.
-static FIXTURES: [Fixture; 19] = [
+static FIXTURES: [Fixture; 20] = [
     Fixture::saved("saved/main", SAVED_MAIN, 0, 101),
     Fixture::saved("saved/numeric", SAVED_NUMERIC, 0, 101),
     Fixture::saved("saved/gpio", SAVED_GPIO, 10, 20),
@@ -488,6 +488,7 @@ static FIXTURES: [Fixture; 19] = [
         ..Fixture::corpus("retain")
     },
     Fixture::corpus("retained_blocks"),
+    Fixture::corpus("retained_values"),
     Fixture::corpus("copies"),
 ];
 
@@ -646,7 +647,12 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// value its body builds written there, and the commit copies its bytes into the variable. On the
 /// flat store `initializers` makes no allocator call after its first scan, measured on the builder
 /// on 19 October 2026.
-const CEILINGS: [(&str, usize, Calls); 31] = [
+///
+/// C1-14b adds `retained_values`, whose retained arrays, structure and texts a warm restart carries as
+/// their bytes. On the flat store its scans write each of them in place; the first scan through its
+/// text branch, scan 1, grows the text buffers once, so its ceiling of zero starts at scan 2,
+/// measured on the builder on 19 October 2026.
+const CEILINGS: [(&str, usize, Calls); 32] = [
     ("faults/division", 2, Calls::ZERO),
     ("faults/index", 2, Calls::ZERO),
     ("faults/null", 2, Calls::ZERO),
@@ -719,6 +725,7 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
     ("cells/strings", 1, Calls::ZERO),
     ("cells/initializers", 1, Calls::ZERO),
     ("cells/retained_blocks", 1, Calls::ZERO),
+    ("cells/retained_values", 2, Calls::ZERO),
     (
         "cells/copies",
         1,

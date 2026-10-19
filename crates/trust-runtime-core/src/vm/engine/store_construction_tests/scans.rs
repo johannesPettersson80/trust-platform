@@ -473,3 +473,98 @@ fn an_initializer_evaluated_in_place_runs_out_of_work_where_the_value_store_does
         "the cells spend their work differently from the Value store"
     );
 }
+
+#[test]
+fn a_warm_restart_copies_retained_cells_where_the_value_store_copies_values() {
+    // Specification 34 §11.3, TIME-08 and MEM-12 (C1-14b): a warm restart carries the retained values
+    // into the next generation. `retained_blocks` retains a function-block instance `kept`, the
+    // reference `follow` to `kept.count`, `total` and its program's `runs`; `retained_values` retains
+    // arrays, a structure and texts in globals and in its program. The cell store copies them from
+    // cell to cell, an instance's members and a flat reference's generation included, and charges
+    // each copy as the value store charges the copy of the value. So at every construction work
+    // allowance, from one unit up to the first at which both stores construct the program and restart
+    // it warm, both stores end alike: construction refused with the same error, or two scans and a
+    // warm restart with the same result, the same work and bytes charged at each phase and the same
+    // values after it. A copy charged in another order, a reference copied without its new
+    // generation, an instance leaf without its new identity or a misplaced byte would make the lines
+    // of some allowance differ.
+    let mut differences = Vec::new();
+    for name in ["retained_blocks", "retained_values"] {
+        let program = corpus(name);
+        let mut restarted = false;
+        for allowance in 1..=200_000 {
+            let limits = PreparationLimits {
+                max_construction_work: allowance,
+                ..PreparationLimits::default()
+            };
+            let prepared =
+                PreparedModule::from_bytes(program, limits).expect("the program prepares");
+            let built = (
+                build(&prepared, StoreKind::Values),
+                build(&prepared, StoreKind::Cells),
+            );
+            let (mut values, mut cells) = match built {
+                (Ok(values), Ok(cells)) => (values, cells),
+                (Err(values), Err(cells)) => {
+                    if values != cells {
+                        differences.push(format!(
+                            "{name} allowance {allowance}: construction refused with \
+                             `{values:?}` / `{cells:?}`"
+                        ));
+                    }
+                    continue;
+                }
+                (values, cells) => {
+                    differences.push(format!(
+                        "{name} allowance {allowance}: construction `{:?}` / `{:?}`",
+                        values.err(),
+                        cells.err()
+                    ));
+                    break;
+                }
+            };
+            let mut pair = Pair {
+                name,
+                prepared: &prepared,
+                values: EngineState::borrow(&mut values, &prepared, &services::LOGICAL_ONLY),
+                cells: EngineState::borrow(&mut cells, &prepared, &services::LOGICAL_ONLY),
+                differences: Vec::new(),
+            };
+            let healthy = pair.scans(1..=2, &format!("allowance {allowance}, "));
+            let mut warm = false;
+            if healthy {
+                let restart = pair.values.restart(RestartMode::Warm);
+                warm = restart.is_ok();
+                let mut expected = vec![format!("restart {restart:?}")];
+                expected.extend(facts(&prepared, &pair.values));
+                let mut actual = vec![format!(
+                    "restart {:?}",
+                    pair.cells.restart(RestartMode::Warm)
+                )];
+                actual.extend(facts(&prepared, &pair.cells));
+                pair.agree(
+                    &format!("allowance {allowance}, warm restart"),
+                    &expected,
+                    &actual,
+                );
+            }
+            differences.append(&mut pair.differences);
+            if !differences.is_empty() {
+                break;
+            }
+            if warm {
+                restarted = true;
+                break;
+            }
+        }
+        assert!(
+            restarted || !differences.is_empty(),
+            "{name}: some allowance restarts the program"
+        );
+    }
+    assert_eq!(
+        differences,
+        Vec::<String>::new(),
+        "the cells restart differently from the Value store"
+    );
+}

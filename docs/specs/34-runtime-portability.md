@@ -1464,6 +1464,15 @@ for each node it visits (TIME-08). An initializer whose staged result finds no r
 every other initializer and the members of an instance a call creates are evaluated as values. So a
 call that initializes such variables allocates nothing once the engine is warm (ARCH-05).
 
+**Retained transfer.** On the flat store a warm restart, and a replacement that declares the same
+retained storage (§11.3), copies each retained variable from the running store's cells into the next
+generation's, leaf by leaf, without building its value (checklist C1-14): an instance leaf takes the
+identity its instance has in the next generation, whose members are copied the same way, a flat
+reference takes the next generation, and every other leaf keeps its bytes, since the two stores lay
+the program out alike. Each copy is checked and charged as the value store checks and charges the
+copy of the value, in the same order (TIME-08). A value that holds a reference with a path, and the
+migration of a replacement that changes the retained storage, are carried as values.
+
 **Flat references.** On the flat store a reference to a whole variable, member or element that can
 be written and lies in the persistent block is flat as soon as the program takes it: the block and
 byte offset of its target, its type and its installation generation, the 16 bytes its leaf holds

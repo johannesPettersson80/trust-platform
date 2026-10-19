@@ -2,9 +2,11 @@
 use super::*;
 use crate::bytecode::{StorageOwner, StorageRole, TypeData};
 use crate::memory::layout::CELL_BYTES;
-use crate::memory::view::{StoreAccess, StoreMutate};
+use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
 use crate::memory::MemoryLocation;
 use alloc::sync::Arc;
+
+mod cells;
 
 /// The declared name of the layout entry `declaration` (C1-9d1).
 fn member_name(prepared: &PreparedModule, declaration: u32) -> &str {
@@ -72,12 +74,22 @@ impl EngineState<'_> {
                 continue;
             }
             let name = &source.prepared.vm.strings[declaration.name_idx as usize];
-            let value = source
+            let view = source
                 .read_global(name)
-                .ok_or(RuntimeError::NullReference)?
-                .materialize()?;
-            // `value` charges the copy once (TIME-08); the owned copy is not charged again.
-            let value = graph.value(self, declaration.type_id, &value, 0)?;
+                .ok_or(RuntimeError::NullReference)?;
+            // On the flat store the copy is charged from the source's cells, as `value` charges it,
+            // and made in place at the publication below; nothing builds a value (C1-14b).
+            // The generation the candidate's references take, read before its tables are reserved.
+            let generation = StoreAccess::generation(&*self);
+            let value = if graph.copies_in_place(self, view)? {
+                self.charge_allocation_bytes(self.view_clone_charge(&view)?)?;
+                graph.owned_cells(self, view, 0)?;
+                None
+            } else {
+                // `value` charges the copy once (TIME-08); the owned copy is not charged again.
+                let value = view.materialize()?;
+                Some(graph.value(self, declaration.type_id, &value, 0)?)
+            };
             let declaration_index = root_index(index)?;
             let (growth_bytes, _) = self
                 .data
@@ -100,15 +112,26 @@ impl EngineState<'_> {
                 .prepare_insert(marker_plan)?;
             // All work/allocation admission and marker reservation precede the
             // candidate's persistent value/retained-state publication.
-            // The marker reservation borrows the lifecycle tables; the destination write needs only the
-            // storage and store fields, and goes through the store the engine holds.
-            let mut routed = super::store_access::routed_mut_fields(
-                &mut self.data.storage,
-                &mut self.data.store,
-                self.prepared,
-            );
-            if !StoreMutate::set_global(&mut routed, name, value) {
-                return Err(RuntimeError::InvalidExecutionState);
+            match value {
+                Some(value) => {
+                    // The marker reservation borrows the lifecycle tables; the destination write needs
+                    // only the storage and store fields, and goes through the store the engine holds.
+                    let mut routed = super::store_access::routed_mut_fields(
+                        &mut self.data.storage,
+                        &mut self.data.store,
+                        self.prepared,
+                    );
+                    if !StoreMutate::set_global(&mut routed, name, value) {
+                        return Err(RuntimeError::InvalidExecutionState);
+                    }
+                }
+                None => {
+                    let at = self
+                        .prepared
+                        .global_range(declaration_index)
+                        .ok_or(RuntimeError::InvalidExecutionState)?;
+                    graph.write_cells(&mut self.data.store, self.prepared, generation, view, at)?;
+                }
             }
             self.data
                 .construction
@@ -265,17 +288,35 @@ impl RetainedGraph<'_, '_> {
             .map_err(|_| RuntimeError::NullReference)?;
         for &declaration in members {
             let name = member_name(source.prepared, declaration);
-            let old_value = source
+            let view = source
                 .read_instance_var(old, name)
-                .ok_or(RuntimeError::NullReference)?
-                .materialize()?;
+                .ok_or(RuntimeError::NullReference)?;
             // Type metadata is identical in the mapped candidate. Charge its
             // fresh restart budget, never the source state's previous scan fuel.
             let ty = match target.ref_for_instance(new, name) {
                 Some(reference) => target.reference_type(reference.as_view())?,
                 None => None,
             };
-            let value = self.value(target, ty, &old_value, depth + 1)?;
+            // On the flat store the member is copied from the source's cells into the
+            // candidate's, charged as its value's copy is (C1-14b).
+            if self.copies_in_place(target, view)? {
+                target.charge_allocation_bytes(target.view_clone_charge(&view)?)?;
+                self.owned_cells(target, view, depth + 1)?;
+                let Some(ValueView::Cells { range: at, .. }) = target.read_instance_var(new, name)
+                else {
+                    return Err(RuntimeError::NullReference);
+                };
+                let generation = StoreAccess::generation(&*target);
+                self.write_cells(
+                    &mut target.data.store,
+                    target.prepared,
+                    generation,
+                    view,
+                    at,
+                )?;
+                continue;
+            }
+            let value = self.value(target, ty, &view.materialize()?, depth + 1)?;
             if !StoreMutate::write_instance_var(target, new, name, value) {
                 return Err(RuntimeError::NullReference);
             }

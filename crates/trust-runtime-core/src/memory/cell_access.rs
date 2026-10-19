@@ -60,6 +60,11 @@ pub struct CellsView<'a> {
 }
 
 impl<'a> CellsView<'a> {
+    /// The bytes of `range` in the block that holds them, or `None` when the block refuses the range.
+    pub(crate) fn bytes(self, range: ByteRange) -> Option<&'a [u8]> {
+        self.regions.block(range.region).bytes(range)
+    }
+
     /// The member or element `segment` names inside the value of `type_id` at `range`, as its range
     /// and type. The member's bytes must lie inside `range` (specification 34 §6.2, MEM-12).
     pub(crate) fn member(
@@ -437,6 +442,19 @@ impl CellArm {
             references,
             range.start,
         )
+    }
+
+    /// Copy `bytes` into `range` of the block that holds it (C1-14b). `false`, and nothing written,
+    /// when the block refuses the range or the lengths differ.
+    pub(crate) fn write_bytes(&mut self, range: ByteRange, bytes: &[u8]) -> bool {
+        let (block, _) = self.cells.regions_mut().block_mut(range.region);
+        match block.bytes_mut(range) {
+            Some(target) if target.len() == bytes.len() => {
+                target.copy_from_slice(bytes);
+                true
+            }
+            _ => false,
+        }
     }
 
     /// Write the enumeration value `numeric` of `type_id` into its leaf `range` (C1-13).
@@ -994,6 +1012,10 @@ impl<'a> CellReader<'a> {
         };
         let (location, slot, range, root_type) = self.root_holding(reference.offset)?;
         let mut path = RefPath::new();
+        let (location, slot) = match location {
+            MemoryLocation::Instance(instance) => self.holder_form(instance, slot, &mut path)?,
+            location => (location, slot),
+        };
         self.path_to(range, root_type, reference.offset, type_id, &mut path, 0)?;
         // A character reference keeps its index after the text's path.
         path.extend(reference.path.iter().cloned());
@@ -1003,6 +1025,105 @@ impl<'a> CellReader<'a> {
             generation: reference.generation,
             path,
         })
+    }
+
+    /// Member `slot` of the persistent instance `instance` named as the value store names a reference
+    /// taken through the variables that hold it (C1-14b): a function block that a global holds is
+    /// named through that global, and one that a member of another instance holds through that
+    /// member, the members between them pushed onto `path` in order; a program instance, and an
+    /// inheritance parent, name their own members. Answers the location and the slot the name starts
+    /// at.
+    fn holder_form(
+        self,
+        mut instance: InstanceId,
+        mut slot: usize,
+        path: &mut RefPath,
+    ) -> Option<(MemoryLocation, usize)> {
+        let regions = self.arm.cells.regions();
+        let mut members = RefPath::new();
+        for _ in 0..=BYTECODE_MAX_TYPE_NESTING {
+            let own = regions.instance(instance)?;
+            let Some(root) = (0..self.prepared.roots.entries.len()).find(|&index| {
+                regions.root_range(index).map(|range| range.start) == Some(own.range.start)
+            }) else {
+                break;
+            };
+            let entry = self.prepared.roots.entries.get(root)?;
+            if entry.is_inheritance_parent() {
+                break;
+            }
+            let holder = self
+                .prepared
+                .layout
+                .entries
+                .get(entry.declaration_idx as usize)?;
+            match (holder.owner, holder.role) {
+                (StorageOwner::Global, crate::bytecode::StorageRole::Variable) => {
+                    members.push(RefSegment::Field(self.member_named(own.pou, slot)?));
+                    members.reverse();
+                    path.extend(members);
+                    let ordinal = self
+                        .prepared
+                        .declarations(StorageOwner::Global, None)
+                        .iter()
+                        .position(|&id| id == entry.declaration_idx)?;
+                    return Some((MemoryLocation::Global, ordinal));
+                }
+                (StorageOwner::Instance, _) => {
+                    members.push(RefSegment::Field(self.member_named(own.pou, slot)?));
+                    let parent = entry.parent_root_idx? as usize;
+                    let start = regions.root_range(parent)?.start;
+                    let (outer, outer_record) = regions.instance_holding(start)?;
+                    slot = self.member_ordinal(outer_record.pou, entry.declaration_idx)?;
+                    instance = outer;
+                }
+                _ => break,
+            }
+        }
+        members.reverse();
+        path.extend(members);
+        Some((MemoryLocation::Instance(instance), slot))
+    }
+
+    /// The name of member `slot`, counted among the declarations that own storage, of an instance of
+    /// `pou`.
+    fn member_named(self, pou: u32, slot: usize) -> Option<SmolStr> {
+        let id = self
+            .prepared
+            .declarations(StorageOwner::Instance, Some(pou))
+            .iter()
+            .copied()
+            .filter(|&id| {
+                self.prepared
+                    .layout
+                    .entries
+                    .get(id as usize)
+                    .is_some_and(|entry| entry.owns_storage() && entry.type_id.is_some())
+            })
+            .nth(slot)?;
+        let entry = self.prepared.layout.entries.get(id as usize)?;
+        self.prepared
+            .vm
+            .strings
+            .get(entry.name_idx as usize)
+            .map(SmolStr::new)
+    }
+
+    /// The slot of the declaration `declaration` among the members of an instance of `pou` that own
+    /// storage.
+    fn member_ordinal(self, pou: u32, declaration: u32) -> Option<usize> {
+        self.prepared
+            .declarations(StorageOwner::Instance, Some(pou))
+            .iter()
+            .copied()
+            .filter(|&id| {
+                self.prepared
+                    .layout
+                    .entries
+                    .get(id as usize)
+                    .is_some_and(|entry| entry.owns_storage() && entry.type_id.is_some())
+            })
+            .position(|id| id == declaration)
     }
 
     /// The variable whose bytes hold the byte at `offset` of the persistent block: its location, its

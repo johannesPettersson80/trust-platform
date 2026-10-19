@@ -1,7 +1,8 @@
 //! Staged in-process restart, preserving the active state on construction failure.
 use super::*;
 use crate::bytecode::{StorageOwner, StorageRole};
-use crate::memory::view::{StoreAccess, StoreMutate};
+use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
+use crate::retain::codec::view_is_retainable;
 use crate::retain::{value_is_retainable, RestartMode};
 
 impl EngineState<'_> {
@@ -164,18 +165,31 @@ impl EngineState<'_> {
                 let new = self.data.construction.roots[root_index]
                     .ok_or(RuntimeError::InvalidExecutionState)?;
                 if let Some(view) = source.read_instance_var(old, name) {
-                    let value = view.materialize()?;
-                    self.check_retention_walk(&value, 0)?;
-                    if value_is_retainable(&value) {
-                        self.restore_program_value(new, name, &value)?;
+                    // On the flat store the value is copied from the source's cells, checked and
+                    // charged as its value is; nothing builds the value (C1-14b).
+                    if self.copies_cells_from(&view) {
+                        self.check_retention_cells(view, 0)?;
+                        if view_is_retainable(&view)? {
+                            self.restore_program_cells(new, name, view)?;
+                        }
+                    } else {
+                        let value = view.materialize()?;
+                        self.check_retention_walk(&value, 0)?;
+                        if value_is_retainable(&value) {
+                            self.restore_program_value(new, name, &value)?;
+                        }
                     }
                 }
                 for &phase_id in source.prepared.edge_declarations(index as u32) {
                     let phase = &source.prepared.layout.entries[phase_id as usize];
                     let phase_name = &source.prepared.vm.strings[phase.name_idx as usize];
                     if let Some(view) = source.read_instance_var(old, phase_name) {
-                        let value = view.materialize()?;
-                        self.restore_program_value(new, phase_name, &value)?;
+                        if self.copies_cells_from(&view) {
+                            self.restore_program_cells(new, phase_name, view)?;
+                        } else {
+                            let value = view.materialize()?;
+                            self.restore_program_value(new, phase_name, &value)?;
+                        }
                     }
                 }
             }
@@ -228,6 +242,55 @@ impl EngineState<'_> {
         self.charge_allocation_bytes(self.value_clone_charge(value, 0)?)?;
         if !StoreMutate::write_instance_var(self, instance, name, value.clone()) {
             return Err(RuntimeError::InvalidExecutionState);
+        }
+        Ok(())
+    }
+
+    /// Whether this store takes the source value `view` as its cells: both stores hold cells (C1-14b).
+    fn copies_cells_from(&self, view: &ValueView<'_>) -> bool {
+        self.holds_cells() && matches!(view, ValueView::Cells { .. })
+    }
+
+    /// `restore_program_value` from the source's cells: the copy charged as the copy of the value
+    /// they hold, then their bytes written into the same member of `instance`, which congruent stores
+    /// lay out alike. The value holds no instance and no reference, so its bytes are the same in both.
+    fn restore_program_cells(
+        &mut self,
+        instance: InstanceId,
+        name: &str,
+        view: ValueView<'_>,
+    ) -> Result<(), RuntimeError> {
+        self.charge_allocation_bytes(self.view_clone_charge(&view)?)?;
+        let ValueView::Cells { cells, range, .. } = view else {
+            return Err(RuntimeError::InvalidExecutionState);
+        };
+        let Some(ValueView::Cells { range: at, .. }) = self.read_instance_var(instance, name)
+        else {
+            return Err(RuntimeError::InvalidExecutionState);
+        };
+        let bytes = cells
+            .bytes(range)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        let EngineStore::Cells(arm) = &mut self.data.store else {
+            return Err(RuntimeError::InvalidExecutionState);
+        };
+        if arm.write_bytes(at, bytes) {
+            Ok(())
+        } else {
+            Err(RuntimeError::InvalidExecutionState)
+        }
+    }
+
+    /// `check_retention_walk` over the cells of `view`: the same depth check of each array and
+    /// structure it holds.
+    fn check_retention_cells(&self, view: ValueView<'_>, depth: usize) -> Result<(), RuntimeError> {
+        if depth > crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        if let Some(count) = view.cell_child_count()? {
+            for ordinal in 0..count {
+                self.check_retention_cells(view.cell_child(ordinal)?, depth + 1)?;
+            }
         }
         Ok(())
     }

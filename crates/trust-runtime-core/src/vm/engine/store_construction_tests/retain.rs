@@ -134,8 +134,14 @@ fn captured_cells_encode_like_the_value_tree() {
             assert_eq!(from_values, scanned, "{name} after three scans");
         }
     }
-    // The programs that retain: `retain`, and the saved main artifact, whose program retains `activations`.
-    assert_eq!(covered, ["retain", "saved/main"]);
+    // The programs that retain: `retain`; `retained_blocks`, whose instance `kept` and reference `follow`
+    // stay out of the payload beside its `total` and its program's `runs`; `retained_values`, whose
+    // arrays, structure and texts all go into it; and the saved main artifact, whose program retains
+    // `activations`.
+    assert_eq!(
+        covered,
+        ["retain", "retained_blocks", "retained_values", "saved/main"]
+    );
 }
 
 #[test]
