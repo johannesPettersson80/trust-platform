@@ -28,7 +28,7 @@ use trust_runtime_core::{
     bytecode::ValidationLimits,
     error::RuntimeError,
     io_address::IoAddress,
-    retain::RetainSnapshot,
+    retain::{RestartMode, RetainSnapshot},
     value::{DateTimeValue, Duration, Value},
     vm::{
         CycleAccess, CycleHooks, CyclePhase, ExecutionServices, PreparationLimits, PreparedModule,
@@ -1252,6 +1252,62 @@ fn trace_flat_store_allocations() {
         sites.sort_by_key(|site| std::cmp::Reverse(site.1));
         for (site, count) in sites.into_iter().take(12) {
             eprintln!("trace,cells/{},{count},{site}", fixture.name);
+        }
+    }
+}
+
+/// A diagnostic, run on request (`-- --ignored`): the allocator calls of a warm restart of each fixture
+/// on the flat store, after two scans, as the innermost frame and the eight innermost engine functions
+/// of each call, counted. It asserts nothing; it tells C1-14 which code of a restart builds values and
+/// which reserves the next generation's store.
+#[test]
+#[ignore = "diagnostic: run with --ignored --nocapture"]
+fn trace_flat_store_restart_allocations() {
+    for fixture in &FIXTURES {
+        let bytes = match fixture.artifact {
+            Artifact::Saved(bytes) => bytes.to_vec(),
+            Artifact::Corpus => match corpus_artifact(fixture.name) {
+                Ok(bytes) => bytes,
+                Err(error) => {
+                    eprintln!("trace-restart,cells/{},refused={error}", fixture.name);
+                    continue;
+                }
+            },
+        };
+        let Ok(prepared) = PreparedModule::from_bytes(&bytes, run_limits()) else {
+            eprintln!("trace-restart,cells/{},refused=preparation", fixture.name);
+            continue;
+        };
+        let services = Services::new(fixture.retain_store);
+        let Ok(mut state) = prepared.instantiate_on_cells_with_services(0, &services) else {
+            eprintln!("trace-restart,cells/{},refused=construction", fixture.name);
+            continue;
+        };
+        for index in 0..2 {
+            state.inputs_mut().fill(b'A');
+            measure(&mut state, fixture.first_ms + 10 * index, false);
+        }
+        TRACES.with(|traces| traces.borrow_mut().clear());
+        TRACING.with(|flag| flag.set(true));
+        let (outcome, calls) = {
+            let _armed = Armed::new();
+            let outcome = state.restart(RestartMode::Warm);
+            (outcome, take_counted())
+        };
+        TRACING.with(|flag| flag.set(false));
+        let traces = TRACES.with(|traces| std::mem::take(&mut *traces.borrow_mut()));
+        eprintln!(
+            "trace-restart,cells/{},outcome={outcome:?},calls={calls}",
+            fixture.name
+        );
+        let mut sites = std::collections::BTreeMap::<String, usize>::new();
+        for trace in traces {
+            *sites.entry(trace).or_default() += 1;
+        }
+        let mut sites = sites.into_iter().collect::<Vec<_>>();
+        sites.sort_by_key(|site| std::cmp::Reverse(site.1));
+        for (site, count) in sites.into_iter().take(20) {
+            eprintln!("trace-restart,cells/{},{count},{site}", fixture.name);
         }
     }
 }

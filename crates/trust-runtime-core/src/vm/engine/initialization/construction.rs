@@ -18,14 +18,14 @@ impl EngineState<'_> {
                 .strings
                 .get(declaration.name_idx as usize)
                 .ok_or_else(|| RuntimeError::InvalidExecutionState)?;
-            let value = self.data.construction.retained_globals.get(&id).cloned();
             // A global that owns cells holds its declared default from the moment the cell store is
             // reserved (R3): writing the empty value over it would erase that default. The `Value` store
-            // names the global with `Null` until its initializer runs.
-            if value.is_none() && self.holds_cells() && prepared.global_range(id).is_some() {
+            // names the global with `Null` until its initializer runs; a retained global gets its value
+            // when the import below copies it.
+            if self.holds_cells() && prepared.global_range(id).is_some() {
                 continue;
             }
-            self.set_global(name, value.unwrap_or(Value::Null));
+            self.set_global(name, Value::Null);
         }
         // Reserve all persistent identities before executing any default. This does
         // not expose uninitialized members through the initializer visibility view.

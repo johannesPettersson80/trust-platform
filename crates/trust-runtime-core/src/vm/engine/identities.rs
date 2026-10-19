@@ -227,36 +227,64 @@ impl Drop for TakenInstances<'_> {
     }
 }
 
-/// Reuse ordered destination slots without packing or narrowing their keys.
+/// The retained globals a warm restart imported into this generation, by declaration index, sorted
+/// (C1-14a). Their values live in the store; the set only tells construction which globals' actions
+/// to skip. Its growth is charged as the table it replaces charged it, which kept a copy of each
+/// global's value under its destination key: an entry of `((MemoryLocation, usize), Value)` and a
+/// capacity that doubles from 4 (spec 34 TIME-08).
 #[derive(Default)]
-pub(super) struct RetainedGlobals(super::output_transaction::SavedDestinations);
+pub(super) struct RetainedGlobals {
+    declarations: Vec<u32>,
+    charged_capacity: usize,
+}
 impl RetainedGlobals {
     #[cfg(test)]
     pub(super) fn len(&self) -> usize {
-        self.0.len()
-    }
-    pub(super) fn get(&self, declaration: &u32) -> Option<&super::Value> {
-        let slot = usize::try_from(*declaration).ok()?;
-        self.0.get(&(crate::memory::MemoryLocation::Global, slot))
+        self.declarations.len()
     }
     pub(super) fn contains_key(&self, declaration: &u32) -> bool {
-        self.get(declaration).is_some()
+        self.declarations.binary_search(declaration).is_ok()
     }
-    pub(super) fn insert(
-        &mut self,
-        declaration: u32,
-        value: super::Value,
-    ) -> Result<(), super::RuntimeError> {
-        let slot =
-            usize::try_from(declaration).map_err(|_| super::RuntimeError::InvalidExecutionState)?;
-        self.0
-            .insert((crate::memory::MemoryLocation::Global, slot), value)?;
+    pub(super) fn insert(&mut self, declaration: u32) -> Result<(), super::RuntimeError> {
+        let Err(at) = self.declarations.binary_search(&declaration) else {
+            return Ok(());
+        };
+        if self.declarations.len() == self.charged_capacity {
+            self.charged_capacity = self.next_capacity()?;
+        }
+        self.declarations
+            .try_reserve(1)
+            .map_err(|_| RuntimeError::Overflow)?;
+        self.declarations.insert(at, declaration);
         Ok(())
     }
+    /// The allocation and the work the insertion of `declaration` charges: those of the table of
+    /// values it replaces, a sorted list that grows on demand to twice its capacity, at least 4.
     pub(super) fn growth_charge(&self, declaration: u32) -> Result<(usize, usize), RuntimeError> {
-        let slot = usize::try_from(declaration).map_err(|_| RuntimeError::InvalidExecutionState)?;
-        self.0
-            .insertion_demand(&(crate::memory::MemoryLocation::Global, slot))
+        let at = match self.declarations.binary_search(&declaration) {
+            Ok(_) => return Ok((0, 0)),
+            Err(at) => at,
+        };
+        let len = self.declarations.len();
+        let shifts = len - at;
+        if len < self.charged_capacity {
+            return Ok((0, shifts));
+        }
+        let bytes = self
+            .next_capacity()?
+            .checked_mul(core::mem::size_of::<(
+                (crate::memory::MemoryLocation, usize),
+                super::Value,
+            )>())
+            .ok_or(RuntimeError::Overflow)?;
+        let work = len.checked_add(shifts).ok_or(RuntimeError::Overflow)?;
+        Ok((bytes, work))
+    }
+    fn next_capacity(&self) -> Result<usize, RuntimeError> {
+        self.charged_capacity
+            .checked_mul(2)
+            .map(|capacity| capacity.max(4))
+            .ok_or(RuntimeError::Overflow)
     }
     /// Keep the former conservative two-tree charge and add the wider key's cost.
     pub(super) fn insertion_charge() -> usize {
@@ -466,24 +494,32 @@ mod tests {
     }
     #[test]
     fn retained_values_use_ordered_global_keys_without_narrowing_journal_domains() {
+        // Spec 34 TIME-08 (C1-14a): the retained-global set keeps declaration indices in order,
+        // the widest included, and charges its growth as the table of values it replaces charged
+        // it: the first entry 4 entries of `((MemoryLocation, usize), Value)`, the fifth 8, and the
+        // entries between them nothing. Catches a set charged by its own 4-byte entries and one
+        // that charges every insertion.
         use super::super::Value;
         use crate::memory::{IoArea, MemoryLocation};
+        let entry = core::mem::size_of::<((MemoryLocation, usize), Value)>();
         let mut retained = RetainedGlobals::default();
+        assert_eq!(retained.growth_charge(u32::MAX).unwrap(), (4 * entry, 0));
         for id in [u32::MAX, 1, 0] {
-            retained.insert(id, Value::UDInt(id)).unwrap();
+            retained.insert(id).unwrap();
         }
-        assert_eq!(
-            retained.0.keys().copied().collect::<Vec<_>>(),
-            vec![
-                (MemoryLocation::Global, 0),
-                (MemoryLocation::Global, 1),
-                (MemoryLocation::Global, u32::MAX as usize),
-            ]
-        );
-        retained.insert(1, Value::Int(7)).unwrap();
-        assert_eq!(retained.get(&1), Some(&Value::Int(7)));
-        assert_eq!(retained.len(), 3);
-        assert!(!retained.contains_key(&2));
+        assert_eq!(retained.declarations, vec![0, 1, u32::MAX]);
+        // A fourth entry still fits the charged capacity: only the shift of the larger one.
+        assert_eq!(retained.growth_charge(2).unwrap(), (0, 1));
+        retained.insert(2).unwrap();
+        // The fifth doubles the capacity to 8, and its work is the four entries moved and the one
+        // it shifts.
+        assert_eq!(retained.growth_charge(3).unwrap(), (8 * entry, 5));
+        // A declaration already there charges nothing and is kept once.
+        assert_eq!(retained.growth_charge(1).unwrap(), (0, 0));
+        retained.insert(1).unwrap();
+        assert_eq!(retained.len(), 4);
+        assert!(retained.contains_key(&2));
+        assert!(!retained.contains_key(&3));
         assert!(RetainedGlobals::insertion_charge() >= 8 * core::mem::size_of::<(u32, Value)>());
         let locations = [
             MemoryLocation::Global,

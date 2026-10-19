@@ -107,13 +107,13 @@ impl EngineState<'_> {
                 &mut self.data.store,
                 self.prepared,
             );
-            if !StoreMutate::set_global(&mut routed, name, value.clone()) {
+            if !StoreMutate::set_global(&mut routed, name, value) {
                 return Err(RuntimeError::InvalidExecutionState);
             }
             self.data
                 .construction
                 .retained_globals
-                .insert(declaration_index, value)?;
+                .insert(declaration_index)?;
             prepared_marker.publish();
         }
         Ok(())
