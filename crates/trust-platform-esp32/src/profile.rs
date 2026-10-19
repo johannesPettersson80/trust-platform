@@ -6,7 +6,6 @@ use trust_runtime_core::deployment::{
     Capabilities, DeviceDescriptor, NumericContract, RequestedLimits, SchedulingProfile,
     TimingEvidence,
 };
-use trust_runtime_services::link::DEVICE_FRAME_LEN;
 use trust_runtime_services::transfer::TransferSession;
 
 /// CPU clock from `CpuClock::max()` on ESP32-C6 (160 MHz); the PCCR rate matches it.
@@ -112,17 +111,27 @@ pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
     application_slot_bytes: Some(SLOT_BYTES as u64),
 };
 
+/// The capacity of the C6's heap, in bytes: its two regions, the 72 KiB main heap and the 64 KiB of
+/// the boot loader's reclaimed RAM (`HEAP_BYTES` and `RECLAIMED_BYTES` of the firmware's
+/// `memory.rs`; specification 34, Appendix D.2). It is the reply capacity of the transfer session: a
+/// chip holds a reply as far as its heap reaches (PORT-05). The host test
+/// `the_c6_session_holds_replies_up_to_its_heap` keeps it equal to the two figures of `memory.rs`.
+pub const HEAP_CAPACITY_BYTES: usize = (72 + 64) * 1024;
+
 /// The transfer session of boot number `boot` (specification 34, PORT-05). A transfer id carries the
 /// boot number in its high 32 bits, so an id of an earlier boot never names a transfer of this one. The
 /// boot number is the chip's boot counter, which it keeps in its flash (`boot_counter.rs`): it rises
 /// by one at every boot, whatever its cause, power-on included, so an id never repeats across boots.
 ///
-/// An upload takes at most one program slot, since a larger container can never be installed, and a
-/// reply is held to the frame the link moves, so a reply longer than a frame is refused as it is
-/// without a session (PORT-05).
+/// An upload takes at most one program slot, since a larger container can never be installed. A reply
+/// is held up to the capacity of the heap, [`HEAP_CAPACITY_BYTES`], as a computer holds one: a chip
+/// answers a reply longer than its 8,192-byte frame with a head and the client reads it with
+/// `transfer.get` (PORT-05). The reply is written in parts of 4,096 bytes that the heap gives as the
+/// writing reaches them, and they are freed when the reply is read, aborted or replaced
+/// (Appendix D.2, long replies).
 #[must_use]
 pub fn transfer_session(boot: u32) -> TransferSession {
-    TransferSession::new(boot, SLOT_BYTES as usize, DEVICE_FRAME_LEN)
+    TransferSession::new(boot, SLOT_BYTES as usize, HEAP_CAPACITY_BYTES)
 }
 
 /// BOOT button GPIO: a strapping pin that is read only after boot, active low.

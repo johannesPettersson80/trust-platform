@@ -1,13 +1,14 @@
 //! The event reads `events.tail`, `events` and `faults` (specification 11, §6.8.1), answered
-//! whole, as trust-runtime answers them, or written event by event within a link's frame
-//! (specification 34, PORT-05), so that a chip never builds a reply longer than its frame.
+//! whole, as trust-runtime answers them, or written event by event into a reply written in parts
+//! (specification 34, PORT-05), so that a chip never builds a reply longer than its session holds
+//! and never takes a block of its heap longer than a part.
 
 use alloc::vec::Vec;
 
 use super::params::{invalid_params, parse_bounded_limit, unavailable};
 use crate::events::{newest_selected, runtime_event_to_json, EventSelection, RuntimeEvent};
 use crate::ports::RecordsPort;
-use crate::protocol::{BoundedReply, ControlResponse};
+use crate::protocol::{ControlResponse, ReplyWriter};
 
 /// A read of the event store.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -77,9 +78,9 @@ pub(super) fn answer_event_read<H: RecordsPort>(
 }
 
 /// The read written into `reply` as the result of its successful response, event by event: the
-/// text that [`answer_event_read`]'s result serializes to, as far as the reply's bound reaches.
-/// Writing stops at the first event that does not fit, so no reply longer than the bound is
-/// built.
+/// text that [`answer_event_read`]'s result serializes to, as far as the reply's bound and the heap
+/// reach. Writing stops at the first event that is refused, so no reply longer than the bound is
+/// built and no part is taken for an event that cannot be written.
 ///
 /// # Errors
 ///
@@ -90,7 +91,7 @@ pub(crate) fn write_event_read<H: RecordsPort>(
     id: u64,
     params: Option<&serde_json::Value>,
     host: &H,
-    reply: &mut BoundedReply,
+    reply: &mut ReplyWriter,
 ) -> Result<(), ControlResponse> {
     let limit = parse_limit(params).map_err(|error| invalid_params(id, error))?;
     host.read_events(|store| {
@@ -103,23 +104,23 @@ pub(crate) fn write_event_read<H: RecordsPort>(
     .ok_or_else(|| unavailable(id, "event store"))
 }
 
-/// Writes `{"<member>":[<event>,...]}`, one event at a time, until an event does not fit.
+/// Writes `{"<member>":[<event>,...]}`, one event at a time, until an event is refused.
 fn write_events<'a>(
     member: &str,
     events: impl Iterator<Item = &'a RuntimeEvent>,
-    reply: &mut BoundedReply,
+    reply: &mut ReplyWriter,
 ) {
     reply.push("{\"");
     reply.push(member);
     reply.push("\":[");
     for (index, event) in events.enumerate() {
+        if reply.refused() {
+            return;
+        }
         if index > 0 {
             reply.push(",");
         }
         reply.push_json(&runtime_event_to_json(event.clone()));
-        if reply.overflowed() {
-            return;
-        }
     }
     reply.push("]}");
 }

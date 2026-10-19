@@ -2534,59 +2534,59 @@
       },
       {
         "path": "crates/trust-runtime/tests/device_link_heap.rs",
-        "line": 75,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime/tests/device_link_heap.rs",
-        "line": 76,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime/tests/device_link_heap.rs",
-        "line": 79,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime/tests/device_link_heap.rs",
-        "line": 82,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime/tests/device_link_heap.rs",
-        "line": 85,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime/tests/device_link_heap.rs",
-        "line": 88,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime/tests/device_link_heap.rs",
         "line": 91,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
         "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
-        "review_date": "2026-10-17"
+        "review_date": "2026-10-19"
+      },
+      {
+        "path": "crates/trust-runtime/tests/device_link_heap.rs",
+        "line": 92,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
+        "review_date": "2026-10-19"
+      },
+      {
+        "path": "crates/trust-runtime/tests/device_link_heap.rs",
+        "line": 96,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
+        "review_date": "2026-10-19"
+      },
+      {
+        "path": "crates/trust-runtime/tests/device_link_heap.rs",
+        "line": 99,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
+        "review_date": "2026-10-19"
+      },
+      {
+        "path": "crates/trust-runtime/tests/device_link_heap.rs",
+        "line": 102,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
+        "review_date": "2026-10-19"
+      },
+      {
+        "path": "crates/trust-runtime/tests/device_link_heap.rs",
+        "line": 105,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
+        "review_date": "2026-10-19"
+      },
+      {
+        "path": "crates/trust-runtime/tests/device_link_heap.rs",
+        "line": 109,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
+        "review_date": "2026-10-19"
       },
       {
         "path": "crates/trust-runtime/tests/allocation_lifecycle.rs",

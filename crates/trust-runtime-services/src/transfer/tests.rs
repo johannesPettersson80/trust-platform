@@ -5,6 +5,7 @@
 //! section 3. The base64 is checked against the crate the session decodes with, and against the
 //! vectors of RFC 4648.
 
+use alloc::borrow::Cow;
 use alloc::collections::TryReserveError;
 use alloc::string::{String, ToString};
 use alloc::vec;
@@ -23,20 +24,22 @@ const DIGEST_EMPTY: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495
 /// SHA-256 of `pattern(5000)`.
 const DIGEST_5000: &str = "69dbee893909fa17d1be397e0c07691336fe42049c29d403467d3d4a1fc3b5a1";
 /// SHA-256 of `pattern(9000)`.
-const DIGEST_9000: &str = "4b81efbd205e7fb4e42bc0d72d9d7413642298735289d35a74c1755883bcc45c";
+pub(super) const DIGEST_9000: &str =
+    "4b81efbd205e7fb4e42bc0d72d9d7413642298735289d35a74c1755883bcc45c";
 /// SHA-256 of `ten_parts()`.
-const DIGEST_TEN_PARTS: &str = "33682e67392cf2b0488346bdd1734e9c6193de69d1b5a0667c3f22205f56ddec";
+pub(super) const DIGEST_TEN_PARTS: &str =
+    "33682e67392cf2b0488346bdd1734e9c6193de69d1b5a0667c3f22205f56ddec";
 
 /// CRC-32 of `pattern(4096)`, which is also the first part of `pattern(5000)`.
-const CRC_PART_0: u32 = 0xd465_f907;
+pub(super) const CRC_PART_0: u32 = 0xd465_f907;
 /// CRC-32 of `pattern(5000)[4096..]`, the 904-byte last part of a 5,000-byte upload.
 const CRC_5000_LAST: u32 = 0x6508_4d9b;
 /// CRC-32 of `pattern(5000)[..4000]`.
 const CRC_4000: u32 = 0xe0e4_d2de;
 /// CRC-32 of `pattern(9000)[4096..8192]`.
-const CRC_9000_MIDDLE: u32 = 0x891e_3520;
+pub(super) const CRC_9000_MIDDLE: u32 = 0x891e_3520;
 /// CRC-32 of `pattern(9000)[8192..]`, the 808-byte last part of a 9,000-byte reply.
-const CRC_9000_LAST: u32 = 0xd588_1d0a;
+pub(super) const CRC_9000_LAST: u32 = 0xd588_1d0a;
 /// CRC-32 of `pattern(808)`, the last part of `ten_parts()`.
 const CRC_TAIL_808: u32 = 0x6693_c423;
 /// CRC-32 of 4,096 bytes of `0xee`.
@@ -49,14 +52,14 @@ const CRC_ABCD: u32 = 0xed82_cd11;
 const CRC_ABD: u32 = 0xab40_d461;
 
 /// The payload `0, 1, ..., 250, 0, 1, ...` of `len` bytes.
-fn pattern(len: usize) -> Vec<u8> {
+pub(super) fn pattern(len: usize) -> Vec<u8> {
     (0..len)
         .map(|index| u8::try_from(index % 251).expect("below 251"))
         .collect()
 }
 
 /// Nine full parts of `pattern(4096)`, then `pattern(808)`: ten parts in all, the last one short.
-fn ten_parts() -> Vec<u8> {
+pub(super) fn ten_parts() -> Vec<u8> {
     let mut payload = Vec::new();
     for _ in 0..9 {
         payload.extend(pattern(4_096));
@@ -66,7 +69,7 @@ fn ten_parts() -> Vec<u8> {
 }
 
 /// The 32 bytes that the 64 hexadecimal digits of `text` spell.
-fn digest(text: &str) -> [u8; 32] {
+pub(super) fn digest(text: &str) -> [u8; 32] {
     let mut bytes = [0_u8; 32];
     for (byte, pair) in bytes.iter_mut().zip(text.as_bytes().chunks(2)) {
         let pair = core::str::from_utf8(pair).expect("hexadecimal digits are ASCII");
@@ -352,110 +355,6 @@ fn abort_frees_the_buffers_and_its_id() {
         .begin(5000, digest(DIGEST_5000))
         .expect("the next upload opens");
     assert_eq!(second.to_string(), "0000000100000002");
-}
-
-#[test]
-fn a_reply_above_the_frame_is_fetched_in_parts_with_its_sha256() {
-    // Spec 34 PORT-05 and design section 3: a reply of 9,000 bytes is longer than the 8,192-byte
-    // frame. It is held whole, its head names its length and SHA-256, and get reads it in parts
-    // of 4,096 bytes, the last one 808 bytes long. Catches a reply cut to the frame, or a head
-    // whose digest belongs to other bytes.
-    let reply = pattern(9_000);
-    let mut session = TransferSession::new(1, 10_000, 16_384);
-    let head = session
-        .hold_reply(reply.clone())
-        .expect("a 9,000-byte reply fits a 16,384-byte buffer");
-    assert_eq!(
-        wire::reply_head(&head),
-        json!({
-            "reply_transfer": "0000000100000001",
-            "bytes": 9000,
-            "sha256": DIGEST_9000,
-            "part_bytes": 4096
-        })
-    );
-    let first = session
-        .get(head.transfer, 0, 4_096)
-        .expect("the first part reads");
-    assert_eq!(first.offset, 0);
-    assert_eq!(first.data, &reply[..4_096]);
-    assert_eq!(first.crc32, CRC_PART_0);
-    let middle = session
-        .get(head.transfer, 4_096, 4_096)
-        .expect("the middle part reads");
-    assert_eq!(middle.data, &reply[4_096..8_192]);
-    assert_eq!(middle.crc32, CRC_9000_MIDDLE);
-    let last = session
-        .get(head.transfer, 8_192, 4_096)
-        .expect("the last part reads");
-    assert_eq!(last.data.len(), 808);
-    assert_eq!(last.data, &reply[8_192..]);
-    assert_eq!(last.crc32, CRC_9000_LAST);
-}
-
-#[test]
-fn a_reply_above_the_buffer_is_refused_not_cut() {
-    // Spec 34 PORT-05: a reply above the buffer's capacity is refused with its limit, never cut,
-    // and the reply held before stays as it was. Catches a reply truncated to the capacity and
-    // held, or a refusal that drops the held reply.
-    let mut session = TransferSession::new(1, 10_000, 100);
-    let held = session
-        .hold_reply(b"0123456789".to_vec())
-        .expect("a 10-byte reply is held");
-    assert_eq!(
-        session.hold_reply(vec![b'x'; 101]),
-        Err(TransferError::ReplyTooLong { capacity: 100 })
-    );
-    assert_eq!(
-        TransferError::ReplyTooLong { capacity: 100 }.to_string(),
-        "reply longer than 100 bytes"
-    );
-    let read = session
-        .get(held.transfer, 0, 4_096)
-        .expect("the held reply still reads");
-    assert_eq!(read.data, b"0123456789");
-}
-
-#[test]
-fn a_reply_of_exactly_the_buffer_capacity_is_held_whole() {
-    // Spec 34 PORT-05: the capacity itself is accepted. Catches a limit off by one.
-    let mut session = TransferSession::new(1, 10_000, 100);
-    let head = session
-        .hold_reply(vec![b'x'; 100])
-        .expect("a reply of exactly the capacity is held");
-    assert_eq!(head.bytes, 100);
-    let read = session
-        .get(head.transfer, 0, 4_096)
-        .expect("the held reply reads");
-    assert_eq!(read.data.len(), 100);
-}
-
-#[test]
-fn get_refuses_a_length_above_a_part_and_an_offset_past_the_reply() {
-    // Spec 34 PORT-05: len is at most 4,096, and the reply ends at its length. Catches a longer
-    // part served, or a read past the end treated as data.
-    let mut session = TransferSession::new(1, 10_000, 16_384);
-    let head = session
-        .hold_reply(pattern(9_000))
-        .expect("a 9,000-byte reply is held");
-    assert_eq!(
-        session.get(head.transfer, 0, 4_097),
-        Err(TransferError::GetLength { len: 4_097 })
-    );
-    assert_eq!(
-        session.get(head.transfer, 9_001, 1),
-        Err(TransferError::GetOffset {
-            offset: 9_001,
-            bytes: 9_000
-        })
-    );
-    // At the very end there is nothing left to read: an empty part, not an error.
-    let end = session
-        .get(head.transfer, 9_000, 4_096)
-        .expect("the end of the reply is a valid offset");
-    assert_eq!(end.offset, 9_000);
-    let nothing: &[u8] = &[];
-    assert_eq!(end.data, nothing);
 }
 
 #[test]
@@ -828,7 +727,7 @@ fn a_get_reply_carries_its_offset_base64_and_crc32() {
     // hexadecimal digits. The base64 of "abc" is "YWJj". Catches a CRC written as a number.
     let part = ReplyPart {
         offset: 0,
-        data: b"abc",
+        data: Cow::Borrowed(&b"abc"[..]),
         crc32: CRC_ABC,
     };
     assert_eq!(

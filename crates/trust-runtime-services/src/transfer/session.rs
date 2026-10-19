@@ -1,8 +1,9 @@
 //! The transfers of one boot (specification 34, PORT-05): one open upload, staged in RAM in parts
-//! until its last byte arrives, and one held reply, kept whole and read back in parts. An upload
-//! reserves both of its buffers at begin, so a part allocates nothing. The rules here hold on every
-//! runtime; their JSON shapes are in [`crate::transfer::wire`].
+//! until its last byte arrives, and one held reply, kept in the parts it was written in and read
+//! back in ranges. An upload reserves both of its buffers at begin, so a part allocates nothing. The
+//! rules here hold on every runtime; their JSON shapes are in [`crate::transfer::wire`].
 
+use alloc::borrow::Cow;
 use alloc::collections::TryReserveError;
 use alloc::vec::Vec;
 use core::fmt;
@@ -13,6 +14,7 @@ use trust_runtime_core::crc32;
 use trust_runtime_core::deployment::sha256;
 
 use super::ids::{IdSequence, TransferId};
+use super::reply_parts::{reserve_part, PartReserve, ReplyParts};
 
 /// The length of every part of an upload but the last, and the longest part a held reply is read
 /// in (specification 34, PORT-05).
@@ -39,6 +41,13 @@ pub enum TransferError {
     ReplyTooLong {
         /// The reply buffer's capacity.
         capacity: usize,
+    },
+    /// The heap had no room for the next part of a reply: `no room for a reply longer than
+    /// <written> bytes`. The reply is refused whole, never cut and never an abort, and the parts
+    /// already written are freed.
+    NoRoomForReply {
+        /// The bytes of the reply written when the heap had no room.
+        written: usize,
     },
     /// This boot has no sequence number left: `transfer ids are used up until the next boot`.
     IdsUsedUp,
@@ -127,6 +136,9 @@ impl fmt::Display for TransferError {
             Self::ReplyTooLong { capacity } => {
                 write!(formatter, "reply longer than {capacity} bytes")
             }
+            Self::NoRoomForReply { written } => {
+                write!(formatter, "no room for a reply longer than {written} bytes")
+            }
             Self::IdsUsedUp => formatter.write_str("transfer ids are used up until the next boot"),
             Self::NoRoom { bytes } => {
                 write!(formatter, "no room for a transfer of {bytes} bytes")
@@ -214,15 +226,29 @@ pub struct ReplyHead {
     pub sha256: [u8; 32],
 }
 
-/// One part of a held reply.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// One range of a held reply, as `transfer.get` answers it.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReplyPart<'a> {
     /// The offset of the first byte of `data` in the reply.
     pub offset: usize,
-    /// The bytes from `offset`: at most [`PART_BYTES`], fewer at the end of the reply.
-    pub data: &'a [u8],
+    /// The bytes from `offset`: at most [`PART_BYTES`], fewer at the end of the reply. Borrowed from
+    /// the held reply when the range lies in one of its parts, and copied when the range crosses two
+    /// parts or reaches the last byte of the reply, which the get then frees.
+    pub data: Cow<'a, [u8]>,
     /// The CRC-32 of `data`.
     pub crc32: u32,
+}
+
+impl<'a> ReplyPart<'a> {
+    /// The range of `data` that starts at `offset`, with its CRC-32.
+    fn of(offset: usize, data: Cow<'a, [u8]>) -> Self {
+        let crc32 = crc32::checksum(&data);
+        Self {
+            offset,
+            data,
+            crc32,
+        }
+    }
 }
 
 /// Reserves a zeroed buffer of the given length, or refuses when the heap cannot hold it. The
@@ -246,6 +272,7 @@ pub struct TransferSession {
     max_bytes: usize,
     reply_capacity: usize,
     reserve: Reserve,
+    part_reserve: PartReserve,
     upload: Option<Upload>,
     reply: Option<HeldReply>,
 }
@@ -272,11 +299,11 @@ impl Upload {
     }
 }
 
-/// A reply above the frame, kept whole until it is read.
+/// A reply above the frame, kept in the parts it was written in until it is read.
 #[derive(Debug)]
 struct HeldReply {
     id: TransferId,
-    bytes: Vec<u8>,
+    parts: ReplyParts,
 }
 
 impl TransferSession {
@@ -301,9 +328,20 @@ impl TransferSession {
             max_bytes,
             reply_capacity,
             reserve,
+            part_reserve: reserve_part,
             upload: None,
             reply: None,
         }
+    }
+
+    /// As `self`, with each part of a reply taken by `reserve`. A test passes a function that
+    /// refuses after some number of parts, to see that a reply the heap has no room for is refused
+    /// rather than aborted.
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) fn with_part_reserve(mut self, reserve: PartReserve) -> Self {
+        self.part_reserve = reserve;
+        self
     }
 
     /// Opens an upload of `bytes` bytes whose SHA-256 is `digest`, and returns its id.
@@ -473,24 +511,34 @@ impl TransferSession {
     }
 
     /// The capacity of the reply buffer: the longest reply the session holds (specification 34,
-    /// PORT-05).
+    /// PORT-05). A computer's is 64 MiB, and a chip's is the capacity of its heap.
     #[must_use]
-    pub(crate) const fn reply_capacity(&self) -> usize {
+    pub const fn reply_capacity(&self) -> usize {
         self.reply_capacity
     }
 
-    /// Holds `reply`, a reply longer than the frame, whole under a new id, and returns its head.
-    /// It replaces the reply held before, which its id then no longer names.
+    /// How the session takes each part of a reply from the heap. The writer of a reply for this
+    /// session takes its parts the same way, so that a reply the session holds was taken from the
+    /// heap as the session's platform decides.
+    #[must_use]
+    pub(crate) const fn part_reserve(&self) -> PartReserve {
+        self.part_reserve
+    }
+
+    /// Holds `reply`, a reply longer than the frame, in the parts it was written in under a new id,
+    /// and returns its head. It replaces the reply held before, which its id then no longer names.
     ///
-    /// The session reserves nothing for a reply: `reply` is the caller's buffer, moved in. The
-    /// reply's text is allocated by its encoder, as every control reply's is, and never by the
-    /// upload's buffers.
+    /// The session reserves nothing for a reply: the parts are the writer's, moved in, and the
+    /// SHA-256 of the head is worked out over them without joining them. They are freed when the
+    /// reply is read to its last byte, aborted or replaced, and when the session is dropped at a
+    /// reset (specification 34, PORT-05).
     ///
     /// # Errors
     ///
     /// [`TransferError::ReplyTooLong`] when `reply` is longer than the reply buffer, which changes
-    /// nothing, and [`TransferError::IdsUsedUp`] when the boot has no ids left.
-    pub fn hold_reply(&mut self, reply: Vec<u8>) -> Result<ReplyHead, TransferError> {
+    /// nothing, and [`TransferError::IdsUsedUp`] when the boot has no ids left. The held reply
+    /// stays in both, and `reply` is dropped.
+    pub fn hold_reply(&mut self, reply: ReplyParts) -> Result<ReplyHead, TransferError> {
         if reply.len() > self.reply_capacity {
             return Err(TransferError::ReplyTooLong {
                 capacity: self.reply_capacity,
@@ -500,17 +548,23 @@ impl TransferSession {
         let head = ReplyHead {
             transfer,
             bytes: reply.len(),
-            sha256: sha256(&reply),
+            sha256: reply.sha256(),
         };
         self.reply = Some(HeldReply {
             id: transfer,
-            bytes: reply,
+            parts: reply,
         });
         Ok(head)
     }
 
     /// Reads up to `len` bytes of the held reply `id` from `offset`, with their CRC-32. The data
-    /// ends at the end of the reply, so the last part may be shorter.
+    /// ends at the end of the reply, so the last range may be shorter, and a range across two parts
+    /// of the reply is read like any other.
+    ///
+    /// A get that reads the last byte of the reply frees the reply: its data is copied out first, so
+    /// the answer is whole, and then every part is freed, and a later use of the id is
+    /// [`TransferError::Unknown`]. A get at the end of the reply, which reads no byte, and a get
+    /// before it leave the reply held, so a part can be read again (specification 34, PORT-05).
     ///
     /// # Errors
     ///
@@ -518,11 +572,28 @@ impl TransferSession {
     /// when `len` is above [`PART_BYTES`], and [`TransferError::GetOffset`] when `offset` is past
     /// the end of the reply.
     pub fn get(
-        &self,
+        &mut self,
         id: TransferId,
         offset: u64,
         len: u64,
     ) -> Result<ReplyPart<'_>, TransferError> {
+        let (start, end, last) = self.locate(id, offset, len)?;
+        if last {
+            let held = self.reply.take().ok_or(TransferError::Unknown)?;
+            let data = held.parts.range(start, end).into_owned();
+            return Ok(ReplyPart::of(start, Cow::Owned(data)));
+        }
+        let held = self.reply.as_ref().ok_or(TransferError::Unknown)?;
+        Ok(ReplyPart::of(start, held.parts.range(start, end)))
+    }
+
+    /// The range `get` reads, as its start and end and whether it reads the last byte of the reply.
+    fn locate(
+        &self,
+        id: TransferId,
+        offset: u64,
+        len: u64,
+    ) -> Result<(usize, usize, bool), TransferError> {
         let Some(held) = self.reply.as_ref().filter(|held| held.id == id) else {
             return Err(TransferError::Unknown);
         };
@@ -530,7 +601,7 @@ impl TransferSession {
             .ok()
             .filter(|wanted| *wanted <= PART_BYTES)
             .ok_or(TransferError::GetLength { len })?;
-        let total = held.bytes.len();
+        let total = held.parts.len();
         let start = usize::try_from(offset)
             .ok()
             .filter(|start| *start <= total)
@@ -539,12 +610,7 @@ impl TransferSession {
                 bytes: total,
             })?;
         let end = start.saturating_add(wanted).min(total);
-        let data = &held.bytes[start..end];
-        Ok(ReplyPart {
-            offset: start,
-            data,
-            crc32: crc32::checksum(data),
-        })
+        Ok((start, end, end == total && end > start))
     }
 
     fn open_upload_mut(&mut self, id: TransferId) -> Result<&mut Upload, TransferError> {

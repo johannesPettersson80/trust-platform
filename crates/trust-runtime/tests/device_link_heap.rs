@@ -1,19 +1,23 @@
 #![cfg(feature = "full")]
 //! Spec 34 PORT-05 and ARCH-05: the heap that a chip's control link uses. Its line link moves
-//! requests and replies in its fixed storage and allocates nothing. On its 8,192-byte frames,
-//! `events.tail` and `faults` with `limit = 1000` over a full event store are written event by
-//! event into one buffer of the frame's size and refused at its end, under 16 KiB of heap; the
-//! unbounded pipeline, as trust-runtime answers them, builds the whole reply, measured too.
+//! requests and replies in its fixed storage and allocates nothing. On a chip without a transfer
+//! session, `events.tail` and `faults` with `limit = 1000` over a full event store are written
+//! event by event into parts of 4,096 bytes and refused at the frame, 8,192 bytes, under 16 KiB of
+//! heap; the unbounded pipeline, as trust-runtime answers them, builds the whole reply, measured
+//! too. On a chip with the ESP32-C6's session, a read of 200 events, its store's maximum, is held
+//! in parts and never takes a block of the heap longer than a part, and a short read takes one part
+//! and nothing ahead of its text (Appendix D.2, long replies).
 //!
 //! The tests live here rather than in `trust-runtime-services`, which forbids the global
 //! allocator's `GlobalAlloc` implementation. A counting global allocator records the bytes live
-//! on this thread while it is armed, and the most that were live at once. A reallocation counts
-//! its new block before the old one is released, as a moving reallocation holds both.
+//! on this thread while it is armed, the most that were live at once, and the longest single block
+//! taken. A reallocation counts its new block before the old one is released, as a moving
+//! reallocation holds both.
 //!
 //! Run with `-- --nocapture` to see the peaks.
 
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 
 use smol_str::SmolStr;
@@ -37,17 +41,19 @@ use trust_runtime_services::live_values::RequestQueueFull;
 use trust_runtime_services::metrics::RuntimeMetricsSnapshot;
 use trust_runtime_services::ports::{
     AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl, RecordsPort,
-    ResourcePort, StatusPort,
+    ResourcePort, StatusPort, TransferSessionError,
 };
 use trust_runtime_services::protocol::{ControlRequest, ControlResponse};
 use trust_runtime_services::resource::commands::CommandSendError;
 use trust_runtime_services::runner::EngineLiveValues;
 use trust_runtime_services::status::{IoDriverStatus, StatusSettings};
+use trust_runtime_services::transfer::{TransferSession, PART_BYTES};
 
 thread_local! {
     static ARMED: Cell<bool> = const { Cell::new(false) };
     static LIVE: Cell<i64> = const { Cell::new(0) };
     static PEAK: Cell<i64> = const { Cell::new(0) };
+    static LARGEST: Cell<usize> = const { Cell::new(0) };
 }
 
 /// Adds `change` to the bytes live on this thread while it is armed. Only const-initialized
@@ -64,6 +70,16 @@ fn record(change: i64) {
     });
 }
 
+/// Notes a block of `size` bytes taken while armed, if it is the longest so far. Only
+/// const-initialized `Cell`s are touched, as in `record`.
+fn note_block(size: usize) {
+    let _ = ARMED.try_with(|armed| {
+        if armed.get() {
+            let _ = LARGEST.try_with(|largest| largest.set(largest.get().max(size)));
+        }
+    });
+}
+
 fn bytes(size: usize) -> i64 {
     i64::try_from(size).unwrap_or(i64::MAX)
 }
@@ -74,6 +90,7 @@ struct CountingAllocator;
 // `System`; the counting touches only const-initialized thread-local `Cell`s.
 unsafe impl GlobalAlloc for CountingAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        note_block(layout.size());
         record(bytes(layout.size()));
         // SAFETY: the caller supplies a valid allocation layout.
         unsafe { System.alloc(layout) }
@@ -86,6 +103,7 @@ unsafe impl GlobalAlloc for CountingAllocator {
     }
 
     unsafe fn realloc(&self, pointer: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
+        note_block(new_size);
         record(bytes(new_size));
         // SAFETY: `System` returned `pointer` for `layout`; `new_size` is the caller's new size.
         let moved = unsafe { System.realloc(pointer, layout, new_size) };
@@ -97,15 +115,34 @@ unsafe impl GlobalAlloc for CountingAllocator {
 #[global_allocator]
 static ALLOCATOR: CountingAllocator = CountingAllocator;
 
-/// What `work` returned, and the most heap bytes live at once on this thread while it ran, above
-/// those live before it.
-fn heap_peak<T>(work: impl FnOnce() -> T) -> (T, i64) {
+/// What the heap did while a piece of work ran on this thread.
+struct HeapUse {
+    /// The most heap bytes live at once, above those live before the work.
+    peak: i64,
+    /// The length of the longest single block the work took, in bytes.
+    largest_block: usize,
+}
+
+/// What `work` returned, and what it did to the heap on this thread.
+fn heap_use<T>(work: impl FnOnce() -> T) -> (T, HeapUse) {
     LIVE.with(|live| live.set(0));
     PEAK.with(|peak| peak.set(0));
+    LARGEST.with(|largest| largest.set(0));
     ARMED.with(|armed| armed.set(true));
     let output = work();
     ARMED.with(|armed| armed.set(false));
-    (output, PEAK.with(Cell::get))
+    let used = HeapUse {
+        peak: PEAK.with(Cell::get),
+        largest_block: LARGEST.with(Cell::get),
+    };
+    (output, used)
+}
+
+/// What `work` returned, and the most heap bytes live at once on this thread while it ran, above
+/// those live before it.
+fn heap_peak<T>(work: impl FnOnce() -> T) -> (T, i64) {
+    let (output, used) = heap_use(work);
+    (output, used.peak)
 }
 
 /// A runtime whose event store is full; nothing else of it is read by the event reads.
@@ -114,6 +151,8 @@ struct FullStore {
     /// The Live Values the control pipeline answers `io.*` and `var.*` from; the event reads
     /// never touch them.
     live: EngineLiveValues,
+    /// The transfer session of a chip that holds long replies; `None` for a platform without one.
+    transfers: Option<RefCell<TransferSession>>,
 }
 
 impl AccessPort for FullStore {
@@ -241,6 +280,19 @@ impl RecordsPort for FullStore {
     fn read_events<R>(&self, read: impl FnOnce(&VecDeque<RuntimeEvent>) -> R) -> Option<R> {
         Some(read(&self.events))
     }
+
+    fn with_transfers<R>(
+        &self,
+        use_session: impl FnOnce(&mut TransferSession) -> R,
+    ) -> Result<R, TransferSessionError> {
+        let Some(session) = &self.transfers else {
+            return Err(TransferSessionError::Unsupported);
+        };
+        match session.try_borrow_mut() {
+            Ok(mut session) => Ok(use_session(&mut session)),
+            Err(_) => Err(TransferSessionError::Unavailable),
+        }
+    }
 }
 
 impl ExtensionDispatch for FullStore {
@@ -305,10 +357,10 @@ impl VariableQueuePort for FullStore {
     }
 }
 
-/// A full store of the events the runner records for task `MainTask` every 10 ms.
-fn scan_events() -> VecDeque<RuntimeEvent> {
+/// A store of `count` events the runner records for task `MainTask` every 10 ms.
+fn scan_events_of(count: usize) -> VecDeque<RuntimeEvent> {
     let name = SmolStr::new("MainTask");
-    (0..EVENT_STORE_CAPACITY)
+    (0..count)
         .map(|index| {
             let cycle = u64::try_from(index / 4).expect("a small number");
             let time =
@@ -331,9 +383,9 @@ fn scan_events() -> VecDeque<RuntimeEvent> {
         .collect()
 }
 
-/// A full store of faults.
-fn fault_events() -> VecDeque<RuntimeEvent> {
-    (0..EVENT_STORE_CAPACITY)
+/// A store of `count` faults.
+fn fault_events_of(count: usize) -> VecDeque<RuntimeEvent> {
+    (0..count)
         .map(|index| {
             RuntimeEvent::fault(
                 &RuntimeError::SimulationFault(SmolStr::new(format!(
@@ -343,6 +395,16 @@ fn fault_events() -> VecDeque<RuntimeEvent> {
             )
         })
         .collect()
+}
+
+/// A full store of the events the runner records for task `MainTask` every 10 ms.
+fn scan_events() -> VecDeque<RuntimeEvent> {
+    scan_events_of(EVENT_STORE_CAPACITY)
+}
+
+/// A full store of faults.
+fn fault_events() -> VecDeque<RuntimeEvent> {
+    fault_events_of(EVENT_STORE_CAPACITY)
 }
 
 const SIXTEEN_KIB: i64 = 16 * 1024;
@@ -362,6 +424,7 @@ fn a_thousand_events_on_a_chips_frame_are_refused_within_sixteen_kib_of_heap() {
         let host = FullStore {
             events,
             live: EngineLiveValues::empty(),
+            transfers: None,
         };
         let (bounded, bounded_peak) =
             heap_peak(|| prepare_line_within(line, &host, None, DEVICE_FRAME_LEN));
@@ -458,4 +521,106 @@ fn a_chips_line_link_works_in_its_fixed_storage_without_allocating() {
         (10, 10, 10, 10, 10)
     );
     assert_eq!(peak, 0, "the line link allocated {peak} bytes");
+}
+
+/// The ESP32-C6's transfer session (specification 34, Appendix D.2): an upload of one program slot,
+/// 3,056 KiB, and a reply of the capacity of its heap, 72 KiB + 64 KiB = 139,264 bytes.
+fn c6_session() -> RefCell<TransferSession> {
+    RefCell::new(TransferSession::new(1, 3_129_344, 139_264))
+}
+
+#[test]
+fn a_long_reply_takes_no_heap_block_longer_than_a_part() {
+    // Specification 34 PORT-05, reply capacity and parts, and Appendix D.2, long replies: a chip's heap
+    // is first-fit and has no free block of 30 KiB, so a reply is written in parts of 4,096 bytes and
+    // never joined. A chip with the C6's session reads its event store's maximum, 200 events, with
+    // `events.tail` and `faults`. The replies are longer than the 8,192-byte frame, so the session
+    // holds them in parts and the answer is a head. No block that the read takes is longer than 4,096
+    // bytes, and its peak heap is under the reply's length plus 16 KiB: the parts, and the working
+    // memory of a few events. Catches a reply built whole or joined into one block, and a writer that
+    // takes its bound ahead.
+    for (events, line) in [
+        (
+            scan_events_of(200),
+            r#"{"id":1,"type":"events.tail","params":{"limit":200}}"#,
+        ),
+        (
+            fault_events_of(200),
+            r#"{"id":1,"type":"faults","params":{"limit":200}}"#,
+        ),
+    ] {
+        let host = FullStore {
+            events,
+            live: EngineLiveValues::empty(),
+            transfers: Some(c6_session()),
+        };
+        let (held, used) = heap_use(|| prepare_line_within(line, &host, None, DEVICE_FRAME_LEN));
+        let head: serde_json::Value =
+            serde_json::from_str(&held.response).expect("the answer is a JSON head");
+        let reply_len = i64::try_from(
+            head["result"]["bytes"]
+                .as_u64()
+                .expect("the reply's length"),
+        )
+        .expect("a small number");
+        println!(
+            "{line}: a reply of {reply_len} bytes, peak {} bytes, longest block {} bytes",
+            used.peak, used.largest_block
+        );
+        assert!(
+            reply_len > i64::try_from(DEVICE_FRAME_LEN).expect("a small number"),
+            "{line}: the reply is longer than a frame: {reply_len} bytes"
+        );
+        assert!(
+            used.largest_block <= PART_BYTES,
+            "{line}: the read took a block of {} bytes",
+            used.largest_block
+        );
+        assert!(
+            used.peak < reply_len + SIXTEEN_KIB,
+            "{line}: the read peaks at {} bytes of heap for a reply of {reply_len} bytes",
+            used.peak
+        );
+    }
+}
+
+#[test]
+fn an_event_read_reserves_nothing_ahead_of_its_text() {
+    // Specification 34 PORT-05, reply capacity and parts: each part is taken when the writing reaches
+    // it, never reserved ahead. A chip whose session has the computer's reply capacity, 64 MiB, reads
+    // three events, a reply of a few hundred bytes. It takes one part for its text, so no block is
+    // longer than 4,096 bytes and the peak is under two parts, 8,192 bytes. Catches a read that
+    // reserves its whole bound up front, which for 64 MiB is a block of 67,108,864 bytes, and one
+    // that takes a second part before the first is full.
+    let host = FullStore {
+        events: scan_events_of(3),
+        live: EngineLiveValues::empty(),
+        transfers: Some(RefCell::new(TransferSession::new(
+            1,
+            3_129_344,
+            64 * 1024 * 1024,
+        ))),
+    };
+    let line = r#"{"id":1,"type":"events.tail","params":{"limit":3}}"#;
+    let (reply, used) = heap_use(|| prepare_line_within(line, &host, None, DEVICE_FRAME_LEN));
+    println!(
+        "{line}: a reply of {} bytes, peak {} bytes, longest block {} bytes",
+        reply.response.len(),
+        used.peak,
+        used.largest_block
+    );
+    assert!(reply
+        .response
+        .starts_with(r#"{"id":1,"ok":true,"result":{"events":[{"#));
+    assert!(reply.response.len() < PART_BYTES, "a short read");
+    assert!(
+        used.largest_block <= PART_BYTES,
+        "the read took a block of {} bytes",
+        used.largest_block
+    );
+    assert!(
+        used.peak < 2 * i64::try_from(PART_BYTES).expect("a small number"),
+        "the read peaks at {} bytes of heap",
+        used.peak
+    );
 }

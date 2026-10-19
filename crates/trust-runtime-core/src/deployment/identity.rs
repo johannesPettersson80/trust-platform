@@ -15,6 +15,19 @@ pub fn sha256(bytes: &[u8]) -> [u8; 32] {
     Sha256::digest(bytes).into()
 }
 
+/// The SHA-256 of the bytes of `parts` one after the other (FIPS 180-4): the digest of their
+/// concatenation, worked out part by part without joining them. A reply that a chip holds in
+/// parts of 4,096 bytes is hashed this way, because its heap has no block for the whole reply
+/// (specification 34, PORT-05).
+#[must_use]
+pub fn sha256_parts<'a>(parts: impl IntoIterator<Item = &'a [u8]>) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    for part in parts {
+        hasher.update(part);
+    }
+    hasher.finalize().into()
+}
+
 /// The configuration identity: SHA-256 over the project's `runtime.toml` and then its
 /// `io.toml`, each as its file name, a zero byte, and either a byte 1, its length as eight
 /// little-endian bytes and its bytes, or a byte 0 when the project has no such file.

@@ -111,8 +111,9 @@ fn part(id: u64, params: &Value, session: &mut TransferSession) -> Result<Value,
         .map_err(|error| session_refusal(id, &error))
 }
 
-/// `transfer.get {transfer, offset, len}`: reads up to a part of the held reply.
-fn get(id: u64, params: &Value, session: &TransferSession) -> Result<Value, ControlResponse> {
+/// `transfer.get {transfer, offset, len}`: reads up to a part of the held reply, and frees the reply
+/// when the part reaches its last byte (specification 34, PORT-05).
+fn get(id: u64, params: &Value, session: &mut TransferSession) -> Result<Value, ControlResponse> {
     check_number_members(
         id,
         params,

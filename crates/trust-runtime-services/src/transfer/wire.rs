@@ -221,7 +221,7 @@ pub fn reply_head(head: &ReplyHead) -> Value {
 pub fn get_reply(part: &ReplyPart<'_>) -> Value {
     json!({
         "offset": part.offset,
-        "data": STANDARD.encode(part.data),
+        "data": STANDARD.encode(&part.data),
         "crc32": hex_text(&part.crc32.to_be_bytes()),
     })
 }

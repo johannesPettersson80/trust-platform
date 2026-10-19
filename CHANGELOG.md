@@ -17,6 +17,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   `0xA000`), the chip file reader refuses a counter sector that is not one erase unit or that
   overlaps another region, and `partitions.csv` declares them as the data partitions `bootcnt_a`
   and `bootcnt_b`, which the next firmware flash writes to the board.
+- Fixed: the ESP32-C6 holds a reply longer than its 8,192-byte frame, up to the 139,264 bytes of its
+  heap, as a computer does, so `trust-runtime ctl events --limit 200` over USB is no longer refused
+  with `reply longer than 8192 bytes`. A reply the heap has no room for is refused with
+  `no room for a reply longer than <n> bytes`, and never resets the chip.
 - Fixed: on the ESP32-C6 a firmware panic drove every configured output low before the chip
   reset, whatever `[[io.safe_state]]` named. It now drives each output to its safe value, as the
   STM32U5A9 and the stop and fault paths do.
