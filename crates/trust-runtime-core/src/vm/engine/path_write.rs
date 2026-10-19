@@ -63,14 +63,7 @@ impl EngineState<'_> {
             // A structure with a physical layout, or a node of its backing, is charged as its value
             // is, through its physical layout (C1-15).
             view if view.lies_as_backing() => {
-                let value = view.materialize()?;
-                return self.charge_path_write_inner(
-                    storage,
-                    ValueView::Value(&value),
-                    path,
-                    input,
-                    depth,
-                );
+                return self.charge_backing_path_write(storage, view, path, input, depth);
             }
             cells => return self.charge_cell_path_write(storage, cells, path, input, depth),
         };
@@ -232,6 +225,10 @@ fn validate_physical_child(
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
+
+/// The charge of a write into a structure that lies as its backing (C1-15b).
+#[path = "path_write/backing.rs"]
+mod backing;
 
 #[cfg(test)]
 mod tests {

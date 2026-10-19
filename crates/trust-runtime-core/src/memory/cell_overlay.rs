@@ -13,7 +13,18 @@
 use super::cell_charge::CopyCharge;
 use super::*;
 use crate::memory::layout::{OverlayLayout, OverlaySlot};
-use crate::value::overlap::{decode_overlay, overlay_node_type, paths_match, PhysicalLayout};
+use crate::value::overlap::{
+    decode_overlay, overlay_node_type, paths_match, stage_leaf_write, LeafWrite, PhysicalLayout,
+};
+
+/// A write of one scalar leaf of a backing, staged and checked, to be made where the backing lies
+/// (C1-15b).
+pub(crate) struct LeafPatch {
+    /// The backing the leaf lies in.
+    pub(crate) backing: ByteRange,
+    /// The bits the write stores, and the backing around them as it will read.
+    pub(crate) write: LeafWrite,
+}
 
 /// Where a step inside a structure with a physical layout lands.
 #[derive(Clone, Copy)]
@@ -279,6 +290,63 @@ impl<'a> CellsView<'a> {
         let (_, placed) = self.overlay_parts(type_id)?;
         let slot = placed.slots.get(index)?;
         Some((self.slot_range(range, slot)?, slot.type_id))
+    }
+
+    /// The write of `value` into the scalar leaf that `path` names in the structure `type_id` whose
+    /// cells are `range`, staged and checked as the value store checks a write of that leaf, without
+    /// a value of the structure (C1-15b). `None` when `path` names a member beside the backing, a
+    /// structure or an array, or when `value` is a structure or an array: the caller writes those
+    /// through the structure's value.
+    pub(crate) fn leaf_patch(
+        self,
+        range: ByteRange,
+        type_id: u32,
+        path: &[RefSegment],
+        value: &Value,
+    ) -> Result<Option<LeafPatch>, RuntimeError> {
+        if matches!(value, Value::Struct(_) | Value::Array(_)) {
+            return Ok(None);
+        }
+        let (mut anchor, mut depth) = (0, 0);
+        for segment in path {
+            match self.overlay_step(range, type_id, anchor, depth, segment) {
+                Some(OverlayNode::Bits {
+                    anchor: next,
+                    depth: deeper,
+                }) => (anchor, depth) = (next, deeper),
+                _ => return Ok(None),
+            }
+        }
+        let Some(layout) = self.prepared.vm.physical_layout_ref(type_id) else {
+            return Ok(None);
+        };
+        if layout
+            .leaf_path(anchor)
+            .is_none_or(|leaf| leaf.len() != usize::from(depth) || depth == 0)
+        {
+            return Ok(None);
+        }
+        let enum_type = if layout.leaf_is_enumeration(anchor) {
+            self.overlay_node_type(type_id, anchor, depth)
+                .and_then(|node| resolve_entry(self.prepared, node))
+                .and_then(|(_, entry)| entry.name_idx)
+                .and_then(|name| self.prepared.vm.strings.get(name as usize))
+                .unwrap_or_default()
+        } else {
+            ""
+        };
+        let (_, placed) = self
+            .overlay_parts(type_id)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        let backing = ByteRange {
+            bytes: placed.backing_bytes,
+            ..range
+        };
+        let bytes = self
+            .bytes(backing)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        let write = stage_leaf_write(layout, anchor, value, enum_type, bytes)?;
+        Ok(Some(LeafPatch { backing, write }))
     }
 
     /// Whether a value of `type_id` holds a reference leaf, null or not.

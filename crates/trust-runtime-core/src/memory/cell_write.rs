@@ -12,6 +12,7 @@ use smol_str::SmolStr;
 
 use super::{CellArm, CellReader, Target};
 use crate::error::RuntimeError;
+use crate::memory::cell_access::LeafPatch;
 use crate::memory::cells::{
     check_value, flat_cell, is_reference_type, text_geometry, write_value_in, Cell, ReferenceTable,
 };
@@ -39,6 +40,11 @@ pub(crate) struct CellPatch {
     /// For a character write, the character the text leaf at `range` takes and its position: the
     /// commit edits the leaf in place (C1-12).
     pub(crate) element: Option<TextElement>,
+    /// Whether the value store stages the same write as a physical patch, which samples the
+    /// deadline before it is published (C1-15): a write that reaches the leaf through a structure
+    /// with a physical layout, or that replaces such a structure with a value that does not carry
+    /// its backing.
+    pub(crate) physical: bool,
 }
 
 /// One character write into a text leaf: the zero-based position of the character it replaces and
@@ -216,6 +222,14 @@ impl<'a> CellWriter<'a> {
         }
     }
 
+    /// Make the staged write of one scalar leaf in its backing (C1-15b).
+    fn write_leaf(&mut self, patch: &LeafPatch) -> bool {
+        let (block, _) = self.arm.cells.regions_mut().block_mut(patch.backing.region);
+        block
+            .bytes_mut(patch.backing)
+            .is_some_and(|bytes| patch.write.commit(bytes))
+    }
+
     /// The write of `value` into the slot at `location`/`offset` and `path`, answering as the `Value`
     /// store answers a checked write: `Ok(false)` for a target that does not exist.
     fn write_path(
@@ -227,7 +241,7 @@ impl<'a> CellWriter<'a> {
     ) -> Result<bool, RuntimeError> {
         let target = self.reader().locate(location, offset, path);
         match target {
-            Ok(Target::Cells(range, type_id, presence)) => {
+            Ok(Target::Cells(range, type_id, presence, _)) => {
                 let leaf = checked_leaf(self.prepared, type_id, value)?;
                 Ok(self.store(range, type_id, presence, leaf))
             }
@@ -235,8 +249,13 @@ impl<'a> CellWriter<'a> {
                 .values
                 .write_by_ref_parts_checked(location, offset, rest, value),
             // A write into the backing of a structure with a physical layout patches the
-            // structure's value as the value store patches it, then stores it (C1-15).
+            // structure's value as the value store patches it, then stores it (C1-15); a scalar
+            // leaf is written where it lies (C1-15b).
             Ok(Target::Bits(range, type_id, presence, rest)) => {
+                let cells = self.reader().view_cells();
+                if let Some(patch) = cells.leaf_patch(range, type_id, rest, &value)? {
+                    return Ok(self.write_leaf(&patch));
+                }
                 let mut root = self.reader().overlay_root(range, type_id, presence)?;
                 let Some(staged) = root.prepare_physical_write(rest, &value)? else {
                     return Ok(false);
@@ -283,7 +302,7 @@ impl CellReader<'_> {
         value: &Value,
     ) -> Result<Option<PreparedWrite>, RuntimeError> {
         match self.locate(location, offset, path) {
-            Ok(Target::Cells(range, type_id, presence)) => {
+            Ok(Target::Cells(range, type_id, presence, beside)) => {
                 // A reference is checked by reference: cloning its path would allocate in a scan (R5).
                 let leaf = if is_reference_type(self.prepared, type_id) {
                     check_value(type_id, value, self.prepared, true)?;
@@ -291,12 +310,14 @@ impl CellReader<'_> {
                 } else {
                     Some(checked_leaf(self.prepared, type_id, value.clone())?)
                 };
+                let physical = beside || self.replaces_backing(type_id, value);
                 Ok(Some(PreparedWrite(PreparedWriteKind::Cells(CellPatch {
                     range,
                     type_id,
                     presence,
                     leaf,
                     element: None,
+                    physical,
                 }))))
             }
             Ok(Target::Values(location, offset, rest)) => {
@@ -308,8 +329,11 @@ impl CellReader<'_> {
                     .map(|staged| PreparedWrite(PreparedWriteKind::Values { consumed, staged })))
             }
             // The structure's value, read from its cells, is checked and patched as the value store
-            // checks and patches its own (C1-15).
+            // checks and patches its own (C1-15); a scalar leaf is staged where it lies (C1-15b).
             Ok(Target::Bits(range, type_id, presence, rest)) => {
+                if let Some(patch) = self.view_cells().leaf_patch(range, type_id, rest, value)? {
+                    return Ok(Some(PreparedWrite(PreparedWriteKind::Bits(patch))));
+                }
                 let root = self.overlay_root(range, type_id, presence)?;
                 let Some(staged) = root.prepare_physical_write(rest, value)? else {
                     return Ok(None);
@@ -350,7 +374,7 @@ impl CellReader<'_> {
         let [index] = indices.as_slice() else {
             return Ok(None);
         };
-        let Ok(Target::Cells(range, type_id, presence)) = self.locate(location, offset, parent)
+        let Ok(Target::Cells(range, type_id, presence, _)) = self.locate(location, offset, parent)
         else {
             return Ok(None);
         };
@@ -394,7 +418,20 @@ impl CellReader<'_> {
                 position,
                 character,
             }),
+            // The value store edits a character of a text directly.
+            physical: false,
         }))
+    }
+
+    /// Whether `value` replaces a whole structure of `type_id` that has a physical layout without
+    /// carrying that layout's backing, which the value store writes as a physical patch (C1-15).
+    fn replaces_backing(self, type_id: u32, value: &Value) -> bool {
+        let Some(layout) = self.prepared.vm.physical_layout_ref(type_id) else {
+            return false;
+        };
+        !matches!(value, Value::Struct(source) if source
+            .physical_backing()
+            .is_some_and(|(own, _)| alloc::sync::Arc::ptr_eq(own, layout)))
     }
 }
 
@@ -471,7 +508,7 @@ impl StoreMutate for CellWriter<'_> {
     fn write_slot(&mut self, location: MemoryLocation, offset: usize, value: Value) -> bool {
         let target = self.reader().locate(location, offset, &[]);
         match target {
-            Ok(Target::Cells(range, type_id, presence)) => {
+            Ok(Target::Cells(range, type_id, presence, _)) => {
                 match checked_leaf(self.prepared, type_id, value) {
                     Ok(leaf) => self.store(range, type_id, presence, leaf),
                     Err(_) => false,
@@ -627,6 +664,7 @@ impl StoreMutate for CellWriter<'_> {
                 (None, Some(leaf)) => self.store(patch.range, patch.type_id, patch.presence, leaf),
                 (None, None) => self.store(patch.range, patch.type_id, patch.presence, value),
             },
+            PreparedWriteKind::Bits(patch) => self.write_leaf(&patch),
             PreparedWriteKind::Overlay(mut write) => {
                 let Some(rest) = path.get(write.consumed..) else {
                     return false;
@@ -648,7 +686,7 @@ impl StoreMutate for CellWriter<'_> {
         // The saved value came from this slot, so it is stored as it is; a refusal leaves the cells.
         let target = self.reader().locate(location, offset, &[]);
         match target {
-            Ok(Target::Cells(range, type_id, presence)) => {
+            Ok(Target::Cells(range, type_id, presence, _)) => {
                 self.store(range, type_id, presence, value);
             }
             Ok(Target::Values(location, offset, _)) => {

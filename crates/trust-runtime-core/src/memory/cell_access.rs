@@ -35,7 +35,7 @@ use crate::memory::{
 use crate::value::{array_offset_i64, RefPath, RefSegment, Value, ValueRef, ValueRefView};
 use crate::vm::{PreparedModule, VmTrap};
 
-pub(crate) use cell_overlay::OverlayNode;
+pub(crate) use cell_overlay::{LeafPatch, OverlayNode};
 pub(crate) use cell_write::{CellPatch, CellWriter};
 
 /// The write side of the arm (C1-9c), in its own file.
@@ -527,9 +527,10 @@ impl CellArm {
 
 /// Where a path ends: in the arm's block, or in a place of the `Value` half.
 enum Target<'p> {
-    /// The bytes of a value of this type at this range, and the block offset of the presence byte
-    /// of the declaration the range is, when it keeps one (MEM-12).
-    Cells(ByteRange, u32, Option<u32>),
+    /// The bytes of a value of this type at this range, the block offset of the presence byte of
+    /// the declaration the range is, when it keeps one (MEM-12), and whether the path reached them
+    /// through a structure with a physical layout, as a member beside its backing (C1-15).
+    Cells(ByteRange, u32, Option<u32>, bool),
     /// A place the `Value` half reads: location, slot and the path still to walk.
     Values(MemoryLocation, usize, &'p [RefSegment]),
     /// A node of the backing of a structure with a physical layout (C1-15): the structure's cells,
@@ -580,7 +581,7 @@ impl<'a> CellReader<'a> {
         path: &[RefSegment],
     ) -> Result<ValueView<'a>, VmTrap> {
         match self.locate(location, offset, path)? {
-            Target::Cells(range, type_id, presence) => Ok(self.view(range, type_id, presence)),
+            Target::Cells(range, type_id, presence, _) => Ok(self.view(range, type_id, presence)),
             Target::Values(location, offset, rest) => self.values_slot(location, offset, rest),
             Target::Bits(range, type_id, presence, rest) => self
                 .view(range, type_id, presence)
@@ -601,7 +602,7 @@ impl<'a> CellReader<'a> {
         name: &str,
     ) -> Result<ValueView<'a>, VmTrap> {
         match self.field(instance, name, &[])? {
-            Target::Cells(range, type_id, presence) => Ok(self.view(range, type_id, presence)),
+            Target::Cells(range, type_id, presence, _) => Ok(self.view(range, type_id, presence)),
             Target::Values(location, offset, rest) => self.values_slot(location, offset, rest),
             Target::Bits(range, type_id, presence, rest) => self
                 .view(range, type_id, presence)
@@ -868,7 +869,7 @@ impl<'a> CellReader<'a> {
         path: &[RefSegment],
     ) -> Option<(ByteRange, u32, Option<u32>)> {
         match self.locate(location, offset, path) {
-            Ok(Target::Cells(range, type_id, presence)) => Some((range, type_id, presence)),
+            Ok(Target::Cells(range, type_id, presence, _)) => Some((range, type_id, presence)),
             _ => None,
         }
     }
@@ -1385,7 +1386,7 @@ impl<'a> CellReader<'a> {
         path: &'p [RefSegment],
     ) -> Result<Target<'p>, VmTrap> {
         if path.is_empty() {
-            return Ok(Target::Cells(range, type_id, presence));
+            return Ok(Target::Cells(range, type_id, presence, false));
         }
         if !self.present(range.region, presence) {
             return Err(VmTrap::NullReference);
@@ -1418,7 +1419,12 @@ impl<'a> CellReader<'a> {
                             type_id: member_type,
                         } => {
                             let rest = &path[index + step + 1..];
-                            return self.walk(member, member_type, None, rest);
+                            return Ok(match self.walk(member, member_type, None, rest)? {
+                                Target::Cells(range, type_id, presence, _) => {
+                                    Target::Cells(range, type_id, presence, true)
+                                }
+                                other => other,
+                            });
                         }
                     }
                 }
@@ -1444,7 +1450,7 @@ impl<'a> CellReader<'a> {
             };
             type_id = child;
         }
-        Ok(Target::Cells(range, type_id, None))
+        Ok(Target::Cells(range, type_id, None, false))
     }
 
     /// The field `name` of `instance`, searched through its parents, then the rest of `rest`

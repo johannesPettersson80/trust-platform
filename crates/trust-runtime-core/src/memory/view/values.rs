@@ -275,7 +275,9 @@ impl StoreMutate for VariableStorage {
                 .is_some_and(|path| self.commit_prepared_write(path, value, staged, capacity)),
             // A cell patch and a write into a backing are published by the cell arm, which holds
             // the cells; neither is handed to the `Value` store, so this store refuses them.
-            PreparedWriteKind::Cells(_) | PreparedWriteKind::Overlay(_) => false,
+            PreparedWriteKind::Cells(_)
+            | PreparedWriteKind::Overlay(_)
+            | PreparedWriteKind::Bits(_) => false,
         }
     }
 

@@ -17,7 +17,7 @@
 
 use super::{Generation, InstanceData, InstanceId, MemoryLocation, PreparedStorageWrite};
 use crate::error::RuntimeError;
-use crate::memory::cell_access::{CellPatch, CellsView, OverlayNode};
+use crate::memory::cell_access::{CellPatch, CellsView, LeafPatch, OverlayNode};
 use crate::memory::layout::ByteRange;
 use crate::value::{
     read_string_element, read_value_path_borrowed, single_string_index, string_element_count,
@@ -173,13 +173,17 @@ impl<'a> ValueView<'a> {
                 range,
                 type_id,
             } => cells.materialize(range, type_id),
+            // A scalar leaf is read from the backing without allocating (C1-15b).
             Self::Bits {
                 cells,
                 range,
                 type_id,
                 leaf,
                 depth,
-            } => cells.overlay_value(range, type_id, leaf, depth),
+            } => match cells.overlay_scalar(range, type_id, leaf, depth)? {
+                Some(scalar) => Ok(scalar),
+                None => cells.overlay_value(range, type_id, leaf, depth),
+            },
         }
     }
 
@@ -589,6 +593,9 @@ pub(crate) enum PreparedWriteKind {
     /// structure's value read from its cells, the physical patch the value store would stage on it,
     /// and where the structure lies. The commit applies the patch to the value and stores it.
     Overlay(OverlayWrite),
+    /// A write of one scalar leaf of a backing in the cells, checked as the value store checks it and
+    /// made where the backing lies (C1-15b).
+    Bits(LeafPatch),
 }
 
 /// A staged write into the backing of a structure with a physical layout in the cells (C1-15).
@@ -606,14 +613,15 @@ pub(crate) struct OverlayWrite {
 }
 
 impl PreparedWrite {
-    /// Whether publishing this patch needs the engine's final deadline check. A cell patch copies
-    /// one checked leaf, so it needs none.
+    /// Whether publishing this patch needs the engine's final deadline check: when the value store
+    /// stages the same write as a physical patch (C1-15). A cell patch copies one checked leaf, so it
+    /// needs one only when it reaches the leaf through a backing or replaces a backing.
     pub fn requires_final_deadline_check(&self) -> bool {
         match &self.0 {
             PreparedWriteKind::Values { staged, .. } => staged.requires_final_deadline_check(),
-            PreparedWriteKind::Cells(_) => false,
+            PreparedWriteKind::Cells(patch) => patch.physical,
             // A physical patch publishes as the value store's does.
-            PreparedWriteKind::Overlay(_) => true,
+            PreparedWriteKind::Overlay(_) | PreparedWriteKind::Bits(_) => true,
         }
     }
 
@@ -627,6 +635,7 @@ impl PreparedWrite {
             PreparedWriteKind::Values { staged, .. } => staged.validate_aliases(check),
             PreparedWriteKind::Cells(_) => Ok(()),
             PreparedWriteKind::Overlay(write) => write.staged.validate_aliases(check),
+            PreparedWriteKind::Bits(patch) => patch.write.validate_aliases(check),
         }
     }
 }

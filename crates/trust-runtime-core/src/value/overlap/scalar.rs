@@ -51,20 +51,58 @@ fn enum_number(bits: u64, leaf: &Leaf, enumeration: &Enumeration) -> i64 {
     }
 }
 
+/// What a leaf's bits are checked as: a value of the kind of a template, or an enumeration, which
+/// needs no template value (C1-15).
+#[derive(Clone, Copy)]
+pub(super) enum Kind<'a> {
+    Value(&'a Value),
+    Enumeration,
+}
+
+impl<'a> Kind<'a> {
+    /// The kind of `template`.
+    fn of(template: &'a Value) -> Self {
+        match template {
+            Value::Enum(_) => Self::Enumeration,
+            other => Self::Value(other),
+        }
+    }
+}
+
 pub(super) fn validate(template: &Value, bits: u64, leaf: &Leaf) -> Result<(), RuntimeError> {
-    if leaf.enumeration.is_none() && primitive(template) != Some(leaf.primitive_id) {
+    validate_kind(Kind::of(template), bits, leaf)
+}
+
+/// [`validate`] of the bits `bits` of `leaf` as the leaf's own kind, without a template value: the
+/// check of an alias of a write made in place in a backing (C1-15).
+pub(super) fn validate_leaf(bits: u64, leaf: &Leaf) -> Result<(), RuntimeError> {
+    match leaf.enumeration {
+        Some(_) => validate_kind(Kind::Enumeration, bits, leaf),
+        None => {
+            let template = zero(leaf.primitive_id).ok_or(RuntimeError::TypeMismatch)?;
+            validate_kind(Kind::Value(&template), bits, leaf)
+        }
+    }
+}
+
+fn validate_kind(kind: Kind<'_>, bits: u64, leaf: &Leaf) -> Result<(), RuntimeError> {
+    let template_primitive = match kind {
+        Kind::Value(template) => primitive(template),
+        Kind::Enumeration => None,
+    };
+    if leaf.enumeration.is_none() && template_primitive != Some(leaf.primitive_id) {
         return Err(RuntimeError::TypeMismatch);
     }
     if let Some((lower, upper)) = leaf.range {
-        let numeric = match template {
-            Value::SInt(_) => i64::from(bits as i8),
-            Value::Int(_) => i64::from(bits as i16),
-            Value::DInt(_) => i64::from(bits as i32),
-            Value::LInt(_) => bits as i64,
-            Value::USInt(_) => i64::from(bits as u8),
-            Value::UInt(_) => i64::from(bits as u16),
-            Value::UDInt(_) => i64::from(bits as u32),
-            Value::ULInt(_) => match i64::try_from(bits) {
+        let numeric = match kind {
+            Kind::Value(Value::SInt(_)) => i64::from(bits as i8),
+            Kind::Value(Value::Int(_)) => i64::from(bits as i16),
+            Kind::Value(Value::DInt(_)) => i64::from(bits as i32),
+            Kind::Value(Value::LInt(_)) => bits as i64,
+            Kind::Value(Value::USInt(_)) => i64::from(bits as u8),
+            Kind::Value(Value::UInt(_)) => i64::from(bits as u16),
+            Kind::Value(Value::UDInt(_)) => i64::from(bits as u32),
+            Kind::Value(Value::ULInt(_)) => match i64::try_from(bits) {
                 Ok(value) => value,
                 Err(_) => {
                     return Err(RuntimeError::SubrangeViolation {
@@ -74,7 +112,7 @@ pub(super) fn validate(template: &Value, bits: u64, leaf: &Leaf) -> Result<(), R
                     })
                 }
             },
-            Value::Enum(_) => match &leaf.enumeration {
+            Kind::Enumeration => match &leaf.enumeration {
                 Some(enumeration) if enumeration.signed => enum_number(bits, leaf, enumeration),
                 Some(_) => match i64::try_from(bits) {
                     Ok(value) => value,
@@ -98,17 +136,21 @@ pub(super) fn validate(template: &Value, bits: u64, leaf: &Leaf) -> Result<(), R
             });
         }
     }
-    if let Some(enumeration) = &leaf.enumeration {
-        if !matches!(template, Value::Enum(_))
-            || !enumeration
+    match (&leaf.enumeration, kind) {
+        (Some(enumeration), Kind::Enumeration) => {
+            if !enumeration
                 .variants
                 .iter()
                 .any(|(_, value)| *value == enum_number(bits, leaf, enumeration))
-        {
+            {
+                return Err(RuntimeError::TypeMismatch);
+            }
+        }
+        (Some(_), Kind::Value(_)) => return Err(RuntimeError::TypeMismatch),
+        (None, Kind::Value(template)) if self::bits(template).is_none() => {
             return Err(RuntimeError::TypeMismatch);
         }
-    } else if self::bits(template).is_none() {
-        return Err(RuntimeError::TypeMismatch);
+        (None, _) => {}
     }
     Ok(())
 }
@@ -128,6 +170,38 @@ pub(super) fn checked_bits(
     {
         return Err(RuntimeError::TypeMismatch);
     }
+    checked_kind_bits(value, Kind::of(template), leaf, abi)
+}
+
+/// [`checked_bits`] of `value` written into `leaf` as the leaf's own kind, without a template value:
+/// an enumeration of the type named `enum_type`, or a value of the leaf's primitive (C1-15).
+pub(super) fn checked_leaf_bits(
+    value: &Value,
+    leaf: &Leaf,
+    abi: crate::value::StorageAbi,
+    enum_type: &str,
+) -> Result<u64, RuntimeError> {
+    match (&leaf.enumeration, value) {
+        (Some(_), Value::Enum(enumeration)) if enumeration.type_name().as_str() == enum_type => {
+            checked_kind_bits(value, Kind::Enumeration, leaf, abi)
+        }
+        (Some(_), _) => Err(RuntimeError::TypeMismatch),
+        (None, _) => {
+            let template = zero(leaf.primitive_id).ok_or(RuntimeError::TypeMismatch)?;
+            if core::mem::discriminant(value) != core::mem::discriminant(&template) {
+                return Err(RuntimeError::TypeMismatch);
+            }
+            checked_kind_bits(value, Kind::Value(&template), leaf, abi)
+        }
+    }
+}
+
+fn checked_kind_bits(
+    value: &Value,
+    kind: Kind<'_>,
+    leaf: &Leaf,
+    abi: crate::value::StorageAbi,
+) -> Result<u64, RuntimeError> {
     let temporal = match value {
         Value::Time(v) => Some(v.as_nanos()),
         Value::Date(v) => Some(v.ticks()),
@@ -141,7 +215,7 @@ pub(super) fn checked_bits(
         return Err(RuntimeError::Overflow);
     }
     let bits = self::bits(value).ok_or(RuntimeError::TypeMismatch)?;
-    validate(template, bits, leaf)?;
+    validate_kind(kind, bits, leaf)?;
     if let (Value::Enum(value), Some(enumeration)) = (value, &leaf.enumeration)
         && !enumeration.variants.iter().any(|(name, ordinal)| {
             *ordinal == value.numeric_value() && name.eq_ignore_ascii_case(value.variant_name())
@@ -230,4 +304,36 @@ fn temporal_number(bits: u64, leaf: &Leaf) -> i64 {
     } else {
         bits as i64
     }
+}
+
+/// A value of the primitive `id`, whose kind tells [`value`] how to read a leaf's bits.
+pub(super) fn zero(id: u16) -> Option<Value> {
+    Some(match id {
+        1 => Value::Bool(false),
+        2 => Value::Byte(0),
+        3 => Value::Word(0),
+        4 => Value::DWord(0),
+        5 => Value::LWord(0),
+        6 => Value::SInt(0),
+        7 => Value::Int(0),
+        8 => Value::DInt(0),
+        9 => Value::LInt(0),
+        10 => Value::USInt(0),
+        11 => Value::UInt(0),
+        12 => Value::UDInt(0),
+        13 => Value::ULInt(0),
+        14 => Value::Real(0.0),
+        15 => Value::LReal(0.0),
+        16 => Value::Time(Duration::from_nanos(0)),
+        17 => Value::LTime(Duration::from_nanos(0)),
+        18 => Value::Date(DateValue::new(0)),
+        19 => Value::LDate(LDateValue::new(0)),
+        20 => Value::Tod(TimeOfDayValue::new(0)),
+        21 => Value::LTod(LTimeOfDayValue::new(0)),
+        22 => Value::Dt(DateTimeValue::new(0)),
+        23 => Value::Ldt(LDateTimeValue::new(0)),
+        26 => Value::Char(0),
+        27 => Value::WChar(0),
+        _ => return None,
+    })
 }

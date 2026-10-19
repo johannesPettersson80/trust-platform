@@ -15,10 +15,35 @@ impl StructValue {
         let Some(physical) = &self.physical else {
             return Ok(None);
         };
-        let Some(selected) = physical.layout.selection(path) else {
+        physical
+            .layout
+            .write_cost(
+                path,
+                self.fields.len(),
+                &mut |leaf| match read_struct_path(self, leaf) {
+                    Some(Value::Enum(v)) => v.type_name().len(),
+                    _ => 0,
+                },
+            )
+    }
+}
+
+impl PhysicalLayout {
+    /// The cost of a write to `path` inside a structure of this layout with `fields` members, whose
+    /// enumeration leaf at a path has a type name of `enum_type_len` bytes: what
+    /// `StructValue::physical_write_cost` charges, computed from the layout alone so that a
+    /// structure held as its backing is charged without decoding it (C1-15). `None` when the path
+    /// selects no bits.
+    pub(crate) fn write_cost(
+        &self,
+        path: &[RefSegment],
+        fields: usize,
+        enum_type_len: &mut dyn FnMut(&[RefSegment]) -> usize,
+    ) -> Result<Option<PhysicalWriteCost>, RuntimeError> {
+        let Some(selected) = self.selection(path) else {
             return Ok(None);
         };
-        let layout = &physical.layout;
+        let layout = self;
         let candidates = layout.affected_leaves(&selected.bits);
         let patch_bytes = usize::try_from(selected.bits.end.div_ceil(8) - selected.bits.start / 8)
             .map_err(|_| RuntimeError::Overflow)?;
@@ -88,10 +113,7 @@ impl StructValue {
                     .map(|(name, _)| name.len())
                     .max()
                     .unwrap_or(0);
-                let type_len = match read_struct_path(self, &leaf.path) {
-                    Some(Value::Enum(v)) => v.type_name().len(),
-                    _ => 0,
-                };
+                let type_len = enum_type_len(&leaf.path);
                 // The enumeration value is one cell, plus the names measured below.
                 allocation = add(allocation, CELL_BYTES)?;
                 allocation = add(allocation, name)?;
@@ -117,24 +139,31 @@ impl StructValue {
             work = add(work, path_work(&child.path))?;
         }
         if path.is_empty() {
-            work = add(work, self.fields.len())?;
+            work = add(work, fields)?;
         }
         Ok(Some(PhysicalWriteCost { work, allocation }))
     }
 
+    /// Indexed immutable paths of the nested structures whose backing intersects a write to `path`.
+    pub(crate) fn affected_child_paths<'a>(
+        &'a self,
+        path: &[RefSegment],
+    ) -> Option<impl Iterator<Item = &'a [RefSegment]>> {
+        let selected = self.selection(path)?;
+        Some(
+            self.affected_children(&selected.bits)
+                .map(move |i| self.children[i].path.as_slice()),
+        )
+    }
+}
+
+impl StructValue {
     /// Indexed immutable paths of structures whose backing intersects this write.
     pub(crate) fn physical_affected_children<'a>(
         &'a self,
         path: &[RefSegment],
     ) -> Option<impl Iterator<Item = &'a [RefSegment]>> {
-        let physical = self.physical.as_ref()?;
-        let selected = physical.layout.selection(path)?;
-        Some(
-            physical
-                .layout
-                .affected_children(&selected.bits)
-                .map(move |i| physical.layout.children[i].path.as_slice()),
-        )
+        self.physical.as_ref()?.layout.affected_child_paths(path)
     }
 
     pub(crate) fn physical_whole_assignment_is_admitted(&self, input: &Value) -> bool {

@@ -375,7 +375,7 @@ impl CellReader<'_> {
             let target = self
                 .locate(location, offset, &path[..depth])
                 .map_err(|_| RuntimeError::NullReference)?;
-            let Target::Cells(range, type_id, presence) = target else {
+            let Target::Cells(range, type_id, presence, _) = target else {
                 continue;
             };
             if !self.present(range.region, presence) {

@@ -164,7 +164,10 @@ impl PreparedPhysicalWrite {
         check: &mut impl FnMut(&Value) -> Result<(), RuntimeError>,
     ) -> Result<(), RuntimeError> {
         for (_, value) in &self.updates {
-            check(value)?;
+            // An enumeration's bits are a variant of it, checked when the write was staged.
+            if !matches!(value, Value::Enum(_)) {
+                check(value)?;
+            }
         }
         Ok(())
     }

@@ -9,10 +9,7 @@
 //! a layout of its own with its bits, and the root with the whole backing.
 
 use super::*;
-use crate::value::{
-    ArrayValue, DateTimeValue, DateValue, Duration, EnumValue, LDateTimeValue, LDateValue,
-    LTimeOfDayValue, TimeOfDayValue,
-};
+use crate::value::{ArrayValue, EnumValue};
 use crate::vm::PreparedModule;
 use alloc::boxed::Box;
 
@@ -121,42 +118,10 @@ pub(crate) fn decode(
         }
         _ => {
             let leaf = layout.leaf_at_path(path)?;
-            let template = zero(leaf.primitive_id)?;
+            let template = scalar::zero(leaf.primitive_id)?;
             scalar::value(&template, read_bits(bytes, leaf.offset, leaf.width), leaf)
         }
     }
-}
-
-/// A value of the primitive `id`, whose kind tells [`scalar::value`] how to read a leaf's bits.
-fn zero(id: u16) -> Option<Value> {
-    Some(match id {
-        1 => Value::Bool(false),
-        2 => Value::Byte(0),
-        3 => Value::Word(0),
-        4 => Value::DWord(0),
-        5 => Value::LWord(0),
-        6 => Value::SInt(0),
-        7 => Value::Int(0),
-        8 => Value::DInt(0),
-        9 => Value::LInt(0),
-        10 => Value::USInt(0),
-        11 => Value::UInt(0),
-        12 => Value::UDInt(0),
-        13 => Value::ULInt(0),
-        14 => Value::Real(0.0),
-        15 => Value::LReal(0.0),
-        16 => Value::Time(Duration::from_nanos(0)),
-        17 => Value::LTime(Duration::from_nanos(0)),
-        18 => Value::Date(DateValue::new(0)),
-        19 => Value::LDate(LDateValue::new(0)),
-        20 => Value::Tod(TimeOfDayValue::new(0)),
-        21 => Value::LTod(LTimeOfDayValue::new(0)),
-        22 => Value::Dt(DateTimeValue::new(0)),
-        23 => Value::Ldt(LDateTimeValue::new(0)),
-        26 => Value::Char(0),
-        27 => Value::WChar(0),
-        _ => return None,
-    })
 }
 
 impl PhysicalLayout {
@@ -194,7 +159,7 @@ impl PhysicalLayout {
             return None;
         }
         scalar::value(
-            &zero(leaf.primitive_id)?,
+            &scalar::zero(leaf.primitive_id)?,
             read_bits(bytes, leaf.offset, leaf.width),
             leaf,
         )
