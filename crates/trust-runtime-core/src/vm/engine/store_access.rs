@@ -719,13 +719,11 @@ impl EngineState<'_> {
         routed_mut(&mut *self.data, self.prepared).create_call_instance(pou, type_name)
     }
 
-    /// Whether an instance of `pou` that a call creates now lies on the activation stack
-    /// (specification 34 MEM-12; C1-11c): on the cell store while a frame is on the stack, for a
-    /// POU whose inheritance chains hold no reference leaf. The instances an entry or construction
-    /// creates outside any call stay in the `Value` half.
-    pub(super) fn call_instance_on_stack(&self, pou: u32) -> bool {
+    /// Whether an instance that a call creates now lies on the activation stack (specification 34
+    /// MEM-12; C1-11c, C1-19c4): on the cell store while a frame is on the stack. The instances an
+    /// entry or construction creates outside any call stay in the `Value` half.
+    pub(super) fn call_instances_on_stack(&self) -> bool {
         matches!(&self.data.store, EngineStore::Cells(arm) if arm.holds_frames())
-            && self.prepared.call_instance_on_stack(pou)
     }
 
     /// Give the instance `child` the parent `parent`, or none; `false` when `child` does not exist.

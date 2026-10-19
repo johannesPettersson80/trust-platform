@@ -1433,8 +1433,9 @@ references' paths into kept buffers and give them back once the outputs are copi
 check of an output's write reads the output's own path (checklist C1-19c4). Construction reserves a
 path buffer for every reference a scan can hold at once (checklist C1-19c3): those the walk
 ("Execution scratch") finds among a body's operands at once, on every call level, the references
-the frame variables hold as values and the copies the outputs and in-outs of a call keep, the
-reference leaves of the persistent block, and one for a path that moves into another buffer. Each path buffer has room for the longest path of the module (a segment for each member
+the reference leaves of the frame and of the instances it holds and the copies the outputs and
+in-outs of a call keep, the reference leaves of the persistent block, and one for a path that moves
+into another buffer. Each path buffer has room for the longest path of the module (a segment for each member
 and array level, a static reference's own path followed by any path into its target), and each
 has an index buffer for every index segment such a path takes, with room for the most subscripts.
 So a dynamic index or member and a reference variable that takes a new reference allocate
@@ -1449,7 +1450,12 @@ them, checked and charged as a write of the value is (TIME-08), its texts' capac
 no reference is such a value, copied as its cells, and so is a structure nested in one whose members
 all lie in its backing (C1-15b). A frame's variable on the activation stack is such a place as a
 global is, and a store copies the bytes between the persistent block and a frame's bytes either way
-(checklist C1-19c4). A value that holds a reference or an instance is stored as a value (C1-11). A
+(checklist C1-19c4). So is an array or a structure that holds `REF_TO` references beside such
+leaves while each of its reference leaves holds a flat reference ("Flat references") or none,
+whose bytes name the same targets wherever they lie: a store copies them, checked and charged as a
+write of its value, and the destination's reference table keeps no reference for those leaves
+(C1-19c4). A value that holds an instance, or a reference its leaf's table keeps, is stored as a
+value (C1-11). A
 function's result that is such a value stays in the finished frame's bytes, and the caller takes a
 copy of them onto its operand stack's temporary area, charged and checked as reading and returning
 the value is; a store writes the copy as it writes a copy of a place (C1-19c4). A function's input
@@ -1505,14 +1511,18 @@ inputs its call bound and a return value its caller supplied move into them, the
 initializers of its other variables are written there, every read and write of its variables reaches
 them through the store, its return value is read from them, and after it returns its outputs are
 copied back from them, before any other frame takes the bytes. A compiler scratch slot, which has no
-declared type, and a variable whose value holds a reference stay values of the frame until
-references are flat addresses. A function block or class instance that a call creates for a variable
-of its frame lies on the stack too, above the frame (checklist C1-11c): each level of its
-inheritance chain in a range of that level's own variables, zeroed and then given their declared
+declared type, stays a value of the frame. A function block or class instance that a call creates
+for a variable of its frame lies on the stack too, above the frame (checklist C1-11c): each level of
+its inheritance chain in a range of that level's own variables, zeroed and then given their declared
 constants, and the instances those variables hold above it. It leaves the stack when the frame that
 owns it ends, and construction reserves a record for each instance the stack can hold. An instance
-whose inheritance chain has an own variable that holds a reference, and an instance created while no
-call runs, such as the one an engineering entry runs, stay values until references are flat. The
+created while no call runs, such as the one an engineering entry runs, stays a value. A reference
+that a frame's variable or an instance on the stack holds lies in its leaf (checklist C1-19c4): a
+flat one in the leaf's 16 bytes, any other in the activation stack's reference table, which takes
+an entry for each reference leaf of a frame or an instance when it takes its bytes and drops them
+when it leaves the stack, the paths of the references they held going back to the engine's buffers;
+construction reserves the table for the reference leaves of the largest frame and the instances its
+variables hold, on every call level. The
 hosted register tier runs on the flat store too (checklist C1-18): its frames lie on the activation
 stack as the stack tier's do, its interpreted and compiled blocks read and write their typed locals
 there, and a call it runs hands its result and its outputs to the caller from the finished frame's
@@ -1520,7 +1530,10 @@ bytes. Every result, charge and refusal is the value store's (TIME-08).
 
 **Initializers.** On the flat store the initializer of a frame variable whose value is an array, a
 structure or a text that a store copies as bytes, and whose value the value store builds in a staged
-result (a body, or a default without a literal), is evaluated in place (checklist C1-13). Its staged
+result (a body, or a default without a literal), is evaluated in place (checklist C1-13), and so is
+the default of an array or a structure that holds references, whose default holds none, its staged
+result's reference leaves taking entries in the activation stack's reference table (checklist
+C1-19c4). Its staged
 result lies on the activation stack above the frame it initializes, zeroed. A default is constructed
 into those bytes, a leaf at a time; the seed of an explicit initializer is copied there from the
 variable; a body's `DEFAULT_TYPED`, `COERCE_INIT_VALUE` or `APPLY_INIT_VALUE` whose value the next

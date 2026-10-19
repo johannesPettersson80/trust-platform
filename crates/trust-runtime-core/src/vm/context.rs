@@ -43,6 +43,12 @@ pub trait ReferenceContext {
         Ok(())
     }
 
+    /// Drop the references the table of the destination `range` of a copy of a value of `type_id`
+    /// kept for its reference leaves, which the copy gave flat references or none (C1-19c4). A
+    /// composition without reference leaves keeps none.
+    fn forget_place_references(&mut self, _range: crate::memory::layout::ByteRange, _type_id: u32) {
+    }
+
     /// Admit an owned reference path before an address instruction copies it.
     fn before_reference_path_clone(
         &self,

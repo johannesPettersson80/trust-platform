@@ -129,12 +129,20 @@ pub struct RefSlot(pub u32);
 /// §6.2; O9, R3, R5). Every reference leaf's byte offset is known at construction, so the table is
 /// reserved once, in ascending offset order, holding no reference. A write replaces an entry and
 /// never adds one, so a reference write in a scan allocates nothing.
+///
+/// The activation stack's table takes the reference leaves of a frame, or of an instance a frame
+/// owns, when it takes its bytes, above every leaf the table holds, and drops them when it leaves
+/// the stack, keeping the references they held until the engine takes their path buffers back
+/// (C1-19c4). It is reserved once for the most leaves the stack holds.
 #[derive(Debug, Default)]
 pub(crate) struct ReferenceTable {
     leaves: Vec<(u32, Option<ValueRef>)>,
     /// The reference the last write replaced, until the engine takes its path buffers back
     /// (spec 34 ARCH-05). It is held in place, so keeping it allocates nothing.
     displaced: Option<ValueRef>,
+    /// The references that leaves leaving the activation stack held, until the engine takes their
+    /// path buffers back, with room for as many as the table has leaves.
+    released: Vec<ValueRef>,
 }
 
 impl ReferenceTable {
@@ -158,6 +166,7 @@ impl ReferenceTable {
         Ok(Self {
             leaves,
             displaced: None,
+            released: Vec::new(),
         })
     }
 
@@ -198,6 +207,63 @@ impl ReferenceTable {
     /// The reference leaves the table holds an entry for.
     pub(crate) fn leaf_count(&self) -> usize {
         self.leaves.len()
+    }
+
+    /// An empty table with room for `leaves` leaves, which frames and the instances they own add
+    /// as they take their bytes on the activation stack, and for the references those leaves hold
+    /// when they leave it (C1-19c4).
+    pub(crate) fn with_room(leaves: usize) -> Result<Self, RuntimeError> {
+        let refused = |_| VmTrap::BudgetExceeded.into_runtime_error();
+        let mut table = Self::default();
+        table.leaves.try_reserve_exact(leaves).map_err(refused)?;
+        table.released.try_reserve_exact(leaves).map_err(refused)?;
+        Ok(table)
+    }
+
+    /// The bytes [`ReferenceTable::with_room`] takes.
+    pub(crate) fn room_bytes(leaves: usize) -> Option<usize> {
+        leaves.checked_mul(
+            core::mem::size_of::<(u32, Option<ValueRef>)>() + core::mem::size_of::<ValueRef>(),
+        )
+    }
+
+    /// Add an entry, holding no reference, for each leaf at the byte offsets `offsets`, in
+    /// ascending order and above every leaf the table holds. `false`, and nothing added, when one
+    /// is not above the leaves before it or the table has no room left for them.
+    pub(crate) fn push_leaves(&mut self, offsets: impl Iterator<Item = u32> + Clone) -> bool {
+        let mut last = self.leaves.last().map(|(offset, _)| *offset);
+        let mut count = 0usize;
+        for offset in offsets.clone() {
+            if last.is_some_and(|last| offset <= last) {
+                return false;
+            }
+            last = Some(offset);
+            count += 1;
+        }
+        if self.leaves.capacity() - self.leaves.len() < count {
+            return false;
+        }
+        self.leaves.extend(offsets.map(|offset| (offset, None)));
+        true
+    }
+
+    /// Drop the entries of the leaves at byte `start` and above, keeping each reference they held
+    /// for [`ReferenceTable::drain_released`].
+    pub(crate) fn release_from(&mut self, start: u32) {
+        let at = self.leaves.partition_point(|(offset, _)| *offset < start);
+        for (_, reference) in self.leaves.drain(at..) {
+            // The room reserved for the released references is that of every leaf.
+            if let Some(reference) = reference
+                && self.released.len() < self.released.capacity()
+            {
+                self.released.push(reference);
+            }
+        }
+    }
+
+    /// The references that released leaves held, for the engine to take their path buffers back.
+    pub(crate) fn drain_released(&mut self) -> impl Iterator<Item = ValueRef> + '_ {
+        self.released.drain(..)
     }
 
     /// The reserved capacity, which the store never grows (test support).
@@ -329,4 +395,48 @@ fn byte_span(range: ByteRange) -> Option<core::ops::Range<usize>> {
     let start = usize::try_from(range.start).ok()?;
     let end = start.checked_add(usize::try_from(range.bytes).ok()?)?;
     Some(start..end)
+}
+
+#[cfg(test)]
+mod reference_table_tests {
+    use super::ReferenceTable;
+    use crate::memory::{Generation, MemoryLocation};
+    use crate::value::{RefSegment, ValueRef};
+
+    fn reference(offset: u32) -> ValueRef {
+        ValueRef {
+            location: MemoryLocation::Global,
+            offset,
+            generation: Generation(1),
+            path: alloc::vec![RefSegment::Index(alloc::vec![1])],
+        }
+    }
+
+    /// Spec 34 §6.3 "Activation stack" (C1-19c4): the activation stack's table takes a frame's
+    /// reference leaves above the leaves it holds, refuses leaves below them or beyond its room, and
+    /// on a release drops the leaves at and above the released bytes, keeping the references they
+    /// held for the engine to take back. A frame at byte 0 with leaves 8 and 24 and an instance
+    /// above it at byte 64 with leaf 64 fill a table with room for 3; a leaf at 40, below 64, and a
+    /// fourth leaf are refused; releasing from byte 64 drops the instance's leaf and gives back its
+    /// reference, the frame's stay and keep theirs. Catches a table that grows, one that keeps
+    /// leaves out of order, a release that drops a frame's leaves with its instance's and one that
+    /// drops the references instead of keeping them.
+    #[test]
+    fn the_activation_table_takes_and_releases_leaves_from_the_top() {
+        let mut table = ReferenceTable::with_room(3).unwrap();
+        assert!(table.push_leaves([8, 24].into_iter()));
+        assert!(table.push_leaves([64].into_iter()));
+        assert!(!table.push_leaves([40].into_iter()));
+        assert!(!table.push_leaves([72].into_iter()));
+        assert_eq!(table.leaf_count(), 3);
+        assert!(table.set(24, Some(reference(1))));
+        assert!(table.set(64, Some(reference(2))));
+        table.release_from(64);
+        assert_eq!(table.leaf_count(), 2);
+        assert_eq!(table.get(24).map(|held| held.offset), Some(1));
+        assert!(!table.set(64, None));
+        let released: alloc::vec::Vec<_> = table.drain_released().map(|held| held.offset).collect();
+        assert_eq!(released, [2]);
+        assert!(table.push_leaves([64].into_iter()));
+    }
 }

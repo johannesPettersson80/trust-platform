@@ -134,6 +134,9 @@ impl<'e> ReferenceContext for EngineState<'e> {
     fn place_view(&self, place: crate::vm::Place) -> Option<ValueView<'_>> {
         EngineState::place_view(self, place)
     }
+    fn forget_place_references(&mut self, range: crate::memory::layout::ByteRange, type_id: u32) {
+        EngineState::forget_place_references(self, range, type_id);
+    }
     fn place_destination(
         &self,
         reference: crate::value::ValueRefView<'_>,

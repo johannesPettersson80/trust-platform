@@ -776,19 +776,19 @@ fn the_persistent_instance_table_never_grows() {
     assert_eq!(arm.cells().regions().instance_capacity(), 4);
 }
 
-/// Spec 34 §6.3 (C1-11c): an instance whose inheritance chain has an own variable that holds a
-/// reference stays a value when a call creates it, and the whole chain with it. In the fixture,
-/// where `Derived`'s `own_v` is a REAL, `Derived` and its parent `Base` go on the activation stack;
-/// in the variant where `own_v` is a `Holder`, a structure that holds a `REF_TO DINT`, both stay
-/// values. Catches a rule that reads only a variable's own type (`Holder` is a structure, not a
-/// reference), and one that puts `Base`, which holds no reference itself, on the stack while
-/// `Derived` stays a value, so that one instance would lie in two stores.
+/// Spec 34 §6.3 "Activation stack" (C1-11c, C1-19c4): an instance a call creates lies on the
+/// activation stack whatever its variables hold, and preparation gives the reference leaves of each
+/// POU's own variables for the stack's reference table. In the variant where `Derived`'s `own_v` is
+/// a `Holder` (its `REF_TO DINT` `r` at byte 0, its DINT `n` at byte 16), `Derived` has one
+/// reference leaf, at byte 0 of its own range, and `Base` none; in the fixture, where `own_v` is a
+/// REAL, neither has one. Catches leaves gathered over the inheritance chain (`Base` would have
+/// `Derived`'s), a leaf at the wrong member offset (16 for `n`) and a variant without its leaf.
 #[test]
-fn an_instance_chain_that_holds_a_reference_stays_a_value() {
+fn each_level_of_an_instance_chain_gives_its_own_reference_leaves() {
     let plain = prepared();
-    assert!(plain.call_instance_on_stack(BASE_POU));
-    assert!(plain.call_instance_on_stack(DERIVED_POU));
+    assert_eq!(plain.instance_reference_leaves(BASE_POU), &[] as &[u32]);
+    assert_eq!(plain.instance_reference_leaves(DERIVED_POU), &[] as &[u32]);
     let held = prepared_with_held_reference();
-    assert!(!held.call_instance_on_stack(DERIVED_POU));
-    assert!(!held.call_instance_on_stack(BASE_POU));
+    assert_eq!(held.instance_reference_leaves(DERIVED_POU), &[0]);
+    assert_eq!(held.instance_reference_leaves(BASE_POU), &[] as &[u32]);
 }

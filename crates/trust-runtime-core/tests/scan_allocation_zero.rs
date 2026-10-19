@@ -794,17 +794,7 @@ const CEILINGS: [(&str, usize, Calls); 39] = [
     ("cells/unions", 0, Calls::ZERO),
     ("cells/operands", 0, Calls::ZERO),
     ("cells/results", 0, Calls::ZERO),
-    // A structure holding a reference assigned whole, a frame variable and a per-call instance
-    // holding references (C1-19c4 removes them).
-    (
-        "cells/bindings",
-        1,
-        Calls {
-            alloc: 18,
-            realloc: 0,
-            dealloc: 18,
-        },
-    ),
+    ("cells/bindings", 0, Calls::ZERO),
 ];
 
 /// The ceilings are asserted on the chips' stack executor and printed with the register tier.
@@ -1074,9 +1064,9 @@ fn listed_runs_stay_within_their_allocator_ceilings_and_every_fixture_reports_it
     assert_eq!(failures, Vec::<String>::new(), "failing runs");
 }
 
-/// The flat-store runs that still allocate, listed with their measured ceilings: the corpus cases
-/// C1-19c4 added, whose value paths it removes one by one. The list only shrinks.
-const NOT_YET_ZERO: [&str; 1] = ["cells/bindings"];
+/// The flat-store runs that still allocate, listed with their measured ceilings: none since C1-19c4
+/// removed the value paths of the corpus cases it added. The list only shrinks.
+const NOT_YET_ZERO: [&str; 0] = [];
 
 /// The fixtures the flat store refuses until a later slice, with the slice that admits them. None
 /// since C1-15 placed the `STRUCT OVERLAP` of `structures` and `overlays` as its backing.

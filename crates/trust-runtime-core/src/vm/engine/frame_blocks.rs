@@ -1,9 +1,10 @@
 //! Frames on the activation stack (specification 34 MEM-12; C1-11).
 //!
 //! On the flat store a call's frame lies on the activation stack, on top of its caller's: each
-//! typed variable at the offset its POU's frame layout gives it, at its declared size. A slot that
-//! has no type (compiler scratch) or whose value holds a reference stays a value of the frame
-//! until references are flat. The frame's activation identity finds its bytes, so the reads and
+//! typed variable at the offset its POU's frame layout gives it, at its declared size, a reference
+//! it holds in its leaf or in the activation stack's reference table (C1-19c4). A slot that has no
+//! type (compiler scratch) stays a value of the frame. The frame's activation identity finds its
+//! bytes, so the reads and
 //! writes of the dispatcher, the calls and the initializers reach a slot through the store as
 //! `MemoryLocation::Local(id)`, whatever frame they run in.
 
@@ -45,7 +46,10 @@ impl EngineState<'_> {
         if !arm.clear_activation(range) {
             return Err(crate::vm::VmTrap::CallStackOverflow.into_runtime_error());
         }
-        arm.push_frame(FrameBlock { id, range, pou })?;
+        arm.push_frame(
+            FrameBlock { id, range, pou },
+            self.prepared.frame_reference_leaves(pou),
+        )?;
         for slot in 0..frame.locals.len() {
             if self.prepared.frame_slot(pou, slot).is_none()
                 || matches!(frame.locals[slot], Value::Null)
@@ -65,6 +69,11 @@ impl EngineState<'_> {
     pub(super) fn release_frame_block(&mut self, id: FrameId) {
         if let EngineStore::Cells(arm) = &mut self.data.store {
             arm.release_frame(id);
+            // The references the frame's leaves and its instances' held give their paths back
+            // (C1-19c4).
+            for reference in arm.take_released_references() {
+                self.data.resources.references.recycle(reference.path);
+            }
         }
     }
 

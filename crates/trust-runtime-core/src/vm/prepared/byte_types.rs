@@ -78,30 +78,55 @@ pub(crate) fn text_primitive(prepared: &PreparedModule, type_id: u32) -> Option<
 
 /// Whether every leaf of a value of `type_id` is a scalar or a text its bytes hold whole.
 fn plain(prepared: &PreparedModule, type_id: u32, depth: usize) -> bool {
+    plain_or_referring(prepared, type_id, depth, false)
+}
+
+/// Whether a store may copy a value of `type_id` as its bytes once each of its reference leaves
+/// holds a flat reference or none (C1-19c4): an array or a structure whose leaves are those
+/// [`copies_as_bytes`] admits and `REF_TO` references, and that holds at least one. A flat
+/// reference names its target in the leaf's own bytes, so its bytes mean the same wherever they
+/// lie; a reference the leaf's table keeps does not, so a value holding one is stored as a value.
+pub(crate) fn copies_with_references(prepared: &PreparedModule, type_id: u32) -> bool {
+    resolve(prepared, type_id).is_some_and(|entry| {
+        matches!(
+            entry.data,
+            TypeData::Array { .. } | TypeData::Struct { .. } | TypeData::Union { .. }
+        )
+    }) && prepared
+        .type_layout(type_id)
+        .is_some_and(|layout| !layout.reference_leaves.is_empty())
+        && plain_or_referring(prepared, type_id, 0, true)
+}
+
+/// [`plain`], with `REF_TO` references admitted as leaves when `references`.
+fn plain_or_referring(
+    prepared: &PreparedModule,
+    type_id: u32,
+    depth: usize,
+    references: bool,
+) -> bool {
     if depth > BYTECODE_MAX_TYPE_NESTING {
         return false;
     }
     let Some(entry) = resolve(prepared, type_id) else {
         return false;
     };
+    let member = |member: u32| plain_or_referring(prepared, member, depth + 1, references);
     match &entry.data {
         TypeData::Primitive { .. } => true,
         TypeData::Enum { .. } => true,
-        TypeData::Subrange { base_type_id, .. } => plain(prepared, *base_type_id, depth + 1),
-        TypeData::Array { elem_type_id, .. } => plain(prepared, *elem_type_id, depth + 1),
+        TypeData::Reference { .. } => references,
+        TypeData::Subrange { base_type_id, .. } => member(*base_type_id),
+        TypeData::Array { elem_type_id, .. } => member(*elem_type_id),
         TypeData::Struct { fields } => {
             !matches!(
                 entry.kind,
                 TypeKind::OverlappingStruct | TypeKind::LocatedStruct
             ) && prepared.vm.physical_layout_ref(type_id).is_none()
-                && fields
-                    .iter()
-                    .all(|field| plain(prepared, field.type_id, depth + 1))
+                && fields.iter().all(|field| member(field.type_id))
         }
         // A union keeps every variant as a member of its own (C1-15).
-        TypeData::Union { fields } => fields
-            .iter()
-            .all(|field| plain(prepared, field.type_id, depth + 1)),
+        TypeData::Union { fields } => fields.iter().all(|field| member(field.type_id)),
         _ => false,
     }
 }

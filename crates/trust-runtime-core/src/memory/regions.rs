@@ -77,6 +77,9 @@ pub struct CellRegions {
     /// The reference leaves and the `ValueRef` each non-null one holds, by byte offset (O9, R3,
     /// R5). Reserved at construction, one entry per reference leaf.
     references: ReferenceTable,
+    /// The reference leaves of the frames and the instances on the activation stack and the
+    /// `ValueRef` each non-null one holds, by byte offset (C1-19c4).
+    activation_references: ReferenceTable,
     /// The persistent instances, one for each root with a template POU. Reserved at construction
     /// from that count and never grown (C1-9d2b-2, R5).
     instances: InstanceTable,
@@ -141,10 +144,19 @@ impl CellRegions {
 
     /// Record `result` on top of the activation stack (C1-13). Refused, as a frame is, when its
     /// bytes leave the reserved block or the reserved records are all in use; neither grows.
-    pub(crate) fn push_result(&mut self, result: ResultBlock) -> Result<(), RuntimeError> {
+    pub(crate) fn push_result(
+        &mut self,
+        result: ResultBlock,
+        leaves: &[crate::memory::layout::ReferenceLeaf],
+    ) -> Result<(), RuntimeError> {
         if result.range.region != LayoutRegion::Activation
             || result_end(result.range) as usize > self.activation.reserved()
             || self.results.len() == self.results.capacity()
+            || !self.activation_references.push_leaves(
+                leaves
+                    .iter()
+                    .map(|leaf| result.range.start.saturating_add(leaf.byte_offset)),
+            )
         {
             return Err(crate::vm::VmTrap::CallStackOverflow.into_runtime_error());
         }
@@ -166,11 +178,16 @@ impl CellRegions {
         if let Some(at) = self.results.iter().rposition(|result| result.id == id) {
             self.results.remove(at);
         }
+        self.release_activation_references();
     }
 
     /// Record `frame` on top of the activation stack. Refused when its bytes leave the reserved block
     /// or the reserved frame records are all in use; neither grows (MEM-09).
-    pub(crate) fn push_frame(&mut self, frame: FrameBlock) -> Result<(), RuntimeError> {
+    pub(crate) fn push_frame(
+        &mut self,
+        frame: FrameBlock,
+        leaves: &[u32],
+    ) -> Result<(), RuntimeError> {
         let end = frame
             .range
             .start
@@ -179,6 +196,11 @@ impl CellRegions {
         if frame.range.region != LayoutRegion::Activation
             || end as usize > self.activation.reserved()
             || self.frames.len() == self.frames.capacity()
+            || !self.activation_references.push_leaves(
+                leaves
+                    .iter()
+                    .map(|leaf| frame.range.start.saturating_add(*leaf)),
+            )
         {
             return Err(crate::vm::VmTrap::CallStackOverflow.into_runtime_error());
         }
@@ -195,11 +217,26 @@ impl CellRegions {
             .copied()
     }
 
-    /// Take the frame of activation `id` off the activation stack.
+    /// Take the frame of activation `id` off the activation stack, with the reference leaves above
+    /// what the stack still holds.
     pub(crate) fn release_frame(&mut self, id: FrameId) {
         if let Some(at) = self.frames.iter().rposition(|frame| frame.id == id) {
             self.frames.remove(at);
         }
+        self.release_activation_references();
+    }
+
+    /// Drop the reference leaves above the top of the activation stack, whose frames and instances
+    /// have left it (C1-19c4).
+    fn release_activation_references(&mut self) {
+        let top = self.activation_top();
+        self.activation_references.release_from(top);
+    }
+
+    /// The references that leaves leaving the activation stack held, for the engine to take their
+    /// path buffers back (C1-19c4).
+    pub(crate) fn drain_released_references(&mut self) -> impl Iterator<Item = ValueRef> + '_ {
+        self.activation_references.drain_released()
     }
 
     /// The bytes of `range` on the activation stack, mutably (C1-11).
@@ -221,9 +258,27 @@ impl CellRegions {
         &self.references
     }
 
-    /// The `ValueRef` a non-null reference leaf at byte `offset` holds, or `None` for a null leaf.
-    pub(crate) fn reference(&self, offset: u32) -> Option<&ValueRef> {
-        self.references.get(offset)
+    /// The reference table of `region`: the persistent block's, or the activation stack's
+    /// (C1-19c4).
+    pub(crate) fn references_in(&self, region: LayoutRegion) -> &ReferenceTable {
+        match region {
+            LayoutRegion::Persistent => &self.references,
+            LayoutRegion::Activation => &self.activation_references,
+        }
+    }
+
+    /// The reference that the reference leaf at byte `offset` of `region` holds through the
+    /// region's table, or `None` for a null leaf (C1-19c4).
+    pub(crate) fn reference_in(&self, region: LayoutRegion, offset: u32) -> Option<&ValueRef> {
+        self.references_in(region).get(offset)
+    }
+
+    /// The reference the last write into a reference leaf of either table replaced, for the engine
+    /// to take its path buffers back (spec 34 ARCH-05).
+    pub(crate) fn take_displaced(&mut self) -> Option<ValueRef> {
+        self.references
+            .take_displaced()
+            .or_else(|| self.activation_references.take_displaced())
     }
 
     /// The instance `id` the block holds: a persistent instance, or one that a frame on the
@@ -250,6 +305,7 @@ impl CellRegions {
         &mut self,
         id: InstanceId,
         instance: PersistentInstance,
+        leaves: &[u32],
     ) -> Result<(), RuntimeError> {
         let end = instance
             .range
@@ -258,6 +314,11 @@ impl CellRegions {
             .ok_or(RuntimeError::Overflow)?;
         if end as usize > self.activation.reserved()
             || self.call_instances.len() == self.call_instances.capacity()
+            || !self.activation_references.push_leaves(
+                leaves
+                    .iter()
+                    .map(|leaf| instance.range.start.saturating_add(*leaf)),
+            )
         {
             return Err(crate::vm::VmTrap::CallStackOverflow.into_runtime_error());
         }
@@ -275,6 +336,7 @@ impl CellRegions {
         {
             Some(at) => {
                 self.call_instances.remove(at);
+                self.release_activation_references();
                 true
             }
             None => false,
@@ -362,16 +424,17 @@ impl CellRegions {
         (&mut self.persistent, &mut self.references)
     }
 
-    /// The block that holds the bytes of `region`, mutably, with the reference table of that region:
-    /// the persistent block's table, and none for the activation stack, whose frames hold no
-    /// reference leaf until references are flat (C1-11).
+    /// The block that holds the bytes of `region`, mutably, with the reference table of that region
+    /// (C1-19c4).
     pub(crate) fn block_mut(
         &mut self,
         region: LayoutRegion,
     ) -> (&mut FlatBlock, Option<&mut ReferenceTable>) {
         match region {
             LayoutRegion::Persistent => (&mut self.persistent, Some(&mut self.references)),
-            LayoutRegion::Activation => (&mut self.activation, None),
+            LayoutRegion::Activation => {
+                (&mut self.activation, Some(&mut self.activation_references))
+            }
         }
     }
 
@@ -472,6 +535,11 @@ impl CellStorage {
             .ok_or(RuntimeError::Overflow)?;
         let bookkeeping_bytes = extent.bookkeeping_bytes()?;
         let instance_count = extent.instance_roots();
+        // The activation stack's reference table, for the reference leaves its frames and their
+        // instances hold at most (C1-19c4).
+        let activation_leaves = prepared.activation_reference_reservation()?;
+        let activation_table_bytes =
+            ReferenceTable::room_bytes(activation_leaves).ok_or(RuntimeError::Overflow)?;
         // The stack and one frame record for each call level, when some POU has a frame (C1-11),
         // a record for each instance the frames on it can own (C1-11c) and, when some initializer
         // is evaluated in place, a staged-result record for each call level (C1-13).
@@ -494,6 +562,7 @@ impl CellStorage {
             .ok_or(RuntimeError::Overflow)?;
         let bytes = block_bytes
             .checked_add(table_bytes)
+            .and_then(|bytes| bytes.checked_add(activation_table_bytes))
             .and_then(|bytes| bytes.checked_add(bookkeeping_bytes))
             .and_then(|bytes| bytes.checked_add(usize::try_from(activation_bytes).ok()?))
             .and_then(|bytes| bytes.checked_add(frame_bytes))
@@ -520,6 +589,7 @@ impl CellStorage {
             results,
             call_instances,
             references: ReferenceTable::reserve(extent.references)?,
+            activation_references: ReferenceTable::with_room(activation_leaves)?,
             instances: InstanceTable::reserve(instance_count)?,
         };
         regions.write_initial_values(prepared, profile, &extent.initials)?;
@@ -618,6 +688,7 @@ impl CellStorage {
             }
             kept
         });
+        self.regions.release_activation_references();
         before - self.regions.call_instances.len()
     }
 

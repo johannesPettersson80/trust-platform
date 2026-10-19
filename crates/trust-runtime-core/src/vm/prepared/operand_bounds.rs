@@ -218,34 +218,6 @@ impl PathShape {
     }
 }
 
-/// The most references the variables of one frame hold as values (C1-19c3): a frame variable whose
-/// value holds a reference stays a value of the frame (C1-11b), each of its reference leaves a
-/// reference that may keep a path.
-pub(crate) fn frame_references(prepared: &PreparedModule) -> usize {
-    // `PouMap::keys` exists only with the register feature, so the identity and payload pairs are
-    // iterated and the payloads ignored; clippy's `keys()` suggestion does not compile on the chips.
-    #[allow(
-        clippy::iter_kv_map,
-        reason = "PouMap::keys exists only with register-ir"
-    )]
-    let most = prepared
-        .vm
-        .pou_by_id
-        .iter()
-        .map(|(pou, _)| {
-            prepared
-                .declarations(StorageOwner::Frame, Some(*pou))
-                .iter()
-                .filter_map(|&id| prepared.layout.entries.get(id as usize)?.type_id)
-                .filter_map(|ty| prepared.type_layout(ty))
-                .map(|layout| layout.reference_leaves.len())
-                .sum::<usize>()
-        })
-        .max()
-        .unwrap_or(0);
-    most
-}
-
 /// The module-wide fallbacks for an operand whose type the walk does not know.
 struct Types {
     /// The longest text of any text type, in UTF-8 bytes.

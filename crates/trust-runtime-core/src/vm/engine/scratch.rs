@@ -557,9 +557,12 @@ impl ScratchPlan {
                 .checked_mul(prepared.operand_bounds.references_below_call)
                 .and_then(|below| below.checked_add(prepared.operand_bounds.references))
                 .and_then(|operands| {
-                    // On each level the targets of the call it makes keep copies of their
-                    // references until the outputs are copied back (C1-19c4).
-                    let frames = crate::vm::prepared::operand_bounds::frame_references(prepared)
+                    // On each level the reference leaves of the frame and of its instances may
+                    // hold references, and the outputs of the call it makes keep copies of theirs
+                    // until they are copied back (C1-19c4).
+                    let frames = prepared
+                        .largest_call_reference_leaves()
+                        .ok()?
                         .checked_add(prepared.operand_bounds.targets)?;
                     levels
                         .checked_mul(frames)?

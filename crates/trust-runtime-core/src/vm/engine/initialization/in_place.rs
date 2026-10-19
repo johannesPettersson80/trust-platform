@@ -199,11 +199,19 @@ impl EngineState<'_> {
         if !arm.clear_activation(place.range) {
             return Err(RuntimeError::InvalidExecutionState);
         }
-        arm.push_result(ResultBlock {
-            id: result,
-            range: place.range,
-            type_id: place.result_type,
-        })?;
+        // The result's reference leaves take entries in the activation stack's table (C1-19c4).
+        let leaves = self
+            .prepared
+            .type_layout(place.result_type)
+            .map_or(&[][..], |layout| layout.reference_leaves.as_slice());
+        arm.push_result(
+            ResultBlock {
+                id: result,
+                range: place.range,
+                type_id: place.result_type,
+            },
+            leaves,
+        )?;
         if seeded && !arm.copy_place(place.slot, place.range, None) {
             arm.release_result(result);
             return Err(RuntimeError::InvalidExecutionState);

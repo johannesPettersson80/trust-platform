@@ -481,6 +481,9 @@ fn copy_place_to(
         Some(bytes) => runtime.write_copy(bytes, destination),
     };
     if written.map_err(VmTrap::Runtime)? {
+        // The leaves now hold flat references or none, so the destination's table keeps none for
+        // them (C1-19c4).
+        runtime.forget_place_references(destination.range, place.type_id);
         Ok(())
     } else {
         Err(VmTrap::NullReference)

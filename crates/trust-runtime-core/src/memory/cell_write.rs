@@ -135,7 +135,8 @@ impl<'a> CellWriter<'a> {
     /// stack (specification 34 MEM-12; C1-11c): its own variables take their template's bytes.
     pub(crate) fn create_call_instance(&mut self, pou: u32) -> Result<InstanceId, RuntimeError> {
         let own = crate::memory::regions::own_bytes(self.prepared, pou);
-        self.arm.create_call_instance(pou, own)
+        let leaves = self.prepared.instance_reference_leaves(pou);
+        self.arm.create_call_instance(pou, own, leaves)
     }
 
     /// Replace one character of the text leaf at `range`, a value of `type_id`, as `element` says,
@@ -194,7 +195,7 @@ impl<'a> CellWriter<'a> {
     ) -> bool {
         let prepared = self.prepared;
         let holds_value = !matches!(leaf, Value::Null);
-        // The activation stack keeps no reference table: its frames hold no reference leaf (C1-11).
+        // Each region keeps the references of its reference leaves in its table (C1-19c4).
         let (block, references) = self.arm.cells.regions_mut().block_mut(range.region);
         let written = match (block.bytes_mut(range), references) {
             (None, _) => false,

@@ -147,7 +147,7 @@ impl EngineState<'_> {
         let persistent_cells = self.holds_cells() && lifetime.is_none();
         // An instance a call owns lies on the activation stack of the cell store, above the frame
         // that runs (MEM-12; C1-11c).
-        let on_stack = lifetime.is_some() && self.call_instance_on_stack(pou);
+        let on_stack = lifetime.is_some() && self.call_instances_on_stack();
         if persistent_cells && root.is_none() {
             return Err(RuntimeError::InitFailed {
                 owner: name.into(),

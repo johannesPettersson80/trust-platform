@@ -117,10 +117,29 @@ impl<'a> CellsView<'a> {
             .block(range.region)
             .bytes(range)
             .ok_or(RuntimeError::InvalidExecutionState)?;
-        // Only the persistent block keeps reference leaves (C1-11).
-        let references =
-            (range.region == LayoutRegion::Persistent).then(|| self.regions.references());
+        // Each region keeps the references of its reference leaves (C1-19c4).
+        let references = Some(self.regions.references_in(range.region));
         read_value_in(bytes, type_id, self.prepared, references, range.start)
+    }
+
+    /// Whether every reference leaf of the value of `type_id` at `range` holds a flat reference or
+    /// none, so that its bytes mean the same wherever they lie (C1-19c4).
+    pub(crate) fn references_are_flat(self, range: ByteRange, type_id: u32) -> bool {
+        let Some(layout) = self.prepared.type_layout(type_id) else {
+            return false;
+        };
+        layout.reference_leaves.iter().all(|leaf| {
+            let leaf_range = ByteRange {
+                start: range.start.saturating_add(leaf.byte_offset),
+                bytes: crate::memory::layout::REFERENCE_BYTES,
+                ..range
+            };
+            self.regions
+                .block(range.region)
+                .bytes(leaf_range)
+                .and_then(|bytes| flat::decode(LeafKind::Reference, bytes).ok())
+                .is_some_and(|cell| matches!(cell, Cell::NullRef | Cell::Flat { .. }))
+        })
     }
 
     /// The reference a reference leaf at `range` holds, when it holds one, borrowed: `None` for a
@@ -151,7 +170,7 @@ impl<'a> CellsView<'a> {
             )),
             _ => self
                 .regions
-                .reference(range.start)
+                .reference_in(range.region, range.start)
                 .map(|reference| Some(reference.as_view()))
                 .ok_or(RuntimeError::InvalidExecutionState),
         }
@@ -294,6 +313,7 @@ impl CellArm {
         &mut self,
         pou: u32,
         own: u32,
+        leaves: &[u32],
     ) -> Result<InstanceId, RuntimeError> {
         let range = ByteRange {
             region: LayoutRegion::Activation,
@@ -311,6 +331,7 @@ impl CellArm {
                 range,
                 parent: None,
             },
+            leaves,
         )?;
         self.cells.issue_instance(instance, following);
         Ok(instance)
@@ -446,8 +467,12 @@ impl CellArm {
     }
 
     /// Record `frame` on top of the activation stack (C1-11).
-    pub(crate) fn push_frame(&mut self, frame: FrameBlock) -> Result<(), RuntimeError> {
-        self.cells.regions_mut().push_frame(frame)
+    pub(crate) fn push_frame(
+        &mut self,
+        frame: FrameBlock,
+        leaves: &[u32],
+    ) -> Result<(), RuntimeError> {
+        self.cells.regions_mut().push_frame(frame, leaves)
     }
 
     /// The frame of activation `id`, when it is on the activation stack (C1-11).
@@ -458,6 +483,12 @@ impl CellArm {
     /// Take the frame of activation `id` off the activation stack (C1-11).
     pub(crate) fn release_frame(&mut self, id: FrameId) {
         self.cells.regions_mut().release_frame(id);
+    }
+
+    /// The references that reference leaves leaving the activation stack held, for the engine to
+    /// take their path buffers back (C1-19c4).
+    pub(crate) fn take_released_references(&mut self) -> impl Iterator<Item = ValueRef> + '_ {
+        self.cells.regions_mut().drain_released_references()
     }
 
     /// Write `value`, of `type_id`, into its bytes `range` in the block that holds them, as a
@@ -574,8 +605,12 @@ impl CellArm {
     }
 
     /// Record the staged result `result` on top of the activation stack (C1-13).
-    pub(crate) fn push_result(&mut self, result: ResultBlock) -> Result<(), RuntimeError> {
-        self.cells.regions_mut().push_result(result)
+    pub(crate) fn push_result(
+        &mut self,
+        result: ResultBlock,
+        leaves: &[crate::memory::layout::ReferenceLeaf],
+    ) -> Result<(), RuntimeError> {
+        self.cells.regions_mut().push_result(result, leaves)
     }
 
     /// The staged result of activation `id`, when it is on the activation stack (C1-13).
@@ -600,10 +635,24 @@ impl CellArm {
         }
     }
 
+    /// Set the table entry of the reference leaf at byte `offset` of `region` to no reference,
+    /// answering the reference it kept (C1-19c4).
+    pub(crate) fn forget_reference(
+        &mut self,
+        region: LayoutRegion,
+        offset: u32,
+    ) -> Option<ValueRef> {
+        let (_, references) = self.cells.regions_mut().block_mut(region);
+        let references = references?;
+        references.get(offset)?;
+        references.set(offset, None);
+        references.take_displaced()
+    }
+
     /// The reference the last write into a reference leaf replaced, for the engine to take its path
     /// buffers back (spec 34 ARCH-05).
     pub(crate) fn take_displaced_reference(&mut self) -> Option<ValueRef> {
-        self.cells.regions_mut().split_mut().1.take_displaced()
+        self.cells.regions_mut().take_displaced()
     }
 
     /// The cell store the arm reads and writes, for the tests.

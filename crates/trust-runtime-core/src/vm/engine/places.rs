@@ -19,8 +19,8 @@ use crate::memory::layout::{ByteRange, LayoutRegion};
 use crate::memory::view::ValueView;
 use crate::value::{string_capacity, string_capacity_cut, ValueRefView};
 use crate::vm::prepared::byte_types::{
-    copies_as_bytes, element_count, holds_text, is_compound, resolve, same_type, text_primitive,
-    TEXT_PRIMITIVES,
+    copies_as_bytes, copies_with_references, element_count, holds_text, is_compound, resolve,
+    same_type, text_primitive, TEXT_PRIMITIVES,
 };
 use crate::vm::{Place, PlaceDestination, PlaceNode};
 
@@ -40,8 +40,14 @@ impl EngineState<'_> {
     /// backing whose bytes there are the cells of a structure of its type (C1-15b).
     pub(super) fn place_of(&self, view: &ValueView<'_>) -> Option<Place> {
         match *view {
-            ValueView::Cells { range, type_id, .. } => (copies_as_bytes(self.prepared, type_id)
-                || self.backing_place(type_id))
+            ValueView::Cells {
+                cells,
+                range,
+                type_id,
+            } => (copies_as_bytes(self.prepared, type_id)
+                || self.backing_place(type_id)
+                || (copies_with_references(self.prepared, type_id)
+                    && cells.references_are_flat(range, type_id)))
             .then_some(Place { range, type_id }),
             ValueView::Bits {
                 cells,
@@ -119,6 +125,28 @@ impl EngineState<'_> {
                 physical,
             },
         )
+    }
+
+    /// Drop the references the destination's table kept for the reference leaves of the value of
+    /// `type_id` a copy wrote at `range`, whose bytes now hold flat references or none, giving
+    /// their paths back to the engine's buffers (C1-19c4).
+    pub(super) fn forget_place_references(&mut self, range: ByteRange, type_id: u32) {
+        let Some(layout) = self.prepared.type_layout(type_id) else {
+            return;
+        };
+        if layout.reference_leaves.is_empty() {
+            return;
+        }
+        let EngineStore::Cells(arm) = &mut self.data.store else {
+            return;
+        };
+        for leaf in &layout.reference_leaves {
+            if let Some(reference) =
+                arm.forget_reference(range.region, range.start.saturating_add(leaf.byte_offset))
+            {
+                self.data.resources.references.recycle(reference.path);
+            }
+        }
     }
 
     /// The checks of a write of the value `place` stands for through `reference`: those of
@@ -446,7 +474,8 @@ impl EngineState<'_> {
         }
         match resolve(self.prepared, type_id).map(|entry| &entry.data) {
             Some(TypeData::Array { elem_type_id, .. })
-                if !is_compound(self.prepared, *elem_type_id) =>
+                if !is_compound(self.prepared, *elem_type_id)
+                    && !crate::memory::cells::is_reference_type(self.prepared, *elem_type_id) =>
             {
                 Ok(())
             }
@@ -462,8 +491,11 @@ impl EngineState<'_> {
             return Err(RuntimeError::TypeMismatch);
         }
         match resolve(self.prepared, type_id).map(|entry| &entry.data) {
+            // An array of references visits each, as the walk of its value visits each element; a
+            // flat reference names the installed generation, so its check finds nothing (C1-19c4).
             Some(TypeData::Array { elem_type_id, dims })
-                if is_compound(self.prepared, *elem_type_id) =>
+                if is_compound(self.prepared, *elem_type_id)
+                    || crate::memory::cells::is_reference_type(self.prepared, *elem_type_id) =>
             {
                 let count = element_count(dims).ok_or(RuntimeError::TypeMismatch)?;
                 for _ in 0..count {
