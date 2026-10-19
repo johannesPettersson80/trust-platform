@@ -16,7 +16,9 @@ use std::time::Duration as StdDuration;
 use serde_json::{json, Value};
 use smol_str::SmolStr;
 use trust_platform_esp32::checkpoint::RawFlash;
-use trust_platform_esp32::loader::{CycleWatchdog, Esp32Loader, ProgramHardware};
+use trust_platform_esp32::loader::{
+    install_check, CycleWatchdog, Esp32Loader, ProgramHardware, ONLINE_CHANGE_RESERVE_BYTES,
+};
 use trust_platform_esp32::process_io::{
     check_pin, GpioPin, PinClaim, PinClaims, CHIP_GPIO_PINS, CHIP_GPIO_RESERVED,
 };
@@ -48,7 +50,7 @@ use trust_runtime_services::chip::platform::status_settings;
 use trust_runtime_services::chip::process_io::record_lines;
 use trust_runtime_services::installation::encode_sequenced;
 use trust_runtime_services::runner::engine::{DeviceMemory, ProcessIo};
-use trust_runtime_services::runner::{check_retained_values, EngineLiveValues, Runner};
+use trust_runtime_services::runner::{EngineLiveValues, Runner};
 use trust_runtime_services::status::IoDriverStatus;
 
 /// The installed program of these tests: the fixture `program-v2.stbc`, which has the retained
@@ -347,10 +349,23 @@ impl ProgramHardware for Hardware {
     }
 }
 
-/// The room the heap has for a container: far more than any container of these tests.
-fn room() -> usize {
-    1 << 20
+thread_local! {
+    /// The bytes of heap that are free now, which a test sets. Far more than any program of these
+    /// tests unless a test lowers it.
+    static ROOM: Cell<usize> = const { Cell::new(1 << 20) };
 }
+
+/// The room the heap has for a container and for the preparation of a program.
+fn room() -> usize {
+    ROOM.with(Cell::get)
+}
+
+/// The device's memory for the limits of a program in these tests: a 64 KiB region and the bring-up
+/// heap.
+const MEMORY: DeviceMemory = DeviceMemory {
+    region_bytes: 64 * 1024,
+    heap_bytes: 72 * 1024,
+};
 
 type TestRunner =
     Runner<TestLink, TestWait, ProgramCycle<TestClock, Lines>, Platform<Dog>, TestClock>;
@@ -385,6 +400,9 @@ impl Chip {
         let reader = owner
             .checkpoint_reader()
             .expect("the checkpoint slots have a geometry");
+        let change_reader = owner
+            .checkpoint_reader()
+            .expect("the checkpoint slots have a geometry");
         let store = ProgramStore {
             flash: Box::new(program_flash),
             program_budget: PROGRAM_STEP_BYTES,
@@ -393,15 +411,7 @@ impl Chip {
             owner,
             claims: claims.clone(),
         };
-        let loader = Esp32Loader::new(
-            hardware,
-            TestClock,
-            DeviceMemory {
-                region_bytes: 64 * 1024,
-                heap_bytes: 72 * 1024,
-            },
-            room,
-        );
+        let loader = Esp32Loader::new(hardware, TestClock, MEMORY, room, Box::new(change_reader));
         let platform = Platform::new(
             dog.clone(),
             SmolStr::new_static("Controller"),
@@ -416,7 +426,6 @@ impl Chip {
             },
             runtime_id([0x20, 0x6E, 0xF1, 0x17, 0x04, 0xC0]),
         );
-        let mut checkpoints = Box::new(reader);
         let runner = Runner::stopped(
             link.clone(),
             TestWait,
@@ -426,9 +435,7 @@ impl Chip {
             200,
         )
         .with_transfers(transfer_session(1))
-        .with_program_store(store, move |admitted| {
-            check_retained_values(&mut *checkpoints, admitted)
-        })
+        .with_program_store(store, install_check(Box::new(reader), MEMORY, room))
         .with_program_loader(loader, None);
         Self {
             runner,
@@ -795,4 +802,46 @@ fn a_record_whose_watchdog_is_in_the_chips_range_sets_the_hardware_watchdog() {
         "the interval did not change"
     );
     assert_eq!(pins(&chip, &["GPIO18"]), [false], "and no line was claimed");
+}
+
+#[test]
+fn the_c6_refuses_an_install_whose_dry_run_does_not_fit_the_heap() {
+    // Specification 34 §11.2 and §11.3 (UPDATE-06; the follow-up of slice S4-6): the check of an install
+    // prepares the new program with the limits that the heap allows now, its room less the C6's reserve,
+    // before the shared dry run that prepares it with the limits of its record, so a program that cannot
+    // fit is refused cleanly instead of resetting the chip. With the room at the reserve plus 10,000
+    // bytes, 10,000 remain, which allow no call level, so the container of the A4 program (6,412 bytes)
+    // is refused with the numbers inside the check's error, and not a byte of the program store is
+    // written (the commit comes after the checks); with the room back to 1 MiB the same container
+    // installs. Wrong behaviour caught: an install that is checked with the hosted limits of its
+    // record only, which on the C6's heap resets the chip; a refusal that leaves the chip unable to
+    // install again; a check that does not use the C6's reserve.
+    arm();
+    TestClock::set(0);
+    let mut chip = Chip::without_program();
+    let configuration = || retaining(vec![gpio(&["GPIO9"], &["GPIO18"])]);
+
+    ROOM.with(|room| room.set(ONLINE_CHANGE_RESERVE_BYTES + 10_000));
+    let refused = chip.install(&container(configuration()));
+    assert_eq!(refused["ok"], json!(false), "{refused}");
+    assert_eq!(
+        refused["error"],
+        json!(format!(
+            "the retained-value check could not run: control error 'insufficient memory: a program \
+             of 6412 bytes needs more than the 10000 bytes of heap that remain for it ({} bytes are \
+             free, {} are kept in reserve)'",
+            ONLINE_CHANGE_RESERVE_BYTES + 10_000,
+            ONLINE_CHANGE_RESERVE_BYTES
+        ))
+    );
+    assert_eq!(PROGRAM.len(), 6_412, "the fixture program");
+
+    ROOM.with(|room| room.set(1 << 20));
+    let installed = chip.install(&container(configuration()));
+    assert_eq!(installed["ok"], json!(true), "{installed}");
+    assert_eq!(
+        installed["result"]["sequence"],
+        json!(1),
+        "the refusal wrote nothing: the first commit takes the first sequence"
+    );
 }

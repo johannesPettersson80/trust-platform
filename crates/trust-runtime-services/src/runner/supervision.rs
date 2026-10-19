@@ -21,6 +21,7 @@ use super::engine::LiveValuesHooks;
 use super::observer::ScanObserver;
 use super::{span, ResourceCycle, RetainSource, Runner, RunnerPlatform};
 use crate::events::{retain_apply_event, RuntimeEvent};
+use crate::loading::reload::ReloadOutcome;
 use crate::metrics::RuntimeMetrics;
 use crate::resource::commands::RunningCommandEffect;
 use crate::resource::supervisor::{
@@ -66,8 +67,9 @@ where
     }
 
     /// The boundary of a running or paused program, as trust-runtime's scan thread begins each
-    /// pass: a requested stop first, then the queued pause and resume in order, then a pending
-    /// restart, which keeps a pause; then the scan, or while paused the wait for the next cycle
+    /// pass: a requested stop first, then the queued pause and resume in order, then a queued
+    /// online change (specification 34 §11.3), then a pending restart, which keeps a pause and acts on
+    /// the program the change gave; then the scan, or while paused the wait for the next cycle
     /// interval.
     fn take_boundary(&mut self) {
         if self.shell.stop_requested() {
@@ -83,6 +85,7 @@ where
             }
             Some(RunningCommandEffect::Apply) | None => {}
         }
+        self.apply_online_change();
         if let Some(mode) = self.shell.resource.take_pending_restart() {
             if let Err(error) = self.restart_in_place(mode, RetainSource::Checkpoint) {
                 self.halt(error);
@@ -99,11 +102,20 @@ where
     }
 
     /// One poll of the faulted wait, as trust-runtime's faulted wait ends each poll period: the
-    /// queued commands are dropped, a pending restart recovers the program, which then takes its
-    /// boundary at once, and a requested stop ends the program and keeps the fault, without a
-    /// second safe-state write or a retain save.
+    /// queued commands are dropped, an online change that succeeds recovers the program (specification
+    /// 11 §6.6), a pending restart recovers the program, which then takes its boundary at once, and a
+    /// requested stop ends the program and keeps the fault, without a second safe-state write or a
+    /// retain save.
     fn faulted_poll(&mut self, now: MonotonicInstant) {
         let _ = self.shell.resource.take_commands();
+        if self.apply_online_change() {
+            // The program the change gave the resource has no fault; the old program's is gone.
+            self.restarts.reset();
+            self.shell.resource.set_last_error(None);
+            self.shell.resource.set_state(ResourceState::Running);
+            self.take_boundary();
+            return;
+        }
         if let Some(mode) = self.shell.resource.take_pending_restart() {
             match self.restart_in_place(mode, RetainSource::Checkpoint) {
                 Ok(()) => {
@@ -347,6 +359,9 @@ where
     fn end(&mut self) {
         self.shell.set_stop_requested(false);
         self.next_boundary = None;
+        // An online change that waited for a boundary is dropped with the program, never applied, as
+        // it is when a computer's scan thread ends (specification 11 §6.7.1).
+        self.shell.finish_change(ReloadOutcome::Stopped);
         self.shell.resource.end();
         // A program that has ended holds nothing: a pause that arrived between the stop request
         // and the stop is gone, and the debugger holds no scan until the program starts again.

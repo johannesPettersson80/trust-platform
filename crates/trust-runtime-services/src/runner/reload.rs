@@ -15,6 +15,10 @@
 //! claims its lines and starts it in the requested mode. The loop feeds the hardware watchdog between
 //! these steps (TIME-04). A program that cannot start leaves no program: the resource is Faulted with
 //! `no installed program: <reason>`, and the next `restart` loads the newest container again.
+//!
+//! The same loader builds the candidate of an online change ([`ProgramLoader::prepare_change`]), whose
+//! order is in `online_change.rs`: there the running program stays installed until the candidate is
+//! ready, so the heap holds both.
 
 use alloc::boxed::Box;
 use alloc::format;
@@ -27,6 +31,7 @@ use trust_runtime_core::ports::{ControlLink, MonotonicClock, RunnerWait};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::vm::RetainApplyEvent;
 
+use super::online_change::Candidate;
 use super::program::{no_program, Program};
 use super::{EngineLiveValues, ResourceCycle, RetainSource, Runner, RunnerPlatform};
 use crate::loading::select::{Booted, ScanError};
@@ -72,6 +77,55 @@ pub trait ProgramLoader<P, Y> {
         booted: Booted,
         mode: RestartMode,
     ) -> Result<Loaded<Y>, String>;
+
+    /// Prepares and checks the candidate of an online change: the program of `program`, the upload of a
+    /// `bytecode.reload` request, built over the record of the program that runs, `running`, while that
+    /// program stays installed and keeps its lines (specification 34 §11.3; UPDATE-01, UPDATE-06).
+    ///
+    /// The device, in this order:
+    ///
+    /// 1. prepares the module with the limits that the heap allows now, its room less a reserve it
+    ///    keeps ([`ChangeMemory`](crate::runner::ChangeMemory)), and frees `program` as soon as the
+    ///    module is prepared;
+    /// 2. checks the candidate's bindings against the lines of the running program's record
+    ///    ([`unwired_binding`](crate::runner::unwired_binding));
+    /// 3. reads the newest checkpoint when the record keeps retained values: the saved snapshot of
+    ///    the device's retain store, which a computer loads from its own at an online change;
+    /// 4. builds the candidate from the running program's state with the engine's replacement
+    ///    ([`replacement`](crate::runner::engine::EngineCycle::replacement)), over the running
+    ///    program's settings and an empty process I/O, so that it claims no line and takes no
+    ///    checkpoint store. The candidate continues the running program's installation generation,
+    ///    keeps its logical time and its process images, keeps the retained function-block instances
+    ///    and references live when it declares the same retained storage and migrates the retained
+    ///    values by name otherwise, and takes the saved snapshot over them;
+    /// 5. checks that the running program's safe state is valid in the candidate
+    ///    ([`check_safe_outputs`](crate::runner::engine::EngineCycle::check_safe_outputs)), and gives
+    ///    the candidate's Live Values the candidate's generation
+    ///    ([`set_generation`](crate::runner::EngineLiveValues::set_generation)).
+    ///
+    /// The call changes nothing of the running program, of `platform` or of the lines: it does not
+    /// write an output, claim or release a pin, take the checkpoint flash, or set the values of the
+    /// platform. The device feeds the hardware watchdog of `platform` between the steps that can take
+    /// long.
+    ///
+    /// # Errors
+    ///
+    /// The reply to the request: the `insufficient memory` refusal with its numbers, a binding that
+    /// has no line, or the error of the preparation, the construction or the values, as a computer
+    /// replies with the error of its transaction. Whatever the call built is dropped.
+    fn prepare_change(
+        &mut self,
+        platform: &mut P,
+        running: &mut Y,
+        program: Vec<u8>,
+    ) -> Result<Candidate<Y>, String>;
+
+    /// The commit of an online change, in the one step that cannot fail: hands the lines and the
+    /// checkpoint store of `running` to the candidate without releasing or claiming a line
+    /// ([`hand_over_to`](crate::runner::engine::EngineCycle::hand_over_to)), and gives `platform` the
+    /// values of the candidate, its Live Values (specification 34 §11.3). The loop makes the candidate
+    /// its program and drops `running` afterwards.
+    fn commit_change(&mut self, platform: &mut P, running: &mut Y, candidate: &mut Candidate<Y>);
 }
 
 /// A program built by the loader, with what the loop takes over from the platform and the install
@@ -201,6 +255,11 @@ impl<L, W, Y, P, C> Runner<L, W, Y, P, C> {
     /// is the install sequence of the container that the loop's program came from, or that the boot
     /// refused; `None` when the program came from no container, or the store held none. The loop
     /// needs a program store ([`Runner::with_program_store`]) to find the container.
+    ///
+    /// The loader also lets the loop change its program online: it then takes `bytecode.reload`
+    /// (specification 34 §11.3), builds the candidate with [`ProgramLoader::prepare_change`] and
+    /// commits it with [`ProgramLoader::commit_change`] at the program's next boundary. A loop
+    /// without a loader answers `bytecode.reload` with `unsupported request`.
     #[must_use]
     pub fn with_program_loader(
         mut self,
@@ -209,6 +268,8 @@ impl<L, W, Y, P, C> Runner<L, W, Y, P, C> {
     ) -> Self {
         self.loader = Some(Box::new(loader));
         self.shell.install.set_loaded(came_from);
+        // A loader that builds candidates also lets the loop change its program online.
+        self.shell.change.enable();
         self
     }
 }

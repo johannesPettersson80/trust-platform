@@ -46,6 +46,12 @@
 //! loop drops the program, reads and admits the container, and has the loader build and start it,
 //! without a reset (specification 34 STATE-08; the order is in `reload.rs`). With a program store the
 //! loop also answers `program.active` from the store, in bounded reads.
+//!
+//! The same loader lets the loop change its program online (`bytecode.reload`, specification 34
+//! §11.3): the admitted change waits for the program's next boundary, where the loop prepares the
+//! candidate while the running program stays installed, hands it the running program's lines and
+//! drops the running program. The reply is the one reply in flight until the change ends (the order is
+//! in `online_change.rs`).
 
 mod cycle;
 mod debugger;
@@ -54,6 +60,7 @@ mod hold;
 mod host;
 mod install;
 mod observer;
+mod online_change;
 mod program;
 mod reload;
 mod retain;
@@ -79,7 +86,10 @@ pub use cycle::{resource_tasks, ResourceCycle, RetainSource, TaskDescriptor};
 pub use engine::EngineLiveValues;
 pub use hold::HoldHandle;
 pub use host::RunnerPlatform;
-pub use install::check_retained_values;
+pub use install::{check_install, check_retained_values, newest_checkpoint};
+pub use online_change::{
+    address_text, is_memory_limit, prepare_candidate, unwired_binding, Candidate, ChangeMemory,
+};
 pub use reload::{Loaded, ProgramLoader};
 pub use retain::RetainConfig;
 
@@ -350,6 +360,10 @@ where
     /// returns without waiting, so the next pass takes the next step. The pass that reads the
     /// install's request writes no byte of it; the passes after it take one step each.
     ///
+    /// While an online change waits for the program's boundary (specification 34 §11.3), its reply
+    /// is the one in flight too: the pass serves no request, but it takes the boundaries and runs the
+    /// scans, and it waits no longer than the five seconds after which the change is withdrawn.
+    ///
     /// # Errors
     ///
     /// The [`PortError`] of a wait that failed.
@@ -360,6 +374,7 @@ where
         }
         let token = self.shell.wake_token();
         self.shell.step_install();
+        self.shell.expire_change();
         let more_frames = self.serve_link();
         self.supervise();
         self.step_retain();
@@ -378,6 +393,11 @@ where
             // end without waiting for the next request to wake the loop (specification 34,
             // PORT-05). An idle link keeps the loop's own waits.
             deadline = deadline.min(self.clock.now().saturating_add(REPLY_SERVICE_INTERVAL));
+        }
+        if let Some(expiry) = self.shell.change.expiry() {
+            // An online change that waits for a boundary is withdrawn after five seconds, whether or
+            // not a boundary comes (specification 34 §11.3).
+            deadline = deadline.min(expiry);
         }
         self.shell.wait_until(deadline, token)
     }

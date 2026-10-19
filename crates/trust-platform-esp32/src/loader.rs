@@ -20,10 +20,23 @@
 //! program before it left them, at their safe values. The loader feeds the hardware watchdog between
 //! the steps (TIME-04) and writes the values of the record on the platform only when the program has
 //! started.
+//!
+//! The same loader builds the candidate of an online change (specification 34 §11.3), while the
+//! running program stays installed and keeps its lines. The candidate is prepared with the limits that
+//! the heap's room allows now, less [`ONLINE_CHANGE_RESERVE_BYTES`], and checked against the lines of
+//! the running program's record. It is then built from the running program's state by the engine's
+//! replacement, as a computer builds the candidate of its online change: over the running program's
+//! settings and an empty process I/O, so that it claims no pin, it continues the running program's
+//! installation generation, keeps its logical time and process images, keeps the retained function-block
+//! instances and references live when it declares the same retained storage, and takes the newest
+//! checkpoint over the retained values. Last, it is checked against the running program's safe state.
+//! The commit hands the running program's lines and checkpoint store to the candidate, which the loop
+//! then makes its program. The shared order is in `trust_runtime_services::runner`; the loader supplies
+//! the C6's steps.
 
 use alloc::boxed::Box;
 use alloc::format;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use trust_runtime_core::deployment::Configuration;
@@ -35,11 +48,14 @@ use trust_runtime_core::value::Duration;
 use trust_runtime_core::vm::PreparedModule;
 use trust_runtime_core::watchdog::RetainMode;
 use trust_runtime_services::chip::platform::ProgramValues;
+use trust_runtime_services::chip::process_io::record_lines;
+use trust_runtime_services::installation::Admitted;
 use trust_runtime_services::loading::select::Booted;
 use trust_runtime_services::runner::engine::{
     device_limits, CycleSettings, DeviceMemory, DeviceServices, ProcessIo,
 };
 use trust_runtime_services::runner::{
+    address_text, check_install, newest_checkpoint, prepare_candidate, unwired_binding, Candidate,
     EngineLiveValues, Loaded, ProgramLoader, ResourceCycle, RetainConfig, RetainSource,
 };
 
@@ -79,27 +95,83 @@ pub trait CycleWatchdog {
     fn apply_cycle_timeout_ms(&mut self, cycle_timeout_ms: u32) -> bool;
 }
 
+/// The bytes of the heap that an online change and the check of an install keep free while they
+/// prepare a program (specification 34 §11.3, UPDATE-06 and Appendix D.2). The program's limits are
+/// those of the heap's room now, less these bytes, so that the working memory a change takes at its peak
+/// beyond the two programs stays inside the heap.
+///
+/// The size comes from `tests/online_change_heap.rs`. With a counting allocator it changes the A4
+/// program to itself and to three other programs of the repository, and the retained-blocks program
+/// to itself, with a record that keeps no retained values and with one that does, and reads the most
+/// the heap held at once beyond the running program and the candidate: at most 3,383 bytes on the
+/// host. The reserve is twice that, for the fragmentation of a first-fit heap that a host cannot
+/// measure, and the 16,300 bytes of the largest payload that a checkpoint slot takes, which the
+/// retained steps read whole into the heap: 23,066 bytes, rounded up to 24 KiB. The host's pointers
+/// are 64 bits wide and the C6's 32, so the host's figures are the larger ones; the bench replaces
+/// them (specification 34, Appendix D.2).
+pub const ONLINE_CHANGE_RESERVE_BYTES: usize = 24 * 1024;
+
+/// What the loader keeps of the program that runs: the configuration of its record. An online change
+/// brings no record, so the candidate runs over this one (specification 34 §11.3).
+struct Running {
+    config: Configuration,
+}
+
 /// The loader of the C6: the hardware it claims from, the clock its programs run on, the memory its
-/// programs are prepared in, and the room the heap has for a container.
+/// programs are prepared in, the room the heap has for a container, and a handle on the checkpoint
+/// slots that only reads, through which an online change takes the newest checkpoint.
 pub struct Esp32Loader<H, C> {
     hardware: H,
     clock: C,
     memory: DeviceMemory,
     room: fn() -> usize,
+    checkpoints: Box<dyn CheckpointFlash>,
+    running: Option<Running>,
 }
 
 impl<H, C> Esp32Loader<H, C> {
     /// A loader over `hardware` and `clock`. `memory` bounds the preparation of a program (the
-    /// application region and the heap), and `room` says how many bytes of the heap a container can take
-    /// now (specification 34 §5.1).
+    /// application region and the heap), `room` says how many bytes of the heap a container can take
+    /// now (specification 34 §5.1), and `checkpoints` is a handle on the checkpoint slots that the
+    /// loader only reads (specification 34 §10.1): the writer belongs to the program that runs.
     #[must_use]
-    pub fn new(hardware: H, clock: C, memory: DeviceMemory, room: fn() -> usize) -> Self {
+    pub fn new(
+        hardware: H,
+        clock: C,
+        memory: DeviceMemory,
+        room: fn() -> usize,
+        checkpoints: Box<dyn CheckpointFlash>,
+    ) -> Self {
         Self {
             hardware,
             clock,
             memory,
             room,
+            checkpoints,
+            running: None,
         }
+    }
+}
+
+/// The C6's check of an install (specification 34 §11.2, decision G13): the new program is prepared
+/// with the limits that the heap allows now, its room less [`ONLINE_CHANGE_RESERVE_BYTES`], so that a
+/// program the heap cannot hold is refused with `insufficient memory` and its numbers instead of
+/// resetting the chip, and then its warm start is tried with the newest checkpoint, which `checkpoints`
+/// only reads. The firmware gives the loop this check with its program store
+/// ([`Runner::with_program_store`](trust_runtime_services::runner::Runner::with_program_store)).
+pub fn install_check(
+    mut checkpoints: Box<dyn CheckpointFlash>,
+    memory: DeviceMemory,
+    room: fn() -> usize,
+) -> impl FnMut(&Admitted<'_>) -> Result<(), RuntimeError> {
+    move |admitted| {
+        check_install(
+            &mut *checkpoints,
+            admitted,
+            memory,
+            room(),
+            ONLINE_CHANGE_RESERVE_BYTES,
+        )
     }
 }
 
@@ -150,6 +222,8 @@ where
         } = booted;
         let identity = record.checkpoint_identity();
         let config = record.configuration;
+        // A program that fails to load leaves no record of a running program.
+        self.running = None;
 
         // The program is prepared first, and the container's bytes are freed as soon as it is.
         let prepared = PreparedModule::from_bytes(&program, device_limits(self.memory))
@@ -199,6 +273,9 @@ where
         platform.feed();
 
         let event_capacity = event_capacity(&config);
+        self.running = Some(Running {
+            config: config.clone(),
+        });
         platform.set_program(ProgramValues {
             resource_name: config.resource_name,
             debug_enabled: config.control_debug_enabled,
@@ -210,6 +287,102 @@ where
             events,
             event_capacity,
         })
+    }
+
+    fn prepare_change(
+        &mut self,
+        platform: &mut Platform<W>,
+        running: &mut ProgramCycle<C, H::Io>,
+        program: Vec<u8>,
+    ) -> Result<Candidate<ProgramCycle<C, H::Io>>, String> {
+        let record = self
+            .running
+            .as_ref()
+            .ok_or_else(|| String::from("the running program's record is not known"))?;
+
+        // The memory check (UPDATE-06): the limits are those of the heap's room now, less the reserve,
+        // and the upload is freed as soon as the module is prepared.
+        let (prepared, budget) = prepare_candidate(
+            program,
+            self.memory,
+            (self.room)(),
+            ONLINE_CHANGE_RESERVE_BYTES,
+        )?;
+        platform.feed();
+
+        // The candidate's bindings are checked against the lines of the running program's record.
+        let (inputs, outputs) = record_lines(&record.config, "C6")?;
+        if let Some(address) = unwired_binding(prepared.io_bindings(), &inputs, &outputs) {
+            return Err(format!(
+                "the candidate binds {}, which the running program's record gives no line",
+                address_text(&address)
+            ));
+        }
+        let live = live_values(&prepared).map_err(|error| budget.refusal(&error))?;
+
+        // The saved snapshot of the retain store: the newest checkpoint when the record keeps retained
+        // values, and none otherwise, as a computer's online change loads its retain store, which is
+        // empty when the project keeps none.
+        let saved = if record.config.retain_mode == RetainMode::File {
+            newest_checkpoint(&mut *self.checkpoints).map_err(|error| error.to_string())?
+        } else {
+            None
+        };
+
+        // The candidate is built from the running program's state by the engine's replacement, the
+        // body that a computer's online change runs: it continues the running program's generation,
+        // keeps its logical time and process images, keeps the retained function-block instances and
+        // references live when it declares the same retained storage, and takes the saved snapshot
+        // over the retained values. It is constructed with the running program's settings and an empty
+        // process I/O: an empty configuration claims no pin, and the commit hands it the running
+        // program's lines. It lives in memory of its own, so the running program's is freed with that
+        // program, whenever it is dropped.
+        let io = self.hardware.claim_lines(&Configuration::default())?;
+        let settings = running.settings().clone();
+        let (mut cycle, events) = ProgramMemory::replace(
+            running,
+            prepared,
+            DeviceServices::new(self.clock),
+            io,
+            settings,
+            saved.as_ref(),
+        )
+        .map_err(|error| budget.refusal(&error))?;
+        platform.feed();
+
+        // The running program's safe state must be valid in the candidate, as a computer checks its
+        // I/O policy against a replacement.
+        cycle
+            .check_safe_outputs()
+            .map_err(|error| error.to_string())?;
+
+        // A client that names an instance by its identity after the change names the generation that
+        // the change installed.
+        live.set_generation(cycle.generation());
+        Ok(Candidate {
+            cycle,
+            live,
+            events,
+        })
+    }
+
+    fn commit_change(
+        &mut self,
+        platform: &mut Platform<W>,
+        running: &mut ProgramCycle<C, H::Io>,
+        candidate: &mut Candidate<ProgramCycle<C, H::Io>>,
+    ) {
+        // The lines and the checkpoint store change places with the candidate's empty ones: no pin is
+        // released or claimed, and no output is written.
+        running.hand_over_to(&mut candidate.cycle);
+        if let Some(record) = &self.running {
+            platform.set_program(ProgramValues {
+                resource_name: record.config.resource_name.clone(),
+                debug_enabled: record.config.control_debug_enabled,
+                control_mode: record.config.control_mode,
+                live: candidate.live.clone(),
+            });
+        }
     }
 }
 

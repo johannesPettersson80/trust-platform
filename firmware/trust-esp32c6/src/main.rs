@@ -8,7 +8,10 @@
 //! built by the C6's loader, which a `restart` uses again to load a newer container in place: the
 //! program prepared, the record's GPIO lines claimed by pin name, each output driven to its initial
 //! value before it becomes an output, and the program constructed and started (with `mode = "file"`,
-//! warm from the newest committed checkpoint); then the runner serves the control link over USB.
+//! warm from the newest committed checkpoint); then the runner serves the control link over USB. The
+//! same loader builds the candidate of an online change (`bytecode.reload`, specification 34 §11.3):
+//! it is prepared within the heap's room less a reserve while the running program stays installed,
+//! and the commit hands it the running program's lines.
 //!
 //! With no valid application, or one the device refuses, the same loop runs Stopped and serves the
 //! link with the refusal's text (design §1.1, R2). The loop is given the transfer session of the boot,
@@ -30,22 +33,17 @@ use core::fmt::Write;
 use core::time::Duration as CoreDuration;
 
 use smol_str::SmolStr;
-use trust_platform_esp32::loader::{default_event_capacity, Esp32Loader};
+use trust_platform_esp32::loader::{default_event_capacity, install_check, Esp32Loader};
 use trust_platform_esp32::process_io::GpioIo;
 use trust_platform_esp32::profile::{runtime_id, transfer_session, PROGRAM_STEP_BYTES, STBC_BYTES};
 use trust_platform_esp32::program_memory::ProgramCycle;
 use trust_platform_esp32::{emergency_halt, Board, Monotonic, Platform, UsbLink, Wait, Watchdog};
 use trust_runtime_core::deployment::ControlMode;
-use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, ProgramStore};
-use trust_runtime_core::retain::checkpoint::CheckpointFlash;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_services::chip::platform::status_settings;
-use trust_runtime_services::installation::Admitted;
 use trust_runtime_services::runner::engine::DeviceMemory;
-use trust_runtime_services::runner::{
-    check_retained_values, EngineLiveValues, Loaded, ProgramLoader, Runner,
-};
+use trust_runtime_services::runner::{EngineLiveValues, Loaded, ProgramLoader, Runner};
 
 use application::Refused;
 
@@ -88,6 +86,11 @@ fn main() -> ! {
     let Ok(checkpoint_reader) = board.checkpoint_reader() else {
         emergency_halt("checkpoint-reader");
     };
+    // A second handle that only reads, for the loader: an online change takes the newest checkpoint
+    // through it while the running program holds the writer.
+    let Ok(change_reader) = board.checkpoint_reader() else {
+        emergency_halt("checkpoint-reader");
+    };
     let mut parts = board.into_parts();
     let mut store = ProgramStore {
         flash: program_flash,
@@ -115,15 +118,18 @@ fn main() -> ! {
         runtime_id(parts.identity.mac),
     );
     // The loader builds the program of the installed container here and again at every `restart` that
-    // finds a newer one (specification 34 STATE-08): the same steps in the same order.
+    // finds a newer one (specification 34 STATE-08): the same steps in the same order. It also builds
+    // the candidate of an online change (specification 34 §11.3).
+    let device_memory = DeviceMemory {
+        region_bytes: STBC_BYTES,
+        heap_bytes: memory::HEAP.capacity(),
+    };
     let mut loader = Esp32Loader::new(
         parts.hardware,
         clock,
-        DeviceMemory {
-            region_bytes: STBC_BYTES,
-            heap_bytes: memory::HEAP.capacity(),
-        },
+        device_memory,
         heap_room,
+        change_reader,
     );
     let (program, loaded) = match installed {
         Ok(booted) => {
@@ -166,20 +172,14 @@ fn main() -> ! {
     let mut runner = Box::new(
         runner
             .with_transfers(transfer_session(boot_count))
-            .with_program_store(store, retained_check(checkpoint_reader))
+            .with_program_store(
+                store,
+                install_check(checkpoint_reader, device_memory, heap_room),
+            )
             .with_program_loader(loader, loaded),
     );
     let _ = runner.run();
     emergency_halt("runner")
-}
-
-/// The install's retained-value check over the checkpoint slots (specification 11 §6.7.1, decision
-/// G13): the warm start of the admitted program with the newest checkpoint, which only reads the
-/// slots. It is built here, in the firmware, so that its code is generated beside the engine's.
-fn retained_check(
-    mut checkpoints: Box<dyn CheckpointFlash>,
-) -> impl FnMut(&Admitted<'_>) -> Result<(), RuntimeError> {
-    move |admitted| check_retained_values(&mut *checkpoints, admitted)
 }
 
 /// The resource loop's clock: the C6's SYSTIMER through the adapter's [`Monotonic`]. The adapter

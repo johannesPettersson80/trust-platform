@@ -34,8 +34,8 @@ use trust_runtime_core::watchdog::{FaultPolicy, RetainMode, WatchdogPolicy};
 use super::engine::{device_limits, CycleSettings, DeviceServices, EngineCycle};
 use super::program::Program;
 use super::{
-    check_retained_values, EngineLiveValues, Loaded, ProgramLoader, ResourceCycle, RetainConfig,
-    RetainSource, Runner,
+    check_retained_values, Candidate, EngineLiveValues, Loaded, ProgramLoader, ResourceCycle,
+    RetainConfig, RetainSource, Runner,
 };
 use crate::events::EVENT_STORE_CAPACITY;
 use crate::loading::select::Booted;
@@ -162,6 +162,26 @@ impl<'a> ProgramLoader<TestPlatform, ScriptedCycle<'a>> for TestLoader {
             events,
             event_capacity: CAPACITY,
         })
+    }
+
+    /// These tests load programs in place and change none online (that is
+    /// `online_change/contract_tests.rs`), so a change is refused.
+    fn prepare_change(
+        &mut self,
+        _platform: &mut TestPlatform,
+        _running: &mut ScriptedCycle<'a>,
+        _program: Vec<u8>,
+    ) -> Result<Candidate<ScriptedCycle<'a>>, String> {
+        Err(String::from("these tests change no program online"))
+    }
+
+    fn commit_change(
+        &mut self,
+        _platform: &mut TestPlatform,
+        _running: &mut ScriptedCycle<'a>,
+        _candidate: &mut Candidate<ScriptedCycle<'a>>,
+    ) {
+        panic!("these tests commit no online change");
     }
 }
 

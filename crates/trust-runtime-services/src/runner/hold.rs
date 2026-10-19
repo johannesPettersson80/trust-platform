@@ -17,6 +17,9 @@
 //! 5. it ends when the debugger no longer holds the scan, and otherwise waits until the earlier of
 //!    one feed interval and, while the link still holds reply bytes, one millisecond.
 //!
+//! Step 2 also withdraws an online change that has waited five seconds for a boundary (specification 34
+//! §11.3): a held scan reaches none, and the loop reads no request while the change's reply is owed.
+//!
 //! It never takes a boundary: no scan starts, no output is committed (the hold sits before the output
 //! phase), and no retained checkpoint advances, so it runs neither the supervisor nor the persister
 //! step. A hold lasts until a `resume`, a step or a stop request. Nothing else releases it: neither
@@ -194,6 +197,9 @@ where
             let token = self.wake_token();
             #[cfg(test)]
             self.run_probe(view);
+            // A scan that the debugger holds reaches no boundary, so the change that waits for one is
+            // withdrawn here after five seconds, and the requests behind its reply are served again.
+            self.expire_change();
             let more_frames = self.serve_held(view);
             self.idle();
             self.feed();
@@ -212,6 +218,9 @@ where
                 // A reply in flight is driven to its end within a millisecond, as between scans
                 // (specification 34, PORT-05).
                 deadline = deadline.min(now.saturating_add(REPLY_SERVICE_INTERVAL));
+            }
+            if let Some(expiry) = self.change.expiry() {
+                deadline = deadline.min(expiry);
             }
             if let Err(failure) = self.wait_until(deadline, token) {
                 // The run ends with this failure at its next pass, as it ends when the wait fails

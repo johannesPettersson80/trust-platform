@@ -19,6 +19,7 @@ use super::cycle::ResourceCycle;
 use super::debugger::ChipDebug;
 use super::engine::EngineLiveValues;
 use super::install::InstallState;
+use super::online_change::ChangeState;
 use super::program::Program;
 use super::state::{Records, ResourceCell};
 use crate::access::{AccessRole, AuthFailure};
@@ -29,6 +30,7 @@ use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use crate::live_values::queues::{ForcedSnapshot, ForcedVarTarget, PendingVarTarget};
 use crate::live_values::var_requests::VariableQueuePort;
 use crate::live_values::RequestQueueFull;
+use crate::loading::reload;
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::ports::{
     AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl,
@@ -37,6 +39,7 @@ use crate::ports::{
 };
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::resource::commands::{CommandClass, CommandSendError};
+use crate::resource::replies::no_installed_program;
 use crate::status::{IoDriverStatus, StatusSettings};
 use crate::transfer::TransferSession;
 
@@ -145,6 +148,8 @@ pub(super) struct RunnerHost<'a, P, C> {
     pub(super) debug: &'a ChipDebug,
     /// The transfers, the program store and the install the loop keeps.
     pub(super) install: &'a InstallState,
+    /// The online change that waits for the program's next boundary.
+    pub(super) change: &'a ChangeState,
 }
 
 impl<P: RunnerPlatform, C> AccessPort for RunnerHost<'_, P, C> {
@@ -366,8 +371,35 @@ impl<P: RunnerPlatform, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, C> 
     }
 }
 
-impl<P: RunnerPlatform, C> ExtensionDispatch for RunnerHost<'_, P, C> {
+impl<P: RunnerPlatform, C: MonotonicClock> RunnerHost<'_, P, C> {
+    /// `bytecode.reload` on a loop that can change its program online (specification 34 §11.3): the
+    /// shared rule admits the request ([`reload::admit`]), and the change is queued for the program's
+    /// next boundary. The reply built here is `reloaded`, which the loop holds and writes when the
+    /// change is applied; a failure replaces it (the loop's `finish_change`). A loop that has no
+    /// program to change refuses with the reason it has none.
+    fn queue_online_change(&self, request: &ControlRequest) -> ControlResponse {
+        let id = request.id;
+        let program = match reload::admit(id, request.params.clone(), self) {
+            Ok(program) => program,
+            Err(refusal) => return refusal,
+        };
+        if let Some(reason) = self.program.missing_program() {
+            return no_installed_program(id, reason);
+        }
+        match self.change.begin(program) {
+            Ok(()) => ControlResponse::ok(id, serde_json::json!({"status": "reloaded"})),
+            Err(refusal) => ControlResponse::error(id, refusal),
+        }
+    }
+}
+
+impl<P: RunnerPlatform, C: MonotonicClock> ExtensionDispatch for RunnerHost<'_, P, C> {
+    /// The loop answers `bytecode.reload` itself when it was given a loader that builds candidates;
+    /// every other operation, and `bytecode.reload` on a loop without one, goes to the platform.
     fn dispatch_extension(&self, request: &ControlRequest) -> Option<ControlResponse> {
+        if request.r#type == reload::OPERATION && self.change.enabled() {
+            return Some(self.queue_online_change(request));
+        }
         self.platform.dispatch_extension(request)
     }
 

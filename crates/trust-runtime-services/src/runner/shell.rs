@@ -35,6 +35,15 @@
 //! dispatcher built, [`Shell::step_install`] advances the commit by one step in each pass and writes
 //! the reply when it ends, and [`Shell::next_frame`] hands the loop no request in between: the reply
 //! is the one reply in flight (specification 34, PORT-05).
+//!
+//! # An online change in progress
+//!
+//! The request that queues an online change (`bytecode.reload`, specification 34 §11.3) is answered
+//! the same way: [`Shell::serve`] holds the reply the dispatcher built, the loop writes it when the
+//! change is applied (or the failure that ended it), and [`Shell::next_frame`] hands the loop no
+//! request in between. The five seconds that a change waits for a boundary are checked by
+//! [`Shell::expire_change`], which the loop and a debugger's hold both call, so that a scan that the
+//! debugger holds does not keep the reply of a withdrawn change from being written.
 
 use alloc::string::{String, ToString};
 use alloc::vec;
@@ -51,9 +60,11 @@ use trust_runtime_core::ports::{
 use super::debugger::ChipDebug;
 use super::host::{ProgramView, RunnerHost};
 use super::install::{InstallState, Step};
+use super::online_change::ChangeState;
 use super::state::{Records, ResourceCell};
 use super::RunnerPlatform;
 use crate::dispatch::{invalid_line, prepare_line_within, PreparedLine};
+use crate::loading::reload::ReloadOutcome;
 use crate::ports::{AccessPort, StatusPort};
 use crate::protocol::ControlAfterResponse;
 
@@ -86,6 +97,8 @@ pub(super) struct Shell<L, W, P, C> {
     pub(super) debug: ChipDebug,
     /// The transfers, the program store and the install that runs.
     pub(super) install: InstallState,
+    /// The online change that waits for the program's next boundary.
+    pub(super) change: ChangeState,
     pub(super) clock: C,
     #[cfg(test)]
     pub(super) probe: RefCell<Option<alloc::boxed::Box<HoldProbe>>>,
@@ -123,6 +136,7 @@ where
             records,
             debug: ChipDebug::new(),
             install: InstallState::default(),
+            change: ChangeState::default(),
             clock,
             #[cfg(test)]
             probe: RefCell::new(None),
@@ -238,11 +252,11 @@ where
     }
 
     /// The request to answer next: the one held back for a due boundary, which goes first, else the
-    /// next frame the link has received. None while an install's reply is pending: that reply is the
-    /// one reply in flight, so the loop reads no request until it is written (specification 34,
-    /// PORT-05). The requests that arrive meanwhile wait in the link.
+    /// next frame the link has received. None while an install's or an online change's reply is
+    /// pending: that reply is the one reply in flight, so the loop reads no request until it is
+    /// written (specification 34, PORT-05). The requests that arrive meanwhile wait in the link.
     pub(super) fn next_frame(&self) -> Option<LinkFrame> {
-        if self.install.reply_pending() {
+        if self.install.reply_pending() || self.change.reply_pending() {
             return None;
         }
         if let Some(held) = self.held.take() {
@@ -280,6 +294,16 @@ where
                 .install
                 .hold_reply(self.request_id(received), prepared.response)
             {
+                self.fault.set(true);
+            }
+            return prepared.after_response;
+        }
+        if self.change.take_began() {
+            if !self.change.hold_reply(
+                self.request_id(received),
+                prepared.response,
+                self.clock.now(),
+            ) {
                 self.fault.set(true);
             }
             return prepared.after_response;
@@ -330,6 +354,23 @@ where
         self.install.reply_pending()
     }
 
+    /// Withdraws the online change that no boundary took within five seconds, and writes its reply,
+    /// `reload timeout` (specification 11 §6.7.1; specification 34 §11.3). The change is never
+    /// applied.
+    pub(super) fn expire_change(&self) {
+        if let Some(reply) = self.change.withdraw_expired(self.clock.now()) {
+            self.send(&reply);
+        }
+    }
+
+    /// Ends the online change that waits with `outcome` and writes its reply: `reloaded` when it was
+    /// applied, and the failure otherwise. Does nothing when no change waits.
+    pub(super) fn finish_change(&self, outcome: ReloadOutcome<()>) {
+        if let Some(reply) = self.change.finish(outcome) {
+            self.send(&reply);
+        }
+    }
+
     /// The reply to one received frame, at most one frame long. A frame longer than the link
     /// accepts, or one that is not UTF-8 text, cannot be a request line and gets
     /// `invalid request` with id 0.
@@ -358,6 +399,7 @@ where
             records: &self.records,
             debug: &self.debug,
             install: &self.install,
+            change: &self.change,
         };
         Some(prepare_line_within(line, &host, client.as_deref(), max_len))
     }

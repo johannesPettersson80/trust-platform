@@ -50,6 +50,88 @@ impl EngineState<'_> {
         Ok(events)
     }
 
+    /// Builds the data of a distinct installation that replaces this one, at a quiescent owner
+    /// boundary (specification 34 §11.3; specification 11 §6.7.1). It is the one body of
+    /// `OwnedRuntimeState::prepare_replacement`, which a computer's hosted state calls, and of
+    /// `RuntimeState::prepare_replacement`, which a chip's borrowed state calls, so the two replace
+    /// their program by the same rules and cannot drift apart.
+    ///
+    /// - The replacement continues this installation's lineage with the next generation, so no
+    ///   earlier reference names its state (MEM-07, UPDATE-04). An exhausted counter refuses it
+    ///   before anything changes.
+    /// - A replacement that declares the same retained storage (`warm_graph_congruent`) keeps the
+    ///   retained function-block instances and references live: the retained globals are copied
+    ///   into the replacement with their object graphs, and the retained program variables that a
+    ///   snapshot can hold are copied by name. Any other replacement migrates a snapshot of this
+    ///   installation's retained values by name, and refuses the change when a retained live object
+    ///   or reference cannot be serialized into one.
+    /// - The process images and the logical time are carried over, and `durable`, the saved
+    ///   snapshot of the platform's retain store, is applied over all of it.
+    ///
+    /// Nothing of this installation changes, whether the replacement is built or refused. The
+    /// replacement holds no borrow of this installation: it is built from copies.
+    ///
+    /// # Errors
+    ///
+    /// The [`RuntimeError`] of a replacement that cannot be prepared: the generation counter is
+    /// exhausted, a retained live object cannot be migrated, a retained value is refused by its
+    /// declared type, or an allowance or the physical deadline is exceeded.
+    pub(super) fn prepare_replacement_data<'b>(
+        &mut self,
+        prepared: &'b PreparedModule,
+        resource_index: usize,
+        services: &'b dyn ExecutionServices,
+        durable: Option<&crate::retain::RetainSnapshot>,
+    ) -> Result<(Box<EngineData>, Vec<super::RetainApplyEvent>), RuntimeError> {
+        let generation = self.next_generation()?;
+        let congruent = warm_graph_congruent(self.prepared, prepared);
+        let snapshot = if congruent {
+            None
+        } else {
+            self.engineering_operation(|source| {
+                source.require_serializable_retained_values()?;
+                source.cycle_retain_snapshot()
+            })
+            .map(Some)?
+        };
+        let mut data = EngineState::build(
+            prepared,
+            resource_index,
+            services,
+            generation,
+            true,
+            congruent.then_some(&*self),
+            Some(&self.data.images),
+            self.data.now,
+        )?;
+        let mut candidate = EngineState::borrow(&mut data, prepared, services);
+        let mut events = if congruent {
+            candidate.restore_retained_program_values(self)?;
+            Vec::new()
+        } else {
+            candidate.apply_retained_snapshot(
+                snapshot
+                    .as_ref()
+                    .ok_or(RuntimeError::InvalidExecutionState)?,
+            )?
+        };
+        if let Some(snapshot) = durable {
+            let restored = candidate.apply_retained_snapshot(snapshot)?;
+            candidate.charge_allocation_bytes(
+                restored
+                    .len()
+                    .checked_mul(core::mem::size_of::<super::RetainApplyEvent>())
+                    .ok_or(RuntimeError::Overflow)?,
+            )?;
+            events
+                .try_reserve_exact(restored.len())
+                .map_err(|_| RuntimeError::Overflow)?;
+            events.extend(restored);
+        }
+        candidate.check_entry_deadline()?;
+        Ok((data, events))
+    }
+
     pub(super) fn restore_retained_program_values(
         &mut self,
         source: &EngineState<'_>,
@@ -174,7 +256,6 @@ impl EngineState<'_> {
 /// Index-based object preservation is valid only for the same admitted identity
 /// graph. Changed executable bodies/default code are allowed; changed physical
 /// declarations, types, inheritance or interface identities require migration.
-#[cfg(feature = "std")]
 pub(super) fn warm_graph_congruent(old: &PreparedModule, new: &PreparedModule) -> bool {
     old.layout == new.layout
         && old.roots == new.roots

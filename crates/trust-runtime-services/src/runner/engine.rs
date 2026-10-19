@@ -27,6 +27,7 @@
 //! refused write is reported through the runner's record store as a `WriteRejected` event, as
 //! trust-runtime reports it.
 
+mod handover;
 mod held_time;
 mod limits;
 mod process_io;
@@ -496,6 +497,16 @@ impl EngineLiveValues {
     /// keeps it.
     pub fn clear(&self) {
         self.inner.queues.borrow_mut().clear();
+    }
+
+    /// Records the installation generation of the program these Live Values belong to. A request that
+    /// names an instance by a bare identity, as a control client does, belongs to the generation
+    /// installed when the request is accepted, and the boundary that applies it refuses it when another
+    /// generation is installed (specification 34 §4.3.1). A device gives the Live Values of an online
+    /// change's candidate the generation of the candidate's state before the commit, so a force queued
+    /// after the change names the installed generation.
+    pub fn set_generation(&self, generation: Generation) {
+        self.inner.generation.set(generation);
     }
 
     /// The published I/O snapshot of the last completed scan, updated in place.

@@ -2270,6 +2270,30 @@ preserved, the scan counter restarts, and queued writes and forces are cleared
 under section 6.9.2. A request must never report `reloaded` unless this complete
 commit succeeds.
 
+The replacement installs the next generation of the running program's lineage, so
+a reference or an instance identity taken before it is refused as stale after it
+(specification 34 §11.3, UPDATE-04), and it carries the process images and the
+logical time.
+
+The retained variables of the candidate take their values by name, in two steps,
+on every runtime: first the retained values that the running program holds in
+memory at the boundary, then the runtime's saved snapshot, the newest content of
+its retain store, applied over them. A candidate that declares the same retained
+storage as the running program (the same declarations, types and identities, with
+other executable bodies) keeps the retained function-block instances and
+references of its retained globals live, with the object graph they hold, and
+copies the retained program variables that a snapshot can hold. Any other
+candidate migrates a snapshot of the running program's retained values. A
+retained function-block instance or reference is not part of a snapshot (section
+6.7), so the change is then refused with `retained live-object graph requires
+congruent admitted schema`, and the running program runs on. Each snapshot is
+applied atomically through the declared types, so a value that the candidate
+refuses fails the preparation (above). A name that only the first step has keeps
+the running program's value, and a name that both have takes the saved value, so a
+retained value that changed after the last save is replaced by the saved one. A
+runtime without a retain store has an empty second step, and the retained
+variables keep the values that the running program held.
+
 ##### 6.7.2 Runtime agent command conformance
 
 The runtime implementation of the Agent API preserves the canonical workspace

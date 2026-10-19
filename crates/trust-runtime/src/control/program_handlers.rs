@@ -67,7 +67,7 @@ pub(super) struct ReloadWait {
 }
 
 pub(super) const RELOAD_WAIT: ReloadWait = ReloadWait {
-    take: Duration::from_secs(5),
+    take: reload_rules::TAKE_WAIT,
     commit: Duration::from_secs(60),
 };
 

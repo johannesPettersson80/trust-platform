@@ -1,13 +1,17 @@
 //! The decision rules of `bytecode.reload` (specification 11 section 6.7.1), shared by every runtime:
-//! the params, the resource rule and the reply to each way a queued reload ends.
+//! the params, the resource rule, the bound on the wait for a boundary and the reply to each way a
+//! queued reload ends.
 //!
 //! The platform queues the reload and waits for its outcome, because the waits need its threads and
 //! its clock. [`admit`] decides a request before it is queued, and [`reply`] answers it once the wait
-//! has ended. Nothing here holds a channel, a thread or a clock.
+//! has ended. Nothing here holds a channel, a thread or a clock. A computer's scan thread and a chip's
+//! resource loop (`runner/online_change.rs`) apply the queued change at a boundary; both withdraw it
+//! after [`TAKE_WAIT`] when no boundary took it.
 
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use core::time::Duration;
 
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
@@ -21,6 +25,14 @@ use crate::protocol::ControlResponse;
 use crate::resource::replies::{hung_refusal, resource_not_running, RESOURCE_NOT_RUNNING};
 use crate::status::{check_number_members, invalid_params, MemberKind};
 use crate::transfer::TransferId;
+
+/// The operation this module decides.
+pub const OPERATION: &str = "bytecode.reload";
+
+/// How long a reload request waits for the resource to take it, on every runtime: five seconds
+/// (specification 11 §6.7.1). A request that no boundary has taken by then is withdrawn and never
+/// applied, and its reply is `reload timeout`.
+pub const TAKE_WAIT: Duration = Duration::from_secs(5);
 
 /// The params of `bytecode.reload`: the program's bytes in standard base64. Fields the rule does not
 /// read are ignored.

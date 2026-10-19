@@ -102,11 +102,15 @@ it. The boot loader still prints its own lines before the first reply.
 The chip answers the same operations as `trust-runtime` (`status`, `capabilities`, `health`,
 `tasks.stats`, `events.tail`, `faults`, `pause`, `resume`, `restart`, `shutdown`, the transfer
 operations `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort`,
-`program.install` and `program.active`); the endpoint is the board's `/dev/serial/by-id` path
-(specification 11 §6.9). `program.active` reports the installed program and the one before it,
-reading the header and the record of each container from the two program slots in reads of at most
-256 bytes, and never the program. `bytecode.reload` answers `unsupported request`: a chip has no
-online change yet. Requests and replies are bounded by the link's frame; a request or a reply above
+`program.install`, `program.active` and `bytecode.reload`); the endpoint is the board's
+`/dev/serial/by-id` path (specification 11 §6.9). `program.active` reports the installed program and
+the one before it, reading the header and the record of each container from the two program slots in
+reads of at most 256 bytes, and never the program. `bytecode.reload` changes the running program
+online, as it does on `trust-runtime`: it is applied at the program's next scan boundary, without a
+reset and without writing flash, the program keeps its pins and their output levels, and its retained
+values, function-block instances and references carry over when the new program declares the same
+retained storage (specification 34 §11.3). The reply is the one reply in flight until the change is
+applied or refused. Requests and replies are bounded by the link's frame; a request or a reply above
 it is refused with the clear error, never cut.
 
 ## Build
@@ -277,7 +281,13 @@ point.
   the longest such step is still to be measured on the bench. An upload left open keeps its buffer
   in the heap during a load, which can make the load refuse the container for room;
   `transfer.abort` frees it.
-- `bytecode.reload` (online change) is not built on the chip: it answers `unsupported request`.
+- `bytecode.reload` (online change) prepares the new program while the running one stays installed,
+  so the heap holds both programs and the upload at once. The new program is prepared within the
+  heap's free bytes less a reserve of 24 KiB, and a program that needs more is refused with
+  `insufficient memory` and its numbers, while the running program goes on unchanged. The reserve
+  comes from a measurement on the host and the bench replaces it, and the longest uninterrupted step
+  of a change is still to be measured against the hardware watchdog (specification 34 §11.3 and
+  Appendix D.2).
 - The program slots are 3056 KiB each, so a container larger than a slot (or larger than the heap's
   room) cannot be installed, while `trust-runtime` has no such limit. An install holds the upload and
   the commit's own copy of the container in the heap, and a container the heap cannot hold is

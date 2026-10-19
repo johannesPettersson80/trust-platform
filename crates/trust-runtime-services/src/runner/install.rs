@@ -22,7 +22,7 @@
 
 mod retained;
 
-pub use retained::check_retained_values;
+pub use retained::{check_install, check_retained_values, newest_checkpoint};
 
 use alloc::boxed::Box;
 use alloc::format;

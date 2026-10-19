@@ -284,6 +284,19 @@ impl ChipDebug {
         self.with(|state| state.run.control().rearm());
     }
 
+    /// An online change replaced the program (specification 34 §11.3), as a computer's
+    /// `invalidate_schema_observations` does: what belonged to the old statements is forgotten, the
+    /// call depths, the steps, the thread identities and the last stop, and the next statement
+    /// supplies them again. The breakpoints stay, and so does a pause (specification 13, "Hold
+    /// duration": a configuration change does not release a hold); the change itself happens at a
+    /// boundary, where no scan is held.
+    pub(super) fn program_replaced(&self) {
+        self.with(|state| {
+            state.run.control().retire_observations();
+            state.last_stop = None;
+        });
+    }
+
     /// The decision at a statement start (specification 13, "Runtime Debug-Control Execution" and
     /// "Breakpoint evaluation, source resolution, and hook contract"), in the order trust-runtime's
     /// hook takes it: the boundary is recorded, the pending pause of a held scan is emitted, and a

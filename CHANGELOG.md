@@ -6,6 +6,16 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- The ESP32-C6 changes its running program online. `bytecode.reload` (Admin) works on a chip as on a
+  computer: the change is applied at the program's next scan boundary, without a reset, the lines keep
+  their pins and output levels, and a change that fails leaves the program running as it was. The chip
+  and the computer build the new program with one replacement: it installs the next generation, so a
+  reference taken before the change is refused as stale after it, and the retained values carry over,
+  with the retained function-block instances and references when the new program declares the same
+  retained storage. The new program is prepared in the heap that remains less a reserve of 24 KiB, and
+  a program that needs more is refused with `insufficient memory` and its numbers; the dry run of
+  `program.install` on a chip takes the same limits, so a program that cannot fit is refused instead
+  of resetting the chip.
 - The ESP32-C6 loads a newly installed program in place. `restart` of the stopped program drops the
   program, its pins and its memory, then reads, checks and prepares the newest installed container,
   claims its pins and starts it cold or warm, without a reset, so the USB connection stays up. A
@@ -53,13 +63,12 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   `resource_not_running` otherwise. It checks the container, the deployment record and its
   admission, the retained values against the newest saved ones, and the program's preparation, in
   that order, and changes nothing when one of them refuses. The reply is
-  `{"status":"installed","sequence":n,"program_sha256":"...","bytes":n}`. On a computer,
-  `bytecode.reload` also takes `transfer` in place of `bytes`; it is still an online change that
-  writes nothing, so a stop and a `restart` start the installed program again, and a chip has no
-  online change yet and answers `unsupported request`. `program.active` (Viewer) reports the
-  installed program and the one before it, on a computer and on a chip. A chip answers
-  `program.install` after its whole commit: specification 11 §6.8.1 gives the time a client waits
-  for that reply, worked out from the container's size.
+  `{"status":"installed","sequence":n,"program_sha256":"...","bytes":n}`. `bytecode.reload` also
+  takes `transfer` in place of `bytes`; it is still an online change that writes nothing, so a stop
+  and a `restart` start the installed program again. `program.active` (Viewer) reports the installed
+  program and the one before it, on a computer and on a chip. A chip answers `program.install` after
+  its whole commit: specification 11 §6.8.1 gives the time a client waits for that reply, worked out
+  from the container's size.
 - Changed: `trust-runtime deploy`, the web deployment and rollback, and `program.install` write a
   computer's project through a program store. The program is admitted (its record, its admission
   against the runtime and a dry-run preparation) before anything the runtime starts from changes,

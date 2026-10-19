@@ -416,7 +416,7 @@ impl Fixture {
 /// Every measured application. Each corpus program runs in a 10 ms task, so each of its scans
 /// activates it once. The saved main and numeric artifacts keep the boards' schedule: 101 scans
 /// from 0 ms to 1,000 ms with a 25 ms task.
-static FIXTURES: [Fixture; 17] = [
+static FIXTURES: [Fixture; 18] = [
     Fixture::saved("saved/main", SAVED_MAIN, 0, 101),
     Fixture::saved("saved/numeric", SAVED_NUMERIC, 0, 101),
     Fixture::saved("saved/gpio", SAVED_GPIO, 10, 20),
@@ -440,6 +440,7 @@ static FIXTURES: [Fixture; 17] = [
         retain_store: true,
         ..Fixture::corpus("retain")
     },
+    Fixture::corpus("retained_blocks"),
 ];
 
 /// How a fault case makes its scan fail.
