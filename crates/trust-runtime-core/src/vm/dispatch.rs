@@ -129,7 +129,10 @@ impl ExecutionBuffers {
 }
 
 /// Push the frame of a new activation of `pou_id`, with its locals taken from the
-/// execution context's reserved payloads. Errors keep the order of `push_call_frame`.
+/// execution context's reserved payloads. A call whose `owned` payload (with its presence bits)
+/// will replace them (`install_owned_call_inputs`) takes none: each activation then holds one
+/// payload, so the payloads reserved per call depth never run out (spec 34 ARCH-05).
+/// Errors keep the order of `push_call_frame`.
 fn push_activation_frame(
     runtime: &mut impl ExecutionContext,
     frames: &mut FrameStack,
@@ -137,6 +140,7 @@ fn push_activation_frame(
     pou_id: u32,
     return_pc: usize,
     runtime_instance: Option<InstanceId>,
+    owned: Option<(&[Value], Option<&[bool]>)>,
 ) -> Result<usize, VmTrap> {
     let pou = module
         .pou(pou_id)
@@ -144,6 +148,12 @@ fn push_activation_frame(
     let local_count = super::materialization_limits::checked_local_count(pou.local_ref_count)?;
     // The push below cannot fail once its room exists, so the payload is never lost.
     frames.reserve_for_push()?;
+    let locals = match owned {
+        Some((owned, present)) if transfers_owned_locals(Some(owned), local_count, present) => {
+            Vec::new()
+        }
+        _ => runtime.take_frame_locals(local_count),
+    };
     let frame = super::VmFrame {
         pou_id: Some(pou_id),
         activation: None,
@@ -152,7 +162,7 @@ fn push_activation_frame(
         code_end: pou.code_end,
         local_ref_start: pou.local_ref_start,
         local_ref_count: pou.local_ref_count,
-        locals: runtime.take_frame_locals(local_count),
+        locals,
         parameter_values_present: runtime.take_frame_presence(),
         runtime_instance,
         instance_owner: pou.primary_instance_owner,
@@ -201,24 +211,36 @@ fn copy_call_inputs(
 // A private call owns its entire local payload. Only complete, well-shaped
 // vectors transfer: legacy hooks may decline after changing the supplied shape,
 // and those payloads must retain the borrowed copy/error ordering.
+fn transfers_owned_locals(
+    owned: Option<&[Value]>,
+    local_count: usize,
+    parameter_values_present: Option<&[bool]>,
+) -> bool {
+    owned.is_some_and(|locals| {
+        !locals.is_empty()
+            && locals.len() == local_count
+            && parameter_values_present.is_none_or(|present| present.len() <= locals.len())
+    })
+}
+
 fn install_owned_call_inputs(
     runtime: &mut impl ExecutionContext,
     frame: &mut super::VmFrame,
     initial_locals: &mut Option<Vec<Value>>,
     parameter_values_present: Option<&[bool]>,
 ) -> Result<(), RuntimeError> {
-    let can_transfer = initial_locals.as_ref().is_some_and(|locals| {
-        !locals.is_empty()
-            && locals.len() == frame.locals.len()
-            && parameter_values_present.is_none_or(|present| present.len() <= locals.len())
-    });
-    if can_transfer {
+    let local_count = frame.local_ref_count as usize;
+    if transfers_owned_locals(
+        initial_locals.as_deref(),
+        local_count,
+        parameter_values_present,
+    ) {
         // Admit the actual constant ownership transfer before consuming input.
         runtime.charge_call_storage(0, 1)?;
         let owned = initial_locals
             .take()
             .ok_or(RuntimeError::InvalidExecutionState)?;
-        // The payload the frame was pushed with goes back to the reserved payloads.
+        // The frame was pushed without locals for this payload (`push_activation_frame`).
         let pushed = core::mem::replace(&mut frame.locals, owned);
         runtime.recycle_frame_locals(pushed);
         copy_call_inputs(runtime, frame, None, parameter_values_present)
@@ -284,6 +306,10 @@ fn execute_with_buffers(
             frames.push(frame).map_err(VmTrap::into_runtime_error)?;
             start
         } else {
+            let owned = owned_initial_locals
+                .as_ref()
+                .and_then(|owned| owned.as_deref())
+                .map(|owned| (owned, parameter_values_present));
             push_activation_frame(
                 runtime,
                 frames,
@@ -291,6 +317,7 @@ fn execute_with_buffers(
                 pou_id.ok_or_else(|| super::module::invalid_bytecode("POU entry has no owner"))?,
                 usize::MAX,
                 entry_instance,
+                owned,
             )
             .map_err(VmTrap::into_runtime_error)?
         };

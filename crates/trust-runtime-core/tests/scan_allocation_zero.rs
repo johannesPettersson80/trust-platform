@@ -629,7 +629,13 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// C1-13a gives the path buffers of the references a finished activation's locals hold back to the
 /// engine and keeps the staged initializer slot's buffer in the scratch: `instances` makes no
 /// allocator call after its first scan on the flat store, and `initializers` falls from 17 to 13 on
-/// both stores (its array initializer, C1-13b), measured on the builder on 20 October 2026.
+/// both stores (its array initializer, C1-13b), measured on the builder on 19 October 2026.
+///
+/// C1-11e pushes the frame of a call that hands it its own locals without a reserved payload, so
+/// the payloads reserved per call depth cover the deepest call: on both stores `methods` makes no
+/// allocator call after its first scan, `calls` falls from 20 to 19 on the value store and from 1 to
+/// 0 on the flat store, `initializers` from 13 to 12 and, on the flat store, `copies` from 5 to 4,
+/// measured on the builder on 19 October 2026.
 const CEILINGS: [(&str, usize, Calls); 31] = [
     ("faults/division", 2, Calls::ZERO),
     ("faults/index", 2, Calls::ZERO),
@@ -652,9 +658,9 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
         "initializers",
         1,
         Calls {
-            alloc: 13,
+            alloc: 12,
             realloc: 0,
-            dealloc: 13,
+            dealloc: 12,
         },
     ),
     ("sizeof", 1, Calls::ZERO),
@@ -662,9 +668,9 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
         "calls",
         1,
         Calls {
-            alloc: 20,
+            alloc: 19,
             realloc: 0,
-            dealloc: 20,
+            dealloc: 19,
         },
     ),
     (
@@ -676,15 +682,7 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
             dealloc: 13,
         },
     ),
-    (
-        "methods",
-        1,
-        Calls {
-            alloc: 1,
-            realloc: 0,
-            dealloc: 1,
-        },
-    ),
+    ("methods", 1, Calls::ZERO),
     // The same runs on the flat store (C1-10 on): those at zero, and each other at the allocator
     // calls of its steady scans when the reference buffers were kept (19 October 2026).
     ("cells/scalar", 1, Calls::ZERO),
@@ -702,25 +700,9 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
             dealloc: 7,
         },
     ),
-    (
-        "cells/calls",
-        1,
-        Calls {
-            alloc: 1,
-            realloc: 0,
-            dealloc: 1,
-        },
-    ),
+    ("cells/calls", 1, Calls::ZERO),
     ("cells/blocks", 1, Calls::ZERO),
-    (
-        "cells/methods",
-        1,
-        Calls {
-            alloc: 1,
-            realloc: 0,
-            dealloc: 1,
-        },
-    ),
+    ("cells/methods", 1, Calls::ZERO),
     ("cells/instances", 1, Calls::ZERO),
     ("cells/arrays", 1, Calls::ZERO),
     ("cells/references", 1, Calls::ZERO),
@@ -729,9 +711,9 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
         "cells/initializers",
         1,
         Calls {
-            alloc: 13,
+            alloc: 12,
             realloc: 0,
-            dealloc: 13,
+            dealloc: 12,
         },
     ),
     ("cells/retained_blocks", 1, Calls::ZERO),
@@ -739,9 +721,9 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
         "cells/copies",
         1,
         Calls {
-            alloc: 5,
+            alloc: 4,
             realloc: 0,
-            dealloc: 5,
+            dealloc: 4,
         },
     ),
 ];

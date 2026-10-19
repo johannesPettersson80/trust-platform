@@ -685,7 +685,12 @@ fn start_stack_child(
         let pou_id = continuation.call.pou_id;
         let instance = continuation.call.instance;
         let capture_return = continuation.call.capture_return;
-        let pc = super::push_activation_frame(runtime, frames, module, pou_id, 0, instance)
+        let owned = continuation
+            .call
+            .locals
+            .as_deref()
+            .map(|owned| (owned, continuation.call.present.as_deref()));
+        let pc = super::push_activation_frame(runtime, frames, module, pou_id, 0, instance, owned)
             .map_err(VmTrap::into_runtime_error)?;
         runtime.record_call_op(RegisterCallOpKind::FramePush);
         let cursor = StackCursor {
