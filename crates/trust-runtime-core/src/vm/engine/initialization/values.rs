@@ -1,8 +1,13 @@
 //! Bind typed value operations to the active action context and shared limits.
 use crate::error::RuntimeError;
+use crate::memory::layout::ByteRange;
 use crate::value::{DateTimeProfile, Value};
 use crate::vm::construction::values::{ValueConstructionContext, ValueOperation};
-use crate::vm::{engine::EngineState, module::invalid_bytecode, VmTrap};
+use crate::vm::{
+    engine::{EngineState, EngineStore},
+    module::invalid_bytecode,
+    VmTrap,
+};
 use core::mem::size_of;
 
 // Three operation bits per admitted type; two types share a byte. The ordered
@@ -204,6 +209,52 @@ impl ValueConstructionContext for EngineState<'_> {
 
     fn recycle_struct(&mut self, structure: alloc::sync::Arc<crate::value::StructValue>) {
         self.data.resources.raw_shells.keep_structure(structure);
+    }
+
+    fn write_in_place(
+        &mut self,
+        at: ByteRange,
+        type_id: u32,
+        value: &Value,
+    ) -> Result<(), RuntimeError> {
+        let EngineStore::Cells(arm) = &mut self.data.store else {
+            return Err(RuntimeError::InvalidExecutionState);
+        };
+        arm.write_in_place(at, type_id, value, self.prepared)
+    }
+
+    fn write_enum_in_place(
+        &mut self,
+        at: ByteRange,
+        type_id: u32,
+        numeric: i64,
+    ) -> Result<(), RuntimeError> {
+        let EngineStore::Cells(arm) = &mut self.data.store else {
+            return Err(RuntimeError::InvalidExecutionState);
+        };
+        arm.write_enum_in_place(at, type_id, numeric, self.prepared)
+    }
+
+    fn element_in_place(
+        &self,
+        at: ByteRange,
+        type_id: u32,
+        index: usize,
+    ) -> Result<ByteRange, RuntimeError> {
+        self.element_range(at, type_id, index)
+    }
+
+    fn member_in_place(
+        &self,
+        at: ByteRange,
+        type_id: u32,
+        ordinal: usize,
+    ) -> Result<ByteRange, RuntimeError> {
+        self.member_range(at, type_id, ordinal)
+    }
+
+    fn check_in_place(&mut self, at: ByteRange, type_id: u32) -> Result<(), RuntimeError> {
+        self.check_constructed_place(at, type_id)
     }
 }
 

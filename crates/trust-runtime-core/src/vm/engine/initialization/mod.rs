@@ -17,6 +17,7 @@ use crate::vm::context::ReferenceContext;
 mod cleanup_tests;
 mod construction;
 mod frame_defaults;
+mod in_place;
 mod opcodes;
 mod staging;
 mod values;
@@ -117,7 +118,7 @@ impl EngineState<'_> {
             value: seed,
             backups,
             writable_instances,
-        } = self.initializer_seed(&entry, instance, lexical.as_deref())?;
+        } = self.initializer_seed(&entry, instance, lexical.as_deref(), false)?;
         let result = match self.reserve_activation_identity() {
             Ok(result) => result,
             Err(error) => return Err(self.abandon_seed(backups, writable_instances, error)),

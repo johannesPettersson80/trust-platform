@@ -7,7 +7,10 @@
 //! and charged when construction reserves the region (specification 34 §6.2).
 
 use super::*;
-use crate::bytecode::{StorageOwner, StorageRole, TypeData, TypeKind, BYTECODE_MAX_TYPE_NESTING};
+use crate::bytecode::{
+    InitializationStage, InitializerBodyKind, StorageOwner, StorageRole, TypeData, TypeKind,
+    BYTECODE_MAX_TYPE_NESTING,
+};
 use crate::memory::layout::{
     align_up, compute_type_layouts, ByteRange, ByteShape, InstanceTemplateLayout, LayoutRegion,
     TypeLayout, INSTANCE_ALIGN,
@@ -336,10 +339,66 @@ impl PreparedModule {
                     .ok_or(RuntimeError::Overflow)?,
             );
         }
+        // An initializer evaluated in place stages its result above the frame it initializes, and
+        // a call its body makes lies above that result (C1-13).
+        let largest = largest
+            .checked_add(self.largest_in_place_result())
+            .ok_or(RuntimeError::Overflow)?;
         u32::try_from(self.reserved_call_levels())
             .ok()
             .and_then(|levels| levels.checked_mul(largest))
             .ok_or(RuntimeError::Overflow)
+    }
+
+    /// The staged results the activation stack holds at most (C1-13): one for each reserved call
+    /// level, when some initializer is evaluated in place, else none.
+    pub(crate) fn result_block_reservation(&self) -> usize {
+        if self.largest_in_place_result() == 0 {
+            0
+        } else {
+            self.reserved_call_levels()
+        }
+    }
+
+    /// The bytes of the largest staged result of an initializer evaluated in place, or 0.
+    fn largest_in_place_result(&self) -> u32 {
+        (0..self.initializers.entries.len())
+            .filter_map(|id| self.in_place_result(u32::try_from(id).ok()?))
+            .map(|(_, bytes)| bytes)
+            .max()
+            .unwrap_or(0)
+    }
+
+    /// The type and the bytes of the staged result of initializer `id` when the flat store evaluates
+    /// it in place (specification 34 MEM-12, ARCH-05; C1-13): the initializer of a frame variable
+    /// whose slot lies on the activation stack, whose result is an array, a structure or a text that
+    /// a store copies as bytes, and whose value the value path builds in a staged slot (a body, or a
+    /// default without a literal). The bytes are rounded up to [`INSTANCE_ALIGN`], so that a frame
+    /// pushed above the result stays aligned. `None` for every other initializer.
+    pub(crate) fn in_place_result(&self, id: u32) -> Option<(u32, u32)> {
+        let entry = self.initializers.entries.get(id as usize)?;
+        let declaration = self.layout.entries.get(entry.declaration_idx? as usize)?;
+        if declaration.owner != StorageOwner::Frame
+            || entry.body_kind != InitializerBodyKind::Action
+        {
+            return None;
+        }
+        let staged = entry.code_length != 0
+            || (entry.stage == InitializationStage::Default
+                && declaration.default_const_idx.is_none());
+        if !staged {
+            return None;
+        }
+        let (_, slot_type) =
+            self.frame_slot(declaration.owner_pou_id?, declaration.slot as usize)?;
+        let result = self.vm.ref_type(entry.result_ref_idx)?;
+        if !super::byte_types::copies_as_bytes(self, result)
+            || !super::byte_types::same_type(self, result, slot_type, 0)
+        {
+            return None;
+        }
+        let bytes = align_up(self.type_layout(result)?.shape.bytes, INSTANCE_ALIGN).ok()?;
+        Some((result, bytes))
     }
 
     /// The per-call instances the activation stack holds at most (C1-11c): for each reserved call

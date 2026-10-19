@@ -2,6 +2,7 @@
 use crate::bytecode::{Field, TypeData, TypeEntry, TypeTable};
 use crate::collections::OrderedMap;
 use crate::error::RuntimeError;
+use crate::memory::layout::ByteRange;
 use crate::value::{ArrayValue, DateTimeProfile, EnumValue, StructValue, Value};
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use core::mem::size_of;
@@ -16,6 +17,18 @@ pub enum ValueOperation {
     Default,
     Coerce,
     Apply,
+}
+
+/// Where a construction puts the value it builds (C1-13).
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum Target {
+    /// A `Value`, which the construction returns.
+    Value,
+    /// The bytes of a value of the constructed type on the flat store: each leaf is written where it
+    /// lies and no container is built, so the construction allocates nothing, and it returns
+    /// `Value::Null`. It charges and checks what building the value does, in the same order
+    /// (TIME-08), since both run this one traversal.
+    Bytes(ByteRange),
 }
 
 #[derive(Debug)]
@@ -90,6 +103,49 @@ pub trait ValueConstructionContext {
     fn recycle_struct(&mut self, structure: Arc<StructValue>) {
         drop(structure);
     }
+    /// Write `value`, of the `TYPE_TABLE` type `type_id`, into its bytes `at` on the flat store, as a
+    /// construction in place writes each leaf it builds (C1-13). Only the engine's flat store has
+    /// such bytes; any other context refuses.
+    fn write_in_place(
+        &mut self,
+        _at: ByteRange,
+        _type_id: u32,
+        _value: &Value,
+    ) -> Result<(), RuntimeError> {
+        Err(RuntimeError::InvalidExecutionState)
+    }
+    /// Write the enumeration value `numeric` of the type `type_id` into its leaf `at` (C1-13).
+    fn write_enum_in_place(
+        &mut self,
+        _at: ByteRange,
+        _type_id: u32,
+        _numeric: i64,
+    ) -> Result<(), RuntimeError> {
+        Err(RuntimeError::InvalidExecutionState)
+    }
+    /// The bytes of element `index` of the array of `type_id` whose bytes are `at` (C1-13).
+    fn element_in_place(
+        &self,
+        _at: ByteRange,
+        _type_id: u32,
+        _index: usize,
+    ) -> Result<ByteRange, RuntimeError> {
+        Err(RuntimeError::InvalidExecutionState)
+    }
+    /// The bytes of member `ordinal` of the structure of `type_id` whose bytes are `at` (C1-13).
+    fn member_in_place(
+        &self,
+        _at: ByteRange,
+        _type_id: u32,
+        _ordinal: usize,
+    ) -> Result<ByteRange, RuntimeError> {
+        Err(RuntimeError::InvalidExecutionState)
+    }
+    /// The checks [`ValueConstructionContext::check_value`] makes of the value of `type_id` a
+    /// construction in place wrote at `at`, charged as it charges them for that value (C1-13).
+    fn check_in_place(&mut self, _at: ByteRange, _type_id: u32) -> Result<(), RuntimeError> {
+        Err(RuntimeError::InvalidExecutionState)
+    }
 }
 
 pub fn construct_value(
@@ -98,7 +154,7 @@ pub fn construct_value(
     type_id: u32,
     mode: ValueConstructionMode,
 ) -> Result<Value, RuntimeError> {
-    construct(types, ctx, type_id, mode, false, 0)
+    construct(types, ctx, Target::Value, type_id, mode, false, 0)
 }
 
 /// Return slots and intrinsic-only action stages share traversal but skip recipes.
@@ -107,12 +163,35 @@ pub fn construct_intrinsic_value(
     ctx: &mut impl ValueConstructionContext,
     type_id: u32,
 ) -> Result<Value, RuntimeError> {
-    construct(types, ctx, type_id, ValueConstructionMode::Default, true, 0)
+    construct(
+        types,
+        ctx,
+        Target::Value,
+        type_id,
+        ValueConstructionMode::Default,
+        true,
+        0,
+    )
+}
+
+/// Construct the value of `type_id` into its bytes `at` on the flat store (C1-13): what
+/// [`construct_value`], or with `intrinsic` [`construct_intrinsic_value`], builds, charged and
+/// checked as they charge and check it, written where it lies.
+pub(crate) fn construct_in_place(
+    types: &TypeTable,
+    ctx: &mut impl ValueConstructionContext,
+    at: ByteRange,
+    type_id: u32,
+    mode: ValueConstructionMode,
+    intrinsic: bool,
+) -> Result<(), RuntimeError> {
+    construct(types, ctx, Target::Bytes(at), type_id, mode, intrinsic, 0).map(drop)
 }
 
 fn construct<C: ValueConstructionContext>(
     types: &TypeTable,
     ctx: &mut C,
+    target: Target,
     type_id: u32,
     mode: ValueConstructionMode,
     intrinsic: bool,
@@ -135,14 +214,19 @@ fn construct<C: ValueConstructionContext>(
                     .checked_mul(size_of::<(i64, i64)>())
                     .ok_or_else(|| RuntimeError::Overflow)?;
                 ctx.charge_allocation(bytes)?;
-                Some(dims.clone())
+                // In place, the layout holds the dimensions, so none are copied.
+                Some(match target {
+                    Target::Value => dims.clone(),
+                    Target::Bytes(_) => Vec::new(),
+                })
             }
             _ => None,
         };
         let input = match mode {
             ValueConstructionMode::Default if !intrinsic => {
                 if let Some(recipe) = ctx.type_recipe(type_id) {
-                    return ctx.evaluate_recipe(recipe);
+                    let value = ctx.evaluate_recipe(recipe)?;
+                    return emit(ctx, target, type_id, value);
                 }
                 None
             }
@@ -157,6 +241,7 @@ fn construct<C: ValueConstructionContext>(
         node(
             types,
             ctx,
+            target,
             TypeNode {
                 type_id,
                 entry,
@@ -168,11 +253,30 @@ fn construct<C: ValueConstructionContext>(
         )
     })()
     .and_then(|value| {
-        ctx.check_value(type_id, &value)?;
+        match target {
+            Target::Value => ctx.check_value(type_id, &value)?,
+            Target::Bytes(at) => ctx.check_in_place(at, type_id)?,
+        }
         Ok(value)
     });
     ctx.leave_type();
     result
+}
+
+/// The node `value` of `type_id` built for `target`: returned, or written into its bytes.
+fn emit(
+    ctx: &mut impl ValueConstructionContext,
+    target: Target,
+    type_id: u32,
+    value: Value,
+) -> Result<Value, RuntimeError> {
+    match target {
+        Target::Value => Ok(value),
+        Target::Bytes(at) => {
+            ctx.write_in_place(at, type_id, &value)?;
+            Ok(Value::Null)
+        }
+    }
 }
 
 // Recipe overlay maps belong only to aggregate Apply. Do not retain their
@@ -222,6 +326,12 @@ struct TypeNode<'a> {
     array_dims: Option<Vec<(i64, i64)>>,
 }
 
+struct ArrayType<'a> {
+    type_id: u32,
+    elem_type_id: u32,
+    dims: &'a [(i64, i64)],
+}
+
 struct StructType<'a> {
     type_id: u32,
     name_idx: Option<u32>,
@@ -229,6 +339,7 @@ struct StructType<'a> {
 }
 
 struct SubrangeType {
+    type_id: u32,
     base_type_id: u32,
     lower: i64,
     upper: i64,
@@ -237,6 +348,7 @@ struct SubrangeType {
 fn node<C: ValueConstructionContext>(
     types: &TypeTable,
     ctx: &mut C,
+    target: Target,
     node: TypeNode<'_>,
     input: Option<Value>,
     intrinsic: bool,
@@ -255,6 +367,7 @@ fn node<C: ValueConstructionContext>(
         TypeData::Alias { target_type_id } => construct(
             types,
             ctx,
+            target,
             *target_type_id,
             input.map_or(
                 ValueConstructionMode::Default,
@@ -267,20 +380,35 @@ fn node<C: ValueConstructionContext>(
             prim_id,
             max_length,
         } => {
-            if let Some(value) = input {
+            let value = if let Some(value) = input {
                 charge_leaf_copy(ctx, &value)?;
-                scalar::coerce(*prim_id, *max_length, value)
+                scalar::coerce(*prim_id, *max_length, value)?
             } else {
-                scalar::default(*prim_id, ctx.profile())
-            }
+                scalar::default(*prim_id, ctx.profile())?
+            };
+            emit(ctx, target, type_id, value)
         }
-        TypeData::Array { elem_type_id, .. } => {
-            let dims = array_dims.ok_or_else(|| RuntimeError::TypeMismatch)?;
-            construct_array(types, ctx, *elem_type_id, dims, input, intrinsic, depth)
+        TypeData::Array { elem_type_id, dims } => {
+            let owned_dims = array_dims.ok_or_else(|| RuntimeError::TypeMismatch)?;
+            construct_array(
+                types,
+                ctx,
+                target,
+                ArrayType {
+                    type_id,
+                    elem_type_id: *elem_type_id,
+                    dims,
+                },
+                owned_dims,
+                input,
+                intrinsic,
+                depth,
+            )
         }
         TypeData::Struct { fields } | TypeData::Union { fields } => construct_struct(
             types,
             ctx,
+            target,
             StructType {
                 type_id,
                 name_idx: entry.name_idx,
@@ -297,7 +425,9 @@ fn node<C: ValueConstructionContext>(
         } => construct_subrange(
             types,
             ctx,
+            target,
             SubrangeType {
+                type_id,
                 base_type_id: *base_type_id,
                 lower: *lower,
                 upper: *upper,
@@ -312,27 +442,38 @@ fn node<C: ValueConstructionContext>(
         } => construct_enum(
             types,
             ctx,
+            target,
+            type_id,
             entry.name_idx,
             *base_type_id,
             variants,
             input,
             depth,
         ),
-        TypeData::Reference { .. } => match input {
-            None | Some(Value::Null) => Ok(Value::Reference(None)),
-            Some(value @ Value::Reference(_)) => Ok(value),
-            Some(_) => Err(RuntimeError::TypeMismatch),
-        },
-        TypeData::Pou { pou_id } => match input {
-            None => ctx.construct_instance(*pou_id, intrinsic),
-            Some(value @ Value::Instance(_)) => Ok(value),
-            Some(_) => Err(RuntimeError::TypeMismatch),
-        },
-        TypeData::Interface { .. } => match input {
-            None | Some(Value::Null) => Ok(Value::Null),
-            Some(value @ Value::Instance(_)) => Ok(value),
-            Some(_) => Err(RuntimeError::TypeMismatch),
-        },
+        TypeData::Reference { .. } => {
+            let value = match input {
+                None | Some(Value::Null) => Value::Reference(None),
+                Some(value @ Value::Reference(_)) => value,
+                Some(_) => return Err(RuntimeError::TypeMismatch),
+            };
+            emit(ctx, target, type_id, value)
+        }
+        TypeData::Pou { pou_id } => {
+            let value = match input {
+                None => ctx.construct_instance(*pou_id, intrinsic)?,
+                Some(value @ Value::Instance(_)) => value,
+                Some(_) => return Err(RuntimeError::TypeMismatch),
+            };
+            emit(ctx, target, type_id, value)
+        }
+        TypeData::Interface { .. } => {
+            let value = match input {
+                None | Some(Value::Null) => Value::Null,
+                Some(value @ Value::Instance(_)) => value,
+                Some(_) => return Err(RuntimeError::TypeMismatch),
+            };
+            emit(ctx, target, type_id, value)
+        }
     }
 }
 
@@ -342,15 +483,18 @@ fn node<C: ValueConstructionContext>(
 fn construct_subrange(
     types: &TypeTable,
     ctx: &mut impl ValueConstructionContext,
+    target: Target,
     subrange: SubrangeType,
     input: Option<Value>,
     intrinsic: bool,
     depth: usize,
 ) -> Result<Value, RuntimeError> {
     let value = input.unwrap_or(Value::LInt(subrange.lower));
+    // The base is a scalar, built as a value even in place, so that its range can be checked.
     let value = construct(
         types,
         ctx,
+        Target::Value,
         subrange.base_type_id,
         ValueConstructionMode::Coerce(value),
         intrinsic,
@@ -364,13 +508,19 @@ fn construct_subrange(
             upper: i128::from(subrange.upper),
         });
     }
-    Ok(value)
+    emit(ctx, target, subrange.type_id, value)
 }
 
 #[inline(never)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the enumeration's type, name, base and variants are read once by node"
+)]
 fn construct_enum(
     types: &TypeTable,
     ctx: &mut impl ValueConstructionContext,
+    target: Target,
+    type_id: u32,
     name_idx: Option<u32>,
     base_type_id: u32,
     variants: &[crate::bytecode::EnumVariant],
@@ -378,13 +528,17 @@ fn construct_enum(
     depth: usize,
 ) -> Result<Value, RuntimeError> {
     let name = name_idx
-        .map(|idx| string(ctx, idx))
+        .map(|idx| name_of(ctx, target, idx))
         .transpose()?
         .unwrap_or_default();
     let variant = match input {
         None => variants.first().ok_or_else(|| RuntimeError::TypeMismatch)?,
         Some(Value::Enum(value)) => {
-            if !value.type_name().eq_ignore_ascii_case(&name) {
+            // The type's name, which `name` holds only when a value is built.
+            let type_name = name_idx
+                .and_then(|idx| ctx.strings().get(idx as usize))
+                .unwrap_or_default();
+            if !value.type_name().eq_ignore_ascii_case(type_name) {
                 return Err(RuntimeError::TypeMismatch);
             }
             variants
@@ -405,71 +559,101 @@ fn construct_enum(
     construct(
         types,
         ctx,
+        Target::Value,
         base_type_id,
         ValueConstructionMode::Coerce(Value::LInt(variant.value)),
         true,
         depth + 1,
     )?;
     ctx.charge_allocation(size_of::<EnumValue>())?;
-    Ok(Value::Enum(Box::new(EnumValue::from_canonical_parts(
-        name,
-        string(ctx, variant.name_idx)?,
-        variant.value,
-    ))))
+    let variant_name = name_of(ctx, target, variant.name_idx)?;
+    match target {
+        Target::Value => Ok(Value::Enum(Box::new(EnumValue::from_canonical_parts(
+            name,
+            variant_name,
+            variant.value,
+        )))),
+        Target::Bytes(at) => {
+            ctx.write_enum_in_place(at, type_id, variant.value)?;
+            Ok(Value::Null)
+        }
+    }
 }
 
 // Keep aggregate containers out of the common node frame.
 #[inline(never)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the array's type and its owned dimensions come from node"
+)]
 fn construct_array(
     types: &TypeTable,
     ctx: &mut impl ValueConstructionContext,
-    elem_type_id: u32,
-    dims: Vec<(i64, i64)>,
+    target: Target,
+    array: ArrayType<'_>,
+    owned_dims: Vec<(i64, i64)>,
     input: Option<Value>,
     intrinsic: bool,
     depth: usize,
 ) -> Result<Value, RuntimeError> {
-    let count = array_len(&dims)?;
+    let count = array_len(array.dims)?;
     reserve_values(ctx, count)?;
     let mut supplied = match input {
         None => None,
         Some(Value::Array(array)) => Some(array),
         Some(_) => return Err(RuntimeError::TypeMismatch),
     };
+    // In place, each element is written where it lies, so no element list is built.
     let mut elements = Vec::new();
-    elements
-        .try_reserve_exact(count)
-        .map_err(|_| RuntimeError::Overflow)?;
+    if let Target::Value = target {
+        elements
+            .try_reserve_exact(count)
+            .map_err(|_| RuntimeError::Overflow)?;
+    }
     {
         // The supplied elements leave their container in order, so that it can be kept (C1-13).
         let mut drained = supplied.as_mut().map(|array| array.elements.drain(..));
-        for _ in 0..count {
+        for index in 0..count {
             let mode = drained.as_mut().and_then(Iterator::next).map_or(
                 ValueConstructionMode::Default,
                 ValueConstructionMode::Coerce,
             );
-            elements.push(construct(
+            let element = match target {
+                Target::Value => Target::Value,
+                Target::Bytes(at) => {
+                    Target::Bytes(ctx.element_in_place(at, array.type_id, index)?)
+                }
+            };
+            let value = construct(
                 types,
                 ctx,
-                elem_type_id,
+                element,
+                array.elem_type_id,
                 mode,
                 intrinsic,
                 depth + 1,
-            )?);
+            )?;
+            if let Target::Value = target {
+                elements.push(value);
+            }
         }
     }
     if let Some(array) = supplied {
         ctx.recycle_array(array);
     }
-    Ok(Value::Array(Box::new(ArrayValue::from_canonical_parts(
-        elements, dims,
-    ))))
+    match target {
+        Target::Value => Ok(Value::Array(Box::new(ArrayValue::from_canonical_parts(
+            elements, owned_dims,
+        )))),
+        Target::Bytes(_) => Ok(Value::Null),
+    }
 }
 
 #[inline(never)]
 fn construct_struct(
     types: &TypeTable,
     ctx: &mut impl ValueConstructionContext,
+    target: Target,
     structure: StructType<'_>,
     input: Option<Value>,
     intrinsic: bool,
@@ -502,27 +686,33 @@ fn construct_struct(
         _ => None,
     };
     reserve_fields(ctx, fields.len())?;
+    // In place, each member is written where it lies, so no field map is built.
     let mut values = OrderedMap::default();
     for (index, field) in fields.iter().enumerate() {
-        let name = string(ctx, field.name_idx)?;
+        let name = name_of(ctx, target, field.name_idx)?;
         let value = if let Some(recipe) = (!intrinsic)
             .then(|| ctx.member_recipe(type_id, index as u32))
             .flatten()
         {
             let value = ctx.evaluate_recipe(recipe)?;
             ctx.check_value(field.type_id, &value)?;
-            value
+            let at = member_target(ctx, target, type_id, index)?;
+            emit(ctx, at, field.type_id, value)?
         } else {
+            let at = member_target(ctx, target, type_id, index)?;
             construct(
                 types,
                 ctx,
+                at,
                 field.type_id,
                 ValueConstructionMode::Default,
                 intrinsic,
                 depth + 1,
             )?
         };
-        values.insert(name, value);
+        if let Target::Value = target {
+            values.insert(name, value);
+        }
     }
     // Defaults run first even for supplied fields. Overrides retain input
     // evaluation order, while replacements retain canonical member order.
@@ -535,32 +725,42 @@ fn construct_struct(
         .flatten()
         .chain(drained.into_iter().flatten());
     for (name, value) in overrides {
-        let field = fields
+        let index = fields
             .iter()
-            .find(|field| {
+            .position(|field| {
                 ctx.strings()
                     .get(field.name_idx as usize)
                     .is_some_and(|s| s.eq_ignore_ascii_case(&name))
             })
             .ok_or_else(|| RuntimeError::TypeMismatch)?;
-        let name = string(ctx, field.name_idx)?;
+        let field = &fields[index];
+        let name = name_of(ctx, target, field.name_idx)?;
+        let at = member_target(ctx, target, type_id, index)?;
         let value = construct(
             types,
             ctx,
+            at,
             field.type_id,
             ValueConstructionMode::Coerce(value),
             intrinsic,
             depth + 1,
         )?;
-        values.insert(name, value);
+        if let Target::Value = target {
+            values.insert(name, value);
+        }
     }
     if let Some(structure) = supplied {
         ctx.recycle_struct(structure);
     }
     let name = name_idx
-        .map(|idx| string(ctx, idx))
+        .map(|idx| name_of(ctx, target, idx))
         .transpose()?
         .unwrap_or_default();
+    // A structure in place has no physical layout (a plain type, C1-15), so binding one would
+    // charge nothing.
+    if let Target::Bytes(_) = target {
+        return Ok(Value::Null);
+    }
     let value = StructValue::from_canonical_parts(name, values);
     let value = if default_only {
         ctx.initialize_structure_layout(type_id, value)?
@@ -580,6 +780,39 @@ fn entry(types: &TypeTable, type_id: u32) -> Result<&TypeEntry, RuntimeError> {
         .entries
         .get(type_id as usize)
         .ok_or_else(|| RuntimeError::TypeMismatch)
+}
+
+/// Where member `index` of a structure of `type_id` built for `target` goes.
+fn member_target(
+    ctx: &impl ValueConstructionContext,
+    target: Target,
+    type_id: u32,
+    index: usize,
+) -> Result<Target, RuntimeError> {
+    match target {
+        Target::Value => Ok(Target::Value),
+        Target::Bytes(at) => ctx.member_in_place(at, type_id, index).map(Target::Bytes),
+    }
+}
+
+/// The name at `idx`, charged as [`string`] charges it, built only when a value is built.
+fn name_of(
+    ctx: &mut impl ValueConstructionContext,
+    target: Target,
+    idx: u32,
+) -> Result<SmolStr, RuntimeError> {
+    match target {
+        Target::Value => string(ctx, idx),
+        Target::Bytes(_) => {
+            let len = ctx
+                .strings()
+                .get(idx as usize)
+                .ok_or_else(|| RuntimeError::TypeMismatch)?
+                .len();
+            ctx.charge_allocation(len)?;
+            Ok(SmolStr::default())
+        }
+    }
 }
 
 fn string(ctx: &mut impl ValueConstructionContext, idx: u32) -> Result<SmolStr, RuntimeError> {

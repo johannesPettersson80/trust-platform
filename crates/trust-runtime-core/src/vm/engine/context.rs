@@ -763,6 +763,16 @@ impl ExecutionContext for EngineState<'_> {
             .and_then(|id| self.data.storage.previous_execution_activation(id));
         self.check_value_lifetime(value, destination)
     }
+    fn construct_result_in_place(
+        &mut self,
+        frame: &mut VmFrame,
+        opcode: u8,
+        operand: u32,
+        stack: &mut OperandStack,
+        initializer_id: u32,
+    ) -> Result<bool, RuntimeError> {
+        self.construct_staged_result(frame, opcode, operand, stack, initializer_id)
+    }
     fn execute_initialization_opcode(
         &mut self,
         _module: &super::super::module::VmModule,

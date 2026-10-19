@@ -57,30 +57,33 @@ fn range_tables_are_charged_before_they_are_reserved() {
     //   at 8 and `window` (two INTs) at 24, 28 bytes rounded up to 32, and `Tracker.Look`'s, 24 bytes.
     //   The deepest chain is two levels: the body of `Initializers` calls `Pick` (and
     //   `Tracker.Look`), which call nothing; the program instance itself is no level of the chain,
-    //   since only a function block or a class nests construction. That is 2 x 32 = 64 bytes, and
-    //   one 20-byte frame record for each level, 40 bytes.
+    //   since only a function block or a class nests construction. Above a frame lies the staged
+    //   result of an initializer evaluated in place (C1-13): `window`'s, two INTs, 4 bytes rounded up
+    //   to 8, the only array, structure or text a frame variable is initialized with. That is
+    //   2 x (32 + 8) = 80 bytes, one 20-byte frame record for each level, 40 bytes, and one 20-byte
+    //   staged-result record for each level, 40 bytes.
     //
-    // The charge is 64 + 228 + 96 + 56 + 240 + 64 + 40 = 788 bytes, requested once. An allowance of 787
-    // refuses it and returns the allowance's error, so no store exists; an allowance of 788 admits the
-    // region. A construction that left the instance table out would request 732 bytes, one that left
-    // the range tables or the lists out 464 or 548, one that left the activation stack out 684, and one
-    // that still counted 19 cells of 16 bytes 1,028.
+    // The charge is 64 + 228 + 96 + 56 + 240 + 80 + 40 + 40 = 844 bytes, requested once. An allowance of
+    // 843 refuses it and returns the allowance's error, so no store exists; an allowance of 844 admits
+    // the region. A construction that left the instance table out would request 788 bytes, one that
+    // left the range tables or the lists out 520 or 604, one that left the activation stack out 684, one
+    // that left the staged results out 788, and one that still counted 19 cells of 16 bytes 1,084.
     let prepared = PreparedModule::from_bytes(INITIALIZERS, PreparationLimits::default())
         .expect("the initializers program prepares");
     let requests = std::cell::RefCell::new(Vec::new());
     let refused = CellStorage::construct(&prepared, Generation::FIRST, |bytes| {
         requests.borrow_mut().push(bytes);
-        if bytes > 787 {
+        if bytes > 843 {
             Err(RuntimeError::Overflow)
         } else {
             Ok(())
         }
     });
     assert_eq!(refused.err(), Some(RuntimeError::Overflow));
-    assert_eq!(*requests.borrow(), [788]);
+    assert_eq!(*requests.borrow(), [844]);
 
     let admitted = CellStorage::construct(&prepared, Generation::FIRST, |bytes| {
-        if bytes > 788 {
+        if bytes > 844 {
             Err(RuntimeError::Overflow)
         } else {
             Ok(())

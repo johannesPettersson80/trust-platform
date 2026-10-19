@@ -35,6 +35,23 @@ pub struct FrameBlock {
     pub(crate) pou: u32,
 }
 
+/// The staged result of an initializer evaluated in place on the activation stack (C1-13): a value of
+/// `type_id` in its bytes, which the store reads and writes as slot 0 of activation `id`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ResultBlock {
+    pub(crate) id: FrameId,
+    pub(crate) range: ByteRange,
+    pub(crate) type_id: u32,
+}
+
+/// The first byte above a staged result at `range`: its end rounded up to [`INSTANCE_ALIGN`], so that
+/// a frame placed above it stays aligned as frames are (C1-13). Saturates, so that an end beyond the
+/// block is refused as one.
+fn result_end(range: ByteRange) -> u32 {
+    let end = range.start.saturating_add(range.bytes);
+    align_up(end, INSTANCE_ALIGN).unwrap_or(u32::MAX)
+}
+
 /// The persistent region's byte ranges, its flat block and its reference table (specification 34
 /// §6.2, MEM-12).
 #[derive(Debug, Default)]
@@ -51,6 +68,9 @@ pub struct CellRegions {
     activation: FlatBlock,
     /// The frames on the activation stack, bottom first, reserved for the call levels.
     frames: Vec<FrameBlock>,
+    /// The staged results of the initializers evaluated in place, each above the frame it
+    /// initializes, bottom first, reserved for the call levels (C1-13).
+    results: Vec<ResultBlock>,
     /// The function-block and class instances that frames on the activation stack own, each above
     /// the frame that created it, in creation order, reserved for the call levels (C1-11c).
     call_instances: Vec<(InstanceId, PersistentInstance)>,
@@ -89,8 +109,8 @@ impl CellRegions {
         &self.activation
     }
 
-    /// The first free byte of the activation stack: the end of the topmost frame or of the
-    /// instance a frame created last, whichever lies higher, or 0.
+    /// The first free byte of the activation stack: the end of the topmost frame, of the instance a
+    /// frame created last or of the latest staged result, whichever lies highest, or 0.
     pub(crate) fn activation_top(&self) -> u32 {
         let frame = self.frames.last().map_or(0, |frame| {
             frame.range.start.saturating_add(frame.range.bytes)
@@ -98,7 +118,54 @@ impl CellRegions {
         let instance = self.call_instances.last().map_or(0, |(_, instance)| {
             instance.range.start.saturating_add(instance.range.bytes)
         });
-        frame.max(instance)
+        let result = self
+            .results
+            .last()
+            .map_or(0, |result| result_end(result.range));
+        frame.max(instance).max(result)
+    }
+
+    /// The bytes a staged result of `bytes` bytes would take at the top of the activation stack, or
+    /// `None` when they, rounded up to [`INSTANCE_ALIGN`], would leave the reserved block, or every
+    /// reserved record is in use (C1-13).
+    pub(crate) fn result_room(&self, bytes: u32) -> Option<ByteRange> {
+        let range = ByteRange {
+            region: LayoutRegion::Activation,
+            start: self.activation_top(),
+            bytes,
+        };
+        (result_end(range) as usize <= self.activation.reserved()
+            && self.results.len() < self.results.capacity())
+        .then_some(range)
+    }
+
+    /// Record `result` on top of the activation stack (C1-13). Refused, as a frame is, when its
+    /// bytes leave the reserved block or the reserved records are all in use; neither grows.
+    pub(crate) fn push_result(&mut self, result: ResultBlock) -> Result<(), RuntimeError> {
+        if result.range.region != LayoutRegion::Activation
+            || result_end(result.range) as usize > self.activation.reserved()
+            || self.results.len() == self.results.capacity()
+        {
+            return Err(crate::vm::VmTrap::CallStackOverflow.into_runtime_error());
+        }
+        self.results.push(result);
+        Ok(())
+    }
+
+    /// The staged result of activation `id`, when it is on the activation stack (C1-13).
+    pub(crate) fn result(&self, id: FrameId) -> Option<ResultBlock> {
+        self.results
+            .iter()
+            .rev()
+            .find(|result| result.id == id)
+            .copied()
+    }
+
+    /// Take the staged result of activation `id` off the activation stack (C1-13).
+    pub(crate) fn release_result(&mut self, id: FrameId) {
+        if let Some(at) = self.results.iter().rposition(|result| result.id == id) {
+            self.results.remove(at);
+        }
     }
 
     /// Record `frame` on top of the activation stack. Refused when its bytes leave the reserved block
@@ -393,15 +460,21 @@ impl CellStorage {
         let bookkeeping_bytes = extent.bookkeeping_bytes()?;
         let instance_count = extent.instance_roots();
         // The stack and one frame record for each call level, when some POU has a frame (C1-11),
-        // and a record for each instance the frames on it can own (C1-11c).
+        // a record for each instance the frames on it can own (C1-11c) and, when some initializer
+        // is evaluated in place, a staged-result record for each call level (C1-13).
         let activation_bytes = prepared.activation_reservation()?;
         let levels = match activation_bytes {
             0 => 0,
             _ => prepared.reserved_call_levels(),
         };
+        let result_count = match activation_bytes {
+            0 => 0,
+            _ => prepared.result_block_reservation(),
+        };
         let call_instance_count = prepared.call_instance_reservation()?;
         let frame_bytes = levels
             .checked_mul(FRAME_RECORD_BYTES)
+            .and_then(|bytes| bytes.checked_add(result_count.checked_mul(RESULT_RECORD_BYTES)?))
             .and_then(|bytes| {
                 bytes.checked_add(InstanceTable::reservation_bytes(call_instance_count)?)
             })
@@ -417,6 +490,10 @@ impl CellStorage {
         frames
             .try_reserve_exact(levels)
             .map_err(|_| crate::vm::VmTrap::BudgetExceeded.into_runtime_error())?;
+        let mut results = Vec::new();
+        results
+            .try_reserve_exact(result_count)
+            .map_err(|_| crate::vm::VmTrap::BudgetExceeded.into_runtime_error())?;
         let mut call_instances = Vec::new();
         call_instances
             .try_reserve_exact(call_instance_count)
@@ -427,6 +504,7 @@ impl CellStorage {
             persistent: FlatBlock::reserve(extent.bytes)?,
             activation: FlatBlock::reserve_in(LayoutRegion::Activation, activation_bytes)?,
             frames,
+            results,
             call_instances,
             references: ReferenceTable::reserve(extent.references)?,
             instances: InstanceTable::reserve(instance_count)?,
@@ -502,6 +580,7 @@ impl CellStorage {
         }
         self.identities.begin_entry();
         self.regions.frames.clear();
+        self.regions.results.clear();
     }
 
     /// Release every instance that a frame on the activation stack owns and `keep` refuses, and
@@ -670,11 +749,15 @@ const INITIAL_VALUE_BYTES: usize = 24;
 /// The bytes of one record of a frame on the activation stack (C1-11): its activation identity, its
 /// byte range and its POU.
 const FRAME_RECORD_BYTES: usize = 20;
+/// The bytes of one record of a staged result on the activation stack (C1-13): its activation
+/// identity, its byte range and its type.
+const RESULT_RECORD_BYTES: usize = 20;
 
 // The entries have the sizes the specification states on every target, since none holds a pointer.
 const _: () = assert!(core::mem::size_of::<Option<ByteRange>>() == RANGE_ENTRY_BYTES);
 const _: () = assert!(core::mem::size_of::<Initial>() == INITIAL_VALUE_BYTES);
 const _: () = assert!(core::mem::size_of::<FrameBlock>() == FRAME_RECORD_BYTES);
+const _: () = assert!(core::mem::size_of::<ResultBlock>() == RESULT_RECORD_BYTES);
 
 /// A declared leaf whose initial value construction writes (R2): its bytes, its type and the
 /// constant its declaration names, when it names one.

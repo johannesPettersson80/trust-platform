@@ -15,7 +15,8 @@
 //! program root of a corpus program has a type, so it reads its instance on both stores.
 
 use super::{
-    build, chip_limits, corpus, declared_values, member, services, EngineState, StoreKind, CORPUS,
+    build, chip_limits, corpus, declared_values, member, prepare, services, EngineState, StoreKind,
+    CORPUS,
 };
 use crate::bytecode::StorageOwner;
 use crate::error::RuntimeError;
@@ -418,5 +419,57 @@ fn cells_and_values_fault_alike() {
         differences,
         Vec::<String>::new(),
         "the cells fault differently from the Value store"
+    );
+}
+
+#[test]
+fn an_initializer_evaluated_in_place_runs_out_of_work_where_the_value_store_does() {
+    // Specification 34 TIME-08 and ARCH-05 (C1-13): the cell store stages the initializers of `Pick`'s
+    // `window : ARRAY[1..2] OF INT := [INT#7, INT#8]` on the activation stack (the default constructed
+    // in place, the seed copied from the variable, the array built where the result lies, the commit a
+    // copy), and each step charges the work the value path charges, in the same order. So whatever the
+    // scan's work allowance, both stores end the first two scans of `initializers` alike: the same
+    // result, the same work left and bytes charged at every phase, and the same values, as an
+    // allowance spent part way leaves them. The sweep runs from one unit (an allowance of no work is
+    // not an admitted profile) to the work one healthy scan takes. A charge made earlier or later
+    // than the value path's would let one store run a step further than the other at some allowance,
+    // and the lines of that allowance would differ.
+    let program = corpus("initializers");
+    let healthy = {
+        let prepared = prepare(program);
+        let mut values = build(&prepared, StoreKind::Values).expect("the Value store constructs");
+        let mut state = EngineState::borrow(&mut values, &prepared, &services::LOGICAL_ONLY);
+        let (outcome, _) = run_scan(&mut state, Duration::from_millis(10));
+        outcome.expect("a healthy scan of initializers");
+        // The allowance starts afresh for the program the scan runs.
+        prepared.limits.max_work - state.data.resources.work_budget.remaining()
+    };
+    assert!(healthy > 0, "a scan of initializers charges work");
+    let mut differences = Vec::new();
+    for allowance in 1..=healthy {
+        let limits = PreparationLimits {
+            max_work: allowance,
+            ..PreparationLimits::default()
+        };
+        let prepared = PreparedModule::from_bytes(program, limits).expect("the program prepares");
+        let mut values = build(&prepared, StoreKind::Values).expect("the Value store constructs");
+        let mut cells = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+        let mut pair = Pair {
+            name: "initializers",
+            prepared: &prepared,
+            values: EngineState::borrow(&mut values, &prepared, &services::LOGICAL_ONLY),
+            cells: EngineState::borrow(&mut cells, &prepared, &services::LOGICAL_ONLY),
+            differences: Vec::new(),
+        };
+        for scan in 1..=2 {
+            // Each disagreement is recorded; the outcome itself may be a refusal.
+            let _ = pair.scan_once(scan, &format!("allowance {allowance}, scan {scan}"));
+        }
+        differences.append(&mut pair.differences);
+    }
+    assert_eq!(
+        differences,
+        Vec::<String>::new(),
+        "the cells spend their work differently from the Value store"
     );
 }

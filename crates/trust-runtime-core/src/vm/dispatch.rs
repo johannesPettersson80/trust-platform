@@ -963,14 +963,29 @@ fn execute_with_buffers(
                 let frame = frames
                     .current_mut()
                     .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
-                runtime.execute_initialization_opcode(
-                    module,
-                    frame,
-                    opcode,
-                    operand,
-                    operand_stack,
-                    depth,
-                )?;
+                // A typed value that the next instruction stores as the initializer's result is
+                // built where that result lies (C1-13).
+                let in_place = match stored_initializer_result(module, cursor.pc) {
+                    Some(initializer) if (0x66..=0x68).contains(&opcode) => runtime
+                        .construct_result_in_place(
+                            frame,
+                            opcode,
+                            operand,
+                            operand_stack,
+                            initializer,
+                        )?,
+                    _ => false,
+                };
+                if !in_place {
+                    runtime.execute_initialization_opcode(
+                        module,
+                        frame,
+                        opcode,
+                        operand,
+                        operand_stack,
+                        depth,
+                    )?;
+                }
             }
             0x70 => {
                 let _debug_idx =
@@ -1074,6 +1089,23 @@ pub fn decode_partial_access(operand: u32) -> Result<PartialAccess, RuntimeError
 /// Preserve partial-access failure categories at the runtime boundary.
 pub fn partial_access_error_to_runtime(err: PartialAccessError) -> RuntimeError {
     err.into()
+}
+
+/// The initializer whose staged result the instruction at `pc` stores whole: a store through an
+/// initializer-result reference without a path (C1-13).
+fn stored_initializer_result(module: &VmModule, pc: usize) -> Option<u32> {
+    if module.code.get(pc) != Some(&0x21) {
+        return None;
+    }
+    let operand = module.code.get(pc.checked_add(1)?..pc.checked_add(5)?)?;
+    let ref_idx = u32::from_le_bytes(operand.try_into().ok()?);
+    match module.refs.get(ref_idx as usize)? {
+        super::module::VmRef::InitializerResult {
+            initializer_id,
+            path,
+        } if path.is_empty() => Some(*initializer_id),
+        _ => None,
+    }
 }
 
 /// Whether `opcode` leaves the places on `stack` standing for unchanged bytes (C1-10c): it writes

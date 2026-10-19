@@ -10,6 +10,7 @@ use crate::error::RuntimeError;
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 mod admission;
 mod budget;
+pub(crate) mod byte_types;
 pub(crate) mod call_plans;
 #[cfg(feature = "footprint")]
 mod footprint;

@@ -35,8 +35,8 @@ impl EngineState<'_> {
     }
 
     /// The allocation of one copy of the stored `view`, after its work is charged (TIME-08). A `Value`
-    /// view charges what `value_clone_charge` charges; a cell view charges the cells' own copy charge,
-    /// which is the same work and allocation (C1-9d1).
+    /// view charges what `value_clone_charge` charges; a cell view charges the same work node by node,
+    /// in the same order (C1-13), and answers the same allocation (C1-9d1).
     pub(in crate::vm::engine) fn view_clone_charge(
         &self,
         view: &ValueView<'_>,
@@ -48,9 +48,10 @@ impl EngineState<'_> {
                 range,
                 type_id,
             } => {
-                let charge = cells.copy_charge(*range, *type_id, 0)?;
-                self.charge_work_units(charge.work)?;
-                Ok(charge.allocation)
+                cells.copy_work(*range, *type_id, 0, &mut |units| {
+                    self.charge_work_units(units)
+                })?;
+                Ok(cells.copy_charge(*range, *type_id, 0)?.allocation)
             }
         }
     }

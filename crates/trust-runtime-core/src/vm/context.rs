@@ -508,6 +508,20 @@ pub trait ExecutionContext: super::call::context::CallContext {
         frame: &super::VmFrame,
         value: &Value,
     ) -> Result<(), crate::error::RuntimeError>;
+    /// Build the typed value of `DEFAULT_TYPED`, `COERCE_INIT_VALUE` or `APPLY_INIT_VALUE` (`opcode`)
+    /// where the staged result of the active initializer `initializer_id` lies, and push its place,
+    /// when the next instruction stores it as that result (C1-13). `Ok(false)`, with nothing popped
+    /// or charged, when the value is built as a value instead.
+    fn construct_result_in_place(
+        &mut self,
+        _frame: &mut super::VmFrame,
+        _opcode: u8,
+        _operand: u32,
+        _stack: &mut super::OperandStack,
+        _initializer_id: u32,
+    ) -> Result<bool, crate::error::RuntimeError> {
+        Ok(false)
+    }
     /// Execute a typed construction opcode through the same dispatcher.
     #[allow(clippy::too_many_arguments)]
     fn execute_initialization_opcode(

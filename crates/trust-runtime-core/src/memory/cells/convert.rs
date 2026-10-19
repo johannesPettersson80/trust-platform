@@ -127,6 +127,36 @@ pub(crate) fn write_value_in(
     store_value(bytes, type_id, value, prepared, references, start)
 }
 
+/// Write the value `numeric` of the enumeration type `type_id` into its leaf `bytes` (C1-13): the bytes
+/// a `Value::Enum` of that value writes, without the value. A value no variant of the type has, or a
+/// type that is not an enumeration, is refused before the leaf is written.
+pub(crate) fn write_enum_in(
+    bytes: &mut [u8],
+    type_id: u32,
+    numeric: i64,
+    prepared: &PreparedModule,
+) -> Result<(), RuntimeError> {
+    check_slice_length(bytes.len(), type_id, prepared)?;
+    let Shape::Enumeration(enum_type) = shape(prepared, type_id)? else {
+        return Err(RuntimeError::InvalidExecutionState);
+    };
+    let TypeData::Enum { variants, .. } = &type_entry(prepared, enum_type)?.data else {
+        return Err(RuntimeError::InvalidExecutionState);
+    };
+    if !variants.iter().any(|variant| variant.value == numeric) {
+        return Err(RuntimeError::TypeMismatch);
+    }
+    let kind = enumeration_kind(prepared, enum_type)?;
+    flat::encode(
+        kind,
+        Cell::Enum {
+            type_idx: enum_type,
+            value: numeric,
+        },
+        bytes,
+    )
+}
+
 /// Materialize the value of the `TYPE_TABLE` type `type_id` from `bytes`, the byte range of the
 /// type's prepared layout (specification 34 MEM-12; design "Boundaries").
 ///

@@ -27,7 +27,7 @@ use crate::memory::cells::{
 use crate::memory::flat::{self, LeafKind, TextBytes};
 use crate::memory::instance_table::PersistentInstance;
 use crate::memory::layout::{ByteRange, LayoutRegion};
-use crate::memory::regions::{CellRegions, CellStorage, FrameBlock};
+use crate::memory::regions::{CellRegions, CellStorage, FrameBlock, ResultBlock};
 use crate::memory::view::ValueView;
 use crate::memory::{
     FrameId, Generation, InstanceData, InstanceId, MemoryLocation, VariableStorage,
@@ -335,29 +335,29 @@ impl CellArm {
         self.instance(instance).map(|persistent| persistent.range)
     }
 
-    /// Copy the bytes of `source` to `destination` in the persistent block and mark the presence
-    /// byte at `presence`, when the destination's declaration keeps one, as holding a value
-    /// (specification 34 MEM-12; C1-10c). `false`, and nothing changed, when the block refuses
-    /// either range.
+    /// Copy the bytes of `source` to `destination` in the block that holds them both, the
+    /// persistent block or the activation stack, and mark the presence byte at `presence`, when the
+    /// destination's declaration keeps one, as holding a value (specification 34 MEM-12; C1-10c,
+    /// C1-13). `false`, and nothing changed, when the block refuses either range.
     pub(crate) fn copy_place(
         &mut self,
         source: ByteRange,
         destination: ByteRange,
         presence: Option<u32>,
     ) -> bool {
-        let (persistent, _) = self.cells.regions_mut().split_mut();
+        let (block, _) = self.cells.regions_mut().block_mut(destination.region);
         let flag = presence.map(|start| ByteRange {
             start,
             bytes: 1,
             ..destination
         });
-        if flag.is_some_and(|flag| persistent.bytes(flag).is_none()) {
+        if flag.is_some_and(|flag| block.bytes(flag).is_none()) {
             return false;
         }
-        if !persistent.copy_within(source, destination) {
+        if !block.copy_within(source, destination) {
             return false;
         }
-        if let Some(byte) = flag.and_then(|flag| persistent.bytes_mut(flag)) {
+        if let Some(byte) = flag.and_then(|flag| block.bytes_mut(flag)) {
             byte[0] = 1;
         }
         true
@@ -414,6 +414,65 @@ impl CellArm {
     /// Take the frame of activation `id` off the activation stack (C1-11).
     pub(crate) fn release_frame(&mut self, id: FrameId) {
         self.cells.regions_mut().release_frame(id);
+    }
+
+    /// Write `value`, of `type_id`, into its bytes `range` in the block that holds them, as a
+    /// construction in place writes each leaf it builds (C1-13).
+    pub(crate) fn write_in_place(
+        &mut self,
+        range: ByteRange,
+        type_id: u32,
+        value: &Value,
+        prepared: &PreparedModule,
+    ) -> Result<(), RuntimeError> {
+        let (block, references) = self.cells.regions_mut().block_mut(range.region);
+        let bytes = block
+            .bytes_mut(range)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        crate::memory::cells::write_value_in(
+            bytes,
+            type_id,
+            value,
+            prepared,
+            references,
+            range.start,
+        )
+    }
+
+    /// Write the enumeration value `numeric` of `type_id` into its leaf `range` (C1-13).
+    pub(crate) fn write_enum_in_place(
+        &mut self,
+        range: ByteRange,
+        type_id: u32,
+        numeric: i64,
+        prepared: &PreparedModule,
+    ) -> Result<(), RuntimeError> {
+        let (block, _) = self.cells.regions_mut().block_mut(range.region);
+        let bytes = block
+            .bytes_mut(range)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        crate::memory::cells::write_enum_in(bytes, type_id, numeric, prepared)
+    }
+
+    /// The bytes a staged result of `bytes` bytes would take at the top of the activation stack,
+    /// when they and a record are free (C1-13).
+    pub(crate) fn result_room(&self, bytes: u32) -> Option<ByteRange> {
+        self.cells.regions().result_room(bytes)
+    }
+
+    /// Record the staged result `result` on top of the activation stack (C1-13).
+    pub(crate) fn push_result(&mut self, result: ResultBlock) -> Result<(), RuntimeError> {
+        self.cells.regions_mut().push_result(result)
+    }
+
+    /// The staged result of activation `id`, when it is on the activation stack (C1-13).
+    pub(crate) fn result(&self, id: FrameId) -> Option<ResultBlock> {
+        self.cells.regions().result(id)
+    }
+
+    /// Take the staged result of activation `id` off the activation stack (C1-13).
+    pub(crate) fn release_result(&mut self, id: FrameId) {
+        self.cells.regions_mut().release_result(id);
     }
 
     /// Set every byte of `range` on the activation stack to zero, so a new frame starts from no
@@ -1058,10 +1117,15 @@ impl<'a> CellReader<'a> {
     }
 
     /// The bytes and the type of slot `slot` of activation `id`, when that activation's frame is on
-    /// the activation stack and the slot lies in it (C1-11).
+    /// the activation stack and the slot lies in it (C1-11), or when the activation is the staged
+    /// result of an initializer evaluated in place, whose only slot is its result (C1-13).
     fn frame_slot(self, id: FrameId, slot: usize) -> Option<(ByteRange, u32)> {
-        let frame = self.arm.cells.regions().frame(id)?;
-        self.slot_in(frame.range, frame.pou, slot)
+        let regions = self.arm.cells.regions();
+        if let Some(frame) = regions.frame(id) {
+            return self.slot_in(frame.range, frame.pou, slot);
+        }
+        let result = regions.result(id)?;
+        (slot == 0).then_some((result.range, result.type_id))
     }
 
     /// The bytes and the type of slot `slot` of a frame of `pou` whose bytes are `frame` (C1-11).

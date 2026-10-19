@@ -1429,8 +1429,10 @@ formal bind values as any call does. Every result, charge and refusal is the val
 its caller's (MEM-12; checklist C1-11). Preparation gives each POU a frame layout, every typed
 variable of the frame at its declared size and alignment and the frame rounded up to 8 bytes, and
 construction reserves the stack once, charged with the persistent block: for each call level it
-reserves (§6.2), the largest frame together with the instances its variables hold, which no chain of
-calls exceeds. A frame takes the bytes above its caller's when its activation begins, zeroed; the
+reserves (§6.2), the largest frame together with the instances its variables hold and, when a frame
+variable's initializer is evaluated in place (below), the largest staged result of one, rounded up to
+8 bytes, with a record for it; no chain of calls exceeds that. A frame takes the bytes above its
+caller's when its activation begins, zeroed; the
 inputs its call bound and a return value its caller supplied move into them, the defaults and
 initializers of its other variables are written there, every read and write of its variables reaches
 them through the store, its return value is read from them, and after it returns its outputs are
@@ -1445,6 +1447,22 @@ whose inheritance chain has an own variable that holds a reference, and an insta
 call runs, such as the one an engineering entry runs, stay values until references are flat. The
 register tier runs on the value store only until it reads frames on the stack (C1-18). Every result,
 charge and refusal is the value store's (TIME-08).
+
+**Initializers.** On the flat store the initializer of a frame variable whose value is an array, a
+structure or a text that a store copies as bytes, and whose value the value store builds in a staged
+result (a body, or a default without a literal), is evaluated in place (checklist C1-13). Its staged
+result lies on the activation stack above the frame it initializes, zeroed. A default is constructed
+into those bytes, a leaf at a time; the seed of an explicit initializer is copied there from the
+variable; a body's `DEFAULT_TYPED`, `COERCE_INIT_VALUE` or `APPLY_INIT_VALUE` whose value the next
+instruction stores whole as the result is constructed there, and that store copies it as a place;
+the commit copies the result's bytes into the variable. The arrays and structures a body collects
+with `ARRAY_NEW` and `STRUCT_NEW` are built in containers the engine keeps, up to 16 of each, which a
+construction gives back when it consumes them. Every step is checked and charged as the value store
+checks and charges it, in the same order: a construction in place charges what building its value
+charges, its check of the value one unit for each byte of each text and its lifetime check one unit
+for each node it visits (TIME-08). An initializer whose staged result finds no room on the stack,
+every other initializer and the members of an instance a call creates are evaluated as values. So a
+call that initializes such variables allocates nothing once the engine is warm (ARCH-05).
 
 **Flat references.** On the flat store a reference to a whole variable, member or element that can
 be written and lies in the persistent block is flat as soon as the program takes it: the block and

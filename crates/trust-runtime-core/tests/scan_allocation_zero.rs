@@ -640,6 +640,12 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// C1-13b1 builds the raw arrays and structures of initializer bodies in kept containers, which the
 /// construction that consumes a raw gives back: `initializers` falls from 12 to 9 on both stores,
 /// measured on the builder on 19 October 2026.
+///
+/// C1-13b2 stages the result of a frame variable's array, structure or text initializer on the
+/// activation stack of the flat store: its default is constructed there, its seed copied, the typed
+/// value its body builds written there, and the commit copies its bytes into the variable. On the
+/// flat store `initializers` makes no allocator call after its first scan, measured on the builder
+/// on 19 October 2026.
 const CEILINGS: [(&str, usize, Calls); 31] = [
     ("faults/division", 2, Calls::ZERO),
     ("faults/index", 2, Calls::ZERO),
@@ -711,15 +717,7 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
     ("cells/arrays", 1, Calls::ZERO),
     ("cells/references", 1, Calls::ZERO),
     ("cells/strings", 1, Calls::ZERO),
-    (
-        "cells/initializers",
-        1,
-        Calls {
-            alloc: 9,
-            realloc: 0,
-            dealloc: 9,
-        },
-    ),
+    ("cells/initializers", 1, Calls::ZERO),
     ("cells/retained_blocks", 1, Calls::ZERO),
     (
         "cells/copies",

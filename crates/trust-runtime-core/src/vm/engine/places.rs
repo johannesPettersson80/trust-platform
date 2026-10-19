@@ -8,16 +8,17 @@
 
 use super::store_access::Routed;
 use super::*;
-use crate::bytecode::{TypeData, TypeEntry, TypeKind, BYTECODE_MAX_TYPE_NESTING};
+use crate::bytecode::{TypeData, BYTECODE_MAX_TYPE_NESTING};
 use crate::memory::cell_access::CellReader;
 use crate::memory::cells::text_geometry;
 use crate::memory::layout::{ByteRange, LayoutRegion};
 use crate::memory::view::ValueView;
 use crate::value::{string_capacity, string_capacity_cut, ValueRefView};
+use crate::vm::prepared::byte_types::{
+    copies_as_bytes, element_count, holds_text, is_compound, resolve, same_type, text_primitive,
+    TEXT_PRIMITIVES,
+};
 use crate::vm::{Place, PlaceDestination};
-
-/// The `TYPE_TABLE` primitive ids of `STRING` and `WSTRING`.
-const TEXT_PRIMITIVES: [u16; 2] = [24, 25];
 
 impl EngineState<'_> {
     /// The place of `view`: an array or a structure in the persistent block whose value a store may
@@ -39,9 +40,10 @@ impl EngineState<'_> {
     }
 
     /// Where a store through `reference` copies `place`: the destination's bytes, when they lie in
-    /// the persistent block and hold the place's type, as `declared` must too when the store
-    /// normalizes to a declared type. A destination of another type is given the value instead, so
-    /// that its normalization decides, as it decides for any value.
+    /// the block that holds the place (the persistent block, or the activation stack for the staged
+    /// result of an initializer evaluated in place, C1-13) and hold the place's type, as `declared`
+    /// must too when the store normalizes to a declared type. A destination of another type is given
+    /// the value instead, so that its normalization decides, as it decides for any value.
     pub(super) fn place_destination(
         &self,
         reference: ValueRefView<'_>,
@@ -54,7 +56,7 @@ impl EngineState<'_> {
         let (range, type_id, presence) =
             reader.cells_target(reference.location, reference.offset, reference.path)?;
         let same = |other: u32| same_type(self.prepared, other, place.type_id, 0);
-        (range.region == LayoutRegion::Persistent
+        (range.region == place.range.region
             && range.bytes == place.range.bytes
             && same(type_id)
             && declared.is_none_or(same))
@@ -84,18 +86,109 @@ impl EngineState<'_> {
         let Routed::Cells(reader) = self.data.routed(self.prepared) else {
             return Err(RuntimeError::InvalidExecutionState);
         };
-        self.charge_text_normalization(reader, place.range, place.type_id, false, 0)
+        self.charge_texts(
+            reader,
+            place.range,
+            place.type_id,
+            TextRule::Normalization {
+                in_structure: false,
+            },
+            0,
+        )
     }
 
-    /// The normalization charges of the texts in the value of `type_id` at `range`, as
-    /// [`Self::charge_place_normalization`] gives them; `in_structure` for a value inside a
-    /// structure, which normalization checks member by member.
-    fn charge_text_normalization(
+    /// The checks `check_value` makes of the value of `type_id` that a construction in place wrote
+    /// at `range`, charged as it charges them for that value (TIME-08; C1-13). A constructed value is
+    /// canonical for its type, so the check charges each of its texts once, one unit per byte, in
+    /// the order the check reaches them; then the lifetime check visits the value.
+    pub(super) fn check_constructed_place(
+        &self,
+        range: ByteRange,
+        type_id: u32,
+    ) -> Result<(), RuntimeError> {
+        if holds_text(self.prepared, type_id) {
+            let Routed::Cells(reader) = self.data.routed(self.prepared) else {
+                return Err(RuntimeError::InvalidExecutionState);
+            };
+            self.charge_texts(reader, range, type_id, TextRule::Canonical, 0)?;
+        }
+        self.check_place_lifetime(type_id)
+    }
+
+    /// The bytes of element `index` of the array of `type_id` whose bytes are `range`.
+    pub(super) fn element_range(
+        &self,
+        range: ByteRange,
+        type_id: u32,
+        index: usize,
+    ) -> Result<ByteRange, RuntimeError> {
+        let Some(TypeData::Array { elem_type_id, .. }) =
+            resolve(self.prepared, type_id).map(|entry| &entry.data)
+        else {
+            return Err(RuntimeError::TypeMismatch);
+        };
+        let stride = self
+            .prepared
+            .type_layout(type_id)
+            .and_then(|layout| layout.array.as_ref())
+            .map(|array| array.byte_stride)
+            .ok_or(RuntimeError::TypeMismatch)?;
+        let offset = u32::try_from(index)
+            .ok()
+            .and_then(|index| index.checked_mul(stride))
+            .and_then(|offset| range.start.checked_add(offset))
+            .ok_or(RuntimeError::Overflow)?;
+        Ok(ByteRange {
+            start: offset,
+            bytes: self.type_bytes(*elem_type_id)?,
+            ..range
+        })
+    }
+
+    /// The bytes of member `ordinal` of the structure of `type_id` whose bytes are `range`.
+    pub(super) fn member_range(
+        &self,
+        range: ByteRange,
+        type_id: u32,
+        ordinal: usize,
+    ) -> Result<ByteRange, RuntimeError> {
+        let Some(TypeData::Struct { fields }) =
+            resolve(self.prepared, type_id).map(|entry| &entry.data)
+        else {
+            return Err(RuntimeError::TypeMismatch);
+        };
+        let field = fields.get(ordinal).ok_or(RuntimeError::TypeMismatch)?;
+        let member = self
+            .prepared
+            .type_layout(type_id)
+            .and_then(|layout| layout.members.get(ordinal))
+            .ok_or(RuntimeError::TypeMismatch)?;
+        Ok(ByteRange {
+            start: range
+                .start
+                .checked_add(member.byte_offset)
+                .ok_or(RuntimeError::Overflow)?,
+            bytes: self.type_bytes(field.type_id)?,
+            ..range
+        })
+    }
+
+    /// The bytes one value of `type_id` takes in a flat block.
+    fn type_bytes(&self, type_id: u32) -> Result<u32, RuntimeError> {
+        self.prepared
+            .type_layout(type_id)
+            .map(|layout| layout.shape.bytes)
+            .ok_or(RuntimeError::TypeMismatch)
+    }
+
+    /// The charges of the texts in the value of `type_id` at `range` under `rule`, each text in the
+    /// order a walk of the value reaches it: its elements and its members in order.
+    fn charge_texts(
         &self,
         reader: CellReader<'_>,
         range: ByteRange,
         type_id: u32,
-        in_structure: bool,
+        rule: TextRule,
         depth: usize,
     ) -> Result<(), RuntimeError> {
         if depth > BYTECODE_MAX_TYPE_NESTING {
@@ -112,10 +205,11 @@ impl EngineState<'_> {
                     .place_view(range, type_id)
                     .text_utf8_len()?
                     .ok_or(RuntimeError::InvalidExecutionState)?;
-                let units = if in_structure {
-                    length
-                } else {
-                    length.checked_mul(2).ok_or(RuntimeError::Overflow)?
+                let units = match rule {
+                    TextRule::Normalization {
+                        in_structure: false,
+                    } => length.checked_mul(2).ok_or(RuntimeError::Overflow)?,
+                    TextRule::Normalization { in_structure: true } | TextRule::Canonical => length,
                 };
                 self.charge_work_units(units)
             }
@@ -143,13 +237,7 @@ impl EngineState<'_> {
                         bytes,
                         ..range
                     };
-                    self.charge_text_normalization(
-                        reader,
-                        element,
-                        *elem_type_id,
-                        in_structure,
-                        depth + 1,
-                    )?;
+                    self.charge_texts(reader, element, *elem_type_id, rule, depth + 1)?;
                 }
                 Ok(())
             }
@@ -171,7 +259,13 @@ impl EngineState<'_> {
                             .bytes,
                         ..range
                     };
-                    self.charge_text_normalization(reader, member, field.type_id, true, depth + 1)?;
+                    let rule = match rule {
+                        TextRule::Normalization { .. } => {
+                            TextRule::Normalization { in_structure: true }
+                        }
+                        TextRule::Canonical => TextRule::Canonical,
+                    };
+                    self.charge_texts(reader, member, field.type_id, rule, depth + 1)?;
                 }
                 Ok(())
             }
@@ -252,7 +346,7 @@ impl EngineState<'_> {
     /// checks that value (TIME-08 LIFETIME). The value holds no reference and no instance, so the
     /// check finds nothing and only visits it: an array of scalars is admitted without a charge, and
     /// any other value is visited node by node, one unit each, as the `Value` walk visits it.
-    fn check_place_lifetime(&self, type_id: u32) -> Result<(), RuntimeError> {
+    pub(super) fn check_place_lifetime(&self, type_id: u32) -> Result<(), RuntimeError> {
         if !is_compound(self.prepared, type_id) {
             // A text, as a scalar, is admitted without a charge.
             return Ok(());
@@ -294,120 +388,13 @@ impl EngineState<'_> {
     }
 }
 
-/// The entry `type_id` names, with its aliases resolved.
-fn resolve(prepared: &PreparedModule, type_id: u32) -> Option<&TypeEntry> {
-    let mut current = type_id;
-    for _ in 0..=BYTECODE_MAX_TYPE_NESTING {
-        let entry = prepared.type_table().entries.get(current as usize)?;
-        match &entry.data {
-            TypeData::Alias { target_type_id } => current = *target_type_id,
-            _ => return Some(entry),
-        }
-    }
-    None
-}
-
-/// Whether a value of `type_id` is an array or a structure: a `Value` that the lifetime walk enters.
-fn is_compound(prepared: &PreparedModule, type_id: u32) -> bool {
-    resolve(prepared, type_id).is_some_and(|entry| {
-        matches!(
-            entry.data,
-            TypeData::Array { .. } | TypeData::Struct { .. } | TypeData::Union { .. }
-        )
-    })
-}
-
-/// Whether a store may copy a value of `type_id` as its bytes: a text, or an array or a structure
-/// whose leaves are numbers, bits, characters, texts, times, dates and enumerations. A text of the
-/// destination's type fits its capacity, so its bytes, the tail zeroed, are the bytes the
-/// destination would hold (C1-12). A reference and an instance are checked and placed by the value
-/// they hold, and an overlapping or located structure is written through its physical layout
-/// (C1-15), so a value that holds any of them is stored as a value.
-fn copies_as_bytes(prepared: &PreparedModule, type_id: u32) -> bool {
-    resolve(prepared, type_id).is_some_and(|entry| {
-        matches!(entry.data, TypeData::Array { .. } | TypeData::Struct { .. })
-            && plain(prepared, type_id, 0)
-            || text_primitive(prepared, type_id).is_some()
-    })
-}
-
-/// Whether a value of `type_id` holds a text.
-fn holds_text(prepared: &PreparedModule, type_id: u32) -> bool {
-    prepared
-        .type_layout(type_id)
-        .is_some_and(|layout| !layout.text_leaves.is_empty())
-}
-
-/// The primitive id and declared length of the text type `type_id`, or `None` for another type.
-fn text_primitive(prepared: &PreparedModule, type_id: u32) -> Option<(u16, u16)> {
-    match resolve(prepared, type_id)?.data {
-        TypeData::Primitive {
-            prim_id,
-            max_length,
-        } if TEXT_PRIMITIVES.contains(&prim_id) => Some((prim_id, max_length)),
-        _ => None,
-    }
-}
-
-/// Whether every leaf of a value of `type_id` is a scalar or a text its bytes hold whole.
-fn plain(prepared: &PreparedModule, type_id: u32, depth: usize) -> bool {
-    if depth > BYTECODE_MAX_TYPE_NESTING {
-        return false;
-    }
-    let Some(entry) = resolve(prepared, type_id) else {
-        return false;
-    };
-    match &entry.data {
-        TypeData::Primitive { .. } => true,
-        TypeData::Enum { .. } => true,
-        TypeData::Subrange { base_type_id, .. } => plain(prepared, *base_type_id, depth + 1),
-        TypeData::Array { elem_type_id, .. } => plain(prepared, *elem_type_id, depth + 1),
-        TypeData::Struct { fields } => {
-            !matches!(
-                entry.kind,
-                TypeKind::OverlappingStruct | TypeKind::LocatedStruct
-            ) && fields
-                .iter()
-                .all(|field| plain(prepared, field.type_id, depth + 1))
-        }
-        _ => false,
-    }
-}
-
-/// Whether values of `left` and `right` have the same bytes for the same value: the same type, or
-/// arrays of the same bounds whose elements are.
-fn same_type(prepared: &PreparedModule, left: u32, right: u32, depth: usize) -> bool {
-    if depth > BYTECODE_MAX_TYPE_NESTING {
-        return false;
-    }
-    let (Some(left_entry), Some(right_entry)) = (resolve(prepared, left), resolve(prepared, right))
-    else {
-        return false;
-    };
-    if core::ptr::eq(left_entry, right_entry) {
-        return true;
-    }
-    match (&left_entry.data, &right_entry.data) {
-        (
-            TypeData::Array {
-                elem_type_id: left_element,
-                dims: left_dims,
-            },
-            TypeData::Array {
-                elem_type_id: right_element,
-                dims: right_dims,
-            },
-        ) => {
-            left_dims == right_dims && same_type(prepared, *left_element, *right_element, depth + 1)
-        }
-        _ => false,
-    }
-}
-
-/// The number of elements of an array of `dims`.
-fn element_count(dims: &[(i64, i64)]) -> Option<usize> {
-    dims.iter().try_fold(1usize, |count, (lower, upper)| {
-        let length = upper.checked_sub(*lower)?.checked_add(1)?;
-        count.checked_mul(usize::try_from(length).ok()?)
-    })
+/// How a walk over a value's texts charges each text (TIME-08).
+#[derive(Clone, Copy)]
+enum TextRule {
+    /// Normalizing the value to its type checks each text against its capacity: one unit for each
+    /// byte of a text in a structure and two for each byte of any other (C1-12).
+    Normalization { in_structure: bool },
+    /// The canonical check of a constructed value checks each text once: one unit for each byte
+    /// (C1-13).
+    Canonical,
 }

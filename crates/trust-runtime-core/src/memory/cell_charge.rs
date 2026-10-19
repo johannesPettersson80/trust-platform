@@ -115,6 +115,91 @@ impl CellsView<'_> {
         }
     }
 
+    /// Charge the work of one copy of the value of `type_id` at `range` through `charge`, one charge
+    /// for each node in the order the copy of the same `Value` charges it (TIME-08; C1-13): a structure
+    /// or an array one unit, then one for each of its members or elements, then each member or element
+    /// in order; a `WSTRING` and an enumeration one unit; a reference one unit, then its flat elements,
+    /// then its path's segments and each segment's subscripts. A `STRING`, a scalar, an instance and a
+    /// null reference charge nothing. The units add up to [`CellsView::copy_charge`]'s work, and a
+    /// charge refused part way stops where the `Value` copy's would.
+    pub(crate) fn copy_work(
+        self,
+        range: ByteRange,
+        type_id: u32,
+        depth: usize,
+        charge: &mut impl FnMut(usize) -> Result<(), RuntimeError>,
+    ) -> Result<(), RuntimeError> {
+        if depth > BYTECODE_MAX_TYPE_NESTING {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        let (resolved, entry) =
+            resolve_entry(self.prepared, type_id).ok_or(RuntimeError::InvalidExecutionState)?;
+        match &entry.data {
+            TypeData::Struct { fields } if entry.kind != TypeKind::OverlappingStruct => {
+                let layout = self
+                    .prepared
+                    .type_layout(resolved)
+                    .ok_or(RuntimeError::InvalidExecutionState)?;
+                charge(1)?;
+                charge(fields.len())?;
+                for (member, field) in layout.members.iter().zip(fields) {
+                    let child = self.child_range(range, member.byte_offset, field.type_id)?;
+                    self.copy_work(child, field.type_id, depth + 1, charge)?;
+                }
+                Ok(())
+            }
+            TypeData::Array { elem_type_id, .. } => {
+                let layout = self
+                    .prepared
+                    .type_layout(resolved)
+                    .ok_or(RuntimeError::InvalidExecutionState)?;
+                let array = layout
+                    .array
+                    .as_ref()
+                    .ok_or(RuntimeError::InvalidExecutionState)?;
+                let count =
+                    element_count(&array.dims).ok_or(RuntimeError::InvalidExecutionState)?;
+                charge(1)?;
+                charge(count)?;
+                for index in 0..count {
+                    let offset = u32::try_from(index)
+                        .ok()
+                        .and_then(|index| index.checked_mul(array.byte_stride))
+                        .ok_or(RuntimeError::Overflow)?;
+                    let child = self.child_range(range, offset, *elem_type_id)?;
+                    self.copy_work(child, *elem_type_id, depth + 1, charge)?;
+                }
+                Ok(())
+            }
+            TypeData::Primitive { .. } | TypeData::Subrange { .. } => {
+                match primitive_of(self.prepared, type_id) {
+                    Some(WSTRING_PRIMITIVE) => charge(1),
+                    _ => Ok(()),
+                }
+            }
+            TypeData::Enum { .. } => charge(1),
+            TypeData::Reference { .. } => match self.reference_leaf(range, type_id)? {
+                Some(reference) => {
+                    charge(1)?;
+                    // A flat reference is charged by the path it was taken through (C1-11d).
+                    charge(reference.location.flat_elements())?;
+                    charge(reference.path.len())?;
+                    for segment in reference.path {
+                        if let RefSegment::Index(indices) = segment {
+                            charge(indices.len())?;
+                        }
+                    }
+                    Ok(())
+                }
+                None => Ok(()),
+            },
+            TypeData::Pou { .. } | TypeData::Interface { .. } => Ok(()),
+            TypeData::Struct { .. } | TypeData::Union { .. } | TypeData::Alias { .. } => {
+                Err(RuntimeError::InvalidExecutionState)
+            }
+        }
+    }
+
     /// The charge a parent copy takes for one child: the child's own copy charge, and one cell of
     /// allocation when the child is a leaf of the parent (`vm::engine::allocation`).
     fn child_charge(

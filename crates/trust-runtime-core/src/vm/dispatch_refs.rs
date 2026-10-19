@@ -384,8 +384,8 @@ pub fn store_ref(
 
 /// Store the compound `place` stands for through a static reference (C1-10c). A destination of the
 /// place's type in the flat block takes a copy of its bytes, checked and charged as [`store_ref`]
-/// checks and charges the value; a local, an initializer's result or any other destination is given
-/// the value, read from the place.
+/// checks and charges the value, and so does an initializer's result staged on the activation stack
+/// (C1-13); a local or any other destination is given the value, read from the place.
 pub(crate) fn store_ref_place(
     runtime: &mut impl ReferenceContext,
     module: &VmModule,
@@ -397,12 +397,9 @@ pub(crate) fn store_ref_place(
         .refs
         .get(ref_idx as usize)
         .ok_or_else(|| VmTrap::InvalidRefIndex(ref_idx))?;
-    // Locals and initializer results are in the `Value` half until the activation block holds them
-    // (C1-11, C1-13).
-    if !matches!(
-        reference,
-        VmRef::Local { .. } | VmRef::InitializerResult { .. }
-    ) {
+    // Locals are stored as values until a load of one leaves it where it lies (C1-11); a staged
+    // result that lies in the `Value` half has no destination bytes and is given the value too.
+    if !matches!(reference, VmRef::Local { .. }) {
         let address = load_ref_view(runtime, module, frames, ref_idx)?;
         let declared = module.ref_type(ref_idx);
         let order = StoreOrder::NormalizeFirst;

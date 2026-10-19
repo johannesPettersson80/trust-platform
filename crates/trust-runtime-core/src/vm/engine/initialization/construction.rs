@@ -453,17 +453,26 @@ impl EngineState<'_> {
                 return Ok(());
             }
         }
-        let value = self.evaluate_initializer(id, frame.as_deref_mut(), instance, depth)?;
         let has_explicit = self.prepared.has_explicit_action(id);
         let mark_once = entry.once != InitializationOnce::None
             && (entry.stage == InitializationStage::Explicit || !has_explicit);
-        self.commit_declaration_with_once(
-            declaration,
-            instance,
-            frame,
-            value,
-            mark_once.then_some((declaration, once_owner)),
-        )
+        let once_marker = mark_once.then_some((declaration, once_owner));
+        // A frame variable's array, structure or text is staged and committed in place on the flat
+        // store (C1-13).
+        if let Some(frame) = frame.as_deref_mut()
+            && self.run_declaration_in_place(
+                id,
+                declaration,
+                instance,
+                frame,
+                depth,
+                once_marker,
+            )?
+        {
+            return Ok(());
+        }
+        let value = self.evaluate_initializer(id, frame.as_deref_mut(), instance, depth)?;
+        self.commit_declaration_with_once(declaration, instance, frame, value, once_marker)
     }
 
     fn physical_declaration_instance(
