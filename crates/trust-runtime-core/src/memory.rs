@@ -299,6 +299,9 @@ pub mod cell_access;
 /// (specification 34 §6.2).
 pub mod cells;
 mod execution_frames;
+/// The bytes of one leaf of a flat block: every variable at its declared size, with no tag
+/// (specification 34 MEM-12).
+pub mod flat;
 mod frames;
 mod instance_table;
 mod instances;
