@@ -29,6 +29,12 @@ impl VariableStorage {
         &self.values.globals
     }
 
+    /// Replace the globals with `globals`, in their order: a copy of the flat store holds them in
+    /// declaration order, as the value store does (C1-17).
+    pub(crate) fn replace_globals(&mut self, globals: IndexMap<SmolStr, Value>) {
+        self.values.globals = globals;
+    }
+
     #[must_use]
     pub fn get_global(&self, name: &str) -> Option<&Value> {
         self.values.globals.get(name)

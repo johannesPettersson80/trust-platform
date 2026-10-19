@@ -124,6 +124,8 @@ impl DebugSnapshot {
     /// Reconstruct named debugger frames on a detached copy, preserving actual
     /// activation identities so references to suspended caller locals resolve.
     /// This never inserts presentation frames into installed execution storage.
+    /// On the flat store the copy and the locals are read from where they lie
+    /// (specification 34 §6.3).
     pub(crate) fn from_execution(
         storage: &VariableStorage,
         now: Duration,
@@ -132,7 +134,7 @@ impl DebugSnapshot {
     ) -> Result<Self, RuntimeError> {
         let mut snapshot = Self {
             storage_abi: prepared.storage_abi(),
-            storage: storage.clone(),
+            storage: active.storage_copy(storage)?,
             now,
         };
         snapshot.storage.clear_frames();
@@ -182,14 +184,11 @@ impl DebugSnapshot {
                     .strings()
                     .get(declaration.name_idx as usize)
                     .ok_or(RuntimeError::InvalidExecutionState)?;
-                let value = invocation
-                    .locals()
-                    .get(declaration.slot as usize)
-                    .ok_or(RuntimeError::InvalidExecutionState)?;
-                frame.variables.insert(name.into(), value.clone());
+                let value = invocation.local(declaration.slot as usize)?;
                 if declaration.role == StorageRole::Return {
                     frame.return_value = Some(value.clone());
                 }
+                frame.variables.insert(name.into(), value);
             }
             if frame.variables.len() != invocation.locals().len() {
                 return Err(RuntimeError::InvalidExecutionState);
@@ -280,6 +279,109 @@ END_CONFIGURATION
                 *self.deepest.lock().unwrap() = Some(snapshot);
             }
         }
+    }
+
+    /// Keeps the projection of the last instruction at which the four invocations are live and the
+    /// leaf has its result, on the flat store, where the frames' own entries for typed locals are
+    /// `Null`, so the condition reads the result with `StatementFrame::local`.
+    struct FlatObserver {
+        prepared: Arc<PreparedModule>,
+        deepest: Arc<Mutex<Option<DebugSnapshot>>>,
+    }
+    impl ExecutionServices for FlatObserver {
+        fn debug_active(&self) -> bool {
+            true
+        }
+        fn deadline_exceeded(&self) -> bool {
+            false
+        }
+        fn has_wall_clock(&self) -> bool {
+            false
+        }
+        fn current_dt(&self) -> Result<DateTimeValue, RuntimeError> {
+            Err(RuntimeError::UndefinedFunction("CURRENT_DT".into()))
+        }
+        fn on_statement_with_frame(
+            &self,
+            _: u32,
+            _: usize,
+            _: u32,
+            storage: &VariableStorage,
+            now: Duration,
+            frame: StatementFrame<'_>,
+        ) {
+            if frame.call_stack().count() == 4 && matches!(frame.local(0), Ok(Value::Int(1))) {
+                let snapshot =
+                    DebugSnapshot::from_execution(storage, now, &self.prepared, frame).unwrap();
+                *self.deepest.lock().unwrap() = Some(snapshot);
+            }
+        }
+    }
+
+    #[test]
+    fn the_flat_store_projects_the_call_stack_and_the_variables_from_where_they_lie() {
+        // Specification 34 §6.3 (C1-17) and specification 11 §6.13.1: on the flat store the typed
+        // locals of each frame lie on the activation stack, and the globals and the program's
+        // instance in the persistent block, so the debugger's projection reads them there. With
+        // probe_depth 4 the program calls ProbeOuter, ProbeMiddle and ProbeLeaf; at the leaf's
+        // second statement the four invocations are live and the leaf has assigned its result 1.
+        // The global probe_depth holds the 4 written before the scan, and the program's
+        // depth_result still holds its initial 0, which the scan assigns only after the calls
+        // return. A projection that read the frames' own entries would show `Null` for the leaf's
+        // result and never meet the condition; one that copied only the value half would hold no
+        // probe_depth and no program instance.
+        let saved = crate::harness::CompileSession::from_source(PROJECTION_SOURCE)
+            .build_bytecode_bytes()
+            .unwrap();
+        let prepared =
+            Arc::new(PreparedModule::from_bytes(&saved, PreparationLimits::default()).unwrap());
+        let observer = FlatObserver {
+            prepared: Arc::clone(&prepared),
+            deepest: Arc::new(Mutex::new(None)),
+        };
+        let mut state = prepared
+            .instantiate_on_cells_with_services(0, &observer)
+            .unwrap();
+        state.write_global("probe_depth", Value::Int(4)).unwrap();
+        state.execute_cycle(Duration::from_millis(10)).unwrap();
+        let snapshot = observer
+            .deepest
+            .lock()
+            .unwrap()
+            .take()
+            .expect("four actual invocations");
+        let names = snapshot
+            .storage
+            .frames()
+            .iter()
+            .map(|frame| frame.owner.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(names, ["Gpio", "ProbeOuter", "ProbeMiddle", "ProbeLeaf"]);
+        let leaf = snapshot.storage.current_frame().unwrap();
+        assert_eq!(leaf.variables.get("ProbeLeaf"), Some(&Value::Int(1)));
+        assert_eq!(leaf.return_value, Some(Value::Int(1)));
+        let leaf_offset = leaf.variables.get_index_of("ProbeLeaf").unwrap();
+        let reference = crate::value::ValueRef {
+            location: crate::memory::MemoryLocation::Local(leaf.id),
+            offset: u32::try_from(leaf_offset).unwrap(),
+            generation: snapshot.storage.generation(),
+            path: Vec::new(),
+        };
+        assert_eq!(
+            snapshot.storage.read_by_ref_ref(&reference),
+            Some(&Value::Int(1))
+        );
+        assert_eq!(
+            snapshot.storage.get_global("probe_depth"),
+            Some(&Value::Int(4))
+        );
+        let Some(Value::Instance(root)) = snapshot.storage.get_global("Plant") else {
+            panic!("program root");
+        };
+        assert_eq!(
+            snapshot.storage.get_instance_var(*root, "depth_result"),
+            Some(&Value::Int(0))
+        );
     }
 
     #[test]

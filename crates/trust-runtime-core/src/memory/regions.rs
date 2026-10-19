@@ -18,7 +18,9 @@ use crate::error::RuntimeError;
 use crate::memory::cells::{write_value_in, FlatBlock, ReferenceTable};
 use crate::memory::instance_table::{InstanceTable, PersistentInstance};
 use crate::memory::layout::{align_up, ByteRange, LayoutRegion, INSTANCE_ALIGN};
-use crate::memory::{ActivationStore, FrameId, Generation, Identities, InstanceId};
+use crate::memory::{
+    ActivationStore, FrameId, Generation, Identities, InstanceId, VariableStorage,
+};
 use crate::value::{DateTimeProfile, EnumValue, Value, ValueRef};
 use crate::vm::construction::values::scalar;
 use crate::vm::type_policy::{normalize_primitive_value, resolved_primitive_shape};
@@ -299,6 +301,14 @@ impl CellRegions {
         self.instances.len()
     }
 
+    /// The identity of every instance the block holds: the persistent instances in identity order,
+    /// then those that frames on the activation stack own, in creation order (C1-17).
+    pub(crate) fn instance_ids(&self) -> impl Iterator<Item = InstanceId> + '_ {
+        self.instances
+            .ids()
+            .chain(self.call_instances.iter().map(|(id, _)| *id))
+    }
+
     /// Record the persistent instance `id` in the table reserved at construction.
     ///
     /// # Errors
@@ -534,6 +544,12 @@ impl CellStorage {
     /// [`RuntimeError::Overflow`] once the counter is exhausted.
     pub(crate) fn next_instance_id(&self) -> Result<(InstanceId, u32), RuntimeError> {
         self.identities.next_instance()
+    }
+
+    /// Give `storage` this store's identities: its instance counter, its entry floor and its
+    /// generation, so that a copy of the store issues no identity the store holds (C1-17).
+    pub(crate) fn lend_identities(&self, storage: &mut VariableStorage) {
+        storage.identities = self.identities.clone();
     }
 
     /// Record that `id` was issued and the counter now holds `following` (see

@@ -112,6 +112,11 @@ impl InstanceTable {
         self.entries.len()
     }
 
+    /// The identities of the persistent instances, in identity order.
+    pub(crate) fn ids(&self) -> impl Iterator<Item = InstanceId> + '_ {
+        self.entries.iter().map(|(id, _)| *id)
+    }
+
     /// The number of entries the reserved room holds, which the table never exceeds (test support).
     #[cfg(test)]
     pub(crate) fn capacity(&self) -> usize {

@@ -39,6 +39,21 @@ impl VariableStorage {
         Ok(())
     }
 
+    /// Record `data` as the instance `id`, which the caller read from where another store holds it
+    /// (C1-17). A live instance that holds `id` is refused, never replaced.
+    pub(crate) fn put_instance(
+        &mut self,
+        id: InstanceId,
+        data: InstanceData,
+    ) -> Result<(), crate::error::RuntimeError> {
+        self.insert_instance(id, data.type_name.clone())?;
+        let held = self
+            .get_instance_mut(id)
+            .ok_or(crate::error::RuntimeError::InvalidExecutionState)?;
+        *held = data;
+        Ok(())
+    }
+
     /// Array growth bytes and moved entries to charge before creating an instance.
     /// Hosted map nodes retain the existing per-instance construction accounting.
     pub fn instance_insertion_demand(&self) -> Option<(usize, usize)> {

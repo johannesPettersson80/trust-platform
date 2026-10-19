@@ -585,6 +585,12 @@ pub(crate) struct CellReader<'a> {
     values: &'a VariableStorage,
 }
 
+impl core::fmt::Debug for CellReader<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("CellReader").finish_non_exhaustive()
+    }
+}
+
 impl<'a> CellReader<'a> {
     /// A reader of `arm` and of the `Value` half `values`, placing the arm's cells through `prepared`.
     pub(crate) fn new(
@@ -1641,6 +1647,9 @@ mod cell_charge;
 /// The nodes of structures with a physical layout (C1-15), in their own file.
 #[path = "cell_overlay.rs"]
 mod cell_overlay;
+/// The flat store as the debugger reads it (C1-17), in its own file.
+#[path = "cell_projection.rs"]
+mod cell_projection;
 /// The bytecode fixture of the cell arm's tests, whose builders the engine's construction tests reuse.
 #[cfg(all(test, feature = "std"))]
 pub(crate) mod fixture;

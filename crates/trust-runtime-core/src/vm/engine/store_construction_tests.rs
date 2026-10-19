@@ -9,6 +9,7 @@
 //! `engineering.rs` (C1-9d3a).
 
 mod call_instances;
+mod debug_frames;
 mod engineering;
 mod flat_references;
 mod frames;

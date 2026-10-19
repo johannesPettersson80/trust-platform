@@ -4,8 +4,9 @@
 //! The engine reads and writes the globals and the persistent instances only through the store-access
 //! seam, whichever store it holds. These tests build every program of the bounded-C corpus on both
 //! stores, give both the same inputs, run the same scans and compare what the program leaves behind:
-//! every declared variable, the output, marker and hierarchical images, the latched fault, the result of
-//! the scan, and the work and the allocation bytes charged at each phase of it. A program cannot tell the
+//! every declared variable, the output, marker and hierarchical images, the latched fault, the copy of
+//! the storage the debugger reads (C1-17), the result of the scan, and the work and the allocation bytes
+//! charged at each phase of it. A program cannot tell the
 //! stores apart (specification 34 §6.2), so every line is equal, and the `Value` store's line is the
 //! expected one. A comparison drives both stores through a warm and a cold restart as well, because the
 //! restart carries the values the scans left.
@@ -25,6 +26,7 @@ use crate::memory::view::StoreAccess;
 use crate::memory::InstanceId;
 use crate::retain::RestartMode;
 use crate::value::{Duration, Value};
+use crate::vm::engine::store_access::Routed;
 use crate::vm::{CycleAccess, CycleHooks, CyclePhase, PreparationLimits, PreparedModule};
 
 /// The scans each program runs before it is restarted, 10 ms apart: one activation of its task each.
@@ -66,7 +68,8 @@ impl CycleHooks for ChargeLog {
 }
 
 /// Everything that a program leaves behind and its user can read, one line per fact, in an order both
-/// stores share: every declared variable, the three process images, and the latched fault.
+/// stores share: every declared variable, the three process images, the latched fault, and the copy of
+/// the storage that the debugger reads.
 fn facts(prepared: &PreparedModule, state: &EngineState<'_>) -> Vec<String> {
     let mut lines = declared_values(prepared, state);
     let data = &*state.data;
@@ -74,6 +77,35 @@ fn facts(prepared: &PreparedModule, state: &EngineState<'_>) -> Vec<String> {
     lines.push(format!("markers {:?}", data.images.memory));
     lines.push(format!("hierarchical {:?}", data.images.hierarchical));
     lines.push(format!("fault {:?} {:?}", data.fault, data.fault_record));
+    lines.extend(projected(state));
+    lines
+}
+
+/// The copy of the storage that the debugger reads (specification 34 §6.3, specification 11 §6.13.1;
+/// C1-17): the value store's own storage, and on the flat store its projection from the blocks. One line
+/// for each global, in its order, and one for each instance, in identity order, with its type, its parent
+/// and its variables in their order, since a reference names a variable by its position.
+fn projected(state: &EngineState<'_>) -> Vec<String> {
+    let storage = match state.data.routed(state.prepared) {
+        Routed::Values(storage) => storage.clone(),
+        Routed::Cells(reader) => match reader.project_storage() {
+            Ok(storage) => storage,
+            Err(error) => return vec![format!("projection refused: {error:?}")],
+        },
+    };
+    let mut lines: Vec<String> = storage
+        .globals()
+        .iter()
+        .map(|(name, value)| format!("projected global {name} = {value:?}"))
+        .collect();
+    let mut instances: Vec<_> = storage.instances().iter().collect();
+    instances.sort_by_key(|(id, _)| **id);
+    for (id, data) in instances {
+        lines.push(format!(
+            "projected instance {} of {}, parent {:?}: {:?}",
+            id.0, data.type_name, data.parent, data.variables
+        ));
+    }
     lines
 }
 
@@ -337,6 +369,9 @@ fn cells_and_values_agree_after_every_scan() {
     // and counter (the guard on `blocks` expects the `CTU` to count the 10 rising edges of its toggle); one
     // that journaled a call's output destination in the wrong slot would restore the wrong value; a
     // charge that depended on where a value is held would show on the line of the phase that charged it.
+    // The debugger's copy of the storage is compared too (C1-17): a projection of the flat store that
+    // left out a global or an instance, put a global or an instance's variable at another position, or
+    // kept a flat reference in its address form would differ from the value store's own storage.
     // The guard on `ticks` expects each program to have run its body in all 20 scans.
     //
     // No program is refused: since C1-15 a `STRUCT OVERLAP` lies as its backing, so `structures` and

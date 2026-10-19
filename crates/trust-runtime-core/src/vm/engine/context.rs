@@ -826,13 +826,20 @@ impl ExecutionContext for EngineState<'_> {
         // Neither initial installation nor an isolated restart candidate may
         // publish frame snapshots into the installed controller's service state.
         if self.data.construction_complete {
+            let frame = frame.with_call_stack(&self.data.storage);
+            // On the flat store the frames' typed locals, the globals and the instances are read
+            // from the blocks (C1-17).
+            let frame = match self.data.routed(self.prepared) {
+                super::store_access::Routed::Cells(reader) => frame.with_cells(reader),
+                super::store_access::Routed::Values(_) => frame,
+            };
             return self.services.on_statement_with_frame_checked(
                 pou,
                 pc,
                 depth,
                 &self.data.storage,
                 self.data.now,
-                frame.with_call_stack(&self.data.storage),
+                frame,
             );
         }
         Ok(())

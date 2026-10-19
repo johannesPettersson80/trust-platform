@@ -330,6 +330,9 @@ pub struct StatementFrame<'a> {
     runtime_instance: Option<crate::memory::InstanceId>,
     locals: &'a [crate::value::Value],
     storage: Option<&'a VariableStorage>,
+    /// The flat store the engine holds, where the frames' typed locals, the globals and the
+    /// instances lie (specification 34 §6.3; C1-17).
+    cells: Option<crate::memory::cell_access::CellReader<'a>>,
 }
 
 impl<'a> StatementFrame<'a> {
@@ -340,6 +343,7 @@ impl<'a> StatementFrame<'a> {
             runtime_instance: frame.runtime_instance,
             locals: &frame.locals,
             storage: None,
+            cells: None,
         }
     }
 
@@ -349,6 +353,15 @@ impl<'a> StatementFrame<'a> {
     {
         StatementFrame {
             storage: Some(storage),
+            ..self
+        }
+    }
+
+    /// The view on the flat store `cells`, which the frames' typed locals, the globals and the
+    /// instances are read from where they lie (C1-17).
+    pub(crate) fn with_cells(self, cells: crate::memory::cell_access::CellReader<'a>) -> Self {
+        Self {
+            cells: Some(cells),
             ..self
         }
     }
@@ -365,9 +378,51 @@ impl<'a> StatementFrame<'a> {
     pub fn runtime_instance(self) -> Option<crate::memory::InstanceId> {
         self.runtime_instance
     }
-    /// Current local values, including bound parameters and the return slot.
+    /// Current local values, including bound parameters and the return slot. On the flat store a
+    /// typed local lies on the activation stack and its entry here is `Null`: [`Self::local`] reads
+    /// every local where it lies.
     pub fn locals(self) -> &'a [crate::value::Value] {
         self.locals
+    }
+
+    /// The value of local slot `slot` as the program holds it: read from the frame's bytes on the
+    /// activation stack when the flat store keeps the slot there, and otherwise the frame's value
+    /// (specification 34 §6.3; C1-17).
+    ///
+    /// # Errors
+    ///
+    /// [`crate::error::RuntimeError::InvalidExecutionState`] for a slot the frame does not have, and
+    /// the error of a value that does not materialize.
+    pub fn local(self, slot: usize) -> Result<crate::value::Value, crate::error::RuntimeError> {
+        if let (Some(cells), Some(activation), Some(pou)) =
+            (self.cells, self.activation, self.pou_id)
+            && let Some(view) = cells.frame_local(activation, pou, slot)
+        {
+            return view.materialize();
+        }
+        self.locals
+            .get(slot)
+            .cloned()
+            .ok_or(crate::error::RuntimeError::InvalidExecutionState)
+    }
+
+    /// The PLC storage the statement sees, as one owned copy that holds no named frame: a copy of
+    /// `storage`, the storage the engine passed with this frame, or on the flat store its `Value`
+    /// half with every global and every instance read from the blocks, as the value store would
+    /// hold them (specification 34 §6.3; C1-17). The debugger makes it when a stop, a condition or
+    /// a logpoint needs it, never at every statement (specification 11 §6.13.1).
+    ///
+    /// # Errors
+    ///
+    /// The error of a value that does not materialize.
+    pub fn storage_copy(
+        self,
+        storage: &VariableStorage,
+    ) -> Result<VariableStorage, crate::error::RuntimeError> {
+        match self.cells {
+            Some(cells) => cells.project_storage(),
+            None => Ok(storage.clone()),
+        }
     }
 
     /// Visit live suspended ancestors followed by the currently executing frame.
@@ -388,6 +443,7 @@ impl<'a> StatementFrame<'a> {
                     runtime_instance: owner.runtime_instance,
                     locals,
                     storage: None,
+                    cells: self.cells,
                 })
             })
             .chain(core::iter::once(StatementFrame {
