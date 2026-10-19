@@ -767,6 +767,22 @@ impl Fixture {
         runner
     }
 
+    /// A loop that has just started the program with `link` and `platform`, for a test that drives the
+    /// link and reads the platform's counters; what the loop asked of the program at power-on is taken
+    /// already.
+    pub(crate) fn runner_with_link_and_platform<L>(
+        &self,
+        link: L,
+        platform: TestPlatform,
+    ) -> Runner<L, TestWait, ScriptedCycle<'_>, TestPlatform, TestClock>
+    where
+        L: ControlLink + 'static,
+    {
+        let runner = self.start_with_link(link, platform, EVENT_STORE_CAPACITY, false);
+        let _ = self.take_calls();
+        runner
+    }
+
     /// A loop that has just started the program with an event store of `event_capacity`, with the
     /// test platform; what the loop asked of the program at power-on is taken already.
     pub(crate) fn runner_with_capacity(&self, event_capacity: usize) -> TestRunner<'_> {

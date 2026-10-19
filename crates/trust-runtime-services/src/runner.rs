@@ -484,6 +484,9 @@ fn span(configured: value::Duration) -> TimeSpan {
 mod contract_tests;
 
 #[cfg(test)]
+mod disconnect_contract_tests;
+
+#[cfg(test)]
 mod hold_contract_tests;
 
 #[cfg(test)]
