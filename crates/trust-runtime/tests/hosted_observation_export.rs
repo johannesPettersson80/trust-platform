@@ -1,6 +1,7 @@
 //! Hosted exports copy the installed artifact and keep source-aware debug sections apart.
 use trust_runtime::bytecode::{
     build_module_from_runtime, build_module_from_runtime_with_sources, BytecodeModule, SectionId,
+    LINE_TABLE_SECTION_ID,
 };
 use trust_runtime::harness::CompileSession;
 use trust_runtime::value::{RefSegment, Value};
@@ -9,8 +10,12 @@ use trust_runtime::Runtime;
 const SOURCE: &str =
     "PROGRAM Main VAR counter : INT := 7; END_VAR counter := counter + 1; END_PROGRAM";
 
+/// The optional sections that map instructions to source positions: DEBUG_MAP, its string table
+/// and LINE_TABLE (specification 12 §6.13), which the plain export omits.
 fn is_source_debug_section(id: u16) -> bool {
-    id == SectionId::DebugMap as u16 || id == SectionId::DebugStringTable as u16
+    id == SectionId::DebugMap as u16
+        || id == SectionId::DebugStringTable as u16
+        || id == LINE_TABLE_SECTION_ID
 }
 
 /// Spec 34 HOST-09 (lines 524-526): a source-free installation exports the sections it

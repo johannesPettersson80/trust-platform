@@ -613,9 +613,10 @@ existing stale-reference checks without inventing a speculative reader service.
 Hosted bytecode export shall copy the installation's immutable deployment
 artifact, not rebuild startup declarations from mutable PLC values or execute
 initializers again. Retained/current values remain separate checkpoint data.
-The existing plain export omits optional source-debug sections; source-aware
-export preserves the admitted instruction-to-source map and may relabel source
-paths. Supplied source text shall agree with an available, original installation
+The existing plain export omits optional source-debug sections, the sections
+that map instructions to source positions (DEBUG_MAP, DEBUG_STRING_TABLE and
+LINE_TABLE, specification 12 §6.13); source-aware export preserves the admitted
+instruction-to-source map and may relabel source paths. Supplied source text shall agree with an available, original installation
 source snapshot before attaching its debug map. A source-free installation shall
 not certify unrelated supplied text from a `file_N` label alone; unverifiable
 source association is rejected. A source-aware export also rejects an installation
