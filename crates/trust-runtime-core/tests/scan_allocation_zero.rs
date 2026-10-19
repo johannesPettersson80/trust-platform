@@ -87,8 +87,44 @@ fn record(call: fn(&mut Calls)) {
                 call(&mut calls);
                 counted.set(calls);
             });
+            trace_call();
         }
     });
+}
+
+thread_local! {
+    /// Whether the tracing test records where each counted call comes from.
+    static TRACING: Cell<bool> = const { Cell::new(false) };
+    /// Set while a trace is captured: the capture's own allocations are neither counted nor traced.
+    static IN_TRACE: Cell<bool> = const { Cell::new(false) };
+    static TRACES: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Record the engine frames that made the counted call, when the tracing test asked for them.
+fn trace_call() {
+    if !TRACING.try_with(Cell::get).unwrap_or(false) || IN_TRACE.try_with(Cell::get).unwrap_or(true)
+    {
+        return;
+    }
+    let _ = IN_TRACE.try_with(|flag| flag.set(true));
+    let _ = ARMED.try_with(|armed| {
+        let was = armed.replace(false);
+        let trace = std::backtrace::Backtrace::force_capture().to_string();
+        let frames = trace
+            .lines()
+            .filter(|line| line.contains("trust_runtime_core::") && !line.contains(" at "))
+            .take(5)
+            .map(|line| {
+                line.trim()
+                    .split_once(": ")
+                    .map_or(line.trim(), |(_, name)| name)
+            })
+            .collect::<Vec<_>>()
+            .join(" <- ");
+        let _ = TRACES.try_with(|traces| traces.borrow_mut().push(frames));
+        armed.set(was);
+    });
+    let _ = IN_TRACE.try_with(|flag| flag.set(false));
 }
 
 struct CountingAllocator;
@@ -555,6 +591,15 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// `references` then make no allocator call after the first scan and `retained_blocks` makes 2;
 /// the `copies` fixture's 30 per scan are its function call and its structure that holds a text
 /// (C1-11, C1-12), measured on the builder on 19 October 2026.
+///
+/// C1-11 gives each activation its presence bits from the reserved frame payloads (census A4), finds a
+/// method's or a function block's type by name in any case without an upper-case copy, matches named
+/// arguments without an index vector (census C6), keeps every call's locals on the activation stack and
+/// makes a reference to a whole writable persistent target flat, so a stored, copied or compared
+/// reference holds no path. On the value store `calls` falls to 20, `methods` to 1 and
+/// `initializers` to 17; on the flat store `calls` to 1, `blocks` and `retained_blocks` to 0,
+/// `methods` to 1, `instances` to 16 (its per-call class instance, C1-11c), `initializers` to 17 and
+/// `copies` to 8, measured on the builder on 19 October 2026.
 const CEILINGS: [(&str, usize, Calls); 31] = [
     ("faults/division", 2, Calls::ZERO),
     ("faults/index", 2, Calls::ZERO),
@@ -577,9 +622,9 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
         "initializers",
         1,
         Calls {
-            alloc: 19,
+            alloc: 17,
             realloc: 0,
-            dealloc: 19,
+            dealloc: 17,
         },
     ),
     ("sizeof", 1, Calls::ZERO),
@@ -587,9 +632,9 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
         "calls",
         1,
         Calls {
-            alloc: 28,
+            alloc: 20,
             realloc: 0,
-            dealloc: 28,
+            dealloc: 20,
         },
     ),
     (
@@ -605,9 +650,9 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
         "methods",
         1,
         Calls {
-            alloc: 9,
+            alloc: 1,
             realloc: 0,
-            dealloc: 9,
+            dealloc: 1,
         },
     ),
     // The same runs on the flat store (C1-10 on): those at zero, and each other at the allocator
@@ -631,36 +676,28 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
         "cells/calls",
         1,
         Calls {
-            alloc: 28,
+            alloc: 1,
             realloc: 0,
-            dealloc: 28,
+            dealloc: 1,
         },
     ),
-    (
-        "cells/blocks",
-        1,
-        Calls {
-            alloc: 11,
-            realloc: 0,
-            dealloc: 11,
-        },
-    ),
+    ("cells/blocks", 1, Calls::ZERO),
     (
         "cells/methods",
         1,
         Calls {
-            alloc: 9,
+            alloc: 1,
             realloc: 0,
-            dealloc: 9,
+            dealloc: 1,
         },
     ),
     (
         "cells/instances",
         1,
         Calls {
-            alloc: 36,
+            alloc: 16,
             realloc: 0,
-            dealloc: 36,
+            dealloc: 16,
         },
     ),
     ("cells/arrays", 1, Calls::ZERO),
@@ -678,27 +715,19 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
         "cells/initializers",
         1,
         Calls {
-            alloc: 19,
+            alloc: 17,
             realloc: 0,
-            dealloc: 19,
+            dealloc: 17,
         },
     ),
-    (
-        "cells/retained_blocks",
-        1,
-        Calls {
-            alloc: 2,
-            realloc: 0,
-            dealloc: 2,
-        },
-    ),
+    ("cells/retained_blocks", 1, Calls::ZERO),
     (
         "cells/copies",
         1,
         Calls {
-            alloc: 30,
+            alloc: 8,
             realloc: 0,
-            dealloc: 30,
+            dealloc: 8,
         },
     ),
 ];
@@ -1197,4 +1226,33 @@ fn the_cell_retain_capture_allocates_nothing() {
         retain_payload(0, 20.0, 0).as_slice(),
         "the capture stages the fixture's retained image, written from its cells"
     );
+}
+
+/// A diagnostic, run on request (`-- --ignored`): where the allocator calls of each fixture's later
+/// scans on the flat store come from, as the five innermost engine frames of each call, counted.
+/// It asserts nothing; it tells the C1 slices which code still allocates.
+#[test]
+#[ignore = "diagnostic: run with --ignored --nocapture"]
+fn trace_flat_store_allocations() {
+    for fixture in &FIXTURES {
+        TRACES.with(|traces| traces.borrow_mut().clear());
+        TRACING.with(|flag| flag.set(true));
+        let outcome = run_fixture(fixture, true);
+        TRACING.with(|flag| flag.set(false));
+        let traces = TRACES.with(|traces| std::mem::take(&mut *traces.borrow_mut()));
+        if let Err(error) = outcome {
+            eprintln!("trace,cells/{},refused={error}", fixture.name);
+            continue;
+        }
+        // The first scan fills caches and buffers; count the later scans' calls only by their sites.
+        let mut sites = std::collections::BTreeMap::<String, usize>::new();
+        for trace in traces {
+            *sites.entry(trace).or_default() += 1;
+        }
+        let mut sites = sites.into_iter().collect::<Vec<_>>();
+        sites.sort_by_key(|site| std::cmp::Reverse(site.1));
+        for (site, count) in sites.into_iter().take(12) {
+            eprintln!("trace,cells/{},{count},{site}", fixture.name);
+        }
+    }
 }

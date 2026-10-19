@@ -406,22 +406,26 @@ fn dispatch_native_vm_call(
                 .instance_type_name(instance_id)
                 .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?
                 .clone();
-            let type_key = SmolStr::new(instance_type_name.to_ascii_uppercase());
+            // The name indexes find a name in any case, and a built-in's upper-case name is
+            // written into room on the stack, so the dispatch allocates nothing (MEM-14).
             let pou_id = module
                 .function_block_ids
-                .get(&module.strings, &type_key)
+                .get(&module.strings, &instance_type_name)
                 .ok_or_else(|| {
                     VmTrap::Runtime(RuntimeError::UndefinedFunctionBlock(
                         instance_type_name.clone(),
                     ))
                 })?;
-            if let Some(kind) = fbs::builtin_kind_uppercase(type_key.as_str()) {
+            let mut room = [0; fbs::BUILTIN_NAME_ROOM];
+            let builtin = fbs::uppercase_builtin_name(&instance_type_name, &mut room)
+                .and_then(|key| fbs::builtin_kind_uppercase(key).map(|kind| (key, kind)));
+            if let Some((type_key, kind)) = builtin {
                 runtime.record_call_op(RegisterCallOpKind::FunctionBlockCallEntry);
                 let out_bindings = bind_builtin_function_block_arguments(
                     runtime,
                     frame,
                     &instance_type_name,
-                    type_key.as_str(),
+                    type_key,
                     instance_id,
                     args,
                 )?;
@@ -472,11 +476,11 @@ fn dispatch_native_vm_call(
                 .storage()
                 .instance_type_name(instance_id)
                 .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?;
-            let type_key = SmolStr::new(instance_type_name.to_ascii_uppercase());
+            // The name indexes find a name in any case, so no upper-case copy is made (MEM-14).
             let owner_pou_id = module
                 .function_block_ids
-                .get(&module.strings, &type_key)
-                .or_else(|| module.class_ids.get(&module.strings, &type_key))
+                .get(&module.strings, instance_type_name)
+                .or_else(|| module.class_ids.get(&module.strings, instance_type_name))
                 .ok_or_else(|| {
                     VmTrap::Runtime(RuntimeError::UndefinedField(target_name.clone()))
                 })?;

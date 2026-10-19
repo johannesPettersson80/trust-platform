@@ -370,7 +370,7 @@ impl<'a> ValueView<'a> {
 
     /// The reference a cell reference leaf holds (C1-9d2b-1), borrowed: `None` for a null reference, for
     /// any other cell and for a `Value` view, which a caller reads as its `Value`.
-    pub(crate) fn cell_reference(&self) -> Result<Option<&'a ValueRef>, RuntimeError> {
+    pub(crate) fn cell_reference(&self) -> Result<Option<ValueRefView<'a>>, RuntimeError> {
         match *self {
             Self::Value(_) => Ok(None),
             Self::Cells {

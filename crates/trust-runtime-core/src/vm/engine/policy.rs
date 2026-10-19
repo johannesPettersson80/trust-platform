@@ -485,6 +485,20 @@ impl EngineState<'_> {
         if reference.location == MemoryLocation::Local(active.result) {
             return Ok(());
         }
+        // A flat reference is checked as the variable and path that hold its target (C1-11d).
+        if let MemoryLocation::Flat { .. } = reference.location {
+            let owned = ValueRef {
+                location: reference.location,
+                offset: u32::try_from(reference.offset).map_err(|_| RuntimeError::Overflow)?,
+                generation: reference.generation,
+                path: reference.path.into(),
+            };
+            let named = self.path_form(&owned);
+            if matches!(named.location, MemoryLocation::Flat { .. }) {
+                return Err(RuntimeError::VisibilityViolation);
+            }
+            return self.check_read(named.as_view());
+        }
         match reference.location {
             MemoryLocation::Local(id) => {
                 if active.entry.body_kind != InitializerBodyKind::Action
@@ -552,7 +566,7 @@ impl EngineState<'_> {
                     }
                 }
             }
-            MemoryLocation::Io(_) | MemoryLocation::Retain => {
+            MemoryLocation::Io(_) | MemoryLocation::Retain | MemoryLocation::Flat { .. } => {
                 return Err(RuntimeError::VisibilityViolation)
             }
         }

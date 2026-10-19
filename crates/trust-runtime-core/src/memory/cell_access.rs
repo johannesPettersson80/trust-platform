@@ -20,7 +20,8 @@ use crate::bytecode::{StorageOwner, TypeData, TypeEntry, BYTECODE_MAX_TYPE_NESTI
 use crate::collections::OrderedMap;
 use crate::error::RuntimeError;
 use crate::memory::cells::{
-    is_reference_type, leaf_in, read_value_in, structure_member_name, text_geometry, Cell, CellLeaf,
+    flat_reference, is_reference_type, leaf_in, read_value_in, structure_member_name,
+    text_geometry, Cell, CellLeaf,
 };
 use crate::memory::flat::{self, LeafKind, TextBytes};
 use crate::memory::instance_table::PersistentInstance;
@@ -115,13 +116,14 @@ impl<'a> CellsView<'a> {
         read_value_in(bytes, type_id, self.prepared, references, range.start)
     }
 
-    /// The `ValueRef` a reference leaf at `range` holds, when it holds one: `None` for a leaf of
-    /// another type and for a null reference.
+    /// The reference a reference leaf at `range` holds, when it holds one, borrowed: `None` for a
+    /// leaf of another type and for a null reference. A flat reference is read from the leaf
+    /// itself and names its target with no path (C1-11d).
     pub(crate) fn reference_leaf(
         self,
         range: ByteRange,
         type_id: u32,
-    ) -> Result<Option<&'a ValueRef>, RuntimeError> {
+    ) -> Result<Option<ValueRefView<'a>>, RuntimeError> {
         if !is_reference_type(self.prepared, type_id) {
             return Ok(None);
         }
@@ -132,10 +134,18 @@ impl<'a> CellsView<'a> {
             .ok_or(RuntimeError::InvalidExecutionState)?;
         match flat::decode(LeafKind::Reference, bytes)? {
             Cell::NullRef => Ok(None),
+            cell @ Cell::Flat { .. } => Ok(flat_reference(self.prepared, type_id, cell)?.map(
+                |reference| ValueRefView {
+                    location: reference.location,
+                    offset: reference.offset as usize,
+                    generation: reference.generation,
+                    path: &[],
+                },
+            )),
             _ => self
                 .regions
                 .reference(range.start)
-                .map(Some)
+                .map(|reference| Some(reference.as_view()))
                 .ok_or(RuntimeError::InvalidExecutionState),
         }
     }
@@ -805,6 +815,144 @@ impl<'a> CellReader<'a> {
         None
     }
 
+    /// The root-and-path form of the flat reference `reference` (C1-11d): the global or persistent
+    /// instance variable whose bytes hold its target, and the path from that variable to the
+    /// target, as the value store names it. It is read at the boundary, where a retained reference
+    /// is carried into a new generation or a value is shown to a tool, not in a scan. `None` for a
+    /// reference that is not flat or names no variable.
+    pub(crate) fn path_reference(self, reference: &ValueRef) -> Option<ValueRef> {
+        let MemoryLocation::Flat {
+            region: LayoutRegion::Persistent,
+            type_id,
+            ..
+        } = reference.location
+        else {
+            return None;
+        };
+        let (location, slot, range, root_type) = self.root_holding(reference.offset)?;
+        let mut path = RefPath::new();
+        self.path_to(range, root_type, reference.offset, type_id, &mut path, 0)?;
+        // A character reference keeps its index after the text's path.
+        path.extend(reference.path.iter().cloned());
+        Some(ValueRef {
+            location,
+            offset: u32::try_from(slot).ok()?,
+            generation: reference.generation,
+            path,
+        })
+    }
+
+    /// The variable whose bytes hold the byte at `offset` of the persistent block: its location, its
+    /// slot, its bytes and its type.
+    fn root_holding(self, offset: u32) -> Option<(MemoryLocation, usize, ByteRange, u32)> {
+        let contains =
+            |range: ByteRange| offset >= range.start && offset - range.start < range.bytes;
+        let globals = self.prepared.declarations(StorageOwner::Global, None).len();
+        for ordinal in 0..globals {
+            if let Some((range, type_id, _)) = self.global(ordinal)
+                && contains(range)
+            {
+                return Some((MemoryLocation::Global, ordinal, range, type_id));
+            }
+        }
+        let (instance, persistent) = self.arm.cells.regions().instance_holding(offset)?;
+        let mut ordinal = 0usize;
+        for &id in self
+            .prepared
+            .declarations(StorageOwner::Instance, Some(persistent.pou))
+        {
+            let declaration = self.prepared.layout.entries.get(id as usize)?;
+            let Some(type_id) = declaration.type_id.filter(|_| declaration.owns_storage()) else {
+                continue;
+            };
+            let range = ByteRange {
+                region: persistent.range.region,
+                start: persistent
+                    .range
+                    .start
+                    .checked_add(self.prepared.declaration_offset(id)?)?,
+                bytes: self.prepared.type_layout(type_id)?.shape.bytes,
+            };
+            if contains(range) {
+                return Some((MemoryLocation::Instance(instance), ordinal, range, type_id));
+            }
+            ordinal += 1;
+        }
+        None
+    }
+
+    /// Append to `path` the steps from the value of `type_id` at `range` to the target of
+    /// `target_type` at byte `offset`: a structure's member, or an array's element with all its
+    /// subscripts, until a value of the target's type starts at the target's byte.
+    fn path_to(
+        self,
+        range: ByteRange,
+        type_id: u32,
+        offset: u32,
+        target_type: u32,
+        path: &mut RefPath,
+        depth: usize,
+    ) -> Option<()> {
+        if depth > BYTECODE_MAX_TYPE_NESTING {
+            return None;
+        }
+        let (resolved, data) = resolve_alias(self.prepared, type_id)?;
+        if range.start == offset
+            && resolve_alias(self.prepared, target_type).map(|(id, _)| id) == Some(resolved)
+        {
+            return Some(());
+        }
+        let delta = offset.checked_sub(range.start)?;
+        let layout = self.prepared.type_layout(resolved)?;
+        match data {
+            TypeData::Struct { fields } => {
+                for (member, field) in layout.members.iter().zip(fields) {
+                    let bytes = self.prepared.type_layout(field.type_id)?.shape.bytes;
+                    if delta >= member.byte_offset && delta - member.byte_offset < bytes {
+                        path.push(RefSegment::Field(SmolStr::new(member_name(
+                            self.prepared,
+                            member.name_idx,
+                        )?)));
+                        let child = ByteRange {
+                            start: range.start.checked_add(member.byte_offset)?,
+                            bytes,
+                            ..range
+                        };
+                        return self.path_to(
+                            child,
+                            field.type_id,
+                            offset,
+                            target_type,
+                            path,
+                            depth + 1,
+                        );
+                    }
+                }
+                None
+            }
+            TypeData::Array { elem_type_id, dims } => {
+                let stride = layout.array.as_ref()?.byte_stride;
+                let element = delta.checked_div(stride)?;
+                // The element's subscripts, the last dimension varying fastest.
+                let mut remaining = u64::from(element);
+                let mut indices = alloc::vec![0i64; dims.len()];
+                for (index, (lower, upper)) in indices.iter_mut().zip(dims).rev() {
+                    let length = u64::try_from(upper.checked_sub(*lower)?.checked_add(1)?).ok()?;
+                    *index = lower.checked_add(i64::try_from(remaining % length).ok()?)?;
+                    remaining /= length;
+                }
+                path.push(RefSegment::Index(indices));
+                let child = ByteRange {
+                    start: range.start.checked_add(element.checked_mul(stride)?)?,
+                    bytes: stride,
+                    ..range
+                };
+                self.path_to(child, *elem_type_id, offset, target_type, path, depth + 1)
+            }
+            _ => None,
+        }
+    }
+
     /// The bytes and the type of slot `slot` of activation `id`, when that activation's frame is on
     /// the activation stack and the slot lies in it (C1-11).
     fn frame_slot(self, id: FrameId, slot: usize) -> Option<(ByteRange, u32)> {
@@ -879,6 +1027,22 @@ impl<'a> CellReader<'a> {
                 Some((range, type_id)) => self.walk(range, type_id, None, path),
                 None => Ok(Target::Values(location, offset, path)),
             },
+            // A flat reference names its target's bytes and type (C1-11d).
+            MemoryLocation::Flat {
+                region, type_id, ..
+            } => {
+                let range = ByteRange {
+                    region,
+                    start: u32::try_from(offset).map_err(|_| VmTrap::NullReference)?,
+                    bytes: self
+                        .prepared
+                        .type_layout(type_id)
+                        .ok_or(VmTrap::NullReference)?
+                        .shape
+                        .bytes,
+                };
+                self.walk(range, type_id, None, path)
+            }
             _ => Ok(Target::Values(location, offset, path)),
         }
     }

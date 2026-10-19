@@ -13,7 +13,7 @@ use smol_str::SmolStr;
 use super::{CellArm, CellReader, Target};
 use crate::error::RuntimeError;
 use crate::memory::cells::{
-    check_value, is_reference_type, text_geometry, write_value_in, Cell, ReferenceTable,
+    check_value, flat_cell, is_reference_type, text_geometry, write_value_in, Cell, ReferenceTable,
 };
 use crate::memory::flat::{self, LeafKind, TextBytes};
 use crate::memory::layout::ByteRange;
@@ -129,10 +129,9 @@ impl<'a> CellWriter<'a> {
         let (block, references) = self.arm.cells.regions_mut().block_mut(range.region);
         let written = match (block.bytes_mut(range), references) {
             (None, _) => false,
-            (Some(bytes), Some(references)) if is_reference_type(prepared, type_id) => {
+            (Some(bytes), references) if is_reference_type(prepared, type_id) => {
                 store_reference_leaf(bytes, range.start, leaf, references)
             }
-            (Some(_), None) if is_reference_type(prepared, type_id) => false,
             (Some(bytes), references) => {
                 write_value_in(bytes, type_id, &leaf, prepared, references, range.start).is_ok()
             }
@@ -293,27 +292,42 @@ impl CellReader<'_> {
     }
 }
 
-/// Store a reference leaf (O9, R5): a non-null reference moves into the reference table under the leaf's
-/// cell, and the cell names that entry. `false` when the cell is not a reference leaf of the table.
+/// Store a reference leaf (O9, R5): a flat reference lies whole in the leaf (C1-11d), and any other
+/// non-null reference moves into the region's reference table under the leaf's offset, the leaf
+/// naming that entry. A region without a table, the activation stack, holds flat and null
+/// references only. `false` when the leaf cannot hold the value.
 fn store_reference_leaf(
     bytes: &mut [u8],
     offset: u32,
     leaf: Value,
-    references: &mut ReferenceTable,
+    references: Option<&mut ReferenceTable>,
 ) -> bool {
-    let cell = match leaf {
-        Value::Reference(Some(reference)) => {
+    let flat = match &leaf {
+        Value::Reference(Some(reference)) => flat_cell(reference),
+        _ => None,
+    };
+    if let Some(cell) = flat {
+        // The table's entry for the leaf, if any, is displaced; the engine takes its buffers.
+        if let Some(references) = references {
+            references.set(offset, None);
+        }
+        return flat::encode(LeafKind::Reference, cell, bytes).is_ok();
+    }
+    let cell = match (leaf, references) {
+        (Value::Reference(Some(reference)), Some(references)) => {
             if !references.set(offset, Some(reference)) {
                 return false;
             }
             Cell::Ref(crate::memory::cells::RefSlot(offset))
         }
-        Value::Reference(None) | Value::Null => {
+        (Value::Reference(Some(_)), None) => return false,
+        (Value::Reference(None) | Value::Null, Some(references)) => {
             if !references.set(offset, None) {
                 return false;
             }
             Cell::NullRef
         }
+        (Value::Reference(None) | Value::Null, None) => Cell::NullRef,
         _ => return false,
     };
     flat::encode(LeafKind::Reference, cell, bytes).is_ok()

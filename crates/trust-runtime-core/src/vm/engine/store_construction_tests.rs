@@ -9,6 +9,7 @@
 //! `engineering.rs` (C1-9d3a).
 
 mod engineering;
+mod flat_references;
 mod frames;
 mod identities;
 mod keeper;
@@ -199,10 +200,18 @@ fn declaration_name(prepared: &PreparedModule, declaration: u32) -> &str {
 /// persistent instance with its type, its parent and its members. One line per fact, so two stores that
 /// agree give equal lists.
 fn declared_values(prepared: &PreparedModule, state: &EngineState<'_>) -> Vec<String> {
+    // A reference variable is shown by the variable and path that hold its target, as the value
+    // store names it: on the flat store it holds a flat reference (C1-11d).
+    let named = |value: Result<Value, RuntimeError>| match value {
+        Ok(Value::Reference(Some(reference))) => {
+            Ok(Value::Reference(Some(state.path_form(&reference))))
+        }
+        other => other,
+    };
     let mut lines = Vec::new();
     for &declaration in prepared.declarations(StorageOwner::Global, None) {
         let name = declaration_name(prepared, declaration);
-        let value = StoreAccess::read_global(state, name).map(|view| view.materialize());
+        let value = StoreAccess::read_global(state, name).map(|view| named(view.materialize()));
         lines.push(format!("global {name} = {value:?}"));
     }
     for (index, root) in prepared.roots.entries.iter().enumerate() {
@@ -220,7 +229,7 @@ fn declared_values(prepared: &PreparedModule, state: &EngineState<'_>) -> Vec<St
         for &declaration in prepared.declarations(StorageOwner::Instance, Some(pou)) {
             let name = declaration_name(prepared, declaration);
             let value = StoreAccess::read_instance_var(state, instance, name)
-                .map(|view| view.materialize());
+                .map(|view| named(view.materialize()));
             lines.push(format!("instance {} {name} = {value:?}", instance.0));
         }
     }

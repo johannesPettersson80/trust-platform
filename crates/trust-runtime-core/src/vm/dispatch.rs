@@ -55,6 +55,20 @@ pub struct VmPouStackResult {
     pub(crate) block: Option<crate::memory::regions::FrameBlock>,
 }
 
+impl VmPouStackResult {
+    /// The result of an activation that kept every local as a value, as the register tier and the
+    /// hosted runtime run one: no frame of it lies on the activation stack (C1-11).
+    #[cfg(any(feature = "hir", feature = "register-ir", test))]
+    #[must_use]
+    pub fn of_values(return_value: Option<Value>, locals: Vec<Value>) -> Self {
+        Self {
+            return_value,
+            locals,
+            block: None,
+        }
+    }
+}
+
 /// Reusable operand and frame buffers owned by an execution context.
 #[derive(Debug, Default)]
 pub struct ExecutionBuffers {
@@ -139,7 +153,7 @@ fn push_activation_frame(
         local_ref_start: pou.local_ref_start,
         local_ref_count: pou.local_ref_count,
         locals: runtime.take_frame_locals(local_count),
-        parameter_values_present: Vec::new(),
+        parameter_values_present: runtime.take_frame_presence(),
         runtime_instance,
         instance_owner: pou.primary_instance_owner,
     };
@@ -892,10 +906,13 @@ fn execute_with_buffers(
 
 fn finish_stack_result(
     runtime: &mut impl ExecutionContext,
-    frame: super::VmFrame,
+    mut frame: super::VmFrame,
     capture_return: bool,
     retire: bool,
 ) -> Result<VmPouStackResult, RuntimeError> {
+    // The presence bits are read only while the frame initializes; they go back for the next
+    // activation (census A4).
+    runtime.recycle_frame_presence(core::mem::take(&mut frame.parameter_values_present));
     // A return slot on the activation stack is read from the frame's bytes (C1-11); the copy is
     // charged from the value it gives, as a copy of the frame's value is.
     let read_return = if capture_return {
@@ -1002,6 +1019,14 @@ fn compare_equality(
     equal: bool,
 ) -> Result<(), VmTrap> {
     let (left, right) = stack.pop_pair()?;
+    // Two references to one target compare equal whichever form they were taken in (C1-11d).
+    let canonical = |operand: Value| match operand {
+        Value::Reference(Some(reference)) => {
+            Value::Reference(Some(runtime.flatten_reference(reference)))
+        }
+        other => other,
+    };
+    let (left, right) = (canonical(left), canonical(right));
     let Some(same) = reference_equality(&left, &right) else {
         let op = if equal { BinaryOp::Eq } else { BinaryOp::Ne };
         let result = apply_binary(op, left, right, runtime.profile())?;

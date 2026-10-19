@@ -23,8 +23,8 @@ use crate::vm::{PreparedModule, VmTrap};
 
 pub use convert::{byte_offset, read_value, write_value};
 pub(crate) use convert::{
-    check_value, is_reference_type, leaf_in, read_value_in, structure_member_name, text_geometry,
-    write_value_in, CellLeaf,
+    check_value, flat_cell, flat_reference, is_reference_type, leaf_in, read_value_in,
+    structure_member_name, text_geometry, write_value_in, CellLeaf,
 };
 
 /// The decoded value of one leaf of a flat block (specification 34 MEM-12): a scalar, an
@@ -95,6 +95,20 @@ pub enum Cell {
     /// A reference leaf that holds a reference; its region's reference table holds the reference
     /// under the leaf's byte offset.
     Ref(RefSlot),
+    /// A reference leaf that holds a flat reference (specification 34 MEM-12; C1-11d): the block and
+    /// the byte offset of its target, its installation generation, and the element count of the
+    /// path it was taken through, which its copies are charged by (TIME-08). Its target type is the
+    /// leaf's declared one.
+    Flat {
+        /// The block of the target.
+        region: LayoutRegion,
+        /// The element count of the path the reference was taken through.
+        elements: u16,
+        /// The target's byte offset in its block.
+        offset: u32,
+        /// The installation generation the reference belongs to.
+        generation: crate::memory::Generation,
+    },
     /// An empty cell.
     Null,
     /// A reference cell that holds no reference.

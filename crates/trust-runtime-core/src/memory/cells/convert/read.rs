@@ -76,6 +76,9 @@ fn read_reference(
 ) -> Result<Value, RuntimeError> {
     match flat::decode(LeafKind::Reference, bytes)? {
         Cell::NullRef => Ok(Value::Reference(None)),
+        cell @ Cell::Flat { .. } => {
+            super::flat_reference(prepared, type_id, cell).map(Value::Reference)
+        }
         _ => match references {
             Some(table) => table
                 .get(start)
@@ -244,7 +247,12 @@ fn cell_slot(cell: Cell) -> Option<Value> {
         Cell::Ldt(value) => Value::Ldt(crate::value::LDateTimeValue::new(value)),
         Cell::Char(value) => Value::Char(value),
         Cell::WChar(value) => Value::WChar(value),
-        Cell::Enum { .. } | Cell::Instance(_) | Cell::Ref(_) | Cell::Null | Cell::NullRef => {
+        Cell::Enum { .. }
+        | Cell::Instance(_)
+        | Cell::Ref(_)
+        | Cell::Flat { .. }
+        | Cell::Null
+        | Cell::NullRef => {
             return None;
         }
     })

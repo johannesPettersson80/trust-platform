@@ -70,6 +70,8 @@ impl EngineState<'_> {
             Value::WString(_) | Value::Enum(_) => self.charge_work_units(1),
             Value::Reference(Some(reference)) => {
                 self.charge_work_units(1)?;
+                // A flat reference is charged by the path it was taken through (C1-11d).
+                self.charge_work_units(reference.location.flat_elements())?;
                 self.charge_reference_path_work(&reference.path)
             }
             Value::Array(array) => {
@@ -129,7 +131,15 @@ pub(in crate::vm::engine) fn copy_allocation(
     match value {
         Value::String(text) => text_copy_allocation(text.as_str(), false),
         Value::WString(text) => text_copy_allocation(text.as_str(), true),
-        Value::Reference(Some(reference)) => reference_path_allocation(&reference.path),
+        Value::Reference(Some(reference)) => reference_path_allocation(&reference.path)?
+            .checked_add(
+                reference
+                    .location
+                    .flat_elements()
+                    .checked_mul(CELL_BYTES)
+                    .ok_or(RuntimeError::Overflow)?,
+            )
+            .ok_or(RuntimeError::Overflow),
         Value::Array(array) => leaves_allocation(array.elements().iter(), depth),
         Value::Struct(structure) => leaves_allocation(structure.fields().values(), depth),
         _ => Ok(0),

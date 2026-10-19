@@ -276,6 +276,9 @@ fn ref_entry_from_value_ref(
             (RefLocation::Io, owner_id)
         }
         trust_runtime::memory::MemoryLocation::Retain => (RefLocation::Retain, 0),
+        trust_runtime::memory::MemoryLocation::Flat { .. } => {
+            unreachable!("a compiled reference names a root, never a flat target")
+        }
     };
     let segments = value_ref
         .path

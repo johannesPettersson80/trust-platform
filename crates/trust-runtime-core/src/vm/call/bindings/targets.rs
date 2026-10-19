@@ -104,7 +104,7 @@ impl VmWriteTarget {
                         offset: reference.offset as usize,
                     };
                 }
-                MemoryLocation::Io(_) | MemoryLocation::Retain => {}
+                MemoryLocation::Io(_) | MemoryLocation::Retain | MemoryLocation::Flat { .. } => {}
             }
         }
         Self::Reference(reference.clone())

@@ -10,7 +10,9 @@ mod triggers;
 
 pub use bistable::{Rs, Sr};
 pub use counters::{CounterOutput, CounterUpDownOutput, Ctd, Ctu, Ctud};
-pub use registry::{builtin_kind, builtin_kind_uppercase, BuiltinFbKind};
+pub use registry::{
+    builtin_kind, builtin_kind_uppercase, uppercase_builtin_name, BuiltinFbKind, BUILTIN_NAME_ROOM,
+};
 pub use timers::{TimerOutput, Tof, Ton, Tp};
 pub use triggers::{FTrig, RTrig};
 

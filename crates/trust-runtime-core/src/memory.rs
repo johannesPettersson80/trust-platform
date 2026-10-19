@@ -15,6 +15,33 @@ pub enum MemoryLocation {
     Io(IoArea),
     /// Retain area (persistent across warm restart).
     Retain,
+    /// A target in a flat block (specification 34 MEM-12; C1-11d): the reference's `offset` is the
+    /// target's byte offset in the block of `region`, and `type_id` its type. `elements` is the
+    /// element count of the path the reference was taken through, which a copy of the reference
+    /// is charged by until the value store goes (TIME-08; C1-19).
+    Flat {
+        /// The block that holds the target.
+        region: layout::LayoutRegion,
+        /// The element count of the path the reference was taken through.
+        elements: u16,
+        /// The target's `TYPE_TABLE` type.
+        type_id: u32,
+    },
+}
+
+/// A location is eight bytes on every target, so a flat reference is no larger than a path one.
+const _: () = assert!(core::mem::size_of::<MemoryLocation>() == 8);
+
+impl MemoryLocation {
+    /// The element count of the path a flat reference was taken through, which its copies are
+    /// charged by (TIME-08; C1-11d), and 0 for any other location.
+    #[must_use]
+    pub fn flat_elements(&self) -> usize {
+        match self {
+            Self::Flat { elements, .. } => usize::from(*elements),
+            _ => 0,
+        }
+    }
 }
 
 /// I/O area identifiers per IEC 61131-3.

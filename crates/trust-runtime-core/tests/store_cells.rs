@@ -488,7 +488,12 @@ fn payload(cell: Cell) -> Option<Payload> {
         | Cell::LTod(value)
         | Cell::Dt(value)
         | Cell::Ldt(value) => Payload::Temporal(value),
-        Cell::Enum { .. } | Cell::Instance(_) | Cell::Ref(_) | Cell::Null | Cell::NullRef => {
+        Cell::Enum { .. }
+        | Cell::Instance(_)
+        | Cell::Ref(_)
+        | Cell::Flat { .. }
+        | Cell::Null
+        | Cell::NullRef => {
             return None;
         }
     })

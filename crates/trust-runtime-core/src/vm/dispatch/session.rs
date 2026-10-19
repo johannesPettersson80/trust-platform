@@ -717,6 +717,7 @@ fn start_stack_child(
             let frame = frames.pop().map_err(VmTrap::into_runtime_error)?;
             let _ = runtime.retire_frame(&frame);
             runtime.recycle_frame_locals(frame.locals);
+            runtime.recycle_frame_presence(frame.parameter_values_present);
         }
     }
     result
@@ -906,6 +907,7 @@ fn abort_activation(
                 // Stack frames take their locals from the reserved payloads; register
                 // activations keep theirs in their own scratch.
                 runtime.recycle_frame_locals(frame.locals);
+                runtime.recycle_frame_presence(frame.parameter_values_present);
                 if buffers.frames.len() > cursor.base_frames
                     && let Some(parent) = buffers.frames.current_mut()
                     && let Err(error) = runtime.resume_frame(parent)
@@ -933,6 +935,7 @@ fn abort_activation(
             };
             let _ = runtime.retire_frame(&frame);
             runtime.recycle_frame_locals(frame.locals);
+            runtime.recycle_frame_presence(frame.parameter_values_present);
             if buffers.frames.len() > cursor.base_frames
                 && let Some(parent) = buffers.frames.current_mut()
                 && let Err(error) = runtime.resume_frame(parent)

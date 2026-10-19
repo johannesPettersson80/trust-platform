@@ -32,7 +32,8 @@ use crate::bytecode::{Field, TypeData, TypeEntry, TypeKind, BYTECODE_MAX_TYPE_NE
 use crate::error::RuntimeError;
 use crate::memory::flat::{self, LeafKind};
 use crate::memory::layout::TypeLayout;
-use crate::value::{RefSegment, Value};
+use crate::memory::MemoryLocation;
+use crate::value::{RefSegment, Value, ValueRef};
 use crate::vm::type_policy::primitive_value_matches;
 use crate::vm::PreparedModule;
 
@@ -572,6 +573,13 @@ fn store_reference(
             flat::encode(LeafKind::Reference, Cell::NullRef, bytes)
         }
         Value::Reference(Some(reference)) => {
+            // A flat reference lies whole in its leaf; the table keeps no entry for it (C1-11d).
+            if let Some(cell) = flat_cell(reference) {
+                if let Some(references) = references {
+                    references.set(start, None);
+                }
+                return flat::encode(LeafKind::Reference, cell, bytes);
+            }
             let references = references.ok_or(RuntimeError::InvalidExecutionState)?;
             if !references.set(start, Some(reference.clone())) {
                 return Err(RuntimeError::InvalidExecutionState);
@@ -580,6 +588,55 @@ fn store_reference(
         }
         _ => Err(RuntimeError::InvalidExecutionState),
     }
+}
+
+/// The leaf of a flat reference (specification 34 MEM-12; C1-11d): a reference to a whole target
+/// in a flat block, which its block, offset and generation name. `None` for a reference that names
+/// its target by a root and a path, which the region's table keeps.
+pub(crate) fn flat_cell(reference: &ValueRef) -> Option<Cell> {
+    match reference.location {
+        MemoryLocation::Flat {
+            region, elements, ..
+        } if reference.path.is_empty() => Some(Cell::Flat {
+            region,
+            elements,
+            offset: reference.offset,
+            generation: reference.generation,
+        }),
+        _ => None,
+    }
+}
+
+/// The reference a flat leaf of reference type `type_id` holds: its target's type is the
+/// declaration's (MEM-12).
+pub(crate) fn flat_reference(
+    prepared: &PreparedModule,
+    type_id: u32,
+    cell: Cell,
+) -> Result<Option<ValueRef>, RuntimeError> {
+    let Cell::Flat {
+        region,
+        elements,
+        offset,
+        generation,
+    } = cell
+    else {
+        return Ok(None);
+    };
+    let (_, entry) = resolve(prepared, type_id)?;
+    let TypeData::Reference { target_type_id } = entry.data else {
+        return Err(RuntimeError::TypeMismatch);
+    };
+    Ok(Some(ValueRef {
+        location: MemoryLocation::Flat {
+            region,
+            elements,
+            type_id: target_type_id,
+        },
+        offset,
+        generation,
+        path: crate::value::RefPath::new(),
+    }))
 }
 
 /// Write a checked structure's members at their layout offsets.

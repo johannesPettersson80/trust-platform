@@ -132,10 +132,12 @@ impl BookkeepingScratch {
 }
 
 /// Local-slot vectors for stack activations. Each has room for the largest POU's locals, so
-/// handing one out never allocates.
+/// handing one out never allocates. Each activation's parameter-presence bits come from the same
+/// store, so a call with presence bits allocates none either (census A4).
 #[derive(Debug, Default)]
 pub(super) struct FrameLocals {
     spares: Vec<Vec<Value>>,
+    presence: Vec<Vec<bool>>,
     slots: usize,
 }
 
@@ -165,18 +167,47 @@ impl FrameLocals {
         }
     }
 
-    /// Room for `levels` vectors of `slots` locals, and the program activation's vector.
+    /// Parameter-presence bits for a new activation, none set; the activation writes its own.
+    pub(super) fn take_presence(&mut self) -> Vec<bool> {
+        self.presence
+            .pop()
+            .unwrap_or_else(|| Vec::with_capacity(self.slots))
+    }
+
+    /// Keep a finished activation's presence bits for the next activation, emptied, as
+    /// [`FrameLocals::recycle`] keeps its locals.
+    pub(super) fn recycle_presence(&mut self, mut present: Vec<bool>) {
+        if present.capacity() >= self.slots && self.presence.len() < self.presence.capacity() {
+            present.clear();
+            self.presence.push(present);
+        }
+    }
+
+    /// Room for `levels` vectors of `slots` locals and as many presence vectors, and the program
+    /// activation's vector of each.
     fn reserve(&mut self, levels: usize, slots: usize) -> Result<(), RuntimeError> {
+        let refused = |_| VmTrap::BudgetExceeded.into_runtime_error();
         self.slots = slots;
-        self.spares
-            .try_reserve_exact(levels)
-            .map_err(|_| VmTrap::BudgetExceeded.into_runtime_error())?;
+        self.spares.try_reserve_exact(levels).map_err(refused)?;
+        self.presence.try_reserve_exact(levels).map_err(refused)?;
         let mut locals = Vec::new();
-        locals
-            .try_reserve_exact(slots)
-            .map_err(|_| VmTrap::BudgetExceeded.into_runtime_error())?;
+        locals.try_reserve_exact(slots).map_err(refused)?;
         self.spares.push(locals);
+        let mut present = Vec::new();
+        present.try_reserve_exact(slots).map_err(refused)?;
+        self.presence.push(present);
         Ok(())
+    }
+
+    /// The bytes [`FrameLocals::reserve`] takes for `levels` levels of `slots` slots.
+    fn reservation_bytes(levels: usize, slots: usize) -> Option<usize> {
+        let locals = levels
+            .checked_mul(core::mem::size_of::<Vec<Value>>())?
+            .checked_add(slots.checked_mul(core::mem::size_of::<Value>())?)?;
+        let presence = levels
+            .checked_mul(core::mem::size_of::<Vec<bool>>())?
+            .checked_add(slots.checked_mul(core::mem::size_of::<bool>())?)?;
+        locals.checked_add(presence)
     }
 }
 
@@ -331,10 +362,7 @@ impl ScratchPlan {
     fn bytes(&self) -> Option<usize> {
         let buffer = ExecutionBuffers::reservation_bytes(self.operands, self.levels)?
             .checked_add(core::mem::size_of::<ExecutionBuffers>())?;
-        let frame_locals = self
-            .levels
-            .checked_mul(core::mem::size_of::<Vec<Value>>())?
-            .checked_add(self.slots.checked_mul(core::mem::size_of::<Value>())?)?;
+        let frame_locals = FrameLocals::reservation_bytes(self.levels, self.slots)?;
         // One frame payload per call depth, `levels` local slots and presence bits wide.
         let frame_payloads =
             crate::vm::frames::payloads::FramePayloads::reservation_bytes(self.levels, self.slots)?;

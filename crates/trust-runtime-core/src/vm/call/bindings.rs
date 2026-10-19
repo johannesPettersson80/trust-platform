@@ -27,7 +27,7 @@ mod indices;
 mod targets;
 pub use targets::{VmFbFieldBinding, VmFbOutSource, VmWriteTarget};
 
-use indices::resolve_vm_arg_indices;
+use indices::{match_vm_args, ArgMatch};
 
 /// Evaluated native argument with an optional source name.
 #[derive(Debug, Clone)]
@@ -478,16 +478,17 @@ fn bind_builtin_function_block_arguments_planned_inner(
     Ok(())
 }
 
-/// Resolved formal-to-actual indices: from the prepared plan or resolved at the call.
+/// Resolved formal-to-actual indices: from the prepared plan or matched at the call.
 enum CallArgIndices<'a> {
-    Resolved(Vec<Option<usize>>),
+    Matched(ArgMatch<'a>),
     Planned(&'a CallArguments),
 }
 
 impl CallArgIndices<'_> {
-    fn get(&self, formal: usize) -> Option<usize> {
+    /// The index in `args`, the call's arguments, of formal `formal`'s actual argument.
+    fn get(&self, args: &[VmNativeArg], formal: usize) -> Option<usize> {
         match self {
-            Self::Resolved(indices) => indices.get(formal).copied().flatten(),
+            Self::Matched(matching) => matching.actual(args, formal),
             Self::Planned(arguments) => arguments.actual(formal),
         }
     }
@@ -590,13 +591,13 @@ fn bind_vm_function_block_arguments_inner(
     })?;
     let arg_indices = match arguments {
         Some(arguments) => CallArgIndices::Planned(arguments),
-        None => CallArgIndices::Resolved(resolve_vm_arg_indices(params, args)?),
+        None => CallArgIndices::Matched(match_vm_args(params, args)?),
     };
     prepared_targets.clear();
     prepared_targets.resize(params.len(), None);
     for (param_index, param) in params.iter().enumerate() {
         let arg = arg_indices
-            .get(param_index)
+            .get(args, param_index)
             .and_then(|index| args.get(index));
         let prepared = if matches!(param.direction, 1 | 2) {
             match arg {
@@ -618,7 +619,7 @@ fn bind_vm_function_block_arguments_inner(
     for (param_index, param) in params.iter().enumerate() {
         runtime.record_call_op(RegisterCallOpKind::ParameterBinding);
         let arg = arg_indices
-            .get(param_index)
+            .get(args, param_index)
             .and_then(|index| args.get(index));
         #[cfg(all(feature = "std", feature = "test-support"))]
         let _parameter = attribution::parameter(param_index, param.direction, arg.is_none());
@@ -912,7 +913,7 @@ fn bind_vm_call_arguments_inner(
     let return_slots = usize::from(module.pou_has_return_slot(pou_id));
     let arg_indices = match arguments {
         Some(arguments) => CallArgIndices::Planned(arguments),
-        None => CallArgIndices::Resolved(resolve_vm_arg_indices(params, args.arguments())?),
+        None => CallArgIndices::Matched(match_vm_args(params, args.arguments())?),
     };
 
     for (index, param) in params.iter().enumerate() {
@@ -926,7 +927,7 @@ fn bind_vm_call_arguments_inner(
                 .into(),
             ));
         }
-        let arg_index = arg_indices.get(index);
+        let arg_index = arg_indices.get(args.arguments(), index);
         #[cfg(all(feature = "std", feature = "test-support"))]
         let _parameter = attribution::parameter(index, param.direction, arg_index.is_none());
 

@@ -11,7 +11,8 @@
 
 use crate::error::RuntimeError;
 use crate::memory::cells::Cell;
-use crate::memory::InstanceId;
+use crate::memory::layout::LayoutRegion;
+use crate::memory::{Generation, InstanceId};
 use crate::value::string_capacity_cut;
 
 /// How the bytes of one leaf are read and written: the declared type of the leaf, as its layout
@@ -37,6 +38,12 @@ pub enum LeafKind {
 
 /// The kind byte of a native counter slot (primitive `0x0100`) that no call has bound yet.
 const UNBOUND: u8 = 0;
+
+/// The first byte of a reference leaf (MEM-12): no reference, a reference its region's table holds,
+/// or a flat reference, whose block, offset and generation follow it in the leaf (C1-11d).
+const NULL_REFERENCE: u8 = 0;
+const TABLE_REFERENCE: u8 = 1;
+const FLAT_REFERENCE: u8 = 2;
 
 /// Read the leaf of kind `kind` from its bytes `bytes`, which start at the leaf's offset.
 ///
@@ -71,10 +78,19 @@ pub fn decode(kind: LeafKind, bytes: &[u8]) -> Result<Cell, RuntimeError> {
                 Cell::Instance(InstanceId(id))
             })
         }
-        LeafKind::Reference => Ok(if take::<1>(bytes, 0)?[0] == 0 {
-            Cell::NullRef
-        } else {
-            Cell::Ref(crate::memory::cells::RefSlot(0))
+        LeafKind::Reference => Ok(match take::<1>(bytes, 0)?[0] {
+            NULL_REFERENCE => Cell::NullRef,
+            FLAT_REFERENCE => Cell::Flat {
+                region: match take::<1>(bytes, 1)?[0] {
+                    0 => LayoutRegion::Persistent,
+                    1 => LayoutRegion::Activation,
+                    _ => return Err(RuntimeError::InvalidExecutionState),
+                },
+                elements: u16::from_le_bytes(take::<2>(bytes, 2)?),
+                offset: u32::from_le_bytes(take::<4>(bytes, 4)?),
+                generation: Generation(u32::from_le_bytes(take::<4>(bytes, 8)?)),
+            },
+            _ => Cell::Ref(crate::memory::cells::RefSlot(0)),
         }),
     }
 }
@@ -97,8 +113,28 @@ pub fn encode(kind: LeafKind, cell: Cell, bytes: &mut [u8]) -> Result<(), Runtim
             put(bytes, 4, &[1])
         }
         (LeafKind::Instance, Cell::Null) => put(bytes, 0, &[0; 5]),
-        (LeafKind::Reference, Cell::Ref(_)) => put(bytes, 0, &[1]),
-        (LeafKind::Reference, Cell::NullRef) => put(bytes, 0, &[0]),
+        (LeafKind::Reference, Cell::Ref(_)) => put(bytes, 0, &[TABLE_REFERENCE]),
+        (LeafKind::Reference, Cell::NullRef) => put(bytes, 0, &[NULL_REFERENCE]),
+        (
+            LeafKind::Reference,
+            Cell::Flat {
+                region,
+                elements,
+                offset,
+                generation,
+            },
+        ) => {
+            let mut leaf = [0u8; 16];
+            leaf[0] = FLAT_REFERENCE;
+            leaf[1] = match region {
+                LayoutRegion::Persistent => 0,
+                LayoutRegion::Activation => 1,
+            };
+            leaf[2..4].copy_from_slice(&elements.to_le_bytes());
+            leaf[4..8].copy_from_slice(&offset.to_le_bytes());
+            leaf[8..12].copy_from_slice(&generation.0.to_le_bytes());
+            put(bytes, 0, &leaf)
+        }
         _ => Err(RuntimeError::TypeMismatch),
     }
 }

@@ -242,7 +242,7 @@ impl CallContext for LegacyRegisterFixtureContext<'_> {
         depth: u32,
         entry: ExecutionEntry,
     ) -> Result<Option<VmPouStackResult>, RuntimeError> {
-        trust_runtime_core::vm::register_test_support::try_execute_pou_with_register_ir_with_parameter_presence(self,module,id,instance,locals,presence,capture,depth,entry).map(|result|result.map(|result|VmPouStackResult{return_value:result.return_value,locals:result.locals}))
+        trust_runtime_core::vm::register_test_support::try_execute_pou_with_register_ir_with_parameter_presence(self,module,id,instance,locals,presence,capture,depth,entry).map(|result|result.map(|result|VmPouStackResult::of_values(result.return_value,result.locals)))
     }
 }
 impl ExecutionContext for LegacyRegisterFixtureContext<'_> {

@@ -121,7 +121,7 @@ pub fn align_up(offset: u32, align: u32) -> Result<u32, RuntimeError> {
 }
 
 /// The region a byte range is reserved in (design "Regions").
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum LayoutRegion {
     /// Globals and persistent instance templates, reserved at construction.
     Persistent,

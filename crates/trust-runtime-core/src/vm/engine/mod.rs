@@ -45,10 +45,11 @@ use identities::{
 mod keys;
 use keys::{root_index, LifecycleMarks};
 mod destinations;
+mod flat_references;
+mod frame_blocks;
 mod io;
 mod literal_admission;
 mod output_transaction;
-mod frame_blocks;
 mod path_write;
 mod places;
 mod policy;

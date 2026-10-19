@@ -91,6 +91,9 @@ impl<'e> ReferenceContext for EngineState<'e> {
             }
         }
     }
+    fn flatten_reference(&self, reference: ValueRef) -> ValueRef {
+        EngineState::flatten_reference(self, reference)
+    }
     fn frame_slot_in_block(&self, frame: &VmFrame, slot: usize) -> bool {
         self.frame_slot_activation(frame, slot).is_some()
     }
@@ -847,6 +850,12 @@ impl ExecutionContext for EngineState<'_> {
     }
     fn recycle_frame_locals(&mut self, locals: Vec<Value>) {
         self.data.resources.frame_locals.recycle(locals);
+    }
+    fn take_frame_presence(&mut self) -> Vec<bool> {
+        self.data.resources.frame_locals.take_presence()
+    }
+    fn recycle_frame_presence(&mut self, present: Vec<bool>) {
+        self.data.resources.frame_locals.recycle_presence(present);
     }
 }
 

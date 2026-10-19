@@ -165,7 +165,7 @@ pub fn load_ref_addr(
     runtime
         .before_reference_path_clone(reference)
         .map_err(VmTrap::Runtime)?;
-    owned_reference(runtime, reference)
+    Ok(runtime.flatten_reference(owned_reference(runtime, reference)?))
 }
 
 /// An owned copy of `reference` whose path and index segments are in the buffers `runtime` keeps
@@ -210,15 +210,12 @@ fn materialize_in_buffers(
     view: &ValueView<'_>,
 ) -> Result<Value, VmTrap> {
     let borrowed = match view.borrowed_value() {
-        Some(Value::Reference(Some(reference))) => Some(reference),
+        Some(Value::Reference(Some(reference))) => Some(reference.as_view()),
         Some(_) => None,
         None => view.cell_reference().map_err(VmTrap::Runtime)?,
     };
     match borrowed {
-        Some(reference) => Ok(Value::Reference(Some(owned_reference(
-            runtime,
-            reference.as_view(),
-        )?))),
+        Some(reference) => Ok(Value::Reference(Some(owned_reference(runtime, reference)?))),
         None => view.materialize().map_err(VmTrap::Runtime),
     }
 }
@@ -478,12 +475,13 @@ pub fn dynamic_ref_field(
         }
         reserve_reference_segment(runtime, &mut reference, 0)?;
         reference.path.push(RefSegment::Field(field));
-        return Ok(reference);
+        return Ok(runtime.flatten_reference(reference));
     }
     match target.instance().map_err(VmTrap::Runtime)? {
         Some(instance_id) => runtime
             .storage()
             .resolved_instance_field_ref(instance_id, field.as_str())
+            .map(|reference| runtime.flatten_reference(reference))
             .ok_or_else(|| VmTrap::Runtime(RuntimeError::UndefinedField(field))),
         None => Err(VmTrap::Runtime(RuntimeError::TypeMismatch)),
     }
@@ -570,7 +568,7 @@ pub fn dynamic_ref_index(
                     .try_reserve_exact(1)
                     .map_err(|_| RuntimeError::Overflow)?;
                 indices.push(index);
-                return Ok(reference);
+                return Ok(runtime.flatten_reference(reference));
             }
         }
     }
@@ -589,7 +587,7 @@ pub fn dynamic_ref_index(
         }
         reserve_reference_segment(runtime, &mut reference, 1)?;
         reference.path.push(index_segment(runtime, index));
-        return Ok(reference);
+        return Ok(runtime.flatten_reference(reference));
     }
     // A STRING or a WSTRING: its length is charged before the element is checked (TIME-08). The
     // characters are counted from the view, so that a cell WSTRING, which has no borrowed UTF-8 text, is
@@ -872,6 +870,10 @@ pub fn dynamic_ref_type(
     frame: &VmFrame,
     reference: &ValueRef,
 ) -> Result<Option<u32>, VmTrap> {
+    // A flat reference names its target's type (C1-11d).
+    if let MemoryLocation::Flat { type_id, .. } = reference.location {
+        return Ok(vm_type_for_path(module, type_id, &reference.path));
+    }
     if frame.owns_local_reference(reference) {
         if reference.offset >= frame.local_ref_count {
             return Ok(None);

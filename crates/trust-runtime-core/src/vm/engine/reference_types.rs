@@ -11,6 +11,10 @@ impl EngineState<'_> {
         reference: ValueRefView<'_>,
     ) -> Result<Option<u32>, RuntimeError> {
         let (owner, pou) = match reference.location {
+            // A flat reference names its target's type (C1-11d).
+            MemoryLocation::Flat { type_id, .. } => {
+                return self.reference_path_type(Some(type_id), None, reference.path);
+            }
             MemoryLocation::Global => (StorageOwner::Global, None),
             MemoryLocation::Instance(id) => (
                 StorageOwner::Instance,

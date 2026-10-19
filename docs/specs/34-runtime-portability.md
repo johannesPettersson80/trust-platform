@@ -1425,6 +1425,21 @@ instance that a function or method declares stays where it is until per-call ins
 stack. The register tier runs on the value store only until it reads frames on the stack (C1-18).
 Every result, charge and refusal is the value store's (TIME-08).
 
+**Flat references.** On the flat store a reference to a whole variable, member or element that can
+be written and lies in the persistent block is flat as soon as the program takes it: the block and
+byte offset of its target, its type and its installation generation, the 16 bytes its leaf holds
+(MEM-12; checklist C1-11d). A `REF`, and a member or an element of a reference, makes it flat once
+its path names such a target; a load, a store, a copy and a comparison of it then hold no path, so
+none allocates (ARCH-05), and two references to one target compare equal whichever form they were
+taken in. A reference to a variable of a frame, to a character of a text or to a declaration that
+cannot be written, and one taken while an initializer runs, keeps its root and path, which the
+lifetime, mutability and staging checks read, and the region's reference table keeps it. A flat
+reference keeps the element count of the path it was taken through, and a copy of it is charged by
+that count as a copy of the path is (TIME-08), until the value store is deleted (C1-19). Where a
+reference leaves the engine, a retained reference carried into a new generation or a value shown to
+a tool, it is named by the variable that holds its target and the path to it, as the value store
+names it.
+
 ### 6.4 Physical memory
 
 The BSP shall identify memory regions available to the engine, CPU stack, DMA, communication, and boot/update storage. Capacity shall be checked per usable region, not only as a sum of all SRAM on the chip. Cache maintenance, DMA ownership, alignment, and interrupt-stack reservations are platform obligations.

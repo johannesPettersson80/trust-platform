@@ -156,6 +156,11 @@ impl CellRegions {
         self.instances.get(id)
     }
 
+    /// The persistent instance whose own members hold the byte at `offset` (C1-11d).
+    pub(crate) fn instance_holding(&self, offset: u32) -> Option<(InstanceId, PersistentInstance)> {
+        self.instances.holding(offset)
+    }
+
     /// The number of persistent instances recorded.
     pub(crate) fn instance_count(&self) -> usize {
         self.instances.len()

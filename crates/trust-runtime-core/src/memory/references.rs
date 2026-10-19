@@ -36,7 +36,7 @@ impl VariableStorage {
                 .instances
                 .get(&instance_id)
                 .and_then(|instance| instance.variables.get_index(offset).map(|(_, value)| value)),
-            MemoryLocation::Io(_) | MemoryLocation::Retain => None,
+            MemoryLocation::Io(_) | MemoryLocation::Retain | MemoryLocation::Flat { .. } => None,
         }
     }
 
@@ -78,7 +78,7 @@ impl VariableStorage {
                     })
                 })
                 .is_some(),
-            MemoryLocation::Io(_) | MemoryLocation::Retain => false,
+            MemoryLocation::Io(_) | MemoryLocation::Retain | MemoryLocation::Flat { .. } => false,
         }
     }
 
@@ -235,7 +235,7 @@ impl VariableStorage {
                             .map(|(_, slot)| slot)
                     })
             }
-            MemoryLocation::Io(_) | MemoryLocation::Retain => None,
+            MemoryLocation::Io(_) | MemoryLocation::Retain | MemoryLocation::Flat { .. } => None,
         };
         let Some(slot) = slot else { return Ok(false) };
         crate::value::write_value_path_checked(slot, resolved.path, value)
@@ -299,7 +299,7 @@ impl VariableStorage {
                             .map(|(_, slot)| slot)
                     })
             }
-            MemoryLocation::Io(_) | MemoryLocation::Retain => None,
+            MemoryLocation::Io(_) | MemoryLocation::Retain | MemoryLocation::Flat { .. } => None,
         };
         let Some(slot) = slot else { return false };
         crate::value::commit_value_path_write(slot, path, value, prepared.value, capacity)
@@ -363,7 +363,7 @@ impl VariableStorage {
                     )
                 })
                 .unwrap_or(false),
-            MemoryLocation::Io(_) | MemoryLocation::Retain => false,
+            MemoryLocation::Io(_) | MemoryLocation::Retain | MemoryLocation::Flat { .. } => false,
         }
     }
 
@@ -421,7 +421,7 @@ impl VariableStorage {
                             .map(|(_, value)| value)
                     })
             }
-            MemoryLocation::Io(_) | MemoryLocation::Retain => None,
+            MemoryLocation::Io(_) | MemoryLocation::Retain | MemoryLocation::Flat { .. } => None,
         };
         if let Some(slot) = slot {
             *slot = value;

@@ -162,6 +162,13 @@ pub trait ReferenceContext {
     fn copy_place(&mut self, _place: super::Place, _destination: super::PlaceDestination) -> bool {
         false
     }
+    /// `reference` in its canonical form (C1-11d): a composition with a flat store makes a
+    /// reference to a whole writable target in its persistent block flat, and gives the path's
+    /// buffers back; any other reference, and every reference of another composition, comes back
+    /// as it is.
+    fn flatten_reference(&self, reference: crate::value::ValueRef) -> crate::value::ValueRef {
+        reference
+    }
     /// Whether slot `slot` of `frame` lies in the frame's bytes on the activation stack (C1-11): it
     /// is then read and written through the store as `MemoryLocation::Local` of the frame's
     /// activation, not as a value of the frame. A composition without an activation stack has none.
@@ -567,6 +574,13 @@ pub trait ExecutionContext: super::call::context::CallContext {
     }
     /// Take back the local slots of a finished stack activation once nothing reads them.
     fn recycle_frame_locals(&mut self, _locals: alloc::vec::Vec<Value>) {}
+    /// The parameter-presence bits of a new stack activation, none set. A context with payloads
+    /// reserved at construction hands out a reserved vector instead of allocating.
+    fn take_frame_presence(&mut self) -> alloc::vec::Vec<bool> {
+        alloc::vec::Vec::new()
+    }
+    /// Take back the presence bits of a finished stack activation.
+    fn recycle_frame_presence(&mut self, _present: alloc::vec::Vec<bool>) {}
 }
 
 #[cfg(test)]

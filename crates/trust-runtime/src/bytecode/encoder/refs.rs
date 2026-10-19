@@ -142,6 +142,12 @@ impl<'a> BytecodeEncoder<'a> {
             }
             MemoryLocation::Instance(InstanceId(id)) => (RefLocation::Instance, id),
             MemoryLocation::Retain => (RefLocation::Retain, 0),
+            // A flat reference exists only in a running flat store, never in a compiled program.
+            MemoryLocation::Flat { .. } => {
+                return Err(BytecodeError::InvalidSection(
+                    "a flat reference has no reference table entry".into(),
+                ))
+            }
             MemoryLocation::Io(area) => {
                 let owner = match area {
                     IoArea::Input => 0,

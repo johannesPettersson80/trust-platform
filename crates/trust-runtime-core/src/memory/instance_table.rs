@@ -99,6 +99,14 @@ impl InstanceTable {
         self.entries.get_mut(index).map(|(_, instance)| instance)
     }
 
+    /// The persistent instance whose own members' bytes hold the byte at `offset`, read at the
+    /// boundary, not in a scan (C1-11d).
+    pub(crate) fn holding(&self, offset: u32) -> Option<(InstanceId, PersistentInstance)> {
+        self.entries.iter().copied().find(|(_, instance)| {
+            offset >= instance.range.start && offset - instance.range.start < instance.range.bytes
+        })
+    }
+
     /// The number of persistent instances recorded.
     pub(crate) fn len(&self) -> usize {
         self.entries.len()

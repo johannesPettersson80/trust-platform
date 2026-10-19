@@ -354,6 +354,10 @@ impl RetainedGraph<'_, '_> {
         if reference.generation != StoreAccess::generation(self.source) {
             return Err(RuntimeError::ReferenceLifetime);
         }
+        // A flat reference is carried by the variable and path that hold its target (C1-11d).
+        if matches!(reference.location, MemoryLocation::Flat { .. }) {
+            *reference = self.source.path_form(reference);
+        }
         match reference.location {
             MemoryLocation::Global => {
                 let name = self
@@ -378,9 +382,10 @@ impl RetainedGraph<'_, '_> {
                 reference.location = mapped.location;
                 reference.offset = mapped.offset;
             }
-            MemoryLocation::Io(_) | MemoryLocation::Local(_) | MemoryLocation::Retain => {
-                return Err(RuntimeError::ReferenceLifetime)
-            }
+            MemoryLocation::Io(_)
+            | MemoryLocation::Local(_)
+            | MemoryLocation::Retain
+            | MemoryLocation::Flat { .. } => return Err(RuntimeError::ReferenceLifetime),
         }
         // The transferred reference names the candidate's state: this is the checked
         // rebinding of a retained reference into the new generation (spec 34 §11.3).

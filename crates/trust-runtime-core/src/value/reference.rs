@@ -78,6 +78,17 @@ impl ValueRef {
     }
 }
 
+/// The elements of a reference path that a copy of it is charged by (TIME-08): one for each
+/// segment and one for each subscript.
+#[must_use]
+pub fn path_elements(path: &[RefSegment]) -> usize {
+    path.iter()
+        .fold(path.len(), |count, segment| match segment {
+            RefSegment::Index(indices) => count + indices.len(),
+            RefSegment::Field(_) => count,
+        })
+}
+
 pub fn ref_indices_from_iter<I>(indices: I) -> RefIndices
 where
     I: IntoIterator<Item = i64>,

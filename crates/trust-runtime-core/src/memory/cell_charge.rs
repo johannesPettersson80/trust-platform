@@ -95,7 +95,9 @@ impl CellsView<'_> {
             }),
             TypeData::Reference { .. } => match self.reference_leaf(range, type_id)? {
                 Some(reference) => {
-                    let elements = reference_path_elements(&reference.path);
+                    // A flat reference is charged by the path it was taken through (C1-11d).
+                    let elements = reference.location.flat_elements()
+                        + reference_path_elements(reference.path);
                     Ok(CopyCharge {
                         work: 1 + elements,
                         allocation: elements * CELL_BYTES,
@@ -209,11 +211,7 @@ fn is_compound(prepared: &PreparedModule, type_id: u32) -> bool {
 
 /// The number of elements a reference path copies: its segments and its subscripts (TIME-08).
 fn reference_path_elements(path: &[RefSegment]) -> usize {
-    path.iter()
-        .fold(path.len(), |count, segment| match segment {
-            RefSegment::Index(indices) => count + indices.len(),
-            RefSegment::Field(_) => count,
-        })
+    crate::value::path_elements(path)
 }
 
 /// The number of elements an array's bounds hold, or `None` when they hold none.
