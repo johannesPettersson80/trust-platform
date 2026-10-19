@@ -254,6 +254,7 @@ fn runtime_with_watchdog_safe_state(action: WatchdogAction) -> Runtime {
 
 fn assign_program(name: &str, target: &str) -> ProgramDef {
     ProgramDef {
+        methods: Vec::new(),
         name: name.into(),
         vars: Vec::new(),
         temps: Vec::new(),

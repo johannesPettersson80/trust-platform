@@ -133,6 +133,7 @@ END_PROGRAM
 fn dispatch_threads_maps_tasks() {
     let mut runtime = trust_runtime::RuntimeBuilder::new();
     runtime.register_program(ProgramDef {
+        methods: Vec::new(),
         name: SmolStr::new("MAIN"),
         vars: Vec::new(),
         temps: Vec::new(),

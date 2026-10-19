@@ -28,6 +28,8 @@ fn program_cycle() {
     }
 
     let program = ProgramDef {
+
+        methods: Vec::new(),
         name: "TestProg".into(),
         vars: Vec::new(),
         temps: Vec::new(),

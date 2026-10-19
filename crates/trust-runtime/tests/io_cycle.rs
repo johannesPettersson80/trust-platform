@@ -31,6 +31,8 @@ fn io_read_write_order() {
     }
 
     let program = ProgramDef {
+
+        methods: Vec::new(),
         name: "P".into(),
         vars: Vec::new(),
         temps: Vec::new(),
@@ -91,6 +93,8 @@ fn io_snapshot_emitted_after_cycle_output_commit() {
     }
 
     let program = ProgramDef {
+
+        methods: Vec::new(),
         name: "P".into(),
         vars: Vec::new(),
         temps: Vec::new(),

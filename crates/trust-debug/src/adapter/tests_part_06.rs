@@ -177,6 +177,7 @@ fn dispatch_evaluate_honors_using_for_types() {
         },
     );
     runtime.register_program(ProgramDef {
+        methods: Vec::new(),
         name: SmolStr::new("MAIN"),
         vars: Vec::new(),
         temps: Vec::new(),

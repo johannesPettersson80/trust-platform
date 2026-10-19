@@ -472,6 +472,7 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
         })
         .expect("declare test global");
     let program = ProgramDef {
+        methods: Vec::new(),
         name: "P".into(),
         vars: Vec::new(),
         temps: Vec::new(),
