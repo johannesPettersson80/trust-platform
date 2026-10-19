@@ -83,6 +83,17 @@ impl<'a> CellReader<'a> {
         self.frame_slot_view(block.range, block.pou, slot)
     }
 
+    /// `value` with each flat reference it holds, nested ones too, named by the variable and the
+    /// path that hold its target, as the value store names it (C1-11d): what a reader at the
+    /// boundary, such as the debugger, shows.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::TypeMismatch`] for a value nested deeper than the admitted type nesting.
+    pub(crate) fn named_value(self, value: Value) -> Result<Value, RuntimeError> {
+        self.named(value, 0)
+    }
+
     /// `value` with each flat reference it holds named by the variable and the path that hold its
     /// target ([`CellReader::path_reference`]).
     fn named(self, mut value: Value, depth: usize) -> Result<Value, RuntimeError> {

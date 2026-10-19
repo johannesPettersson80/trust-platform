@@ -18,6 +18,7 @@ mod keeper;
 mod retain;
 mod scans;
 
+use super::store_access::Routed;
 use super::{services, Construction, EngineData, EngineState, EngineStore, StoreKind};
 use crate::bytecode::{StorageOwner, StorageRole, ValidationLimits};
 use crate::collections::OrderedMap;
@@ -47,7 +48,7 @@ const RETAIN: &[u8] =
     include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/retain/program.stbc");
 
 /// Every program of the bounded-C corpus and the three saved artifacts the boards run, by name.
-const CORPUS: [(&str, &[u8]); 24] = [
+const CORPUS: [(&str, &[u8]); 26] = [
     ("scalar", SCALAR),
     (
         "gpio",
@@ -124,6 +125,14 @@ const CORPUS: [(&str, &[u8]); 24] = [
     (
         "operands",
         include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/operands/program.stbc"),
+    ),
+    (
+        "results",
+        include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/results/program.stbc"),
+    ),
+    (
+        "bindings",
+        include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/bindings/program.stbc"),
     ),
     (
         "saved/main",
@@ -244,12 +253,17 @@ fn declaration_name(prepared: &PreparedModule, declaration: u32) -> &str {
 /// persistent instance with its type, its parent and its members. One line per fact, so two stores that
 /// agree give equal lists.
 fn declared_values(prepared: &PreparedModule, state: &EngineState<'_>) -> Vec<String> {
-    // A reference variable is shown by the variable and path that hold its target, as the value
-    // store names it: on the flat store it holds a flat reference (C1-11d).
+    // A reference variable, and a reference a structure or an array holds, is shown by the variable
+    // and path that hold its target, as the value store names it: on the flat store it holds a flat
+    // reference (C1-11d).
     let named = |value: Result<Value, RuntimeError>| match value {
         Ok(Value::Reference(Some(reference))) => {
             Ok(Value::Reference(Some(state.path_form(&reference))))
         }
+        Ok(value) => match state.data.routed(state.prepared) {
+            Routed::Cells(reader) => reader.named_value(value),
+            Routed::Values(_) => Ok(value),
+        },
         other => other,
     };
     let mut lines = Vec::new();

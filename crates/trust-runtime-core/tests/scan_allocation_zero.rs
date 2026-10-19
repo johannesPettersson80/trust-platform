@@ -463,7 +463,7 @@ impl Fixture {
 /// Every measured application. Each corpus program runs in a 10 ms task, so each of its scans
 /// activates it once. The saved main and numeric artifacts keep the boards' schedule: 101 scans
 /// from 0 ms to 1,000 ms with a 25 ms task.
-static FIXTURES: [Fixture; 23] = [
+static FIXTURES: [Fixture; 25] = [
     Fixture::saved("saved/main", SAVED_MAIN, 0, 101),
     Fixture::saved("saved/numeric", SAVED_NUMERIC, 0, 101),
     Fixture::saved("saved/gpio", SAVED_GPIO, 10, 20),
@@ -487,12 +487,28 @@ static FIXTURES: [Fixture; 23] = [
         retain_store: true,
         ..Fixture::corpus("retain")
     },
-    Fixture::corpus("retained_blocks"),
-    Fixture::corpus("retained_values"),
+    // Every program with retained variables keeps a retain store, as a board does, so each of
+    // its scans captures them (C1-19c4).
+    Fixture {
+        retain_store: true,
+        ..Fixture::corpus("retained_blocks")
+    },
+    Fixture {
+        retain_store: true,
+        ..Fixture::corpus("retained_values")
+    },
     Fixture::corpus("copies"),
-    Fixture::corpus("overlays"),
-    Fixture::corpus("unions"),
+    Fixture {
+        retain_store: true,
+        ..Fixture::corpus("overlays")
+    },
+    Fixture {
+        retain_store: true,
+        ..Fixture::corpus("unions")
+    },
     Fixture::corpus("operands"),
+    Fixture::corpus("results"),
+    Fixture::corpus("bindings"),
 ];
 
 /// How a fault case makes its scan fail.
@@ -691,12 +707,21 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// branches grew the buffers before; what the first scans still allocate are reference path and
 /// index buffers, measured on the builder on 19 October 2026.
 ///
+/// C1-19c4 adds the design's corpus cases the corpus lacked: `results` (functions that take and
+/// give texts, arrays, structures and references) and `bindings` (an output into a structure's
+/// member, a per-call instance and a local array that hold references, a VAR_IN_OUT bound to an
+/// element of a frame's own array, a long member name reached through an index, a structure
+/// holding a reference assigned whole), and gives every program with retained variables a retain
+/// store, as a board has. On the flat store `results` makes 18 allocator calls and as many frees
+/// in every scan, `bindings` as many after its first, and `overlays`, whose retained overlapping
+/// structure is captured through its value, 24/12/24, measured on the builder on 19 October 2026.
+///
 /// C1-19c3 reserves the reference path and index buffers for every reference a scan can hold at
 /// once: the walk's reference operands on every call level, the references frame variables hold
 /// and the persistent reference leaves, each buffer with room for the longest path. Every corpus
 /// run on the flat store, the saved `main` included, makes no allocator call in any scan, the
 /// first included, measured on the builder on 19 October 2026.
-const CEILINGS: [(&str, usize, Calls); 37] = [
+const CEILINGS: [(&str, usize, Calls); 39] = [
     ("faults/division", 2, Calls::ZERO),
     ("faults/index", 2, Calls::ZERO),
     ("faults/null", 2, Calls::ZERO),
@@ -765,9 +790,39 @@ const CEILINGS: [(&str, usize, Calls); 37] = [
     ("cells/retained_values", 0, Calls::ZERO),
     ("cells/copies", 0, Calls::ZERO),
     ("cells/structures", 0, Calls::ZERO),
-    ("cells/overlays", 0, Calls::ZERO),
+    // A retained overlapping structure is captured through its value and a checkpoint buffer
+    // (C1-19c4 removes it).
+    (
+        "cells/overlays",
+        0,
+        Calls {
+            alloc: 24,
+            realloc: 12,
+            dealloc: 24,
+        },
+    ),
     ("cells/unions", 0, Calls::ZERO),
     ("cells/operands", 0, Calls::ZERO),
+    // Calls that bind and give arrays, structures and texts as values, and the values that hold
+    // references (C1-19c4 removes them).
+    (
+        "cells/results",
+        0,
+        Calls {
+            alloc: 18,
+            realloc: 0,
+            dealloc: 18,
+        },
+    ),
+    (
+        "cells/bindings",
+        1,
+        Calls {
+            alloc: 18,
+            realloc: 0,
+            dealloc: 18,
+        },
+    ),
 ];
 
 /// The ceilings are asserted on the chips' stack executor and printed with the register tier.
@@ -1037,6 +1092,10 @@ fn listed_runs_stay_within_their_allocator_ceilings_and_every_fixture_reports_it
     assert_eq!(failures, Vec::<String>::new(), "failing runs");
 }
 
+/// The flat-store runs that still allocate, listed with their measured ceilings: the corpus cases
+/// C1-19c4 added, whose value paths it removes one by one. The list only shrinks.
+const NOT_YET_ZERO: [&str; 3] = ["cells/overlays", "cells/results", "cells/bindings"];
+
 /// The fixtures the flat store refuses until a later slice, with the slice that admits them. None
 /// since C1-15 placed the `STRUCT OVERLAP` of `structures` and `overlays` as its backing.
 const REFUSED_ON_THE_FLAT_STORE: [&str; 0] = [];
@@ -1056,8 +1115,11 @@ fn every_fixture_reports_its_scans_on_the_flat_store() {
                 let name = format!("cells/{}", fixture.name);
                 report(&name, &scans);
                 failures.extend(ceiling_violations(&name, &scans));
-                // The whole corpus is in the zero list from its first scan (MEM-09; C1-19c3).
-                if ceiling_of(&name) != Some((0, Calls::ZERO)) {
+                // The whole corpus is in the zero list from its first scan (MEM-09; C1-19c3), but for
+                // the runs C1-19c4 still brings there.
+                if !NOT_YET_ZERO.contains(&name.as_str())
+                    && ceiling_of(&name) != Some((0, Calls::ZERO))
+                {
                     failures.push(format!("{name} is not zero from its first scan"));
                 }
             }

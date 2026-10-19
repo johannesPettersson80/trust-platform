@@ -458,23 +458,30 @@ impl<'a> StatementFrame<'a> {
 
     /// The value of local slot `slot` as the program holds it: read from the frame's bytes on the
     /// activation stack when the flat store keeps the slot there, and otherwise the frame's value
-    /// (specification 34 §6.3; C1-17).
+    /// (specification 34 §6.3; C1-17). On the flat store each flat reference it holds, nested ones
+    /// too, is named by the variable and the path that hold its target, as the value store names it
+    /// (C1-11d, C1-19c4).
     ///
     /// # Errors
     ///
     /// [`crate::error::RuntimeError::InvalidExecutionState`] for a slot the frame does not have, and
     /// the error of a value that does not materialize.
     pub fn local(self, slot: usize) -> Result<crate::value::Value, crate::error::RuntimeError> {
-        if let (Some(cells), Some(activation), Some(pou)) =
+        let value = if let (Some(cells), Some(activation), Some(pou)) =
             (self.cells, self.activation, self.pou_id)
             && let Some(view) = cells.frame_local(activation, pou, slot)
         {
-            return view.materialize();
+            view.materialize()?
+        } else {
+            self.locals
+                .get(slot)
+                .cloned()
+                .ok_or(crate::error::RuntimeError::InvalidExecutionState)?
+        };
+        match self.cells {
+            Some(cells) => cells.named_value(value),
+            None => Ok(value),
         }
-        self.locals
-            .get(slot)
-            .cloned()
-            .ok_or(crate::error::RuntimeError::InvalidExecutionState)
     }
 
     /// The PLC storage the statement sees, as one owned copy that holds no named frame: a copy of

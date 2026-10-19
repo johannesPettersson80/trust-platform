@@ -1566,16 +1566,17 @@ back when the synchronization is refused; construction reserves those bytes for 
 variables the inputs write and charges them as the store's own bytes (MEM-09). Every result,
 charge and refusal of a scan is the value store's (TIME-08).
 
-**The debugger.** On the flat store the debugger reads a statement's call stack and variables
-where they lie (checklist C1-17). At a statement start, where the debugger stops, evaluates a
-condition or writes a logpoint (specification 12 §6.13), it reads each local of the active frame and
-of every suspended frame from the frame's bytes on the activation stack when the frame keeps it
-there, and from the frame's value otherwise. The copy of the storage that a stop, a condition or a
-logpoint needs (specification 11 §6.13.1) is the value store's copy for the same program: every
-global in declaration order and every instance, persistent or created by a call, materialized from
-its bytes, each flat reference named by the variable and the path that hold its target, with the
-store's identities and generation. It is made only when the debugger needs it, never at every
-statement.
+**The debugger.** On the flat store the debugger reads a statement's call stack and variables where
+they lie (checklist C1-17). At a statement start, where the debugger stops, evaluates a condition or
+writes a logpoint (specification 12 §6.13), it reads each local of the active frame and of every
+suspended frame from the frame's bytes on the activation stack when the frame keeps it there, and
+from the frame's value otherwise, each flat reference it holds, a nested one too, named by the
+variable and the path that hold its target (C1-19c4). The copy of the storage that a stop, a
+condition or a logpoint needs (specification 11 §6.13.1) is the value store's copy for the same
+program: every global in declaration order and every instance, persistent or created by a call,
+materialized from its bytes, each flat reference named by the variable and the path that hold its
+target, with the store's identities and generation. It is made only when the debugger needs it,
+never at every statement.
 
 ### 6.4 Physical memory
 
