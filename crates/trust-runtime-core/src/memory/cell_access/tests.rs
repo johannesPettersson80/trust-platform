@@ -1,6 +1,6 @@
-//! Tests of the cell arm's reads (specification 34 §6.2, MEM-10; C1-9b). They sit in the crate
-//! because they fill the cells through the test seams of `memory::regions`; the write side that
-//! fills them in the engine is C1-9c.
+//! Tests of the cell arm's reads (specification 34 §6.2, MEM-12; C1-9b). They sit in the crate
+//! because they fill the persistent block through the test seams of `memory::regions`; the write
+//! side that fills it in the engine is C1-9c.
 //!
 //! The ST source the bytecode fixture (`super::fixture`) encodes, from which every expected value is
 //! worked out by hand:
@@ -17,10 +17,11 @@
 //! END_VAR
 //! ```
 //!
-//! `base_g` and `fb_g` are persistent roots. The `Base` root holds 6 cells: `base_v` (1), `series_v`
-//! (3) and `pair_v` (2). `fb_g` is a `Derived` whose root covers its whole chain (R0, C1-9c): its own
-//! cell `own_v` (1), then the 6 cells of its parent's template, where the parent instance construction
-//! creates for `fb_g` lives. The parent is a separate instance from the one `base_g` holds.
+//! `base_g` and `fb_g` are persistent roots. The `Base` root holds 16 bytes: `base_v` (4 bytes) at 0,
+//! `series_v` (6) at 4 and `pair_v` (4) at 10, rounded up to 8 (MEM-12). `fb_g` is a `Derived` whose
+//! root covers its whole chain (R0, C1-9c): its own `own_v` (a REAL, 4 bytes rounded up to 8), then
+//! the 16 bytes of its parent's template, where the parent instance construction creates for `fb_g`
+//! lives. The parent is a separate instance from the one `base_g` holds.
 
 use std::sync::Arc;
 
@@ -35,65 +36,73 @@ use super::fixture::{
 use super::{CellArm, CellReader, CellWriter};
 use crate::collections::OrderedMap;
 use crate::error::RuntimeError;
-use crate::memory::layout::{CellRange, LayoutRegion};
+use crate::memory::layout::{ByteRange, LayoutRegion};
 use crate::memory::regions::CellStorage;
 use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
 use crate::memory::{Generation, InstanceId, MemoryLocation, VariableStorage};
 use crate::value::{ArrayValue, RefSegment, StructValue, Value, ValueRefView};
 use crate::vm::{PreparedModule, VmTrap};
 
-/// Write `value` of `type_id` into the cells of `range`, through the same `write_value` the engine's
-/// write side will use.
+/// Write `value` of `type_id` into the bytes of `range`, through the same `write_value_in` the
+/// engine's write side uses.
 fn write(
     cells: &mut CellStorage,
     prepared: &PreparedModule,
-    range: CellRange,
+    range: ByteRange,
     type_id: u32,
     value: &Value,
 ) {
-    let (persistent, text) = cells.regions_mut().parts_mut();
+    let (persistent, references) = cells.regions_mut().split_mut();
     let slice = persistent
-        .cells_mut(range)
+        .bytes_mut(range)
         .expect("the range lies in the persistent region");
-    crate::memory::cells::write_value(slice, type_id, value, prepared, text, range.start)
-        .expect("the fixture value writes");
+    crate::memory::cells::write_value_in(
+        slice,
+        type_id,
+        value,
+        prepared,
+        Some(references),
+        range.start,
+    )
+    .expect("the fixture value writes");
 }
 
 /// The cell range of the global declaration `declaration`.
-fn global(cells: &CellStorage, declaration: u32) -> CellRange {
+fn global(cells: &CellStorage, declaration: u32) -> ByteRange {
     cells
         .regions()
         .global_range(declaration as usize)
         .expect("the global owns cells")
 }
 
-/// The `Base` members of the instance whose cells start at `base`: `base_v` (1 cell), `series_v` (3)
-/// and `pair_v` (2), at the offsets the `Base` layout gives them.
-fn write_base_members(cells: &mut CellStorage, prepared: &PreparedModule, base: CellRange) {
+/// The `Base` members of the instance whose bytes start at `base`, at their declared sizes and
+/// alignments (specification 34 MEM-12): `base_v` (a DINT, 4 bytes) at 0, `series_v` (ARRAY[1..3] OF
+/// INT, 6 bytes) at 4 and `pair_v` (two INTs, 4 bytes) at 10.
+fn write_base_members(cells: &mut CellStorage, prepared: &PreparedModule, base: ByteRange) {
     let writes = [
         (
-            CellRange {
+            ByteRange {
                 region: base.region,
                 start: base.start,
-                cells: 1,
+                bytes: 4,
             },
             DINT,
             Value::DInt(5),
         ),
         (
-            CellRange {
+            ByteRange {
                 region: base.region,
-                start: base.start + 1,
-                cells: 3,
+                start: base.start + 4,
+                bytes: 6,
             },
             INT_ARRAY,
             series_value(),
         ),
         (
-            CellRange {
+            ByteRange {
                 region: base.region,
-                start: base.start + 4,
-                cells: 2,
+                start: base.start + 10,
+                bytes: 4,
             },
             PAIR,
             pair_value(),
@@ -118,10 +127,10 @@ fn write_fixture_cells(cells: &mut CellStorage, prepared: &PreparedModule) {
         .regions()
         .root_range(FB_ROOT)
         .expect("the Derived root has cells");
-    let derived_own = CellRange {
+    let derived_own = ByteRange {
         region: derived.region,
         start: derived.start,
-        cells: 1,
+        bytes: 4,
     };
     let writes = [
         (global(cells, DINT_DECL), DINT, Value::DInt(7)),
@@ -236,11 +245,12 @@ impl Fixture {
             .regions()
             .root_range(FB_ROOT)
             .expect("the Derived root has cells");
-        // The derived instance's own cell comes first in its root's range; its parent follows.
-        let derived_range = CellRange {
+        // The derived instance's own bytes come first in its root's range, its REAL rounded up to 8
+        // bytes; its parent follows.
+        let derived_range = ByteRange {
             region: derived_root.region,
             start: derived_root.start,
-            cells: 1,
+            bytes: 8,
         };
         let mut arm = CellArm::new(cells);
         let mut half = VariableStorage::new();
@@ -546,42 +556,45 @@ fn wstring_text_is_none_on_the_cells() {
 
 #[test]
 fn a_derived_root_reserves_its_parents_cells() {
-    // Specification 34 §6.2 (MEM-10) and O6, the C1-9b finding (R0): a root's range covers its whole
-    // inheritance chain. The seven globals before the roots take cells 0 to 6 (`dint_g`, `real_g`,
-    // `text_g`, `wide_g`, `base_g`, `fb_g` and `ref_g`, one cell each: a function-block global holds its
-    // instance in one cell, a reference global holds its reference in one cell). `base_g`'s root takes
-    // cells 7 to 12, its six `Base` cells. `fb_g`'s root takes cells 13 to 19: its own `own_v` (one REAL
-    // cell) at 13, then the six cells of its parent's template (`base_v` 1, `series_v` 3, `pair_v` 2) at
-    // 14 to 19, where the parent instance lies. The parent has no root of its own. A root that reserved
-    // only its own template would give `fb_g` one cell and leave the parent with none, so this test
-    // fails then.
+    // Specification 34 §6.2 (MEM-10, MEM-12) and O6, the C1-9b finding (R0): a root's range covers its
+    // whole inheritance chain. The seven globals before the roots take bytes 0 to 63, each at its
+    // declared size and alignment: `dint_g` 0 to 3, `real_g` 4 to 7, `text_g` (STRING[10]: a 2-byte
+    // length and 10 bytes) 8 to 19, `wide_g` (WSTRING[5]: a 2-byte length and 5 code units) 20 to 31,
+    // `base_g` and `fb_g` (an 8-byte instance leaf each) 32 to 47 and `ref_g` (a 16-byte reference) 48
+    // to 63. The roots start at the next multiple of 8, 64. `base_g`'s root takes bytes 64 to 79: the
+    // `Base` template, `base_v` at 0, `series_v` at 4 and `pair_v` at 10, 14 bytes rounded up to 16.
+    // `fb_g`'s root takes bytes 80 to 103: its own `own_v` (a REAL), 4 bytes rounded up to 8, then
+    // the 16 bytes of its parent's template at 88 to 103, where the parent instance lies. The parent
+    // has no root of its own. A root that reserved only its own template would give `fb_g` 8 bytes
+    // and leave the parent with none, so this test fails then.
     let fixture = Fixture::new();
     let regions = fixture.arm.cells.regions();
     assert_eq!(
         regions.root_range(BASE_ROOT),
-        Some(CellRange {
+        Some(ByteRange {
             region: LayoutRegion::Persistent,
-            start: 7,
-            cells: 6,
+            start: 64,
+            bytes: 16,
         })
     );
     assert_eq!(
         regions.root_range(FB_ROOT),
-        Some(CellRange {
+        Some(ByteRange {
             region: LayoutRegion::Persistent,
-            start: 13,
-            cells: 7,
+            start: 80,
+            bytes: 24,
         })
     );
     assert_eq!(
         regions.root_range(PARENT_ROOT),
-        Some(CellRange {
+        Some(ByteRange {
             region: LayoutRegion::Persistent,
-            start: 14,
-            cells: 6,
+            start: 88,
+            bytes: 16,
         })
     );
-    // The parent's `base_v` is the cell at 14, which the fixture wrote as 5 (specification 34 §6.2).
+    // The parent's `base_v` is the DINT at byte 88, which the fixture wrote as 5 (specification 34
+    // §6.2).
     assert_eq!(
         fixture
             .reader()
@@ -738,10 +751,10 @@ fn the_persistent_instance_table_never_grows() {
         .expect("the persistent region reserves");
     let mut arm = CellArm::new(cells);
     assert_eq!(arm.cells().regions().instance_capacity(), 4);
-    let range = CellRange {
+    let range = ByteRange {
         region: LayoutRegion::Persistent,
         start: 0,
-        cells: 0,
+        bytes: 0,
     };
     for identity in 0..4 {
         assert_eq!(

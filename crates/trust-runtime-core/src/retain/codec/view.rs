@@ -18,7 +18,7 @@ use crate::bytecode::BYTECODE_MAX_TYPE_NESTING;
 use crate::error::RuntimeError;
 use crate::memory::cell_access::CellsView;
 use crate::memory::cells::CellLeaf;
-use crate::memory::layout::CellRange;
+use crate::memory::layout::ByteRange;
 use crate::memory::view::ValueView;
 use crate::value::Value;
 
@@ -90,7 +90,7 @@ fn value_is_retainable(value: &Value, depth: usize) -> Result<bool, RuntimeError
 /// The rule of [`view_is_retainable`] over the cells at `range`, a value of `type_id`.
 fn cells_are_retainable(
     cells: CellsView<'_>,
-    range: CellRange,
+    range: ByteRange,
     type_id: u32,
     depth: usize,
 ) -> Result<bool, RuntimeError> {
@@ -117,7 +117,7 @@ fn cells_are_retainable(
 fn encode_cells(
     out: &mut Vec<u8>,
     cells: CellsView<'_>,
-    range: CellRange,
+    range: ByteRange,
     type_id: u32,
     depth: usize,
 ) -> Result<(), RuntimeError> {

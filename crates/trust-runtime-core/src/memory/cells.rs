@@ -1,42 +1,36 @@
-//! The cell, the unit of the bounded value store, and the store of one region's cells and
-//! reference records (specification 34 §6.2, MEM-10; design "Cells", "Regions" and "Operands and
-//! references").
+//! The decoded value of one leaf, and the flat block that holds one region's variables
+//! (specification 34 MEM-12; design "Regions" and "Operands and references").
 //!
-//! One cell is [`CELL_BYTES`](crate::memory::layout::CELL_BYTES) bytes, `Copy` and without
-//! `Drop`: every scalar of the value model fits inline, a compound is a contiguous
-//! [`CellRange`](crate::memory::layout::CellRange) of its
-//! [`TypeLayout`](crate::memory::layout::TypeLayout) and a text or reference leaf is a slot into
-//! its region's text buffers (C1-7) or its reference records. A
-//! [`CellStore`](crate::memory::cells::CellStore) owns one region: it reserves the region's cells
-//! and its reference records once from the prepared layouts and never grows. Nothing reads the
-//! store at run time yet: [`write_value`](crate::memory::cells::write_value) and
+//! A [`FlatBlock`](crate::memory::cells::FlatBlock) owns one region: it reserves the region's bytes
+//! once from the prepared layouts and never grows. Every variable lies in it at its declared size
+//! and alignment, as its [`TypeLayout`](crate::memory::layout::TypeLayout) places it, read and
+//! written through `memory::flat`. A [`Cell`](crate::memory::cells::Cell) is the
+//! decoded value of one scalar, enumeration, instance or reference leaf, as an operand is: the block
+//! never holds one. [`write_value`](crate::memory::cells::write_value) and
 //! [`read_value`](crate::memory::cells::read_value) convert a `Value` of a prepared type into its
-//! layout's cells and back (C1-6b), and C1-9 switches the engine onto them.
+//! layout's bytes and back.
 
 mod convert;
 
 use alloc::vec::Vec;
 
 use crate::error::RuntimeError;
-use crate::memory::layout::{CellRange, LayoutRegion, CELL_BYTES};
+use crate::memory::layout::{ByteRange, LayoutRegion, CELL_BYTES};
 use crate::memory::regions::PersistentExtent;
-use crate::memory::{Generation, InstanceId};
+use crate::memory::InstanceId;
 use crate::value::ValueRef;
 use crate::vm::{PreparedModule, VmTrap};
 
-pub use convert::{cell_offset, read_value, write_value};
+pub use convert::{byte_offset, read_value, write_value};
 pub(crate) use convert::{
-    check_value, is_reference_type, leaf_in, read_value_in, structure_member_name, write_value_in,
-    CellLeaf,
+    check_value, is_reference_type, leaf_in, read_value_in, structure_member_name, text_geometry,
+    write_value_in, CellLeaf,
 };
 
-/// One cell of the bounded value store (specification 34 §6.2, MEM-10; design "Cells").
-///
-/// Every scalar of [`Value`](crate::value::Value) is one cell, and a structure or array is a
-/// contiguous [`CellRange`] of its type's prepared layout with its nested compounds inline.
-/// [`Cell::Text`] and [`Cell::Ref`] address the region's text buffers (C1-7) and its reference
-/// records; [`Cell::Null`] is an empty cell and [`Cell::NullRef`] a reference cell that holds no
-/// reference.
+/// The decoded value of one leaf of a flat block (specification 34 MEM-12): a scalar, an
+/// enumeration with its type, an instance identity or a reference leaf's state. [`Cell::Null`] is a
+/// leaf that names no instance and an unbound native counter slot, and [`Cell::NullRef`] a reference
+/// leaf that holds no reference.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Cell {
     /// `BOOL`.
@@ -98,9 +92,8 @@ pub enum Cell {
     },
     /// An FB, class or interface instance.
     Instance(InstanceId),
-    /// A text, addressed in its region's text buffers (C1-7).
-    Text(TextSlot),
-    /// A reference, addressed in its region's reference records.
+    /// A reference leaf that holds a reference; its region's reference table holds the reference
+    /// under the leaf's byte offset.
     Ref(RefSlot),
     /// An empty cell.
     Null,
@@ -108,99 +101,55 @@ pub enum Cell {
     NullRef,
 }
 
-/// One cell is exactly [`CELL_BYTES`] on every target (specification 34 §6.2, MEM-10): a cell that
-/// grew would double a region's RAM and break the prepared layouts.
+/// A decoded leaf is exactly [`CELL_BYTES`] on every target: the copy charges of TIME-08 count a
+/// value's elements in that unit.
 const _: () = assert!(core::mem::size_of::<Cell>() == CELL_BYTES);
 
-/// Index of a text in its region's text buffers (design "Regions"; C1-7).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TextSlot(pub u32);
-
-/// Index of a reference record in its region's reference records (design "Regions"). Until C1-11 a
-/// non-null reference leaf names its cell here, as the key of its `ValueRef` (O9).
+/// The byte offset, in its region's block, of a reference leaf that holds a reference: the key of
+/// its `ValueRef` in the region's reference table until references are flat (C1-10, O9).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RefSlot(pub u32);
 
-/// What a reference leaf refers to: the design's flat `RefAddr` (design "Operands and references").
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct RefRecord {
-    /// The region the target cell is reserved in.
-    pub region: LayoutRegion,
-    /// The cell index of the target in `region`, or [`RefRecord::NO_CELL`] when the record names
-    /// no target.
-    pub cell: u32,
-    /// The character index of a character reference, zero otherwise.
-    pub char_index: u32,
-    /// The referenced or aliased TYPE_TABLE type.
-    pub target_type: u32,
-    /// The installation generation the reference was taken in (specification 34 §11.3, MEM-07).
-    pub generation: Generation,
-}
-
-impl RefRecord {
-    /// The cell index of a record that names no target.
-    ///
-    /// A region can never hold this many cells: its cells alone would need `u32::MAX × 16` bytes,
-    /// far beyond any admitted capacity.
-    pub const NO_CELL: u32 = u32::MAX;
-
-    /// The record [`CellStore::reserve`] fills every reference slot with: it names no target
-    /// (`Value::Reference(None)`).
-    pub const NULL: Self = Self {
-        region: LayoutRegion::Persistent,
-        cell: Self::NO_CELL,
-        char_index: 0,
-        target_type: 0,
-        generation: Generation::FIRST,
-    };
-
-    /// Whether this record names no target.
-    #[must_use]
-    pub fn is_null(self) -> bool {
-        self.cell == Self::NO_CELL
-    }
-}
-
 /// The reference leaves of one region and the `ValueRef` each non-null leaf holds (specification 34
-/// §6.2; O9, R3, R5). Every reference leaf's cell is known at construction, so the table is reserved
-/// once, in ascending cell order, holding no reference. A write replaces an entry and never adds one,
-/// so a reference write in a scan allocates nothing.
+/// §6.2; O9, R3, R5). Every reference leaf's byte offset is known at construction, so the table is
+/// reserved once, in ascending offset order, holding no reference. A write replaces an entry and
+/// never adds one, so a reference write in a scan allocates nothing.
 #[derive(Debug, Default)]
 pub(crate) struct ReferenceTable {
     leaves: Vec<(u32, Option<ValueRef>)>,
 }
 
 impl ReferenceTable {
-    /// The bytes a table of `leaves` entries reserves; construction charges them with the cells.
+    /// The bytes a table of `leaves` entries reserves; construction charges them with the block.
     pub(crate) fn reservation_bytes(leaves: usize) -> Option<usize> {
         leaves.checked_mul(core::mem::size_of::<(u32, Option<ValueRef>)>())
     }
 
-    /// Reserve one entry, holding no reference, for each cell of `cells`. The cells must be distinct:
-    /// a repeated cell is refused, because a reference leaf owns exactly one cell.
-    pub(crate) fn reserve(mut cells: Vec<u32>) -> Result<Self, RuntimeError> {
-        cells.sort_unstable();
-        if cells.windows(2).any(|pair| pair[0] == pair[1]) {
+    /// Reserve one entry, holding no reference, for each leaf offset of `offsets`. The offsets must
+    /// be distinct: a repeated offset is refused, because a reference leaf owns its bytes.
+    pub(crate) fn reserve(mut offsets: Vec<u32>) -> Result<Self, RuntimeError> {
+        offsets.sort_unstable();
+        if offsets.windows(2).any(|pair| pair[0] == pair[1]) {
             return Err(RuntimeError::TypeMismatch);
         }
         let mut leaves = Vec::new();
         leaves
-            .try_reserve_exact(cells.len())
+            .try_reserve_exact(offsets.len())
             .map_err(|_| VmTrap::BudgetExceeded.into_runtime_error())?;
-        leaves.extend(cells.into_iter().map(|cell| (cell, None)));
+        leaves.extend(offsets.into_iter().map(|offset| (offset, None)));
         Ok(Self { leaves })
     }
 
-    /// The reference the leaf at `cell` holds, or `None` for a null leaf and for a cell that is no
-    /// reference leaf.
-    pub(crate) fn get(&self, cell: u32) -> Option<&ValueRef> {
-        self.leaves[self.index_of(cell)?].1.as_ref()
+    /// The reference the leaf at byte `offset` holds, or `None` for a null leaf and for an offset
+    /// that is no reference leaf.
+    pub(crate) fn get(&self, offset: u32) -> Option<&ValueRef> {
+        self.leaves[self.index_of(offset)?].1.as_ref()
     }
 
-    /// Store `reference` (`None` for a null reference) in the leaf at `cell`. Answers `false` when
-    /// `cell` is no reference leaf of this region. Nothing is allocated.
-    pub(crate) fn set(&mut self, cell: u32, reference: Option<ValueRef>) -> bool {
-        match self.index_of(cell) {
+    /// Store `reference` (`None` for a null reference) in the leaf at byte `offset`. Answers `false`
+    /// when `offset` is no reference leaf of this region. Nothing is allocated.
+    pub(crate) fn set(&mut self, offset: u32, reference: Option<ValueRef>) -> bool {
+        match self.index_of(offset) {
             Some(index) => {
                 self.leaves[index].1 = reference;
                 true
@@ -209,10 +158,10 @@ impl ReferenceTable {
         }
     }
 
-    /// The entry of the leaf at `cell`, found by binary search over the reserved cells.
-    fn index_of(&self, cell: u32) -> Option<usize> {
+    /// The entry of the leaf at byte `offset`, found by binary search over the reserved offsets.
+    fn index_of(&self, offset: u32) -> Option<usize> {
         self.leaves
-            .binary_search_by_key(&cell, |(leaf, _)| *leaf)
+            .binary_search_by_key(&offset, |(leaf, _)| *leaf)
             .ok()
     }
 
@@ -223,146 +172,103 @@ impl ReferenceTable {
     }
 }
 
-/// One region's cells and reference records (design "Regions").
+/// One region's flat block (specification 34 MEM-12; design "Regions").
 ///
-/// The store reserves both once and never grows, and it belongs to one [`LayoutRegion`]: every
-/// accessor answers `None` outside the reserved region and outside that region's cells, and
-/// allocates nothing.
+/// The block reserves its bytes once, zeroed, and never grows, and it belongs to one
+/// [`LayoutRegion`]: every accessor answers `None` outside the reserved region and outside its
+/// bytes, and allocates nothing.
 #[derive(Debug)]
-pub struct CellStore {
+pub struct FlatBlock {
     region: LayoutRegion,
-    cells: Vec<Cell>,
-    references: Vec<RefRecord>,
+    bytes: Vec<u8>,
 }
 
-impl Default for CellStore {
-    /// The empty persistent region: no cells and no reference records.
+impl Default for FlatBlock {
+    /// The empty persistent block.
     fn default() -> Self {
         Self {
             region: LayoutRegion::Persistent,
-            cells: Vec::new(),
-            references: Vec::new(),
+            bytes: Vec::new(),
         }
     }
 }
 
-impl CellStore {
-    /// The bytes reserving `cells` cells and `references` reference records takes, or `None` when
-    /// the product leaves `usize` (specification 34 §6.2; construction charges them before it
-    /// reserves).
-    #[must_use]
-    pub fn reservation_bytes(cells: u32, references: u32) -> Option<usize> {
-        usize::try_from(cells)
-            .ok()?
-            .checked_mul(CELL_BYTES)?
-            .checked_add(
-                usize::try_from(references)
-                    .ok()?
-                    .checked_mul(core::mem::size_of::<RefRecord>())?,
-            )
-    }
-
-    /// Reserve a persistent region of `cells` cells and `references` reference records, all
-    /// [`Cell::Null`] and [`RefRecord::NULL`] (specification 34 §6.2, MEM-10).
+impl FlatBlock {
+    /// Reserve a persistent block of `bytes` bytes, all zero (specification 34 MEM-12).
     ///
-    /// [`CellStore::reserve_in`] reserves a region of another [`LayoutRegion`]. Both vectors are
+    /// [`FlatBlock::reserve_in`] reserves a block of another [`LayoutRegion`]. The bytes are
     /// reserved exactly once. A refused reservation is refused as the other construction
     /// reservations are.
-    pub fn reserve(cells: u32, references: u32) -> Result<Self, RuntimeError> {
-        Self::reserve_in(LayoutRegion::Persistent, cells, references)
+    pub fn reserve(bytes: u32) -> Result<Self, RuntimeError> {
+        Self::reserve_in(LayoutRegion::Persistent, bytes)
     }
 
-    /// Reserve a region of `region` of `cells` cells and `references` reference records, all
-    /// [`Cell::Null`] and [`RefRecord::NULL`] (specification 34 §6.2, MEM-10; design "Regions").
+    /// Reserve a block of `region` of `bytes` bytes, all zero (specification 34 MEM-12; design
+    /// "Regions").
     ///
-    /// The store holds `region`: [`CellStore::cells`] and [`CellStore::cells_mut`] answer `None`
-    /// for a range of another region, because a cell index means a cell of the region its store
+    /// The block holds `region`: [`FlatBlock::bytes`] and [`FlatBlock::bytes_mut`] answer `None`
+    /// for a range of another region, because an offset means a byte of the region its block
     /// reserved.
-    pub fn reserve_in(
-        region: LayoutRegion,
-        cells: u32,
-        references: u32,
-    ) -> Result<Self, RuntimeError> {
-        let refused = |_| VmTrap::BudgetExceeded.into_runtime_error();
-        let cell_count = usize::try_from(cells).map_err(|_| RuntimeError::Overflow)?;
-        let record_count = usize::try_from(references).map_err(|_| RuntimeError::Overflow)?;
-        let mut store = Self {
+    pub fn reserve_in(region: LayoutRegion, bytes: u32) -> Result<Self, RuntimeError> {
+        let count = usize::try_from(bytes).map_err(|_| RuntimeError::Overflow)?;
+        let mut block = Self {
             region,
-            ..Self::default()
+            bytes: Vec::new(),
         };
-        store.cells.try_reserve_exact(cell_count).map_err(refused)?;
-        store
-            .references
-            .try_reserve_exact(record_count)
-            .map_err(refused)?;
-        store.cells.resize(cell_count, Cell::Null);
-        store.references.resize(record_count, RefRecord::NULL);
-        Ok(store)
+        block
+            .bytes
+            .try_reserve_exact(count)
+            .map_err(|_| VmTrap::BudgetExceeded.into_runtime_error())?;
+        block.bytes.resize(count, 0);
+        Ok(block)
     }
 
-    /// Reserve the persistent region of `prepared`: its globals' cells, and each persistent root's
-    /// own cells and reference leaves (specification 34 §6.2; O6, O8). The cell store reads the same
-    /// extent (`memory/regions.rs`).
+    /// Reserve the persistent block of `prepared`: its globals, and each persistent root's own
+    /// variables (specification 34 §6.2, MEM-12; O6, O8). The regions read the same extent
+    /// (`memory/regions.rs`).
     ///
     /// # Errors
     ///
-    /// Refused as [`CellStore::reserve`] is, or when the prepared layouts and declarations disagree.
+    /// Refused as [`FlatBlock::reserve`] is, or when the prepared layouts and declarations disagree.
     pub fn persistent(prepared: &PreparedModule) -> Result<Self, RuntimeError> {
-        let extent = PersistentExtent::of(prepared)?;
-        let references =
-            u32::try_from(extent.references.len()).map_err(|_| RuntimeError::Overflow)?;
-        Self::reserve(extent.cells, references)
+        Self::reserve(PersistentExtent::of(prepared)?.bytes)
     }
 
-    /// The cells and the reference records this region has room for.
-    ///
-    /// [`CellStore::reserve`] fixes both and no later call changes them: the store never grows
-    /// (specification 34 §6.2, the paragraph after MEM-10).
+    /// The bytes this block has room for. [`FlatBlock::reserve`] fixes them and no later call
+    /// changes them: the block never grows (specification 34 §6.2, the paragraph after MEM-10).
     #[must_use]
-    pub fn reserved(&self) -> (usize, usize) {
-        (self.cells.capacity(), self.references.capacity())
+    pub fn reserved(&self) -> usize {
+        self.bytes.capacity()
     }
 
-    /// The region this store's cells are reserved in (design "Regions").
+    /// The region this block is reserved in (design "Regions").
     #[must_use]
     pub fn region(&self) -> LayoutRegion {
         self.region
     }
 
-    /// The cells of `range`, or `None` when `range` leaves this region.
+    /// The bytes of `range`, or `None` when `range` leaves this block.
     #[must_use]
-    pub fn cells(&self, range: CellRange) -> Option<&[Cell]> {
+    pub fn bytes(&self, range: ByteRange) -> Option<&[u8]> {
         if range.region != self.region {
             return None;
         }
-        self.cells.get(cell_span(range)?)
+        self.bytes.get(byte_span(range)?)
     }
 
-    /// The cells of `range`, or `None` when `range` leaves this region.
+    /// The bytes of `range`, or `None` when `range` leaves this block.
     #[must_use]
-    pub fn cells_mut(&mut self, range: CellRange) -> Option<&mut [Cell]> {
+    pub fn bytes_mut(&mut self, range: ByteRange) -> Option<&mut [u8]> {
         if range.region != self.region {
             return None;
         }
-        self.cells.get_mut(cell_span(range)?)
-    }
-
-    /// The reference record at `slot`, or `None` when the slot leaves this region.
-    #[must_use]
-    pub fn record(&self, slot: RefSlot) -> Option<&RefRecord> {
-        self.references.get(usize::try_from(slot.0).ok()?)
-    }
-
-    /// The reference record at `slot`, or `None` when the slot leaves this region.
-    #[must_use]
-    pub fn record_mut(&mut self, slot: RefSlot) -> Option<&mut RefRecord> {
-        self.references.get_mut(usize::try_from(slot.0).ok()?)
+        self.bytes.get_mut(byte_span(range)?)
     }
 }
 
-/// The half-open cell indexes of `range`, or `None` when the range cannot be expressed.
-fn cell_span(range: CellRange) -> Option<core::ops::Range<usize>> {
+/// The half-open byte indexes of `range`, or `None` when the range cannot be expressed.
+fn byte_span(range: ByteRange) -> Option<core::ops::Range<usize>> {
     let start = usize::try_from(range.start).ok()?;
-    let end = start.checked_add(usize::try_from(range.cells).ok()?)?;
+    let end = start.checked_add(usize::try_from(range.bytes).ok()?)?;
     Some(start..end)
 }

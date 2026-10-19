@@ -1,8 +1,8 @@
-//! The cell arm of the store-access seam (specification 34 §6.2, MEM-10; C1-9b).
+//! The cell arm of the store-access seam (specification 34 §6.2, MEM-12; C1-9b).
 //!
-//! The arm reads the globals and the persistent instances from their cells, through the prepared
-//! layouts. A [`crate::memory::view::ValueView::Cells`] names the cells of one value and reads them
-//! without copying.
+//! The arm reads the globals and the persistent instances from the persistent flat block, through
+//! the prepared layouts. A [`crate::memory::view::ValueView::Cells`] names the bytes of one value and
+//! reads them without copying.
 //! Locals, per-call instances and the rest of the `Value` half stay in today's
 //! [`crate::memory::VariableStorage`], which the engine owns beside the arm and lends to the reader and
 //! the writer of each call (C1-9d2b-1), so the engine's activations and the arm's reads of locals and
@@ -12,7 +12,7 @@
 //! The reads take the prepared module through `CellReader`: a cell view needs the layouts that
 //! place its members and elements, and the store-access trait carries no prepared module. The
 //! routing in `vm::engine::store_access` supplies it. The writes are in `cell_write` (C1-9c), which
-//! checks a value before it copies it into the cells.
+//! checks a value before it copies it into the block.
 
 use smol_str::SmolStr;
 
@@ -20,10 +20,11 @@ use crate::bytecode::{StorageOwner, TypeData, TypeEntry, BYTECODE_MAX_TYPE_NESTI
 use crate::collections::OrderedMap;
 use crate::error::RuntimeError;
 use crate::memory::cells::{
-    is_reference_type, leaf_in, read_value_in, structure_member_name, Cell, CellLeaf, RefSlot,
+    is_reference_type, leaf_in, read_value_in, structure_member_name, text_geometry, Cell, CellLeaf,
 };
+use crate::memory::flat::{self, LeafKind, TextBytes};
 use crate::memory::instance_table::PersistentInstance;
-use crate::memory::layout::CellRange;
+use crate::memory::layout::ByteRange;
 use crate::memory::regions::{CellRegions, CellStorage};
 use crate::memory::view::ValueView;
 use crate::memory::{Generation, InstanceData, InstanceId, MemoryLocation, VariableStorage};
@@ -43,6 +44,9 @@ const STRING_PRIMITIVE: u16 = 24;
 /// The primitive encoding of `WSTRING` (`prim_id` 25).
 const WSTRING_PRIMITIVE: u16 = 25;
 
+/// The null value a declaration that holds no value yet reads as (MEM-12).
+static NULL_VALUE: Value = Value::Null;
+
 /// The layouts and the region a cell view reads through: the prepared module places its members
 /// and elements, and the region holds its cells and text buffers.
 #[derive(Clone, Copy)]
@@ -53,59 +57,56 @@ pub struct CellsView<'a> {
 
 impl<'a> CellsView<'a> {
     /// The member or element `segment` names inside the value of `type_id` at `range`, as its range
-    /// and type. The member's cells must lie inside `range` (specification 34 §6.2, MEM-10).
+    /// and type. The member's bytes must lie inside `range` (specification 34 §6.2, MEM-12).
     pub(crate) fn member(
         self,
-        range: CellRange,
+        range: ByteRange,
         type_id: u32,
         segment: &RefSegment,
-    ) -> Option<(CellRange, u32)> {
+    ) -> Option<(ByteRange, u32)> {
         let (offset, child) = step(self.prepared, type_id, segment)?;
-        let cells = self.prepared.type_layout(child)?.cells;
-        if offset.checked_add(cells)? > range.cells {
+        let bytes = self.prepared.type_layout(child)?.shape.bytes;
+        if offset.checked_add(bytes)? > range.bytes {
             return None;
         }
         let start = range.start.checked_add(offset)?;
         Some((
-            CellRange {
+            ByteRange {
                 region: range.region,
                 start,
-                cells,
+                bytes,
             },
             child,
         ))
     }
 
-    /// The UTF-8 text of the `STRING` at `range`, borrowed from its buffer. `None` for a `WSTRING`,
-    /// whose buffer holds UTF-16 code units and has no UTF-8 text (specification 34 §3.1 of the C1-9
-    /// note; C1-7).
-    pub(crate) fn string_text(self, range: CellRange, type_id: u32) -> Option<&'a str> {
-        if primitive_of(self.prepared, type_id)? != STRING_PRIMITIVE {
+    /// The UTF-8 text of the `STRING` at `range`, borrowed from the block. `None` for a `WSTRING`,
+    /// whose leaf holds UTF-16 code units and has no UTF-8 text (specification 34 MEM-12).
+    pub(crate) fn string_text(self, range: ByteRange, type_id: u32) -> Option<&'a str> {
+        let (length, _, wide) = text_geometry(self.prepared, type_id)?;
+        if wide {
             return None;
         }
-        let Cell::Text(slot) = self.regions.persistent().cells(range)?.first()? else {
-            return None;
-        };
-        core::str::from_utf8(self.regions.text().bytes(*slot)?).ok()
+        match flat::read_text(self.regions.persistent().bytes(range)?, length, false).ok()? {
+            TextBytes::Narrow(text) => Some(text),
+            TextBytes::Wide(_) => None,
+        }
     }
 
-    /// The owned value of the cells at `range`, read with `read_value` (the only allocating read). A
-    /// reference leaf holding a reference answers the `ValueRef` it keeps (O9).
-    pub(crate) fn materialize(self, range: CellRange, type_id: u32) -> Result<Value, RuntimeError> {
-        let cells = self
+    /// The owned value of the bytes at `range`, read with `read_value` (the only allocating read).
+    /// A reference leaf holding a reference answers the `ValueRef` it keeps (O9).
+    pub(crate) fn materialize(self, range: ByteRange, type_id: u32) -> Result<Value, RuntimeError> {
+        let bytes = self
             .regions
             .persistent()
-            .cells(range)
+            .bytes(range)
             .ok_or(RuntimeError::InvalidExecutionState)?;
-        if let Some(reference) = self.reference_leaf(range, type_id)? {
-            return Ok(Value::Reference(Some(reference.clone())));
-        }
         read_value_in(
-            cells,
+            bytes,
             type_id,
             self.prepared,
-            self.regions.text(),
             Some(self.regions.references()),
+            range.start,
         )
     }
 
@@ -113,37 +114,37 @@ impl<'a> CellsView<'a> {
     /// another type and for a null reference.
     pub(crate) fn reference_leaf(
         self,
-        range: CellRange,
+        range: ByteRange,
         type_id: u32,
     ) -> Result<Option<&'a ValueRef>, RuntimeError> {
         if !is_reference_type(self.prepared, type_id) {
             return Ok(None);
         }
-        let cells = self
+        let bytes = self
             .regions
             .persistent()
-            .cells(range)
+            .bytes(range)
             .ok_or(RuntimeError::InvalidExecutionState)?;
-        match cells.first() {
-            Some(Cell::Ref(RefSlot(cell))) => self
+        match flat::decode(LeafKind::Reference, bytes)? {
+            Cell::NullRef => Ok(None),
+            _ => self
                 .regions
-                .reference(*cell)
+                .reference(range.start)
                 .map(Some)
                 .ok_or(RuntimeError::InvalidExecutionState),
-            _ => Ok(None),
         }
     }
 
-    /// What the cells at `range`, a value of `type_id`, hold, classified for the retained encoder: the
+    /// What the bytes at `range`, a value of `type_id`, hold, classified for the retained encoder: the
     /// parts of the `Value` that [`CellsView::materialize`] would build, without building it
     /// (specification 11 §6.7; C1-9d2b-2). Nothing is allocated.
-    pub(crate) fn leaf(self, range: CellRange, type_id: u32) -> Result<CellLeaf<'a>, RuntimeError> {
-        let cells = self
+    pub(crate) fn leaf(self, range: ByteRange, type_id: u32) -> Result<CellLeaf<'a>, RuntimeError> {
+        let bytes = self
             .regions
             .persistent()
-            .cells(range)
+            .bytes(range)
             .ok_or(RuntimeError::InvalidExecutionState)?;
-        leaf_in(cells, type_id, self.prepared, self.regions.text())
+        leaf_in(bytes, type_id, self.prepared)
     }
 
     /// The declared name of member `ordinal`, in declaration order, of the structure `type_id`.
@@ -183,7 +184,7 @@ impl CellArm {
         &mut self,
         instance: InstanceId,
         pou: u32,
-        range: CellRange,
+        range: ByteRange,
         parent: Option<InstanceId>,
     ) -> Result<(), RuntimeError> {
         self.cells
@@ -202,7 +203,7 @@ impl CellArm {
     pub(crate) fn create_persistent_instance(
         &mut self,
         pou: u32,
-        range: CellRange,
+        range: ByteRange,
     ) -> Result<InstanceId, RuntimeError> {
         let (instance, following) = self.cells.next_instance_id()?;
         self.register_instance(instance, pou, range, None)?;
@@ -244,7 +245,7 @@ impl CellArm {
     /// The cells of a persistent instance's own members, or `None` for an identity that is not a
     /// persistent instance of the arm.
     #[cfg(test)]
-    pub(crate) fn instance_range(&self, instance: InstanceId) -> Option<CellRange> {
+    pub(crate) fn instance_range(&self, instance: InstanceId) -> Option<ByteRange> {
         self.instance(instance).map(|persistent| persistent.range)
     }
 
@@ -261,10 +262,11 @@ impl CellArm {
     }
 }
 
-/// Where a path ends: in cells of the arm, or in a place of the `Value` half.
+/// Where a path ends: in the arm's block, or in a place of the `Value` half.
 enum Target<'p> {
-    /// The cells of a value of this type at this range.
-    Cells(CellRange, u32),
+    /// The bytes of a value of this type at this range, and the block offset of the presence byte
+    /// of the declaration the range is, when it keeps one (MEM-12).
+    Cells(ByteRange, u32, Option<u32>),
     /// A place the `Value` half reads: location, slot and the path still to walk.
     Values(MemoryLocation, usize, &'p [RefSegment]),
 }
@@ -311,7 +313,7 @@ impl<'a> CellReader<'a> {
         path: &[RefSegment],
     ) -> Result<ValueView<'a>, VmTrap> {
         match self.locate(location, offset, path)? {
-            Target::Cells(range, type_id) => Ok(self.view(range, type_id)),
+            Target::Cells(range, type_id, presence) => Ok(self.view(range, type_id, presence)),
             Target::Values(location, offset, rest) => self.values_slot(location, offset, rest),
         }
     }
@@ -328,7 +330,7 @@ impl<'a> CellReader<'a> {
         name: &str,
     ) -> Result<ValueView<'a>, VmTrap> {
         match self.field(instance, name, &[])? {
-            Target::Cells(range, type_id) => Ok(self.view(range, type_id)),
+            Target::Cells(range, type_id, presence) => Ok(self.view(range, type_id, presence)),
             Target::Values(location, offset, rest) => self.values_slot(location, offset, rest),
         }
     }
@@ -370,8 +372,9 @@ impl<'a> CellReader<'a> {
         name: &str,
     ) -> Option<ValueView<'a>> {
         if self.arm.is_persistent(instance) {
-            let (_, _, range, type_id) = self.member_by(instance, |_, member| member == name)?;
-            return Some(self.view(range, type_id));
+            let (_, _, range, type_id, presence) =
+                self.member_by(instance, |_, member| member == name)?;
+            return Some(self.view(range, type_id, presence));
         }
         self.values
             .get_instance_var(instance, name)
@@ -383,7 +386,7 @@ impl<'a> CellReader<'a> {
     pub(crate) fn read_global(self, name: &str) -> Option<ValueView<'a>> {
         let ordinal = self.global_index(name)?;
         match self.global(ordinal) {
-            Some((range, type_id)) => Some(self.view(range, type_id)),
+            Some((range, type_id, presence)) => Some(self.view(range, type_id, presence)),
             None => self.values.get_global(name).map(ValueView::Value),
         }
     }
@@ -412,7 +415,7 @@ impl<'a> CellReader<'a> {
     /// The reference to the variable `name` of `instance`, in its own variables.
     pub(crate) fn ref_for_instance(self, instance: InstanceId, name: &str) -> Option<ValueRef> {
         if self.arm.is_persistent(instance) {
-            let (ordinal, _, _, _) = self.member_by(instance, |_, member| member == name)?;
+            let (ordinal, _, _, _, _) = self.member_by(instance, |_, member| member == name)?;
             return self.value_ref(MemoryLocation::Instance(instance), ordinal);
         }
         self.values.ref_for_instance(instance, name)
@@ -429,7 +432,8 @@ impl<'a> CellReader<'a> {
             if !self.arm.is_persistent(current) {
                 return self.values.ref_for_instance_recursive(current, name);
             }
-            if let Some((ordinal, _, _, _)) = self.member_by(current, |_, member| member == name) {
+            if let Some((ordinal, _, _, _, _)) = self.member_by(current, |_, member| member == name)
+            {
                 return self.value_ref(MemoryLocation::Instance(current), ordinal);
             }
             current = self.arm.instance(current)?.parent?;
@@ -456,7 +460,7 @@ impl<'a> CellReader<'a> {
         if self.arm.is_persistent(instance) {
             return self
                 .member_by(instance, |_, member| member == name)
-                .map(|(ordinal, _, _, _)| ordinal);
+                .map(|(ordinal, _, _, _, _)| ordinal);
         }
         self.values.declared_instance_field_offset(instance, name)
     }
@@ -468,10 +472,10 @@ impl<'a> CellReader<'a> {
         };
         let mut variables = OrderedMap::default();
         let mut ordinal = 0usize;
-        while let Some((_, name, range, type_id)) =
+        while let Some((_, name, range, type_id, presence)) =
             self.member_by(instance, |index, _| index == ordinal)
         {
-            let value = self.view(range, type_id).materialize().ok()?;
+            let value = self.view(range, type_id, presence).materialize().ok()?;
             variables.insert(SmolStr::new(name), value);
             ordinal += 1;
         }
@@ -546,7 +550,7 @@ impl<'a> CellReader<'a> {
         ordinal: usize,
     ) -> Option<&'a str> {
         if self.arm.is_persistent(instance) {
-            let (_, name, _, _) = self.member_by(instance, |index, _| index == ordinal)?;
+            let (_, name, _, _, _) = self.member_by(instance, |index, _| index == ordinal)?;
             return Some(name);
         }
         self.values
@@ -564,8 +568,9 @@ impl<'a> CellReader<'a> {
         ordinal: usize,
     ) -> Option<ValueView<'a>> {
         if self.arm.is_persistent(instance) {
-            let (_, _, range, type_id) = self.member_by(instance, |index, _| index == ordinal)?;
-            return Some(self.view(range, type_id));
+            let (_, _, range, type_id, presence) =
+                self.member_by(instance, |index, _| index == ordinal)?;
+            return Some(self.view(range, type_id, presence));
         }
         self.values
             .read_instance_field_by_offset(instance, ordinal)
@@ -573,7 +578,10 @@ impl<'a> CellReader<'a> {
     }
 
     /// The view of the cells of `range`, a value of `type_id`, through this reader's region.
-    fn view(self, range: CellRange, type_id: u32) -> ValueView<'a> {
+    fn view(self, range: ByteRange, type_id: u32, presence: Option<u32>) -> ValueView<'a> {
+        if !self.present(presence) {
+            return ValueView::Value(&NULL_VALUE);
+        }
         ValueView::Cells {
             cells: CellsView {
                 prepared: self.prepared,
@@ -582,6 +590,23 @@ impl<'a> CellReader<'a> {
             range,
             type_id,
         }
+    }
+
+    /// Whether the declaration whose presence byte is at block offset `presence` holds a value:
+    /// always for a declaration that keeps no presence byte (MEM-12).
+    fn present(self, presence: Option<u32>) -> bool {
+        presence.is_none_or(|offset| {
+            self.arm
+                .cells
+                .regions()
+                .persistent()
+                .bytes(ByteRange {
+                    region: crate::memory::layout::LayoutRegion::Persistent,
+                    start: offset,
+                    bytes: 1,
+                })
+                .is_some_and(|byte| byte[0] != 0)
+        })
     }
 
     /// The `Value` half's view of a slot, or `NullReference` when the slot holds no value.
@@ -597,9 +622,9 @@ impl<'a> CellReader<'a> {
             .ok_or(VmTrap::NullReference)
     }
 
-    /// The cells and type of the global at `ordinal` in declaration order, or `None` when that
-    /// declaration owns no cells.
-    fn global(self, ordinal: usize) -> Option<(CellRange, u32)> {
+    /// The bytes, the type and the presence byte's offset of the global at `ordinal` in declaration
+    /// order, or `None` when that declaration owns no bytes in the block.
+    fn global(self, ordinal: usize) -> Option<(ByteRange, u32, Option<u32>)> {
         let declaration = *self
             .prepared
             .declarations(StorageOwner::Global, None)
@@ -615,7 +640,11 @@ impl<'a> CellReader<'a> {
             .entries
             .get(declaration as usize)?
             .type_id?;
-        Some((range, type_id))
+        Some((
+            range,
+            type_id,
+            self.prepared.presence_offset(declaration, range.start),
+        ))
     }
 
     /// The `Value` half's index of the global at declaration ordinal `ordinal`, which owns no cells:
@@ -651,50 +680,51 @@ impl<'a> CellReader<'a> {
     }
 
     /// The member of persistent `instance` that `select` accepts, as its ordinal among the members
-    /// that own storage, its name, its range and its type. Members lie in declaration order, each
-    /// after the cells of the members before it (specification 34 §6.2, O6).
+    /// that own storage, its name, its range and its type. Members lie in declaration order, each at
+    /// the offset preparation gave it within its template (specification 34 §6.2, MEM-12, O6).
     fn member_by(
         self,
         instance: InstanceId,
         select: impl Fn(usize, &str) -> bool,
-    ) -> Option<(usize, &'a str, CellRange, u32)> {
+    ) -> Option<(usize, &'a str, ByteRange, u32, Option<u32>)> {
         let persistent = self.arm.instance(instance)?;
-        let mut offset = 0u32;
+        let prepared = self.prepared;
         let mut ordinal = 0usize;
-        for declaration in self.prepared.instance_declarations(persistent.pou) {
+        for &id in prepared.declarations(StorageOwner::Instance, Some(persistent.pou)) {
+            let declaration = prepared.layout.entries.get(id as usize)?;
             let Some(type_id) = declaration.type_id.filter(|_| declaration.owns_storage()) else {
                 continue;
             };
-            let name = member_name(self.prepared, declaration.name_idx)?;
-            let cells = self.prepared.type_layout(type_id)?.cells;
+            let name = member_name(prepared, declaration.name_idx)?;
             if select(ordinal, name) {
-                let start = persistent.range.start.checked_add(offset)?;
-                let range = CellRange {
+                let range = ByteRange {
                     region: persistent.range.region,
-                    start,
-                    cells,
+                    start: persistent
+                        .range
+                        .start
+                        .checked_add(prepared.declaration_offset(id)?)?,
+                    bytes: prepared.type_layout(type_id)?.shape.bytes,
                 };
-                return Some((ordinal, name, range, type_id));
+                let presence = prepared.presence_offset(id, range.start);
+                return Some((ordinal, name, range, type_id, presence));
             }
-            offset = offset.checked_add(cells)?;
             ordinal += 1;
         }
         None
     }
 
-    /// The instance a cell holds: an instance cell names its instance.
-    fn instance_at(self, range: CellRange) -> Result<InstanceId, VmTrap> {
-        let cell = self
+    /// The instance an instance leaf names.
+    fn instance_at(self, range: ByteRange) -> Result<InstanceId, VmTrap> {
+        let bytes = self
             .arm
             .cells
             .regions()
             .persistent()
-            .cells(range)
-            .and_then(<[Cell]>::first);
-        if let Some(Cell::Instance(instance)) = cell {
-            Ok(*instance)
-        } else {
-            Err(VmTrap::NullReference)
+            .bytes(range)
+            .ok_or(VmTrap::NullReference)?;
+        match flat::decode(LeafKind::Instance, bytes) {
+            Ok(Cell::Instance(instance)) => Ok(instance),
+            _ => Err(VmTrap::NullReference),
         }
     }
 
@@ -708,30 +738,39 @@ impl<'a> CellReader<'a> {
     ) -> Result<Target<'p>, VmTrap> {
         match location {
             MemoryLocation::Global => match self.global(offset) {
-                Some((range, type_id)) => self.walk(range, type_id, path),
+                Some((range, type_id, presence)) => self.walk(range, type_id, presence, path),
                 None => {
                     let index = self.values_global(offset).ok_or(VmTrap::NullReference)?;
                     Ok(Target::Values(MemoryLocation::Global, index, path))
                 }
             },
             MemoryLocation::Instance(instance) if self.arm.is_persistent(instance) => {
-                let (_, _, range, type_id) = self
+                let (_, _, range, type_id, presence) = self
                     .member_by(instance, |ordinal, _| ordinal == offset)
                     .ok_or(VmTrap::NullReference)?;
-                self.walk(range, type_id, path)
+                self.walk(range, type_id, presence, path)
             }
             _ => Ok(Target::Values(location, offset, path)),
         }
     }
 
-    /// Walk `path` from the value of `type_id` at `range`. A field of a function block or an
-    /// interface value is read through the instance its cell holds, as the `Value` tree does.
+    /// Walk `path` from the value of `type_id` at `range`, a declaration whose presence byte is at
+    /// `presence` when it keeps one. A field of a function block or an interface value is read
+    /// through the instance its leaf names, as the `Value` tree does, and a path into a declaration
+    /// that holds no value yet names nothing, as a path into the null value does.
     fn walk<'p>(
         self,
-        mut range: CellRange,
+        mut range: ByteRange,
         mut type_id: u32,
+        presence: Option<u32>,
         path: &'p [RefSegment],
     ) -> Result<Target<'p>, VmTrap> {
+        if path.is_empty() {
+            return Ok(Target::Cells(range, type_id, presence));
+        }
+        if !self.present(presence) {
+            return Err(VmTrap::NullReference);
+        }
         for (index, segment) in path.iter().enumerate() {
             if is_instance(self.prepared, type_id) {
                 let RefSegment::Field(name) = segment else {
@@ -742,23 +781,24 @@ impl<'a> CellReader<'a> {
             }
             let (offset, child) =
                 step(self.prepared, type_id, segment).ok_or(VmTrap::NullReference)?;
-            let cells = self
+            let bytes = self
                 .prepared
                 .type_layout(child)
                 .ok_or(VmTrap::NullReference)?
-                .cells;
+                .shape
+                .bytes;
             let start = range
                 .start
                 .checked_add(offset)
                 .ok_or(VmTrap::NullReference)?;
-            range = CellRange {
+            range = ByteRange {
                 region: range.region,
                 start,
-                cells,
+                bytes,
             };
             type_id = child;
         }
-        Ok(Target::Cells(range, type_id))
+        Ok(Target::Cells(range, type_id, None))
     }
 
     /// The field `name` of `instance`, searched through its parents, then the rest of `rest`
@@ -782,10 +822,10 @@ impl<'a> CellReader<'a> {
                     rest,
                 ));
             };
-            if let Some((_, _, range, type_id)) =
+            if let Some((_, _, range, type_id, presence)) =
                 self.member_by(current, |_, member| member == name)
             {
-                return self.walk(range, type_id, rest);
+                return self.walk(range, type_id, presence, rest);
             }
             current = persistent.parent.ok_or(VmTrap::NullReference)?;
         }
@@ -853,13 +893,13 @@ fn step(prepared: &PreparedModule, type_id: u32, segment: &RefSegment) -> Option
                 .iter()
                 .position(|member| member_name(prepared, member.name_idx) == Some(name.as_str()))?;
             Some((
-                layout.members.get(ordinal)?.offset,
+                layout.members.get(ordinal)?.byte_offset,
                 fields.get(ordinal)?.type_id,
             ))
         }
         (RefSegment::Index(indices), TypeData::Array { elem_type_id, dims }) => {
             let element = array_offset_i64(dims, indices)?;
-            let stride = prepared.type_layout(resolved)?.array.as_ref()?.stride;
+            let stride = prepared.type_layout(resolved)?.array.as_ref()?.byte_stride;
             Some((
                 u32::try_from(element).ok()?.checked_mul(stride)?,
                 *elem_type_id,

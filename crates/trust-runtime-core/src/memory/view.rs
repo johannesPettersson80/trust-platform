@@ -18,7 +18,7 @@
 use super::{Generation, InstanceData, InstanceId, MemoryLocation, PreparedStorageWrite};
 use crate::error::RuntimeError;
 use crate::memory::cell_access::{CellPatch, CellsView};
-use crate::memory::layout::CellRange;
+use crate::memory::layout::ByteRange;
 use crate::value::{
     read_string_element, read_value_path_borrowed, single_string_index, string_element_count,
     RefSegment, Value, ValueRef, ValueRefView,
@@ -43,7 +43,7 @@ pub enum ValueView<'a> {
         /// The layouts and the region the cells are read from.
         cells: CellsView<'a>,
         /// The cell range the value occupies.
-        range: CellRange,
+        range: ByteRange,
         /// The `TYPE_TABLE` type the cells hold.
         type_id: u32,
     },

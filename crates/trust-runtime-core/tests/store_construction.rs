@@ -1,4 +1,4 @@
-//! The charge of the cell store's construction (specification 34 §6.2, MEM-10; C1-9d2b-1, R6).
+//! The charge of the store's construction (specification 34 §6.2, MEM-10, MEM-12; C1-9d2b-1, R6).
 //!
 //! The program is the bounded-C corpus program `initializers`, compiled from
 //! `crates/trust-runtime/tests/fixtures/bounded-c/initializers/src/main.st`:
@@ -34,13 +34,15 @@ const INITIALIZERS: &[u8] =
 #[test]
 fn range_tables_are_charged_before_they_are_reserved() {
     // Specification 34 §6.2 and O18 (R6, C1-9d2b-2 R5): construction charges the memory it holds with the
-    // region's cells, once and before it reserves anything. Worked out by hand from the declarations above:
+    // region's flat block, once and before it reserves anything. Worked out by hand from the declarations
+    // above and MEM-12:
     //
-    // - cells: the globals `ticks` (1), `table` (3), `origin` (2), `corners` (2 elements of 2 cells, 4),
-    //   `capacity` (1) and `calls` (1) take 12; the program holds `tracker` (one instance cell), `slot`,
-    //   `result` and `gain`, 4; the tracker holds `history`, 3. That is 19 cells at 16 bytes, 304 bytes. No
-    //   reference leaf and no text leaf is persistent, so there are no reference records, no text buffers
-    //   and no reference table;
+    // - the block: the globals in declaration order, `ticks` (a DINT) at 0, `table` (three INTs) at 4,
+    //   `origin` (two INTs) at 10, `corners` (two Pairs) at 14, `capacity` at 22 and `calls` at 24, end at
+    //   26; the program's root starts at the next multiple of 8, 32, with `gain` at 0, `tracker` (an
+    //   8-byte instance leaf) at 8, `slot` at 16 and `result` at 18, 20 bytes rounded up to 24; the
+    //   tracker's root follows at 56 with `history` (three INTs), 6 bytes rounded up to 8. That is 64
+    //   bytes. No reference leaf is persistent, so there is no reference table;
     // - the `globals` range table has one 12-byte entry for each of the 19 declarations, 228 bytes, and
     //   the `roots` table one for each of the 8 roots, 96 bytes;
     // - the instance table has one 28-byte entry for each of the 2 roots that have a template POU (the
@@ -50,26 +52,26 @@ fn range_tables_are_charged_before_they_are_reserved() {
     //   tracker's `history`. The static `calls` has no initial value: its function's static action gives
     //   it one (specification 34 §6.2).
     //
-    // The charge is 304 + 228 + 96 + 56 + 240 = 924 bytes, requested once. An allowance of 923 refuses it
-    // and returns the allowance's error, so no store exists; an allowance of 924 admits the region. A
-    // construction that left the instance table out would request 868 bytes, and one that left the range
-    // tables or the lists out would request 600 or 684.
+    // The charge is 64 + 228 + 96 + 56 + 240 = 684 bytes, requested once. An allowance of 683 refuses it
+    // and returns the allowance's error, so no store exists; an allowance of 684 admits the region. A
+    // construction that left the instance table out would request 628 bytes, one that left the range
+    // tables or the lists out 360 or 444, and one that still counted 19 cells of 16 bytes 924.
     let prepared = PreparedModule::from_bytes(INITIALIZERS, PreparationLimits::default())
         .expect("the initializers program prepares");
     let requests = std::cell::RefCell::new(Vec::new());
     let refused = CellStorage::construct(&prepared, Generation::FIRST, |bytes| {
         requests.borrow_mut().push(bytes);
-        if bytes > 923 {
+        if bytes > 683 {
             Err(RuntimeError::Overflow)
         } else {
             Ok(())
         }
     });
     assert_eq!(refused.err(), Some(RuntimeError::Overflow));
-    assert_eq!(*requests.borrow(), [924]);
+    assert_eq!(*requests.borrow(), [684]);
 
     let admitted = CellStorage::construct(&prepared, Generation::FIRST, |bytes| {
-        if bytes > 924 {
+        if bytes > 684 {
             Err(RuntimeError::Overflow)
         } else {
             Ok(())

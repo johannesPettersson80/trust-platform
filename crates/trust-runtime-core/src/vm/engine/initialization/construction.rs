@@ -22,7 +22,7 @@ impl EngineState<'_> {
             // A global that owns cells holds its declared default from the moment the cell store is
             // reserved (R3): writing the empty value over it would erase that default. The `Value` store
             // names the global with `Null` until its initializer runs.
-            if value.is_none() && self.holds_cells() && prepared.global_cells(id).is_some() {
+            if value.is_none() && self.holds_cells() && prepared.global_range(id).is_some() {
                 continue;
             }
             self.set_global(name, value.unwrap_or(Value::Null));

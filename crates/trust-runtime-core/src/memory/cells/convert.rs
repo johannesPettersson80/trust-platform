@@ -1,24 +1,22 @@
-//! Converting a value of a prepared type into its layout's cells and back (specification 34 §6.2,
-//! MEM-10; design "Boundaries": an engineering write converts a `Value` into the destination cells
-//! without allocating, and a read materializes a `Value`).
+//! Converting a value of a prepared type into its layout's bytes and back (specification 34
+//! MEM-12; design "Boundaries": an engineering write converts a `Value` into the destination's
+//! bytes without allocating, and a read materializes a `Value`).
 //!
 //! A [`TypeLayout`](crate::memory::layout::TypeLayout) fixes where a structure's members and an
-//! array's elements sit in cells, so every conversion below is driven by that layout and by the
+//! array's elements sit in the block, so every conversion below is driven by that layout and by the
 //! `TYPE_TABLE` entry: a member's offset, an element's stride and an enumeration's variants are
-//! taken from the prepared metadata rather than computed a second time.
+//! taken from the prepared metadata rather than computed a second time. Each leaf is read and
+//! written at its declared size through [`flat`].
 //!
 //! - [`write_value`](crate::memory::cells::write_value) checks the whole value against the layout
-//!   and then writes it, so a refused write leaves the cells as they were and allocates nothing;
-//! - [`read_value`](crate::memory::cells::read_value) materializes the value of a cell range and
-//!   refuses a cell the type's layout does not describe;
-//! - [`cell_offset`](crate::memory::cells::cell_offset) maps a member-and-index path to a cell
+//!   and then writes it, so a refused write leaves the bytes as they were and allocates nothing;
+//! - [`read_value`](crate::memory::cells::read_value) materializes the value of a byte range;
+//! - [`byte_offset`](crate::memory::cells::byte_offset) maps a member-and-index path to a byte
 //!   offset within a value of its type (C1-10).
 //!
-//! Two leaves are not converted in this slice, and each refusal names the type and the reason: a
-//! non-null reference, whose target is the reference record a store holds (C1-9); and a
-//! `STRUCT OVERLAP` or a union, whose members share their cells (C1-15). A text leaf is written
-//! through and read from its region's [`TextStore`](crate::memory::text::TextStore), whose buffer
-//! cuts it where assignment normalization cuts it (C1-7).
+//! A `STRUCT OVERLAP` and a union are not converted in this slice, and each refusal names the type
+//! and the reason: their members share their bytes (C1-15). A text leaf holds its length and its
+//! characters inline, cut where assignment normalization cuts it.
 
 use alloc::format;
 
@@ -29,11 +27,11 @@ mod read;
 pub(crate) use leaf::{leaf_in, structure_member_name, CellLeaf};
 pub(crate) use read::read_value_in;
 
-use super::{Cell, RefSlot, ReferenceTable, TextSlot};
+use super::{Cell, ReferenceTable};
 use crate::bytecode::{Field, TypeData, TypeEntry, TypeKind, BYTECODE_MAX_TYPE_NESTING};
 use crate::error::RuntimeError;
+use crate::memory::flat::{self, LeafKind};
 use crate::memory::layout::TypeLayout;
-use crate::memory::text::TextStore;
 use crate::value::{RefSegment, Value};
 use crate::vm::type_policy::primitive_value_matches;
 use crate::vm::PreparedModule;
@@ -41,12 +39,12 @@ use crate::vm::PreparedModule;
 /// The kind-mismatch reason: the value is one kind and the type's primitive encoding another.
 pub(super) const KIND_REASON: &str = "the value's kind does not match the type";
 
-/// Why a non-null reference is refused here (C1-9).
-const REFERENCE_REASON: &str = "a non-null reference is stored in C1-9";
+/// Why a non-null reference is refused where no region's reference table holds it (O9).
+const REFERENCE_REASON: &str = "a non-null reference is held by its region's reference table";
 
-/// Why a reference cell's target is refused here (C1-9).
+/// Why a reference leaf that holds a reference is refused where no reference table is given (O9).
 pub(super) const REFERENCE_TARGET_REASON: &str =
-    "a reference cell's target is its record, which C1-9 reads";
+    "a reference leaf's target is in its region's reference table";
 
 /// Why a `STRUCT OVERLAP` is refused here (C1-15).
 pub(super) const OVERLAP_REASON: &str =
@@ -54,7 +52,7 @@ pub(super) const OVERLAP_REASON: &str =
 
 /// Why a union is refused here (C1-15).
 pub(super) const UNION_REASON: &str =
-    "a union's members share their cells; C1-15 owns shared storage";
+    "a union's members share their bytes; C1-15 owns shared storage";
 
 /// Why a value of another structure type is refused.
 const STRUCTURE_NAME_REASON: &str = "the value's type name is not the structure's";
@@ -80,91 +78,83 @@ pub(super) const OVERLAP_LEAF: &str = "OVERLAP";
 /// The leaf name of a union.
 pub(super) const UNION_LEAF: &str = "UNION";
 
-/// The `Cell::Text` primitive encodings (`STRING` and `WSTRING`).
+/// The text primitive encodings (`STRING` and `WSTRING`).
 const TEXT_PRIMITIVES: [u16; 2] = [24, 25];
 
 /// The primitive encoding of `WSTRING`; `STRING` is 24.
 pub(super) const WSTRING_PRIMITIVE: u16 = 25;
 
-/// Write the value `value` of the `TYPE_TABLE` type `type_id` into `cells`, the cell range of the
-/// type's prepared layout (specification 34 §6.2, MEM-10; design "Boundaries").
+/// Write the value `value` of the `TYPE_TABLE` type `type_id` into `bytes`, the byte range of the
+/// type's prepared layout (specification 34 MEM-12; design "Boundaries").
 ///
-/// `cells` is the whole range: its length is the layout's cell count, and `cell_start` is its cell
-/// offset within the region so a text leaf's slot names the region's buffer (C1-7). `text` is that
-/// region's [`TextStore`](crate::memory::text::TextStore). Every value kind of this slice is
-/// converted — each scalar with its exact bits, an enumeration as its type and value, an instance
-/// as its identity, a text through its buffer with the normalization cut, a structure's members
-/// and an array's elements at their layout offsets with nested compounds inline, a null reference
-/// as an empty reference cell, and [`Value::Null`] as an empty cell.
+/// `bytes` is the whole range: its length is the layout's declared size. Every value kind of this
+/// slice is converted — each scalar with its exact bits at its declared size, an enumeration as its
+/// base type, an instance as its identity, a text inline with the normalization cut, a structure's
+/// members and an array's elements at their layout offsets with nested compounds inline, a null
+/// reference as an empty reference leaf, and [`Value::Null`] as zero bytes.
 ///
 /// # Errors
 ///
 /// Refused with [`RuntimeError::InitFailed`], naming the type, the refused value or leaf and the
-/// reason, when a value's kind is not the type's, when a text buffer leaves the region, when a
-/// structure is missing a member or carries one the type does not declare, when an array's bounds
-/// or element count are not the type's, and when `cells` is not the layout's length. A non-null
-/// reference (C1-9) and a `STRUCT OVERLAP` or union (C1-15) are refused until their slices convert
-/// them. The check runs before the first write, so a refusal leaves the cells as they were, and no
-/// path allocates.
+/// reason, when a value's kind is not the type's, when a structure is missing a member or carries
+/// one the type does not declare, when an array's bounds or element count are not the type's, and
+/// when `bytes` is not the layout's length. A non-null reference, which a region's reference table
+/// holds, and a `STRUCT OVERLAP` or union (C1-15) are refused. The check runs before the first
+/// write, so a refusal leaves the bytes as they were, and no path allocates.
 pub fn write_value(
-    cells: &mut [Cell],
+    bytes: &mut [u8],
     type_id: u32,
     value: &Value,
     prepared: &PreparedModule,
-    text: &mut TextStore,
-    cell_start: u32,
 ) -> Result<(), RuntimeError> {
-    write_value_in(cells, type_id, value, prepared, text, None, cell_start)
+    write_value_in(bytes, type_id, value, prepared, None, 0)
 }
 
-/// [`write_value`] over a region that holds reference leaves: a non-null reference is kept in
-/// `references` under its cell (O9, R3). `None` refuses a non-null reference, as [`write_value`] does.
+/// [`write_value`] into a region that holds reference leaves: a non-null reference is kept in
+/// `references` under its leaf's byte offset, `start` being the offset of `bytes` in its block (O9,
+/// R3). `None` refuses a non-null reference, as [`write_value`] does.
 pub(crate) fn write_value_in(
-    cells: &mut [Cell],
+    bytes: &mut [u8],
     type_id: u32,
     value: &Value,
     prepared: &PreparedModule,
-    text: &mut TextStore,
     references: Option<&mut ReferenceTable>,
-    cell_start: u32,
+    start: u32,
 ) -> Result<(), RuntimeError> {
-    check_slice_length(cells.len(), type_id, prepared)?;
+    check_slice_length(bytes.len(), type_id, prepared)?;
     check_value(type_id, value, prepared, references.is_some())?;
-    store_value(
-        cells, type_id, value, prepared, text, references, cell_start,
-    )
+    store_value(bytes, type_id, value, prepared, references, start)
 }
 
-/// Materialize the value of the `TYPE_TABLE` type `type_id` from `cells`, the cell range of the
-/// type's prepared layout (specification 34 §6.2, MEM-10; design "Boundaries").
+/// Materialize the value of the `TYPE_TABLE` type `type_id` from `bytes`, the byte range of the
+/// type's prepared layout (specification 34 MEM-12; design "Boundaries").
 ///
 /// The inverse of [`write_value`]: a range [`write_value`] wrote reads back as the value it was
-/// given, a text leaf from the buffer its [`Cell::Text`] names (C1-7), and a range whose cells are
-/// all [`Cell::Null`] reads as [`Value::Null`], the empty value.
+/// given, and an instance leaf that names no instance reads as [`Value::Null`].
 ///
 /// # Errors
 ///
-/// Refused with [`RuntimeError::InitFailed`], naming the type, the refused cell or leaf and the
-/// reason, when a cell does not hold a value of the type, when an enumeration cell names no variant
-/// of its type, when `cells` is not the layout's length, and for the non-null references (C1-9) and
-/// overlapping structures and unions (C1-15) [`write_value`] refuses.
+/// Refused with [`RuntimeError::InitFailed`], naming the type, the refused leaf and the reason,
+/// when a leaf does not hold a value of the type, when an enumeration names no variant of its type,
+/// when `bytes` is not the layout's length, and for a reference that holds a reference, which only
+/// a region's table can read, and the overlapping structures and unions (C1-15) [`write_value`]
+/// refuses.
 pub fn read_value(
-    cells: &[Cell],
+    bytes: &[u8],
     type_id: u32,
     prepared: &PreparedModule,
-    text: &TextStore,
 ) -> Result<Value, RuntimeError> {
-    read::read_value_in(cells, type_id, prepared, text, None)
+    read::read_value_in(bytes, type_id, prepared, None, 0)
 }
 
-/// The cell offset, within a value of the `TYPE_TABLE` type `type_id`, of the member-and-index
-/// `path`, or `None` for a path the type does not have (specification 34 §6.2; design "Operands and
-/// references": C1-10 turns a reference's path into a cell).
+/// The byte offset, within a value of the `TYPE_TABLE` type `type_id`, of the member-and-index
+/// `path`, or `None` for a path the type does not have (specification 34 MEM-12; design "Operands
+/// and references": C1-10 turns a reference's path into an offset).
 ///
 /// [`RefSegment::Field`] resolves a member of a structure by name, and [`RefSegment::Index`]
 /// resolves an array element by its IEC index, honouring the array's declared lower bounds.
 #[must_use]
-pub fn cell_offset(type_id: u32, path: &[RefSegment], prepared: &PreparedModule) -> Option<u32> {
+pub fn byte_offset(type_id: u32, path: &[RefSegment], prepared: &PreparedModule) -> Option<u32> {
     let mut offset = 0u32;
     let mut current = type_id;
     for segment in path {
@@ -179,7 +169,7 @@ pub fn cell_offset(type_id: u32, path: &[RefSegment], prepared: &PreparedModule)
                     string(prepared, member.name_idx)
                         .is_ok_and(|member_name| member_name.eq_ignore_ascii_case(name.as_str()))
                 })?;
-                offset = offset.checked_add(layout.members.get(ordinal)?.offset)?;
+                offset = offset.checked_add(layout.members.get(ordinal)?.byte_offset)?;
                 current = fields.get(ordinal)?.type_id;
             }
             RefSegment::Index(indices) => {
@@ -187,7 +177,7 @@ pub fn cell_offset(type_id: u32, path: &[RefSegment], prepared: &PreparedModule)
                     return None;
                 };
                 let element = crate::value::array_offset_i64(dims, indices)?;
-                let stride = prepared.type_layout(resolved)?.array.as_ref()?.stride;
+                let stride = prepared.type_layout(resolved)?.array.as_ref()?.byte_stride;
                 offset = offset.checked_add(u32::try_from(element).ok()?.checked_mul(stride)?)?;
                 current = *elem_type_id;
             }
@@ -196,59 +186,73 @@ pub fn cell_offset(type_id: u32, path: &[RefSegment], prepared: &PreparedModule)
     Some(offset)
 }
 
-/// How one prepared type holds a value in cells.
+/// The length field's bytes, the characters' capacity in bytes and the width of the text leaf of
+/// `type_id`, or `None` for a type that is not a text (MEM-12).
+pub(crate) fn text_geometry(prepared: &PreparedModule, type_id: u32) -> Option<(u32, u32, bool)> {
+    let prim_id = primitive_of(prepared, type_id)?;
+    if !TEXT_PRIMITIVES.contains(&prim_id) {
+        return None;
+    }
+    let layout = prepared.type_layout(type_id)?;
+    let capacity = layout.text_leaves.first()?.capacity_bytes;
+    let length = layout.shape.bytes.checked_sub(capacity)?;
+    Some((length, capacity, prim_id == WSTRING_PRIMITIVE))
+}
+
+/// How one prepared type holds a value in a flat block.
 pub(super) enum Shape {
-    /// One scalar cell with this primitive encoding.
+    /// One scalar leaf with this primitive encoding.
     Scalar(u16),
-    /// One text leaf of this primitive encoding (`STRING` 24 or `WSTRING` 25); its buffer is in the
-    /// region's text store (C1-7).
+    /// One text leaf of this primitive encoding (`STRING` 24 or `WSTRING` 25), its length and its
+    /// characters inline.
     Text(u16),
-    /// One reference cell.
+    /// One reference leaf.
     Reference,
-    /// One instance cell.
+    /// One instance leaf.
     Instance,
-    /// One enumeration cell of this resolved enumeration type.
+    /// One enumeration leaf of this resolved enumeration type.
     Enumeration(u32),
     /// A structure of this resolved structure type's members.
     Structure(u32),
-    /// A `STRUCT OVERLAP`, whose members share their cells (C1-15).
+    /// A `STRUCT OVERLAP`, whose members share their bytes (C1-15).
     Overlay,
-    /// A union, whose members share their cells (C1-15).
+    /// A union, whose members share their bytes (C1-15).
     Union,
     /// An array of this element type.
     Array(u32),
 }
 
-/// Refuse a cell range that is not exactly the type's layout's cells.
+/// Refuse a byte range that is not exactly the type's declared size.
 pub(super) fn check_slice_length(
-    cells: usize,
+    bytes: usize,
     type_id: u32,
     prepared: &PreparedModule,
 ) -> Result<(), RuntimeError> {
     let layout = prepared
         .type_layout(type_id)
         .ok_or_else(|| unknown_type(type_id))?;
-    if cells != layout.cells as usize {
+    if bytes != layout.shape.bytes as usize {
         return Err(refusal(
             prepared,
             type_id,
-            "cells",
+            "bytes",
             &format!(
-                "the slice holds {cells} cells, the type's layout needs {}",
-                layout.cells
+                "the slice holds {bytes} bytes, the type's layout needs {}",
+                layout.shape.bytes
             ),
         ));
     }
     Ok(())
 }
 
-/// Whether `type_id` resolves to a reference type, whose leaf the cell arm holds as a `ValueRef` (O9).
+/// Whether `type_id` resolves to a reference type, whose leaf's reference a region's table holds
+/// (O9).
 pub(crate) fn is_reference_type(prepared: &PreparedModule, type_id: u32) -> bool {
     resolve(prepared, type_id)
         .is_ok_and(|(_, entry)| matches!(entry.data, TypeData::Reference { .. }))
 }
 
-/// Check the whole value against the type before a cell is written, so a refusal writes nothing.
+/// Check the whole value against the type before a byte is written, so a refusal writes nothing.
 /// `accept_references` admits a non-null reference, which the region's table then holds (O9).
 pub(crate) fn check_value(
     type_id: u32,
@@ -453,18 +457,18 @@ fn check_array(
     Ok(())
 }
 
-/// Write a checked value into the cells of its type's layout.
+/// Write a checked value into the bytes of its type's layout; `start` is their offset in their
+/// block.
 fn store_value(
-    cells: &mut [Cell],
+    bytes: &mut [u8],
     type_id: u32,
     value: &Value,
     prepared: &PreparedModule,
-    text: &mut TextStore,
     references: Option<&mut ReferenceTable>,
-    cell_start: u32,
+    start: u32,
 ) -> Result<(), RuntimeError> {
     if matches!(value, Value::Null) {
-        cells.fill(Cell::Null);
+        bytes.fill(0);
         return Ok(());
     }
     match shape(prepared, type_id)? {
@@ -475,51 +479,55 @@ fn store_value(
             let Some(cell) = scalar_slot(value) else {
                 return Err(RuntimeError::InvalidExecutionState);
             };
-            *first_mut(cells)? = cell;
+            flat::encode(LeafKind::Primitive(prim_id), cell, bytes)?;
         }
         Shape::Text(prim_id) => {
             let Some((stored, wide)) = text_value(prim_id, value) else {
                 return Err(RuntimeError::InvalidExecutionState);
             };
-            text.write(TextSlot(cell_start), wide, stored)
-                .ok_or(RuntimeError::InvalidExecutionState)?;
-            *first_mut(cells)? = Cell::Text(TextSlot(cell_start));
+            let (length, capacity, _) =
+                text_geometry(prepared, type_id).ok_or(RuntimeError::InvalidExecutionState)?;
+            flat::write_text(bytes, length, capacity, stored, wide)?;
         }
         Shape::Enumeration(enum_type) => {
             let Value::Enum(enumeration) = value else {
                 return Err(RuntimeError::InvalidExecutionState);
             };
-            *first_mut(cells)? = Cell::Enum {
-                type_idx: enum_type,
-                value: enumeration.numeric_value(),
-            };
+            let kind = enumeration_kind(prepared, enum_type)?;
+            flat::encode(
+                kind,
+                Cell::Enum {
+                    type_idx: enum_type,
+                    value: enumeration.numeric_value(),
+                },
+                bytes,
+            )?;
         }
-        Shape::Reference => store_reference(cells, value, references, cell_start)?,
+        Shape::Reference => store_reference(bytes, value, references, start)?,
         Shape::Instance => {
             let Value::Instance(instance) = value else {
                 return Err(RuntimeError::InvalidExecutionState);
             };
-            *first_mut(cells)? = Cell::Instance(*instance);
+            flat::encode(LeafKind::Instance, Cell::Instance(*instance), bytes)?;
         }
         Shape::Structure(struct_type) => store_structure(
-            cells,
+            bytes,
             type_id,
             struct_type,
             value,
             prepared,
-            text,
             references,
-            cell_start,
+            start,
         )?,
         Shape::Array(elem_type) => store_array(
-            cells, type_id, elem_type, value, prepared, text, references, cell_start,
+            bytes, type_id, elem_type, value, prepared, references, start,
         )?,
         Shape::Overlay | Shape::Union => return Err(RuntimeError::InvalidExecutionState),
     }
     Ok(())
 }
 
-/// The text of a value of a text leaf's primitive encoding, and whether its buffer is wide.
+/// The text of a value of a text leaf's primitive encoding, and whether its leaf is wide.
 fn text_value(prim_id: u16, value: &Value) -> Option<(&str, bool)> {
     if !primitive_value_matches(prim_id, value) {
         return None;
@@ -532,50 +540,57 @@ fn text_value(prim_id: u16, value: &Value) -> Option<(&str, bool)> {
     Some((stored, prim_id == WSTRING_PRIMITIVE))
 }
 
+/// How the leaf of the resolved enumeration type `enum_type` is stored: as its base primitive.
+pub(super) fn enumeration_kind(
+    prepared: &PreparedModule,
+    enum_type: u32,
+) -> Result<LeafKind, RuntimeError> {
+    let TypeData::Enum { base_type_id, .. } = &type_entry(prepared, enum_type)?.data else {
+        return Err(RuntimeError::InvalidExecutionState);
+    };
+    let base = primitive_of(prepared, *base_type_id).ok_or(RuntimeError::InvalidExecutionState)?;
+    Ok(LeafKind::Enumeration {
+        type_idx: enum_type,
+        base,
+    })
+}
+
 /// Write a checked reference leaf (O9, R3). A non-null reference is kept in the region's table under
-/// the leaf's cell, and the cell names that entry. The table is reserved with the reference leaves, so
-/// a leaf outside it is refused.
+/// the leaf's byte offset, and the leaf says that it holds one. The table is reserved with the
+/// reference leaves, so a leaf outside it is refused.
 fn store_reference(
-    cells: &mut [Cell],
+    bytes: &mut [u8],
     value: &Value,
     references: Option<&mut ReferenceTable>,
-    cell_start: u32,
+    start: u32,
 ) -> Result<(), RuntimeError> {
-    let slot = first_mut(cells)?;
     match value {
         Value::Reference(None) => {
             if let Some(references) = references {
-                references.set(cell_start, None);
+                references.set(start, None);
             }
-            *slot = Cell::NullRef;
-            Ok(())
+            flat::encode(LeafKind::Reference, Cell::NullRef, bytes)
         }
         Value::Reference(Some(reference)) => {
             let references = references.ok_or(RuntimeError::InvalidExecutionState)?;
-            if !references.set(cell_start, Some(reference.clone())) {
+            if !references.set(start, Some(reference.clone())) {
                 return Err(RuntimeError::InvalidExecutionState);
             }
-            *slot = Cell::Ref(RefSlot(cell_start));
-            Ok(())
+            flat::encode(LeafKind::Reference, Cell::Ref(super::RefSlot(start)), bytes)
         }
         _ => Err(RuntimeError::InvalidExecutionState),
     }
 }
 
 /// Write a checked structure's members at their layout offsets.
-#[allow(
-    clippy::too_many_arguments,
-    reason = "a structure or an array is stored with both leaf stores and the position of its cells"
-)]
 fn store_structure(
-    cells: &mut [Cell],
+    bytes: &mut [u8],
     type_id: u32,
     struct_type: u32,
     value: &Value,
     prepared: &PreparedModule,
-    text: &mut TextStore,
     mut references: Option<&mut ReferenceTable>,
-    cell_start: u32,
+    start: u32,
 ) -> Result<(), RuntimeError> {
     let layout = layout_of(prepared, type_id)?;
     let TypeData::Struct { fields } = &type_entry(prepared, struct_type)?.data else {
@@ -589,44 +604,28 @@ fn store_structure(
         let Some(member_value) = structure.field(name) else {
             return Err(RuntimeError::InvalidExecutionState);
         };
-        let member_cells = layout_of(prepared, field.type_id)?.cells as usize;
-        let start = member.offset as usize;
-        let end = start
-            .checked_add(member_cells)
-            .ok_or(RuntimeError::Overflow)?;
-        let range = cells
-            .get_mut(start..end)
-            .ok_or(RuntimeError::InvalidExecutionState)?;
-        let member_start = cell_start
-            .checked_add(member.offset)
-            .ok_or(RuntimeError::Overflow)?;
+        let size = layout_of(prepared, field.type_id)?.shape.bytes;
         store_value(
-            range,
+            part_mut(bytes, member.byte_offset, size)?,
             field.type_id,
             member_value,
             prepared,
-            text,
             references.as_deref_mut(),
-            member_start,
+            offset_by(start, member.byte_offset)?,
         )?;
     }
     Ok(())
 }
 
 /// Write a checked array's elements at their stride.
-#[allow(
-    clippy::too_many_arguments,
-    reason = "a structure or an array is stored with both leaf stores and the position of its cells"
-)]
 fn store_array(
-    cells: &mut [Cell],
+    bytes: &mut [u8],
     type_id: u32,
     elem_type: u32,
     value: &Value,
     prepared: &PreparedModule,
-    text: &mut TextStore,
     mut references: Option<&mut ReferenceTable>,
-    cell_start: u32,
+    start: u32,
 ) -> Result<(), RuntimeError> {
     let layout = layout_of(prepared, type_id)?;
     let Some(array) = layout.array.as_ref() else {
@@ -635,35 +634,57 @@ fn store_array(
     let Value::Array(value) = value else {
         return Err(RuntimeError::InvalidExecutionState);
     };
-    let stride = usize::try_from(array.stride).map_err(|_| RuntimeError::Overflow)?;
+    let size = layout_of(prepared, elem_type)?.shape.bytes;
     for (index, element) in value.elements().iter().enumerate() {
-        let start = index.checked_mul(stride).ok_or(RuntimeError::Overflow)?;
-        let end = start.checked_add(stride).ok_or(RuntimeError::Overflow)?;
-        let range = cells
-            .get_mut(start..end)
-            .ok_or(RuntimeError::InvalidExecutionState)?;
-        let element_start = cell_start
-            .checked_add(u32::try_from(start).map_err(|_| RuntimeError::Overflow)?)
-            .ok_or(RuntimeError::Overflow)?;
+        let offset = element_offset(index, array.byte_stride)?;
         store_value(
-            range,
+            part_mut(bytes, offset, size)?,
             elem_type,
             element,
             prepared,
-            text,
             references.as_deref_mut(),
-            element_start,
+            offset_by(start, offset)?,
         )?;
     }
     Ok(())
 }
 
-/// The first cell of a range, or a refusal when the range holds none.
-fn first_mut(cells: &mut [Cell]) -> Result<&mut Cell, RuntimeError> {
-    cells.first_mut().ok_or(RuntimeError::InvalidExecutionState)
+/// The byte offset of element `index` of an array whose elements are `stride` bytes apart.
+pub(super) fn element_offset(index: usize, stride: u32) -> Result<u32, RuntimeError> {
+    u32::try_from(index)
+        .ok()
+        .and_then(|index| index.checked_mul(stride))
+        .ok_or(RuntimeError::Overflow)
 }
 
-/// How a prepared type holds its value in cells.
+/// `base` moved on by `offset` bytes.
+pub(super) fn offset_by(base: u32, offset: u32) -> Result<u32, RuntimeError> {
+    base.checked_add(offset).ok_or(RuntimeError::Overflow)
+}
+
+/// The `len` bytes of `bytes` from `offset`, or a refusal when they leave it.
+pub(super) fn part(bytes: &[u8], offset: u32, len: u32) -> Result<&[u8], RuntimeError> {
+    let start = usize::try_from(offset).map_err(|_| RuntimeError::Overflow)?;
+    let end = start
+        .checked_add(usize::try_from(len).map_err(|_| RuntimeError::Overflow)?)
+        .ok_or(RuntimeError::Overflow)?;
+    bytes
+        .get(start..end)
+        .ok_or(RuntimeError::InvalidExecutionState)
+}
+
+/// The `len` bytes of `bytes` from `offset`, writable, or a refusal when they leave it.
+pub(super) fn part_mut(bytes: &mut [u8], offset: u32, len: u32) -> Result<&mut [u8], RuntimeError> {
+    let start = usize::try_from(offset).map_err(|_| RuntimeError::Overflow)?;
+    let end = start
+        .checked_add(usize::try_from(len).map_err(|_| RuntimeError::Overflow)?)
+        .ok_or(RuntimeError::Overflow)?;
+    bytes
+        .get_mut(start..end)
+        .ok_or(RuntimeError::InvalidExecutionState)
+}
+
+/// How a prepared type holds its value in a flat block.
 pub(super) fn shape(prepared: &PreparedModule, type_id: u32) -> Result<Shape, RuntimeError> {
     let (resolved, entry) = resolve(prepared, type_id)?;
     Ok(match &entry.data {
@@ -700,7 +721,7 @@ fn primitive_shape(prepared: &PreparedModule, type_id: u32) -> Result<Shape, Run
 }
 
 /// The primitive encoding a type resolves to through its aliases and subranges.
-fn primitive_of(prepared: &PreparedModule, type_id: u32) -> Option<u16> {
+pub(super) fn primitive_of(prepared: &PreparedModule, type_id: u32) -> Option<u16> {
     let types = prepared.type_table();
     let mut current = type_id;
     for _ in 0..=BYTECODE_MAX_TYPE_NESTING {
@@ -787,7 +808,7 @@ fn type_label(prepared: &PreparedModule, type_id: u32) -> SmolStr {
 
 /// The refusal of one conversion, naming the type, the refused value or leaf and the reason.
 ///
-/// A cell conversion is a boundary write or read of a destination variable, so the refusal is the
+/// A conversion is a boundary write or read of a destination variable, so the refusal is the
 /// runtime's initialization failure, whose owner, variable and error fields carry those three
 /// facts.
 pub(super) fn refusal(
@@ -812,7 +833,7 @@ fn unknown_type(type_id: u32) -> RuntimeError {
     }
 }
 
-/// The scalar cell of a value, or `None` for a value that is not a scalar.
+/// The decoded leaf of a scalar value, or `None` for a value that is not a scalar.
 fn scalar_slot(value: &Value) -> Option<Cell> {
     Some(match value {
         Value::Bool(value) => Cell::Bool(*value),

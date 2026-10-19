@@ -10,7 +10,7 @@
 use alloc::vec::Vec;
 
 use crate::error::RuntimeError;
-use crate::memory::layout::CellRange;
+use crate::memory::layout::ByteRange;
 use crate::memory::InstanceId;
 use crate::vm::VmTrap;
 
@@ -21,7 +21,7 @@ pub(crate) struct PersistentInstance {
     /// The template POU the instance was created from.
     pub(crate) pou: u32,
     /// The cells of the instance's own members.
-    pub(crate) range: CellRange,
+    pub(crate) range: ByteRange,
     /// The instance whose members it inherits, if any.
     pub(crate) parent: Option<InstanceId>,
 }

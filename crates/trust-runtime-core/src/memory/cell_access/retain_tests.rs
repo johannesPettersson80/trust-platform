@@ -64,12 +64,19 @@ fn write_global(fixture: &mut Fixture, declaration: u32, type_id: u32, value: &V
         .regions()
         .global_range(declaration as usize)
         .expect("the global owns cells");
-    let (persistent, text) = fixture.arm.cells_mut().regions_mut().parts_mut();
-    let cells = persistent
-        .cells_mut(range)
+    let (persistent, references) = fixture.arm.cells_mut().regions_mut().split_mut();
+    let bytes = persistent
+        .bytes_mut(range)
         .expect("the range lies in the persistent region");
-    crate::memory::cells::write_value(cells, type_id, value, &fixture.prepared, text, range.start)
-        .expect("the value writes");
+    crate::memory::cells::write_value_in(
+        bytes,
+        type_id,
+        value,
+        &fixture.prepared,
+        Some(references),
+        range.start,
+    )
+    .expect("the value writes");
 }
 
 /// A fixture over `prepared`, holding the cells that construction writes and no instance.
@@ -212,15 +219,19 @@ fn a_wide_text_in_cells_is_transcoded_to_its_utf8_length() {
 }
 
 #[test]
-fn an_empty_cell_range_encodes_as_the_null_value() {
-    // Specification 11 §6.7: the cells of a value that holds nothing, all empty, are the null value, which
-    // the payload writes as its tag 31 alone, as the `Value::Null` that reading them gives. `dint_g` is
-    // written Null here. An encoder that wrote the type's zero instead would write tag 4 and four bytes.
+fn a_null_write_encodes_as_the_types_zero() {
+    // Specification 34 MEM-12 and specification 11 §6.7: a DINT holds four bytes and no tag, so the
+    // null value written into `dint_g` leaves zero bytes, which the payload writes as the DINT 0: the
+    // DINT tag 4 and four zero bytes, as the `Value::DInt(0)` that reading them gives. An encoder
+    // that still wrote the null tag 31 would disagree with the read.
     let mut fixture = Fixture::new();
     write_global(&mut fixture, DINT_DECL, super::fixture::DINT, &Value::Null);
     let view = fixture.reader().read_global("dint_g").expect("dint_g");
-    assert_eq!(view_payload(&view), Ok(one_entry(&[31])));
-    assert_eq!(value_payload(&Value::Null), Ok(one_entry(&[31])));
+    assert_eq!(view_payload(&view), Ok(one_entry(&[4, 0, 0, 0, 0])));
+    assert_eq!(
+        value_payload(&Value::DInt(0)),
+        Ok(one_entry(&[4, 0, 0, 0, 0]))
+    );
 }
 
 #[test]

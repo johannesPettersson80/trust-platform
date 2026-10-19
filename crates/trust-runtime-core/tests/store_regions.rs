@@ -1,9 +1,9 @@
-//! The persistent region of the cell store: one cell range per persistent root (O8), a derived
-//! template's own cells and parent link (O6, O7), the charge taken before the region is reserved
-//! (O18), and one text buffer per text leaf occurrence (O10).
+//! The persistent block: one byte range per persistent root (O8), a derived template's own bytes and
+//! parent link (O6, O7), the charge taken before the block is reserved (O18), and every text leaf
+//! occurrence inline (O10).
 //!
-//! Specification: `docs/specs/34-runtime-portability.md` §6.2 (MEM-10). Every expected value below is
-//! worked out by hand from the source this fixture encodes:
+//! Specification: `docs/specs/34-runtime-portability.md` §6.2 (MEM-10, MEM-12). Every expected value
+//! below is worked out by hand from the source this fixture encodes:
 //!
 //! ```st
 //! FUNCTION_BLOCK Names
@@ -16,9 +16,9 @@
 //! END_PROGRAM
 //! ```
 //!
-//! The globals are `trigger` (one cell), `g_a` and `g_b` (one instance leaf each). The roots are
-//! `Main` (no own cells), `trigger` (no template), `g_a` and `g_b` (each a `Names` with three cells
-//! and three text leaves of five bytes).
+//! The globals are `trigger` (a BOOL, byte 0), `g_a` and `g_b` (an 8-byte instance leaf each, bytes 8
+//! to 23). The roots are `Main` (no own bytes), `trigger` (no template), `g_a` and `g_b` (each a
+//! `Names`: three `STRING[5]` of a 2-byte length and five bytes, at a stride of 8, 24 bytes).
 
 #[path = "common/bytecode_helpers.rs"]
 mod bytecode_helpers;
@@ -34,8 +34,7 @@ use trust_runtime_core::bytecode::{
     VarMetaEntry, HEADER_FLAG_CRC32,
 };
 use trust_runtime_core::error::RuntimeError;
-use trust_runtime_core::memory::cells::TextSlot;
-use trust_runtime_core::memory::layout::{CellRange, LayoutRegion};
+use trust_runtime_core::memory::layout::{ByteRange, LayoutRegion};
 use trust_runtime_core::memory::regions::CellStorage;
 use trust_runtime_core::memory::Generation;
 use trust_runtime_core::vm::{PreparationLimits, PreparedModule};
@@ -49,10 +48,10 @@ const MAIN_POU: u32 = 1;
 const NAMES_POU: u32 = 2;
 const DERIVED_POU: u32 = 3;
 
-/// The persistent cells of the fixture: three globals, then the roots' ranges.
-const GLOBAL_CELLS: u32 = 3;
-/// One `Names` instance's own cells: its array `v`.
-const NAMES_CELLS: u32 = 3;
+/// The persistent bytes of the fixture's globals, before the roots' ranges.
+const GLOBAL_BYTES: u32 = 24;
+/// One `Names` instance's own bytes: its array `v`, three 7-byte texts at a stride of 8.
+const NAMES_BYTES: u32 = 24;
 
 fn primitive(prim_id: u16, max_length: u16) -> TypeEntry {
     TypeEntry {
@@ -454,31 +453,31 @@ fn construct(prepared: &PreparedModule) -> CellStorage {
 
 #[test]
 fn persistent_region_reserves_one_range_per_root() {
-    // Specification 34 §6.2 and O8: each persistent root has its own cell range. The globals take
-    // cells 0 to 2 (trigger, g_a, g_b). Then the roots in order: Main has no own cells, trigger has
-    // no template, and g_a and g_b each take the three cells of a Names instance. The ranges are
-    // [3, 6) for g_a and [6, 9) for g_b, nine cells in all. One range per template would give g_b
-    // g_a's range and reserve six cells.
+    // Specification 34 §6.2 and O8: each persistent root has its own byte range. The globals take
+    // bytes 0 to 23 (trigger at 0, g_a and g_b at 8 and 16). Then the roots in order: Main has no
+    // own bytes, trigger has no template, and g_a and g_b each take the 24 bytes of a Names
+    // instance. The ranges are [24, 48) for g_a and [48, 72) for g_b, 72 bytes in all. One range
+    // per template would give g_b g_a's range and reserve 48 bytes.
     let prepared = prepared();
     let storage = construct(&prepared);
     let regions = storage.regions();
     assert_eq!(
         regions.root_range(2),
-        Some(CellRange {
+        Some(ByteRange {
             region: LayoutRegion::Persistent,
-            start: GLOBAL_CELLS,
-            cells: NAMES_CELLS,
+            start: GLOBAL_BYTES,
+            bytes: NAMES_BYTES,
         })
     );
     assert_eq!(
         regions.root_range(3),
-        Some(CellRange {
+        Some(ByteRange {
             region: LayoutRegion::Persistent,
-            start: GLOBAL_CELLS + NAMES_CELLS,
-            cells: NAMES_CELLS,
+            start: GLOBAL_BYTES + NAMES_BYTES,
+            bytes: NAMES_BYTES,
         })
     );
-    assert_eq!(regions.persistent().reserved(), (9, 0));
+    assert_eq!(regions.persistent().reserved(), 72);
 }
 
 #[test]
@@ -486,49 +485,47 @@ fn derived_template_exists_without_own_variables() {
     // Specification 34 §6.2, O6 and O7: a derived function block without variables of its own has
     // an empty template with a link to its parent's template, and the parent's template holds only
     // the parent's own array. A missing template would make the derived instance unreservable; a
-    // flattened template would count the parent's three cells again.
+    // flattened template would count the parent's 24 bytes again.
     let prepared = prepared();
     let derived = prepared
-        .instance_template_cells(DERIVED_POU)
+        .instance_template(DERIVED_POU)
         .expect("a derived template exists");
-    assert_eq!(derived.range.cells, 0);
+    assert_eq!(derived.range.bytes, 0);
     assert_eq!(derived.parent, Some(NAMES_POU));
     let names = prepared
-        .instance_template_cells(NAMES_POU)
+        .instance_template(NAMES_POU)
         .expect("the parent template exists");
-    assert_eq!(names.range.cells, NAMES_CELLS);
+    assert_eq!(names.range.bytes, NAMES_BYTES);
     assert_eq!(names.parent, None);
 }
 
 #[test]
 fn reservation_is_charged_before_it_is_reserved() {
     // Specification 34 §6.2 and O18: the region's bytes are charged before anything is reserved.
-    // Nine cells at 16 bytes and no reference records give 144 bytes; six text buffers of five
-    // bytes give 30. Construction charges the memory it holds with them (C1-9d2b-1, R6): the
-    // `globals` table has one 12-byte entry for each of the 5 declarations and the `roots` table one
-    // for each of the 4 roots, 108 bytes; the transient lists hold 6 text leaves at 12 bytes (each with its byte offset in the flat
-    // block, MEM-12) and 5
-    // initial values at 24 bytes (`trigger`, `g_a`, `g_b` and the `v` of each `Names` root), 192
-    // bytes. The instance table holds one 28-byte entry for each of the 3 roots that have a template POU
-    // (`Main`, `g_a` and `g_b`; `trigger` has none), 84 bytes (C1-9d2b-2, R5). The charge is
-    // 144 + 30 + 108 + 192 + 84 = 558 bytes, requested once. An allowance one byte short refuses it and
-    // reserves nothing; an allowance of exactly 558 admits the region. The 474 bytes that this charge was
-    // before the instance table was part of it are no longer enough.
+    // The block is 72 bytes and holds no reference leaf. Construction charges the memory it holds
+    // with it (C1-9d2b-1, R6): the `globals` table has one 12-byte entry for each of the 5
+    // declarations and the `roots` table one for each of the 4 roots, 108 bytes; the transient
+    // list holds 5 initial values at 24 bytes (`trigger`, `g_a`, `g_b` and the `v` of each `Names`
+    // root), 120 bytes. The instance table holds one 28-byte entry for each of the 3 roots that
+    // have a template POU (`Main`, `g_a` and `g_b`; `trigger` has none), 84 bytes (C1-9d2b-2, R5).
+    // The charge is 72 + 108 + 120 + 84 = 384 bytes, requested once. An allowance one byte short
+    // refuses it and reserves nothing; an allowance of exactly 384 admits the region. A charge
+    // that still counted 16-byte cells and separate text buffers would ask for more.
     let prepared = prepared();
     let requested = std::cell::Cell::new(0usize);
     let refused = CellStorage::construct(&prepared, Generation::FIRST, |bytes| {
         requested.set(bytes);
-        if bytes > 557 {
+        if bytes > 383 {
             Err(RuntimeError::Overflow)
         } else {
             Ok(())
         }
     });
     assert_eq!(refused.err(), Some(RuntimeError::Overflow));
-    assert_eq!(requested.get(), 558);
+    assert_eq!(requested.get(), 384);
 
     let admitted = CellStorage::construct(&prepared, Generation::FIRST, |bytes| {
-        if bytes > 558 {
+        if bytes > 384 {
             Err(RuntimeError::Overflow)
         } else {
             Ok(())
@@ -538,18 +535,31 @@ fn reservation_is_charged_before_it_is_reserved() {
 }
 
 #[test]
-fn text_leaves_expand_per_array_element_and_per_instance() {
-    // Specification 34 §6.2 and O10: one text buffer per text leaf occurrence. Each Names instance
-    // holds v : ARRAY[1..3] OF STRING[5], so each element is one buffer of five bytes: cells 3 to 5
-    // for g_a and cells 6 to 8 for g_b. The globals hold no text. One buffer per leaf would leave
-    // cells 4 and 5 without a buffer; a region that did not expand per instance would leave g_b's
-    // cells without one.
+fn text_leaves_lie_inline_per_array_element_and_per_instance() {
+    // Specification 34 MEM-12 and O10: every text leaf occurrence lies inline at its declared size.
+    // `v : ARRAY[1..3] OF STRING[5]` is three texts of a 2-byte length and five bytes, each 7 bytes
+    // aligned to 2, so the elements are 8 bytes apart and the array 24 bytes; one text leaf, at
+    // byte 0 of the element, with a capacity of 5 bytes. Each Names instance holds its own copy in
+    // its own range, so the six texts lie at 24, 32 and 40 (g_a) and 48, 56 and 64 (g_b). An array
+    // that kept one leaf for all its elements, or a stride without the length, fails here.
     let prepared = prepared();
+    let array = prepared.type_layout(ARRAY_V).expect("the array of texts");
+    assert_eq!(array.shape.bytes, 24);
+    assert_eq!(
+        array.array.as_ref().map(|layout| layout.byte_stride),
+        Some(8)
+    );
+    assert_eq!(array.text_leaves.len(), 1);
+    assert_eq!(array.text_leaves[0].capacity_bytes, 5);
+    assert_eq!(array.text_leaves[0].byte_offset, 0);
     let storage = construct(&prepared);
-    let text = storage.regions().text();
-    for cell in 3..=8 {
-        assert_eq!(text.capacity(TextSlot(cell)), Some(5), "cell {cell}");
-    }
-    assert_eq!(text.capacity(TextSlot(2)), None);
-    assert_eq!(text.capacity(TextSlot(9)), None);
+    let regions = storage.regions();
+    let starts: Vec<u32> = [2, 3]
+        .into_iter()
+        .flat_map(|root| {
+            let range = regions.root_range(root).expect("a Names root");
+            (0..3).map(move |element| range.start + element * 8)
+        })
+        .collect();
+    assert_eq!(starts, vec![24, 32, 40, 48, 56, 64]);
 }

@@ -1,15 +1,14 @@
-//! Prepared cell layouts for the bounded value store (specification 34 §6.2, MEM-10).
+//! Prepared layouts of the flat blocks (specification 34 MEM-12).
 //!
 //! A [`TypeLayout`](crate::memory::layout::TypeLayout) describes how one value of a TYPE_TABLE
-//! type occupies cells. One cell is a
-//! scalar (`Cell` from the design "Cells"), so a scalar is one cell and every structure or array
-//! is a contiguous cell range with its nested compounds inline. A text leaf records its byte
-//! capacity from D-C1-2, and a `STRUCT OVERLAP` records the length of its byte backing.
+//! type occupies a flat block: its declared size and alignment, its members' and elements' byte
+//! offsets, and its text, reference and instance leaves. Every structure or array is a contiguous
+//! byte range with its nested compounds inline. A text leaf records its byte capacity from D-C1-2,
+//! and a `STRUCT OVERLAP` records the length of its byte backing.
 //!
-//! Nothing reads these layouts at run time yet: the layout tables and their computation are
-//! charged once at preparation, and later slices store values by them. A region's cells are only
-//! recorded here; construction charges them when it reserves the region. The traversal is bounded
-//! by
+//! The layout tables and their computation are charged once at preparation. A region's bytes are
+//! only recorded here; construction charges them when it reserves the region. The traversal is
+//! bounded by
 //! [`BYTECODE_MAX_TYPE_NESTING`](crate::bytecode::BYTECODE_MAX_TYPE_NESTING): a type deeper than
 //! the bound is refused with
 //! [`RuntimeError::TypeNestingExceeds`](crate::error::RuntimeError::TypeNestingExceeds) and a
@@ -22,7 +21,8 @@ use crate::error::RuntimeError;
 use crate::value::string_capacity;
 use crate::vm::type_policy::is_wildcard_dim;
 
-/// Bytes in one cell (design "Cells").
+/// Bytes of one decoded leaf value, a [`Cell`](crate::memory::cells::Cell): the unit the copy
+/// charges of TIME-08 count a value's element in.
 pub const CELL_BYTES: usize = 16;
 
 /// Bytes of a reference in a flat block on every target: its target's block and byte offset, the
@@ -107,7 +107,12 @@ pub fn primitive_shape(prim_id: u16, length: u32) -> Result<ByteShape, RuntimeEr
 }
 
 /// `offset` rounded up to a multiple of `align`, a power of two.
-fn align_up(offset: u32, align: u32) -> Result<u32, RuntimeError> {
+///
+/// # Errors
+///
+/// [`RuntimeError::TypeMismatch`] for an alignment of zero, and [`RuntimeError::Overflow`] when the
+/// rounded offset leaves `u32`.
+pub fn align_up(offset: u32, align: u32) -> Result<u32, RuntimeError> {
     let mask = align.checked_sub(1).ok_or(RuntimeError::TypeMismatch)?;
     offset
         .checked_add(mask)
@@ -115,7 +120,7 @@ fn align_up(offset: u32, align: u32) -> Result<u32, RuntimeError> {
         .ok_or(RuntimeError::Overflow)
 }
 
-/// The region a cell range is reserved in (design "Regions").
+/// The region a byte range is reserved in (design "Regions").
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LayoutRegion {
     /// Globals and persistent instance templates, reserved at construction.
@@ -124,25 +129,29 @@ pub enum LayoutRegion {
     Activation,
 }
 
-/// A contiguous run of cells in one region.
+/// A contiguous run of bytes in one region's flat block (MEM-12).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CellRange {
-    /// The region the cells are reserved in.
+pub struct ByteRange {
+    /// The region the bytes are reserved in.
     pub region: LayoutRegion,
-    /// First cell of the range within its region.
+    /// First byte of the range within its region.
     pub start: u32,
-    /// Number of cells in the range.
-    pub cells: u32,
+    /// Number of bytes in the range.
+    pub bytes: u32,
 }
 
-/// A POU's prepared instance template: its own cells only, with a link to its parent's template
-/// (specification 34 MEM-10; O6). A derived POU without variables of its own has an empty
-/// template with its parent link (O7).
+/// The alignment of an instance's own variables in a flat block, and so of every instance range:
+/// the largest alignment a variable can have (MEM-12).
+pub const INSTANCE_ALIGN: u32 = 8;
+
+/// A POU's prepared instance template: its own variables only, with a link to its parent's
+/// template (specification 34 MEM-10, MEM-12; O6). A derived POU without variables of its own has
+/// an empty template with its parent link (O7).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InstanceTemplateLayout {
-    /// The template's own cells, from cell 0.
-    pub range: CellRange,
-    /// Parent POU whose template holds the inherited cells.
+    /// The template's own bytes, from byte 0, rounded up to [`INSTANCE_ALIGN`].
+    pub range: ByteRange,
+    /// Parent POU whose template holds the inherited variables.
     pub parent: Option<u32>,
 }
 
@@ -151,8 +160,6 @@ pub struct InstanceTemplateLayout {
 pub struct MemberLayout {
     /// Member name index in STRING_TABLE; a later `REF_FIELD` resolves through it.
     pub name_idx: u32,
-    /// Cell offset of the member within its type's cell range.
-    pub offset: u32,
     /// Byte offset of the member within its type's flat bytes (MEM-12).
     pub byte_offset: u32,
 }
@@ -160,8 +167,6 @@ pub struct MemberLayout {
 /// A text leaf and its byte capacity (D-C1-2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TextLeaf {
-    /// Cell offset of the leaf within its type's cell range.
-    pub offset: u32,
     /// Bytes reserved for the text: `n` for `STRING[n]`, `2n` for `WSTRING[n]`, and 80 or 160
     /// bytes for a `STRING`/`WSTRING` declared without a length.
     pub capacity_bytes: u32,
@@ -170,22 +175,18 @@ pub struct TextLeaf {
     pub byte_offset: u32,
 }
 
-/// A reference leaf: one cell holding a reference (`Cell::Ref`).
+/// A reference leaf: [`REFERENCE_BYTES`] holding a reference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ReferenceLeaf {
-    /// Cell offset of the leaf within its type's cell range.
-    pub offset: u32,
     /// Byte offset of the leaf's [`REFERENCE_BYTES`] within its type's flat bytes (MEM-12).
     pub byte_offset: u32,
     /// Referenced or aliased type index.
     pub target_type_id: u32,
 }
 
-/// An instance leaf: one cell holding an FB, class or interface instance.
+/// An instance leaf: [`INSTANCE_BYTES`] naming an FB, class or interface instance.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InstanceLeaf {
-    /// Cell offset of the leaf within its type's cell range.
-    pub offset: u32,
     /// Byte offset of the leaf's [`INSTANCE_BYTES`] within its type's flat bytes (MEM-12).
     pub byte_offset: u32,
     /// The instance's FB, class or interface type index.
@@ -195,22 +196,18 @@ pub struct InstanceLeaf {
 /// An array's element stride and dimensions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ArrayLayout {
-    /// Cells in one element, so element `k` starts at `k * stride`.
-    pub stride: u32,
     /// Bytes in one element, so element `k` starts at byte `k * byte_stride` (MEM-12).
     pub byte_stride: u32,
     /// Inclusive lower and upper bounds in dimension order.
     pub dims: Vec<(i64, i64)>,
 }
 
-/// One type's prepared cell layout.
+/// One type's prepared layout in a flat block (MEM-12).
 ///
 /// For an array, the text, reference and instance leaf offsets are within the first element and
-/// [`ArrayLayout::stride`] locates later elements.
+/// [`ArrayLayout::byte_stride`] locates later elements.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct TypeLayout {
-    /// Cells in one value of this type. A scalar is one cell.
-    pub cells: u32,
     /// The declared size and alignment of one value of this type in a flat block (MEM-12).
     pub shape: ByteShape,
     /// Structure members in ordinal order; empty for non-structures.
@@ -219,9 +216,9 @@ pub struct TypeLayout {
     pub array: Option<ArrayLayout>,
     /// Text leaves, each with its byte capacity (D-C1-2).
     pub text_leaves: Vec<TextLeaf>,
-    /// Reference leaves (one cell each).
+    /// Reference leaves.
     pub reference_leaves: Vec<ReferenceLeaf>,
-    /// Instance leaves (one cell each).
+    /// Instance leaves.
     pub instance_leaves: Vec<InstanceLeaf>,
     /// Length in bytes of a `STRUCT OVERLAP`'s byte backing, or zero.
     pub overlap_backing_bytes: u32,
@@ -234,8 +231,8 @@ pub struct TypeLayout {
 /// `overlap_backing` returns the admitted byte backing length of the overlapping structure at
 /// `type_id` (the shared value layer already validates and sizes it). `charge` mirrors the
 /// preparation budget: it is called with the bytes of each layout table and the work of computing
-/// it, so an oversized type table is refused here with its limit error. The type's cells are not
-/// charged; construction charges a region's cells when it reserves the region.
+/// it, so an oversized type table is refused here with its limit error. The type's bytes are not
+/// charged; construction charges a region's bytes when it reserves the region.
 pub(crate) fn compute_type_layouts(
     types: &TypeTable,
     overlap_backing: &mut dyn FnMut(u32) -> Result<u32, RuntimeError>,
@@ -263,7 +260,7 @@ pub(crate) fn compute_type_layouts(
     Ok(layouts.into_iter().map(Option::unwrap_or_default).collect())
 }
 
-/// Compute and cache the layout of one type, returning its cell count.
+/// Compute and cache the layout of one type.
 fn compute_one(
     types: &TypeTable,
     id: u32,
@@ -272,14 +269,10 @@ fn compute_one(
     depth: usize,
     overlap_backing: &mut dyn FnMut(u32) -> Result<u32, RuntimeError>,
     charge: &mut dyn FnMut(usize, usize) -> Result<(), RuntimeError>,
-) -> Result<u32, RuntimeError> {
+) -> Result<(), RuntimeError> {
     charge(0, 1)?;
-    if let Some(cells) = layouts
-        .get(id as usize)
-        .and_then(Option::as_ref)
-        .map(|layout| layout.cells)
-    {
-        return Ok(cells);
+    if layouts.get(id as usize).is_some_and(Option::is_some) {
+        return Ok(());
     }
     if depth >= BYTECODE_MAX_TYPE_NESTING {
         return Err(RuntimeError::TypeNestingExceeds);
@@ -290,7 +283,7 @@ fn compute_one(
     *active
         .get_mut(id as usize)
         .ok_or(RuntimeError::TypeMismatch)? = true;
-    let (cells, layout) = build_layout(types, id, layouts, active, depth, overlap_backing, charge)?;
+    let layout = build_layout(types, id, layouts, active, depth, overlap_backing, charge)?;
     *active
         .get_mut(id as usize)
         .ok_or(RuntimeError::TypeMismatch)? = false;
@@ -299,7 +292,7 @@ fn compute_one(
         .get_mut(id as usize)
         .ok_or(RuntimeError::TypeMismatch)?
         .replace(layout);
-    Ok(cells)
+    Ok(())
 }
 
 /// Build the layout of one already-entered type.
@@ -311,13 +304,13 @@ fn build_layout(
     depth: usize,
     overlap_backing: &mut dyn FnMut(u32) -> Result<u32, RuntimeError>,
     charge: &mut dyn FnMut(usize, usize) -> Result<(), RuntimeError>,
-) -> Result<(u32, TypeLayout), RuntimeError> {
+) -> Result<TypeLayout, RuntimeError> {
     let entry = types
         .entries
         .get(id as usize)
         .ok_or(RuntimeError::TypeMismatch)?;
     let mut layout = TypeLayout::default();
-    let cells = match &entry.data {
+    match &entry.data {
         TypeData::Primitive {
             prim_id,
             max_length,
@@ -325,19 +318,16 @@ fn build_layout(
             let length = u32::from(string_capacity(*max_length));
             match *prim_id {
                 24 => layout.text_leaves.push(TextLeaf {
-                    offset: 0,
                     capacity_bytes: length,
                     byte_offset: 0,
                 }),
                 25 => layout.text_leaves.push(TextLeaf {
-                    offset: 0,
                     capacity_bytes: length * 2,
                     byte_offset: 0,
                 }),
                 _ => {}
             }
             layout.shape = primitive_shape(*prim_id, length)?;
-            1
         }
         // An enumeration or a subrange has its base type's declared size (MEM-12).
         TypeData::Enum { base_type_id, .. } | TypeData::Subrange { base_type_id, .. } => {
@@ -351,7 +341,6 @@ fn build_layout(
                 charge,
             )?;
             layout.shape = base.shape;
-            1
         }
         TypeData::Alias { target_type_id } => {
             let child = compute_child(
@@ -364,7 +353,6 @@ fn build_layout(
                 charge,
             )?;
             layout = child;
-            layout.cells
         }
         TypeData::Array { elem_type_id, dims } => {
             let child = compute_child(
@@ -376,7 +364,7 @@ fn build_layout(
                 overlap_backing,
                 charge,
             )?;
-            array_from(&mut layout, child, dims)?
+            array_from(&mut layout, child, dims)?;
         }
         TypeData::Struct { fields } => {
             if entry.kind == TypeKind::OverlappingStruct {
@@ -384,7 +372,6 @@ fn build_layout(
                 for field in fields {
                     layout.members.push(MemberLayout {
                         name_idx: field.name_idx,
-                        offset: 0,
                         byte_offset: 0,
                     });
                 }
@@ -393,7 +380,6 @@ fn build_layout(
                     bytes: layout.overlap_backing_bytes,
                     align: 8,
                 };
-                1
             } else {
                 let mut cursor = MemberCursor::default();
                 for field in fields {
@@ -408,11 +394,10 @@ fn build_layout(
                     )?;
                     cursor.place(&mut layout, &child, field.name_idx)?;
                 }
-                cursor.finish(&mut layout)?
+                cursor.finish(&mut layout)?;
             }
         }
         TypeData::Union { fields } => {
-            let mut cells = 0u32;
             let mut shape = ByteShape::default();
             for field in fields {
                 let child = compute_child(
@@ -426,11 +411,9 @@ fn build_layout(
                 )?;
                 layout.members.push(MemberLayout {
                     name_idx: field.name_idx,
-                    offset: 0,
                     byte_offset: 0,
                 });
-                extend_leaves(&mut layout, &child, 0, 0)?;
-                cells = cells.max(child.cells);
+                extend_leaves(&mut layout, &child, 0)?;
                 shape.bytes = shape.bytes.max(child.shape.bytes);
                 shape.align = shape.align.max(child.shape.align);
             }
@@ -439,11 +422,9 @@ fn build_layout(
                 bytes: align_up(shape.bytes, shape.align)?,
                 align: shape.align,
             };
-            cells
         }
         TypeData::Reference { target_type_id } => {
             layout.reference_leaves.push(ReferenceLeaf {
-                offset: 0,
                 byte_offset: 0,
                 target_type_id: *target_type_id,
             });
@@ -451,11 +432,9 @@ fn build_layout(
                 bytes: REFERENCE_BYTES,
                 align: 8,
             };
-            1
         }
         TypeData::Pou { .. } | TypeData::Interface { .. } => {
             layout.instance_leaves.push(InstanceLeaf {
-                offset: 0,
                 byte_offset: 0,
                 type_id: id,
             });
@@ -463,25 +442,21 @@ fn build_layout(
                 bytes: INSTANCE_BYTES,
                 align: 8,
             };
-            1
         }
-    };
+    }
     layout.holds_reference_or_instance =
         !layout.reference_leaves.is_empty() || !layout.instance_leaves.is_empty();
-    layout.cells = cells;
-    Ok((cells, layout))
+    Ok(layout)
 }
 
-/// The layout of an array of `dims` whose elements have the layout `child`, written into `layout`;
-/// returns its cells. The elements follow each other, a cell range or a byte run each, the bytes at
-/// the element's size rounded to its alignment (MEM-12).
+/// The layout of an array of `dims` whose elements have the layout `child`, written into `layout`.
+/// The elements follow each other, each at the element's size rounded to its alignment (MEM-12).
 fn array_from(
     layout: &mut TypeLayout,
     child: TypeLayout,
     dims: &[(i64, i64)],
-) -> Result<u32, RuntimeError> {
-    let stride = child.cells;
-    // An `ARRAY[*]` has no cells of its own: its elements are the actual argument's (spec 12 §6.3),
+) -> Result<(), RuntimeError> {
+    // An `ARRAY[*]` has no bytes of its own: its elements are the actual argument's (spec 12 §6.3),
     // so its layout keeps the stride and the sentinel bounds and no count.
     let count = if dims.iter().any(|dim| is_wildcard_dim(*dim)) {
         0
@@ -494,35 +469,31 @@ fn array_from(
             .and_then(|total| u32::try_from(total).ok())
             .ok_or(RuntimeError::Overflow)
     };
-    let cells = times(stride)?;
     let byte_stride = align_up(child.shape.bytes, child.shape.align)?;
     layout.shape = ByteShape {
         bytes: times(byte_stride)?,
         align: child.shape.align,
     };
     layout.array = Some(ArrayLayout {
-        stride,
         byte_stride,
         dims: dims.to_vec(),
     });
     layout.text_leaves = child.text_leaves;
     layout.reference_leaves = child.reference_leaves;
     layout.instance_leaves = child.instance_leaves;
-    Ok(cells)
+    Ok(())
 }
 
-/// Where the next member of a structure goes: its cell offset, its byte offset and the structure's
-/// alignment so far (MEM-12).
+/// Where the next member of a structure goes: its byte offset and the structure's alignment so far
+/// (MEM-12).
 #[derive(Default)]
 struct MemberCursor {
-    cells: u32,
     bytes: u32,
     align: u32,
 }
 
 impl MemberCursor {
-    /// Place the member `name_idx` of layout `child` next: at the next cell, and at the next byte its
-    /// alignment allows.
+    /// Place the member `name_idx` of layout `child` next, at the next byte its alignment allows.
     fn place(
         &mut self,
         layout: &mut TypeLayout,
@@ -533,14 +504,9 @@ impl MemberCursor {
         self.align = self.align.max(child.shape.align);
         layout.members.push(MemberLayout {
             name_idx,
-            offset: self.cells,
             byte_offset: self.bytes,
         });
-        extend_leaves(layout, child, self.cells, self.bytes)?;
-        self.cells = self
-            .cells
-            .checked_add(child.cells)
-            .ok_or(RuntimeError::Overflow)?;
+        extend_leaves(layout, child, self.bytes)?;
         self.bytes = self
             .bytes
             .checked_add(child.shape.bytes)
@@ -548,15 +514,14 @@ impl MemberCursor {
         Ok(())
     }
 
-    /// The structure's shape, aligned to its largest member and padded to a multiple of it; returns
-    /// its cells.
-    fn finish(self, layout: &mut TypeLayout) -> Result<u32, RuntimeError> {
+    /// The structure's shape, aligned to its largest member and padded to a multiple of it.
+    fn finish(self, layout: &mut TypeLayout) -> Result<(), RuntimeError> {
         let align = self.align.max(1);
         layout.shape = ByteShape {
             bytes: align_up(self.bytes, align)?,
             align,
         };
-        Ok(self.cells)
+        Ok(())
     }
 }
 
@@ -610,33 +575,28 @@ fn compute_child(
         .ok_or(RuntimeError::TypeMismatch)
 }
 
-/// Append a child's leaves to a compound layout, shifted by the child's cell offset and byte
-/// offset.
+/// Append a child's leaves to a compound layout, shifted by the child's byte offset.
 fn extend_leaves(
     layout: &mut TypeLayout,
     child: &TypeLayout,
-    offset: u32,
     byte_offset: u32,
 ) -> Result<(), RuntimeError> {
-    let shift = |own: u32, by: u32| own.checked_add(by).ok_or(RuntimeError::Overflow);
+    let shift = |own: u32| own.checked_add(byte_offset).ok_or(RuntimeError::Overflow);
     for leaf in &child.text_leaves {
         layout.text_leaves.push(TextLeaf {
-            offset: shift(leaf.offset, offset)?,
             capacity_bytes: leaf.capacity_bytes,
-            byte_offset: shift(leaf.byte_offset, byte_offset)?,
+            byte_offset: shift(leaf.byte_offset)?,
         });
     }
     for leaf in &child.reference_leaves {
         layout.reference_leaves.push(ReferenceLeaf {
-            offset: shift(leaf.offset, offset)?,
-            byte_offset: shift(leaf.byte_offset, byte_offset)?,
+            byte_offset: shift(leaf.byte_offset)?,
             target_type_id: leaf.target_type_id,
         });
     }
     for leaf in &child.instance_leaves {
         layout.instance_leaves.push(InstanceLeaf {
-            offset: shift(leaf.offset, offset)?,
-            byte_offset: shift(leaf.byte_offset, byte_offset)?,
+            byte_offset: shift(leaf.byte_offset)?,
             type_id: leaf.type_id,
         });
     }

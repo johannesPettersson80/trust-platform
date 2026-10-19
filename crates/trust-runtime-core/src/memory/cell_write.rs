@@ -10,25 +10,28 @@ use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 
-use super::{primitive_of, CellArm, CellReader, Target, STRING_PRIMITIVE, WSTRING_PRIMITIVE};
+use super::{CellArm, CellReader, Target};
 use crate::error::RuntimeError;
 use crate::memory::cells::{
-    check_value, is_reference_type, write_value_in, Cell, RefSlot, ReferenceTable,
+    check_value, is_reference_type, text_geometry, write_value_in, Cell, ReferenceTable,
 };
-use crate::memory::layout::CellRange;
+use crate::memory::flat::{self, LeafKind, TextBytes};
+use crate::memory::layout::ByteRange;
 use crate::memory::view::{PreparedWrite, PreparedWriteKind, StoreMutate};
 use crate::memory::{InstanceData, InstanceId, MemoryLocation, VariableStorage};
 use crate::value::{write_string_element, RefSegment, Value, ValueRefView};
 use crate::vm::type_policy::{normalize_primitive_value, resolved_primitive_shape};
 use crate::vm::PreparedModule;
 
-/// A prepared cell write: the range of the leaf, its declared type and the value the leaf will hold,
-/// normalized and checked before anything is copied (R4). A reference leaf holds no value here: its
-/// check reads the value by reference, and its commit moves the value it is given (R5), so a reference
-/// write in a scan clones nothing.
+/// A prepared write into the block: the range of the leaf, its declared type, the presence byte of
+/// the declaration the range is when it keeps one, and the value the leaf will hold, normalized and
+/// checked before anything is copied (R4). A reference leaf holds no value here: its check reads the
+/// value by reference, and its commit moves the value it is given (R5), so a reference write in a
+/// scan clones nothing.
 pub(crate) struct CellPatch {
-    pub(crate) range: CellRange,
+    pub(crate) range: ByteRange,
     pub(crate) type_id: u32,
+    pub(crate) presence: Option<u32>,
     pub(crate) leaf: Option<Value>,
 }
 
@@ -81,9 +84,9 @@ impl<'a> CellWriter<'a> {
             .regions()
             .root_range(root)
             .ok_or(RuntimeError::InvalidExecutionState)?;
-        let own = crate::memory::regions::own_cells(self.prepared, pou);
-        let range = CellRange {
-            cells: own,
+        let own = crate::memory::regions::own_bytes(self.prepared, pou);
+        let range = ByteRange {
+            bytes: own,
             ..root_range
         };
         self.arm.create_persistent_instance(pou, range)
@@ -110,25 +113,49 @@ impl<'a> CellWriter<'a> {
 
     /// Store the checked `leaf` of `type_id` into the cells of `range`. The check ran before the copy
     /// (R4), so the store answers `false` only when the cells disagree with the layout.
-    fn store(&mut self, range: CellRange, type_id: u32, leaf: Value) -> bool {
+    /// Write `leaf` into the bytes of `range`, a value of `type_id`, and mark the declaration's
+    /// presence byte at `presence`, when it keeps one: set for a value and clear for the null value
+    /// (MEM-12). `false` when the write is refused; nothing is marked then.
+    fn store(
+        &mut self,
+        range: ByteRange,
+        type_id: u32,
+        presence: Option<u32>,
+        leaf: Value,
+    ) -> bool {
         let prepared = self.prepared;
-        let (persistent, text, references) = self.arm.cells.regions_mut().split_mut();
-        let Some(cells) = persistent.cells_mut(range) else {
-            return false;
+        let holds_value = !matches!(leaf, Value::Null);
+        let (persistent, references) = self.arm.cells.regions_mut().split_mut();
+        let written = match persistent.bytes_mut(range) {
+            None => false,
+            Some(bytes) if is_reference_type(prepared, type_id) => {
+                store_reference_leaf(bytes, range.start, leaf, references)
+            }
+            Some(bytes) => write_value_in(
+                bytes,
+                type_id,
+                &leaf,
+                prepared,
+                Some(references),
+                range.start,
+            )
+            .is_ok(),
         };
-        if is_reference_type(prepared, type_id) {
-            return store_reference_leaf(cells, range.start, leaf, references);
+        let Some(offset) = presence.filter(|_| written) else {
+            return written;
+        };
+        let flag = ByteRange {
+            start: offset,
+            bytes: 1,
+            ..range
+        };
+        match persistent.bytes_mut(flag) {
+            Some(byte) => {
+                byte[0] = u8::from(holds_value);
+                true
+            }
+            None => false,
         }
-        write_value_in(
-            cells,
-            type_id,
-            &leaf,
-            prepared,
-            text,
-            Some(references),
-            range.start,
-        )
-        .is_ok()
     }
 
     /// The write of `value` into the slot at `location`/`offset` and `path`, answering as the `Value`
@@ -142,9 +169,9 @@ impl<'a> CellWriter<'a> {
     ) -> Result<bool, RuntimeError> {
         let target = self.reader().locate(location, offset, path);
         match target {
-            Ok(Target::Cells(range, type_id)) => {
+            Ok(Target::Cells(range, type_id, presence)) => {
                 let leaf = checked_leaf(self.prepared, type_id, value)?;
-                Ok(self.store(range, type_id, leaf))
+                Ok(self.store(range, type_id, presence, leaf))
             }
             Ok(Target::Values(location, offset, rest)) => self
                 .values
@@ -157,12 +184,13 @@ impl<'a> CellWriter<'a> {
                 let Some(CellPatch {
                     range,
                     type_id,
+                    presence,
                     leaf: Some(leaf),
                 }) = patch
                 else {
                     return Ok(false);
                 };
-                Ok(self.store(range, type_id, leaf))
+                Ok(self.store(range, type_id, presence, leaf))
             }
         }
     }
@@ -179,7 +207,7 @@ impl CellReader<'_> {
         value: &Value,
     ) -> Result<Option<PreparedWrite>, RuntimeError> {
         match self.locate(location, offset, path) {
-            Ok(Target::Cells(range, type_id)) => {
+            Ok(Target::Cells(range, type_id, presence)) => {
                 // A reference is checked by reference: cloning its path would allocate in a scan (R5).
                 let leaf = if is_reference_type(self.prepared, type_id) {
                     check_value(type_id, value, self.prepared, true)?;
@@ -190,6 +218,7 @@ impl CellReader<'_> {
                 Ok(Some(PreparedWrite(PreparedWriteKind::Cells(CellPatch {
                     range,
                     type_id,
+                    presence,
                     leaf,
                 }))))
             }
@@ -226,27 +255,29 @@ impl CellReader<'_> {
         let [index] = indices.as_slice() else {
             return Ok(None);
         };
-        let Ok(Target::Cells(range, type_id)) = self.locate(location, offset, parent) else {
-            return Ok(None);
-        };
-        let wide = match primitive_of(self.prepared, type_id) {
-            Some(STRING_PRIMITIVE) => false,
-            Some(WSTRING_PRIMITIVE) => true,
-            _ => return Ok(None),
-        };
-        let regions = self.arm.cells.regions();
-        let Some(Cell::Text(slot)) = regions
-            .persistent()
-            .cells(range)
-            .and_then(|cells| cells.first())
-            .copied()
+        let Ok(Target::Cells(range, type_id, presence)) = self.locate(location, offset, parent)
         else {
             return Ok(None);
         };
-        let text = regions.text();
-        let (Some(current), Some(capacity)) = (text.text(slot, wide), text.capacity(slot)) else {
+        // A character of a text that holds no value yet names nothing, as in the null value.
+        if !self.present(presence) {
+            return Ok(None);
+        }
+        let Some((length, capacity, wide)) = text_geometry(self.prepared, type_id) else {
             return Ok(None);
         };
+        let Some(bytes) = self.arm.cells.regions().persistent().bytes(range) else {
+            return Ok(None);
+        };
+        let current = match flat::read_text(bytes, length, wide) {
+            Ok(TextBytes::Narrow(text)) => alloc::string::String::from(text),
+            Ok(wide @ TextBytes::Wide(_)) => match char::decode_utf16(wide.units()).collect() {
+                Ok(text) => text,
+                Err(_) => return Ok(None),
+            },
+            Err(_) => return Ok(None),
+        };
+        let capacity = capacity as usize;
         let Ok(updated) = write_string_element(&current, *index, value.clone(), wide, capacity)
         else {
             return Ok(None);
@@ -260,6 +291,7 @@ impl CellReader<'_> {
         Ok(Some(CellPatch {
             range,
             type_id,
+            presence,
             leaf: Some(leaf),
         }))
     }
@@ -268,35 +300,27 @@ impl CellReader<'_> {
 /// Store a reference leaf (O9, R5): a non-null reference moves into the reference table under the leaf's
 /// cell, and the cell names that entry. `false` when the cell is not a reference leaf of the table.
 fn store_reference_leaf(
-    cells: &mut [Cell],
-    cell: u32,
+    bytes: &mut [u8],
+    offset: u32,
     leaf: Value,
     references: &mut ReferenceTable,
 ) -> bool {
-    let Some(slot) = cells.first_mut() else {
-        return false;
-    };
-    match leaf {
+    let cell = match leaf {
         Value::Reference(Some(reference)) => {
-            if !references.set(cell, Some(reference)) {
+            if !references.set(offset, Some(reference)) {
                 return false;
             }
-            *slot = Cell::Ref(RefSlot(cell));
-            true
+            Cell::Ref(crate::memory::cells::RefSlot(offset))
         }
-        Value::Reference(None) => {
-            if !references.set(cell, None) {
+        Value::Reference(None) | Value::Null => {
+            if !references.set(offset, None) {
                 return false;
             }
-            *slot = Cell::NullRef;
-            true
+            Cell::NullRef
         }
-        Value::Null => {
-            *slot = Cell::Null;
-            true
-        }
-        _ => false,
-    }
+        _ => return false,
+    };
+    flat::encode(LeafKind::Reference, cell, bytes).is_ok()
 }
 
 /// The value a write leaves in a leaf of `type_id`: normalized by the declared type (O11) and checked
@@ -331,9 +355,9 @@ impl StoreMutate for CellWriter<'_> {
     fn write_slot(&mut self, location: MemoryLocation, offset: usize, value: Value) -> bool {
         let target = self.reader().locate(location, offset, &[]);
         match target {
-            Ok(Target::Cells(range, type_id)) => {
+            Ok(Target::Cells(range, type_id, presence)) => {
                 match checked_leaf(self.prepared, type_id, value) {
-                    Ok(leaf) => self.store(range, type_id, leaf),
+                    Ok(leaf) => self.store(range, type_id, presence, leaf),
                     Err(_) => false,
                 }
             }
@@ -368,12 +392,12 @@ impl StoreMutate for CellWriter<'_> {
         let target = self
             .reader()
             .member_by(instance, |_, member| member == name.as_str())
-            .map(|(_, _, range, type_id)| (range, type_id));
-        let Some((range, type_id)) = target else {
+            .map(|(_, _, range, type_id, presence)| (range, type_id, presence));
+        let Some((range, type_id, presence)) = target else {
             return false;
         };
         match checked_leaf(self.prepared, type_id, value) {
-            Ok(leaf) => self.store(range, type_id, leaf),
+            Ok(leaf) => self.store(range, type_id, presence, leaf),
             Err(_) => false,
         }
     }
@@ -385,8 +409,8 @@ impl StoreMutate for CellWriter<'_> {
         };
         let declared = self.reader().global(ordinal);
         match declared {
-            Some((range, type_id)) => match checked_leaf(self.prepared, type_id, value) {
-                Ok(leaf) => self.store(range, type_id, leaf),
+            Some((range, type_id, presence)) => match checked_leaf(self.prepared, type_id, value) {
+                Ok(leaf) => self.store(range, type_id, presence, leaf),
                 Err(_) => false,
             },
             None => {
@@ -442,17 +466,17 @@ impl StoreMutate for CellWriter<'_> {
             let target = self
                 .reader()
                 .member_by(instance, |_, member| member == name.as_str())
-                .map(|(_, _, range, type_id)| (range, type_id));
-            let Some((range, type_id)) = target else {
+                .map(|(_, _, range, type_id, presence)| (range, type_id, presence));
+            let Some((range, type_id, presence)) = target else {
                 return;
             };
             let Ok(leaf) = checked_leaf(self.prepared, type_id, value.clone()) else {
                 return;
             };
-            leaves.push((range, type_id, leaf));
+            leaves.push((range, type_id, presence, leaf));
         }
-        for (range, type_id, leaf) in leaves {
-            self.store(range, type_id, leaf);
+        for (range, type_id, presence, leaf) in leaves {
+            self.store(range, type_id, presence, leaf);
         }
         self.arm.set_instance_parent(instance, data.parent);
     }
@@ -474,8 +498,8 @@ impl StoreMutate for CellWriter<'_> {
             // The leaf was checked when it was prepared, so the commit copies it and nothing else. A
             // reference was checked by reference, so the commit stores the value it is given.
             PreparedWriteKind::Cells(patch) => match patch.leaf {
-                Some(leaf) => self.store(patch.range, patch.type_id, leaf),
-                None => self.store(patch.range, patch.type_id, value),
+                Some(leaf) => self.store(patch.range, patch.type_id, patch.presence, leaf),
+                None => self.store(patch.range, patch.type_id, patch.presence, value),
             },
         }
     }
@@ -484,8 +508,8 @@ impl StoreMutate for CellWriter<'_> {
         // The saved value came from this slot, so it is stored as it is; a refusal leaves the cells.
         let target = self.reader().locate(location, offset, &[]);
         match target {
-            Ok(Target::Cells(range, type_id)) => {
-                self.store(range, type_id, value);
+            Ok(Target::Cells(range, type_id, presence)) => {
+                self.store(range, type_id, presence, value);
             }
             Ok(Target::Values(location, offset, _)) => {
                 self.values.restore_direct_slot(location, offset, value);

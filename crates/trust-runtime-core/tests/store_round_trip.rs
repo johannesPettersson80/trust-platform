@@ -1,15 +1,16 @@
-//! Round-tripping a value of a prepared type through its layout's cells.
+//! Round-tripping a value of a prepared type through its layout's bytes.
 //!
-//! Specification: `docs/specs/34-runtime-portability.md` §6.2 (MEM-10), the paragraphs "Prepared
-//! cell layouts", "Cells and the cell store" and the value-conversion paragraph after them;
-//! design `~/projects/.artifacts/bounded-c/design.md` "Cells" and "Boundaries" ("Engineering
-//! writes convert a `Value` into the destination cells (no allocation); reads materialize a
-//! `Value`"). Slice table row 13 (C1-6 cells, test `store_round_trip`).
+//! Specification: `docs/specs/34-runtime-portability.md` §6.2 (MEM-10, MEM-12), the paragraphs
+//! "Prepared cell layouts", "The flat store" and the value-conversion paragraph after them; design
+//! `~/projects/.artifacts/bounded-c/design.md` "Boundaries" ("Engineering writes convert a `Value`
+//! into the destination's bytes (no allocation); reads materialize a `Value`"). Slice table row 13
+//! (C1-6, test `store_round_trip`).
 //!
-//! Every expected cell below is worked out by hand from the ST declarations the fixture encodes:
+//! Every expected byte below is worked out by hand from MEM-12 (each value at its declared size and
+//! alignment, little-endian) and the ST declarations the fixture encodes:
 //!
 //! ```st
-//! TYPE Mode : (Idle, Running, Stopped) END_TYPE   (* Idle = 0, Running = 1, Stopped = 5 *)
+//! TYPE Mode : (Idle, Running, Stopped) END_TYPE   (* DINT base; Idle = 0, Running = 1, Stopped = 5 *)
 //! TYPE Band : STRUCT low : REAL; high : REAL; END_STRUCT END_TYPE
 //! TYPE Pair : STRUCT x : INT; y : INT; END_STRUCT END_TYPE
 //! TYPE Axis : STRUCT
@@ -25,10 +26,10 @@
 //! END_STRUCT; END_TYPE
 //! ```
 //!
-//! `Axis` is `position` at cell 0, `Band`'s `low` and `high` at cells 1 and 2, `mode` at cell 3
-//! and `series` at cells 4 to 6: seven cells. `Cells` is six `Pair` elements of two cells each, so
-//! its stride is two and its cells twelve. Every scalar is one cell, and `Packed`'s two members
-//! share cell 0 with a four-byte backing.
+//! `Axis` is `position` at byte 0, `Band`'s `low` and `high` at 4 and 8, `mode` (a DINT) at 12 and
+//! `series` (three INTs) at 16 to 21, padded to 24 bytes, a multiple of its alignment 4. `Cells` is
+//! six 4-byte `Pair` elements, so its stride is 4 and its bytes 24. `Packed`'s two members share
+//! its four backing bytes.
 
 #[path = "common/bytecode_helpers.rs"]
 mod bytecode_helpers;
@@ -47,11 +48,8 @@ use trust_runtime_core::bytecode::{
 };
 use trust_runtime_core::collections::OrderedMap;
 use trust_runtime_core::error::RuntimeError;
-use trust_runtime_core::memory::cells::{
-    cell_offset, read_value, write_value, Cell, CellStore, TextSlot,
-};
-use trust_runtime_core::memory::layout::{CellRange, LayoutRegion, TextLeaf};
-use trust_runtime_core::memory::text::TextStore;
+use trust_runtime_core::memory::cells::{byte_offset, read_value, write_value, Cell, FlatBlock};
+use trust_runtime_core::memory::layout::{ByteRange, LayoutRegion};
 use trust_runtime_core::memory::{Generation, InstanceId, MemoryLocation};
 use trust_runtime_core::value::{
     ArrayValue, DateTimeValue, DateValue, Duration, EnumValue, LDateTimeValue, LDateValue,
@@ -616,38 +614,6 @@ fn label(name: &str, code: &str) -> Value {
     )
 }
 
-/// The text buffers `Label` and `ARRAY[0..1] OF Label` write through: `name` is a `STRING[10]` (10
-/// bytes) and `code` a `WSTRING[5]` (five UTF-16 code units, 10 bytes), so the array element at
-/// cells 2 and 3 has the buffers at slots 2 and 3.
-fn label_text_store() -> TextStore {
-    TextStore::reserve_in(
-        LayoutRegion::Persistent,
-        &[
-            TextLeaf {
-                offset: 0,
-                capacity_bytes: 10,
-                byte_offset: 0,
-            },
-            TextLeaf {
-                offset: 1,
-                capacity_bytes: 10,
-                byte_offset: 0,
-            },
-            TextLeaf {
-                offset: 2,
-                capacity_bytes: 10,
-                byte_offset: 0,
-            },
-            TextLeaf {
-                offset: 3,
-                capacity_bytes: 10,
-                byte_offset: 0,
-            },
-        ],
-    )
-    .expect("the label text buffers reserve")
-}
-
 /// The fixture's `Axis`: `position`, `limits`, `mode` and `series`, in declaration order.
 fn axis(position: f32, limits: Value, mode: (&str, i64), series: [i16; 3]) -> Value {
     structure(
@@ -684,17 +650,45 @@ fn index_path(indices: &[i64]) -> RefSegment {
     RefSegment::Index(indices.to_vec())
 }
 
-/// Compare one cell with an expected cell, a floating one by its bits (NaN never equals itself).
-fn assert_cell(actual: Cell, expected: Cell, context: &str) {
-    match (actual, expected) {
-        (Cell::Real(actual), Cell::Real(expected)) => {
-            assert_eq!(actual.to_bits(), expected.to_bits(), "{context}");
-        }
-        (Cell::LReal(actual), Cell::LReal(expected)) => {
-            assert_eq!(actual.to_bits(), expected.to_bits(), "{context}");
-        }
-        _ => assert_eq!(actual, expected, "{context}"),
+/// The bytes MEM-12 gives the scalar leaf `cell`: its declared size, little-endian. Written here
+/// from the specification, not from the codec under test.
+fn le_bytes(cell: Cell) -> Vec<u8> {
+    match cell {
+        Cell::Bool(value) => vec![u8::from(value)],
+        Cell::SInt(value) => value.to_le_bytes().to_vec(),
+        Cell::Int(value) => value.to_le_bytes().to_vec(),
+        Cell::DInt(value) => value.to_le_bytes().to_vec(),
+        Cell::LInt(value) => value.to_le_bytes().to_vec(),
+        Cell::USInt(value) | Cell::Byte(value) | Cell::Char(value) => vec![value],
+        Cell::UInt(value) | Cell::Word(value) | Cell::WChar(value) => value.to_le_bytes().to_vec(),
+        Cell::UDInt(value) | Cell::DWord(value) => value.to_le_bytes().to_vec(),
+        Cell::ULInt(value) | Cell::LWord(value) => value.to_le_bytes().to_vec(),
+        Cell::Real(value) => value.to_bits().to_le_bytes().to_vec(),
+        Cell::LReal(value) => value.to_bits().to_le_bytes().to_vec(),
+        Cell::Time(value)
+        | Cell::LTime(value)
+        | Cell::Date(value)
+        | Cell::LDate(value)
+        | Cell::Tod(value)
+        | Cell::LTod(value)
+        | Cell::Dt(value)
+        | Cell::Ldt(value) => value.to_le_bytes().to_vec(),
+        other => panic!("{other:?} is not a scalar leaf"),
     }
+}
+
+/// The bytes of a `STRING[n]` or `WSTRING[n]` leaf holding `units`: the 2-byte length, the units
+/// little-endian at `width` bytes each, then zeros up to `capacity` bytes (MEM-12).
+fn text_bytes(units: &[u16], width: usize, capacity: usize) -> Vec<u8> {
+    let mut bytes = u16::try_from(units.len())
+        .expect("a short text")
+        .to_le_bytes()
+        .to_vec();
+    for unit in units {
+        bytes.extend_from_slice(&unit.to_le_bytes()[..width]);
+    }
+    bytes.resize(2 + capacity, 0);
+    bytes
 }
 
 /// Compare two values exactly: floats by their bits, compounds member by member, and enumerations
@@ -741,18 +735,17 @@ fn assert_same(actual: &Value, expected: &Value, context: &str) {
     }
 }
 
-/// Write one scalar value, compare its one cell with the hand-written one, and read it back.
+/// Write one scalar value, compare its bytes with the hand-written ones, and read it back.
 fn scalar_case(prepared: &PreparedModule, type_id: u32, value: &Value, cell: Cell) {
-    let mut cells = [Cell::Null];
-    let mut text = TextStore::default();
-    write_value(&mut cells, type_id, value, prepared, &mut text, 0)
-        .expect("a scalar of its type writes");
-    assert_cell(cells[0], cell, &format!("type {type_id}"));
-    let read = read_value(&cells, type_id, prepared, &text).expect("a scalar of its type reads");
+    let expected = le_bytes(cell);
+    let mut bytes = vec![0xAB; expected.len()];
+    write_value(&mut bytes, type_id, value, prepared).expect("a scalar of its type writes");
+    assert_eq!(bytes, expected, "type {type_id}");
+    let read = read_value(&bytes, type_id, prepared).expect("a scalar of its type reads");
     assert_same(&read, value, &format!("type {type_id}"));
 }
 
-/// The minimum, zero and maximum of every integer and bit-string scalar, with its cell.
+/// The minimum, zero and maximum of every integer and bit-string scalar, with its decoded leaf.
 fn integer_extremes() -> Vec<(u32, Value, Cell)> {
     vec![
         (BOOL, Value::Bool(false), Cell::Bool(false)),
@@ -905,10 +898,10 @@ fn float_and_temporal_extremes() -> Vec<(u32, Value, Cell)> {
 
 #[test]
 fn every_scalar_round_trips_exactly() {
-    // Specification 34 §6.2 after MEM-10: one cell holds a scalar of the value model inline. A
-    // conversion that narrowed a payload (an `Int` in an `i8` cell), that turned a temporal count
-    // into ticks, or that swapped a pair of limits fails here; the cells are the hand-written
-    // minimum, zero and maximum of every scalar type.
+    // Specification 34 MEM-12: every scalar lies at its declared size, little-endian. A conversion
+    // that narrowed a payload (an `Int` in one byte), that widened one (a `BOOL` in four), that
+    // turned a temporal count into ticks, or that swapped a pair of limits fails here; the bytes
+    // are those of the hand-written minimum, zero and maximum of every scalar type.
     let prepared = prepared();
     for (type_id, value, cell) in integer_extremes()
         .into_iter()
@@ -957,12 +950,11 @@ fn every_scalar_round_trips_exactly() {
 
 #[test]
 fn structures_and_arrays_round_trip() {
-    // Specification 34 §6.2 after MEM-10: a structure or array is a contiguous cell range of its
-    // prepared layout with its nested compounds inline, an enumeration keeps its TYPE_TABLE type
-    // and its value, an instance its identity, a null reference an empty reference cell and
-    // `Value::Null` an empty cell. A conversion that wrote a member ordinal instead of its cell
-    // offset, that used a one-cell stride for a two-cell element, or that named a variant wrongly
-    // fails the hand-written cells below.
+    // Specification 34 MEM-12: a structure or array is a contiguous byte range of its prepared
+    // layout with its nested compounds inline, each member at its alignment, an enumeration its
+    // base type, an instance its identity, a null reference an empty reference leaf and
+    // `Value::Null` zero bytes. A conversion that wrote a member ordinal instead of its byte offset,
+    // that packed without alignment or that named a variant wrongly fails the hand-written bytes.
     let prepared = prepared();
     assert_axis_round_trips(&prepared);
     assert_pair_array_round_trips(&prepared);
@@ -971,34 +963,32 @@ fn structures_and_arrays_round_trip() {
     assert_empty_values_round_trip(&prepared);
 }
 
-/// `Axis`: position at cell 0, Band's low and high at cells 1 and 2, mode at cell 3 and series at
-/// cells 4 to 6.
+/// The 24 bytes of an `Axis`: position at 0, Band's low and high at 4 and 8, mode (a DINT) at 12,
+/// series at 16, 18 and 20, and two bytes of padding.
+fn axis_bytes(position: f32, low: f32, high: f32, mode: i32, series: [i16; 3]) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    for real in [position, low, high] {
+        bytes.extend_from_slice(&real.to_le_bytes());
+    }
+    bytes.extend_from_slice(&mode.to_le_bytes());
+    for element in series {
+        bytes.extend_from_slice(&element.to_le_bytes());
+    }
+    bytes.extend_from_slice(&[0, 0]);
+    bytes
+}
+
 fn assert_axis_round_trips(prepared: &PreparedModule) {
     let value = axis(1.5, band(-2.25, 8.0), ("Stopped", 5), [10, 20, 30]);
-    let mut cells = [Cell::Null; 7];
-    let mut text = TextStore::default();
-    write_value(&mut cells, AXIS, &value, prepared, &mut text, 0).expect("an Axis writes");
-    assert_eq!(
-        cells,
-        [
-            Cell::Real(1.5),
-            Cell::Real(-2.25),
-            Cell::Real(8.0),
-            Cell::Enum {
-                type_idx: MODE,
-                value: 5,
-            },
-            Cell::Int(10),
-            Cell::Int(20),
-            Cell::Int(30),
-        ]
-    );
-    let read = read_value(&cells, AXIS, prepared, &text).expect("an Axis reads");
+    let mut bytes = [0u8; 24];
+    write_value(&mut bytes, AXIS, &value, prepared).expect("an Axis writes");
+    assert_eq!(bytes.to_vec(), axis_bytes(1.5, -2.25, 8.0, 5, [10, 20, 30]));
+    let read = read_value(&bytes, AXIS, prepared).expect("an Axis reads");
     assert_same(&read, &value, "Axis");
 }
 
-/// `Cells` is `ARRAY[-1..1, 2..3] OF Pair`: six two-cell elements, so element `k` starts at cell
-/// `2k` whatever its lower bounds are.
+/// `Cells` is `ARRAY[-1..1, 2..3] OF Pair`: six 4-byte elements, so element `k` starts at byte `4k`
+/// whatever its lower bounds are.
 fn assert_pair_array_round_trips(prepared: &PreparedModule) {
     let value = array(
         vec![
@@ -1011,32 +1001,15 @@ fn assert_pair_array_round_trips(prepared: &PreparedModule) {
         ],
         vec![(-1, 1), (2, 3)],
     );
-    let mut cells = [Cell::Null; 12];
-    let mut text = TextStore::default();
-    write_value(&mut cells, CELLS, &value, prepared, &mut text, 0)
-        .expect("a two-dimensional array writes");
-    assert_eq!(
-        cells,
-        [
-            Cell::Int(1),
-            Cell::Int(2),
-            Cell::Int(3),
-            Cell::Int(4),
-            Cell::Int(5),
-            Cell::Int(6),
-            Cell::Int(7),
-            Cell::Int(8),
-            Cell::Int(9),
-            Cell::Int(10),
-            Cell::Int(11),
-            Cell::Int(12),
-        ]
-    );
-    let read = read_value(&cells, CELLS, prepared, &text).expect("a two-dimensional array reads");
+    let mut bytes = [0u8; 24];
+    write_value(&mut bytes, CELLS, &value, prepared).expect("a two-dimensional array writes");
+    let expected: Vec<u8> = (1i16..=12).flat_map(i16::to_le_bytes).collect();
+    assert_eq!(bytes.to_vec(), expected);
+    let read = read_value(&bytes, CELLS, prepared).expect("a two-dimensional array reads");
     assert_same(&read, &value, "Cells");
 }
 
-/// `ARRAY[0..1] OF Axis` inlines each `Axis` through a stride of seven cells.
+/// `ARRAY[0..1] OF Axis` inlines each `Axis` through a stride of 24 bytes.
 fn assert_axis_array_round_trips(prepared: &PreparedModule) {
     let value = array(
         vec![
@@ -1045,116 +1018,105 @@ fn assert_axis_array_round_trips(prepared: &PreparedModule) {
         ],
         vec![(0, 1)],
     );
-    let mut cells = [Cell::Null; 14];
-    let mut text = TextStore::default();
-    write_value(&mut cells, AXIS_ARRAY, &value, prepared, &mut text, 0)
-        .expect("an Axis array writes");
-    // The second element starts at cell 7: its position at cell 7, its mode at cell 10 and the
-    // last series element at cell 13.
-    assert_eq!(cells[7], Cell::Real(-0.5));
+    let mut bytes = [0u8; 48];
+    write_value(&mut bytes, AXIS_ARRAY, &value, prepared).expect("an Axis array writes");
+    // The second element starts at byte 24: its position at 24, its mode at 36 and its last series
+    // element at 44.
     assert_eq!(
-        cells[10],
-        Cell::Enum {
-            type_idx: MODE,
-            value: 1,
-        }
+        bytes[..24].to_vec(),
+        axis_bytes(0.5, 1.0, 2.0, 0, [1, 2, 3])
     );
-    assert_eq!(cells[13], Cell::Int(-3));
-    let read = read_value(&cells, AXIS_ARRAY, prepared, &text).expect("an Axis array reads");
+    assert_eq!(
+        bytes[24..].to_vec(),
+        axis_bytes(-0.5, -1.0, -2.0, 1, [-1, -2, -3])
+    );
+    let read = read_value(&bytes, AXIS_ARRAY, prepared).expect("an Axis array reads");
     assert_same(&read, &value, "an Axis array");
 }
 
-/// A null reference is an empty reference cell, and an instance its identity.
+/// A null reference is an empty 16-byte reference leaf, and an instance its 4-byte identity and a
+/// byte that says it names one, in its 8-byte leaf.
 fn assert_null_and_instances_round_trip(prepared: &PreparedModule) {
     let refs = structure("Refs", vec![("r", Value::Reference(None))]);
-    let mut cells = [Cell::Null];
-    let mut text = TextStore::default();
-    write_value(&mut cells, REFS, &refs, prepared, &mut text, 0).expect("a null reference writes");
-    assert_eq!(cells, [Cell::NullRef]);
-    let read = read_value(&cells, REFS, prepared, &text).expect("a null reference reads");
+    let mut bytes = [0xABu8; 16];
+    write_value(&mut bytes, REFS, &refs, prepared).expect("a null reference writes");
+    assert_eq!(bytes[0], 0);
+    let read = read_value(&bytes, REFS, prepared).expect("a null reference reads");
     assert_same(&read, &refs, "Refs");
 
     let instance = Value::Instance(InstanceId(7));
-    let mut cells = [Cell::Null];
-    write_value(&mut cells, BASE_FB, &instance, prepared, &mut text, 0)
-        .expect("an instance writes");
-    assert_eq!(cells, [Cell::Instance(InstanceId(7))]);
-    let read = read_value(&cells, BASE_FB, prepared, &text).expect("an instance reads");
+    let mut bytes = [0u8; 8];
+    write_value(&mut bytes, BASE_FB, &instance, prepared).expect("an instance writes");
+    assert_eq!(bytes, [7, 0, 0, 0, 1, 0, 0, 0]);
+    let read = read_value(&bytes, BASE_FB, prepared).expect("an instance reads");
     assert_same(&read, &instance, "an instance");
 }
 
-/// `Value::Null` is the empty value: it fills every cell of the range, and an empty range reads
-/// back as `Value::Null`.
+/// `Value::Null` writes zero bytes, which read back as the type's zero value: an `Axis` of zeros
+/// whose mode is `Idle` (0), and a `DINT` 0.
 fn assert_empty_values_round_trip(prepared: &PreparedModule) {
-    let mut cells = [Cell::DInt(9); 7];
-    let mut text = TextStore::default();
-    write_value(&mut cells, AXIS, &Value::Null, prepared, &mut text, 0)
-        .expect("an empty value writes");
-    assert_eq!(cells, [Cell::Null; 7]);
-    assert_eq!(
-        read_value(&cells, AXIS, prepared, &text).expect("an empty range reads"),
-        Value::Null
+    let mut bytes = [9u8; 24];
+    write_value(&mut bytes, AXIS, &Value::Null, prepared).expect("an empty value writes");
+    assert_eq!(bytes, [0; 24]);
+    assert_same(
+        &read_value(&bytes, AXIS, prepared).expect("zero bytes read"),
+        &axis(0.0, band(0.0, 0.0), ("Idle", 0), [0, 0, 0]),
+        "an Axis of zeros",
     );
 
-    let mut cells = [Cell::DInt(9)];
-    write_value(&mut cells, DINT, &Value::Null, prepared, &mut text, 0)
-        .expect("an empty scalar writes");
-    assert_eq!(cells, [Cell::Null]);
+    let mut bytes = [9u8; 4];
+    write_value(&mut bytes, DINT, &Value::Null, prepared).expect("an empty scalar writes");
+    assert_eq!(bytes, [0; 4]);
     assert_eq!(
-        read_value(&cells, DINT, prepared, &text).expect("an empty cell reads"),
-        Value::Null
+        read_value(&bytes, DINT, prepared).expect("a zero DINT reads"),
+        Value::DInt(0)
     );
 }
 
 #[test]
 fn structures_and_arrays_with_text_round_trip() {
-    // Specification 34 §6.2 after MEM-10 and the text-store sentence: a `Cell::Text` leaf converts
-    // through its region's buffer, so `Label`'s `name` is the buffer at cell 0 and its `code` the
-    // buffer at cell 1, and the array element at cell 2 uses the buffers at cells 2 and 3. A
-    // conversion that named the wrong slot, that used one buffer for both leaves, or that stored a
-    // text inline fails the hand-written cells below; a write that did not cut the buffer to the
-    // leaf's capacity, or a read that took a text from the wrong buffer, fails the over-long label.
+    // Specification 34 MEM-12: a `STRING[n]` is a 2-byte length and `n` bytes of UTF-8 inline, a
+    // `WSTRING[n]` the length and `n` UTF-16 code units, so `Label`'s `name` (`STRING[10]`) takes
+    // bytes 0 to 11 and its `code` (`WSTRING[5]`) bytes 12 to 23, and the array element 1 starts at
+    // byte 24. A conversion that kept the text out of line, that counted the length in bytes for a
+    // `WSTRING`, or that wrote a surrogate pair as one unit fails the hand-written bytes below; a
+    // write that did not cut the text to the leaf's capacity fails the over-long label.
     let prepared = prepared();
+    let first_name: Vec<u16> = "first".bytes().map(u16::from).collect();
+    // "Ä🙂" is U+00C4 and U+1F642, the surrogate pair 0xD83D 0xDE42: three code units.
+    let first_code = [0x00C4, 0xD83D, 0xDE42];
 
     let value = label("first", "Ä🙂");
-    let mut cells = [Cell::Null; 2];
-    let mut text = label_text_store();
-    write_value(&mut cells, LABEL, &value, &prepared, &mut text, 0).expect("a Label writes");
-    assert_eq!(cells, [Cell::Text(TextSlot(0)), Cell::Text(TextSlot(1))]);
-    let read = read_value(&cells, LABEL, &prepared, &text).expect("a Label reads");
+    let mut bytes = [0xABu8; 24];
+    write_value(&mut bytes, LABEL, &value, &prepared).expect("a Label writes");
+    let mut expected = text_bytes(&first_name, 1, 10);
+    expected.extend(text_bytes(&first_code, 2, 10));
+    assert_eq!(bytes.to_vec(), expected);
+    let read = read_value(&bytes, LABEL, &prepared).expect("a Label reads");
     assert_same(&read, &value, "Label");
 
-    // `ARRAY[0..1] OF Label`: element 1 is at cells 2 and 3, so its leaves are slots 2 and 3.
+    // `ARRAY[0..1] OF Label`: element 1 starts at byte 24. "Ünïc" is four code units.
     let elements = array(
         vec![label("first", "Ä🙂"), label("second", "Ünïc")],
         vec![(0, 1)],
     );
-    let mut cells = [Cell::Null; 4];
-    let mut text = label_text_store();
-    write_value(&mut cells, LABEL_ARRAY, &elements, &prepared, &mut text, 0)
-        .expect("a Label array writes");
-    assert_eq!(
-        cells,
-        [
-            Cell::Text(TextSlot(0)),
-            Cell::Text(TextSlot(1)),
-            Cell::Text(TextSlot(2)),
-            Cell::Text(TextSlot(3)),
-        ]
-    );
-    let read = read_value(&cells, LABEL_ARRAY, &prepared, &text).expect("a Label array reads");
+    let mut bytes = [0xABu8; 48];
+    write_value(&mut bytes, LABEL_ARRAY, &elements, &prepared).expect("a Label array writes");
+    let second_name: Vec<u16> = "second".bytes().map(u16::from).collect();
+    expected.extend(text_bytes(&second_name, 1, 10));
+    expected.extend(text_bytes(&[0x00DC, 0x006E, 0x00EF, 0x0063], 2, 10));
+    assert_eq!(bytes.to_vec(), expected);
+    let read = read_value(&bytes, LABEL_ARRAY, &prepared).expect("a Label array reads");
     assert_same(&read, &elements, "a Label array");
 
     // A text longer than its leaf's capacity is cut where assignment normalization cuts it: the
     // `STRING[10]` keeps ten bytes and the `WSTRING[5]` five UTF-16 code units, never splitting a
     // character. A conversion that stored the whole text fails here.
     let long = label("0123456789abc", "αβγδεζη");
-    let mut cells = [Cell::Null; 2];
-    let mut text = label_text_store();
-    write_value(&mut cells, LABEL, &long, &prepared, &mut text, 0)
-        .expect("an over-long Label writes");
+    let mut bytes = [0u8; 24];
+    write_value(&mut bytes, LABEL, &long, &prepared).expect("an over-long Label writes");
     assert_eq!(
-        read_value(&cells, LABEL, &prepared, &text).expect("an over-long Label reads"),
+        read_value(&bytes, LABEL, &prepared).expect("an over-long Label reads"),
         label("0123456789", "αβγδε")
     );
 }
@@ -1185,7 +1147,7 @@ const CORPUS: [(&str, &[u8]); 4] = [
 #[test]
 fn generated_values_round_trip() {
     // Specification 34 §6.2 after MEM-10 and design "Boundaries": an engineering write converts a
-    // `Value` into the destination cells and a read materializes it again, so 200 seeded values of
+    // `Value` into the destination's bytes and a read materializes it again, so 200 seeded values of
     // every type of the bounded-c corpus that holds no text and no non-null reference come back
     // exactly. A conversion that dropped a nested compound, that read a member at a wrong offset,
     // that misnamed an enumeration's variant or that rebuilt another array shape fails here.
@@ -1194,7 +1156,6 @@ fn generated_values_round_trip() {
         let prepared = PreparedModule::from_bytes(bytes, PreparationLimits::default())
             .unwrap_or_else(|error| panic!("the {name} fixture prepares: {error}"));
         let mut fixture_types = 0usize;
-        let mut text = TextStore::default();
         for type_id in 0..u32::try_from(prepared.type_layouts().len()).expect("a type count") {
             if !convertible(&prepared, type_id) {
                 continue;
@@ -1205,10 +1166,10 @@ fn generated_values_round_trip() {
             for _ in 0..200 {
                 let value = generate(&prepared, type_id, &mut rng);
                 let context = format!("{name}, type {type_id}");
-                let mut cells = vec![Cell::Null; layout.cells as usize];
-                write_value(&mut cells, type_id, &value, &prepared, &mut text, 0)
+                let mut bytes = vec![0u8; layout.shape.bytes as usize];
+                write_value(&mut bytes, type_id, &value, &prepared)
                     .unwrap_or_else(|error| panic!("{context}: {value:?} writes: {error}"));
-                let read = read_value(&cells, type_id, &prepared, &text)
+                let read = read_value(&bytes, type_id, &prepared)
                     .unwrap_or_else(|error| panic!("{context}: {value:?} reads: {error}"));
                 assert_same(&read, &value, &context);
             }
@@ -1391,60 +1352,55 @@ fn generate_primitive(prim_id: u16, rng: &mut Rng) -> Value {
     }
 }
 
-/// Write a value the check refuses against marked cells and require the exact refusal and unchanged
-/// cells.
+/// Write a value the check refuses against marked bytes and require the exact refusal and unchanged
+/// bytes.
 fn refused_write(
-    marked: &[Cell; 12],
     expected: &RuntimeError,
-    attempt: impl FnOnce(&mut [Cell], &mut TextStore) -> Result<(), RuntimeError>,
+    attempt: impl FnOnce(&mut [u8]) -> Result<(), RuntimeError>,
 ) {
-    let mut cells = *marked;
-    let mut text = TextStore::default();
-    let error = attempt(&mut cells, &mut text).expect_err("the value is refused");
+    let marked = [0xABu8; 96];
+    let mut bytes = marked;
+    let error = attempt(&mut bytes).expect_err("the value is refused");
     assert_eq!(error, *expected);
-    assert_eq!(cells, *marked, "the refused write changed the cells");
+    assert_eq!(bytes, marked, "the refused write changed the bytes");
 }
 
 #[test]
 fn a_mismatched_value_is_refused_and_writes_nothing() {
     // Specification 34 §6.2, the value-conversion paragraph: a write checks the whole value before
-    // it writes a cell and refuses a value whose kind, members, bounds, element count or slice
+    // it writes a byte and refuses a value whose kind, members, bounds, element count or slice
     // length does not match the type, with an error that names the type and the reason. A
     // conversion that wrote member by member and refused in the middle would leave a partly
     // written range; one that fell back to a default, that ignored a member's name or that
-    // accepted another region's length fails here.
+    // accepted another length fails here.
     let prepared = prepared();
-    let marked = [Cell::DInt(-1); 12];
 
-    // A value of another kind, and a slice that is not the layout's cells.
+    // A value of another kind, and a slice that is not the layout's declared size (a DINT is 4).
     refused_write(
-        &marked,
         &RuntimeError::InitFailed {
             owner: "#3".into(),
             variable: "REAL".into(),
             error: "the value's kind does not match the type".into(),
         },
-        |cells, text| write_value(&mut cells[..1], DINT, &Value::Real(1.0), &prepared, text, 0),
+        |bytes| write_value(&mut bytes[..4], DINT, &Value::Real(1.0), &prepared),
     );
     refused_write(
-        &marked,
         &RuntimeError::InitFailed {
             owner: "#3".into(),
-            variable: "cells".into(),
-            error: "the slice holds 2 cells, the type's layout needs 1".into(),
+            variable: "bytes".into(),
+            error: "the slice holds 5 bytes, the type's layout needs 4".into(),
         },
-        |cells, text| write_value(&mut cells[..2], DINT, &Value::DInt(0), &prepared, text, 0),
+        |bytes| write_value(&mut bytes[..5], DINT, &Value::DInt(0), &prepared),
     );
 
     // A structure with a missing member and one with a member the type does not declare.
     refused_write(
-        &marked,
         &RuntimeError::InitFailed {
             owner: "Axis".into(),
             variable: "series".into(),
             error: "the value has no member of that name".into(),
         },
-        |cells, text| {
+        |bytes| {
             let missing = structure(
                 "Axis",
                 vec![
@@ -1453,17 +1409,16 @@ fn a_mismatched_value_is_refused_and_writes_nothing() {
                     ("mode", enumeration("Mode", "Idle", 0)),
                 ],
             );
-            write_value(&mut cells[..7], AXIS, &missing, &prepared, text, 0)
+            write_value(&mut bytes[..24], AXIS, &missing, &prepared)
         },
     );
     refused_write(
-        &marked,
         &RuntimeError::InitFailed {
             owner: "Axis".into(),
             variable: "nope".into(),
             error: "the structure has no member of that name".into(),
         },
-        |cells, text| {
+        |bytes| {
             let extra = structure(
                 "Axis",
                 vec![
@@ -1474,64 +1429,58 @@ fn a_mismatched_value_is_refused_and_writes_nothing() {
                     ("nope", Value::Null),
                 ],
             );
-            write_value(&mut cells[..7], AXIS, &extra, &prepared, text, 0)
+            write_value(&mut bytes[..24], AXIS, &extra, &prepared)
         },
     );
 
-    // An array whose bounds or element count are not the type's (`ARRAY[1..3] OF INT`).
+    // An array whose bounds or element count are not the type's (`ARRAY[1..3] OF INT`, 6 bytes).
     refused_write(
-        &marked,
         &RuntimeError::InitFailed {
             owner: "#30".into(),
             variable: "bounds".into(),
             error: "the value's bounds [(0, 2)] are not the type's [(1, 3)]".into(),
         },
-        |cells, text| {
+        |bytes| {
             let wrong = array(vec![Value::Int(0); 3], vec![(0, 2)]);
-            write_value(&mut cells[..3], INT_SERIES, &wrong, &prepared, text, 0)
+            write_value(&mut bytes[..6], INT_SERIES, &wrong, &prepared)
         },
     );
     refused_write(
-        &marked,
         &RuntimeError::InitFailed {
             owner: "#30".into(),
             variable: "elements".into(),
             error: "the value holds 2 elements, the type holds 3".into(),
         },
-        |cells, text| {
+        |bytes| {
             let short = array(vec![Value::Int(0); 2], vec![(1, 3)]);
-            write_value(&mut cells[..3], INT_SERIES, &short, &prepared, text, 0)
+            write_value(&mut bytes[..6], INT_SERIES, &short, &prepared)
         },
     );
 
-    // A text of another width, and a non-null reference: a text leaf is converted (C1-7) but the
-    // kind must still match, and a non-null reference is the leaf C1-9 stores.
+    // A text of another width (a `STRING` without a length is `STRING[80]`: a 2-byte length and 80
+    // bytes), and a non-null reference, which only a region's reference table holds.
     refused_write(
-        &marked,
         &RuntimeError::InitFailed {
             owner: "#25".into(),
             variable: "WSTRING".into(),
             error: "the value's kind does not match the type".into(),
         },
-        |cells, text| {
+        |bytes| {
             write_value(
-                &mut cells[..1],
+                &mut bytes[..82],
                 STRING,
                 &Value::WString("x".into()),
                 &prepared,
-                text,
-                0,
             )
         },
     );
     refused_write(
-        &marked,
         &RuntimeError::InitFailed {
             owner: "RefToInt".into(),
             variable: "REFERENCE".into(),
-            error: "a non-null reference is stored in C1-9".into(),
+            error: "a non-null reference is held by its region's reference table".into(),
         },
-        |cells, text| {
+        |bytes| {
             let reference = ValueRef {
                 location: MemoryLocation::Global,
                 offset: 0,
@@ -1539,12 +1488,10 @@ fn a_mismatched_value_is_refused_and_writes_nothing() {
                 path: vec![field_path("x")],
             };
             write_value(
-                &mut cells[..1],
+                &mut bytes[..16],
                 REF_TO_INT,
                 &Value::Reference(Some(reference)),
                 &prepared,
-                text,
-                0,
             )
         },
     );
@@ -1552,73 +1499,69 @@ fn a_mismatched_value_is_refused_and_writes_nothing() {
 
 #[test]
 fn a_struct_overlap_is_refused() {
-    // Specification 34 §6.2 after MEM-10: a `STRUCT OVERLAP`'s members share their cells through a
-    // byte backing that C1-15 owns, so a conversion that stored both members in the same cell
-    // would lose one. It is refused with the type and the reason, and a write of the same module's
-    // other types is unaffected. A union shares its members' cells the same way and is refused as
-    // well.
+    // Specification 34 §6.2 after MEM-10: a `STRUCT OVERLAP`'s members share its byte backing, which
+    // C1-15 writes, so a conversion that stored the members one after the other would lose the
+    // overlap. It is refused with the type and the reason, and a write of the same module's other
+    // types is unaffected. A union shares its members' bytes the same way and is refused as well.
     let prepared = prepared();
-    let marked = [Cell::DInt(-1); 12];
     let packed = structure(
         "Packed",
         vec![("as_word", Value::DWord(1)), ("as_int", Value::DInt(1))],
     );
     refused_write(
-        &marked,
         &RuntimeError::InitFailed {
             owner: "Packed".into(),
             variable: "OVERLAP".into(),
             error: "an overlapping structure is written through its byte backing in C1-15".into(),
         },
-        |cells, text| write_value(&mut cells[..1], PACKED, &packed, &prepared, text, 0),
+        |bytes| write_value(&mut bytes[..4], PACKED, &packed, &prepared),
     );
-    assert_eq!(prepared.type_layout(PACKED).expect("Packed").cells, 1);
+    // Both members lie at bit 0, so the backing is the DWORD's four bytes.
+    assert_eq!(prepared.type_layout(PACKED).expect("Packed").shape.bytes, 4);
 
     // The refusals above disturbed nothing: the same module's Axis still writes and reads.
     let good = axis(1.0, band(0.0, 0.0), ("Idle", 0), [1, 2, 3]);
-    let mut cells = [Cell::DInt(-1); 7];
-    let mut text = TextStore::default();
-    write_value(&mut cells, AXIS, &good, &prepared, &mut text, 0)
-        .expect("the same type still writes");
-    let read = read_value(&cells, AXIS, &prepared, &text).expect("and reads");
+    let mut bytes = [0xABu8; 24];
+    write_value(&mut bytes, AXIS, &good, &prepared).expect("the same type still writes");
+    let read = read_value(&bytes, AXIS, &prepared).expect("and reads");
     assert_same(&read, &good, "Axis");
 }
 
 #[test]
-fn cell_offsets_follow_the_layout() {
-    // Specification 34 §6.2 and design "Operands and references": a reference's path converts to
-    // and from a cell offset through the layout, a member by name and an index by its IEC index
-    // with the array's lower bounds. An implementation that returned a member ordinal, that
-    // ignored a lower bound, that indexed from zero or that answered a path the type does not have
+fn byte_offsets_follow_the_layout() {
+    // Specification 34 MEM-12 and design "Operands and references": a reference's path converts to
+    // a byte offset through the layout, a member by name and an index by its IEC index with the
+    // array's lower bounds. An implementation that returned a member ordinal, that ignored a lower
+    // bound or an alignment, that indexed from zero or that answered a path the type does not have
     // with a wrong offset fails here.
     let prepared = prepared();
     let cases: [(u32, Vec<RefSegment>, Option<u32>); 22] = [
-        // Axis: position at 0, limits (Band: low, high) at 1 and 2, mode at 3, series at 4.
+        // Axis: position at 0, limits (Band: low, high) at 4 and 8, mode at 12, series at 16.
         (AXIS, vec![], Some(0)),
         (AXIS, vec![field_path("position")], Some(0)),
-        (AXIS, vec![field_path("limits")], Some(1)),
+        (AXIS, vec![field_path("limits")], Some(4)),
         (
             AXIS,
             vec![field_path("limits"), field_path("high")],
-            Some(2),
+            Some(8),
         ),
-        (AXIS, vec![field_path("mode")], Some(3)),
+        (AXIS, vec![field_path("mode")], Some(12)),
         // ST names are case-insensitive.
-        (AXIS, vec![field_path("LIMITS")], Some(1)),
-        // series is ARRAY[1..3] OF INT at cell 4, so index 2 is element 1 at cell 5.
-        (AXIS, vec![field_path("series"), index_path(&[2])], Some(5)),
+        (AXIS, vec![field_path("LIMITS")], Some(4)),
+        // series is ARRAY[1..3] OF INT at byte 16, so index 2 is element 1 at byte 18.
+        (AXIS, vec![field_path("series"), index_path(&[2])], Some(18)),
         // An index below the declared lower bound, and an index count the type does not have.
         (AXIS, vec![field_path("series"), index_path(&[0])], None),
         (AXIS, vec![field_path("series"), index_path(&[1, 1])], None),
-        // Cells is ARRAY[-1..1, 2..3] OF Pair: element (i, j) is at 2 * ((i + 1) * 2 + (j - 2)).
+        // Cells is ARRAY[-1..1, 2..3] OF Pair: element (i, j) is at 4 * ((i + 1) * 2 + (j - 2)).
         (CELLS, vec![index_path(&[-1, 2])], Some(0)),
-        (CELLS, vec![index_path(&[0, 3]), field_path("y")], Some(7)),
-        (CELLS, vec![index_path(&[1, 3])], Some(10)),
-        (AXIS_ARRAY, vec![index_path(&[1])], Some(7)),
+        (CELLS, vec![index_path(&[0, 3]), field_path("y")], Some(14)),
+        (CELLS, vec![index_path(&[1, 3])], Some(20)),
+        (AXIS_ARRAY, vec![index_path(&[1])], Some(24)),
         (
             AXIS_ARRAY,
             vec![index_path(&[1]), field_path("limits"), field_path("low")],
-            Some(8),
+            Some(28),
         ),
         // A path the type does not have: an unknown member, a member of a scalar, an index
         // outside the bounds, a member of an array and a type with no layout.
@@ -1628,58 +1571,58 @@ fn cell_offsets_follow_the_layout() {
         (INT_SERIES, vec![index_path(&[1])], Some(0)),
         (INT_SERIES, vec![index_path(&[4])], None),
         (CELLS, vec![index_path(&[0, 2]), field_path("low")], None),
-        (CELLS, vec![index_path(&[0, 2]), field_path("y")], Some(5)),
+        (CELLS, vec![index_path(&[0, 2]), field_path("y")], Some(10)),
         (REF_TO_INT, vec![field_path("x")], None),
     ];
     for (type_id, path, expected) in cases {
-        assert_eq!(cell_offset(type_id, &path, &prepared), expected, "{path:?}");
+        assert_eq!(byte_offset(type_id, &path, &prepared), expected, "{path:?}");
     }
 }
 
 #[test]
-fn a_store_refuses_a_range_of_another_region() {
-    // Specification 34 §6.2 after MEM-10: a region owns one cell store, and every accessor answers
-    // `None` outside the reserved region. A store that ignored the range's region would let an
-    // activation index address a persistent cell. The store records the region it holds, so the
-    // persistent store refuses an activation range and the activation store a persistent one.
+fn a_block_refuses_a_range_of_another_region() {
+    // Specification 34 §6.2 after MEM-10: a region owns one block, and every accessor answers
+    // `None` outside it. A block that ignored the range's region would let an activation offset
+    // address a persistent byte. The block records the region it holds, so the persistent block
+    // refuses an activation range and the activation block a persistent one.
     let prepared = prepared();
-    let mut persistent = CellStore::persistent(&prepared).expect("the persistent region reserves");
-    let activation_range = CellRange {
+    let mut persistent = FlatBlock::persistent(&prepared).expect("the persistent region reserves");
+    let activation_range = ByteRange {
         region: LayoutRegion::Activation,
         start: 0,
-        cells: 1,
+        bytes: 1,
     };
-    let persistent_range = CellRange {
+    let persistent_range = ByteRange {
         region: LayoutRegion::Persistent,
         start: 0,
-        cells: 1,
+        bytes: 1,
     };
 
-    // The trigger BOOL is the persistent region's one cell.
+    // The trigger BOOL is the persistent block's one byte.
     assert_eq!(persistent.region(), LayoutRegion::Persistent);
-    assert_eq!(persistent.reserved(), (1, 0));
-    assert_eq!(persistent.cells(persistent_range), Some(&[Cell::Null][..]));
-    assert_eq!(persistent.cells(activation_range), None);
-    assert_eq!(persistent.cells_mut(activation_range), None);
+    assert_eq!(persistent.reserved(), 1);
+    assert_eq!(persistent.bytes(persistent_range), Some(&[0u8][..]));
+    assert_eq!(persistent.bytes(activation_range), None);
+    assert_eq!(persistent.bytes_mut(activation_range), None);
 
     let mut activation =
-        CellStore::reserve_in(LayoutRegion::Activation, 2, 0).expect("an activation region");
+        FlatBlock::reserve_in(LayoutRegion::Activation, 2).expect("an activation block");
     assert_eq!(activation.region(), LayoutRegion::Activation);
     assert_eq!(
-        activation.cells(CellRange {
+        activation.bytes(ByteRange {
             region: LayoutRegion::Activation,
             start: 1,
-            cells: 1,
+            bytes: 1,
         }),
-        Some(&[Cell::Null][..])
+        Some(&[0u8][..])
     );
-    assert_eq!(activation.cells(persistent_range), None);
-    assert_eq!(activation.cells_mut(persistent_range), None);
+    assert_eq!(activation.bytes(persistent_range), None);
+    assert_eq!(activation.bytes_mut(persistent_range), None);
     assert_eq!(
-        activation.cells_mut(CellRange {
+        activation.bytes_mut(ByteRange {
             region: LayoutRegion::Activation,
             start: 0,
-            cells: 3,
+            bytes: 3,
         }),
         None
     );

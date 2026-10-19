@@ -129,12 +129,14 @@ fn a_null_slot_is_not_widened() {
         StoreAccess::read_global(&fixture.values, "Main").map(value_of),
         Some(Value::SInt(3))
     );
+    // A DINT holds four bytes and no tag (specification 34 MEM-12): the null value writes zero
+    // bytes, which read as 0.
     assert!(with_writer(&mut fixture, |writer| {
         StoreMutate::write_slot(writer, MemoryLocation::Global, DINT_G, Value::Null)
     }));
     assert_eq!(
         fixture.reader().read_global("dint_g").map(value_of),
-        Some(Value::Null)
+        Some(Value::DInt(0))
     );
 }
 

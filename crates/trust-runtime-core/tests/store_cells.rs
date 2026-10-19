@@ -1,8 +1,8 @@
-//! The cell, the unit of the bounded value store, and one region's cell store.
+//! The decoded value of one leaf, and one region's flat block.
 //!
-//! Specification: `docs/specs/34-runtime-portability.md` §6.2 (MEM-10) and the paragraph "Cells and
-//! the cell store" after "Prepared cell layouts"; design
-//! `~/projects/.artifacts/bounded-c/design.md` "Cells", "Regions" and "Operands and references".
+//! Specification: `docs/specs/34-runtime-portability.md` §6.2 (MEM-10, MEM-12) and the paragraph "The
+//! flat store"; design `~/projects/.artifacts/bounded-c/design.md` "Cells", "Regions" and "Operands
+//! and references".
 //! Every expected number below is worked out by hand from the ST declarations the fixture encodes:
 //!
 //! ```st
@@ -15,10 +15,10 @@
 //! END_FUNCTION_BLOCK
 //! ```
 //!
-//! The fixture's persistent region is the `trigger` BOOL and the `g_refs` structure (one cell each),
-//! then Base's template (`x` and `p`: two cells) and Derived's, which places Base's two cells first
-//! and adds `y` (three cells): seven cells. Its reference leaves are `g_refs`'s one `REF_TO INT`
-//! member, Base's one and the one Derived inherits: three records.
+//! The fixture's persistent block holds the `trigger` BOOL (1 byte at 0) and the `g_refs` structure
+//! (its 16-byte `REF_TO INT` at the next multiple of 8, bytes 8 to 23): 24 bytes (MEM-12). Base's
+//! template is `x` (an INT at 0) and `p` (a 16-byte reference at 8), 24 bytes; Derived's holds only
+//! its own `y` (an INT), 2 bytes rounded up to 8. No root holds an instance of either.
 
 #[path = "common/bytecode_helpers.rs"]
 mod bytecode_helpers;
@@ -33,9 +33,9 @@ use trust_runtime_core::bytecode::{
     StorageOwner, StorageRole, StringTable, TypeData, TypeEntry, TypeKind, TypeTable, VarMeta,
     VarMetaEntry, HEADER_FLAG_CRC32,
 };
-use trust_runtime_core::memory::cells::{Cell, CellStore, RefRecord, RefSlot, TextSlot};
-use trust_runtime_core::memory::layout::{CellRange, LayoutRegion, CELL_BYTES};
-use trust_runtime_core::memory::{Generation, InstanceId};
+use trust_runtime_core::memory::cells::{Cell, FlatBlock, RefSlot};
+use trust_runtime_core::memory::layout::{ByteRange, LayoutRegion, CELL_BYTES};
+use trust_runtime_core::memory::InstanceId;
 use trust_runtime_core::vm::{PreparationLimits, PreparedModule};
 
 const BOOL: u32 = 0;
@@ -457,12 +457,10 @@ enum Payload {
     Temporal(i64),
 }
 
-/// The payload of one scalar cell, or `None` for a compound, instance, text, reference or empty
-/// cell.
+/// The payload of one scalar leaf, or `None` for an enumeration, instance, reference or empty leaf.
 ///
-/// The match names every `Cell` variant and has no wildcard, so a cell variant that is added or
-/// removed stops this test file building: the variant set is exactly the one specification 34 §6.2
-/// names after MEM-10.
+/// The match names every `Cell` variant and has no wildcard, so a variant that is added or removed
+/// stops this test file building.
 fn payload(cell: Cell) -> Option<Payload> {
     Some(match cell {
         Cell::Bool(value) => Payload::Bool(value),
@@ -490,12 +488,9 @@ fn payload(cell: Cell) -> Option<Payload> {
         | Cell::LTod(value)
         | Cell::Dt(value)
         | Cell::Ldt(value) => Payload::Temporal(value),
-        Cell::Enum { .. }
-        | Cell::Instance(_)
-        | Cell::Text(_)
-        | Cell::Ref(_)
-        | Cell::Null
-        | Cell::NullRef => return None,
+        Cell::Enum { .. } | Cell::Instance(_) | Cell::Ref(_) | Cell::Null | Cell::NullRef => {
+            return None;
+        }
     })
 }
 
@@ -504,23 +499,23 @@ fn assert_copy<T: Copy>() {}
 
 #[test]
 fn a_cell_is_sixteen_bytes_and_copy() {
-    // Specification 34 §6.2, the paragraph after MEM-10, and design "Cells": one cell is sixteen
-    // bytes, `Copy` and without `Drop`, so a region holds every scalar inline and retiring it frees
-    // nothing. A cell that grew (a payload that needs sixteen bytes plus a separate tag makes it
-    // 24), or that held a `String` or an `Arc`, fails here.
+    // Specification 34 §6.2 and TIME-08: a decoded leaf is sixteen bytes, `Copy` and without `Drop`,
+    // the unit the copy charges count a value's elements in, so decoding one allocates nothing. A
+    // leaf that grew (a payload that needs sixteen bytes plus a separate tag makes it 24), or that
+    // held a `String` or an `Arc`, fails here.
     assert_eq!(core::mem::size_of::<Cell>(), 16);
     assert_eq!(core::mem::size_of::<Cell>(), CELL_BYTES);
     assert!(!core::mem::needs_drop::<Cell>());
     assert_copy::<Cell>();
-    // A reserved cell and a reserved reference cell are distinct values.
+    // An empty leaf and an empty reference leaf are distinct values.
     assert_ne!(Cell::Null, Cell::NullRef);
 }
 
 #[test]
 fn every_scalar_value_has_its_cell() {
-    // One cell per scalar `Value` variant (`core/value/types.rs`); the expected values are those
-    // types' limits. A cell that narrowed a payload (an `Int` holding an `i8`), shifted one, or
-    // swapped a pair of limits fails here (specification 34 §6.2, after MEM-10).
+    // One leaf per scalar `Value` variant (`core/value/types.rs`); the expected values are those
+    // types' limits. A leaf that narrowed a payload (an `Int` holding an `i8`), shifted one, or
+    // swapped a pair of limits fails here (specification 34 §6.2, MEM-12).
     let cases = [
         (Cell::Bool(true), Payload::Bool(true)),
         (Cell::Bool(false), Payload::Bool(false)),
@@ -578,14 +573,13 @@ fn every_scalar_value_has_its_cell() {
         assert_eq!(payload(build(i64::MAX)), Some(Payload::Temporal(i64::MAX)));
     }
 
-    // A compound, instance, text, reference and empty cell have no scalar payload.
+    // An enumeration, instance, reference and empty leaf have no scalar payload.
     for cell in [
         Cell::Enum {
             type_idx: INT,
             value: 3,
         },
         Cell::Instance(InstanceId(2)),
-        Cell::Text(TextSlot(1)),
         Cell::Ref(RefSlot(1)),
         Cell::Null,
         Cell::NullRef,
@@ -595,178 +589,149 @@ fn every_scalar_value_has_its_cell() {
 }
 
 #[test]
-fn a_reserved_store_never_grows() {
-    // Specification 34 §6.2, the paragraph after MEM-10: a region is reserved once and never
-    // grows, and every accessor outside it answers `None`. A store that resized a vector on a
-    // write, that clamped a range or a slot outside the region instead of refusing it, or that
-    // answered a missing record with `RefRecord::NULL` instead of `None`, fails here.
-    let region = CellRange {
+fn a_reserved_block_never_grows() {
+    // Specification 34 §6.2, the paragraph after MEM-10, and MEM-12: a block is reserved once,
+    // zeroed, and never grows, and every accessor outside it answers `None`. A block that resized
+    // its bytes on a write, or that clamped a range outside the block instead of refusing it, fails
+    // here.
+    let region = ByteRange {
         region: LayoutRegion::Persistent,
         start: 0,
-        cells: 3,
+        bytes: 12,
     };
-    let mut store = CellStore::reserve(3, 2).expect("three cells and two reference records");
+    let mut block = FlatBlock::reserve(12).expect("twelve bytes");
 
-    // `reserve` fixes the region and fills it: every cell is empty and every record null.
-    assert_eq!(store.reserved(), (3, 2));
-    assert_eq!(
-        store.cells(region),
-        Some(&[Cell::Null, Cell::Null, Cell::Null][..])
-    );
-    assert_eq!(store.record(RefSlot(0)), Some(&RefRecord::NULL));
-    assert_eq!(store.record(RefSlot(1)), Some(&RefRecord::NULL));
+    // `reserve` fixes the block and zeroes it.
+    assert_eq!(block.reserved(), 12);
+    assert_eq!(block.bytes(region), Some(&[0u8; 12][..]));
 
-    // Write every cell of the region and the second record through the accessors.
-    let cells = store.cells_mut(region).expect("the whole region");
-    for (index, cell) in cells.iter_mut().enumerate() {
-        *cell = Cell::DInt(i32::try_from(index).expect("three cells fit an i32"));
+    // Write every byte through the accessor.
+    let bytes = block.bytes_mut(region).expect("the whole block");
+    for (index, byte) in bytes.iter_mut().enumerate() {
+        *byte = u8::try_from(index).expect("twelve bytes fit a u8");
     }
-    *store.record_mut(RefSlot(1)).expect("the second record") = RefRecord {
-        region: LayoutRegion::Activation,
-        cell: 5,
-        char_index: 7,
-        target_type: INT,
-        generation: Generation(4),
-    };
     assert_eq!(
-        store.cells(region),
-        Some(&[Cell::DInt(0), Cell::DInt(1), Cell::DInt(2)][..])
-    );
-    assert_eq!(
-        store.record(RefSlot(1)),
-        Some(&RefRecord {
-            region: LayoutRegion::Activation,
-            cell: 5,
-            char_index: 7,
-            target_type: INT,
-            generation: Generation(4),
-        })
+        block.bytes(ByteRange {
+            start: 4,
+            bytes: 3,
+            ..region
+        }),
+        Some(&[4u8, 5, 6][..])
     );
 
-    // The writes did not grow either region.
-    assert_eq!(store.reserved(), (3, 2));
+    // The write did not grow the block.
+    assert_eq!(block.reserved(), 12);
 
-    // The last cell of the region is cell 2 and its last record is slot 1; one past either end,
-    // and a range that only reaches past the end, is refused.
+    // The last byte of the block is byte 11; a range one past the end, a range that only reaches
+    // past it, and a range of the other region are refused.
     assert_eq!(
-        store.cells(CellRange {
-            start: 3,
-            cells: 1,
+        block.bytes(ByteRange {
+            start: 12,
+            bytes: 1,
             ..region
         }),
         None
     );
     assert_eq!(
-        store.cells(CellRange {
-            start: 2,
-            cells: 2,
+        block.bytes(ByteRange {
+            start: 11,
+            bytes: 2,
             ..region
         }),
         None
     );
     assert_eq!(
-        store.cells_mut(CellRange {
+        block.bytes_mut(ByteRange {
             start: 0,
-            cells: 4,
+            bytes: 13,
             ..region
         }),
         None
     );
-    assert_eq!(store.record(RefSlot(2)), None);
-    assert_eq!(store.record_mut(RefSlot(2)), None);
-    assert_eq!(store.record(RefSlot(u32::MAX)), None);
-    assert_eq!(store.record_mut(RefSlot(u32::MAX)), None);
+    assert_eq!(
+        block.bytes(ByteRange {
+            region: LayoutRegion::Activation,
+            ..region
+        }),
+        None
+    );
 }
 
 #[test]
 fn a_persistent_region_is_sized_from_the_prepared_layouts() {
     let prepared = prepared();
 
-    // The globals keep declaration order: the program root owns no typed global, the `trigger`
-    // BOOL is persistent cell 0 and the `g_refs` structure cell 1 (each one cell).
-    assert_eq!(prepared.global_cells(PROGRAM_ROOT_DECL), None);
+    // The globals keep declaration order, each at its declared size and alignment (MEM-12): the
+    // program root owns no typed global, the `trigger` BOOL is byte 0 and the `g_refs` structure,
+    // one 16-byte reference aligned to 8, bytes 8 to 23.
+    assert_eq!(prepared.global_range(PROGRAM_ROOT_DECL), None);
     assert_eq!(
-        prepared.global_cells(TRIGGER_DECL),
-        Some(CellRange {
+        prepared.global_range(TRIGGER_DECL),
+        Some(ByteRange {
             region: LayoutRegion::Persistent,
             start: 0,
-            cells: 1,
+            bytes: 1,
         })
     );
     assert_eq!(
-        prepared.global_cells(REFS_DECL),
-        Some(CellRange {
+        prepared.global_range(REFS_DECL),
+        Some(ByteRange {
             region: LayoutRegion::Persistent,
-            start: 1,
-            cells: 1,
+            start: 8,
+            bytes: 16,
         })
     );
 
-    // Base's template is its own x : INT and p : REF_TO INT: two cells from the instance's first
-    // cell. Derived extends Base, so its template holds only its own y : INT and links to Base's
-    // template (spec 34 §6.2, O6).
+    // Base's template is its own x : INT at 0 and p : REF_TO INT at 8: 24 bytes from the instance's
+    // first byte. Derived extends Base, so its template holds only its own y : INT, 2 bytes rounded
+    // up to 8, and links to Base's template (spec 34 §6.2, O6).
     assert_eq!(
         prepared
-            .instance_template_cells(BASE_POU)
+            .instance_template(BASE_POU)
             .map(|template| template.range),
-        Some(CellRange {
+        Some(ByteRange {
             region: LayoutRegion::Persistent,
             start: 0,
-            cells: 2,
+            bytes: 24,
         })
     );
+    assert_eq!(prepared.declaration_offset(BASE_X_DECL), Some(0));
+    assert_eq!(prepared.declaration_offset(BASE_P_DECL), Some(8));
     assert_eq!(
         prepared
-            .instance_template_cells(DERIVED_POU)
+            .instance_template(DERIVED_POU)
             .map(|template| template.range),
-        Some(CellRange {
+        Some(ByteRange {
             region: LayoutRegion::Persistent,
             start: 0,
-            cells: 1,
+            bytes: 8,
         })
     );
+    assert_eq!(prepared.declaration_offset(DERIVED_Y_DECL), Some(0));
 
-    // The region has one range per persistent root (spec 34 §6.2, O8). This fixture's roots are
-    // Main (no own cells), the trigger and REFS: the trigger BOOL and REFS take one cell each,
-    // and REFS holds one reference leaf (`g_refs.r`). Base and Derived have no root here, so they
-    // reserve no cells.
-    let store = CellStore::persistent(&prepared).expect("the persistent region reserves");
-    assert_eq!(store.reserved(), (2, 1));
+    // The block holds the globals, 24 bytes, and one range per persistent root (spec 34 §6.2, O8).
+    // This fixture's roots are Main (no own bytes), the trigger and REFS, so nothing follows the
+    // globals. Base and Derived have no root here, so they reserve no bytes.
+    let block = FlatBlock::persistent(&prepared).expect("the persistent region reserves");
+    assert_eq!(block.reserved(), 24);
 
-    // The whole region is addressable: its last cell and its last record exist, and one past
-    // either end does not.
+    // The whole block is addressable: its last byte exists, and one past the end does not.
     assert_eq!(
-        store
-            .cells(CellRange {
+        block
+            .bytes(ByteRange {
                 region: LayoutRegion::Persistent,
-                start: 1,
-                cells: 1,
+                start: 23,
+                bytes: 1,
             })
-            .map(|cells| cells.len()),
+            .map(<[u8]>::len),
         Some(1)
     );
     assert_eq!(
-        store.cells(CellRange {
+        block.bytes(ByteRange {
             region: LayoutRegion::Persistent,
-            start: 2,
-            cells: 1,
+            start: 24,
+            bytes: 1,
         }),
         None
     );
-    assert_eq!(store.record(RefSlot(0)), Some(&RefRecord::NULL));
-    assert_eq!(store.record(RefSlot(1)), None);
-}
-
-#[test]
-fn reservation_bytes_counts_cells_and_records() {
-    // Specification 34 §6.2, the paragraph after MEM-10: the bytes reserving a region takes are
-    // its cells at sixteen bytes each plus its reference records. One record is its region, cell,
-    // character index, target type and generation: twenty bytes on every target. A charge that
-    // used the value model's `size_of::<Value>()`, that counted the cells but not the records, or
-    // that forgot the empty region's zero fails here.
-    assert_eq!(core::mem::size_of::<RefRecord>(), 20);
-    assert_eq!(CellStore::reservation_bytes(0, 0), Some(0));
-    assert_eq!(CellStore::reservation_bytes(3, 2), Some(3 * 16 + 2 * 20));
-    assert_eq!(CellStore::reservation_bytes(100, 0), Some(1_600));
-    assert_eq!(CellStore::reservation_bytes(0, 100), Some(2_000));
 }

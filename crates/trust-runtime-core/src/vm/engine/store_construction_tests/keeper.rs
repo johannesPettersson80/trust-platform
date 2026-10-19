@@ -15,10 +15,11 @@
 //! END_VAR
 //! ```
 //!
-//! The globals take 2 + 2 + 1 + 1 + 1 = 7 cells (`holder_g` and `slots_g` two cells each, `keeper_g` one
-//! instance cell, the dates one each). The roots follow in CONSTRUCTION_ROOTS order: `Main` (no cells of
-//! its own) at cell 7, then the `Keeper` instance of `keeper_g` at cell 7 with 4 cells of its own, `held`
-//! (2) and `slots` (2).
+//! The globals take 24 + 32 + 8 + 8 + 8 = 80 bytes at their declared sizes (MEM-12: `holder_g` a
+//! 16-byte reference and a DINT rounded up to 24, `slots_g` two 16-byte references, `keeper_g` an
+//! 8-byte instance leaf, the dates 8 each). The roots follow in CONSTRUCTION_ROOTS order: `Main` (no
+//! bytes of its own) at byte 80, then the `Keeper` instance of `keeper_g` at byte 80 with 56 bytes of
+//! its own, `held` (24) at 0 and `slots` (32) at 24.
 
 use crate::bytecode::{
     compute_type_offsets_for_entries, AccessBindings, BytecodeModule, BytecodeVersion,

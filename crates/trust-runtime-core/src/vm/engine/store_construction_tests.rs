@@ -19,7 +19,7 @@ use crate::bytecode::{StorageOwner, StorageRole, ValidationLimits};
 use crate::collections::OrderedMap;
 use crate::error::RuntimeError;
 use crate::memory::cell_access::{fixture, CellArm};
-use crate::memory::layout::{CellRange, LayoutRegion};
+use crate::memory::layout::{ByteRange, LayoutRegion};
 use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::memory::{Generation, InstanceId, MemoryLocation};
 use crate::retain::RestartMode;
@@ -230,10 +230,12 @@ fn persistent_instances_are_registered_at_construction() {
     // `FUNCTION_BLOCK Tracker` (VAR history : ARRAY[1..3] OF INT END_VAR). Its roots are the globals `ticks`,
     // `table`, `origin`, `corners` and `capacity`, the program (template pou 0), the tracker (template pou 34,
     // nested in the program) and the static `calls`. Only the program and the tracker have instances, so they
-    // take identities 0 and 1 on the `Value` store, and the cells must give the same. The program holds
-    // `gain`, `tracker`, `slot` and `result` (4 cells) after the 12 cells of the globals (`ticks` 1, `table`
-    // 3, `origin` 2, `corners` 4, `capacity` 1, `calls` 1), so its range starts at cell 12; the tracker holds
-    // `history` (3 cells) and follows at cell 16.
+    // take identities 0 and 1 on the `Value` store, and the cells must give the same. The globals take
+    // 26 bytes at their declared sizes (MEM-12: `ticks` a DINT 4, `table` three INTs 6, `origin` two
+    // INTs 4, `corners` two of them 8, `capacity` and `calls` an INT 2 each), so the roots start at the
+    // next multiple of 8, byte 32. The program holds `gain` (an INT) at 0, `tracker` (an 8-byte
+    // instance leaf) at 8, `slot` at 16 and `result` at 18: 20 bytes rounded up to 24, at 32 to 55. The
+    // tracker holds `history` (three INTs, 6 bytes rounded up to 8) and follows at byte 56.
     //
     // A second counter for per-call instances would start at 0 and issue identity 0 again: the instance
     // created next must take 2 on both stores. A store that did not record the instances would answer no
@@ -255,18 +257,18 @@ fn persistent_instances_are_registered_at_construction() {
     assert_eq!(cells.construction.roots, roots);
     assert_eq!(
         arm(&cells).instance_range(InstanceId(0)),
-        Some(CellRange {
+        Some(ByteRange {
             region: LayoutRegion::Persistent,
-            start: 12,
-            cells: 4,
+            start: 32,
+            bytes: 24,
         })
     );
     assert_eq!(
         arm(&cells).instance_range(InstanceId(1)),
-        Some(CellRange {
+        Some(ByteRange {
             region: LayoutRegion::Persistent,
-            start: 16,
-            cells: 3,
+            start: 56,
+            bytes: 8,
         })
     );
     assert_eq!(arm(&cells).instance_range(InstanceId(2)), None);
@@ -597,11 +599,13 @@ fn a_reference_in_a_structure_and_an_array_of_references_round_trip_on_cells() {
 
 #[test]
 fn an_instance_without_a_root_is_placed_or_refused() {
-    // Specification 34 §6.2 (MEM-10; O8): a persistent instance lives in its root's range. `Keeper` has
-    // the roots `Main` (instance 0), the globals without instances, and `keeper_g` (instance 1). The
-    // globals take 7 cells (`holder_g` 2, `slots_g` 2, `keeper_g` 1, the two dates 1 each), so the roots
-    // start at cell 7: `Main` has no cells of its own, and the `Keeper` instance holds `held` (2) and
-    // `slots` (2), 4 cells. Each root is placed in its own range.
+    // Specification 34 §6.2 (MEM-10, MEM-12; O8): a persistent instance lives in its root's range.
+    // `Keeper` has the roots `Main` (instance 0), the globals without instances, and `keeper_g`
+    // (instance 1). The globals take 80 bytes (`holder_g` a 16-byte reference and a DINT, 20 bytes
+    // rounded up to 24; `slots_g` two 16-byte references, 32; `keeper_g` an 8-byte instance leaf; the
+    // two dates 8 each), so the roots start at byte 80: `Main` has no bytes of its own, and the
+    // `Keeper` instance holds `held` (24) at 0 and `slots` (32) at 24, 56 bytes. Each root is placed in
+    // its own range.
     //
     // An instance with no owner and no root has no range to live in. The cell store refuses it by name
     // and issues no identity, so the instance created next takes 2; the `Value` store has no range to
@@ -615,18 +619,18 @@ fn an_instance_without_a_root_is_placed_or_refused() {
     let mut cells = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
     assert_eq!(
         arm(&cells).instance_range(InstanceId(0)),
-        Some(CellRange {
+        Some(ByteRange {
             region: LayoutRegion::Persistent,
-            start: 7,
-            cells: 0,
+            start: 80,
+            bytes: 0,
         })
     );
     assert_eq!(
         arm(&cells).instance_range(InstanceId(1)),
-        Some(CellRange {
+        Some(ByteRange {
             region: LayoutRegion::Persistent,
-            start: 7,
-            cells: 4,
+            start: 80,
+            bytes: 56,
         })
     );
     let mut state = EngineState::borrow(&mut cells, &prepared, &services::LOGICAL_ONLY);

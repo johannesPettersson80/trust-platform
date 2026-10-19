@@ -1,6 +1,6 @@
-//! The charges of cell values (specification 34 §6.2, TIME-08; C1-9c, R5). A copy of a value in cells
-//! charges the work and the allocation that a copy of the same `Value` charges, computed from the
-//! cells, so the cell arm and the `Value` arm agree for one program. The engine calls these from
+//! The charges of values in the flat block (specification 34 §6.2, TIME-08; C1-9c, R5). A copy of
+//! a value in the block charges the work and the allocation that a copy of the same `Value`
+//! charges, computed from its bytes, so the cell arm and the `Value` arm agree for one program. The engine calls these from
 //! C1-9d; until then only the tests compute them.
 
 #![allow(
@@ -14,8 +14,9 @@ use super::{
 };
 use crate::bytecode::{TypeData, TypeKind, BYTECODE_MAX_TYPE_NESTING};
 use crate::error::RuntimeError;
-use crate::memory::cells::Cell;
-use crate::memory::layout::{CellRange, CELL_BYTES};
+use crate::memory::cells::{text_geometry, Cell};
+use crate::memory::flat::{self, LeafKind, TextBytes};
+use crate::memory::layout::{ByteRange, CELL_BYTES};
 use crate::memory::regions::CellRegions;
 use crate::memory::{InstanceId, MemoryLocation};
 use crate::value::{string_element_position_in, RefSegment, Value};
@@ -30,20 +31,12 @@ impl CellsView<'_> {
     /// that holds cells. A range of Null cells is the Null value and copies nothing.
     pub(crate) fn copy_charge(
         self,
-        range: CellRange,
+        range: ByteRange,
         type_id: u32,
         depth: usize,
     ) -> Result<CopyCharge, RuntimeError> {
         if depth > BYTECODE_MAX_TYPE_NESTING {
             return Err(RuntimeError::TypeMismatch);
-        }
-        let cells = self
-            .regions
-            .persistent()
-            .cells(range)
-            .ok_or(RuntimeError::InvalidExecutionState)?;
-        if cells.iter().all(|cell| *cell == Cell::Null) {
-            return Ok(CopyCharge::default());
         }
         let (resolved, entry) =
             resolve_entry(self.prepared, type_id).ok_or(RuntimeError::InvalidExecutionState)?;
@@ -58,7 +51,7 @@ impl CellsView<'_> {
                     allocation: 0,
                 };
                 for (member, field) in layout.members.iter().zip(fields) {
-                    let child = self.child_range(range, member.offset, field.type_id)?;
+                    let child = self.child_range(range, member.byte_offset, field.type_id)?;
                     charge = charge.add(self.child_charge(child, field.type_id, depth)?)?;
                 }
                 Ok(charge)
@@ -81,7 +74,7 @@ impl CellsView<'_> {
                 for index in 0..count {
                     let offset = u32::try_from(index)
                         .ok()
-                        .and_then(|index| index.checked_mul(array.stride))
+                        .and_then(|index| index.checked_mul(array.byte_stride))
                         .ok_or(RuntimeError::Overflow)?;
                     let child = self.child_range(range, offset, *elem_type_id)?;
                     charge = charge.add(self.child_charge(child, *elem_type_id, depth)?)?;
@@ -91,7 +84,7 @@ impl CellsView<'_> {
             TypeData::Primitive { .. } | TypeData::Subrange { .. } => {
                 match primitive_of(self.prepared, type_id) {
                     Some(prim_id @ (STRING_PRIMITIVE | WSTRING_PRIMITIVE)) => {
-                        self.text_charge(cells, prim_id)
+                        self.text_charge(range, type_id, prim_id)
                     }
                     _ => Ok(CopyCharge::default()),
                 }
@@ -124,18 +117,12 @@ impl CellsView<'_> {
     /// allocation when the child is a leaf of the parent (`vm::engine::allocation`).
     fn child_charge(
         self,
-        range: CellRange,
+        range: ByteRange,
         type_id: u32,
         depth: usize,
     ) -> Result<CopyCharge, RuntimeError> {
         let charge = self.copy_charge(range, type_id, depth + 1)?;
-        let cells = self
-            .regions
-            .persistent()
-            .cells(range)
-            .ok_or(RuntimeError::InvalidExecutionState)?;
-        let compound = is_compound(self.prepared, type_id);
-        if compound && cells.iter().any(|cell| *cell != Cell::Null) {
+        if is_compound(self.prepared, type_id) {
             return Ok(charge);
         }
         charge.add(CopyCharge {
@@ -147,36 +134,37 @@ impl CellsView<'_> {
     /// The cell range of a member or element at `offset` of a value at `range`, of `type_id`.
     fn child_range(
         self,
-        range: CellRange,
+        range: ByteRange,
         offset: u32,
         type_id: u32,
-    ) -> Result<CellRange, RuntimeError> {
-        let cells = self
+    ) -> Result<ByteRange, RuntimeError> {
+        let bytes = self
             .prepared
             .type_layout(type_id)
             .ok_or(RuntimeError::InvalidExecutionState)?
-            .cells;
+            .shape
+            .bytes;
         let start = range
             .start
             .checked_add(offset)
             .ok_or(RuntimeError::Overflow)?;
-        Ok(CellRange {
+        Ok(ByteRange {
             region: range.region,
             start,
-            cells,
+            bytes,
         })
     }
 
     /// The charge of a text leaf's copy: its bytes, and for a WSTRING one unit (TIME-08).
-    fn text_charge(self, cells: &[Cell], prim_id: u16) -> Result<CopyCharge, RuntimeError> {
-        let Some(Cell::Text(slot)) = cells.first() else {
-            return Err(RuntimeError::InvalidExecutionState);
-        };
-        let allocation = self
-            .regions
-            .text()
-            .length(*slot)
-            .ok_or(RuntimeError::InvalidExecutionState)?;
+    fn text_charge(
+        self,
+        range: ByteRange,
+        type_id: u32,
+        prim_id: u16,
+    ) -> Result<CopyCharge, RuntimeError> {
+        let allocation = text_bytes(self.prepared, self.regions, range, type_id)
+            .ok_or(RuntimeError::InvalidExecutionState)?
+            .len();
         Ok(CopyCharge {
             work: usize::from(prim_id == WSTRING_PRIMITIVE),
             allocation,
@@ -237,25 +225,33 @@ fn element_count(dims: &[(i64, i64)]) -> Option<usize> {
 }
 
 /// The bytes in use of the text leaf at `range`, or `None` when the range holds no text.
-fn text_bytes(regions: &CellRegions, range: CellRange) -> Option<&[u8]> {
-    let Some(Cell::Text(slot)) = regions.persistent().cells(range)?.first() else {
-        return None;
-    };
-    regions.text().bytes(*slot)
+fn text_bytes<'a>(
+    prepared: &PreparedModule,
+    regions: &'a CellRegions,
+    range: ByteRange,
+    type_id: u32,
+) -> Option<&'a [u8]> {
+    let (length, _, wide) = text_geometry(prepared, type_id)?;
+    match flat::read_text(regions.persistent().bytes(range)?, length, wide).ok()? {
+        TextBytes::Narrow(text) => Some(text.as_bytes()),
+        TextBytes::Wide(units) => Some(units),
+    }
 }
 
-/// The UTF-8 length of the text leaf at `range`: its bytes for a `STRING`, and the UTF-8 length of its
-/// UTF-16 units for a `WSTRING` (TIME-08 counts UTF-8). `None` when the range holds no text.
-fn text_utf8_length(regions: &CellRegions, range: CellRange, prim_id: u16) -> Option<usize> {
-    let bytes = text_bytes(regions, range)?;
+fn text_utf8_length(
+    prepared: &PreparedModule,
+    regions: &CellRegions,
+    range: ByteRange,
+    type_id: u32,
+    prim_id: u16,
+) -> Option<usize> {
+    let bytes = text_bytes(prepared, regions, range, type_id)?;
     Some(match prim_id {
         STRING_PRIMITIVE => bytes.len(),
         _ => utf8_length_of_utf16(bytes),
     })
 }
 
-/// The characters of the text stored as little-endian UTF-16 code units, decoded in place without
-/// allocating.
 fn wide_chars(bytes: &[u8]) -> impl Iterator<Item = Result<char, core::char::DecodeUtf16Error>> {
     char::decode_utf16(
         bytes
@@ -290,16 +286,25 @@ impl CellReader<'_> {
             let target = self
                 .locate(location, offset, &path[..depth])
                 .map_err(|_| RuntimeError::NullReference)?;
-            let Target::Cells(range, type_id) = target else {
+            let Target::Cells(range, type_id, presence) = target else {
                 continue;
             };
+            if !self.present(presence) {
+                continue;
+            }
             let Some(prim_id @ (STRING_PRIMITIVE | WSTRING_PRIMITIVE)) =
                 primitive_of(self.prepared, type_id)
             else {
                 continue;
             };
-            let length = text_utf8_length(self.arm.cells.regions(), range, prim_id)
-                .ok_or(RuntimeError::InvalidExecutionState)?;
+            let length = text_utf8_length(
+                self.prepared,
+                self.arm.cells.regions(),
+                range,
+                type_id,
+                prim_id,
+            )
+            .ok_or(RuntimeError::InvalidExecutionState)?;
             // `charge_string_path_write`: the text's length plus four units, three work units and one
             // cell of allocation each.
             let units = length.checked_add(4).ok_or(RuntimeError::Overflow)?;
@@ -321,7 +326,7 @@ impl<'a> CellsView<'a> {
     /// without allocation. `None` for any other type.
     pub(crate) fn scalar(
         self,
-        range: CellRange,
+        range: ByteRange,
         type_id: u32,
     ) -> Result<Option<Value>, RuntimeError> {
         match primitive_of(self.prepared, type_id) {
@@ -333,19 +338,19 @@ impl<'a> CellsView<'a> {
     /// The instance the cells at `range` hold: the instance cell of a function block or an interface.
     pub(crate) fn instance(
         self,
-        range: CellRange,
+        range: ByteRange,
         type_id: u32,
     ) -> Result<Option<InstanceId>, RuntimeError> {
         if !is_instance(self.prepared, type_id) {
             return Ok(None);
         }
-        let cells = self
+        let bytes = self
             .regions
             .persistent()
-            .cells(range)
+            .bytes(range)
             .ok_or(RuntimeError::InvalidExecutionState)?;
-        Ok(match cells.first() {
-            Some(Cell::Instance(instance)) => Some(*instance),
+        Ok(match flat::decode(LeafKind::Instance, bytes)? {
+            Cell::Instance(instance) => Some(instance),
             _ => None,
         })
     }
@@ -354,7 +359,7 @@ impl<'a> CellsView<'a> {
     /// code units for a `WSTRING` (TIME-08). `None` for any other type.
     pub(crate) fn text_utf8_len(
         self,
-        range: CellRange,
+        range: ByteRange,
         type_id: u32,
     ) -> Result<Option<usize>, RuntimeError> {
         let Some(prim_id @ (STRING_PRIMITIVE | WSTRING_PRIMITIVE)) =
@@ -362,7 +367,7 @@ impl<'a> CellsView<'a> {
         else {
             return Ok(None);
         };
-        text_utf8_length(self.regions, range, prim_id)
+        text_utf8_length(self.prepared, self.regions, range, type_id, prim_id)
             .map(Some)
             .ok_or(RuntimeError::InvalidExecutionState)
     }
@@ -373,7 +378,7 @@ impl<'a> CellsView<'a> {
     /// for any other type.
     pub(crate) fn text_char_count(
         self,
-        range: CellRange,
+        range: ByteRange,
         type_id: u32,
     ) -> Result<Option<usize>, RuntimeError> {
         let Some(prim_id @ (STRING_PRIMITIVE | WSTRING_PRIMITIVE)) =
@@ -381,7 +386,8 @@ impl<'a> CellsView<'a> {
         else {
             return Ok(None);
         };
-        let bytes = text_bytes(self.regions, range).ok_or(RuntimeError::InvalidExecutionState)?;
+        let bytes = text_bytes(self.prepared, self.regions, range, type_id)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
         let count = if prim_id != WSTRING_PRIMITIVE {
             core::str::from_utf8(bytes)
                 .ok()
@@ -402,7 +408,7 @@ impl<'a> CellsView<'a> {
     /// for any type but a `WSTRING`.
     pub(crate) fn wide_text_element(
         self,
-        range: CellRange,
+        range: ByteRange,
         type_id: u32,
         index: i64,
     ) -> Result<Option<Value>, RuntimeError> {
@@ -415,7 +421,8 @@ impl<'a> CellsView<'a> {
         let Ok(position) = string_element_position_in(count, index) else {
             return Ok(None);
         };
-        let bytes = text_bytes(self.regions, range).ok_or(RuntimeError::InvalidExecutionState)?;
+        let bytes = text_bytes(self.prepared, self.regions, range, type_id)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
         let Some(Ok(character)) = wide_chars(bytes).nth(position) else {
             return Err(RuntimeError::InvalidExecutionState);
         };
@@ -526,10 +533,10 @@ impl<'a> CellsView<'a> {
     /// of [`CellsView::child_count`].
     pub(crate) fn child(
         self,
-        range: CellRange,
+        range: ByteRange,
         type_id: u32,
         ordinal: usize,
-    ) -> Result<(CellRange, u32), RuntimeError> {
+    ) -> Result<(ByteRange, u32), RuntimeError> {
         let (resolved, entry) =
             resolve_entry(self.prepared, type_id).ok_or(RuntimeError::InvalidExecutionState)?;
         let layout = self
@@ -545,7 +552,7 @@ impl<'a> CellsView<'a> {
                 let field = fields
                     .get(ordinal)
                     .ok_or(RuntimeError::InvalidExecutionState)?;
-                (member.offset, field.type_id)
+                (member.byte_offset, field.type_id)
             }
             TypeData::Array { elem_type_id, .. } => {
                 let array = layout
@@ -554,7 +561,7 @@ impl<'a> CellsView<'a> {
                     .ok_or(RuntimeError::InvalidExecutionState)?;
                 let offset = u32::try_from(ordinal)
                     .ok()
-                    .and_then(|index| index.checked_mul(array.stride))
+                    .and_then(|index| index.checked_mul(array.byte_stride))
                     .ok_or(RuntimeError::Overflow)?;
                 (offset, *elem_type_id)
             }

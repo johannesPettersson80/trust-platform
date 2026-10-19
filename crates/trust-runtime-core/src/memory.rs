@@ -295,8 +295,7 @@ mod access;
 /// The cell arm of the store-access seam: the reads over the cell store (specification 34 §6.2,
 /// MEM-10; C1-9b).
 pub mod cell_access;
-/// The cell, the unit of the bounded value store, and one region's cell store
-/// (specification 34 §6.2).
+/// The decoded value of one leaf and one region's flat block (specification 34 §6.2, MEM-12).
 pub mod cells;
 mod execution_frames;
 /// The bytes of one leaf of a flat block: every variable at its declared size, with no tag
@@ -305,16 +304,14 @@ pub mod flat;
 mod frames;
 mod instance_table;
 mod instances;
-/// Prepared cell layouts for the bounded value store (specification 34 §6.2).
+/// Prepared layouts of the flat blocks (specification 34 §6.2, MEM-12).
 pub mod layout;
 mod references;
-/// The cell regions of the bounded value store: the persistent region's cells, reference records
-/// and text buffers, reserved once from the prepared layouts (specification 34 §6.2, C1-9a).
+/// The persistent flat block of the bounded value store and its reference table, reserved once
+/// from the prepared layouts (specification 34 §6.2, MEM-12, C1-9a).
 pub mod regions;
 pub(crate) use references::PreparedStorageWrite;
 mod storage;
-/// The text buffers of the bounded value store (specification 34 §6.2).
-pub mod text;
 /// The store-access seam the engine reaches variable storage through
 /// (specification 34 §6.2, MEM-10).
 pub mod view;

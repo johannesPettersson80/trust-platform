@@ -111,6 +111,21 @@ fn a_text_is_its_length_and_its_characters_cut_as_assignment_cuts() {
     assert_eq!(units, vec![0x61, 0x20AC]);
 }
 
+/// Specification 34 MEM-12: a text leaf's bytes depend only on its text. "abcde" and then "ab" written
+/// into a `STRING[5]` leave `02 00 61 62 00 00 00`, and "ab" and then "a" into a `WSTRING[2]` leave
+/// `01 00 61 00 00 00`. Catches a write that keeps the earlier text's characters after the new one.
+#[test]
+fn a_shorter_text_clears_the_rest_of_its_leaf() {
+    let mut narrow = [0u8; 2 + 5];
+    write_text(&mut narrow, 2, 5, "abcde", false).expect("writes");
+    write_text(&mut narrow, 2, 5, "ab", false).expect("writes");
+    assert_eq!(narrow, [2, 0, 0x61, 0x62, 0, 0, 0]);
+    let mut wide = [0u8; 2 + 4];
+    write_text(&mut wide, 2, 4, "ab", true).expect("writes");
+    write_text(&mut wide, 2, 4, "a", true).expect("writes");
+    assert_eq!(wide, [1, 0, 0x61, 0, 0, 0]);
+}
+
 /// Specification 34 MEM-12: a declared length above 65,535 takes a 4-byte length field. A text of
 /// 70,000 bytes written into a `STRING[70000]` reads back whole with its length `70 11 01 00`.
 /// Catches a 2-byte length that wraps at 65,536.

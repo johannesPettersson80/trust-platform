@@ -165,7 +165,8 @@ impl TextBytes<'_> {
 
 /// Write `text` into a text leaf whose bytes start at its length field of `length_bytes` bytes and
 /// hold `capacity_bytes` bytes of characters, cut exactly where assignment normalization cuts it
-/// (specification 02 §6): at the last whole character that fits.
+/// (specification 02 §6): at the last whole character that fits. The capacity after the text is
+/// zeroed, so a leaf's bytes depend only on its text.
 ///
 /// # Errors
 ///
@@ -197,11 +198,17 @@ pub fn write_text(
                 .copy_from_slice(&unit.to_le_bytes());
             written += 1;
         }
+        area.get_mut(written * 2..)
+            .ok_or(RuntimeError::InvalidExecutionState)?
+            .fill(0);
         written
     } else {
         area.get_mut(..kept.len())
             .ok_or(RuntimeError::InvalidExecutionState)?
             .copy_from_slice(kept.as_bytes());
+        area.get_mut(kept.len()..)
+            .ok_or(RuntimeError::InvalidExecutionState)?
+            .fill(0);
         kept.len()
     };
     if field == 4 {

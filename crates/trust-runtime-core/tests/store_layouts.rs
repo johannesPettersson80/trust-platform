@@ -1,11 +1,10 @@
-//! Prepared cell layouts: cells, offsets, leaves, capacities, region ranges and preparation
-//! charges.
+//! Prepared layouts: sizes, offsets, leaves, capacities, region ranges and preparation charges.
 //!
-//! Specification: `docs/specs/34-runtime-portability.md` §6.2 (MEM-10) and the prepared-layouts
-//! paragraph; `~/projects/.artifacts/bounded-c/decisions.md` D-C1-1 and D-C1-2 (`STRING[n]` holds
-//! `n` bytes and `WSTRING[n]` `2n` bytes; a `STRING`/`WSTRING` declared without a length is 80
-//! characters' worth: 80 and 160 bytes; one cell is a scalar). Every expected cell count, offset
-//! and capacity below is worked out by hand from the ST declarations the fixture encodes:
+//! Specification: `docs/specs/34-runtime-portability.md` §6.2 (MEM-10, MEM-12) and the
+//! prepared-layouts paragraph; `~/projects/.artifacts/bounded-c/decisions.md` D-C1-1 and D-C1-2
+//! (`STRING[n]` holds `n` bytes and `WSTRING[n]` `2n` bytes; a `STRING`/`WSTRING` declared without a
+//! length is 80 characters' worth: 80 and 160 bytes). Every expected size, offset and capacity below
+//! is worked out by hand from the ST declarations the fixture encodes:
 //!
 //! ```st
 //! TYPE Pair  : STRUCT a : INT; b : INT; END_STRUCT END_TYPE
@@ -36,7 +35,7 @@ use trust_runtime_core::bytecode::{
     TypeTable, VarMeta, VarMetaEntry, HEADER_FLAG_CRC32,
 };
 use trust_runtime_core::error::RuntimeError;
-use trust_runtime_core::memory::layout::{CellRange, LayoutRegion};
+use trust_runtime_core::memory::layout::{ByteRange, LayoutRegion};
 use trust_runtime_core::vm::{PreparationLimits, PreparedModule};
 
 const BOOL: u32 = 0;
@@ -660,37 +659,6 @@ fn prepared() -> PreparedModule {
     .expect("the fixture prepares")
 }
 
-fn member_offsets(layout: &trust_runtime_core::memory::layout::TypeLayout) -> Vec<u32> {
-    layout.members.iter().map(|member| member.offset).collect()
-}
-
-#[test]
-fn scalar_struct_and_array_layouts_have_the_specified_cells_and_offsets() {
-    let prepared = prepared();
-
-    // An INT is one cell (spec 34 §6.2: a scalar is one cell).
-    assert_eq!(prepared.type_layout(INT).expect("INT").cells, 1);
-
-    // Pair { a : INT; b : INT } is two cells, a at ordinal 0 / cell 0 and b at ordinal 1 / cell 1.
-    let pair = prepared.type_layout(PAIR).expect("Pair");
-    assert_eq!(pair.cells, 2);
-    assert_eq!(member_offsets(pair), vec![0, 1]);
-
-    // Outer { pp : Pair; arr : ARRAY[0..1] OF INT } inlines Pair (2 cells) and the two-element
-    // array (2 cells) at cell 0 and cell 2: four cells, not the three a non-inlined nesting or a
-    // one-cell array would give.
-    let outer = prepared.type_layout(OUTER).expect("Outer");
-    assert_eq!(outer.cells, 4);
-    assert_eq!(member_offsets(outer), vec![0, 2]);
-
-    // ARRAY[0..2] OF Pair is three Pair elements: stride 2, six cells.
-    let array = prepared.type_layout(PAIR_ARRAY).expect("Pair array");
-    assert_eq!(array.cells, 6);
-    let array_layout = array.array.as_ref().expect("array layout");
-    assert_eq!(array_layout.stride, 2);
-    assert_eq!(array_layout.dims, vec![(0, 2)]);
-}
-
 #[test]
 fn text_leaves_have_byte_capacities() {
     let prepared = prepared();
@@ -703,11 +671,11 @@ fn text_leaves_have_byte_capacities() {
     ];
     for (type_id, capacity) in cases {
         let layout = prepared.type_layout(type_id).expect("text type");
-        assert_eq!(layout.cells, 1);
+        // MEM-12: a 2-byte length, then the characters, inline.
+        assert_eq!(layout.shape.bytes, 2 + capacity, "type {type_id}");
         assert_eq!(
             layout.text_leaves,
             vec![trust_runtime_core::memory::layout::TextLeaf {
-                offset: 0,
                 capacity_bytes: capacity,
                 byte_offset: 0,
             }],
@@ -730,7 +698,6 @@ fn reference_and_instance_leaves_are_found_and_scalar_only_types_are_marked() {
     assert_eq!(
         reference.reference_leaves,
         vec![trust_runtime_core::memory::layout::ReferenceLeaf {
-            offset: 0,
             byte_offset: 0,
             target_type_id: INT,
         }]
@@ -740,7 +707,7 @@ fn reference_and_instance_leaves_are_found_and_scalar_only_types_are_marked() {
     let refs = prepared.type_layout(REFS).expect("Refs");
     assert!(refs.holds_reference_or_instance);
     assert_eq!(refs.reference_leaves.len(), 1);
-    assert_eq!(refs.reference_leaves[0].offset, 0);
+    assert_eq!(refs.reference_leaves[0].byte_offset, 0);
 
     for (type_id, expected_type) in [
         (BASE_FB_TYPE, BASE_FB_TYPE),
@@ -749,7 +716,7 @@ fn reference_and_instance_leaves_are_found_and_scalar_only_types_are_marked() {
         let layout = prepared.type_layout(type_id).expect("function block type");
         assert!(layout.holds_reference_or_instance);
         assert_eq!(layout.instance_leaves.len(), 1);
-        assert_eq!(layout.instance_leaves[0].offset, 0);
+        assert_eq!(layout.instance_leaves[0].byte_offset, 0);
         assert_eq!(layout.instance_leaves[0].type_id, expected_type);
     }
 }
@@ -764,74 +731,75 @@ fn an_overlap_struct_has_its_byte_backing() {
 }
 
 #[test]
-fn globals_templates_locals_and_initializers_map_to_cell_ranges() {
+fn globals_templates_locals_and_initializers_map_to_byte_ranges() {
     let prepared = prepared();
 
-    // The program root owns no typed global; the "trigger" BOOL is the persistent cell 0.
-    assert_eq!(prepared.global_cells(PROGRAM_ROOT_DECL as u32), None);
+    // The program root owns no typed global; the "trigger" BOOL is the persistent block's byte 0.
+    assert_eq!(prepared.global_range(PROGRAM_ROOT_DECL as u32), None);
     assert_eq!(
-        prepared.global_cells(TRIGGER_DECL as u32),
-        Some(CellRange {
+        prepared.global_range(TRIGGER_DECL as u32),
+        Some(ByteRange {
             region: LayoutRegion::Persistent,
             start: 0,
-            cells: 1,
+            bytes: 1,
         })
     );
 
-    // Base's template is its own x : INT and s : STRING[10]: two cells from the instance's first
-    // cell (spec 34 §6.2, O6).
-    let base = prepared.instance_template_cells(BASE_POU).expect("Base");
+    // Base's template is its own x : INT at 0 and s : STRING[10] (a 2-byte length and 10 bytes) at
+    // 2: 14 bytes from the instance's first byte, rounded up to 16 (spec 34 §6.2, MEM-12, O6).
+    let base = prepared.instance_template(BASE_POU).expect("Base");
     assert_eq!(
         base.range,
-        CellRange {
+        ByteRange {
             region: LayoutRegion::Persistent,
             start: 0,
-            cells: 2,
+            bytes: 16,
         }
     );
     assert_eq!(base.parent, None);
 
-    // Derived extends Base: its template holds only its own y : INT and links to Base's template,
-    // which it does not repeat (spec 34 §6.2, O6). A wrong flattened template would give three.
-    let derived = prepared
-        .instance_template_cells(DERIVED_POU)
-        .expect("Derived");
+    // Derived extends Base: its template holds only its own y : INT, 2 bytes rounded up to 8, and
+    // links to Base's template, which it does not repeat (spec 34 §6.2, O6). A flattened template
+    // would give 24.
+    let derived = prepared.instance_template(DERIVED_POU).expect("Derived");
     assert_eq!(
         derived.range,
-        CellRange {
+        ByteRange {
             region: LayoutRegion::Persistent,
             start: 0,
-            cells: 1,
+            bytes: 8,
         }
     );
     assert_eq!(derived.parent, Some(BASE_POU));
 
-    // F's frame holds the INT return, the INT parameter and a STRING[10] local: three cells.
+    // F's frame holds the INT return at 0, the INT parameter at 2 and a STRING[10] local at 4: 16
+    // bytes.
     assert_eq!(
-        prepared.local_cells(F_POU),
-        Some(CellRange {
+        prepared.local_range(F_POU),
+        Some(ByteRange {
             region: LayoutRegion::Activation,
             start: 0,
-            cells: 3,
+            bytes: 16,
         })
     );
 
-    // Initializer results follow the locals on the activation stack, one cell each for BOOL,
-    // INT and STRING[10] declarations.
+    // Initializer results follow the locals on the activation stack, each at its declared size and
+    // alignment: the BOOL result at 16, the INT at 18, the STRING[10] at 20 to 31, then the INTs of
+    // Derived's y, F's return and F's parameter at 32, 34 and 36, and F's STRING[10] local at 38.
     assert_eq!(
-        prepared.initializer_result_cells(0),
-        Some(CellRange {
+        prepared.initializer_result_range(0),
+        Some(ByteRange {
             region: LayoutRegion::Activation,
-            start: 3,
-            cells: 1,
+            start: 16,
+            bytes: 1,
         })
     );
     assert_eq!(
-        prepared.initializer_result_cells(6),
-        Some(CellRange {
+        prepared.initializer_result_range(6),
+        Some(ByteRange {
             region: LayoutRegion::Activation,
-            start: 9,
-            cells: 1,
+            start: 38,
+            bytes: 12,
         })
     );
 }
@@ -840,8 +808,8 @@ fn globals_templates_locals_and_initializers_map_to_cell_ranges() {
 fn ref_field_names_resolve_to_member_ordinals() {
     let prepared = prepared();
 
-    // Outer's members are pp (ordinal 0, cell 0) and arr (ordinal 1, cell 2): the ordinal is not
-    // the cell offset.
+    // Outer's members are pp (ordinal 0, byte 0) and arr (ordinal 1, byte 4): the ordinal is not
+    // the byte offset.
     assert_eq!(prepared.ref_field_member_ordinal(OUTER, "pp"), Some(0));
     assert_eq!(prepared.ref_field_member_ordinal(OUTER, "arr"), Some(1));
     // ST names are case-insensitive.
@@ -853,7 +821,7 @@ fn ref_field_names_resolve_to_member_ordinals() {
 
 /// A source-free program with the program root, its `trigger` BOOL and `int_globals` INT globals:
 /// the same types and the same non-global metadata as its ten-times-larger twin, so only the
-/// globals' region ranges (and cells) differ (specification 34 §6.2).
+/// globals' region ranges (and bytes) differ (specification 34 §6.2).
 fn globals_module(int_globals: u32) -> BytecodeModule {
     let mut module = base_module();
     module.version = BytecodeVersion::SOURCE_FREE;
@@ -1083,25 +1051,25 @@ fn layout_heavy_module() -> BytecodeModule {
 }
 
 #[test]
-fn layout_tables_are_charged_and_region_cells_are_not() {
-    // A region's cells are not charged at preparation. Both programs have the same two types and
+fn layout_tables_are_charged_and_region_bytes_are_not() {
+    // A region's bytes are not charged at preparation. Both programs have the same two types and
     // the same program root and BOOL trigger; one declares one INT global and one declares ten.
     // The nine extra globals add nine global region range entries and, because every storage
-    // declaration owns one initializer, nine initializer-result entries: a `CellRange` is 12 bytes
-    // (region, start, cells), so the layout tables may grow by at most 18 × 12 = 216 bytes. They
-    // never grow by the cells: the same nine extra globals and results are 18 more cells, which
-    // would be 18 × 16 = 288 bytes, and construction charges those when it reserves the regions
-    // instead (spec 34 §6.2).
+    // declaration owns one initializer, nine initializer-result entries, each an
+    // `Option<ByteRange>` of 12 bytes (region, start, bytes), and nine declaration offsets of 4
+    // bytes: 18 × 12 + 9 × 4 = 252 bytes. Their region bytes, the nine INT globals and the nine INT
+    // results, 18 × 2 = 36 bytes, are not part of it: construction charges those when it reserves
+    // the regions (spec 34 §6.2). A charge of 288 would count them here.
     let one = prepared_globals_module(1);
     let ten = prepared_globals_module(10);
     let grew = ten.layout_preparation_usage().bytes - one.layout_preparation_usage().bytes;
-    assert!(
-        grew <= 216,
-        "nine extra globals charged {grew} layout bytes, not their 18 region range entries"
+    assert_eq!(
+        grew, 252,
+        "nine extra globals charged {grew} layout bytes, not their region range entries and offsets"
     );
 
     // The layout tables are charged. Every alias of the layout-heavy type table copies the
-    // structure's 64 members, so a `MemberLayout` is two u32 fields (8 bytes) and the 1024 aliases'
+    // structure's 64 members, a `MemberLayout` is two u32 fields (8 bytes), and the 1024 aliases'
     // layout tables alone need at least 1024 × 64 × 8 = 524,288 bytes. The default profile admits
     // the program; a 524,288-byte allowance is below the layout tables' own charge and refuses it
     // at preparation, never at run time (spec 34 §6.2, TIME-08).
@@ -1139,7 +1107,7 @@ fn layout_tables_are_charged_and_region_cells_are_not() {
 /// - `REF_TO INT` 16 bytes aligned to 8, and `Refs { r : REF_TO INT }` 16 with its reference leaf at
 ///   byte 0; a function-block instance leaf 8 bytes.
 ///
-/// Catches a layout that still counts 16-byte cells, one that packs without alignment (`wide` at 1),
+/// Catches a layout that counts 16-byte cells, one that packs without alignment (`wide` at 1),
 /// one without the string length, one that gives an enumeration a fixed size, and one that forgets
 /// a structure's trailing padding.
 #[test]
