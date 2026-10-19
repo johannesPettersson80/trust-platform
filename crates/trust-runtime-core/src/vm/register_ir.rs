@@ -263,6 +263,9 @@ pub struct RegisterPouExecutionResult {
     pub return_value: Option<Value>,
     /// Owned local payload retained until caller copyback and scratch recycle.
     pub locals: Vec<Value>,
+    /// The finished frame's bytes on the activation stack, which the caller's copy-back reads the
+    /// slots that lie there from, when the frame lay on the flat store (C1-18).
+    pub(crate) block: Option<crate::memory::regions::FrameBlock>,
 }
 
 #[cfg(feature = "test-support")]
@@ -566,6 +569,7 @@ fn execute_register_program(
                 return Ok(RegisterPouExecutionResult {
                     return_value: None,
                     locals: Vec::new(),
+                    block: None,
                 });
             }
             let block_index = block_index_from_id(program, current_block)?;
@@ -866,25 +870,27 @@ fn finish_register_result(
     capture_return: bool,
     capture_result_locals: bool,
 ) -> Result<RegisterPouExecutionResult, RuntimeError> {
-    let checked = if capture_return {
-        frame
-            .locals
-            .first()
-            .map(|value| {
-                runtime
-                    .before_value_clone(value)
-                    .and_then(|_| runtime.check_frame_return(&frame, value))
-            })
-            .transpose()
-            .map(|_| ())
+    // A return slot on the activation stack is read from the frame's bytes, as the stack tier
+    // reads it (C1-11, C1-18), and the finished frame's bytes are kept for the caller's copy-back.
+    let read_return = if capture_return {
+        runtime.read_frame_slot(&frame, 0).transpose()
     } else {
-        Ok(())
+        Ok(None)
     };
-    let output = checked.map(|()| {
+    let block = runtime.frame_block(&frame);
+    let checked = read_return.and_then(|from_block| {
+        if capture_return && let Some(value) = from_block.as_ref().or_else(|| frame.locals.first())
+        {
+            runtime.before_value_clone(value)?;
+            runtime.check_frame_return(&frame, value)?;
+        }
+        Ok(from_block)
+    });
+    let output = checked.map(|from_block| {
         // The return clone was admitted and lifetime-checked above. Clone only
         // after both checks, matching stack return error precedence.
         let return_value = if capture_return {
-            frame.locals.first().cloned()
+            from_block.or_else(|| frame.locals.first().cloned())
         } else {
             None
         };
@@ -897,6 +903,7 @@ fn finish_register_result(
         RegisterPouExecutionResult {
             return_value,
             locals,
+            block,
         }
     });
     let cleanup = runtime.retire_frame(&frame);

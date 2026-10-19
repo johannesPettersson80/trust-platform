@@ -47,7 +47,7 @@ const RETAIN: &[u8] =
     include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/retain/program.stbc");
 
 /// Every program of the bounded-C corpus and the three saved artifacts the boards run, by name.
-const CORPUS: [(&str, &[u8]); 23] = [
+const CORPUS: [(&str, &[u8]); 24] = [
     ("scalar", SCALAR),
     (
         "gpio",
@@ -122,6 +122,10 @@ const CORPUS: [(&str, &[u8]); 23] = [
         include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/unions/program.stbc"),
     ),
     (
+        "operands",
+        include_bytes!("../../../../trust-runtime/tests/fixtures/bounded-c/operands/program.stbc"),
+    ),
+    (
         "saved/main",
         include_bytes!(
             "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
@@ -186,6 +190,24 @@ fn build_with(
         0,
         &services::LOGICAL_ONLY,
         Construction { store, profile },
+    )
+}
+
+/// The engine data of `prepared` built on `store` with the platform services `services`, with the
+/// default profile (C1-18).
+fn build_served(
+    prepared: &PreparedModule,
+    store: StoreKind,
+    services: &dyn crate::vm::ExecutionServices,
+) -> Result<Box<EngineData>, RuntimeError> {
+    EngineState::construct_data_with(
+        prepared,
+        0,
+        services,
+        Construction {
+            store,
+            profile: DateTimeProfile::default(),
+        },
     )
 }
 

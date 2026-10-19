@@ -16,8 +16,8 @@
 //! program root of a corpus program has a type, so it reads its instance on both stores.
 
 use super::{
-    build, chip_limits, corpus, declared_values, member, prepare, services, EngineState, StoreKind,
-    CORPUS,
+    build, build_served, chip_limits, corpus, declared_values, member, prepare, services,
+    EngineState, StoreKind, CORPUS,
 };
 use crate::bytecode::StorageOwner;
 use crate::error::RuntimeError;
@@ -27,7 +27,9 @@ use crate::memory::InstanceId;
 use crate::retain::RestartMode;
 use crate::value::{Duration, Value};
 use crate::vm::engine::store_access::Routed;
-use crate::vm::{CycleAccess, CycleHooks, CyclePhase, PreparationLimits, PreparedModule};
+use crate::vm::{
+    CycleAccess, CycleHooks, CyclePhase, ExecutionServices, PreparationLimits, PreparedModule,
+};
 
 /// The scans each program runs before it is restarted, 10 ms apart: one activation of its task each.
 const SCANS: i64 = 20;
@@ -323,13 +325,25 @@ impl Pair<'_, '_> {
 /// first list holds one line for every fact that differs, and the second the programs that the cell store
 /// refused.
 fn compare_corpus(limits: Limits) -> (Vec<String>, Vec<String>) {
+    let (differences, refused, _) = compare_corpus_with(limits, &services::LOGICAL_ONLY);
+    (differences, refused)
+}
+
+/// [`compare_corpus`] with the platform services `services`, which build and run both stores, and the
+/// flat stores' register-tier counts over the corpus: the blocks the interpreter entered and the blocks
+/// run in their compiled form (C1-18), both zero without the register tier or its profile.
+fn compare_corpus_with(
+    limits: Limits,
+    services: &'static dyn ExecutionServices,
+) -> (Vec<String>, Vec<String>, [u64; 2]) {
     let mut differences = Vec::new();
     let mut refused = Vec::new();
+    let mut register = [0u64; 2];
     for (name, bytes) in CORPUS {
         let prepared = PreparedModule::from_bytes(bytes, limits()).expect("the program prepares");
-        let mut values =
-            build(&prepared, StoreKind::Values).expect("the Value store constructs the program");
-        let mut cells = match build(&prepared, StoreKind::Cells) {
+        let mut values = build_served(&prepared, StoreKind::Values, services)
+            .expect("the Value store constructs the program");
+        let mut cells = match build_served(&prepared, StoreKind::Cells, services) {
             Ok(cells) => cells,
             Err(error) => {
                 refused.push(format!("{name}: {error:?}"));
@@ -339,14 +353,37 @@ fn compare_corpus(limits: Limits) -> (Vec<String>, Vec<String>) {
         let mut pair = Pair {
             name,
             prepared: &prepared,
-            values: EngineState::borrow(&mut values, &prepared, &services::LOGICAL_ONLY),
-            cells: EngineState::borrow(&mut cells, &prepared, &services::LOGICAL_ONLY),
+            values: EngineState::borrow(&mut values, &prepared, services),
+            cells: EngineState::borrow(&mut cells, &prepared, services),
             differences: Vec::new(),
         };
         pair.run();
+        let counts = register_counts(&pair.cells);
+        register = [register[0] + counts[0], register[1] + counts[1]];
         differences.append(&mut pair.differences);
     }
-    (differences, refused)
+    (differences, refused, register)
+}
+
+/// The register tier's counts in `state`: the blocks its interpreter entered, which its profile counts,
+/// and the blocks run in their compiled form (C1-18).
+#[cfg(feature = "register-ir")]
+fn register_counts(state: &EngineState<'_>) -> [u64; 2] {
+    use crate::vm::register_ir::RegisterContext;
+    [
+        RegisterContext::register_profile(state)
+            .snapshot()
+            .interpreted_block_entries,
+        RegisterContext::tier1_state(state)
+            .snapshot()
+            .block_executions,
+    ]
+}
+
+/// Without the register tier no block runs in it.
+#[cfg(not(feature = "register-ir"))]
+fn register_counts(_state: &EngineState<'_>) -> [u64; 2] {
+    [0, 0]
 }
 
 #[test]
@@ -678,5 +715,72 @@ fn a_byte_string_input_ends_at_its_first_nul_and_refuses_invalid_text_alike() {
                 "{store}, scan {scan}"
             );
         }
+    }
+}
+
+/// Platform services that run the register tier with its profile on, so that a test sees the tier
+/// ran, and with each block's compiled form from its first entry when `compiled` holds (C1-18).
+#[cfg(feature = "register-ir")]
+struct RegisterServices {
+    compiled: bool,
+}
+
+#[cfg(feature = "register-ir")]
+impl ExecutionServices for RegisterServices {
+    fn register_configuration(&self) -> crate::vm::register::RegisterExecutionConfiguration {
+        crate::vm::register::RegisterExecutionConfiguration {
+            profile_enabled: true,
+            tier1_enabled: self.compiled,
+            tier1_hot_threshold: 1,
+            ..Default::default()
+        }
+    }
+
+    fn deadline_exceeded(&self) -> bool {
+        false
+    }
+
+    fn has_wall_clock(&self) -> bool {
+        false
+    }
+
+    fn current_dt(&self) -> Result<crate::value::DateTimeValue, RuntimeError> {
+        Err(RuntimeError::UndefinedFunction("CURRENT_DT".into()))
+    }
+}
+
+#[cfg(feature = "register-ir")]
+static INTERPRETED: RegisterServices = RegisterServices { compiled: false };
+
+#[cfg(feature = "register-ir")]
+static COMPILED: RegisterServices = RegisterServices { compiled: true };
+
+#[cfg(feature = "register-ir")]
+#[test]
+fn the_register_tier_runs_alike_on_both_stores() {
+    // Specification 34 §6.2, §6.3 and TIME-08 (C1-18): the hosted register tier runs on the flat store,
+    // reading and writing a frame's typed locals on the activation stack and handing a call's result and
+    // outputs from the finished frame's bytes to the caller, as the stack tier does (C1-11). Each corpus
+    // program runs on both stores with the register tier, first interpreting its blocks (a call to a leaf
+    // POU runs in place), then running each block's compiled form from its first entry, and the stores
+    // are compared as `cells_and_values_agree_after_every_scan` compares them, charges included. A
+    // register result read from the frame's own entries would return `Null` from every function on the
+    // flat store, and outputs copied back from them would leave the caller's variables `Null`; a
+    // register frame kept off the activation stack would leave its callees' frames below their caller's.
+    // Two charges are compared too (TIME-08): a flat reference's path copy charged by its empty path
+    // instead of the elements of the path it was taken through would charge `arrays` and `copies` less
+    // in their compiled blocks, and an operand read from its cells within one operation without the
+    // charge of the borrow it stands for would charge `operands` less (its enumerations, WSTRINGs and
+    // references; a scalar's copy costs nothing). The counts prove the flat store ran each form: its
+    // interpreter entered blocks, and compiled blocks ran.
+    for (services, form, index) in [
+        (&INTERPRETED, "interpreted blocks", 0),
+        (&COMPILED, "compiled blocks", 1),
+    ] {
+        let (differences, refused, counts) =
+            compare_corpus_with(PreparationLimits::default, services);
+        assert_eq!(differences, Vec::<String>::new(), "{form}");
+        assert_eq!(refused, Vec::<String>::new(), "{form}");
+        assert!(counts[index] > 0, "the flat store ran {form}: {counts:?}");
     }
 }

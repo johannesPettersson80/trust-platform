@@ -122,15 +122,14 @@ pub fn prepare_borrowed_binary_eval(
     })
 }
 
+/// Charge the clone that a binary operation may make of a stored operand, borrowed or read from its
+/// cells alike, so the stores charge the same (C1-18); a loaded operand was charged by its load.
 pub fn charge_borrowed_binary_operand<'a>(
     runtime: &impl RegisterContext,
-    operand: Cow<'a, Value>,
-) -> Result<Cow<'a, Value>, RuntimeError> {
-    match operand {
-        Cow::Borrowed(value) => {
-            runtime.before_value_clone(value)?;
-            Ok(Cow::Borrowed(value))
-        }
-        owned @ Cow::Owned(_) => Ok(owned),
+    operand: RefOperand<'a>,
+) -> Result<RefOperand<'a>, RuntimeError> {
+    if let RefOperand::Stored(value) = &operand {
+        runtime.before_value_clone(value)?;
     }
+    Ok(operand)
 }

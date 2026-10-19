@@ -313,7 +313,7 @@ fn drive(
                 let result = VmPouStackResult {
                     return_value: result.return_value,
                     locals: result.locals,
-                    block: None,
+                    block: result.block,
                 };
                 if buffers.continuations.is_empty() {
                     return Ok(result);

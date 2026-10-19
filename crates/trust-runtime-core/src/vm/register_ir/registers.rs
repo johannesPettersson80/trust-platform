@@ -304,6 +304,27 @@ pub fn checked_read_bool_register_with_counts(
     }
 }
 
+/// What a static reference gives a register operation (C1-18).
+pub enum RefOperand<'a> {
+    /// The value stored there: borrowed where it lies on the value store, or read from its cells on
+    /// the flat store, where the read stands for that borrow. Neither is charged here, and whatever
+    /// charges the borrow charges the read alike.
+    Stored(Cow<'a, Value>),
+    /// A value the load built and charged itself: a CHAR or WCHAR of a string.
+    Loaded(Value),
+}
+
+impl core::ops::Deref for RefOperand<'_> {
+    type Target = Value;
+
+    fn deref(&self) -> &Value {
+        match self {
+            Self::Stored(value) => value,
+            Self::Loaded(value) => value,
+        }
+    }
+}
+
 /// Most operands borrow existing storage; a string element is a scalar CHAR or
 /// WCHAR materialized by the same reference path used by stack dispatch.
 pub fn register_ref_operand<'a>(
@@ -311,13 +332,18 @@ pub fn register_ref_operand<'a>(
     module: &'a VmModule,
     frames: &'a FrameStack,
     index: u32,
-) -> Result<Cow<'a, Value>, VmTrap> {
+) -> Result<RefOperand<'a>, VmTrap> {
     match peek_ref_view(runtime, module, frames, index) {
-        Ok(ValueView::Value(value)) => Ok(Cow::Borrowed(value)),
-        // A cell view has no stored `Value` to borrow. Its copy is made without a charge, as a
-        // borrow is not charged (C1-9d2a, item (b)).
-        Ok(view) => view.materialize().map(Cow::Owned).map_err(VmTrap::Runtime),
-        Err(VmTrap::NullReference) => load_ref(runtime, module, frames, index).map(Cow::Owned),
+        Ok(ValueView::Value(value)) => Ok(RefOperand::Stored(Cow::Borrowed(value))),
+        // A cell view has no stored `Value` to borrow. Its copy stands for the borrow and is made
+        // without a charge, as a borrow is not charged (C1-9d2a, item (b)).
+        Ok(view) => view
+            .materialize()
+            .map(|value| RefOperand::Stored(Cow::Owned(value)))
+            .map_err(VmTrap::Runtime),
+        Err(VmTrap::NullReference) => {
+            load_ref(runtime, module, frames, index).map(RefOperand::Loaded)
+        }
         Err(error) => Err(error),
     }
 }

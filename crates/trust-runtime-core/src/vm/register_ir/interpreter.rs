@@ -14,6 +14,7 @@ pub fn build_register_pou_result(
     RegisterPouExecutionResult {
         return_value,
         locals: frame.locals,
+        block: None,
     }
 }
 

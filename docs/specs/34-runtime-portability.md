@@ -1450,8 +1450,10 @@ constants, and the instances those variables hold above it. It leaves the stack 
 owns it ends, and construction reserves a record for each instance the stack can hold. An instance
 whose inheritance chain has an own variable that holds a reference, and an instance created while no
 call runs, such as the one an engineering entry runs, stay values until references are flat. The
-register tier runs on the value store only until it reads frames on the stack (C1-18). Every result,
-charge and refusal is the value store's (TIME-08).
+hosted register tier runs on the flat store too (checklist C1-18): its frames lie on the activation
+stack as the stack tier's do, its interpreted and compiled blocks read and write their typed locals
+there, and a call it runs hands its result and its outputs to the caller from the finished frame's
+bytes. Every result, charge and refusal is the value store's (TIME-08).
 
 **Initializers.** On the flat store the initializer of a frame variable whose value is an array, a
 structure or a text that a store copies as bytes, and whose value the value store builds in a staged

@@ -463,7 +463,7 @@ impl Fixture {
 /// Every measured application. Each corpus program runs in a 10 ms task, so each of its scans
 /// activates it once. The saved main and numeric artifacts keep the boards' schedule: 101 scans
 /// from 0 ms to 1,000 ms with a 25 ms task.
-static FIXTURES: [Fixture; 22] = [
+static FIXTURES: [Fixture; 23] = [
     Fixture::saved("saved/main", SAVED_MAIN, 0, 101),
     Fixture::saved("saved/numeric", SAVED_NUMERIC, 0, 101),
     Fixture::saved("saved/gpio", SAVED_GPIO, 10, 20),
@@ -492,6 +492,7 @@ static FIXTURES: [Fixture; 22] = [
     Fixture::corpus("copies"),
     Fixture::corpus("overlays"),
     Fixture::corpus("unions"),
+    Fixture::corpus("operands"),
 ];
 
 /// How a fault case makes its scan fail.
@@ -662,6 +663,9 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// `unions` lays each union out as a structure its variants: its scans write them in place, and the
 /// first scan through its text branch, scan 2, grows the text buffers once, so its ceiling of zero
 /// starts at scan 3.
+///
+/// C1-18 adds `operands`, whose comparisons of globals the register tier reads within one
+/// operation; it is measured and printed, with no ceiling yet.
 const CEILINGS: [(&str, usize, Calls); 35] = [
     ("faults/division", 2, Calls::ZERO),
     ("faults/index", 2, Calls::ZERO),

@@ -65,7 +65,17 @@ impl<'e> ReferenceContext for EngineState<'e> {
         &self,
         reference: crate::value::ValueRefView<'_>,
     ) -> Result<(), RuntimeError> {
-        let bytes = self.reference_path_clone_charge(reference.path)?;
+        // A flat reference is charged by the path it was taken through, as a copy of the reference
+        // is (C1-11d), so the copy of its path costs what it costs on the value store (C1-18).
+        let flat = reference.location.flat_elements();
+        self.charge_work_units(flat)?;
+        let bytes = self
+            .reference_path_clone_charge(reference.path)?
+            .checked_add(
+                flat.checked_mul(crate::memory::layout::CELL_BYTES)
+                    .ok_or(RuntimeError::Overflow)?,
+            )
+            .ok_or(RuntimeError::Overflow)?;
         self.charge_allocation_bytes(bytes)
     }
 
@@ -422,7 +432,7 @@ impl CallContext for EngineState<'_> {
             result.map(|result| crate::vm::dispatch::VmPouStackResult {
                 return_value: result.return_value,
                 locals: result.locals,
-                block: None,
+                block: result.block,
             })
         })
     }
@@ -861,12 +871,6 @@ impl ExecutionContext for EngineState<'_> {
         entry: crate::vm::budget::ExecutionEntry,
         capture_result_locals: bool,
     ) -> Result<Option<crate::vm::register_ir::RegisterActivation>, RuntimeError> {
-        // The register tier keeps a frame's locals as values; on the flat store every frame lies
-        // on the activation stack, so its POUs run on the stack tier until the register tier reads
-        // the stack (C1-18).
-        if self.holds_cells() {
-            return Ok(None);
-        }
         crate::vm::register_ir::start_register_activation(
             self,
             module,
@@ -883,8 +887,7 @@ impl ExecutionContext for EngineState<'_> {
     }
     #[cfg(feature = "register-ir")]
     fn has_register_activation_pump(&self) -> bool {
-        // As `start_register_activation`: no register tier on the flat store yet (C1-18).
-        !self.holds_cells()
+        true
     }
     #[cfg(feature = "register-ir")]
     fn step_register_activation(
