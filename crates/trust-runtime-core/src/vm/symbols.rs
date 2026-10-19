@@ -9,6 +9,148 @@ use smol_str::SmolStr;
 use crate::stdlib::conversions;
 
 use super::module::{VmNativeArgSpec, VmNativeSymbolSpec};
+use crate::error::RuntimeError;
+
+/// The opcode of `CALL_NATIVE` (specification 12 §7), whose second operand names its symbol.
+const CALL_NATIVE: u8 = 0x09;
+
+/// The parsed native-call symbols of a module, by string index (specification 34 MEM-14): only the
+/// strings that a `CALL_NATIVE` instruction names are parsed, not every string of the table, and the
+/// entries are sorted by string index for a binary search.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct NativeSymbols {
+    entries: Vec<(u32, VmNativeSymbolSpec)>,
+}
+
+impl NativeSymbols {
+    /// Parse the strings of `strings` that `used` names, a sorted list without repeats.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::PreparationLimit`] when the table cannot be reserved, and an invalid-bytecode
+    /// error when `used` names a string the table does not hold.
+    pub(crate) fn parse(strings: &[SmolStr], used: &[u32]) -> Result<Self, RuntimeError> {
+        let mut entries = Vec::new();
+        entries
+            .try_reserve_exact(used.len())
+            .map_err(|_| RuntimeError::PreparationLimit)?;
+        for &index in used {
+            let symbol = strings.get(index as usize).ok_or_else(|| {
+                RuntimeError::InvalidBytecode(SmolStr::new_static(
+                    "CALL_NATIVE names a string the table does not hold",
+                ))
+            })?;
+            entries.push((index, preparse_native_symbol_spec(symbol)));
+        }
+        Ok(Self { entries })
+    }
+
+    /// The table of every string of `strings`, each parsed, as the legacy adapter keeps it.
+    #[cfg(feature = "hir")]
+    pub(crate) fn every(strings: &[SmolStr]) -> Self {
+        Self {
+            entries: strings
+                .iter()
+                .zip(0u32..)
+                .map(|(symbol, index)| (index, preparse_native_symbol_spec(symbol)))
+                .collect(),
+        }
+    }
+
+    /// The symbol of string `symbol_idx`, when an instruction names it.
+    #[must_use]
+    pub fn get(&self, symbol_idx: u32) -> Option<&VmNativeSymbolSpec> {
+        self.entries
+            .binary_search_by_key(&symbol_idx, |(index, _)| *index)
+            .ok()
+            .map(|at| &self.entries[at].1)
+    }
+
+    /// Every parsed symbol, in string order.
+    pub fn iter(&self) -> impl Iterator<Item = &VmNativeSymbolSpec> {
+        self.entries.iter().map(|(_, spec)| spec)
+    }
+
+    /// Every parsed symbol, in string order, to resolve.
+    pub(crate) fn iter_mut(&mut self) -> impl Iterator<Item = &mut VmNativeSymbolSpec> {
+        self.entries.iter_mut().map(|(_, spec)| spec)
+    }
+
+    /// Add the symbol of string `symbol_idx`, which follows every string the table holds.
+    #[cfg(feature = "hir")]
+    pub(crate) fn push(&mut self, symbol_idx: u32, spec: VmNativeSymbolSpec) {
+        debug_assert!(self
+            .entries
+            .last()
+            .is_none_or(|(last, _)| *last < symbol_idx));
+        self.entries.push((symbol_idx, spec));
+    }
+
+    /// The table whose entry `k` is the symbol of string `k`, for a test that builds a module by
+    /// hand.
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn from_dense(specs: Vec<VmNativeSymbolSpec>) -> Self {
+        Self {
+            entries: (0u32..).zip(specs).collect(),
+        }
+    }
+
+    /// Replace the symbol of string `symbol_idx`, for a test that edits a module by hand.
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn replace(&mut self, symbol_idx: u32, spec: VmNativeSymbolSpec) {
+        match self
+            .entries
+            .binary_search_by_key(&symbol_idx, |(index, _)| *index)
+        {
+            Ok(at) => self.entries[at].1 = spec,
+            Err(at) => self.entries.insert(at, (symbol_idx, spec)),
+        }
+    }
+}
+
+/// The string indexes that the `CALL_NATIVE` instructions within `ranges` of `bodies` name, sorted
+/// and without repeats (specification 34 MEM-14). Each range is an offset and a length in `bodies`,
+/// as POU_INDEX and INITIALIZERS give them.
+///
+/// # Errors
+///
+/// An invalid-bytecode error for a range outside `bodies`, an unknown opcode or a truncated
+/// instruction, which validation has already refused.
+pub(crate) fn used_native_symbols(
+    bodies: &[u8],
+    ranges: impl IntoIterator<Item = (u32, u32)>,
+) -> Result<Vec<u32>, RuntimeError> {
+    let invalid = |reason: &'static str| RuntimeError::InvalidBytecode(SmolStr::new_static(reason));
+    let mut used = Vec::new();
+    for (offset, length) in ranges {
+        let start = offset as usize;
+        let code = start
+            .checked_add(length as usize)
+            .and_then(|end| bodies.get(start..end))
+            .ok_or_else(|| invalid("invalid executable range"))?;
+        let mut pc = 0usize;
+        while pc < code.len() {
+            let opcode = code[pc];
+            let width = super::opcode_operand_len(opcode)
+                .ok_or_else(|| invalid("unsupported executable opcode"))?;
+            let next = pc
+                .checked_add(1 + width)
+                .filter(|end| *end <= code.len())
+                .ok_or_else(|| invalid("truncated executable instruction"))?;
+            if opcode == CALL_NATIVE {
+                let operand = code
+                    .get(pc + 5..pc + 9)
+                    .and_then(|bytes| <[u8; 4]>::try_from(bytes).ok())
+                    .ok_or_else(|| invalid("truncated executable instruction"))?;
+                used.push(u32::from_le_bytes(operand));
+            }
+            pc = next;
+        }
+    }
+    used.sort_unstable();
+    used.dedup();
+    Ok(used)
+}
 
 /// Parse and normalize a native-call symbol once during materialization.
 pub fn preparse_native_symbol_spec(symbol: &SmolStr) -> VmNativeSymbolSpec {
@@ -30,10 +172,10 @@ pub fn preparse_native_symbol_spec(symbol: &SmolStr) -> VmNativeSymbolSpec {
 
 /// Associate parsed call descriptors with known function POU identities.
 pub fn resolve_native_symbol_specs(
-    specs: &mut [VmNativeSymbolSpec],
+    specs: &mut NativeSymbols,
     function_ids: &HashMap<SmolStr, u32>,
 ) {
-    for spec in specs {
+    for spec in specs.iter_mut() {
         if let VmNativeSymbolSpec::Parsed {
             normalized_target_name,
             resolved_function_pou_id,

@@ -18,10 +18,7 @@ impl VmModule {
         if version.major != 1 {
             return Err(invalid_bytecode("legacy adapter requires STBC 1.x"));
         }
-        let native_symbol_specs = strings
-            .iter()
-            .map(symbols::preparse_native_symbol_spec)
-            .collect();
+        let native_symbol_specs = symbols::NativeSymbols::every(&strings);
         Ok(Self {
             version,
             storage_abi: version.storage_abi().map_err(RuntimeError::from)?,
@@ -102,8 +99,9 @@ impl VmModule {
     /// Append a symbol while updating its cached native-call descriptor.
     pub fn append_legacy_string(&mut self, text: SmolStr) {
         self.assert_legacy();
+        let index = u32::try_from(self.strings.len()).unwrap_or(u32::MAX);
         self.native_symbol_specs
-            .push(symbols::preparse_native_symbol_spec(&text));
+            .push(index, symbols::preparse_native_symbol_spec(&text));
         self.strings.push(text);
         symbols::resolve_native_symbol_specs(&mut self.native_symbol_specs, &self.function_ids);
     }

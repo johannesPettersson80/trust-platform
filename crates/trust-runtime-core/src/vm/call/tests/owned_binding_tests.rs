@@ -73,13 +73,15 @@ fn function_module(
         class_ids: TestMap::new(),
         parent_pou_ids: Default::default(),
         interface_type_ids_by_pou: PouMap::default(),
-        native_symbol_specs: vec![VmNativeSymbolSpec::Parsed {
-            target_name: SmolStr::new("callee"),
-            normalized_target_name: SmolStr::new("CALLEE"),
-            resolved_function_pou_id: Some(FUNCTION_ID),
-            conversion_spec: None,
-            arg_specs,
-        }],
+        native_symbol_specs: crate::vm::symbols::NativeSymbols::from_dense(vec![
+            VmNativeSymbolSpec::Parsed {
+                target_name: SmolStr::new("callee"),
+                normalized_target_name: SmolStr::new("CALLEE"),
+                resolved_function_pou_id: Some(FUNCTION_ID),
+                conversion_spec: None,
+                arg_specs,
+            },
+        ]),
         pou_params,
         pou_has_return_slot: Default::default(),
         method_table_by_owner: PouMap::default(),
@@ -262,13 +264,16 @@ fn private_method_route_uses_the_owned_expression_binder() {
         Vec::new(),
         1,
     );
-    module.native_symbol_specs[0] = VmNativeSymbolSpec::Parsed {
-        target_name: SmolStr::new("method"),
-        normalized_target_name: SmolStr::new("METHOD"),
-        resolved_function_pou_id: None,
-        conversion_spec: None,
-        arg_specs: vec![arg_spec("A", false)],
-    };
+    module.native_symbol_specs.replace(
+        0,
+        VmNativeSymbolSpec::Parsed {
+            target_name: SmolStr::new("method"),
+            normalized_target_name: SmolStr::new("METHOD"),
+            resolved_function_pou_id: None,
+            conversion_spec: None,
+            arg_specs: vec![arg_spec("A", false)],
+        },
+    );
     module.class_ids.insert(SmolStr::new("OWNER"), 8);
     module.method_table_by_owner.insert(
         8,
@@ -909,9 +914,9 @@ fn standard_library_calls_complete_immediately() {
         crate::bytecode::NATIVE_CALL_KIND_STDLIB
     ));
     let mut module = function_module(Vec::new(), Vec::new(), Vec::new(), 0);
-    module.native_symbol_specs = vec![crate::vm::symbols::preparse_native_symbol_spec(
-        &SmolStr::new("ABS|E:IN"),
-    )];
+    module.native_symbol_specs = crate::vm::symbols::NativeSymbols::from_dense(vec![
+        crate::vm::symbols::preparse_native_symbol_spec(&SmolStr::new("ABS|E:IN")),
+    ]);
     let mut context = TestContext::new();
     let mut frame = caller(Vec::new());
     let mut stack = OperandStack::default();

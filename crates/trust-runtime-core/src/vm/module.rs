@@ -88,7 +88,7 @@ pub struct VmModule {
     pub(crate) class_ids: HashMap<SmolStr, u32>,
     pub(crate) parent_pou_ids: IdMap<u32, u32>,
     pub(crate) interface_type_ids_by_pou: PouMap<Vec<u32>>,
-    pub(crate) native_symbol_specs: Vec<VmNativeSymbolSpec>,
+    pub(crate) native_symbol_specs: super::symbols::NativeSymbols,
     pub(crate) pou_params: PouMap<Vec<VmParamMeta>>,
     pub(crate) pou_has_return_slot: IdSet<u32>,
     pub(crate) method_table_by_owner: PouMap<HashMap<SmolStr, u32>>,
@@ -224,11 +224,24 @@ impl VmModule {
             &physical_layouts,
             charge,
         )?;
-        let mut native_symbol_specs = strings
-            .entries
-            .iter()
-            .map(symbols::preparse_native_symbol_spec)
-            .collect::<Vec<_>>();
+        // Only the strings that a `CALL_NATIVE` names are call symbols (specification 34 MEM-14).
+        let initializer_ranges = match module.section(SectionId::Initializers) {
+            Some(SectionData::Initializers(index)) => index
+                .entries
+                .iter()
+                .map(|entry| (entry.code_offset, entry.code_length))
+                .collect::<Vec<_>>(),
+            _ => Vec::new(),
+        };
+        let used = symbols::used_native_symbols(
+            bodies,
+            pou_index
+                .entries
+                .iter()
+                .map(|entry| (entry.code_offset, entry.code_length))
+                .chain(initializer_ranges),
+        )?;
+        let mut native_symbol_specs = symbols::NativeSymbols::parse(&strings.entries, &used)?;
 
         let var_meta = match module.section(SectionId::VarMeta) {
             Some(SectionData::VarMeta(meta)) => Some(meta),
@@ -485,7 +498,7 @@ impl VmModule {
     pub fn native_symbol_spec(&self, symbol_idx: u32) -> Result<&VmNativeSymbolSpec, VmTrap> {
         let entry = self
             .native_symbol_specs
-            .get(symbol_idx as usize)
+            .get(symbol_idx)
             .ok_or(VmTrap::InvalidNativeSymbolIndex(symbol_idx))?;
         match entry {
             VmNativeSymbolSpec::Parsed { .. } => Ok(entry),

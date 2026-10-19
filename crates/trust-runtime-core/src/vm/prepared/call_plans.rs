@@ -192,7 +192,7 @@ fn read_u32(body: &[u8], at: usize) -> u32 {
 
 /// Resolve one call site, or nothing when it cannot be planned at preparation.
 fn build_plan(vm: &VmModule, layout: &StorageLayout, site: &CallSite) -> Option<CallPlan> {
-    let spec = vm.native_symbol_specs.get(site.symbol_idx as usize)?;
+    let spec = vm.native_symbol_specs.get(site.symbol_idx)?;
     let VmNativeSymbolSpec::Parsed {
         target_name,
         normalized_target_name,

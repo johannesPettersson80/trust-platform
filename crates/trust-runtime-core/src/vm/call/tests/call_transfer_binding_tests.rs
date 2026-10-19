@@ -48,7 +48,7 @@ fn function_module(params: Vec<VmParamMeta>, local_ref_count: u32) -> VmModule {
         class_ids: TestMap::new(),
         parent_pou_ids: Default::default(),
         interface_type_ids_by_pou: PouMap::default(),
-        native_symbol_specs: Vec::new(),
+        native_symbol_specs: crate::vm::symbols::NativeSymbols::default(),
         pou_params,
         pou_has_return_slot: Default::default(),
         method_table_by_owner: PouMap::default(),
