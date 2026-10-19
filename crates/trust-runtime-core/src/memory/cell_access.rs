@@ -14,6 +14,7 @@
 //! routing in `vm::engine::store_access` supplies it. The writes are in `cell_write` (C1-9c), which
 //! checks a value before it copies it into the block.
 
+use alloc::string::String;
 use smol_str::SmolStr;
 
 use crate::bytecode::{StorageOwner, TypeData, TypeEntry, BYTECODE_MAX_TYPE_NESTING};
@@ -179,12 +180,17 @@ impl<'a> CellsView<'a> {
 #[derive(Debug, Default)]
 pub(crate) struct CellArm {
     cells: CellStorage,
+    /// The characters of a text a character write edits, kept between writes (C1-12).
+    text: String,
 }
 
 impl CellArm {
     /// An arm over `cells`, with no persistent instance recorded yet.
     pub(crate) fn new(cells: CellStorage) -> Self {
-        Self { cells }
+        Self {
+            cells,
+            text: String::new(),
+        }
     }
 
     /// Record that `instance`, of template `pou`, occupies the cells of `range` with `parent` as its

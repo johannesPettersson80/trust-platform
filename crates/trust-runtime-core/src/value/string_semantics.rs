@@ -129,12 +129,26 @@ pub fn write_string_element(
 ) -> Result<String, RuntimeError> {
     let position = string_element_position(text, index)?;
     let mut chars: Vec<char> = text.chars().collect();
-    chars[position] = value_to_char(value, wide)?;
+    chars[position] = text_element_char(&value, wide)?;
     let mut updated: String = chars.into_iter().collect();
     if let Some(end) = string_capacity_cut(&updated, wide, capacity) {
         updated.truncate(end);
     }
     Ok(updated)
+}
+
+/// Replace the character at zero-based `position` of `text` with `character`, in place (C1-12). A
+/// position at or past the end appends nothing.
+pub fn replace_text_element(text: &mut String, position: usize, character: char) {
+    let start = char_offset(text, position);
+    let Some(old) = text[start..].chars().next() else {
+        return;
+    };
+    let mut encoded = [0u8; 4];
+    text.replace_range(
+        start..start + old.len_utf8(),
+        character.encode_utf8(&mut encoded),
+    );
 }
 
 /// The byte offset of the character at zero-based `index` in `text`, or the text's length when
@@ -283,10 +297,17 @@ pub fn string_find(haystack: &str, needle: &str) -> Result<i16, RuntimeError> {
     i16::try_from(pos).map_err(|_| RuntimeError::Overflow)
 }
 
-fn value_to_char(value: Value, wide: bool) -> Result<char, RuntimeError> {
+/// The character `value` writes into an element of a text: a `CHAR` or `WCHAR`, or a text of one
+/// character, no wider than a `STRING`'s or, when `wide`, a `WSTRING`'s elements.
+///
+/// # Errors
+///
+/// [`RuntimeError::TypeMismatch`] for any other value and [`RuntimeError::Overflow`] for a
+/// character the text's elements cannot hold.
+pub fn text_element_char(value: &Value, wide: bool) -> Result<char, RuntimeError> {
     let code = match value {
-        Value::Char(code) => u32::from(code),
-        Value::WChar(code) => u32::from(code),
+        Value::Char(code) => u32::from(*code),
+        Value::WChar(code) => u32::from(*code),
         Value::String(text) => {
             let mut chars = text.chars();
             let ch = chars.next().ok_or(RuntimeError::TypeMismatch)?;

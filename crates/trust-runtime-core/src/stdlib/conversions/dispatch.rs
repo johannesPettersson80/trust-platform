@@ -1,13 +1,18 @@
 use super::ConversionType;
 use crate::error::RuntimeError;
 use crate::stdlib::helpers::require_arity;
-use crate::value::Value;
+use crate::stdlib::text_kernels::TextResult;
+use crate::value::{check_string_result, Value};
+use alloc::string::String;
 
 use super::bcd::{from_bcd, to_bcd};
 use super::bitstring::convert_to_bit_string;
-use super::numeric::{convert_to_int, convert_to_real};
+use super::numeric::{convert_to_int, convert_to_real, finite_real_result, signed_int_from_i128};
 use super::spec::ConversionSpec;
-use super::string::{convert_to_char, convert_to_string};
+use super::string::{
+    convert_to_char, convert_to_string, convert_to_string_into, parse_int_text,
+    parse_real_text_with, string_to_char,
+};
 use super::time::{convert_to_date, convert_to_dt, convert_to_time, convert_to_tod};
 use super::util::{is_conversion_allowed, is_integer_type, value_type_id};
 use super::ConversionMode;
@@ -110,5 +115,117 @@ fn convert_value(
         ConversionType::Char | ConversionType::WChar => convert_to_char(value, dst),
         ConversionType::Bool => Err(RuntimeError::TypeMismatch),
         _ => Err(RuntimeError::TypeMismatch),
+    }
+}
+
+/// [`apply_conversion`] of `ConversionSpec::Convert { src, dst }` for the value `value`, a text
+/// result written into `out` instead of a new value (C1-12): what it gives, the text in `out`.
+pub(crate) fn convert_value_into(
+    src: Option<ConversionType>,
+    dst: ConversionType,
+    value: &Value,
+    out: &mut String,
+) -> Result<TextResult, RuntimeError> {
+    let (value, actual_src) = normalize_source_value(value, src, ConversionMode::Round)?;
+    if !is_conversion_allowed(actual_src, dst) {
+        return Err(RuntimeError::TypeMismatch);
+    }
+    converted_into(value, dst, out)
+}
+
+/// [`apply_conversion`] of `ConversionSpec::Convert { src, dst }` for a text read where it lies,
+/// a `WSTRING` when `wide` (C1-12): parsed without a copy, a text result written into `out`, a real
+/// with separators cleaned in `scratch`. What it gives for the text's value.
+pub(crate) fn convert_text_into(
+    src: Option<ConversionType>,
+    dst: ConversionType,
+    text: &str,
+    wide: bool,
+    out: &mut String,
+    scratch: &mut String,
+) -> Result<TextResult, RuntimeError> {
+    let mut actual = if wide {
+        ConversionType::WString
+    } else {
+        ConversionType::String
+    };
+    if let Some(expected) = src
+        && expected != actual
+    {
+        // The source is first converted to the type the conversion names, as for its value.
+        if !is_conversion_allowed(actual, expected) {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        if !matches!(expected, ConversionType::String | ConversionType::WString) {
+            let value = text_value_as(expected, text, scratch)?;
+            if !is_conversion_allowed(expected, dst) {
+                return Err(RuntimeError::TypeMismatch);
+            }
+            return converted_into(value, dst, out);
+        }
+        check_string_result(text, expected == ConversionType::WString)?;
+        actual = expected;
+    }
+    if !is_conversion_allowed(actual, dst) {
+        return Err(RuntimeError::TypeMismatch);
+    }
+    if actual == dst {
+        out.push_str(text);
+        return Ok(TextResult::Text {
+            wide: dst == ConversionType::WString,
+        });
+    }
+    match dst {
+        ConversionType::String | ConversionType::WString => {
+            let wide = dst == ConversionType::WString;
+            check_string_result(text, wide)?;
+            out.push_str(text);
+            Ok(TextResult::Text { wide })
+        }
+        _ => text_value_as(dst, text, scratch).map(TextResult::Value),
+    }
+}
+
+/// The value of the text `text` converted to the type `ty` that is no text: an integer, a real or
+/// a character, as `convert_value` gives it for the text's value.
+fn text_value_as(
+    ty: ConversionType,
+    text: &str,
+    scratch: &mut String,
+) -> Result<Value, RuntimeError> {
+    match ty {
+        ConversionType::SInt
+        | ConversionType::Int
+        | ConversionType::DInt
+        | ConversionType::LInt
+        | ConversionType::USInt
+        | ConversionType::UInt
+        | ConversionType::UDInt
+        | ConversionType::ULInt => signed_int_from_i128(parse_int_text(text)?, ty),
+        ConversionType::Real | ConversionType::LReal => {
+            finite_real_result(parse_real_text_with(text, scratch)?, ty)
+        }
+        ConversionType::Char | ConversionType::WChar => {
+            string_to_char(text, ty == ConversionType::WChar)
+        }
+        _ => Err(RuntimeError::TypeMismatch),
+    }
+}
+
+/// The last step of a conversion of the value `value` to `dst`: a text into `out`, any other
+/// result as a value (C1-12).
+fn converted_into(
+    value: Value,
+    dst: ConversionType,
+    out: &mut String,
+) -> Result<TextResult, RuntimeError> {
+    if value_type_id(&value) == Some(dst) {
+        return Ok(TextResult::Value(value));
+    }
+    match dst {
+        ConversionType::String | ConversionType::WString => {
+            convert_to_string_into(&value, dst, out).map(|wide| TextResult::Text { wide })
+        }
+        _ => convert_value(&value, dst, ConversionMode::Round).map(TextResult::Value),
     }
 }

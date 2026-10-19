@@ -19,7 +19,10 @@ use crate::memory::flat::{self, LeafKind, TextBytes};
 use crate::memory::layout::ByteRange;
 use crate::memory::view::{PreparedWrite, PreparedWriteKind, StoreMutate};
 use crate::memory::{InstanceData, InstanceId, MemoryLocation, VariableStorage};
-use crate::value::{write_string_element, RefSegment, Value, ValueRefView};
+use crate::value::{
+    replace_text_element, string_element_count, string_element_position_in, text_element_char,
+    RefSegment, Value, ValueRefView,
+};
 use crate::vm::type_policy::{normalize_primitive_value, resolved_primitive_shape};
 use crate::vm::PreparedModule;
 
@@ -33,6 +36,17 @@ pub(crate) struct CellPatch {
     pub(crate) type_id: u32,
     pub(crate) presence: Option<u32>,
     pub(crate) leaf: Option<Value>,
+    /// For a character write, the character the text leaf at `range` takes and its position: the
+    /// commit edits the leaf in place (C1-12).
+    pub(crate) element: Option<TextElement>,
+}
+
+/// One character write into a text leaf: the zero-based position of the character it replaces and
+/// the character it writes (C1-12).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TextElement {
+    pub(crate) position: usize,
+    pub(crate) character: char,
 }
 
 /// The writer of the cell arm: the writes of [`StoreMutate`] over one arm and the `Value` half the engine
@@ -118,6 +132,48 @@ impl<'a> CellWriter<'a> {
         self.arm.create_call_instance(pou, own)
     }
 
+    /// Replace one character of the text leaf at `range`, a value of `type_id`, as `element` says,
+    /// the text then cut to the leaf's capacity at the last whole character that fits, and mark the
+    /// presence byte at `presence`, when the declaration keeps one (C1-12). The text is edited in the
+    /// arm's kept buffer, so the write allocates nothing once the engine is warm. `false` when the
+    /// leaf disagrees with its layout.
+    fn write_text_element(
+        &mut self,
+        range: ByteRange,
+        type_id: u32,
+        presence: Option<u32>,
+        element: TextElement,
+    ) -> bool {
+        let Some(geometry @ (length, _, wide)) = text_geometry(self.prepared, type_id) else {
+            return false;
+        };
+        let mut text = core::mem::take(&mut self.arm.text);
+        text.clear();
+        let current = self
+            .arm
+            .cells
+            .regions()
+            .block(range.region)
+            .bytes(range)
+            .and_then(|bytes| flat::read_text(bytes, length, wide).ok());
+        let read = match current {
+            Some(TextBytes::Narrow(current)) => {
+                text.push_str(current);
+                true
+            }
+            Some(units @ TextBytes::Wide(_)) => char::decode_utf16(units.units())
+                .try_for_each(|character| character.map(|character| text.push(character)))
+                .is_ok(),
+            None => false,
+        };
+        let written = read && {
+            replace_text_element(&mut text, element.position, element.character);
+            self.arm.write_text(range, geometry, presence, &text)
+        };
+        self.arm.text = text;
+        written
+    }
+
     /// Store the checked `leaf` of `type_id` into the cells of `range`. The check ran before the copy
     /// (R4), so the store answers `false` only when the cells disagree with the layout.
     /// Write `leaf` into the bytes of `range`, a value of `type_id`, and mark the declaration's
@@ -182,17 +238,18 @@ impl<'a> CellWriter<'a> {
                 let patch = self
                     .reader()
                     .text_element_patch(location, offset, path, &value)?;
-                // A text patch always carries its checked leaf; a path with none names no target.
+                // A text patch always carries its character; a path with none names no target.
                 let Some(CellPatch {
                     range,
                     type_id,
                     presence,
-                    leaf: Some(leaf),
+                    element: Some(element),
+                    ..
                 }) = patch
                 else {
                     return Ok(false);
                 };
-                Ok(self.store(range, type_id, presence, leaf))
+                Ok(self.write_text_element(range, type_id, presence, element))
             }
         }
     }
@@ -222,6 +279,7 @@ impl CellReader<'_> {
                     type_id,
                     presence,
                     leaf,
+                    element: None,
                 }))))
             }
             Ok(Target::Values(location, offset, rest)) => {
@@ -265,36 +323,42 @@ impl CellReader<'_> {
         if !self.present(range.region, presence) {
             return Ok(None);
         }
-        let Some((length, capacity, wide)) = text_geometry(self.prepared, type_id) else {
+        let Some((length, _, wide)) = text_geometry(self.prepared, type_id) else {
             return Ok(None);
         };
         let Some(bytes) = self.arm.cells.regions().block(range.region).bytes(range) else {
             return Ok(None);
         };
-        let current = match flat::read_text(bytes, length, wide) {
-            Ok(TextBytes::Narrow(text)) => alloc::string::String::from(text),
-            Ok(wide @ TextBytes::Wide(_)) => match char::decode_utf16(wide.units()).collect() {
-                Ok(text) => text,
-                Err(_) => return Ok(None),
-            },
+        // The text's characters are counted where they lie; the commit edits them there (C1-12).
+        let count = match flat::read_text(bytes, length, wide) {
+            Ok(TextBytes::Narrow(text)) => string_element_count(text),
+            Ok(wide @ TextBytes::Wide(_)) => {
+                let mut count = 0usize;
+                for character in char::decode_utf16(wide.units()) {
+                    if character.is_err() {
+                        return Ok(None);
+                    }
+                    count += 1;
+                }
+                count
+            }
             Err(_) => return Ok(None),
         };
-        let capacity = capacity as usize;
-        let Ok(updated) = write_string_element(&current, *index, value.clone(), wide, capacity)
-        else {
+        let Ok(position) = string_element_position_in(count, *index) else {
             return Ok(None);
         };
-        let leaf = if wide {
-            Value::WString(updated)
-        } else {
-            Value::String(updated.into())
+        let Ok(character) = text_element_char(value, wide) else {
+            return Ok(None);
         };
-        let leaf = checked_leaf(self.prepared, type_id, leaf)?;
         Ok(Some(CellPatch {
             range,
             type_id,
             presence,
-            leaf: Some(leaf),
+            leaf: None,
+            element: Some(TextElement {
+                position,
+                character,
+            }),
         }))
     }
 }
@@ -520,9 +584,12 @@ impl StoreMutate for CellWriter<'_> {
             },
             // The leaf was checked when it was prepared, so the commit copies it and nothing else. A
             // reference was checked by reference, so the commit stores the value it is given.
-            PreparedWriteKind::Cells(patch) => match patch.leaf {
-                Some(leaf) => self.store(patch.range, patch.type_id, patch.presence, leaf),
-                None => self.store(patch.range, patch.type_id, patch.presence, value),
+            PreparedWriteKind::Cells(patch) => match (patch.element, patch.leaf) {
+                (Some(element), _) => {
+                    self.write_text_element(patch.range, patch.type_id, patch.presence, element)
+                }
+                (None, Some(leaf)) => self.store(patch.range, patch.type_id, patch.presence, leaf),
+                (None, None) => self.store(patch.range, patch.type_id, patch.presence, value),
             },
         }
     }

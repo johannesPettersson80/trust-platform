@@ -697,6 +697,9 @@ impl ExecutionContext for EngineState<'_> {
     fn return_text_buffers(&mut self, buffers: crate::vm::TextBuffers) {
         self.data.resources.text_call = buffers;
     }
+    fn keeps_texts(&self) -> bool {
+        matches!(self.data.store, EngineStore::Cells(_))
+    }
     fn call_depth_limit(&self) -> usize {
         self.prepared.limits.max_call_depth
     }

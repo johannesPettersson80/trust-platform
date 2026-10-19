@@ -621,9 +621,15 @@ fn execute_with_buffers(
                     .ok_or(VmTrap::InvalidConstIndex(const_idx))
                     .map_err(VmTrap::into_runtime_error)?;
                 runtime.before_value_clone(value)?;
-                operand_stack
-                    .push(value.clone())
-                    .map_err(VmTrap::into_runtime_error)?;
+                match value {
+                    // A WSTRING constant goes into the text area, so its load allocates nothing
+                    // (C1-12); a STRING constant's copy shares its characters.
+                    Value::WString(text) if runtime.keeps_texts() => {
+                        operand_stack.push_text(text, true)
+                    }
+                    _ => operand_stack.push(value.clone()),
+                }
+                .map_err(VmTrap::into_runtime_error)?;
             }
             0x11 => {
                 if let Some(place) = operand_stack.top_place() {

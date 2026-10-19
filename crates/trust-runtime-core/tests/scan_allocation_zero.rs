@@ -621,9 +621,10 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// C1-12a and C1-12b leave a text, and a structure that holds one, where it lies, and run the
 /// built-in text functions on their arguments where they lie, their results in the operand stack's
 /// text area, a variable argument read where its target lies: on the flat store `strings` falls
-/// from 40 to 10 allocator calls and from 14 to 1 reallocation per scan (its conversions, character
-/// writes and `WSTRING` constants, C1-12c), `copies` from 8 to 5 and `io` from 8 to 7, measured on
-/// the builder on 19 October 2026.
+/// from 40 to 10 allocator calls and from 14 to 1 reallocation per scan, `copies` from 8 to 5 and
+/// `io` from 8 to 7. C1-12c runs the conversions from and to texts the same way, loads `WSTRING`
+/// constants into the text area and replaces a written character in its leaf: `strings` makes no
+/// allocator call after its first scan, measured on the builder on 19 October 2026.
 const CEILINGS: [(&str, usize, Calls); 31] = [
     ("faults/division", 2, Calls::ZERO),
     ("faults/index", 2, Calls::ZERO),
@@ -726,15 +727,7 @@ const CEILINGS: [(&str, usize, Calls); 31] = [
     ),
     ("cells/arrays", 1, Calls::ZERO),
     ("cells/references", 1, Calls::ZERO),
-    (
-        "cells/strings",
-        1,
-        Calls {
-            alloc: 10,
-            realloc: 1,
-            dealloc: 10,
-        },
-    ),
+    ("cells/strings", 1, Calls::ZERO),
     (
         "cells/initializers",
         1,

@@ -8,6 +8,7 @@
 
 use crate::error::RuntimeError;
 use crate::numeric::to_i64;
+use crate::stdlib::conversions::{convert_text_into, convert_value_into, ConversionType};
 use crate::value::{
     check_string_result, string_capacity_cut, string_delete_into, string_element_count,
     string_find, string_insert_into, string_left_into, string_mid_into, string_replace_into,
@@ -28,6 +29,11 @@ pub(crate) enum TextKernel {
     Replace,
     Right,
     Limit,
+    /// A conversion from or to a text: `src_TO_dst`, its source type named or not.
+    Convert {
+        src: Option<ConversionType>,
+        dst: ConversionType,
+    },
 }
 
 /// The functions by their registered names.
@@ -54,18 +60,21 @@ impl TextKernel {
     }
 }
 
-/// One argument of a text function: a borrowed text with its width, or the integer another value
-/// gives.
+/// One argument of a text function: a borrowed text with its width, or another value, borrowed or
+/// read as a scalar from a block.
 #[derive(Debug, Clone)]
 pub(crate) enum TextArg<'a> {
     /// The characters of a `STRING`, or of a `WSTRING` when `wide`.
     Text { text: &'a str, wide: bool },
-    /// Any other value, as the integer `to_i64` reads from it, or its refusal.
-    Other(Result<i64, RuntimeError>),
+    /// Any other value.
+    Value(&'a Value),
+    /// A value read from a block: a scalar, or the null value for a compound, which no text
+    /// function takes.
+    Scalar(Value),
 }
 
 impl<'a> TextArg<'a> {
-    /// The argument for the value `value`: its text, borrowed, or the integer it gives.
+    /// The argument for the value `value`: its text, borrowed, or the value.
     pub(crate) fn of(value: &'a Value) -> Self {
         match value {
             Value::String(text) => TextArg::Text {
@@ -76,7 +85,7 @@ impl<'a> TextArg<'a> {
                 text: text.as_str(),
                 wide: true,
             },
-            other => TextArg::Other(to_i64(other)),
+            other => TextArg::Value(other),
         }
     }
 
@@ -84,14 +93,15 @@ impl<'a> TextArg<'a> {
     fn text(self) -> Option<(&'a str, bool)> {
         match self {
             TextArg::Text { text, wide } => Some((text, wide)),
-            TextArg::Other(_) => None,
+            TextArg::Value(_) | TextArg::Scalar(_) => None,
         }
     }
 
     /// The argument as an integer, refused as `to_i64` refuses its value.
     fn integer(self) -> Result<i64, RuntimeError> {
         match self {
-            TextArg::Other(integer) => integer,
+            TextArg::Value(value) => to_i64(value),
+            TextArg::Scalar(value) => to_i64(&value),
             TextArg::Text { .. } => Err(RuntimeError::TypeMismatch),
         }
     }
@@ -108,7 +118,8 @@ pub(crate) enum TextResult {
 }
 
 /// Run `kernel` on its `count` arguments, argument `i` given by `arg(i)` in formal order, writing a
-/// text result into `out`, which comes empty.
+/// text result into `out`, which comes empty; a conversion cleans a real's separators in
+/// `scratch`.
 ///
 /// # Errors
 ///
@@ -119,6 +130,7 @@ pub(crate) fn run<'a>(
     count: usize,
     arg: impl Fn(usize) -> Result<TextArg<'a>, RuntimeError>,
     out: &mut String,
+    scratch: &mut String,
 ) -> Result<TextResult, RuntimeError> {
     let arity = |expected: usize| {
         if count == expected {
@@ -207,6 +219,16 @@ pub(crate) fn run<'a>(
                 haystack, needle,
             )?)))
         }
+        TextKernel::Convert { src, dst } => {
+            arity(1)?;
+            match arg(0)? {
+                TextArg::Text { text, wide } => {
+                    convert_text_into(src, dst, text, wide, out, scratch)
+                }
+                TextArg::Value(value) => convert_value_into(src, dst, value, out),
+                TextArg::Scalar(value) => convert_value_into(src, dst, &value, out),
+            }
+        }
         TextKernel::Limit => {
             arity(2)?;
             let capacity = u32::try_from(arg(1)?.integer()?).map_err(|_| RuntimeError::Overflow)?;
@@ -241,12 +263,23 @@ mod tests {
     ) -> (Result<Value, RuntimeError>, Result<Value, RuntimeError>) {
         let views: Vec<TextArg<'_>> = args.iter().map(TextArg::of).collect();
         let mut out = String::new();
-        let kernel = TextKernel::of(name).expect("a text kernel");
+        let kernel = TextKernel::of(name)
+            .or_else(
+                || match crate::stdlib::conversions::conversion_spec(name)? {
+                    crate::stdlib::conversions::ConversionSpec::Convert { src, dst } => {
+                        Some(TextKernel::Convert { src, dst })
+                    }
+                    _ => None,
+                },
+            )
+            .expect("a text kernel");
+        let mut scratch = String::new();
         let ran = run(
             kernel,
             views.len(),
             |index| Ok(views[index].clone()),
             &mut out,
+            &mut scratch,
         )
         .map(|result| match result {
             TextResult::Text { wide: false } => Value::String(SmolStr::new(&out)),
@@ -330,6 +363,48 @@ mod tests {
         for (name, args) in cases {
             let (kernel, registered) = both(name, &args);
             assert_eq!(kernel, registered, "{name}({args:?})");
+        }
+    }
+
+    /// Spec 34 ARCH-05 and TIME-08 (C1-12): each conversion from or to a text gives what the
+    /// conversion of the value gives, the refusals included: numbers, a character and a byte into a
+    /// text, a value outside the named source type, a decimal text with separators and spaces, a
+    /// based text, a text that is no number, a real with separators and one too large, a text into
+    /// the other width and into a character, a generic conversion, and an integer text outside the
+    /// destination. The expected values are the value forms' answers, which the conversion suites
+    /// pin from IEC 61131-3 §6.6.2.5.6. Catches a parser that keeps a separator or a sign it should
+    /// refuse, a formatter that drops a real's `.0`, and a conversion that skips the source type's
+    /// range check.
+    #[test]
+    fn every_conversion_answers_as_its_value_form() {
+        let s = |text: &str| Value::String(SmolStr::new(text));
+        let w = |text: &str| Value::WString(String::from(text));
+        let cases: Vec<(&str, Vec<Value>)> = alloc::vec![
+            ("DINT_TO_STRING", alloc::vec![Value::DInt(-42)]),
+            ("REAL_TO_STRING", alloc::vec![Value::Real(1.25)]),
+            ("REAL_TO_STRING", alloc::vec![Value::Real(3.0)]),
+            ("LREAL_TO_WSTRING", alloc::vec![Value::LReal(-0.5)]),
+            ("CHAR_TO_STRING", alloc::vec![Value::Char(b'A')]),
+            ("BYTE_TO_STRING", alloc::vec![Value::Byte(255)]),
+            ("INT_TO_STRING", alloc::vec![Value::DInt(70_000)]),
+            ("STRING_TO_DINT", alloc::vec![s(" 1_000 ")]),
+            ("STRING_TO_DINT", alloc::vec![s("16#FF")]),
+            ("STRING_TO_DINT", alloc::vec![s("-16#8000_0000")]),
+            ("STRING_TO_DINT", alloc::vec![s("1__0")]),
+            ("STRING_TO_DINT", alloc::vec![s("pump")]),
+            ("STRING_TO_INT", alloc::vec![s("70000")]),
+            ("STRING_TO_REAL", alloc::vec![s("1_0.5")]),
+            ("STRING_TO_LREAL", alloc::vec![s("1e999")]),
+            ("WSTRING_TO_STRING", alloc::vec![w("Ventil")]),
+            ("STRING_TO_WSTRING", alloc::vec![s("Grüße")]),
+            ("STRING_TO_CHAR", alloc::vec![s("A")]),
+            ("WSTRING_TO_WCHAR", alloc::vec![w("V")]),
+            ("TO_STRING", alloc::vec![Value::Int(5)]),
+            ("STRING_TO_DINT", alloc::vec![Value::DInt(5)]),
+        ];
+        for (name, args) in cases {
+            let (kernel, value_form) = both(name, &args);
+            assert_eq!(kernel, value_form, "{name}({args:?})");
         }
     }
 }

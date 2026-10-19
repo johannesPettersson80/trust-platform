@@ -1412,16 +1412,18 @@ always stores the value its load read, whatever the program wrote in between. An
 a value allocates nothing (ARCH-05).
 
 **Texts.** On the flat store a call of a built-in text function (`CONCAT`, `DELETE`, `FIND`,
-`INSERT`, `LEFT`, `LEN`, `MID`, `REPLACE`, `RIGHT`, and the cut that assigns a text to a shorter
-one) whose arguments are inputs reads each argument where it lies: a text in a block, a text an
-earlier call made, or a value, a `WSTRING` in a block from its code units (checklist C1-12). Its
-text result goes into the text area of the operand stack, which keeps its room and gives a text's
-room back once the text is used. A store writes the text into its destination's leaf, cut to the
-leaf's capacity and charged as the store of its value is, and an instruction that needs the value
-reads it into one. A function a program registers under such a name, a call with an output and a
-call by name that does not bind one argument to each formal bind values as any call does. Every
-result, charge and refusal is the value store's (TIME-08), so such a call allocates nothing once the
-engine is warm (ARCH-05).
+`INSERT`, `LEFT`, `LEN`, `MID`, `REPLACE`, `RIGHT`, the cut that assigns a text to a shorter one,
+and a conversion from or to a text) whose arguments are inputs reads each argument where it lies: a
+text in a block, a text an earlier call made, or a value, a `WSTRING` in a block from its code units
+(checklist C1-12). Its text result goes into the text area of the operand stack, which keeps its
+room and gives a text's room back once the text is used, and a `WSTRING` constant is loaded there. A
+conversion reads a number from a text where it lies. A store writes the text into its destination's
+leaf, cut to the leaf's capacity and charged as the store of its value is, and an instruction that
+needs the value reads it into one. A character written into a text (`s[i] := c`) replaces the
+character in the leaf, the text then cut to the leaf's capacity. A function a program registers
+under such a name, a call with an output and a call by name that does not bind one argument to each
+formal bind values as any call does. Every result, charge and refusal is the value store's
+(TIME-08), so such a call allocates nothing once the engine is warm (ARCH-05).
 
 **Activation stack.** On the flat store every call's frame lies on the activation stack, on top of
 its caller's (MEM-12; checklist C1-11). Preparation gives each POU a frame layout, every typed

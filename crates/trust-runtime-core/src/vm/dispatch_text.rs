@@ -19,7 +19,7 @@ use crate::memory::cell_access::CellsView;
 use crate::memory::flat::TextBytes;
 use crate::memory::layout::ByteRange;
 use crate::memory::view::ValueView;
-use crate::numeric::to_i64;
+use crate::stdlib::conversions::{ConversionSpec, ConversionType};
 use crate::stdlib::text_kernels::{self, TextArg, TextKernel, TextResult};
 use crate::stdlib::StdParams;
 use crate::value::Value;
@@ -33,12 +33,14 @@ const MAX_NAMED: usize = 4;
 const MAX_TARGETS: usize = 64;
 
 /// The buffers a text call works in, kept by the engine between calls (C1-12): the result, the
-/// characters of `WSTRING` arguments decoded from their code units, and where each lies.
+/// characters of `WSTRING` arguments decoded from their code units, where each lies, and a
+/// conversion's cleaned digits.
 #[derive(Debug, Default)]
 pub struct TextBuffers {
     result: String,
     decoded: String,
     spans: Vec<(usize, usize)>,
+    scratch: String,
 }
 
 /// A call of a built-in text function that runs on its arguments where they lie.
@@ -86,7 +88,7 @@ pub(super) fn text_call_at(
     let count = usize::try_from(word(8)?).ok()?;
     let VmNativeSymbolSpec::Parsed {
         normalized_target_name,
-        conversion_spec: None,
+        conversion_spec,
         arg_specs,
         ..
     } = module.native_symbol_spec(word(4)?).ok()?
@@ -104,6 +106,31 @@ pub(super) fn text_call_at(
             }
             targets |= 1 << source;
         }
+    }
+    if let Some(spec) = conversion_spec {
+        // A conversion from or to a text, its one argument by position or named IN, as the call
+        // that binds values binds it.
+        let ConversionSpec::Convert { src, dst } = *spec else {
+            return None;
+        };
+        let text =
+            |ty: ConversionType| matches!(ty, ConversionType::String | ConversionType::WString);
+        if !(text(dst) || src.is_some_and(text)) || count != 1 {
+            return None;
+        }
+        if arg_specs[0]
+            .name
+            .as_ref()
+            .is_some_and(|name| !name.eq_ignore_ascii_case("IN"))
+        {
+            return None;
+        }
+        return Some(TextCall {
+            kernel: TextKernel::Convert { src, dst },
+            count,
+            named: None,
+            targets,
+        });
     }
     let kernel = TextKernel::of(normalized_target_name)?;
     let builtin = runtime.stdlib().builtin(normalized_target_name)?;
@@ -304,6 +331,7 @@ fn run_with_buffers(
         result,
         decoded,
         spans,
+        scratch,
     } = buffers;
     decoded.clear();
     spans.clear();
@@ -345,10 +373,7 @@ fn run_with_buffers(
                         wide: true,
                     }
                 }
-                None => TextArg::Other(match cells.scalar(range, type_id)? {
-                    Some(scalar) => to_i64(&scalar),
-                    None => Err(RuntimeError::TypeMismatch),
-                }),
+                None => TextArg::Scalar(cells.scalar(range, type_id)?.unwrap_or(Value::Null)),
             },
         })
     };
@@ -370,6 +395,7 @@ fn run_with_buffers(
         call.count,
         |formal| arg(call.source(formal)),
         result,
+        scratch,
     )?;
     if let TextResult::Text { wide } = outcome {
         runtime.charge_new_text(result, wide)?;

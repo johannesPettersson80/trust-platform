@@ -2,6 +2,7 @@ use super::ConversionType;
 use crate::error::RuntimeError;
 use crate::value::{check_string_result, Value};
 use alloc::string::{String, ToString};
+use core::fmt::Write;
 
 pub(super) fn convert_to_string(value: &Value, dst: ConversionType) -> Result<Value, RuntimeError> {
     let text = match value {
@@ -46,6 +47,55 @@ pub(super) fn convert_to_string(value: &Value, dst: ConversionType) -> Result<Va
     }
 }
 
+/// [`convert_to_string`], its text appended to `out` instead of a new value (C1-12): `true` for a
+/// `WSTRING`.
+pub(super) fn convert_to_string_into(
+    value: &Value,
+    dst: ConversionType,
+    out: &mut String,
+) -> Result<bool, RuntimeError> {
+    let wide = match dst {
+        ConversionType::String => false,
+        ConversionType::WString => true,
+        _ => return Err(RuntimeError::TypeMismatch),
+    };
+    let start = out.len();
+    let formatted = match value {
+        Value::String(text) => write!(out, "{text}"),
+        Value::WString(text) => write!(out, "{text}"),
+        Value::Char(code) => write!(out, "{}", char::from(*code)),
+        Value::WChar(code) => write!(
+            out,
+            "{}",
+            core::char::from_u32(u32::from(*code)).ok_or(RuntimeError::TypeMismatch)?
+        ),
+        Value::SInt(number) => write!(out, "{number}"),
+        Value::Int(number) => write!(out, "{number}"),
+        Value::DInt(number) => write!(out, "{number}"),
+        Value::LInt(number) => write!(out, "{number}"),
+        Value::USInt(number) => write!(out, "{number}"),
+        Value::UInt(number) => write!(out, "{number}"),
+        Value::UDInt(number) => write!(out, "{number}"),
+        Value::ULInt(number) => write!(out, "{number}"),
+        Value::Byte(number) => write!(out, "{number}"),
+        Value::Word(number) => write!(out, "{number}"),
+        Value::DWord(number) => write!(out, "{number}"),
+        Value::LWord(number) => write!(out, "{number}"),
+        Value::Real(number) => {
+            crate::value::float_text::real_into(f64::from(*number), out);
+            Ok(())
+        }
+        Value::LReal(number) => {
+            crate::value::float_text::real_into(*number, out);
+            Ok(())
+        }
+        _ => return Err(RuntimeError::TypeMismatch),
+    };
+    formatted.map_err(|_| RuntimeError::InvalidExecutionState)?;
+    check_string_result(&out[start..], wide)?;
+    Ok(wide)
+}
+
 pub(super) fn string_input(value: &Value) -> Result<&str, RuntimeError> {
     match value {
         Value::String(s) => Ok(s.as_str()),
@@ -55,7 +105,9 @@ pub(super) fn string_input(value: &Value) -> Result<&str, RuntimeError> {
 }
 
 // Keep the wide parser: a syntactically valid i128 outside an IEC destination
-// faults with Overflow, while text outside i128 faults with TypeMismatch.
+// faults with Overflow, while text outside i128 faults with TypeMismatch. The
+// text is read where it lies, its separators skipped, so parsing allocates
+// nothing (C1-12).
 pub(super) fn parse_int_text(text: &str) -> Result<i128, RuntimeError> {
     let trimmed = text.trim();
     if trimmed.is_empty() {
@@ -64,44 +116,92 @@ pub(super) fn parse_int_text(text: &str) -> Result<i128, RuntimeError> {
     if let Some((base_str, digits)) = trimmed.split_once('#') {
         // Spec 07 section 2.8: the optional sign belongs to the digits, never to the base.
         // `u32::from_str` accepts a leading `+`, so the base must be decimal digits only.
-        let base_digits = strip_separators(base_str, 10)?;
-        if !base_digits.bytes().all(|byte| byte.is_ascii_digit()) {
+        check_separators(base_str, 10)?;
+        if !base_str
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || byte == b'_')
+        {
             return Err(RuntimeError::TypeMismatch);
         }
-        let base: u32 = base_digits
-            .parse()
-            .map_err(|_| RuntimeError::TypeMismatch)?;
+        let base = digits_value(base_str, 10)
+            .and_then(|base| u32::try_from(base).ok())
+            .ok_or(RuntimeError::TypeMismatch)?;
         if !(2..=36).contains(&base) {
             return Err(RuntimeError::TypeMismatch);
         }
-        let digits = strip_separators(digits, base)?;
-        if digits.is_empty() {
-            return Err(RuntimeError::TypeMismatch);
-        }
+        check_separators(digits, base)?;
         // Spec 07 section 2.8: one optional sign on the digits. `from_str_radix` would
         // accept a second sign, so a sign left after the first one is rejected here.
         let (negative, unsigned) = match digits.strip_prefix('-') {
             Some(rest) => (true, rest),
-            None => (false, digits.strip_prefix('+').unwrap_or(digits.as_str())),
+            None => (false, digits.strip_prefix('+').unwrap_or(digits)),
         };
         if unsigned.starts_with(['+', '-']) {
             return Err(RuntimeError::TypeMismatch);
         }
-        let value = i128::from_str_radix(unsigned, base).map_err(|_| RuntimeError::TypeMismatch)?;
+        let value = digits_value(unsigned, base).ok_or(RuntimeError::TypeMismatch)?;
         return if negative { Ok(-value) } else { Ok(value) };
     }
-    strip_separators(trimmed, 10)?
-        .parse::<i128>()
-        .map_err(|_| RuntimeError::TypeMismatch)
+    check_separators(trimmed, 10)?;
+    let (negative, unsigned) = match trimmed.strip_prefix('-') {
+        Some(rest) => (true, rest),
+        None => (false, trimmed.strip_prefix('+').unwrap_or(trimmed)),
+    };
+    if negative {
+        signed_digits_value(unsigned).ok_or(RuntimeError::TypeMismatch)
+    } else {
+        digits_value(unsigned, 10).ok_or(RuntimeError::TypeMismatch)
+    }
+}
+
+/// The value of the digits of `text` in `radix`, its separators skipped, as `from_str_radix`
+/// reads the text without them: `None` for no digit, a character that is no digit of `radix`, a
+/// sign, and a value above `i128::MAX`.
+fn digits_value(text: &str, radix: u32) -> Option<i128> {
+    let mut value: Option<i128> = None;
+    for character in text.chars().filter(|character| *character != '_') {
+        let digit = i128::from(character.to_digit(radix)?);
+        value = Some(
+            value
+                .unwrap_or(0)
+                .checked_mul(i128::from(radix))?
+                .checked_add(digit)?,
+        );
+    }
+    value
+}
+
+/// The negative value of the decimal digits of `text`, its separators skipped, as `str::parse`
+/// reads `-` and the text without them, down to `i128::MIN`.
+fn signed_digits_value(text: &str) -> Option<i128> {
+    let mut value: Option<i128> = None;
+    for character in text.chars().filter(|character| *character != '_') {
+        let digit = i128::from(character.to_digit(10)?);
+        value = Some(value.unwrap_or(0).checked_mul(10)?.checked_sub(digit)?);
+    }
+    value
 }
 
 pub(super) fn parse_real_text(text: &str) -> Result<f64, RuntimeError> {
+    parse_real_text_with(text, &mut String::new())
+}
+
+/// [`parse_real_text`], a text with separators cleaned in `scratch`, so that parsing allocates
+/// nothing once `scratch` has room (C1-12).
+pub(super) fn parse_real_text_with(text: &str, scratch: &mut String) -> Result<f64, RuntimeError> {
     let trimmed = text.trim();
     if trimmed.is_empty() {
         return Err(RuntimeError::TypeMismatch);
     }
-    let cleaned = strip_separators(trimmed, 10)?;
-    let value = crate::value::float_text::parse(&cleaned)?;
+    check_separators(trimmed, 10)?;
+    let cleaned = if trimmed.contains('_') {
+        scratch.clear();
+        scratch.extend(trimmed.chars().filter(|character| *character != '_'));
+        scratch.as_str()
+    } else {
+        trimmed
+    };
+    let value = crate::value::float_text::parse(cleaned)?;
     if value.is_finite() {
         Ok(value)
     } else {
@@ -113,8 +213,7 @@ pub(super) fn parse_real_text(text: &str) -> Result<f64, RuntimeError> {
 // literal is not significant, and no other use is allowed. A leading, trailing
 // or repeated `_` is malformed text. `radix` is the digit set of the literal:
 // decimal for real text and for a base prefix, the base itself for `digits`.
-fn strip_separators(text: &str, radix: u32) -> Result<String, RuntimeError> {
-    let mut cleaned = String::with_capacity(text.len());
+fn check_separators(text: &str, radix: u32) -> Result<(), RuntimeError> {
     let mut previous: Option<char> = None;
     let mut chars = text.chars().peekable();
     while let Some(ch) = chars.next() {
@@ -124,12 +223,10 @@ fn strip_separators(text: &str, radix: u32) -> Result<String, RuntimeError> {
             if !(before_digit && after_digit) {
                 return Err(RuntimeError::TypeMismatch);
             }
-        } else {
-            cleaned.push(ch);
         }
         previous = Some(ch);
     }
-    Ok(cleaned)
+    Ok(())
 }
 
 pub(super) fn convert_to_char(value: &Value, dst: ConversionType) -> Result<Value, RuntimeError> {
@@ -181,7 +278,7 @@ pub(super) fn convert_to_char(value: &Value, dst: ConversionType) -> Result<Valu
     }
 }
 
-fn string_to_char(text: &str, wide: bool) -> Result<Value, RuntimeError> {
+pub(super) fn string_to_char(text: &str, wide: bool) -> Result<Value, RuntimeError> {
     let mut chars = text.chars();
     let ch = chars.next().ok_or(RuntimeError::TypeMismatch)?;
     if chars.next().is_some() {

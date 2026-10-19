@@ -400,6 +400,11 @@ pub trait ExecutionContext: super::call::context::CallContext {
     }
     /// Give back the buffers [`Self::take_text_buffers`] took.
     fn return_text_buffers(&mut self, _buffers: super::TextBuffers) {}
+    /// Whether texts the program makes go into the operand stack's text area: the composition
+    /// stores and passes them there without a value (C1-12). `false`, the default, keeps values.
+    fn keeps_texts(&self) -> bool {
+        false
+    }
     /// Initialize one invocation using the existing shared work allowance.
     fn initialize_frame(
         &mut self,

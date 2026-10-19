@@ -68,7 +68,7 @@ pub(super) fn convert_to_real(value: &Value, dst: ConversionType) -> Result<Valu
     }
 }
 
-fn finite_real_result(value: f64, dst: ConversionType) -> Result<Value, RuntimeError> {
+pub(super) fn finite_real_result(value: f64, dst: ConversionType) -> Result<Value, RuntimeError> {
     let result = match dst {
         ConversionType::Real => Value::Real(value as f32),
         ConversionType::LReal => Value::LReal(value),
