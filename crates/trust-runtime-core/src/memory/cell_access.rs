@@ -355,16 +355,26 @@ impl CellArm {
         self.instance(instance).map(|persistent| persistent.range)
     }
 
-    /// Copy the bytes of `source` to `destination` in the block that holds them both, the
-    /// persistent block or the activation stack, and mark the presence byte at `presence`, when the
+    /// Copy the bytes of `source` to `destination`, in one block or from the persistent block to the
+    /// activation stack or back (C1-19c4), and mark the presence byte at `presence`, when the
     /// destination's declaration keeps one, as holding a value (specification 34 MEM-12; C1-10c,
-    /// C1-13). `false`, and nothing changed, when the block refuses either range.
+    /// C1-13). `false`, and nothing changed, when a block refuses either range.
     pub(crate) fn copy_place(
         &mut self,
         source: ByteRange,
         destination: ByteRange,
         presence: Option<u32>,
     ) -> bool {
+        if source.region != destination.region {
+            let (persistent, activation) = self.cells.regions_mut().blocks_mut();
+            let (from, to) = match destination.region {
+                LayoutRegion::Persistent => (&*activation, persistent),
+                LayoutRegion::Activation => (&*persistent, activation),
+            };
+            return from
+                .bytes(source)
+                .is_some_and(|bytes| write_over(to, destination, presence, bytes));
+        }
         let (block, _) = self.cells.regions_mut().block_mut(destination.region);
         let flag = presence.map(|start| ByteRange {
             start,
@@ -394,25 +404,7 @@ impl CellArm {
         bytes: &[u8],
     ) -> bool {
         let (block, _) = self.cells.regions_mut().block_mut(destination.region);
-        let flag = presence.map(|start| ByteRange {
-            start,
-            bytes: 1,
-            ..destination
-        });
-        if flag.is_some_and(|flag| block.bytes(flag).is_none()) {
-            return false;
-        }
-        let Some(target) = block
-            .bytes_mut(destination)
-            .filter(|target| target.len() == bytes.len())
-        else {
-            return false;
-        };
-        target.copy_from_slice(bytes);
-        if let Some(byte) = flag.and_then(|flag| block.bytes_mut(flag)) {
-            byte[0] = 1;
-        }
-        true
+        write_over(block, destination, presence, bytes)
     }
 
     /// Write `text`, UTF-8, into the text leaf at `range` with the length field of `length` bytes and
@@ -1745,3 +1737,33 @@ mod retain_tests;
 mod tests;
 #[cfg(all(test, feature = "std"))]
 mod write_tests;
+
+/// Write `bytes` over `destination` in `block` and mark the presence byte at `presence`, when the
+/// destination's declaration keeps one, as holding a value (MEM-12). `false`, and nothing changed,
+/// when the block refuses either range or `bytes` is not as long as `destination`.
+fn write_over(
+    block: &mut crate::memory::cells::FlatBlock,
+    destination: ByteRange,
+    presence: Option<u32>,
+    bytes: &[u8],
+) -> bool {
+    let flag = presence.map(|start| ByteRange {
+        start,
+        bytes: 1,
+        ..destination
+    });
+    if flag.is_some_and(|flag| block.bytes(flag).is_none()) {
+        return false;
+    }
+    let Some(target) = block
+        .bytes_mut(destination)
+        .filter(|target| target.len() == bytes.len())
+    else {
+        return false;
+    };
+    target.copy_from_slice(bytes);
+    if let Some(byte) = flag.and_then(|flag| block.bytes_mut(flag)) {
+        byte[0] = 1;
+    }
+    true
+}

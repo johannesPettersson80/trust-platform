@@ -106,6 +106,7 @@ pub(in crate::vm) fn execute_leaf_call(
         return_value: result.return_value,
         locals: result.locals,
         block: result.block,
+        return_in_block: false,
     };
     let caller = frames
         .current_mut()

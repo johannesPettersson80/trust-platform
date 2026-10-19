@@ -479,6 +479,7 @@ impl CallContext for EngineState<'_> {
                 return_value: result.return_value,
                 locals: result.locals,
                 block: result.block,
+                return_in_block: false,
             })
         })
     }
@@ -511,6 +512,7 @@ impl CallContext for EngineState<'_> {
                 return_value: result.return_value,
                 locals: result.locals,
                 block: None,
+                return_in_block: false,
             })
         })
     }
@@ -843,6 +845,16 @@ impl ExecutionContext for EngineState<'_> {
             .activation
             .and_then(|id| self.data.storage.previous_execution_activation(id));
         self.check_value_lifetime(value, destination)
+    }
+    fn check_return_place(&self, frame: &VmFrame) -> Option<Result<(), RuntimeError>> {
+        EngineState::check_return_place(self, frame)
+    }
+    fn push_return_copy(
+        &self,
+        block: crate::memory::regions::FrameBlock,
+        stack: &mut OperandStack,
+    ) -> Result<(), RuntimeError> {
+        EngineState::push_return_copy(self, block, stack)
     }
     fn construct_result_in_place(
         &mut self,

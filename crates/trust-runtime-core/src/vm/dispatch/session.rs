@@ -314,6 +314,7 @@ fn drive(
                     return_value: result.return_value,
                     locals: result.locals,
                     block: result.block,
+                    return_in_block: false,
                 };
                 if buffers.continuations.is_empty() {
                     return Ok(result);
@@ -756,6 +757,13 @@ pub(super) fn complete_call(
     }
     let mut parent = continuation.parent;
     let caller = parent_frame_mut(frames, &mut parent);
+    // A result the finished frame keeps in its bytes is copied onto the caller's operand stack once
+    // the call's outputs are copied back (C1-19c4).
+    let in_block = if result.return_in_block {
+        result.block
+    } else {
+        None
+    };
     let value = finish_child_call(runtime, module, caller, continuation.call, result);
     operand_stack.leave_call(continuation.operand_scope.0, continuation.operand_scope.1);
     let value = match value {
@@ -764,25 +772,39 @@ pub(super) fn complete_call(
     };
 
     #[cfg(feature = "register-ir")]
-    let placed = match &mut parent {
-        Activation::Stack(_) => operand_stack
-            .push(value)
-            .map_err(VmTrap::into_runtime_error),
-        Activation::Register(activation) => {
-            let Some(destination) = continuation.register_destination else {
-                return Err((parent, RuntimeError::InvalidExecutionState));
-            };
-            activation.set_call_result(destination, value)
+    let placed = if let Activation::Register(activation) = &mut parent {
+        // A register takes the result as a value.
+        match (continuation.register_destination, in_block) {
+            (None, _) => Err(RuntimeError::InvalidExecutionState),
+            (Some(destination), None) => activation.set_call_result(destination, value),
+            (Some(destination), Some(block)) => runtime
+                .read_finished_slot(block, 0)
+                .unwrap_or(Err(RuntimeError::InvalidExecutionState))
+                .and_then(|value| activation.set_call_result(destination, value)),
         }
+    } else {
+        push_result(runtime, operand_stack, in_block, value)
     };
     #[cfg(not(feature = "register-ir"))]
-    let placed = operand_stack
-        .push(value)
-        .map_err(VmTrap::into_runtime_error);
+    let placed = push_result(runtime, operand_stack, in_block, value);
     if let Err(error) = placed {
         return Err((parent, error));
     }
     Ok(parent)
+}
+
+/// Push a finished call's result onto its caller's operand stack: a copy of the bytes the finished
+/// frame `in_block` keeps for it (C1-19c4), or its value.
+fn push_result(
+    runtime: &impl ExecutionContext,
+    stack: &mut OperandStack,
+    in_block: Option<crate::memory::regions::FrameBlock>,
+    value: Value,
+) -> Result<(), RuntimeError> {
+    match in_block {
+        Some(block) => runtime.push_return_copy(block, stack),
+        None => stack.push(value).map_err(VmTrap::into_runtime_error),
+    }
 }
 
 /// Completes a finished child for its caller frame: the deadline check, the caller's

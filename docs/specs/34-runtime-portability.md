@@ -1366,8 +1366,9 @@ allocation allowance before reserving any of it (TIME-09), as HOST-04 does for r
   below a call, and the text-call buffers, for the longest text a text function writes and the
   most bytes of the texts one call reads (checklist C1-19c2). Preparation finds them by walking
   every POU and initializer body as the validator walks it, each operand bounded by its type: a
-  text at its capacity in UTF-8 (a `WSTRING`'s code units at up to three bytes), a place by its
-  bytes, a text function's result by its arguments (`CONCAT` their sum, `LEFT`, `RIGHT`, `MID`,
+  text at its capacity in UTF-8 (a `WSTRING`'s code units at up to three bytes), a place and a
+  function's result that the caller takes as a copy by its bytes (checklist C1-19c4), a text
+  function's result by its arguments (`CONCAT` their sum, `LEFT`, `RIGHT`, `MID`,
   `DELETE` and a cut the first, `INSERT` and `REPLACE` the first two, a conversion to a text the
   longest text its source type gives, an `LREAL` 343 bytes);
 - the retain capture of services that persist through one, its staged payload and the buffer the
@@ -1446,8 +1447,12 @@ operand stands for its bytes, and a store into a destination of the same type in
 them, checked and charged as a write of the value is (TIME-08), its texts' capacity checks included
 (checklist C1-12). A structure with a physical layout, an overlapping or a located one, that holds
 no reference is such a value, copied as its cells, and so is a structure nested in one whose members
-all lie in its backing (C1-15b). A value that holds a reference or an instance, and a destination
-that is a local, are stored as values (C1-11).
+all lie in its backing (C1-15b). A frame's variable on the activation stack is such a place as a
+global is, and a store copies the bytes between the persistent block and a frame's bytes either way
+(checklist C1-19c4). A value that holds a reference or an instance is stored as a value (C1-11). A
+function's result that is such a value stays in the finished frame's bytes, and the caller takes a
+copy of them onto its operand stack's temporary area, charged and checked as reading and returning
+the value is; a store writes the copy as it writes a copy of a place (C1-19c4).
 Before a call that leaves such an operand on the operand stack, below the arguments the call takes,
 the engine copies the operand's bytes into the stack's temporary area ("Texts"), and a store writes
 the copy where it would have copied the bytes, checked and charged alike, its texts' capacity checks

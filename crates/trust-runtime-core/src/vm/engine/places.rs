@@ -34,13 +34,14 @@ mod backing;
 mod copies;
 
 impl EngineState<'_> {
-    /// The place of `view`: an array or a structure in the persistent block whose value a store may
-    /// copy as bytes, or a structure there that lies as its backing, or a structure nested in a
+    /// The place of `view`: a text, an array or a structure, in the persistent block or in a frame's
+    /// bytes on the activation stack (C1-19c4), whose value a store may copy as bytes, or a
+    /// structure that lies as its backing, or a structure in the persistent block nested in a
     /// backing whose bytes there are the cells of a structure of its type (C1-15b).
     pub(super) fn place_of(&self, view: &ValueView<'_>) -> Option<Place> {
         match *view {
-            ValueView::Cells { range, type_id, .. } => (range.region == LayoutRegion::Persistent
-                && (copies_as_bytes(self.prepared, type_id) || self.backing_place(type_id)))
+            ValueView::Cells { range, type_id, .. } => (copies_as_bytes(self.prepared, type_id)
+                || self.backing_place(type_id))
             .then_some(Place { range, type_id }),
             ValueView::Bits {
                 cells,
@@ -67,11 +68,11 @@ impl EngineState<'_> {
         }
     }
 
-    /// Where a store through `reference` copies `place`: the destination's bytes, when they lie in
-    /// the block that holds the place (the persistent block, or the activation stack for the staged
-    /// result of an initializer evaluated in place, C1-13) and hold the place's type, as `declared`
-    /// must too when the store normalizes to a declared type. A destination of another type is given
-    /// the value instead, so that its normalization decides, as it decides for any value.
+    /// Where a store through `reference` copies `place`: the destination's bytes, in the persistent
+    /// block or on the activation stack (a frame's variable, C1-19c4, or the staged result of an
+    /// initializer evaluated in place, C1-13), when they hold the place's type, as `declared` must
+    /// too when the store normalizes to a declared type. A destination of another type is given the
+    /// value instead, so that its normalization decides, as it decides for any value.
     pub(super) fn place_destination(
         &self,
         reference: ValueRefView<'_>,
@@ -110,16 +111,14 @@ impl EngineState<'_> {
                     (range, node_type, presence, Some(node), true)
                 }
             };
-        (range.region == place.range.region
-            && range.bytes == place.range.bytes
-            && same(type_id)
-            && declared.is_none_or(same))
-        .then_some(PlaceDestination {
-            range,
-            presence,
-            node,
-            physical,
-        })
+        (range.bytes == place.range.bytes && same(type_id) && declared.is_none_or(same)).then_some(
+            PlaceDestination {
+                range,
+                presence,
+                node,
+                physical,
+            },
+        )
     }
 
     /// The checks of a write of the value `place` stands for through `reference`: those of

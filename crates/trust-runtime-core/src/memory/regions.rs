@@ -352,6 +352,11 @@ impl CellRegions {
         self.instances.capacity()
     }
 
+    /// The persistent block and the activation stack, mutably at once (C1-19c4).
+    pub(crate) fn blocks_mut(&mut self) -> (&mut FlatBlock, &mut FlatBlock) {
+        (&mut self.persistent, &mut self.activation)
+    }
+
     /// The flat block and the reference table, mutably at once (C1-9c).
     pub(crate) fn split_mut(&mut self) -> (&mut FlatBlock, &mut ReferenceTable) {
         (&mut self.persistent, &mut self.references)

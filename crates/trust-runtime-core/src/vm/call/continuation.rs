@@ -165,6 +165,7 @@ impl PreparedCall {
             return_value,
             mut locals,
             block,
+            ..
         } = result;
         let completed = match outputs {
             Outputs::Function(out_bindings) => complete_function(

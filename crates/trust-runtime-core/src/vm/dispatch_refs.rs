@@ -394,8 +394,9 @@ pub fn store_ref(
 
 /// Store the compound `place` stands for through a static reference (C1-10c). A destination of the
 /// place's type in the flat block takes a copy of its bytes, checked and charged as [`store_ref`]
-/// checks and charges the value, and so does an initializer's result staged on the activation stack
-/// (C1-13); a local or any other destination is given the value, read from the place.
+/// checks and charges the value, and so do a frame's variable on the activation stack (C1-19c4)
+/// and an initializer's result staged there (C1-13); any other destination is given the value,
+/// read from the place.
 pub(crate) fn store_ref_place(
     runtime: &mut impl ReferenceContext,
     module: &VmModule,
@@ -403,20 +404,15 @@ pub(crate) fn store_ref_place(
     ref_idx: u32,
     place: Place,
 ) -> Result<(), VmTrap> {
-    let reference = module
-        .refs
-        .get(ref_idx as usize)
-        .ok_or_else(|| VmTrap::InvalidRefIndex(ref_idx))?;
-    // Locals are stored as values until a load of one leaves it where it lies (C1-11); a staged
-    // result that lies in the `Value` half has no destination bytes and is given the value too.
-    if !matches!(reference, VmRef::Local { .. }) {
-        let address = load_ref_view(runtime, module, frames, ref_idx)?;
-        let declared = module.ref_type(ref_idx);
-        let order = StoreOrder::NormalizeFirst;
-        if let Some(destination) = runtime.place_destination(address, place, declared) {
-            let source = (place, None);
-            return copy_place_to(runtime, address, source, destination, declared, order);
-        }
+    // A frame's variable that the frame keeps as a value, and a staged result that lies in the
+    // `Value` half, have no destination bytes and are given the value; the load of the destination
+    // refuses an unknown reference index.
+    let address = load_ref_view(runtime, module, frames, ref_idx)?;
+    let declared = module.ref_type(ref_idx);
+    let order = StoreOrder::NormalizeFirst;
+    if let Some(destination) = runtime.place_destination(address, place, declared) {
+        let source = (place, None);
+        return copy_place_to(runtime, address, source, destination, declared, order);
     }
     let value = materialize_place(runtime, place).map_err(VmTrap::Runtime)?;
     store_ref(runtime, module, frames, ref_idx, value)
@@ -432,14 +428,12 @@ pub(crate) fn dynamic_store_place(
     place: Place,
 ) -> Result<(), VmTrap> {
     let frame = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
-    if !frame.owns_local_reference(reference) {
-        let declared = dynamic_ref_type(runtime, module, frame, reference)?;
-        let address = reference.as_view();
-        let order = StoreOrder::CheckFirst;
-        if let Some(destination) = runtime.place_destination(address, place, declared) {
-            let source = (place, None);
-            return copy_place_to(runtime, address, source, destination, declared, order);
-        }
+    let declared = dynamic_ref_type(runtime, module, frame, reference)?;
+    let address = reference.as_view();
+    let order = StoreOrder::CheckFirst;
+    if let Some(destination) = runtime.place_destination(address, place, declared) {
+        let source = (place, None);
+        return copy_place_to(runtime, address, source, destination, declared, order);
     }
     let value = materialize_place(runtime, place).map_err(VmTrap::Runtime)?;
     dynamic_store_ref(runtime, module, frames, reference, value)
@@ -508,11 +502,8 @@ pub(crate) fn store_ref_text(
         .refs
         .get(ref_idx as usize)
         .ok_or_else(|| VmTrap::InvalidRefIndex(ref_idx))?;
-    // Locals and initializer results are stored as values, as places are (C1-10c).
-    if !matches!(
-        reference,
-        VmRef::Local { .. } | VmRef::InitializerResult { .. }
-    ) {
+    // Initializer results are stored as values; a frame's text leaf takes the text (C1-19c4).
+    if !matches!(reference, VmRef::InitializerResult { .. }) {
         let address = load_ref_view(runtime, module, frames, ref_idx)?;
         if let Some(stored) =
             runtime.store_text(address, text, wide, module.ref_type(ref_idx), false)
@@ -536,11 +527,8 @@ pub(crate) fn store_ref_enum(
         .refs
         .get(ref_idx as usize)
         .ok_or_else(|| VmTrap::InvalidRefIndex(ref_idx))?;
-    // Locals and initializer results are stored as values, as texts are (C1-12).
-    if !matches!(
-        reference,
-        VmRef::Local { .. } | VmRef::InitializerResult { .. }
-    ) {
+    // Initializer results are stored as values, as texts are (C1-12, C1-19c4).
+    if !matches!(reference, VmRef::InitializerResult { .. }) {
         let address = load_ref_view(runtime, module, frames, ref_idx)?;
         if let Some(stored) = runtime.store_enum(address, temp, module.ref_type(ref_idx)) {
             return stored_leaf(stored);
@@ -561,11 +549,9 @@ pub(crate) fn dynamic_store_text(
     wide: bool,
 ) -> Result<(), VmTrap> {
     let frame = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
-    if !frame.owns_local_reference(reference) {
-        let declared = dynamic_ref_type(runtime, module, frame, reference)?;
-        if let Some(stored) = runtime.store_text(reference.as_view(), text, wide, declared, true) {
-            return stored_leaf(stored);
-        }
+    let declared = dynamic_ref_type(runtime, module, frame, reference)?;
+    if let Some(stored) = runtime.store_text(reference.as_view(), text, wide, declared, true) {
+        return stored_leaf(stored);
     }
     dynamic_store_ref(runtime, module, frames, reference, text_value(text, wide))
 }
@@ -580,11 +566,9 @@ pub(crate) fn dynamic_store_enum(
     temp: super::EnumTemp,
 ) -> Result<(), VmTrap> {
     let frame = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
-    if !frame.owns_local_reference(reference) {
-        let declared = dynamic_ref_type(runtime, module, frame, reference)?;
-        if let Some(stored) = runtime.store_enum(reference.as_view(), temp, declared) {
-            return stored_leaf(stored);
-        }
+    let declared = dynamic_ref_type(runtime, module, frame, reference)?;
+    if let Some(stored) = runtime.store_enum(reference.as_view(), temp, declared) {
+        return stored_leaf(stored);
     }
     let value = runtime.enum_value(temp).map_err(VmTrap::Runtime)?;
     dynamic_store_ref(runtime, module, frames, reference, value)

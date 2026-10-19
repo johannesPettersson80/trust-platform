@@ -24,8 +24,8 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::bytecode::{
-    opcodes, StorageOwner, TypeData, NATIVE_CALL_KIND_FUNCTION_BLOCK, NATIVE_CALL_KIND_METHOD,
-    NATIVE_CALL_KIND_STDLIB,
+    opcodes, StorageOwner, TypeData, NATIVE_CALL_KIND_FUNCTION, NATIVE_CALL_KIND_FUNCTION_BLOCK,
+    NATIVE_CALL_KIND_METHOD, NATIVE_CALL_KIND_STDLIB,
 };
 use crate::memory::cells::{is_reference_type, text_geometry};
 use crate::stdlib::conversions::{ConversionSpec, ConversionType};
@@ -817,14 +817,7 @@ fn call(
             .references_below_call
             .max(references(&stack[..below]));
         stack.truncate(below);
-        // A user function's result is a value: bounded as any text, it holds no room, and it can
-        // be a reference into any root.
-        stack.push(Operand {
-            text: types.longest_text,
-            reference: true,
-            root: types.largest_root,
-            ..Operand::VALUE
-        });
+        stack.push(call_result(prepared, types, kind, symbol));
         return;
     }
     let arguments = stack.split_off(below);
@@ -929,6 +922,54 @@ fn targets(
                 .filter(|&position| arg_specs.get(position).is_some_and(|spec| spec.is_target)),
         ),
     }
+}
+
+/// The operand a user call's result is (C1-19c4): a function's result whose bytes a store copies is
+/// a copy of them in the temporary area, any other its value; a method's, whose type the walk does
+/// not know, is bounded by every type; a function block's call gives none.
+fn call_result(prepared: &PreparedModule, types: &Types, kind: u32, symbol: u32) -> Operand {
+    if kind == NATIVE_CALL_KIND_FUNCTION_BLOCK {
+        return Operand::VALUE;
+    }
+    let function = match prepared.vm.native_symbol_spec(symbol) {
+        Ok(VmNativeSymbolSpec::Parsed {
+            resolved_function_pou_id,
+            ..
+        }) if kind == NATIVE_CALL_KIND_FUNCTION => *resolved_function_pou_id,
+        _ => None,
+    };
+    let Some(pou) = function else {
+        return Operand {
+            text: types.longest_text,
+            temporary: types.largest_place,
+            reference: true,
+            root: types.largest_root,
+            ..Operand::VALUE
+        };
+    };
+    match return_type(prepared, pou) {
+        Some(ty) => {
+            let result = load(prepared, types, Some(ty));
+            Operand {
+                temporary: result.copy,
+                ..result
+            }
+        }
+        None => Operand::VALUE,
+    }
+}
+
+/// The type of `pou`'s result: its return declaration's, at slot 0 of its frame.
+fn return_type(prepared: &PreparedModule, pou: u32) -> Option<u32> {
+    if !prepared.vm.pou_has_return_slot(pou) {
+        return None;
+    }
+    prepared
+        .declarations(StorageOwner::Frame, Some(pou))
+        .iter()
+        .filter_map(|&id| prepared.layout.entries.get(id as usize))
+        .find(|declaration| declaration.slot == 0)
+        .and_then(|declaration| declaration.type_id)
 }
 
 /// Whether a conversion type is a text.

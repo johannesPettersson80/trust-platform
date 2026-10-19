@@ -122,6 +122,44 @@ impl EngineState<'_> {
         )
     }
 
+    /// Charge and check the result slot 0 of `frame` keeps on the activation stack, when it is a
+    /// place, as `finish_stack_result` charges a copy of its value and `check_frame_return` checks
+    /// it: the value holds no reference and no instance, so the check only visits it (C1-19c4).
+    pub(super) fn check_return_place(&self, frame: &VmFrame) -> Option<Result<(), RuntimeError>> {
+        let id = self.frame_slot_activation(frame, 0)?;
+        let view = StoreAccess::read_slot(self, MemoryLocation::Local(id), 0).ok()?;
+        let place = self.place_of(&view)?;
+        Some(
+            crate::vm::context::ReferenceContext::before_view_clone(self, &view)
+                .and_then(|()| self.check_place_lifetime(place.type_id)),
+        )
+    }
+
+    /// Push a copy of the bytes of the result slot 0 of the finished frame `block` keeps onto
+    /// `stack` (C1-19c4).
+    pub(super) fn push_return_copy(
+        &self,
+        block: FrameBlock,
+        stack: &mut crate::vm::stack::OperandStack,
+    ) -> Result<(), RuntimeError> {
+        let super::store_access::Routed::Cells(reader) = self.data.routed(self.prepared) else {
+            return Err(RuntimeError::InvalidExecutionState);
+        };
+        let view = reader
+            .frame_slot_view(block.range, block.pou, 0)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        let place = self
+            .place_of(&view)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        let bytes = reader
+            .view_cells()
+            .bytes(place.range)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        stack
+            .push_copy(bytes, place.type_id)
+            .map_err(crate::vm::VmTrap::into_runtime_error)
+    }
+
     /// The value of slot `slot` of the finished frame `block`, read from its bytes, or `None` when
     /// the frame kept the slot as a value.
     pub(super) fn read_finished_slot(

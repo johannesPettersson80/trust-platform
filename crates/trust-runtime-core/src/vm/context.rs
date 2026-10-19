@@ -651,6 +651,25 @@ pub trait ExecutionContext: super::call::context::CallContext {
         frame: &super::VmFrame,
         value: &Value,
     ) -> Result<(), crate::error::RuntimeError>;
+    /// Charge and check the result `frame` keeps in slot 0 of its bytes as reading and returning
+    /// its value is charged and checked, when a store copies its bytes, so that the caller takes a
+    /// copy of them (C1-19c4); `None` when the frame keeps any other result. A composition without
+    /// an activation stack keeps none.
+    fn check_return_place(
+        &self,
+        _frame: &super::VmFrame,
+    ) -> Option<Result<(), crate::error::RuntimeError>> {
+        None
+    }
+    /// Push a copy of the bytes of the result the finished frame `block` keeps in slot 0, which
+    /// [`Self::check_return_place`] admitted, onto `stack` (C1-19c4).
+    fn push_return_copy(
+        &self,
+        _block: crate::memory::regions::FrameBlock,
+        _stack: &mut super::stack::OperandStack,
+    ) -> Result<(), crate::error::RuntimeError> {
+        Err(crate::error::RuntimeError::InvalidExecutionState)
+    }
     /// Build the typed value of `DEFAULT_TYPED`, `COERCE_INIT_VALUE` or `APPLY_INIT_VALUE` (`opcode`)
     /// where the staged result of the active initializer `initializer_id` lies, and push its place,
     /// when the next instruction stores it as that result (C1-13). `Ok(false)`, with nothing popped

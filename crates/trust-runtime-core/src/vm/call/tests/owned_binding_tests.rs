@@ -386,6 +386,7 @@ fn output_and_inout_targets_keep_copyback_and_target_read_semantics() {
             return_value: None,
             locals: vec![Value::DInt(41), Value::DInt(42)],
             block: None,
+            return_in_block: false,
         }),
     )
     .unwrap();
@@ -437,6 +438,7 @@ fn completed_output_moves_preserve_alias_order_and_preflight_failure_cleanup() {
                 return_value: Some(Value::DInt(9)),
                 locals: vec![Value::DInt(41), Value::DInt(42)],
                 block: None,
+                return_in_block: false,
             }),
         );
         if reject_write {

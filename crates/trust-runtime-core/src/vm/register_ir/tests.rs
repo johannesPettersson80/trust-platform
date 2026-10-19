@@ -179,6 +179,7 @@ impl CallContext for Context {
                 return_value: None,
                 locals: Vec::new(),
                 block: None,
+                return_in_block: false,
             },
         ))
     }

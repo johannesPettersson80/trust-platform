@@ -54,6 +54,9 @@ pub struct VmPouStackResult {
     /// The finished frame's bytes on the activation stack, whose slots its outputs are read from
     /// until the next frame takes them (C1-11).
     pub(crate) block: Option<crate::memory::regions::FrameBlock>,
+    /// Whether the return value lies in slot 0 of `block` instead of `return_value`, for the
+    /// caller to copy onto its operand stack (C1-19c4).
+    pub(crate) return_in_block: bool,
 }
 
 impl VmPouStackResult {
@@ -66,6 +69,7 @@ impl VmPouStackResult {
             return_value,
             locals,
             block: None,
+            return_in_block: false,
         }
     }
 }
@@ -361,6 +365,7 @@ fn execute_with_buffers(
                 return_value: None,
                 locals: Vec::new(),
                 block: None,
+                return_in_block: false,
             }));
         }
 
@@ -379,8 +384,13 @@ fn execute_with_buffers(
                 cursor.pc = continuation::finish_call(runtime, frames, finished)?;
                 continue;
             }
-            let result =
-                finish_stack_result(runtime, finished, cursor.capture_return, !is_initializer)?;
+            let result = finish_stack_result(
+                runtime,
+                finished,
+                cursor.capture_return,
+                !is_initializer,
+                !_continuations.is_empty(),
+            )?;
             #[cfg(not(feature = "register-ir"))]
             if let Some(continuation) = _continuations.last() {
                 if frames.len() != continuation.stack_frame_depth {
@@ -560,6 +570,7 @@ fn execute_with_buffers(
                         finished,
                         cursor.capture_return,
                         !is_initializer,
+                        !_continuations.is_empty(),
                     )?;
                     #[cfg(not(feature = "register-ir"))]
                     if let Some(continuation) = _continuations.last() {
@@ -1068,15 +1079,38 @@ fn push_loaded(stack: &mut OperandStack, operand: Operand) -> Result<(), VmTrap>
     }
 }
 
+/// The result of the finished `frame`. When `defer`, a caller of this execution takes the result,
+/// and a result whose bytes a store copies stays in the finished frame's bytes for the caller to
+/// copy onto its operand stack, charged and checked here as reading its value is (C1-19c4).
 fn finish_stack_result(
     runtime: &mut impl ExecutionContext,
     mut frame: super::VmFrame,
     capture_return: bool,
     retire: bool,
+    defer: bool,
 ) -> Result<VmPouStackResult, RuntimeError> {
     // The presence bits are read only while the frame initializes; they go back for the next
     // activation (census A4).
     runtime.recycle_frame_presence(core::mem::take(&mut frame.parameter_values_present));
+    if capture_return
+        && defer
+        && let Some(checked) = runtime.check_return_place(&frame)
+    {
+        let block = runtime.frame_block(&frame);
+        let cleanup = if retire {
+            runtime.retire_frame(&frame)
+        } else {
+            Ok(())
+        };
+        checked?;
+        cleanup?;
+        return Ok(VmPouStackResult {
+            return_value: None,
+            locals: frame.locals,
+            block,
+            return_in_block: true,
+        });
+    }
     // A return slot on the activation stack is read from the frame's bytes (C1-11); the copy is
     // charged from the value it gives, as a copy of the frame's value is.
     let read_return = if capture_return {
@@ -1130,6 +1164,7 @@ fn finish_stack_result(
         return_value,
         locals: frame.locals,
         block,
+        return_in_block: false,
     })
 }
 

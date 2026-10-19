@@ -613,6 +613,28 @@ impl OperandStack {
         Ok(())
     }
 
+    /// Push a copy of `bytes`, a value of `type_id`, into the temporary area as one operand: a
+    /// function's result, which the finished frame's bytes held (C1-19c4).
+    pub(crate) fn push_copy(&mut self, bytes: &[u8], type_id: u32) -> Result<(), VmTrap> {
+        self.forget_temps();
+        let start = self.temp_bytes.len();
+        let copy = CopyTemp {
+            start: u32::try_from(start).map_err(|_| VmTrap::Runtime(RuntimeError::Overflow))?,
+            len: u32::try_from(bytes.len()).map_err(|_| VmTrap::Runtime(RuntimeError::Overflow))?,
+            type_id,
+        };
+        self.temp_bytes
+            .try_reserve(bytes.len())
+            .map_err(|_| VmTrap::BudgetExceeded)?;
+        self.temp_bytes.extend_from_slice(bytes);
+        if let Err(error) = self.push_operand(Operand::Copy(copy)) {
+            self.temp_bytes.truncate(start);
+            return Err(error);
+        }
+        self.copies += 1;
+        Ok(())
+    }
+
     /// The copies on the stack (C1-19b).
     #[inline]
     pub(crate) fn copies(&self) -> usize {
