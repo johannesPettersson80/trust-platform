@@ -92,7 +92,7 @@ pub fn unpack_native_call_payload(
     arg_specs: &[VmNativeArgSpec],
     receiver_count: usize,
 ) -> Result<(Option<Value>, Vec<VmNativeArg>), VmTrap> {
-    let mut args = Vec::new();
+    let mut args = Vec::with_capacity(arg_specs.len());
     let receiver =
         unpack_native_call_payload_into(&mut args, operand_stack, arg_specs, receiver_count)?;
     Ok((receiver, args))
