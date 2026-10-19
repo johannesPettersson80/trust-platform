@@ -3,7 +3,8 @@ use super::*;
 use crate::bytecode::{InitializationTarget, InitializerEntry};
 use crate::io_address::IoAddress;
 use crate::io_image::{
-    read_flat_image, validate_process_image_address, write_flat_image, IoAddressKey, IoValueCodec,
+    read_flat_image, validate_process_image_address, write_flat_image, IoAddressKey,
+    IoAddressKeyRef, IoValueCodec,
 };
 use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::memory::{IoArea, MemoryLocation};
@@ -19,12 +20,42 @@ use core::mem::size_of;
 
 mod admission;
 pub(super) mod staging;
+mod texts;
 
 impl<'a> EngineState<'a> {
     /// The slot that a persistent (global or instance) reference names, with its path
     /// borrowed from the prepared module (census S2). Its path is charged as the copy that the
     /// owned reference makes, so a borrowed view changes no charge (spec 34 TIME-08).
     pub(in crate::vm::engine) fn persistent_io_view(
+        &self,
+        ref_idx: u32,
+    ) -> Result<ValueRefView<'a>, RuntimeError> {
+        let view = self.persistent_io_target(ref_idx)?;
+        let mut bytes = view
+            .path
+            .len()
+            .checked_mul(size_of::<RefSegment>())
+            .ok_or_else(|| RuntimeError::Overflow)?;
+        for segment in view.path {
+            let extra = match segment {
+                RefSegment::Field(name) => name.len(),
+                RefSegment::Index(indices) => indices
+                    .len()
+                    .checked_mul(size_of::<i64>())
+                    .ok_or_else(|| RuntimeError::Overflow)?,
+            };
+            bytes = bytes
+                .checked_add(extra)
+                .ok_or_else(|| RuntimeError::Overflow)?;
+        }
+        self.charge_allocation_bytes(bytes)?;
+        u32::try_from(view.offset).map_err(|_| RuntimeError::Overflow)?;
+        Ok(view)
+    }
+
+    /// The slot and path that a persistent reference names, as [`Self::persistent_io_view`]
+    /// resolves them, with nothing charged.
+    pub(in crate::vm::engine) fn persistent_io_target(
         &self,
         ref_idx: u32,
     ) -> Result<ValueRefView<'a>, RuntimeError> {
@@ -57,24 +88,6 @@ impl<'a> EngineState<'a> {
             }
             _ => return Err(RuntimeError::TypeMismatch),
         };
-        let mut bytes = path
-            .len()
-            .checked_mul(size_of::<RefSegment>())
-            .ok_or_else(|| RuntimeError::Overflow)?;
-        for segment in path {
-            let extra = match segment {
-                RefSegment::Field(name) => name.len(),
-                RefSegment::Index(indices) => indices
-                    .len()
-                    .checked_mul(size_of::<i64>())
-                    .ok_or_else(|| RuntimeError::Overflow)?,
-            };
-            bytes = bytes
-                .checked_add(extra)
-                .ok_or_else(|| RuntimeError::Overflow)?;
-        }
-        self.charge_allocation_bytes(bytes)?;
-        u32::try_from(offset).map_err(|_| RuntimeError::Overflow)?;
         Ok(ValueRefView {
             location,
             offset,
@@ -111,9 +124,8 @@ impl EngineState<'_> {
             .hierarchical
             .try_reserve(1)
             .map_err(|_| RuntimeError::Overflow)?;
-        let key = IoAddressKey::from(address);
         self.check_entry_deadline()?;
-        self.data.images.hierarchical.insert(key, value);
+        store_hierarchical(&mut self.data.images, address, value);
         Ok(())
     }
 
@@ -188,7 +200,7 @@ impl EngineState<'_> {
                     .checked_mul(size_of::<u32>())
                     .ok_or_else(|| RuntimeError::Overflow)?,
             )?;
-            let key = IoAddressKey::from(address);
+            let key = IoAddressKeyRef::from(address);
             let value = self.data.images.hierarchical.get(&key).ok_or_else(|| {
                 RuntimeError::InvalidIoAddress(format!("hier {:?}", address.path).into())
             })?;
@@ -396,7 +408,9 @@ pub(super) fn read_hierarchical_image_ref<'a>(
     {
         return None;
     }
-    data.images.hierarchical.get(&IoAddressKey::from(address))
+    data.images
+        .hierarchical
+        .get(&IoAddressKeyRef::from(address))
 }
 
 /// Borrow a published hierarchical value without constructing a mutable context.
@@ -414,5 +428,20 @@ pub(super) fn read_hierarchical_output<'a>(
     {
         return None;
     }
-    data.images.hierarchical.get(&IoAddressKey::from(address))
+    data.images
+        .hierarchical
+        .get(&IoAddressKeyRef::from(address))
+}
+
+/// Store `value` as the hierarchical image value of `address`: in the entry the address already
+/// has, else in a new one, whose owned key is the only thing built (C1-16).
+pub(super) fn store_hierarchical(images: &mut ProcessImages, address: &IoAddress, value: Value) {
+    match images.hierarchical.get_mut(&IoAddressKeyRef::from(address)) {
+        Some(stored) => *stored = value,
+        None => {
+            images
+                .hierarchical
+                .insert(IoAddressKey::from(address), value);
+        }
+    }
 }

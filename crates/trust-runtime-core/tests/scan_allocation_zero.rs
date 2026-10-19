@@ -717,15 +717,7 @@ const CEILINGS: [(&str, usize, Calls); 35] = [
     ("cells/saved/numeric", 1, Calls::ZERO),
     ("cells/sizeof", 1, Calls::ZERO),
     ("cells/retain", 1, Calls::ZERO),
-    (
-        "cells/io",
-        1,
-        Calls {
-            alloc: 7,
-            realloc: 0,
-            dealloc: 7,
-        },
-    ),
+    ("cells/io", 1, Calls::ZERO),
     ("cells/calls", 1, Calls::ZERO),
     ("cells/blocks", 1, Calls::ZERO),
     ("cells/methods", 1, Calls::ZERO),

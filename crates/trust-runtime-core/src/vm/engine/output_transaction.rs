@@ -1,12 +1,56 @@
 //! Output copy-back journals only physical destination slots.
 use super::destinations::Key;
 use super::*;
+use crate::memory::cell_access::CellsView;
+use crate::memory::layout::ByteRange;
 use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
-use crate::memory::MemoryLocation;
+use crate::memory::{IoArea, MemoryLocation};
 use crate::value::{RefSegment, ValueRefView};
 use crate::vm::VmTrap;
 
+use super::destinations::Saved;
 pub(super) use super::destinations::SavedDestinations;
+
+/// The cells of `root` when a snapshot saves it as its bytes: a root that lies in cells whose bytes
+/// hold its whole value (C1-16). A reference or an instance in cells is kept partly beside its bytes,
+/// so a root that holds one is saved as its value.
+fn cells_of_root<'v>(
+    prepared: &PreparedModule,
+    root: &ValueView<'v>,
+) -> Option<(ByteRange, CellsView<'v>)> {
+    match *root {
+        ValueView::Cells {
+            cells,
+            range,
+            type_id,
+        } if prepared.type_layout(type_id).is_some_and(|layout| {
+            layout.reference_leaves.is_empty() && layout.instance_leaves.is_empty()
+        }) =>
+        {
+            Some((range, cells))
+        }
+        _ => None,
+    }
+}
+
+/// Save the root `key`, whose view is `root`: as its bytes when [`cells_of_root`] gives its cells,
+/// so that the snapshot builds no value, and as its value otherwise.
+fn save_root(
+    prepared: &PreparedModule,
+    saved: &mut SavedDestinations,
+    key: Key,
+    root: ValueView<'_>,
+) -> Result<(), RuntimeError> {
+    match cells_of_root(prepared, &root) {
+        Some((range, cells)) => {
+            let held = cells
+                .bytes(range)
+                .ok_or(RuntimeError::InvalidExecutionState)?;
+            saved.insert_cells(key, range, held)
+        }
+        None => saved.insert(key, root.materialize()?).map(drop),
+    }
+}
 
 impl EngineState<'_> {
     /// Save a single write's original root directly in the active journal.
@@ -122,6 +166,47 @@ impl EngineState<'_> {
             .map_err(|_| RuntimeError::NullReference)
     }
 
+    /// Reserve the bytes that the snapshot of the input destinations saves at a scan start: the cells
+    /// of every distinct root an input writes that it saves as its bytes, charged as the cell store's
+    /// own bytes are (specification 34 MEM-09; C1-16). A destination that does not resolve yet is
+    /// left to the scan, which refuses it as before.
+    pub(super) fn reserve_input_snapshot(&mut self) -> Result<(), RuntimeError> {
+        if !matches!(self.data.store, EngineStore::Cells(_)) {
+            return Ok(());
+        }
+        let inputs = self
+            .prepared
+            .io_bindings
+            .iter()
+            .filter(|binding| matches!(binding.address.area, IoArea::Input | IoArea::Memory));
+        let mut roots: Vec<(Key, u32)> = Vec::new();
+        roots
+            .try_reserve_exact(inputs.clone().count())
+            .map_err(|_| RuntimeError::Overflow)?;
+        for binding in inputs {
+            let Ok(reference) = self.persistent_io_target(binding.ref_idx) else {
+                continue;
+            };
+            let Ok(key) = self.snapshot_key(None, reference) else {
+                continue;
+            };
+            let Ok(root) = self.snapshot_root(None, key) else {
+                continue;
+            };
+            if let Some((range, _)) = cells_of_root(self.prepared, &root) {
+                roots.push((key, range.bytes));
+            }
+        }
+        roots.sort_unstable_by_key(|(key, _)| *key);
+        roots.dedup_by_key(|(key, _)| *key);
+        let bytes = roots
+            .iter()
+            .try_fold(0usize, |sum, (_, bytes)| sum.checked_add(*bytes as usize))
+            .ok_or(RuntimeError::Overflow)?;
+        self.charge_allocation_bytes(bytes)?;
+        self.data.resources.staging.reserve_snapshot_bytes(bytes)
+    }
+
     /// Resolve input destinations in their original order, then copy each root once into
     /// `saved`, with `keys` as sorting scratch; both keep their storage. Sorting identities
     /// before copying avoids quadratic insertion shifts regardless of binding order. This
@@ -169,7 +254,7 @@ impl EngineState<'_> {
         for &key in keys.iter() {
             let root = self.snapshot_root(None, key)?;
             // Keys are unique and sorted; reserved capacity covers every append.
-            saved.insert(key, root.materialize()?)?;
+            save_root(self.prepared, saved, key, root)?;
         }
         Ok(())
     }
@@ -201,7 +286,7 @@ impl EngineState<'_> {
                     .checked_add(active_bytes)
                     .ok_or(RuntimeError::Overflow)?,
             )?;
-            saved.insert(key, root.materialize()?)?;
+            save_root(self.prepared, saved, key, root)?;
         }
         Ok(())
     }
@@ -212,7 +297,21 @@ impl EngineState<'_> {
         mut frame: Option<&mut VmFrame>,
         saved: &mut SavedDestinations,
     ) {
-        for ((location, offset), value) in saved.drain() {
+        let (roots, bytes) = saved.drain();
+        for ((location, offset), root) in roots {
+            let value = match root {
+                Saved::Value(value) => value,
+                // A root saved as its cells gets its bytes back (C1-16).
+                Saved::Cells { range, at } => {
+                    if let (EngineStore::Cells(arm), Some(held)) = (
+                        &mut self.data.store,
+                        bytes.get(at..at + range.bytes as usize),
+                    ) {
+                        arm.write_bytes(range, held);
+                    }
+                    continue;
+                }
+            };
             let current = frame.as_deref().is_some_and(|frame| {
                 location == MemoryLocation::Local(frame.reference_frame_id())
                     && self.frame_slot_activation(frame, offset).is_none()
@@ -223,6 +322,7 @@ impl EngineState<'_> {
                 None => self.restore_slot(location, offset, value),
             }
         }
+        saved.forget_bytes();
     }
 
     pub(super) fn commit_output_transaction<T>(

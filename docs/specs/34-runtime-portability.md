@@ -1504,6 +1504,18 @@ reference leaves the engine, a retained reference carried into a new generation 
 a tool, it is named by the variable that holds its target and the path to it, as the value store
 names it.
 
+**Process images.** On the flat store a scan's input synchronization and output publication build
+no value of a variable and no image key (checklist C1-16). A `STRING` bound to a byte window of
+`%I` or `%M` is written from the image into its text where it lies, after the checks and charges of
+the value it would otherwise read, in the same order (specification 11 §6.4: reading stops at the
+first NUL byte, and invalid UTF-8 before it is a type error). A hierarchical image value is found by
+its address and stored in its entry without building the key, which is built once, when the
+address is first stored. The transaction's snapshot of the input destinations keeps each
+destination that lies in the block and holds no reference or instance as its bytes, and writes them
+back when the synchronization is refused; construction reserves those bytes for the distinct
+variables the inputs write and charges them as the store's own bytes (MEM-09). Every result,
+charge and refusal of a scan is the value store's (TIME-08).
+
 ### 6.4 Physical memory
 
 The BSP shall identify memory regions available to the engine, CPU stack, DMA, communication, and boot/update storage. Capacity shall be checked per usable region, not only as a sum of all SRAM on the chip. Cache maintenance, DMA ownership, alignment, and interrupt-stack reservations are platform obligations.

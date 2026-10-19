@@ -64,7 +64,16 @@ pub(in crate::vm::engine) struct StagedInput {
     location: MemoryLocation,
     offset: usize,
     ref_idx: u32,
-    value: Value,
+    value: StagedValue,
+}
+
+/// What a sampled input writes: a value, or the text of a byte-string window of the input image,
+/// `len` bytes of UTF-8 from byte `start` of `area`, which a text leaf of the flat store takes as
+/// it lies, so that sampling builds no value (C1-16). An image holds at most 16 MiB, so both fit
+/// 32 bits and the staged input is no larger than with a value.
+pub(in crate::vm::engine) enum StagedValue {
+    Value(Value),
+    Text { area: IoArea, start: u32, len: u32 },
 }
 
 impl StagedInput {
@@ -105,7 +114,8 @@ enum StagedPatch {
         len: usize,
         bit: Option<u8>,
     },
-    Hierarchical(IoAddressKey, Value),
+    /// The value of the hierarchical binding at this index of the prepared bindings.
+    Hierarchical(usize, Value),
 }
 
 /// Process-image staging that construction reserves for the bindings and every scan reuses
@@ -198,6 +208,14 @@ impl ImageStaging {
         self.bytes.try_reserve_exact(demand.bytes).map_err(refused)
     }
 
+    /// Reserve room for `bytes` bytes of input destinations saved as their cells (C1-16).
+    pub(in crate::vm::engine) fn reserve_snapshot_bytes(
+        &mut self,
+        bytes: usize,
+    ) -> Result<(), RuntimeError> {
+        self.saved.reserve_bytes(bytes)
+    }
+
     /// Empty every part, keeping its storage.
     fn clear(&mut self) {
         self.inputs.clear();
@@ -208,12 +226,15 @@ impl ImageStaging {
         self.bytes.clear();
     }
 
-    /// Apply the staged patches in binding order.
-    fn apply(&mut self, images: &mut ProcessImages) {
+    /// Apply the staged patches in binding order. A hierarchical value is stored in its address's
+    /// entry, so a scan builds no key (C1-16).
+    fn apply(&mut self, images: &mut ProcessImages, bindings: &[PreparedIoBinding]) {
         for patch in self.patches.drain(..) {
             match patch {
-                StagedPatch::Hierarchical(key, value) => {
-                    images.hierarchical.insert(key, value);
+                StagedPatch::Hierarchical(index, value) => {
+                    if let Some(binding) = bindings.get(index) {
+                        super::store_hierarchical(images, &binding.address, value);
+                    }
                 }
                 StagedPatch::Flat {
                     area,
@@ -228,12 +249,14 @@ impl ImageStaging {
 
     /// The staged patches as owned values, for a binding-only update to apply at its commit.
     #[cfg(feature = "std")]
-    fn take_patches(&mut self) -> Vec<OutputPatch> {
+    fn take_patches(&mut self, bindings: &[PreparedIoBinding]) -> Vec<OutputPatch> {
         let bytes = &self.bytes;
         self.patches
             .drain(..)
             .map(|patch| match patch {
-                StagedPatch::Hierarchical(key, value) => OutputPatch::Hierarchical(key, value),
+                StagedPatch::Hierarchical(index, value) => {
+                    OutputPatch::Hierarchical(IoAddressKey::from(&bindings[index].address), value)
+                }
                 StagedPatch::Flat {
                     area,
                     start,
@@ -295,13 +318,18 @@ impl EngineState<'_> {
                 continue;
             }
             let reference = self.persistent_io_view(binding.ref_idx)?;
-            let value = binding
-                .codec
-                .decode(self.read_image_address(&binding.address)?)?;
-            self.check_write(reference, &value)?;
-            let value = match binding.type_id {
-                Some(ty) => self.normalize_assignment_value(ty, value)?,
-                None => value,
+            let value = match self.stage_text_input(binding, reference)? {
+                Some(text) => text,
+                None => {
+                    let value = binding
+                        .codec
+                        .decode(self.read_image_address(&binding.address)?)?;
+                    self.check_write(reference, &value)?;
+                    StagedValue::Value(match binding.type_id {
+                        Some(ty) => self.normalize_assignment_value(ty, value)?,
+                        None => value,
+                    })
+                }
             };
             staging.inputs.push(StagedInput {
                 location: reference.location,
@@ -330,6 +358,17 @@ impl EngineState<'_> {
                 value,
                 ..
             } = input;
+            let value = match value {
+                StagedValue::Value(value) => value,
+                StagedValue::Text { area, start, len } => {
+                    let bytes = start as usize..start as usize + len as usize;
+                    if let Err(error) = self.write_text_input(location, offset, path, area, bytes) {
+                        self.restore_destinations(None, &mut staging.saved);
+                        return Err(error);
+                    }
+                    continue;
+                }
+            };
             let capacity = self.declared_string_capacity(crate::value::ValueRefView {
                 location,
                 offset,
@@ -441,7 +480,7 @@ impl EngineState<'_> {
             }
         }
         // All fallible conversion/allocation/policy work precedes publication.
-        staging.apply(&mut self.data.images);
+        staging.apply(&mut self.data.images, &self.prepared.io_bindings);
         if output_hooks {
             // Provisional output views are callback-scoped. Preserve the hosted
             // rollback domain: flat Q only, not M/hierarchical state effects.
@@ -502,7 +541,7 @@ impl EngineState<'_> {
             .try_reserve_exact(count)
             .map_err(|_| RuntimeError::Overflow)?;
         let mut hierarchical_count = 0usize;
-        for binding in &prepared.io_bindings {
+        for (index, binding) in prepared.io_bindings.iter().enumerate() {
             if !selected(binding) {
                 continue;
             }
@@ -511,7 +550,7 @@ impl EngineState<'_> {
             } else {
                 windows[1]
             };
-            let patch = self.binding_patch(binding, window, staging)?;
+            let patch = self.binding_patch(index, binding, window, staging)?;
             if matches!(patch, StagedPatch::Hierarchical(..)) {
                 hierarchical_count += 1;
             }
@@ -531,6 +570,7 @@ impl EngineState<'_> {
     /// be applied to; a flat patch's bytes go to the end of the staged bytes.
     fn binding_patch(
         &mut self,
+        index: usize,
         binding: &PreparedIoBinding,
         window: usize,
         staging: &mut ImageStaging,
@@ -547,10 +587,7 @@ impl EngineState<'_> {
         let value = binding.codec.encode(value, binding.address.size)?;
         if binding.address.path.len() > 1 {
             self.charge_hierarchical_entry(&binding.address)?;
-            return Ok(StagedPatch::Hierarchical(
-                IoAddressKey::from(&binding.address),
-                value,
-            ));
+            return Ok(StagedPatch::Hierarchical(index, value));
         }
         let address = &binding.address;
         if address.area == IoArea::Input {
@@ -593,7 +630,7 @@ impl EngineState<'_> {
         let result = self
             .stage_patches(&mut staging, &added_or_changed, [0, memory_window])
             .and_then(|()| self.check_entry_deadline())
-            .map(|()| staging.take_patches());
+            .map(|()| staging.take_patches(&self.prepared.io_bindings));
         staging.clear();
         self.data.resources.staging = staging;
         result
@@ -732,9 +769,8 @@ impl EngineState<'_> {
                 .hierarchical
                 .try_reserve(1)
                 .map_err(|_| RuntimeError::PreparationLimit)?;
-            let key = IoAddressKey::from(address);
             self.check_entry_deadline()?;
-            self.data.images.hierarchical.insert(key, value);
+            super::store_hierarchical(&mut self.data.images, address, value);
         } else {
             let len = match address.area {
                 IoArea::Input => self.data.images.inputs.len(),

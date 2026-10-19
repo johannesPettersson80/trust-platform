@@ -586,7 +586,12 @@ fn an_output_journal_follows_instance_hops_and_restores_aggregates_on_both_store
             .snapshot_destinations(None, std::iter::once(count.as_view()), &mut saved)
             .unwrap_or_else(|error| panic!("{label}: the destination is journaled: {error:?}"));
         assert_eq!(saved.keys().copied().collect::<Vec<_>>(), [key], "{label}");
-        assert_eq!(saved.get(&key), Some(&Value::Int(0)), "{label}");
+        // The cell store saves the root as its bytes (C1-16): an INT 0 is two zero bytes.
+        if label == "cell store" {
+            assert_eq!(saved.saved_bytes(&key), Some(&[0u8, 0][..]), "{label}");
+        } else {
+            assert_eq!(saved.get(&key), Some(&Value::Int(0)), "{label}");
+        }
         assert!(
             state.write_instance_var(pulse, "count", Value::Int(5)),
             "{label}"
@@ -615,7 +620,12 @@ fn an_output_journal_follows_instance_hops_and_restores_aggregates_on_both_store
             .snapshot_destinations(None, std::iter::once(element.as_view()), &mut saved)
             .unwrap_or_else(|error| panic!("{label}: the destination is journaled: {error:?}"));
         assert_eq!(saved.keys().copied().collect::<Vec<_>>(), [key], "{label}");
-        assert_eq!(saved.get(&key), Some(&zeros), "{label}");
+        // The cell store saves the root as its bytes (C1-16): eight DINT zeros are 32 zero bytes.
+        if label == "cell store" {
+            assert_eq!(saved.saved_bytes(&key), Some(&[0u8; 32][..]), "{label}");
+        } else {
+            assert_eq!(saved.get(&key), Some(&zeros), "{label}");
+        }
         assert_eq!(
             state.write_reference(element.as_view(), Value::DInt(77)),
             Ok(true),

@@ -441,6 +441,7 @@ impl<'a> EngineState<'a> {
             state.install_cell_store()?;
         }
         state.construct_resource(retained)?;
+        state.reserve_input_snapshot()?;
         // A variable located at %M starts with its initial value (or, after a warm restart, its
         // retained one). The first scan loads the marker image into the bound variables, so the
         // image must hold that value rather than zero or the carried-over image. Restoration

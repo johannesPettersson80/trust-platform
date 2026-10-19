@@ -571,3 +571,77 @@ fn a_warm_restart_copies_retained_cells_where_the_value_store_copies_values() {
         "the cells restart differently from the Value store"
     );
 }
+
+#[test]
+fn a_byte_string_input_ends_at_its_first_nul_and_refuses_invalid_text_alike() {
+    // Specification 11 §6.4: reading a byte-string window "stops at the first NUL byte; invalid UTF-8
+    // before that terminator is a type error", and input synchronization is transactional: "a read,
+    // conversion, undefined target, or null-reference failure leaves all bound program values
+    // unchanged". Specification 34 §6.2 and TIME-08: the cell store, which writes a `STRING` input from
+    // the image into the text where it lies (C1-16), reads, refuses and charges as the `Value` store.
+    // The program is `io`: `label AT %IB12 : STRING[24]` is bytes 12 to 35 of the input image, and the
+    // body copies it to `echo AT %QB8 : STRING[8]`. After two healthy scans, scan 3 gives the window `AB`,
+    // a NUL, then 0xFF and letters: the text is `AB`, so a store that read the whole window would refuse
+    // the 0xFF, and one that ignored the NUL would keep the letters after it. Scan 4 gives a window that
+    // starts with 0xFF: both stores refuse the scan with the type error and write no input, so `label`
+    // keeps `AB`, and `level AT %IB1`, which the drive gives `B` (66) in scan 4, keeps the `A` (65) of
+    // scan 3; a store that wrote the inputs sampled before the refused one would hold 66.
+    let prepared = PreparedModule::from_bytes(corpus("io"), chip_limits())
+        .expect("the chips' admission accepts the io program");
+    let mut values = build(&prepared, StoreKind::Values).expect("the Value store constructs");
+    let mut cells = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let mut pair = Pair {
+        name: "io",
+        prepared: &prepared,
+        values: EngineState::borrow(&mut values, &prepared, &services::LOGICAL_ONLY),
+        cells: EngineState::borrow(&mut cells, &prepared, &services::LOGICAL_ONLY),
+        differences: Vec::new(),
+    };
+    assert!(pair.constructed(), "construction: {:?}", pair.differences);
+    pair.stage_hierarchical_inputs();
+    assert!(
+        pair.scans(1..=2, ""),
+        "the healthy scans: {:?}",
+        pair.differences
+    );
+    let mut nul = [b'C'; 24];
+    nul[..4].copy_from_slice(&[b'A', b'B', 0, 0xFF]);
+    let mut invalid = [b'C'; 24];
+    invalid[0] = 0xFF;
+    for (scan, window, outcome) in [(3, nul, Ok(())), (4, invalid, Err("runtime_type_mismatch"))] {
+        let mut lines = [Vec::new(), Vec::new()];
+        for (state, lines) in [&mut pair.values, &mut pair.cells]
+            .into_iter()
+            .zip(&mut lines)
+        {
+            drive(state, scan);
+            state.data.images.inputs[12..36].copy_from_slice(&window);
+            let (result, scanned) = run_scan(state, Duration::from_millis(10 * scan));
+            assert_eq!(
+                result.map_err(|error| error.stable_code().as_str()),
+                outcome,
+                "scan {scan}"
+            );
+            *lines = scanned;
+            lines.extend(facts(&prepared, state));
+        }
+        let [expected, actual] = &lines;
+        assert!(
+            pair.agree(&format!("scan {scan}"), expected, actual),
+            "{:?}",
+            pair.differences
+        );
+        for (store, state) in [("Value store", &pair.values), ("cell store", &pair.cells)] {
+            assert_eq!(
+                member(state, InstanceId(0), "label"),
+                Value::String("AB".into()),
+                "{store}, scan {scan}"
+            );
+            assert_eq!(
+                member(state, InstanceId(0), "level"),
+                Value::Byte(b'A'),
+                "{store}, scan {scan}"
+            );
+        }
+    }
+}
