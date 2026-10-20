@@ -24,7 +24,7 @@ use crate::vm::{PreparedModule, VmTrap};
 pub use convert::{byte_offset, read_value, write_value};
 pub(crate) use convert::{
     check_value, enumeration_number, enumeration_value, flat_cell, flat_reference,
-    is_reference_type, largest_text_edit, leaf_in, max_encoded_len, read_value_in,
+    is_reference_type, largest_text_edit, leaf_in, max_encoded_len, read_scalar, read_value_in,
     structure_member_name, text_geometry, write_enum_in, write_value_in, CellLeaf,
 };
 

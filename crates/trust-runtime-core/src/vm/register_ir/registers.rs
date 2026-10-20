@@ -139,6 +139,7 @@ fn increment_register_read_count(counts: &mut [u32], register: RegisterId) {
 
 /// Count one read of `register`: whether it is the register's last read of the block, which takes
 /// its operand out.
+#[cfg(feature = "test-support")]
 fn count_read(
     remaining_register_reads: &mut [u32],
     register: RegisterId,
@@ -162,6 +163,7 @@ fn count_read(
 }
 
 /// Read `register`'s operand: its last read takes it out, an earlier one duplicates it (C1-20).
+#[cfg(feature = "test-support")]
 pub(crate) fn read_operand_with_counts(
     profile: &mut RegisterProfileState,
     registers: &mut OperandStack,
@@ -179,7 +181,7 @@ pub(crate) fn read_operand_with_counts(
     .map_err(VmTrap::into_runtime_error)
 }
 
-#[cfg(any(test, feature = "test-support"))]
+#[cfg(feature = "test-support")]
 pub fn read_register_with_counts(
     profile: &mut RegisterProfileState,
     registers: &mut OperandStack,
@@ -277,15 +279,29 @@ pub fn read_reference_register_ref(
     }
 }
 
+#[inline]
 pub fn write_register(
     registers: &mut OperandStack,
     register: RegisterId,
     value: Value,
 ) -> Result<(), RuntimeError> {
-    write_operand(registers, register, Operand::Value(value))
+    registers
+        .write_register_value(register.index() as usize, value)
+        .map_err(|_| write_out_of_bounds(register))
+}
+
+/// The refusal of a write to a register the file does not hold.
+#[cold]
+#[inline(never)]
+fn write_out_of_bounds(register: RegisterId) -> RuntimeError {
+    invalid_bytecode(format!(
+        "register-ir executor write out-of-bounds register {}",
+        register.index()
+    ))
 }
 
 /// Put `operand` into `register` (C1-20).
+#[inline]
 pub(crate) fn write_operand(
     registers: &mut OperandStack,
     register: RegisterId,
@@ -293,12 +309,7 @@ pub(crate) fn write_operand(
 ) -> Result<(), RuntimeError> {
     registers
         .set_register(register.index() as usize, operand)
-        .map_err(|_| {
-            invalid_bytecode(format!(
-                "register-ir executor write out-of-bounds register {}",
-                register.index()
-            ))
-        })
+        .map_err(|_| write_out_of_bounds(register))
 }
 
 /// Charge the copy that a read of `register` other than its last makes: of the value, of the
@@ -346,25 +357,43 @@ pub(crate) fn checked_read_operand_with_counts(
     reads: &mut [u32],
     register: RegisterId,
 ) -> Result<Operand, RuntimeError> {
-    if reads.get(register.index() as usize).copied() != Some(1) {
-        charge_register_copy(runtime, registers, register)?;
-        // A reference a later read still needs is copied into path buffers the engine keeps, so
-        // its copy allocates nothing once the engine is warm (C1-10).
-        if let Operand::Value(Value::Reference(Some(reference))) = registers
-            .register(register.index() as usize)
-            .map_err(VmTrap::into_runtime_error)?
-            && !reference.path.is_empty()
-        {
-            let copy = crate::vm::dispatch_refs::owned_reference(&*runtime, reference.as_view())
-                .map_err(VmTrap::into_runtime_error)?;
-            count_read(reads, register)?;
-            runtime
-                .register_profile_mut()
-                .record_value_op(RegisterValueOpKind::RegisterReadClone);
-            return Ok(Operand::Value(Value::Reference(Some(copy))));
-        }
+    let index = register.index() as usize;
+    let Some(remaining) = reads.get_mut(index) else {
+        return Err(invalid_bytecode(format!(
+            "register-ir executor read-count out-of-bounds register {}",
+            register.index()
+        )));
+    };
+    // The register's last read takes its operand out.
+    if *remaining == 1 {
+        *remaining = 0;
+        runtime
+            .register_profile_mut()
+            .record_value_op(RegisterValueOpKind::RegisterReadMove);
+        return registers
+            .take_register(index)
+            .map_err(VmTrap::into_runtime_error);
     }
-    read_operand_with_counts(runtime.register_profile_mut(), registers, reads, register)
+    // An earlier read copies it, charged as a copy of the value it stands for.
+    charge_register_copy(runtime, registers, register)?;
+    *remaining = remaining.saturating_sub(1);
+    runtime
+        .register_profile_mut()
+        .record_value_op(RegisterValueOpKind::RegisterReadClone);
+    // A reference is copied into path buffers the engine keeps, so its copy allocates nothing once
+    // the engine is warm (C1-10).
+    if let Operand::Value(Value::Reference(Some(reference))) = registers
+        .register(index)
+        .map_err(VmTrap::into_runtime_error)?
+        && !reference.path.is_empty()
+    {
+        let copy = crate::vm::dispatch_refs::owned_reference(&*runtime, reference.as_view())
+            .map_err(VmTrap::into_runtime_error)?;
+        return Ok(Operand::Value(Value::Reference(Some(copy))));
+    }
+    registers
+        .duplicate_register(index)
+        .map_err(VmTrap::into_runtime_error)
 }
 
 /// The value `operand`, read from `registers`, stands for: a place's, an enumeration's, a text's or
@@ -374,8 +403,14 @@ pub(crate) fn operand_value(
     registers: &mut OperandStack,
     operand: Operand,
 ) -> Result<Value, RuntimeError> {
+    if let Operand::Value(value) = operand {
+        return Ok(value);
+    }
+    let released = operand.holds_room();
     let value = kept_operand_value(runtime, registers, operand);
-    registers.release_temps();
+    if released {
+        registers.release_temps();
+    }
     value
 }
 
@@ -407,6 +442,32 @@ pub fn checked_read_register_with_counts(
     reads: &mut [u32],
     register: RegisterId,
 ) -> Result<Value, RuntimeError> {
+    let index = register.index() as usize;
+    if let Some(remaining) = reads.get_mut(index) {
+        // The last read of a value, the most common read, takes it out at once (C1-20).
+        if *remaining == 1
+            && let Some(value) = registers.take_register_value(index)
+        {
+            *remaining = 0;
+            runtime
+                .register_profile_mut()
+                .record_value_op(RegisterValueOpKind::RegisterReadMove);
+            return Ok(value);
+        }
+        // An earlier read of a value other than a reference copies it, charged as its copy.
+        if *remaining != 1
+            && let Ok(Some(value)) = registers.register_value(index)
+            && !matches!(value, Value::Reference(_))
+        {
+            runtime.before_value_clone(value)?;
+            let value = value.clone();
+            *remaining = remaining.saturating_sub(1);
+            runtime
+                .register_profile_mut()
+                .record_value_op(RegisterValueOpKind::RegisterReadClone);
+            return Ok(value);
+        }
+    }
     let operand = checked_read_operand_with_counts(runtime, registers, reads, register)?;
     operand_value(runtime, registers, operand)
 }
@@ -465,7 +526,20 @@ pub fn register_ref_operand<'a>(
     frames: &'a FrameStack,
     index: u32,
 ) -> Result<RefOperand<'a>, VmTrap> {
-    match peek_ref_view(runtime, module, frames, index) {
+    let peeked = peek_ref_view(runtime, module, frames, index);
+    ref_operand_of(runtime, module, frames, index, peeked)
+}
+
+/// The operand [`register_ref_operand`] reads from `peeked`, the view of the static reference
+/// `index` (C1-20).
+pub(crate) fn ref_operand_of<'a>(
+    runtime: &'a impl RegisterContext,
+    module: &'a VmModule,
+    frames: &'a FrameStack,
+    index: u32,
+    peeked: Result<ValueView<'a>, VmTrap>,
+) -> Result<RefOperand<'a>, VmTrap> {
+    match peeked {
         Ok(ValueView::Value(value)) => Ok(RefOperand::Stored(Cow::Borrowed(value))),
         // A cell view has no stored `Value` to borrow. Its copy stands for the borrow and is made
         // without a charge, as a borrow is not charged (C1-9d2a, item (b)).

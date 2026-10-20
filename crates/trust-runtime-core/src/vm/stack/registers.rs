@@ -12,15 +12,29 @@ use super::*;
 
 impl OperandStack {
     /// Make the stack a register file of `count` registers, each the null value, with no operand
-    /// above them.
+    /// above them. The slots it keeps hold the null value already: the file is new, or its
+    /// buffers' clear set them so ([`Self::clear_registers`]); a reset touches no slot (C1-20).
     pub(crate) fn reset_registers(&mut self, count: usize) -> Result<(), VmTrap> {
-        self.clear();
-        self.values
-            .try_reserve(count)
-            .map_err(|_| VmTrap::BudgetExceeded)?;
-        self.values
-            .resize_with(count, || Operand::Value(Value::Null));
+        debug_assert!(
+            self.values
+                .iter()
+                .all(|operand| matches!(operand, Operand::Value(Value::Null))),
+            "a register file is reset only once it is cleared"
+        );
+        self.values.truncate(count);
+        if self.values.len() < count {
+            self.values
+                .try_reserve(count - self.values.len())
+                .map_err(|_| VmTrap::BudgetExceeded)?;
+            self.values
+                .resize_with(count, || Operand::Value(Value::Null));
+        }
         self.floor = count;
+        self.places = 0;
+        self.texts = 0;
+        self.enums = 0;
+        self.copies = 0;
+        self.temp_bytes.clear();
         Ok(())
     }
 
@@ -42,15 +56,46 @@ impl OperandStack {
     /// Put `operand` into register `index`. The room of the text or the copy the register held is
     /// given back.
     pub(crate) fn set_register(&mut self, index: usize, operand: Operand) -> Result<(), VmTrap> {
-        if index >= self.floor {
+        let Some(slot) = self.values[..self.floor].get_mut(index) else {
             return Err(VmTrap::Runtime(RuntimeError::InvalidExecutionState));
+        };
+        // A value over a value, the most common write, counts no form.
+        if matches!((&*slot, &operand), (Operand::Value(_), Operand::Value(_))) {
+            *slot = operand;
+            return Ok(());
         }
-        self.count_in(&operand);
-        let old = core::mem::replace(&mut self.values[index], operand);
+        let old = core::mem::replace(slot, operand);
+        self.count_in_at(index);
         if self.count_out(&old) {
             self.forget_temps();
         }
         Ok(())
+    }
+
+    /// Put the value `value` into register `index`: a value over a value is written in place
+    /// (C1-20), any other operand as [`Self::set_register`] puts it.
+    pub(crate) fn write_register_value(
+        &mut self,
+        index: usize,
+        value: Value,
+    ) -> Result<(), VmTrap> {
+        let Some(slot) = self.values[..self.floor].get_mut(index) else {
+            return Err(VmTrap::Runtime(RuntimeError::InvalidExecutionState));
+        };
+        if let Operand::Value(slot) = slot {
+            *slot = value;
+            return Ok(());
+        }
+        self.set_register(index, Operand::Value(value))
+    }
+
+    /// Take the value register `index` holds out, leaving the null value, when it holds a value:
+    /// the last read of a value (C1-20). `None`, the register untouched, for any other operand.
+    pub(crate) fn take_register_value(&mut self, index: usize) -> Option<Value> {
+        match self.values[..self.floor].get_mut(index) {
+            Some(Operand::Value(slot)) => Some(core::mem::replace(slot, Value::Null)),
+            _ => None,
+        }
     }
 
     /// Take register `index`'s operand out, leaving the null value: its last read. A text's
@@ -236,6 +281,7 @@ impl OperandStack {
         mut enum_value: impl FnMut(EnumTemp) -> Result<Value, RuntimeError>,
         mut copy_value: impl FnMut(&[u8], u32) -> Result<Value, RuntimeError>,
     ) -> Result<(), RuntimeError> {
+        let mut released = false;
         for index in self.floor..self.values.len() {
             let value = match &self.values[index] {
                 Operand::Place(place) if places => place_value(*place)?,
@@ -250,9 +296,11 @@ impl OperandStack {
                 _ => continue,
             };
             let operand = core::mem::replace(&mut self.values[index], Operand::Value(value));
-            self.count_out(&operand);
+            released |= self.count_out(&operand);
         }
-        self.forget_temps();
+        if released {
+            self.forget_temps();
+        }
         Ok(())
     }
 
@@ -279,6 +327,17 @@ impl OperandStack {
             .map_err(|_| VmTrap::BudgetExceeded)?;
         self.temp_bytes.extend_from_within(from..to);
         u32::try_from(at).map_err(|_| VmTrap::Runtime(RuntimeError::Overflow))
+    }
+
+    /// Count the form of the operand at `index` in.
+    fn count_in_at(&mut self, index: usize) {
+        match self.values[index] {
+            Operand::Place(_) => self.places += 1,
+            Operand::Text(_) => self.texts += 1,
+            Operand::Enum(_) => self.enums += 1,
+            Operand::Copy(_) => self.copies += 1,
+            Operand::Value(_) => {}
+        }
     }
 
     /// Count `operand`'s form in.

@@ -25,7 +25,9 @@ pub(crate) fn load_through(
     dest: RegisterId,
 ) -> Result<(), RuntimeError> {
     let operand = dynamic_load_operand(&*runtime, frames, &reference);
-    runtime.recycle_reference_path(reference.path);
+    if reference.path.capacity() != 0 {
+        runtime.recycle_reference_path(reference.path);
+    }
     write_operand(
         registers,
         dest,
@@ -49,10 +51,13 @@ pub(crate) fn store_through(
     let operand = match checked_read_operand_with_counts(runtime, registers, reads, src) {
         Ok(operand) => operand,
         Err(error) => {
-            runtime.recycle_reference_path(reference.path);
+            if reference.path.capacity() != 0 {
+                runtime.recycle_reference_path(reference.path);
+            }
             return Err(error);
         }
     };
+    let released = operand.holds_room();
     let stored = match operand {
         Operand::Value(value) => dynamic_store_ref(runtime, module, frames, &reference, value),
         Operand::Place(place) => dynamic_store_place(runtime, module, frames, &reference, place),
@@ -64,8 +69,12 @@ pub(crate) fn store_through(
             dynamic_store_copy(runtime, module, frames, &reference, bytes, temp.place())
         }),
     };
-    registers.release_temps();
-    runtime.recycle_reference_path(reference.path);
+    if released {
+        registers.release_temps();
+    }
+    if reference.path.capacity() != 0 {
+        runtime.recycle_reference_path(reference.path);
+    }
     stored.map_err(VmTrap::into_runtime_error)
 }
 

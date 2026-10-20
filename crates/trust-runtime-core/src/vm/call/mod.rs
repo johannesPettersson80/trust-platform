@@ -156,9 +156,9 @@ pub(in crate::vm) const fn native_call_may_yield(kind: u32) -> bool {
 }
 
 /// Dispatch an encoded call, resolving every binding at the call (spec 34 MEM-09;
-/// the compatibility entry for hosts that keep no prepared plans). Only the hosted runtime, the
-/// register tier and the tests use it; a chip build has none of them.
-#[cfg(any(feature = "hir", feature = "register-ir", test))]
+/// the compatibility entry for hosts that keep no prepared plans). Only the hosted runtime's
+/// compatibility path and the tests use it; the register tier binds through the call's plan.
+#[cfg(any(feature = "hir", test))]
 #[allow(clippy::too_many_arguments)]
 pub(super) fn prepare_native_call(
     runtime: &mut impl ExecutionContext,

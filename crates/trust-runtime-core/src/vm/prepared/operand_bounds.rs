@@ -363,6 +363,18 @@ impl Operand {
         }
     }
 
+    /// The most UTF-8 bytes of the text a standard function reads for the operand: its own text,
+    /// or, for a reference, the text of what it names, which a function reads through a target
+    /// argument where it lies (C1-12, C1-20).
+    fn read_text(self, prepared: &PreparedModule) -> u32 {
+        match self.ty {
+            Some(target) if self.reference => self
+                .text
+                .max(Self::loaded(prepared, None, Some(target)).text),
+            _ => self.text,
+        }
+    }
+
     /// The text `text` UTF-8 bytes long that a text function or a constant puts in the temporary
     /// area. A function writes all of a longer text than it may return before it refuses it, so
     /// the bound is not cut.
@@ -824,16 +836,22 @@ fn call(
         stack.push(Operand::VALUE);
         return;
     };
-    let text = |index: usize| arguments.get(index).map_or(0, |operand| operand.text);
+    let text = |index: usize| {
+        arguments
+            .get(index)
+            .map_or(0, |operand| operand.read_text(prepared))
+    };
     let sum = |indexes: core::ops::Range<usize>| indexes.map(text).fold(0u32, u32::saturating_add);
     let result = match conversion_spec {
         Some(ConversionSpec::Convert { src, dst }) if is_text(*dst) => {
             let from = arguments.first().copied().unwrap_or(Operand::VALUE);
-            Some(if from.text > 0 || src.is_some_and(is_text) {
-                from.text
-            } else {
-                LONGEST_SCALAR_TEXT
-            })
+            Some(
+                if from.read_text(prepared) > 0 || src.is_some_and(is_text) {
+                    from.read_text(prepared)
+                } else {
+                    LONGEST_SCALAR_TEXT
+                },
+            )
         }
         Some(_) => None,
         None => match TextKernel::of(normalized_target_name) {
@@ -864,7 +882,7 @@ fn call(
         None => stack.push(Operand {
             text: arguments
                 .iter()
-                .map(|operand| operand.text)
+                .map(|operand| operand.read_text(prepared))
                 .max()
                 .unwrap_or(0),
             ..Operand::VALUE

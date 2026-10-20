@@ -12,6 +12,12 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   counts them with its heap and a computer with the trust-runtime program's allocator; a runtime
   that does not count them reports `null`. A scan that faults, a call refused at the call-depth
   limit and an output publication that the drivers refuse allocate nothing either.
+- Changed: on a computer the runtime's default executor, the register tier, allocates nothing in a
+  scan either, as the chips' executor does: texts, arrays, structures, enumerations and references
+  are handled where they lie, and function results and inputs are copied as bytes. Programs read,
+  write and are charged exactly as before. The profile's clone counters now count only the values
+  actually cloned, so a program that compares or copies enumerations, texts or compound values shows
+  fewer clones than before.
 - Changed: every runtime, on a computer and on a chip, keeps a program's variables in flat memory
   blocks (specification 34 MEM-12): each variable at its declared size and alignment, texts inline
   and references in 16 bytes, in blocks reserved once when the program is built. What the tools

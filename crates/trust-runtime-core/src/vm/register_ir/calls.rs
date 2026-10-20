@@ -13,7 +13,7 @@ use crate::vm::call::continuation::PreparedCall;
 use crate::vm::call::prepare_native_call_planned;
 use crate::vm::dispatch::CallResult;
 use crate::vm::dispatch_refs::materialize_place;
-use crate::vm::dispatch_text::{run_text_call, text_call_at};
+use crate::vm::dispatch_text::run_text_call;
 use crate::vm::stack::Operand;
 
 /// What a native call leaves to the activation that runs it.
@@ -59,8 +59,12 @@ pub(crate) fn call_native(
         .map_err(|_| invalid_bytecode("register-ir executor arg_count overflow"))?;
     // A built-in text function reads its arguments where they lie, its enumerations and copies read
     // into their values first, as the stack's dispatcher reads them (C1-12, C1-19a, C1-19b).
-    let operands = (site.pc as usize).saturating_add(1);
-    if let Some(call) = text_call_at(&*runtime, module, operands) {
+    let text_call = if site.kind == crate::bytecode::NATIVE_CALL_KIND_STDLIB {
+        runtime.register_text_call(module, site.symbol_idx, site.args.len())
+    } else {
+        None
+    };
+    if let Some(call) = text_call {
         read_call_operands(&*runtime, registers, false)?;
         let caller = frames
             .current()
@@ -161,9 +165,10 @@ pub(crate) fn drop_register(
     let operand = registers
         .take_register(register.index() as usize)
         .map_err(VmTrap::into_runtime_error)?;
-    if let Operand::Value(Value::Reference(Some(reference))) = operand {
+    if operand.holds_room() {
+        registers.release_temps();
+    } else if let Operand::Value(Value::Reference(Some(reference))) = operand {
         runtime.recycle_reference_path(reference.path);
     }
-    registers.release_temps();
     Ok(())
 }

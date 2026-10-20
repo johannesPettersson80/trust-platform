@@ -1,4 +1,7 @@
 use super::super::calls::{call_native, drop_register, CallStep, NativeCallSite};
+use super::super::fused::{
+    fused_equality, fused_left_ref, push_constant, takes_operands, FusedLeft, FusedSource,
+};
 use super::super::operands::{
     compare_registers, compares_operands, load_constant_value, load_reference, move_register,
     settle_register_places, store_register,
@@ -259,7 +262,9 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                 left,
                 right,
                 dest,
-            } if compares_operands(registers, *op, *left, *right)? => {
+            } if matches!(op, BinaryOp::Eq | BinaryOp::Ne)
+                && compares_operands(registers, *op, *left, *right)? =>
+            {
                 let result = compare_registers(
                     runtime,
                     registers,
@@ -304,8 +309,33 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
             } => {
                 settle_register_places(runtime, registers, None)?;
                 super::super::charge_instruction_cost_step(runtime, instruction_cost_steps, 0)?;
-                let left = register_ref_operand(runtime, module, frames, *left_ref_idx)
-                    .map_err(VmTrap::into_runtime_error)?;
+                let left = match fused_left_ref(runtime, module, frames, *left_ref_idx, *op)? {
+                    FusedLeft::Value(left) => left,
+                    // `=` and `<>` of enumerations and texts take the stack's route (C1-20).
+                    FusedLeft::Operand(left) => {
+                        registers.truncate_to_registers();
+                        registers
+                            .push_any(left)
+                            .map_err(VmTrap::into_runtime_error)?;
+                        let result = fused_equality(
+                            runtime,
+                            module,
+                            frames,
+                            registers,
+                            instruction_cost_steps,
+                            FusedSource::Ref(*right_ref_idx),
+                            *op,
+                        )?;
+                        super::super::charge_instruction_cost_step(
+                            runtime,
+                            instruction_cost_steps,
+                            3,
+                        )?;
+                        store_ref(runtime, module, frames, *dest_ref_idx, result)
+                            .map_err(VmTrap::into_runtime_error)?;
+                        continue;
+                    }
+                };
                 let left = charge_borrowed_binary_operand(runtime, left)?;
                 super::super::charge_instruction_cost_step(runtime, instruction_cost_steps, 1)?;
                 let right = register_ref_operand(runtime, module, frames, *right_ref_idx)
@@ -346,8 +376,33 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
             } => {
                 settle_register_places(runtime, registers, None)?;
                 super::super::charge_instruction_cost_step(runtime, instruction_cost_steps, 0)?;
-                let left = register_ref_operand(runtime, module, frames, *left_ref_idx)
-                    .map_err(VmTrap::into_runtime_error)?;
+                let left = match fused_left_ref(runtime, module, frames, *left_ref_idx, *op)? {
+                    FusedLeft::Value(left) => left,
+                    // `=` and `<>` of enumerations and texts take the stack's route (C1-20).
+                    FusedLeft::Operand(left) => {
+                        registers.truncate_to_registers();
+                        registers
+                            .push_any(left)
+                            .map_err(VmTrap::into_runtime_error)?;
+                        let result = fused_equality(
+                            runtime,
+                            module,
+                            frames,
+                            registers,
+                            instruction_cost_steps,
+                            FusedSource::Const(*const_idx),
+                            *op,
+                        )?;
+                        super::super::charge_instruction_cost_step(
+                            runtime,
+                            instruction_cost_steps,
+                            3,
+                        )?;
+                        store_ref(runtime, module, frames, *dest_ref_idx, result)
+                            .map_err(VmTrap::into_runtime_error)?;
+                        continue;
+                    }
+                };
                 let left = charge_borrowed_binary_operand(runtime, left)?;
                 super::super::charge_instruction_cost_step(runtime, instruction_cost_steps, 1)?;
                 let right = module
@@ -396,6 +451,24 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                     .get(*const_idx as usize)
                     .ok_or_else(|| VmTrap::InvalidConstIndex(*const_idx))
                     .map_err(VmTrap::into_runtime_error)?;
+                // `=` and `<>` of enumerations and texts take the stack's route (C1-20).
+                if takes_operands(runtime, *op, left) {
+                    registers.truncate_to_registers();
+                    push_constant(runtime, registers, left)?;
+                    let result = fused_equality(
+                        runtime,
+                        module,
+                        frames,
+                        registers,
+                        instruction_cost_steps,
+                        FusedSource::Ref(*right_ref_idx),
+                        *op,
+                    )?;
+                    super::super::charge_instruction_cost_step(runtime, instruction_cost_steps, 3)?;
+                    store_ref(runtime, module, frames, *dest_ref_idx, result)
+                        .map_err(VmTrap::into_runtime_error)?;
+                    continue;
+                }
                 runtime.before_value_clone(left)?;
                 super::super::charge_instruction_cost_step(runtime, instruction_cost_steps, 1)?;
                 let right = register_ref_operand(runtime, module, frames, *right_ref_idx)
@@ -436,8 +509,39 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                 target,
             } => {
                 super::super::charge_instruction_cost_step(runtime, instruction_cost_steps, 0)?;
-                let left = register_ref_operand(runtime, module, frames, *ref_idx)
-                    .map_err(VmTrap::into_runtime_error)?;
+                let left = match fused_left_ref(runtime, module, frames, *ref_idx, *op)? {
+                    FusedLeft::Value(left) => left,
+                    // `=` and `<>` of enumerations and texts take the stack's route (C1-20).
+                    FusedLeft::Operand(left) => {
+                        registers.truncate_to_registers();
+                        registers
+                            .push_any(left)
+                            .map_err(VmTrap::into_runtime_error)?;
+                        let result = fused_equality(
+                            runtime,
+                            module,
+                            frames,
+                            registers,
+                            instruction_cost_steps,
+                            FusedSource::Const(*const_idx),
+                            *op,
+                        )?;
+                        let condition = match result {
+                            Value::Bool(value) => value,
+                            _ => return Err(VmTrap::ConditionNotBool.into_runtime_error()),
+                        };
+                        super::super::charge_instruction_cost_step(
+                            runtime,
+                            instruction_cost_steps,
+                            3,
+                        )?;
+                        if condition == *jump_if_true {
+                            control_target = Some(*target);
+                            break;
+                        }
+                        continue;
+                    }
+                };
                 let left = charge_borrowed_binary_operand(runtime, left)?;
                 super::super::charge_instruction_cost_step(runtime, instruction_cost_steps, 1)?;
                 let right = module

@@ -21,7 +21,7 @@ use crate::memory::layout::ByteRange;
 use crate::memory::view::ValueView;
 use crate::stdlib::conversions::{ConversionSpec, ConversionType};
 use crate::stdlib::text_kernels::{self, TextArg, TextKernel, TextResult};
-use crate::stdlib::StdParams;
+use crate::stdlib::{StandardLibrary, StdParams};
 use crate::value::Value;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -31,6 +31,9 @@ const MAX_NAMED: usize = 4;
 
 /// The most arguments a text call with a target argument takes here.
 const MAX_TARGETS: usize = 64;
+
+/// The most arguments of a text call kept where they lie between the uses of one pass.
+const KEPT_ARGUMENTS: usize = 8;
 
 /// The buffers a text call works in, kept by the engine between calls (C1-12): the result, the
 /// characters of `WSTRING` arguments decoded from their code units, where each lies, and a
@@ -75,7 +78,7 @@ impl TextBuffers {
 
 /// A call of a built-in text function that runs on its arguments where they lie.
 #[derive(Debug, Clone, Copy)]
-pub(super) struct TextCall {
+pub struct TextCall {
     kernel: TextKernel,
     count: usize,
     /// For a call by name, the position among the call's arguments of the one each formal takes.
@@ -85,6 +88,12 @@ pub(super) struct TextCall {
 }
 
 impl TextCall {
+    /// The number of the call's arguments.
+    #[cfg(feature = "register-ir")]
+    pub(crate) fn count(&self) -> usize {
+        self.count
+    }
+
     /// The position among the call's arguments of the one formal `formal` takes.
     fn source(&self, formal: usize) -> usize {
         self.named
@@ -116,12 +125,27 @@ pub(super) fn text_call_at(
         return None;
     }
     let count = usize::try_from(word(8)?).ok()?;
+    text_call_of(
+        runtime.stdlib(),
+        module.native_symbol_spec(word(4)?).ok()?,
+        count,
+    )
+}
+
+/// The text call of a standard-function `CALL_NATIVE` of the symbol `spec` with `count` arguments, as
+/// [`text_call_at`] finds it: it depends on the symbol and the standard library alone, so a
+/// composition may find it once for each symbol (C1-20).
+pub(super) fn text_call_of(
+    stdlib: &StandardLibrary,
+    spec: &VmNativeSymbolSpec,
+    count: usize,
+) -> Option<TextCall> {
     let VmNativeSymbolSpec::Parsed {
         normalized_target_name,
         conversion_spec,
         arg_specs,
         ..
-    } = module.native_symbol_spec(word(4)?).ok()?
+    } = spec
     else {
         return None;
     };
@@ -163,7 +187,7 @@ pub(super) fn text_call_at(
         });
     }
     let kernel = TextKernel::of(normalized_target_name)?;
-    let builtin = runtime.stdlib().builtin(normalized_target_name)?;
+    let builtin = stdlib.builtin(normalized_target_name)?;
     let named = if arg_specs.iter().all(|spec| spec.name.is_none()) {
         // A count the formals do not admit is refused by the call that binds values.
         let admitted = match builtin.params {
@@ -222,6 +246,7 @@ pub(super) fn run_text_call(
 }
 
 /// One argument where it lies: a value, a leaf of the flat store, or a temporary text.
+#[derive(Clone, Copy)]
 enum Lying<'a> {
     Value(&'a Value),
     Cells {
@@ -268,14 +293,11 @@ impl<'a> Lying<'a> {
     fn copy_is_clone(&self) -> Result<bool, RuntimeError> {
         Ok(match *self {
             Lying::Value(value) => borrowed_value_is_cloned(value),
-            Lying::Cells {
-                cells,
-                range,
-                type_id,
-            } => match cells.scalar(range, type_id)? {
-                Some(scalar) => borrowed_value_is_cloned(&scalar),
-                None => !cells.is_struct(type_id),
-            },
+            // A scalar of the cells is copied without a clone; any other leaf clones unless it is
+            // a structure.
+            Lying::Cells { cells, type_id, .. } => {
+                !cells.holds_scalar(type_id) && !cells.is_struct(type_id)
+            }
             Lying::Text(..) => true,
         })
     }
@@ -323,23 +345,34 @@ fn run_with_buffers(
     call: &TextCall,
     buffers: &mut TextBuffers,
 ) -> Result<bool, RuntimeError> {
-    let operands = stack
-        .top_operands(call.count)
-        .ok_or_else(|| VmTrap::StackUnderflow.into_runtime_error())?;
-    for source in 0..call.count {
-        if lying(&*runtime, stack, frame, call, operands, source)?.is_none() {
-            return Ok(false);
+    // Each argument is found where it lies once for the binding's charges and once for the
+    // function, and kept between the uses of each pass (C1-20); the arguments of a call with more
+    // than `KEPT_ARGUMENTS` are found again for each use.
+    let (reads, binds) = {
+        let operands = stack
+            .top_operands(call.count)
+            .ok_or_else(|| VmTrap::StackUnderflow.into_runtime_error())?;
+        let mut kept = [None; KEPT_ARGUMENTS];
+        for source in 0..call.count {
+            let Some(argument) = lying(&*runtime, stack, frame, call, operands, source)? else {
+                return Ok(false);
+            };
+            if let Some(slot) = kept.get_mut(source) {
+                *slot = Some(argument);
+            }
         }
-    }
-    if runtime.deadline_exceeded() {
-        return Err(VmTrap::DeadlineExceeded.into_runtime_error());
-    }
-    // The binding copies each argument in the order the call gives them, a target as a read of
-    // it (TIME-08).
-    for source in 0..call.count {
-        let cloned = {
-            let argument = lying(&*runtime, stack, frame, call, operands, source)?
-                .ok_or(RuntimeError::InvalidExecutionState)?;
+        if runtime.deadline_exceeded() {
+            return Err(VmTrap::DeadlineExceeded.into_runtime_error());
+        }
+        // The binding copies each argument in the order the call gives them, a target as a read
+        // of it (TIME-08).
+        let (mut reads, mut binds) = (0usize, 0usize);
+        for source in 0..call.count {
+            let argument = match kept.get(source) {
+                Some(Some(argument)) => *argument,
+                _ => lying(&*runtime, stack, frame, call, operands, source)?
+                    .ok_or(RuntimeError::InvalidExecutionState)?,
+            };
             match argument {
                 Lying::Value(value) => runtime.before_value_clone(value)?,
                 Lying::Cells {
@@ -353,15 +386,21 @@ fn run_with_buffers(
                 })?,
                 Lying::Text(text, wide) => runtime.before_text_clone(text, wide)?,
             }
-            argument.copy_is_clone()?
-        };
-        if cloned {
-            runtime.record_value_op(if call.is_target(source) {
-                RegisterValueOpKind::ReadReference
-            } else {
-                RegisterValueOpKind::BindExpression
-            });
+            if argument.copy_is_clone()? {
+                if call.is_target(source) {
+                    reads += 1;
+                } else {
+                    binds += 1;
+                }
+            }
         }
+        (reads, binds)
+    };
+    for _ in 0..reads {
+        runtime.record_value_op(RegisterValueOpKind::ReadReference);
+    }
+    for _ in 0..binds {
+        runtime.record_value_op(RegisterValueOpKind::BindExpression);
     }
     let TextBuffers {
         result,
@@ -369,6 +408,10 @@ fn run_with_buffers(
         spans,
         scratch,
     } = buffers;
+    let operands = stack
+        .top_operands(call.count)
+        .ok_or_else(|| VmTrap::StackUnderflow.into_runtime_error())?;
+    let mut kept = [None; KEPT_ARGUMENTS];
     decoded.clear();
     spans.clear();
     spans
@@ -384,10 +427,16 @@ fn run_with_buffers(
             }
         }
         spans.push((start, decoded.len()));
+        if let Some(slot) = kept.get_mut(source) {
+            *slot = argument;
+        }
     }
     let arg = |source: usize| {
-        let argument = lying(&*runtime, stack, frame, call, operands, source)?
-            .ok_or(RuntimeError::InvalidExecutionState)?;
+        let argument = match kept.get(source) {
+            Some(Some(argument)) => *argument,
+            _ => lying(&*runtime, stack, frame, call, operands, source)?
+                .ok_or(RuntimeError::InvalidExecutionState)?,
+        };
         Ok::<_, RuntimeError>(match argument {
             Lying::Value(value) => TextArg::of(value),
             Lying::Text(text, wide) => TextArg::Text { text, wide },

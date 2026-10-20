@@ -9,7 +9,7 @@
 use super::registers::{checked_read_operand_with_counts, write_operand, write_register};
 use super::*;
 use crate::vm::dispatch_refs::{
-    load_ref_operand, store_ref_copy, store_ref_enum, store_ref_place, store_ref_text,
+    load_ref_operand, store_ref_copy, store_ref_enum, store_ref_place, store_ref_text, view_operand,
 };
 use crate::vm::helpers::borrowed_value_is_cloned;
 use crate::vm::stack::Operand;
@@ -22,6 +22,9 @@ pub(crate) fn settle_register_places(
     registers: &mut OperandStack,
     keep: Option<RegisterId>,
 ) -> Result<(), RuntimeError> {
+    if registers.places() == 0 {
+        return Ok(());
+    }
     registers
         .detach_register_places(keep.map(|register| register.index() as usize), |place| {
             runtime.place_copy(place)
@@ -55,12 +58,9 @@ pub(crate) fn load_constant_value(
     value: &Value,
 ) -> Result<(), RuntimeError> {
     runtime.before_value_clone(value)?;
-    if borrowed_value_is_cloned(value) {
-        runtime
-            .register_profile_mut()
-            .record_value_op(RegisterValueOpKind::LoadConstant);
-    }
-    if let Some(temp) = runtime.enum_constant(value) {
+    if matches!(value, Value::Enum(_))
+        && let Some(temp) = runtime.enum_constant(value)
+    {
         return write_operand(registers, dest, Operand::Enum(temp));
     }
     if let Value::WString(text) = value
@@ -69,6 +69,13 @@ pub(crate) fn load_constant_value(
         return registers
             .set_register_text(dest.index() as usize, text, true)
             .map_err(VmTrap::into_runtime_error);
+    }
+    // The profile counts the clones made (specification 12): an enumeration and a text loaded as
+    // operands clone no value.
+    if borrowed_value_is_cloned(value) {
+        runtime
+            .register_profile_mut()
+            .record_value_op(RegisterValueOpKind::LoadConstant);
     }
     write_register(registers, dest, value.clone())
 }
@@ -84,20 +91,25 @@ pub(crate) fn load_reference(
     dest: RegisterId,
     ref_idx: u32,
 ) -> Result<(), RuntimeError> {
-    let operand =
-        load_ref_operand(runtime, module, frames, ref_idx).map_err(VmTrap::into_runtime_error)?;
-    // The profile counts the load as a clone of the value the operand stands for, as it counted
-    // the value before: a structure is shared, an array, an enumeration and a text are cloned. A
-    // load gives no copy.
-    let cloned = runtime.register_profile_mut().is_enabled()
-        && match &operand {
-            Operand::Value(value) => borrowed_value_is_cloned(value),
-            Operand::Place(place) => !runtime
-                .place_view(*place)
-                .is_some_and(|view| view.is_struct()),
-            Operand::Enum(_) | Operand::Text(_) | Operand::Copy(_) => true,
-        };
-    if cloned {
+    let operand = match peek_ref_view(&*runtime, module, frames, ref_idx) {
+        Ok(view) => {
+            // A scalar, the most common load, goes into the register at once (C1-20).
+            if let Some(value) = view.scalar()? {
+                runtime.before_value_clone(&value)?;
+                return write_register(registers, dest, value);
+            }
+            view_operand(&*runtime, &view, true)
+        }
+        // A string element has no view of its own; the stack's load reads it.
+        Err(VmTrap::NullReference) => load_ref_operand(&*runtime, module, frames, ref_idx),
+        Err(error) => Err(error),
+    }
+    .map_err(VmTrap::into_runtime_error)?;
+    // The profile counts the clones made (specification 12): a place, an enumeration and a text
+    // loaded as operands clone no value.
+    if let Operand::Value(value) = &operand
+        && borrowed_value_is_cloned(value)
+    {
         runtime
             .register_profile_mut()
             .record_value_op(RegisterValueOpKind::ReadReference);
@@ -119,6 +131,7 @@ pub(crate) fn store_register(
 ) -> Result<(), RuntimeError> {
     settle_register_places(runtime, registers, Some(src))?;
     let operand = checked_read_operand_with_counts(runtime, registers, reads, src)?;
+    let released = operand.holds_room();
     let stored = match operand {
         Operand::Value(value) => store_ref(runtime, module, frames, ref_idx, value),
         Operand::Place(place) => store_ref_place(runtime, module, frames, ref_idx, place),
@@ -130,7 +143,9 @@ pub(crate) fn store_register(
             store_ref_copy(runtime, module, frames, ref_idx, bytes, temp.place())
         }),
     };
-    registers.release_temps();
+    if released {
+        registers.release_temps();
+    }
     stored.map_err(VmTrap::into_runtime_error)
 }
 
@@ -185,30 +200,9 @@ pub(crate) fn compare_registers(
     let left = checked_read_operand_with_counts(runtime, registers, reads, left)?;
     let right = checked_read_operand_with_counts(runtime, registers, reads, right)?;
     registers.truncate_to_registers();
-    let both_enums = matches!((&left, &right), (Operand::Enum(_), Operand::Enum(_)));
     registers
         .push_any(left)
         .and_then(|()| registers.push_any(right))
         .map_err(VmTrap::into_runtime_error)?;
-    // Two enumerations and two texts are compared as they are; anything else is read into its value
-    // first, as the stack does before `=` and `<>` (C1-19a, C1-19b).
-    if !both_enums && crate::vm::dispatch_text::equal_texts(&*runtime, registers).is_none() {
-        let right = registers
-            .pop_operand()
-            .map_err(VmTrap::into_runtime_error)?;
-        let left = registers
-            .pop_operand()
-            .map_err(VmTrap::into_runtime_error)?;
-        let left = super::registers::kept_operand_value(&*runtime, registers, left);
-        let right = super::registers::kept_operand_value(&*runtime, registers, right);
-        registers.release_temps();
-        let (left, right) = (left?, right?);
-        registers
-            .push(left)
-            .and_then(|()| registers.push(right))
-            .map_err(VmTrap::into_runtime_error)?;
-    }
-    crate::vm::dispatch::compare_equality(&*runtime, registers, equal)
-        .and_then(|()| registers.pop())
-        .map_err(VmTrap::into_runtime_error)
+    super::fused::compare_top(&*runtime, registers, equal)
 }

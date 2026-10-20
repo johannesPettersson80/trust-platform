@@ -110,7 +110,7 @@ fn read_text(type_id: u32, bytes: &[u8], prepared: &PreparedModule) -> Result<Va
 
 /// Materialize one scalar leaf as the value of the type's primitive encoding. An unbound native
 /// counter slot reads as [`Value::Null`].
-pub(super) fn read_scalar(
+pub(crate) fn read_scalar(
     type_id: u32,
     prim_id: u16,
     bytes: &[u8],

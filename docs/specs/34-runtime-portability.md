@@ -1579,7 +1579,17 @@ variables hold, on every call level. The
 hosted register tier runs on the flat store too (checklist C1-18): its frames lie on the activation
 stack as the stack tier's do, its interpreted and compiled blocks read and write their typed locals
 there, and a call it runs hands its result and its outputs to the caller from the finished frame's
-bytes. Every result, charge and refusal is the value store's (TIME-08).
+bytes. Every result, charge and refusal is the value store's (TIME-08). Its scans allocate nothing,
+as the stack tier's do (ARCH-05; checklist C1-20): a register holds what an operand of the stack
+holds, a value, a place, a text or a copy in a temporary area, or an enumeration, and the
+instructions that the stack tier runs on those forms take them alike: a load, a store, a move, `=`
+and `<>`, a call, its arguments and a built-in text function's text result, a load and a store
+through a reference, and the fused comparisons of a static reference with another or with a
+constant. Each POU's registers reserve at construction the temporary area its body needs, as the
+walk of the operand stack bounds it ("Texts"), a text that a text function reads through a
+reference argument counted at the referenced variable's length. A reference a register holds gives
+its path back to the engine's buffers when it is used up or dropped, and is copied into them when a
+later read needs it too.
 
 **Initializers.** On the flat store the initializer of a frame variable whose value is an array, a
 structure or a text that a store copies as bytes, and whose value the value store builds in a staged

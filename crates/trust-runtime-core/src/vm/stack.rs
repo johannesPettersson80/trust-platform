@@ -134,6 +134,14 @@ pub(crate) enum Operand {
 /// reserves and charges by values is unchanged (spec 34 MEM-03).
 const _: () = assert!(core::mem::size_of::<Operand>() == core::mem::size_of::<Value>());
 
+impl Operand {
+    /// Whether the operand holds room in the temporary area: a text or a copy.
+    #[cfg(feature = "register-ir")]
+    pub(crate) fn holds_room(&self) -> bool {
+        matches!(self, Self::Text(_) | Self::Copy(_))
+    }
+}
+
 /// Bounded operand storage used by the shared interpreter and hosted tiers.
 #[derive(Debug, Default)]
 pub struct OperandStack {
@@ -266,21 +274,34 @@ impl OperandStack {
     }
 
     /// Shorten the stack to `len` operands, counting the places, texts, enumerations and copies
-    /// that go.
+    /// that go. The temporary area gives back the room of the texts and copies that go, once they
+    /// are gone (C1-20).
     fn truncate(&mut self, len: usize) {
+        if len >= self.values.len() {
+            return;
+        }
+        let mut released = false;
         if self.places != 0 || self.texts != 0 || self.enums != 0 || self.copies != 0 {
-            for operand in self.values.get(len..).unwrap_or_default() {
+            for operand in &self.values[len..] {
                 match operand {
                     Operand::Place(_) => self.places -= 1,
-                    Operand::Text(_) => self.texts -= 1,
+                    Operand::Text(_) => {
+                        self.texts -= 1;
+                        released = true;
+                    }
                     Operand::Enum(_) => self.enums -= 1,
-                    Operand::Copy(_) => self.copies -= 1,
+                    Operand::Copy(_) => {
+                        self.copies -= 1;
+                        released = true;
+                    }
                     Operand::Value(_) => {}
                 }
             }
-            self.forget_temps();
         }
         self.values.truncate(len);
+        if released {
+            self.forget_temps();
+        }
     }
 
     /// Push one operand value, enforcing the VM stack limit.

@@ -425,7 +425,7 @@ impl PreparedModule {
             call_plans::prepare_call_plans(&vm, &layout, &initializers, &mut preparation)?;
         #[cfg(feature = "register-ir")]
         let register_plans =
-            super::register_ir::PreparedRegisterPlans::prepare(&vm, |bytes, work| {
+            super::register_ir::PreparedRegisterPlans::prepare_for(&vm, &stdlib, |bytes, work| {
                 preparation.charge(bytes, work)
             })?;
         let preparation_usage = preparation.usage();

@@ -3,9 +3,11 @@
 #![cfg_attr(any(test, feature = "test-support"), allow(missing_docs))]
 use super::call::continuation::NativeCall;
 use super::call::push_call_frame_with_reserved_payload;
+#[cfg(feature = "test-support")]
+use super::dispatch_refs::dynamic_load_ref;
 use super::dispatch_refs::{
-    dynamic_load_ref, dynamic_ref_field, dynamic_ref_field_borrowed, dynamic_ref_index,
-    dynamic_store_ref, index_to_i64, load_ref, load_ref_addr, peek_ref_view, store_ref,
+    dynamic_ref_field, dynamic_ref_field_borrowed, dynamic_ref_index, dynamic_store_ref,
+    index_to_i64, load_ref, load_ref_addr, peek_ref_view, store_ref,
 };
 use super::helpers::{materialize_borrowed_value, opcode_operand_len};
 use super::module::invalid_bytecode;
@@ -289,6 +291,7 @@ mod activation;
 mod calls;
 mod configuration;
 pub mod environment;
+mod fused;
 mod interpreter;
 mod lower;
 mod operands;

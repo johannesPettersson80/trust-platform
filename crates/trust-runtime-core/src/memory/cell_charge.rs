@@ -422,6 +422,15 @@ impl<'a> CellsView<'a> {
         flat::read_text(self.regions.block(range.region).bytes(range)?, length, wide).ok()
     }
 
+    /// Whether the cells of a value of `type_id` hold a scalar, a primitive other than a text, which
+    /// [`Self::scalar`] reads.
+    pub(crate) fn holds_scalar(self, type_id: u32) -> bool {
+        !matches!(
+            primitive_of(self.prepared, type_id),
+            None | Some(STRING_PRIMITIVE | WSTRING_PRIMITIVE)
+        )
+    }
+
     /// The scalar of the cells at `range`, a value of `type_id`: a primitive other than a text, copied
     /// without allocation. `None` for any other type.
     pub(crate) fn scalar(
@@ -431,7 +440,15 @@ impl<'a> CellsView<'a> {
     ) -> Result<Option<Value>, RuntimeError> {
         match primitive_of(self.prepared, type_id) {
             None | Some(STRING_PRIMITIVE | WSTRING_PRIMITIVE) => Ok(None),
-            Some(_) => self.materialize(range, type_id).map(Some),
+            // The leaf is read with the one walk of its type that found its primitive (C1-20).
+            Some(prim_id) => {
+                let bytes = self
+                    .regions
+                    .block(range.region)
+                    .bytes(range)
+                    .ok_or(RuntimeError::InvalidExecutionState)?;
+                crate::memory::cells::read_scalar(type_id, prim_id, bytes, self.prepared).map(Some)
+            }
         }
     }
 

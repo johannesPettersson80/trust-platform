@@ -60,11 +60,18 @@ fn load_static(
 /// The operand a load of `view` pushes: its place, when `places` allows one and a store may copy
 /// it (C1-10c), or the value it shows. Either is charged as one copy of the value: a copy charges
 /// what it copies, so the owned value and the stored view have the same charge (TIME-08).
-fn view_operand(
+pub(crate) fn view_operand(
     runtime: &impl ReferenceContext,
     view: &ValueView<'_>,
     places: bool,
 ) -> Result<Operand, VmTrap> {
+    // A scalar, the most common load, is read at once (C1-20).
+    if let Some(value) = view.scalar().map_err(VmTrap::Runtime)? {
+        runtime
+            .before_value_clone(&value)
+            .map_err(VmTrap::Runtime)?;
+        return Ok(Operand::Value(value));
+    }
     // An enumeration leaf is pushed as its type and number, charged as the copy of its value
     // (C1-19a).
     if places && let Some(temp) = runtime.enum_operand(view) {
@@ -823,8 +830,8 @@ fn peek_dynamic_ref_path<'a>(
         .read_path(reference.location, reference.offset, path)
 }
 
-/// Read a dynamic target with policy and pre-copy charging.
-#[cfg(any(feature = "hir", feature = "register-ir", test))]
+/// Read a dynamic target with policy and pre-copy charging, as a value (the tests' reader).
+#[cfg(any(test, feature = "test-support"))]
 pub fn dynamic_load_ref(
     runtime: &impl ReferenceContext,
     frames: &FrameStack,

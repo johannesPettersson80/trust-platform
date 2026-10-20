@@ -10,8 +10,8 @@
 //! allocator-call ceiling in every scan from its first listed scan; every other run is measured and
 //! printed, so the later C1 slices lower the ceilings to zero as their allocations go. A ceiling
 //! only ever goes down, an entry is only added or moved to an earlier first scan, and C1-19 requires
-//! a ceiling of zero for every run from its first scan. The register tier (`register-ir`) is a
-//! hosted executor that no chip links; with it the ceilings are printed, not asserted.
+//! a ceiling of zero for every run from its first scan. The register tier (`register-ir`), the
+//! hosted executor computers run, is held to the same ceilings (C1-20).
 //!
 //! The corpus is generated on the builder, never written by hand:
 //!
@@ -400,7 +400,7 @@ impl ExecutionServices for Services {
 /// The limits each fixture run is prepared under: the chips' admission limits on the chips' stack
 /// executor. The register tier (`register-ir`) is a hosted executor that no chip links, and its
 /// lowering needs more preparation than the chips allow, so with it the fixture runs are prepared
-/// under the hosted defaults; their ceilings are printed, not asserted.
+/// under the hosted defaults, and held to the same ceilings.
 fn run_limits() -> PreparationLimits {
     if cfg!(feature = "register-ir") {
         PreparationLimits::default()
@@ -755,6 +755,12 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// with a static text: every fault case makes no allocator call in any scan, its healthy scans
 /// and its faulting scan included, so the whole corpus is in the zero list from its first scan,
 /// measured on the builder on 20 October 2026.
+///
+/// C1-20 holds the register tier to the same list: its registers hold the stack's operand forms,
+/// its calls, dynamic references and fused comparisons take them as the stack's do, and each POU's
+/// register file reserves the temporary area its body's walk bounds. Every corpus run and every
+/// fault case on the register tier makes no allocator call in any scan, the first included,
+/// measured on the builder on 20 October 2026.
 const CEILINGS: [(&str, usize, Calls); 33] = [
     ("faults/division", 0, Calls::ZERO),
     ("faults/index", 0, Calls::ZERO),
@@ -791,9 +797,6 @@ const CEILINGS: [(&str, usize, Calls); 33] = [
     ("cells/bindings", 0, Calls::ZERO),
 ];
 
-/// The ceilings are asserted on the chips' stack executor and printed with the register tier.
-const CEILINGS_ASSERTED: bool = cfg!(not(feature = "register-ir"));
-
 fn ceiling_of(name: &str) -> Option<(usize, Calls)> {
     CEILINGS
         .iter()
@@ -807,9 +810,6 @@ fn ceiling_violations(name: &str, scans: &[Scan]) -> Vec<String> {
     let Some((from, ceiling)) = ceiling_of(name) else {
         return Vec::new();
     };
-    if !CEILINGS_ASSERTED {
-        return Vec::new();
-    }
     if scans.len() <= from {
         return vec![format!("{name}: the listed run has no scan {from}")];
     }
@@ -863,10 +863,7 @@ fn report(name: &str, scans: &[Scan]) {
         .join(" ");
     let ceiling = match ceiling_of(name) {
         None => "none".to_owned(),
-        Some((from, ceiling)) if CEILINGS_ASSERTED => {
-            format!("{ceiling} asserted from scan {from}")
-        }
-        Some((from, ceiling)) => format!("{ceiling} printed from scan {from} (register-ir)"),
+        Some((from, ceiling)) => format!("{ceiling} asserted from scan {from}"),
     };
     eprintln!(
         "scan-allocations,{name},scans={},activations={activations},first={first},\

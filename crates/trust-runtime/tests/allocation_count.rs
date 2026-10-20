@@ -4,14 +4,16 @@
 //! services'. This test binary installs the counting allocator as the trust-runtime program does.
 
 use std::alloc::{GlobalAlloc, Layout, System};
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use trust_runtime::allocation_count::{count_operation, operations};
 use trust_runtime::bytecode::BytecodeVersion;
 use trust_runtime::harness::CompileSession;
 use trust_runtime::metrics::RuntimeMetrics;
-use trust_runtime::value::Duration;
+use trust_runtime::value::{Duration, Value};
 use trust_runtime::Runtime;
+use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::vm::PreparationLimits;
 
 /// The system's allocator, counting as the trust-runtime program's does.
@@ -89,4 +91,54 @@ fn a_scalar_programs_scans_report_no_engine_operation() {
         .scan_allocations
         .expect("the scans were counted");
     assert_eq!(counted.engine, 0);
+}
+
+#[test]
+fn every_corpus_programs_scans_report_no_engine_operation() {
+    // The register tier a computer runs makes no allocator operation in any scan of any program
+    // of the bounded-C corpus, the first scan included (specification 34 ARCH-05; checklist C1-20):
+    // texts, arrays, structures, enumerations, references, calls with results of every family and
+    // fault-free runs of the fault program. Each program runs 20 scans and the engine's counts are
+    // summed. `io` reads a hierarchical input, which is set first, as a driver would. The wrong
+    // behaviour: a program whose scans allocate on the computer's executor although the chips'
+    // stack executor allocates nothing for it.
+    let corpus = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/bounded-c");
+    let mut names = std::fs::read_dir(&corpus)
+        .expect("the bounded-C corpus")
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.path().join("program.stbc").is_file())
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .collect::<Vec<_>>();
+    names.sort();
+    assert_eq!(names.len(), 23, "the corpus programs: {names:?}");
+    let mut allocating = Vec::new();
+    for name in &names {
+        let bytes = std::fs::read(corpus.join(name).join("program.stbc")).expect("the artifact");
+        let mut runtime = Runtime::from_bytes(&bytes, PreparationLimits::default())
+            .unwrap_or_else(|error| panic!("{name}: admission refused: {error}"));
+        if name == "io" {
+            let remote = IoAddress::parse("%IX1.2.3").expect("a hierarchical address");
+            runtime
+                .write_io(&remote, Value::Bool(true))
+                .expect("the hierarchical input is set");
+        }
+        let metrics = Arc::new(Mutex::new(RuntimeMetrics::default()));
+        runtime.set_metrics_sink(metrics.clone());
+        for scan in 0..20 {
+            runtime.advance_time(Duration::from_millis(10));
+            runtime
+                .execute_cycle()
+                .unwrap_or_else(|error| panic!("{name}: scan {scan} failed: {error}"));
+        }
+        let counted = metrics
+            .lock()
+            .expect("metrics lock")
+            .snapshot()
+            .scan_allocations
+            .expect("the scans were counted");
+        if counted.engine != 0 {
+            allocating.push(format!("{name}: {}", counted.engine));
+        }
+    }
+    assert_eq!(allocating, Vec::<String>::new());
 }

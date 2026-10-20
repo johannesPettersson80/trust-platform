@@ -141,6 +141,14 @@ impl RegisterContext for EngineState<'_> {
     fn prepared_register_plan(&self, id: u32) -> Option<Arc<PreparedRegisterProgram>> {
         self.prepared.register_plans.get(id)
     }
+    fn register_text_call(
+        &self,
+        _module: &crate::vm::module::VmModule,
+        symbol_idx: u32,
+        count: usize,
+    ) -> Option<crate::vm::dispatch_text::TextCall> {
+        self.prepared.register_plans.text_call(symbol_idx, count)
+    }
     fn register_leaf_plan(&self, id: u32) -> bool {
         #[cfg(feature = "test-support")]
         if !self.data.resources.register.in_place_calls.0 {

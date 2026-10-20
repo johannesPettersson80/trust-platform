@@ -339,6 +339,10 @@ impl ReferenceBuffers {
 
     /// Keep the buffers of a path the execution has used: the path's and each index segment's.
     pub(super) fn recycle(&self, mut path: RefPath) {
+        // A flat reference's path holds no buffer.
+        if path.capacity() == 0 {
+            return;
+        }
         for segment in path.drain(..) {
             if let RefSegment::Index(mut indices) = segment {
                 indices.clear();

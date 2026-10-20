@@ -8,6 +8,9 @@ pub struct PreparedRegisterPlans {
     max_registers: usize,
     max_native_arguments: usize,
     summary: VmRegisterPreparationSnapshot,
+    /// The calls of built-in text functions the module's native symbols name, by string index
+    /// (C1-20): a register call finds its text function here, not by name at each call.
+    text_calls: Vec<(u32, crate::vm::dispatch_text::TextCall)>,
 }
 
 /// Eagerly lowered POU plus all optional specialized blocks.
@@ -40,6 +43,69 @@ impl PreparedRegisterProgram {
 }
 
 impl PreparedRegisterPlans {
+    /// Prepare the plans of `module`, as [`Self::prepare`] does, and keep the text call of each of
+    /// its native symbols that names a built-in text function of `stdlib` (C1-20), all charged as
+    /// preparation.
+    pub(crate) fn prepare_for(
+        module: &VmModule,
+        stdlib: &crate::stdlib::StandardLibrary,
+        mut charge: impl FnMut(usize, usize) -> Result<(), RuntimeError>,
+    ) -> Result<Self, RuntimeError> {
+        let mut plans = Self::prepare(module, &mut charge)?;
+        plans.keep_text_calls(module, stdlib, &mut charge)?;
+        Ok(plans)
+    }
+
+    /// Find the text call of each native symbol of `module` that names a built-in text function of
+    /// `stdlib`, charged as preparation (C1-20).
+    fn keep_text_calls(
+        &mut self,
+        module: &VmModule,
+        stdlib: &crate::stdlib::StandardLibrary,
+        mut charge: impl FnMut(usize, usize) -> Result<(), RuntimeError>,
+    ) -> Result<(), RuntimeError> {
+        let calls = || {
+            module
+                .native_symbol_specs
+                .indexed()
+                .filter_map(|(index, spec)| {
+                    let crate::vm::module::VmNativeSymbolSpec::Parsed { arg_specs, .. } = spec
+                    else {
+                        return None;
+                    };
+                    crate::vm::dispatch_text::text_call_of(stdlib, spec, arg_specs.len())
+                        .map(|call| (index, call))
+                })
+        };
+        let count = calls().count();
+        charge(
+            count
+                .checked_mul(mem::size_of::<(u32, crate::vm::dispatch_text::TextCall)>())
+                .ok_or(RuntimeError::Overflow)?,
+            module.native_symbol_specs.indexed().count(),
+        )?;
+        self.text_calls
+            .try_reserve_exact(count)
+            .map_err(|_| RuntimeError::PreparationLimit)?;
+        self.text_calls.extend(calls());
+        Ok(())
+    }
+
+    /// The text call of a standard-function call of the native symbol `symbol_idx` with `count`
+    /// arguments, when [`Self::keep_text_calls`] found one.
+    pub(crate) fn text_call(
+        &self,
+        symbol_idx: u32,
+        count: usize,
+    ) -> Option<crate::vm::dispatch_text::TextCall> {
+        let at = self
+            .text_calls
+            .binary_search_by_key(&symbol_idx, |(index, _)| *index)
+            .ok()?;
+        let call = self.text_calls[at].1;
+        (call.count() == count).then_some(call)
+    }
+
     /// Keep `peak`, the most bytes the body of `pou` holds in the temporary area at once, in its
     /// plan. Preparation sets it before the plans are shared.
     pub(crate) fn set_temporaries(&mut self, pou: u32, peak: usize) {
@@ -283,9 +349,7 @@ impl PreparedRegisterPlans {
                         .ok_or(RuntimeError::Overflow)?,
                 )?;
                 for instruction in &block.instructions {
-                    if let RegisterInstr::CallNative { args, .. } = instruction {
-                        arguments = arguments.max(args.len());
-                    }
+                    arguments = arguments.max(operands_above_registers(instruction));
                 }
             }
             let (bytes, work) = RegisterExecutionBuffers::reservation_demand_with_temporaries(
@@ -679,6 +743,20 @@ pub trait RegisterContext: ExecutionContext {
     fn tier1_state(&self) -> &RegisterTier1SpecializedExecutorState;
     fn tier1_state_mut(&mut self) -> &mut RegisterTier1SpecializedExecutorState;
     fn prepared_register_plan(&self, pou_id: u32) -> Option<Arc<PreparedRegisterProgram>>;
+    /// The text call of a standard-function call of the native symbol `symbol_idx` with `count`
+    /// arguments (C1-20). The default finds it by name; a composition with prepared plans keeps it.
+    fn register_text_call(
+        &self,
+        module: &VmModule,
+        symbol_idx: u32,
+        count: usize,
+    ) -> Option<crate::vm::dispatch_text::TextCall> {
+        crate::vm::dispatch_text::text_call_of(
+            self.stdlib(),
+            module.native_symbol_spec(symbol_idx).ok()?,
+            count,
+        )
+    }
     fn record_register_plan_lookup(&mut self, _found: bool) {}
     fn register_buffers_available(&self, _pou_id: u32) -> bool {
         true
@@ -895,3 +973,23 @@ mod allocation_model_tests {
 
 #[cfg(test)]
 mod leaf_tests;
+
+/// The most operands `instruction` pushes above the registers (C1-20): a call's arguments, and its
+/// result when the call hands it back as bytes; the two operands `=` and `<>` compare as the stack
+/// compares them.
+fn operands_above_registers(instruction: &RegisterInstr) -> usize {
+    let equality = |op: &BinaryOp| matches!(op, BinaryOp::Eq | BinaryOp::Ne);
+    match instruction {
+        RegisterInstr::CallNative { args, .. } => args.len().max(1),
+        RegisterInstr::Binary { op, .. }
+        | RegisterInstr::BinaryRefToRef { op, .. }
+        | RegisterInstr::BinaryRefConstToRef { op, .. }
+        | RegisterInstr::BinaryConstRefToRef { op, .. }
+        | RegisterInstr::CmpRefConstJumpIf { op, .. }
+            if equality(op) =>
+        {
+            2
+        }
+        _ => 0,
+    }
+}

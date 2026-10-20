@@ -62,6 +62,12 @@ impl NativeSymbols {
             .map(|at| &self.entries[at].1)
     }
 
+    /// Every parsed symbol with its string index, in string order.
+    #[cfg(feature = "register-ir")]
+    pub(crate) fn indexed(&self) -> impl Iterator<Item = (u32, &VmNativeSymbolSpec)> {
+        self.entries.iter().map(|(index, spec)| (*index, spec))
+    }
+
     /// Every parsed symbol, in string order.
     pub fn iter(&self) -> impl Iterator<Item = &VmNativeSymbolSpec> {
         self.entries.iter().map(|(_, spec)| spec)
