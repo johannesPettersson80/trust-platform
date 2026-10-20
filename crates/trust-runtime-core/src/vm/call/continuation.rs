@@ -148,10 +148,15 @@ impl PreparedCall {
     /// runs on completion and on every path that abandons the call — a trap, a refusal or an
     /// abort — so a scratch is never dropped (spec 34 MEM-09; census C1, C3, C4, C5, C7). The
     /// completion path empties `present` and `outputs` first, so their copy-back still sees the
-    /// bindings and returns them itself.
+    /// bindings and returns them itself. The locals the call bound its arguments into, which a
+    /// started call's frame has taken, go back to the reserved payloads, so a call the depth check
+    /// refuses gives them back too (C1-19f).
     pub(in crate::vm) fn restore_edges(&mut self, runtime: &mut impl ExecutionContext) {
         if let Some(edge) = self.edge.take() {
             edge.restore(runtime);
+        }
+        if let Some(locals) = self.locals.take() {
+            runtime.recycle_frame_locals(locals);
         }
         if let Some(present) = self.present.take() {
             runtime.recycle_call_flags(present);

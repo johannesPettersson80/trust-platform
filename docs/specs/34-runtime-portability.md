@@ -1440,7 +1440,10 @@ slots and parameter-presence bits, sized for the largest POU — and an activati
 of its depth, binds its arguments into it and reads its edge inputs and their restores from
 reserved lists, returning the payload when its frame is popped on every path (return, trap, fault
 and abort); a scan allocates no locals, presence, edge-input or restore vector, and every result,
-charge and refusal is unchanged (MEM-02, MEM-03, MEM-09; TIME-08).
+charge and refusal is unchanged (MEM-02, MEM-03, MEM-09; TIME-08). A program that can call deeper
+than `max_call_depth`, through a call graph with a cycle or a static depth above the ceiling, has
+one payload more: the call that the depth check refuses binds its arguments into it, charged as
+before, and gives it back when it is refused (checklist C1-19f).
 
 **Call scratch.** Construction also reserves, per call depth, the call scratch that binds a call —
 its evaluated argument list, parameter flags, output bindings, preflighted targets and preflighted

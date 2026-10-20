@@ -127,6 +127,17 @@ impl PreparedModule {
         }
     }
 
+    /// Whether a chain of the module's calls can go deeper than the admitted `max_call_depth`: a
+    /// call graph with a cycle, or a static depth above the ceiling. The call that the depth check
+    /// then refuses still binds its arguments, into one more reserved payload (spec 34 MEM-02,
+    /// MEM-09; C1-19f).
+    pub(crate) fn calls_beyond_admitted_depth(&self) -> bool {
+        match self.call_depth {
+            CallDepth::Static(depth) => depth > self.limits.max_call_depth.max(1),
+            CallDepth::Recursive => true,
+        }
+    }
+
     /// The module's static call depth, or that it is recursive (spec 34 MEM-09; test support).
     #[cfg(feature = "test-support")]
     pub fn static_call_depth(&self) -> CallDepth {

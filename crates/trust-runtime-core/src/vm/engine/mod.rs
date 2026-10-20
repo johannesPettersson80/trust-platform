@@ -500,9 +500,10 @@ impl<'a> EngineState<'a> {
             return Err(RuntimeError::ResourceFaulted);
         }
         if now < self.data.now {
-            return Err(RuntimeError::InvalidConfig(
-                "logical time moved backwards".into(),
-            ));
+            // A static text: the refusal allocates nothing (ARCH-05; C1-19f).
+            return Err(RuntimeError::InvalidConfig(SmolStr::new_static(
+                "logical time moved backwards",
+            )));
         }
         self.data.now = now;
         self.data.task = NO_TASK;

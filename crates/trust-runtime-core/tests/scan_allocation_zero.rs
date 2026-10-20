@@ -721,21 +721,21 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// and the persistent reference leaves, each buffer with room for the longest path. Every corpus
 /// run on the flat store, the saved `main` included, makes no allocator call in any scan, the
 /// first included, measured on the builder on 19 October 2026.
-const CEILINGS: [(&str, usize, Calls); 31] = [
-    ("faults/division", 2, Calls::ZERO),
-    ("faults/index", 2, Calls::ZERO),
-    ("faults/null", 2, Calls::ZERO),
-    ("faults/overflow", 2, Calls::ZERO),
-    ("faults/work", 2, Calls::ZERO),
-    (
-        "faults/call_depth",
-        2,
-        Calls {
-            alloc: 11,
-            realloc: 0,
-            dealloc: 8,
-        },
-    ),
+///
+/// C1-19f gives the call that the depth check refuses a reserved payload to bind its arguments
+/// into, which it gives back when it is refused, and refuses a step of logical time backwards
+/// with a static text: every fault case makes no allocator call in any scan, its healthy scans
+/// and its faulting scan included, so the whole corpus is in the zero list from its first scan,
+/// measured on the builder on 20 October 2026.
+const CEILINGS: [(&str, usize, Calls); 33] = [
+    ("faults/division", 0, Calls::ZERO),
+    ("faults/index", 0, Calls::ZERO),
+    ("faults/null", 0, Calls::ZERO),
+    ("faults/overflow", 0, Calls::ZERO),
+    ("faults/work", 0, Calls::ZERO),
+    ("faults/call_depth", 0, Calls::ZERO),
+    ("faults/deadline", 0, Calls::ZERO),
+    ("faults/time_backwards", 0, Calls::ZERO),
     ("cells/saved/main", 0, Calls::ZERO),
     ("cells/scalar", 0, Calls::ZERO),
     ("cells/gpio", 0, Calls::ZERO),
@@ -993,10 +993,6 @@ fn run_fault_case(prepared: &PreparedModule, case: &FaultCase) -> Result<Vec<Sca
     Ok(scans)
 }
 
-/// The flat-store runs that still allocate, listed with their measured ceilings: none since C1-19c4
-/// removed the value paths of the corpus cases it added. The list only shrinks.
-const NOT_YET_ZERO: [&str; 0] = [];
-
 /// The fixtures the flat store refuses until a later slice, with the slice that admits them. None
 /// since C1-15 placed the `STRUCT OVERLAP` of `structures` and `overlays` as its backing.
 const REFUSED_ON_THE_FLAT_STORE: [&str; 0] = [];
@@ -1033,11 +1029,8 @@ fn every_fixture_reports_its_scans_on_the_flat_store() {
                 let name = format!("cells/{}", fixture.name);
                 report(&name, &scans);
                 failures.extend(ceiling_violations(&name, &scans));
-                // The whole corpus is in the zero list from its first scan (MEM-09; C1-19c3), but for
-                // the runs C1-19c4 still brings there.
-                if !NOT_YET_ZERO.contains(&name.as_str())
-                    && ceiling_of(&name) != Some((0, Calls::ZERO))
-                {
+                // The whole corpus is in the zero list from its first scan (ARCH-05, MEM-09; C1-19f).
+                if ceiling_of(&name) != Some((0, Calls::ZERO)) {
                     failures.push(format!("{name} is not zero from its first scan"));
                 }
             }
@@ -1050,7 +1043,8 @@ fn every_fixture_reports_its_scans_on_the_flat_store() {
 }
 
 /// Spec 34 ARCH-05 and MEM-04 (fault and limit paths): each fault case's scan ends with its
-/// stable code, a latched fault refuses the next scan, and every scan's counts are printed.
+/// stable code, a latched fault refuses the next scan, every scan's counts are printed, and no
+/// scan of a case, the faulting one included, makes an allocator call (C1-19f).
 #[test]
 fn every_fault_case_ends_with_its_stable_code_and_reports_its_scans() {
     let bytes = corpus_artifact("faults").unwrap_or_else(|error| panic!("{error}"));
@@ -1062,6 +1056,9 @@ fn every_fault_case_ends_with_its_stable_code_and_reports_its_scans() {
             Ok(scans) => {
                 report(case.name, &scans);
                 failures.extend(ceiling_violations(case.name, &scans));
+                if ceiling_of(case.name) != Some((0, Calls::ZERO)) {
+                    failures.push(format!("{} is not zero from its first scan", case.name));
+                }
             }
             Err(error) => failures.push(format!("{}: {error}", case.name)),
         }
@@ -1250,34 +1247,52 @@ fn the_cell_retain_capture_allocates_nothing() {
     );
 }
 
-/// A diagnostic, run on request (`-- --ignored`): where the allocator calls of each fixture's later
-/// scans on the flat store come from, as the innermost frame and the eight innermost engine functions
-/// of each call, counted.
+/// A diagnostic, run on request (`-- --ignored`): where the allocator calls of each fixture's scans
+/// and of each fault case's scans on the flat store come from, as the innermost frame and the eight
+/// innermost engine functions of each call, counted.
 /// It asserts nothing; it tells the C1 slices which code still allocates.
 #[test]
 #[ignore = "diagnostic: run with --ignored --nocapture"]
 fn trace_flat_store_allocations() {
     for fixture in &FIXTURES {
-        TRACES.with(|traces| traces.borrow_mut().clear());
-        TRACING.with(|flag| flag.set(true));
-        let outcome = run_fixture(fixture);
-        TRACING.with(|flag| flag.set(false));
-        let traces = TRACES.with(|traces| std::mem::take(&mut *traces.borrow_mut()));
+        let (outcome, sites) = traced(|| run_fixture(fixture));
         if let Err(error) = outcome {
             eprintln!("trace,cells/{},refused={error}", fixture.name);
             continue;
         }
-        // The first scan fills caches and buffers; count the later scans' calls only by their sites.
-        let mut sites = std::collections::BTreeMap::<String, usize>::new();
-        for trace in traces {
-            *sites.entry(trace).or_default() += 1;
-        }
-        let mut sites = sites.into_iter().collect::<Vec<_>>();
-        sites.sort_by_key(|site| std::cmp::Reverse(site.1));
         for (site, count) in sites.into_iter().take(48) {
             eprintln!("trace,cells/{},{count},{site}", fixture.name);
         }
     }
+    let bytes = corpus_artifact("faults").unwrap_or_else(|error| panic!("{error}"));
+    let prepared = PreparedModule::from_bytes(&bytes, chip_limits())
+        .expect("the chips' admission accepts the faults program");
+    for case in &FAULT_CASES {
+        let (outcome, sites) = traced(|| run_fault_case(&prepared, case));
+        if let Err(error) = outcome {
+            eprintln!("trace,{},refused={error}", case.name);
+            continue;
+        }
+        for (site, count) in sites.into_iter().take(48) {
+            eprintln!("trace,{},{count},{site}", case.name);
+        }
+    }
+}
+
+/// Run `run` with tracing on and give its result and the sites of its counted calls, most first.
+fn traced<T>(run: impl FnOnce() -> T) -> (T, Vec<(String, usize)>) {
+    TRACES.with(|traces| traces.borrow_mut().clear());
+    TRACING.with(|flag| flag.set(true));
+    let outcome = run();
+    TRACING.with(|flag| flag.set(false));
+    let traces = TRACES.with(|traces| std::mem::take(&mut *traces.borrow_mut()));
+    let mut sites = std::collections::BTreeMap::<String, usize>::new();
+    for trace in traces {
+        *sites.entry(trace).or_default() += 1;
+    }
+    let mut sites = sites.into_iter().collect::<Vec<_>>();
+    sites.sort_by_key(|site| std::cmp::Reverse(site.1));
+    (outcome, sites)
 }
 
 /// A diagnostic, run on request (`-- --ignored`): the allocator calls of a warm restart of each fixture

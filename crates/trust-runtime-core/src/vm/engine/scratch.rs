@@ -438,6 +438,10 @@ struct ScratchPlan {
     operands: usize,
     /// The largest local-slot count of any POU.
     slots: usize,
+    /// The local slots and presence bits kept for calls: one set per call level, and one more for
+    /// the call that the depth check refuses when the module can call deeper than the admitted
+    /// ceiling, which binds its arguments into them before it is refused (C1-19f).
+    call_locals: usize,
     /// Nested initializer evaluations and construction frames.
     initializers: usize,
     /// The execution buffers of nested initializer bodies, one for each nested evaluation when
@@ -539,6 +543,9 @@ impl ScratchPlan {
             levels,
             operands,
             slots,
+            call_locals: levels
+                .checked_add(usize::from(prepared.calls_beyond_admitted_depth()))
+                .ok_or(RuntimeError::Overflow)?,
             initializers: levels,
             initializer_buffers: if bodies { levels } else { 0 },
             initializer_operands: prepared.max_initializer_operand_depth,
@@ -618,7 +625,7 @@ impl ScratchPlan {
                     self.text_arguments,
                     self.text_count,
                 )?)?;
-        let frame_locals = FrameLocals::reservation_bytes(self.levels, self.slots)?;
+        let frame_locals = FrameLocals::reservation_bytes(self.call_locals, self.slots)?;
         // One frame payload per call depth, `levels` local slots and presence bits wide.
         let frame_payloads =
             crate::vm::frames::payloads::FramePayloads::reservation_bytes(self.levels, self.slots)?;
@@ -759,7 +766,9 @@ impl EngineState<'_> {
                 shape.subscripts,
             ),
         )?;
-        resources.frame_locals.reserve(plan.levels, plan.slots)?;
+        resources
+            .frame_locals
+            .reserve(plan.call_locals, plan.slots)?;
         // One edge-input list and one restore list, reused by every edge-affected call
         // (spec 34 MEM-09; census A5).
         resources
