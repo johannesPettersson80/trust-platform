@@ -15,6 +15,7 @@ use trust_runtime_core::vm::{CycleHooks, PreparedModule, RetainApplyEvent};
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
 use super::hold::HoldHandle;
+use crate::metrics::ProgramMemory;
 use crate::status::IoDriverStatus;
 
 /// Where a warm restart finds the retained values.
@@ -123,6 +124,12 @@ pub trait ResourceCycle {
     /// The allocator operations the engine made itself in the last scan, its calls into the
     /// services not counted; `None` when they were not counted.
     fn last_scan_allocations(&self) -> Option<u64> {
+        None
+    }
+
+    /// The memory figure of the installed program, and whether the cycle keeps its retained values
+    /// (specification 34 MEM-12), which `status` reports; `None` when the cycle does not know it.
+    fn program_memory(&self) -> Option<ProgramMemory> {
         None
     }
 

@@ -17,6 +17,7 @@ use smol_str::SmolStr;
 
 use crate::execution_backend::ExecutionBackend;
 use trust_runtime_core::ports::MonotonicClock;
+use trust_runtime_core::vm::MemoryFigure;
 
 const CYCLE_LATENCY_WINDOW_SIZE: usize = 512;
 
@@ -258,6 +259,37 @@ pub struct ScanAllocations {
     pub services: u64,
 }
 
+/// The memory figure of the program a runtime runs (specification 34 MEM-12): the bytes of each
+/// part, which preparation computed, and whether the runtime keeps the program's retained values,
+/// so that the capture of them counts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProgramMemory {
+    /// The figure, part by part.
+    pub figure: MemoryFigure,
+    /// Whether the runtime keeps the program's retained values.
+    pub retains: bool,
+}
+
+impl ProgramMemory {
+    /// The bytes of the whole figure, as admission compares them with the memory the device has
+    /// for programs.
+    #[must_use]
+    pub fn bytes(&self) -> usize {
+        self.figure.total(self.retains)
+    }
+
+    /// The bytes of the capture of the retained values: the figure's when the runtime keeps them,
+    /// else none.
+    #[must_use]
+    pub fn retain_capture(&self) -> usize {
+        if self.retains {
+            self.figure.retain_capture
+        } else {
+            0
+        }
+    }
+}
+
 /// Metrics of one runtime, measured with the platform clock `C`.
 #[derive(Debug, Clone)]
 pub struct RuntimeMetrics<C> {
@@ -278,6 +310,8 @@ pub struct RuntimeMetrics<C> {
     /// The scans' allocator operations since the metrics started; `None` until a scan is counted,
     /// and on a runtime that does not count them.
     pub scan_allocations: Option<ScanAllocations>,
+    /// The memory figure of the program the runtime runs; `None` while it runs none.
+    pub program_memory: Option<ProgramMemory>,
 }
 
 impl<C: MonotonicClock> RuntimeMetrics<C> {
@@ -295,6 +329,7 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
             faults: 0,
             overruns: 0,
             scan_allocations: None,
+            program_memory: None,
         }
     }
 
@@ -311,6 +346,7 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
         self.faults = 0;
         self.overruns = 0;
         self.scan_allocations = None;
+        self.program_memory = None;
     }
 
     /// Milliseconds since the metrics started: the clock's time since its origin.
@@ -357,6 +393,12 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
     /// Records the execution backend that runs the program.
     pub fn set_execution_backend(&mut self, backend: ExecutionBackend) {
         self.execution_backend = backend;
+    }
+
+    /// Records the memory figure of the program the runtime runs now, `None` while it runs none
+    /// (specification 34 MEM-12).
+    pub fn set_program_memory(&mut self, memory: Option<ProgramMemory>) {
+        self.program_memory = memory;
     }
 
     /// Turns call profiling on or off; turning it off discards the recorded calls.
@@ -461,6 +503,7 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
             faults: self.faults,
             overruns: self.overruns,
             scan_allocations: self.scan_allocations,
+            program_memory: self.program_memory,
             tasks,
             profiling: ProfilingSnapshot {
                 enabled: self.profiling_enabled,
@@ -519,6 +562,8 @@ pub struct RuntimeMetricsSnapshot {
     pub overruns: u64,
     /// The scans' allocator operations since the metrics started; `None` when none was counted.
     pub scan_allocations: Option<ScanAllocations>,
+    /// The memory figure of the program the runtime runs; `None` while it runs none.
+    pub program_memory: Option<ProgramMemory>,
     /// Statistics of each task, sorted by name.
     pub tasks: Vec<TaskStatsSnapshot>,
     /// Call profiling.

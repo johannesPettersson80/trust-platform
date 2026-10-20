@@ -53,6 +53,7 @@ pub fn descriptor_json(descriptor: &DeviceDescriptor, last_reset: Option<&LastRe
         "event_store_default": descriptor.event_store_default,
         "event_store_max": descriptor.event_store_max,
         "application_slot_bytes": descriptor.application_slot_bytes,
+        "program_memory_bytes": descriptor.program_memory_bytes,
         "last_reset": last_reset.map(last_reset_json),
     })
 }

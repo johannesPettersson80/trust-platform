@@ -2726,6 +2726,15 @@ The status and configuration surfaces project one effective runtime state:
   the services made in the calls the scan makes into them and in the runtime's
   cycle work around the scan. The engine makes none (specification 34,
   ARCH-05). A runtime that does not count them reports `null`, never zero.
+- Status reports in `metrics.program_memory` the memory figure of the program
+  that runs (specification 34 MEM-12), in bytes: `bytes`, the whole, which
+  admission compares with the memory the device has for programs, and its
+  parts `program`, `persistent_block`, `activation_stack`, `operand_stack`,
+  `engine` and `retain_capture`. The capture of the retained values is 0 when
+  the runtime keeps none, and `bytes` is the sum of the parts. The figure is
+  the one the runtime computed when it prepared the program, with its own sizes;
+  it follows the program through a restart, a load in place and an online
+  change. A runtime without a program reports `null`.
 - Status reports the truST version in `version`, the platform the runtime runs
   on in `platform` as `<os>-<arch>` on a computer, for example `linux-x86_64`
   or `windows-x86_64`, and as the board name on a device, for example
@@ -3022,6 +3031,7 @@ Its result is the same shape on every runtime, a computer or a device without an
 | `event_store_default` | integer | The newest events the device's event store keeps when a project sets none |
 | `event_store_max` | integer | The most a project may set for the device's event store |
 | `application_slot_bytes` | integer or null | The bytes of the device's application slot, or null when it has none |
+| `program_memory_bytes` | integer or null | The bytes of memory the device has for a program, which admission compares a program's memory figure with (specification 34 MEM-12, §5.1.1): a chip's measurement at boot, or null where there is no maximum, as on a computer |
 | `last_reset` | object or null | The reset the device's boot read (below), or null |
 
 A computer reports `last_reset` as null: it starts as a new process. A device without an operating
@@ -4818,12 +4828,21 @@ program as a runtime does, with the hosted default limits. A program that cannot
 be prepared gets no record: the build removes an older record, reports the reason
 on standard error and still succeeds.
 
+The build also reports the program's memory figure on the computer that builds
+(specification 34 MEM-12): the figure that preparation computes with the
+record's limits, with the capture of the retained values when the project's
+`[runtime.retain] mode` is `file`. A device computes its own figure, with its
+own sizes, when it prepares the program, and reports it in `status`.
+
 `--ci` emits response version 1 with command `build`, status `ok`, the selected
 project and output paths, `source_count`, the complete source list, dependency
-roots, resolved dependency names, and `deployment_record`, the record's path or
-`null` when none was written. `source_count` equals the number of reported
-source paths. Human mode reports the written paths and source count, shows at
-most the first five collected paths, and reports the number omitted.
+roots, resolved dependency names, `deployment_record`, the record's path or
+`null` when none was written, and `program_memory`, the figure in the shape of
+`status`'s `metrics.program_memory`, or `null` when the program has no record.
+`source_count` equals the number of reported source paths. Human mode reports
+the written paths, a line `Memory figure: <bytes> bytes on this computer` with
+the parts, and the source count, shows at most the first five collected paths,
+and reports the number omitted.
 
 CI failures use stable process classes: invalid project or configuration input
 is 10, build or compile failure is 11, test assertion or runtime-test failure is

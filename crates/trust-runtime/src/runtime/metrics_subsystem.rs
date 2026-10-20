@@ -6,7 +6,7 @@ use std::time::{Duration as StdDuration, Instant};
 use smol_str::SmolStr;
 
 use crate::execution_backend::ExecutionBackend;
-use crate::metrics::RuntimeMetrics;
+use crate::metrics::{ProgramMemory, RuntimeMetrics};
 
 pub(super) struct MetricsSubsystem {
     sink: Option<Arc<Mutex<RuntimeMetrics>>>,
@@ -26,6 +26,15 @@ impl MetricsSubsystem {
             && let Ok(mut guard) = metrics.lock()
         {
             guard.set_execution_backend(backend);
+        }
+    }
+
+    /// Records the memory figure of the installed program (specification 34 MEM-12).
+    pub(super) fn set_program_memory(&self, memory: ProgramMemory) {
+        if let Some(metrics) = self.sink.as_ref()
+            && let Ok(mut guard) = metrics.lock()
+        {
+            guard.set_program_memory(Some(memory));
         }
     }
 

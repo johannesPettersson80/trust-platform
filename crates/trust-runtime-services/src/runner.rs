@@ -94,6 +94,7 @@ pub use online_change::{
 };
 pub use reload::{Loaded, ProgramLoader};
 pub use retain::RetainConfig;
+pub use state::event_store_bytes;
 
 use crate::installation::Admitted;
 use crate::protocol::ControlAfterResponse;
@@ -203,6 +204,9 @@ where
         // before it built the loop: the Live Values carry the generation the program is in.
         live.set_generation(cycle.generation());
         let records = Records::new(clock.clone(), start, event_capacity);
+        // `status` reports the memory figure of the program the loop runs (specification 34 MEM-12).
+        let memory = cycle.program_memory();
+        records.record(|metrics| metrics.set_program_memory(memory));
         let shell = Rc::new(Shell::new(
             link,
             wait,

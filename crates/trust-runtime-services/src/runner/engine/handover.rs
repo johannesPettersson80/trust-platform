@@ -91,6 +91,21 @@ impl<C, I, M> EngineCycle<'_, C, I, M> {
         core::mem::swap(&mut self.io, &mut successor.io);
         core::mem::swap(&mut self.retain, &mut successor.retain);
     }
+
+    /// Gives the checkpoint store, which the commit hands to the candidate, room for the candidate's
+    /// largest retained payload, `bytes`, before the commit, so that the candidate's first capture
+    /// grows nothing (specification 34 MEM-09). The room the store has is kept. A cycle without a
+    /// store does nothing.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::Overflow`] when the heap has no room for it; the store is unchanged.
+    pub fn reserve_retain(&mut self, bytes: usize) -> Result<(), RuntimeError> {
+        match self.retain.as_mut() {
+            Some(store) => store.reserve(bytes),
+            None => Ok(()),
+        }
+    }
 }
 
 impl<C: MonotonicClock, I, M> EngineCycle<'_, C, I, M> {

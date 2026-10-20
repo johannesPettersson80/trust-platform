@@ -10,9 +10,11 @@ use std::path::{Path, PathBuf};
 use trust_runtime_core::deployment::{
     admit, configuration_identity, DeploymentRecord, DeviceDescriptor,
 };
-use trust_runtime_core::vm::PreparationLimits;
+use trust_runtime_core::vm::{PreparationLimits, PreparedModule};
+use trust_runtime_core::watchdog::RetainMode;
 
 use crate::error::RuntimeError;
+use crate::metrics::ProgramMemory;
 
 #[path = "deployment/configuration.rs"]
 mod configuration;
@@ -84,6 +86,23 @@ pub fn write_record(project: &Path, program: &[u8]) -> io::Result<RecordWrite> {
             Ok(RecordWrite::Skipped(reason))
         }
     }
+}
+
+/// The memory figure of `program` on this computer (specification 34 MEM-12): the figure that
+/// preparation computes with the limits that the program's record requests, the hosted defaults,
+/// with the capture of the retained values when the project's `runtime.toml` keeps them. A device
+/// computes its own figure, with its own sizes, when it prepares the program.
+///
+/// # Errors
+///
+/// The project's configuration cannot be read, or the program does not prepare.
+pub fn program_memory(project: &Path, program: &[u8]) -> Result<ProgramMemory, RuntimeError> {
+    let retains = configuration::from_project(project)?.retain_mode == RetainMode::File;
+    let prepared = PreparedModule::from_bytes(program, PreparationLimits::default())?;
+    Ok(ProgramMemory {
+        figure: prepared.memory_figure(),
+        retains,
+    })
 }
 
 /// The limits to prepare a project's program with: those of its record, admitted against the

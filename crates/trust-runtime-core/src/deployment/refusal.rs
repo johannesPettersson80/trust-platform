@@ -190,6 +190,14 @@ pub enum AdmissionRefusal {
         /// The bytes of the slot.
         available: u64,
     },
+    /// The program's memory figure is more than the memory the device has for programs
+    /// (specification 34 MEM-12).
+    Memory {
+        /// The bytes of the program's memory figure.
+        needed: u64,
+        /// The bytes of memory the device has for programs.
+        available: u64,
+    },
 }
 
 impl fmt::Display for AdmissionRefusal {
@@ -232,6 +240,11 @@ impl fmt::Display for AdmissionRefusal {
                 formatter,
                 "the program and its record need {needed} bytes of the application slot, \
                  the device has {available}"
+            ),
+            Self::Memory { needed, available } => write!(
+                formatter,
+                "the program needs {needed} bytes of memory, the device has {available} for \
+                 programs"
             ),
         }
     }

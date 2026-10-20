@@ -15,11 +15,12 @@ use alloc::vec::Vec;
 use core::fmt;
 use core::ops::Range;
 
-use trust_runtime_core::deployment::{DeploymentRecord, DeviceDescriptor};
+use trust_runtime_core::deployment::{admit_memory, DeploymentRecord, DeviceDescriptor};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::ProgramStore;
 use trust_runtime_core::retain::checkpoint::{FlashError, FlashGeometry, Slot};
 use trust_runtime_core::vm::{PreparationLimits, PreparedModule};
+use trust_runtime_core::watchdog::RetainMode;
 
 use super::read_padded;
 use super::select::{self, ScanError};
@@ -304,8 +305,9 @@ impl Checked {
 
 /// The checks that read the container alone, before any write, in the order of specification 34
 /// §11.2 (design S4 §2.2): the container and its record, their admission against `device`
-/// (specification 34 §5.1.1, DEPLOY-04), the retained values, and a dry-run preparation with the
-/// admitted limits. The dry run's result is dropped. Every runtime runs these checks in this order
+/// (specification 34 §5.1.1, DEPLOY-04), the retained values, a dry-run preparation with the
+/// admitted limits, and the admission of the dry run's memory figure against the memory `device` has
+/// for programs (MEM-12). The dry run's result is dropped. Every runtime runs these checks in this order
 /// with the same texts; the platform supplies `retain_check`, the check of specification 11 §6.7.1
 /// (decision G13), which is given the admitted program.
 ///
@@ -327,8 +329,13 @@ pub fn check(
     retain_check(&admitted).map_err(retain_refusal)?;
     let program_bytes = admitted.program.len();
     let program_sha256 = admitted.record.application.program_sha256;
-    PreparedModule::from_bytes(admitted.program, admitted.limits)
+    let prepared = PreparedModule::from_bytes(admitted.program, admitted.limits)
         .map_err(|error| preparation_error(error, program_bytes, admitted.limits))?;
+    // The program's memory figure fits the memory the device has for programs (specification 34
+    // MEM-12): a computer has no maximum, a chip the bytes it measured at boot.
+    let retains = admitted.record.configuration.retain_mode == RetainMode::File;
+    admit_memory(&prepared.memory_figure(), retains, device)
+        .map_err(|error| InstallError::Admission(AdmissionError::Deployment(error)))?;
     Ok(Checked {
         program_bytes,
         program_sha256,

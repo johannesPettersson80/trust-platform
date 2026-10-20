@@ -76,14 +76,20 @@ impl RetainCapture {
         }
     }
 
-    /// Room for a payload of `bytes` bytes in the staged buffer and in the buffer the first accepted
-    /// payload leaves the next capture, so that no capture grows either (specification 34 MEM-09).
+    /// Room for a payload of `bytes` bytes in the staged buffer and in the buffer the next accepted
+    /// payload leaves the next capture, the accepted payload's once a store accepted one and the
+    /// spare before, so that no capture grows either (specification 34 MEM-09). Room already
+    /// reserved is kept.
     ///
     /// # Errors
     ///
     /// [`RuntimeError::Overflow`] when the room cannot be reserved.
     pub fn reserve(&mut self, bytes: usize) -> Result<(), RuntimeError> {
-        for buffer in [&mut self.staged, &mut self.spare] {
+        let next = match self.accepted.as_mut() {
+            Some(accepted) => accepted,
+            None => &mut self.spare,
+        };
+        for buffer in [&mut self.staged, next] {
             buffer
                 .try_reserve_exact(bytes.saturating_sub(buffer.len()))
                 .map_err(|_| RuntimeError::Overflow)?;

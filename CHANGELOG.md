@@ -6,6 +6,18 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Added: every program has a memory figure, the bytes of memory it holds while it runs, which the
+  runtime computes when it prepares the program: the prepared program, its persistent variables, the
+  activation stack for its deepest call chain, the operand stack, the engine's own state and, when
+  the project keeps retained values, their capture. The runtime reserves exactly that when it builds
+  the program, and no scan adds to it. `status` reports it in `metrics.program_memory`, and
+  `trust-runtime build` prints it for the computer that builds (`program_memory` with `--ci`). A chip
+  measures the memory it has for programs when it boots, reports it in `capabilities` as
+  `program_memory_bytes`, and refuses a program whose figure is more, naming both numbers: at its
+  install, before any byte is written, at its load and at an online change. A computer has no maximum.
+- Changed: a chip's checkpoint store reserves the capture of the retained values for the program's
+  largest payload when the program loads, and grows it before an online change commits, so the first
+  scans no longer allocate it.
 - Added: `status` reports in `metrics.scan_allocations` the allocator operations made during the
   scans since the program started, on every runtime: `engine`, those the engine made running the
   program, which is zero, and `services`, those the services made in and around the scans. A chip

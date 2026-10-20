@@ -14,7 +14,7 @@ use serde_json::json;
 use smol_str::SmolStr;
 use trust_runtime_core::scheduler::ResourceState;
 
-use crate::metrics::RuntimeMetricsSnapshot;
+use crate::metrics::{ProgramMemory, RuntimeMetricsSnapshot};
 use crate::ports::{AccessPort, RecordsPort, ResourcePort, StatusPort};
 use crate::protocol::ControlResponse;
 
@@ -296,11 +296,28 @@ fn metrics_json(metrics: &RuntimeMetricsSnapshot, execution_backend: &str) -> se
             "engine": count.engine,
             "services": count.services,
         })),
+        "program_memory": metrics.program_memory.as_ref().map(program_memory_json),
         "profiling": {
             "enabled": metrics.profiling.enabled,
             "top": top_contributors_json(metrics),
         },
         "execution_backend": execution_backend,
+    })
+}
+
+/// The `program_memory` block of `status`'s metrics, and of `trust-runtime build --ci`: the memory
+/// figure of a program, in bytes, as a whole and part by part (specification 34 MEM-12).
+#[must_use]
+pub fn program_memory_json(memory: &ProgramMemory) -> serde_json::Value {
+    let figure = &memory.figure;
+    json!({
+        "bytes": memory.bytes(),
+        "program": figure.program,
+        "persistent_block": figure.persistent_block,
+        "activation_stack": figure.activation_stack,
+        "operand_stack": figure.operand_stack,
+        "engine": figure.engine,
+        "retain_capture": memory.retain_capture(),
     })
 }
 

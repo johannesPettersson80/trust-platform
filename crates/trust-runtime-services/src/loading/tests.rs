@@ -23,7 +23,7 @@ use trust_runtime_core::deployment::{
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::{ProgramFlash, ProgramStore};
 use trust_runtime_core::retain::checkpoint::{FlashError, FlashGeometry, Slot};
-use trust_runtime_core::vm::PreparationLimits;
+use trust_runtime_core::vm::{PreparationLimits, PreparedModule};
 
 use super::install::{begin, Committed, Install, InstallError, Progress};
 use super::select::{active, previous, ScanError, SelectError};
@@ -424,6 +424,42 @@ fn an_install_refused_by_admission_writes_no_byte() {
         )))
     );
     assert_eq!(flash.borrow().writes, 0);
+}
+
+#[test]
+fn an_install_whose_memory_figure_exceeds_the_devices_program_memory_writes_no_byte() {
+    // Specification 34 MEM-12 and §5.1.1: the device refuses a program whose memory figure is more
+    // than the memory it has for programs, naming both numbers, before any write; a figure equal to
+    // that memory is admitted. The record keeps no retained values, so the capture of them does not
+    // count. The figure is the one preparation computes with the limits that admission gives this
+    // record, the default limits. Catches an install that skips the check, a refusal after the first
+    // write, and a figure equal to the memory refused.
+    let needed = PreparedModule::from_bytes(PROGRAM, PreparationLimits::default())
+        .expect("the program prepares")
+        .memory_figure()
+        .total(false);
+    let needed = u64::try_from(needed).expect("a short figure");
+    let (flash, mut store) = erased_store();
+    let tight = DeviceDescriptor {
+        program_memory_bytes: Some(needed - 1),
+        ..device()
+    };
+    let refused = begin(&mut store, transfer_of(PROGRAM), &tight, |_| Ok(()));
+    assert_eq!(
+        refused.err(),
+        Some(InstallError::Admission(AdmissionError::Deployment(
+            RuntimeError::DeploymentRefused(AdmissionRefusal::Memory {
+                needed,
+                available: needed - 1,
+            })
+        )))
+    );
+    assert_eq!(flash.borrow().writes, 0);
+    let exact = DeviceDescriptor {
+        program_memory_bytes: Some(needed),
+        ..device()
+    };
+    assert!(begin(&mut store, transfer_of(PROGRAM), &exact, |_| Ok(())).is_ok());
 }
 
 #[test]

@@ -198,6 +198,7 @@ impl Runtime {
     ) {
         self.metrics.set_sink(sink);
         self.metrics.set_execution_backend(self.execution_backend());
+        self.publish_program_memory();
     }
 
     /// Configure publication of the admitted controller's hosted telemetry.

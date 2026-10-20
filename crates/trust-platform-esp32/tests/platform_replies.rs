@@ -55,12 +55,18 @@ fn platform() -> Platform<()> {
 /// and 1,024 call levels, and every other limit is `null`. Its event store holds 200 events by default and
 /// at most 200, and its application slot is one program slot, 3,056 KiB = 3,129,344 bytes
 /// (`chips/esp32c6.toml`, `[events]` and `[layout] application_a`; specification 34 §5.1.1: an install
-/// writes one of the two slots). Catches a field renamed, a maximum written as a number instead of
-/// `null`, a slot or event store of another chip, a slot that is the whole 6,112 KiB region, and a
-/// reset that is not the power-on one.
+/// writes one of the two slots). Its memory for programs is the number the firmware measured at boot
+/// (specification 34 MEM-12). Catches a field renamed, a maximum written as a number instead of `null`,
+/// a slot or event store of another chip, a slot that is the whole 6,112 KiB region, a program memory
+/// that the reply leaves out or does not take from the platform, and a reset that is not the power-on
+/// one.
 #[test]
 fn the_c6_capabilities_reply_is_the_bytes_the_chip_gives_today() {
-    let reply = capabilities::capabilities(7, &platform());
+    // The firmware measures the memory the C6 has for programs at boot, before it serves the link
+    // (specification 34 MEM-12): here 98,304 bytes.
+    let mut platform = platform();
+    platform.set_program_memory(98_304);
+    let reply = capabilities::capabilities(7, &platform);
     assert_eq!(
         serde_json::to_value(&reply).expect("a reply serializes"),
         json!({
@@ -88,6 +94,7 @@ fn the_c6_capabilities_reply_is_the_bytes_the_chip_gives_today() {
                 "event_store_default": 200,
                 "event_store_max": 200,
                 "application_slot_bytes": 3_129_344,
+                "program_memory_bytes": 98_304,
                 "last_reset": { "cause": "power_on", "text": "", "boot_count": 1 },
             },
         })

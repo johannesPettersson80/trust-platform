@@ -193,6 +193,27 @@ fn a_program_the_memory_limits_refuse_is_refused_with_its_numbers() {
 }
 
 #[test]
+fn a_candidate_whose_memory_figure_exceeds_the_heap_that_remains_is_refused_with_its_numbers() {
+    // Specification 34 MEM-12 and §11.3 (UPDATE-06): an online change compares the candidate's
+    // memory figure with the heap that remains for it once its upload is freed: the room less the
+    // reserve, with the upload's bytes. Worked by hand: a change of 6,000 bytes when 40,000 bytes
+    // were free and 8,192 are kept leaves 40,000 - 8,192 + 6,000 = 37,808 bytes, so a figure of
+    // 37,808 fits and one of 37,809 is refused, naming both numbers. The wrong behaviour: the
+    // upload's bytes left out (37,808 refused against 31,808), the reserve not subtracted (37,809
+    // admitted against 46,000), or a figure equal to the heap refused.
+    let memory = ChangeMemory::for_change(6_000, 40_000, 8_192);
+    assert_eq!(memory.figure_refusal(37_808), None);
+    assert_eq!(
+        memory.figure_refusal(37_809).as_deref(),
+        Some(
+            "insufficient memory: a change of 6000 bytes needs 37809 bytes of memory, more than \
+             the 37808 bytes of heap that remain for it once it is prepared (40000 bytes are free, \
+             8192 are kept in reserve)"
+        )
+    );
+}
+
+#[test]
 fn a_validation_limit_is_refused_as_insufficient_memory_with_its_numbers() {
     // Specification 34 §11.3 (UPDATE-06): a candidate that needs more than the limits of the heap
     // that remains is refused with `insufficient memory` and its numbers, and the validator's limits

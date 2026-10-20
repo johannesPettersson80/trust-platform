@@ -50,6 +50,7 @@ fn chip_descriptor() -> DeviceDescriptor {
         event_store_default: 200,
         event_store_max: 200,
         application_slot_bytes: Some(6_258_688),
+        program_memory_bytes: Some(81_920),
     }
 }
 
@@ -103,6 +104,7 @@ fn capabilities_answers_the_chips_descriptor_and_its_last_reset() {
             "event_store_default": 200,
             "event_store_max": 200,
             "application_slot_bytes": 6_258_688,
+            "program_memory_bytes": 81_920,
             "last_reset": {"cause": "watchdog", "text": "scan", "boot_count": 3},
         }),
         "the chip's reply names the device's descriptor fields and its watchdog reset"

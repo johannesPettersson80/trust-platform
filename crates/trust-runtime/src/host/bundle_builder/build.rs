@@ -17,6 +17,14 @@ pub fn build_program_stbc(
                     .display()
             )
         })?;
+    // The program's memory figure on this computer (spec 34 MEM-12), when the runtime prepares it.
+    let program_memory = match &deployment_record {
+        crate::deployment::RecordWrite::Written(_) => Some(crate::deployment::program_memory(
+            bundle_root,
+            &compiled.bytes,
+        )?),
+        crate::deployment::RecordWrite::Skipped(_) => None,
+    };
     let openot_definition_path = if let Some(definition) = compiled.openot_definition {
         let path = bundle_root.join("openot-definition.json");
         let mut definition_bytes = serde_json::to_vec_pretty(&definition)
@@ -32,6 +40,7 @@ pub fn build_program_stbc(
     Ok(BundleBuildReport {
         program_path,
         deployment_record,
+        program_memory,
         openot_definition_path,
         sources: compiled.sources,
         dependency_roots: compiled.dependency_roots,

@@ -276,6 +276,7 @@ where
         } = candidate;
         let old = core::mem::replace(&mut self.cycle, Program::Installed(cycle));
         self.cycle.attach_hold(self.hold.clone());
+        self.record_program_memory();
         self.tasks = self.cycle.tasks();
         self.live = live;
         // The program's time goes on from the clock, and its tasks count their next activation from

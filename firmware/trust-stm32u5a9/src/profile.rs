@@ -14,6 +14,10 @@ pub const APPLICATION_BYTES: usize = 2016 * 1024;
 const CHECKPOINT_A: usize = 0x083F_8000;
 const _: () = assert!(APPLICATION_BASE + APPLICATION_BYTES <= CHECKPOINT_A);
 
+/// The bytes of the heap the STM32U5A9 keeps free beside a program and its event store: its replies
+/// and the Live Values and services of the program (specification 34 MEM-12, Appendix D.5).
+pub const PROGRAM_MEMORY_RESERVE_BYTES: usize = 8 * 1024;
+
 /// The device descriptor admission reads for the STM32U5A9 (specification 34 §5.1.1, COMPAT-02 and
 /// TARGET-03): the STBC versions it prepares, its scheduling profile and numeric contract, its
 /// timing evidence (none qualified yet), no platform capability, the hosted maxima of the
@@ -48,4 +52,6 @@ pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
     event_store_default: 1_000,
     event_store_max: 1_000,
     application_slot_bytes: Some(APPLICATION_BYTES as u64),
+    // Measured at boot, before the program loads (`Platform::set_program_memory`).
+    program_memory_bytes: None,
 };

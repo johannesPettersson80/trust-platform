@@ -102,6 +102,9 @@ pub struct ChipPlatform<C, W> {
     /// The chip's checkpoint flash, held until the installed program takes its store (specification 34
     /// §10); `None` unless the record's retain mode is `file`, and after the store is taken.
     checkpoint: Option<Box<dyn CheckpointFlash>>,
+    /// The bytes of memory the chip has for a program, measured at boot (specification 34 MEM-12);
+    /// `None` until the firmware measures it.
+    program_memory: Option<u64>,
 }
 
 impl<C: ChipProfile, W> ChipPlatform<C, W> {
@@ -135,7 +138,16 @@ impl<C: ChipProfile, W> ChipPlatform<C, W> {
             last_reset,
             runtime_id,
             checkpoint: None,
+            program_memory: None,
         }
+    }
+
+    /// Gives the platform the bytes of memory the chip has for a program, which the firmware
+    /// measures at boot before it loads one: the heap's free bytes then, the installed container's
+    /// bytes among them, less the reserve the chip keeps for the machine (specification 34 MEM-12).
+    /// The descriptor reports them, and admission refuses a program whose memory figure is more.
+    pub fn set_program_memory(&mut self, bytes: usize) {
+        self.program_memory = u64::try_from(bytes).ok();
     }
 
     /// Keeps `flash` as the chip's checkpoint flash when the record's retain mode is `file`
@@ -288,7 +300,10 @@ impl<C: ChipProfile, W> StatusPort for ChipPlatform<C, W> {
     /// The chip's descriptor, the same admission reads (specification 34 §5.1.1, COMPAT-02 and
     /// TARGET-03).
     fn device_descriptor(&self) -> DeviceDescriptor {
-        C::device_descriptor()
+        DeviceDescriptor {
+            program_memory_bytes: self.program_memory,
+            ..C::device_descriptor()
+        }
     }
 
     /// The reset the boot reported (specification 11, the runtime device capabilities contract).

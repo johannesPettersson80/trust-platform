@@ -72,6 +72,7 @@ use crate::live_values::queues::{
 use crate::live_values::retained_names::{self, RetainedNames};
 use crate::live_values::var_requests::VariableQueuePort;
 use crate::live_values::RequestQueueFull;
+use crate::metrics::ProgramMemory;
 use crate::status::IoDriverStatus;
 
 /// The only resource a source-free composition admits (spec 34 §5.2). The retained-value check of an
@@ -169,13 +170,19 @@ impl<'a, C: MonotonicClock, I: ProcessIo> EngineCycle<'a, C, I> {
         retain: Option<RetainConfig>,
     ) -> Result<Self, RuntimeError> {
         let state = prepared.instantiate_with_services(RESOURCE_INDEX, services)?;
+        let mut retain = retain.map(RetainStore::open).transpose()?;
+        if let Some(store) = retain.as_mut() {
+            // The capture holds the program's largest retained payload from the start, so no scan
+            // grows it (specification 34 MEM-09).
+            store.reserve(prepared.retained_payload_bytes()?)?;
+        }
         Ok(Self {
             state,
             prepared,
             services,
             io,
             settings,
-            retain: retain.map(RetainStore::open).transpose()?,
+            retain,
             memory: (),
         })
     }
@@ -256,6 +263,15 @@ impl<C: MonotonicClock, I: ProcessIo, M> ResourceCycle for EngineCycle<'_, C, I,
 
     fn last_scan_allocations(&self) -> Option<u64> {
         self.state.last_scan_allocations()
+    }
+
+    /// The figure preparation computed for the program; the capture of its retained values counts
+    /// when the cycle has a checkpoint store that persists them.
+    fn program_memory(&self) -> Option<ProgramMemory> {
+        Some(ProgramMemory {
+            figure: self.prepared.memory_figure(),
+            retains: self.retain.as_ref().is_some_and(RetainStore::persists),
+        })
     }
 
     fn held_time(&self) -> TimeSpan {

@@ -109,6 +109,8 @@ pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
     // writes one slot, so a program and its record can be no longer than that (specification 34 §5.1.1
     // step 8).
     application_slot_bytes: Some(SLOT_BYTES as u64),
+    // Measured at boot, before the first program loads (`Platform::set_program_memory`).
+    program_memory_bytes: None,
 };
 
 /// The capacity of the C6's heap, in bytes: its two regions, the 72 KiB main heap and the 64 KiB of

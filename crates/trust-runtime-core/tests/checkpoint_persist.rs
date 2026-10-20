@@ -88,6 +88,18 @@ fn stage(capture: &mut RetainCapture, counter: i32) {
         .expect("stage the retained image");
 }
 
+/// Stage `counter` as the value of two retained `DINT`s, `counter` and `another`: a payload of 36
+/// bytes, the entry count and two entries of 16.
+fn stage_two(capture: &mut RetainCapture, counter: i32) {
+    capture.mark_dirty();
+    capture
+        .refill(|payload| {
+            payload.entry("counter", &Value::DInt(counter))?;
+            payload.entry("another", &Value::DInt(counter))
+        })
+        .expect("stage the retained image");
+}
+
 /// A persister over `flash`, as a boot would open it.
 fn persister(flash: &mut SimFlash) -> CheckpointPersister<&mut SimFlash> {
     let log = CheckpointLog::open(flash).expect("open the checkpoint log");
@@ -610,6 +622,56 @@ fn the_persister_allocates_nothing_after_construction() {
         assert_eq!(
             count, 0,
             "{geometry:?}: the persister allocated after construction"
+        );
+    }
+}
+
+#[test]
+fn a_reserved_capture_grows_on_no_capture_and_no_save() {
+    // Specification 34 MEM-09: a chip reserves the capture of the retained values for the program's
+    // largest payload when the program loads, and again, keeping the room it has, for the program
+    // that an online change installs; then no capture and no save grows it. The payload of the
+    // retained DINT `counter` is 20 bytes (`image`), and that of `counter` and `another` 36: the entry
+    // count and two entries of 16. Reserved for 20 bytes before its first capture, the capture's
+    // captures and saves allocate nothing; reserved again for 36 bytes after a save, its 36-byte
+    // captures and saves allocate nothing either. Wrong behaviour caught: a capture that grows on its
+    // first use or on its first save, and a reserve after a save that reserves the spare buffer,
+    // which no save uses again, instead of the accepted payload's, which the next save makes the
+    // staged one (it would grow when it is filled).
+    for geometry in geometries() {
+        let mut flash = SimFlash::new(geometry);
+        let mut persister = persister(&mut flash);
+        let mut capture = new_capture();
+        capture.reserve(20).expect("room for one entry");
+        let one = allocations(|| {
+            for counter in 1..4 {
+                stage(&mut capture, counter);
+                persister
+                    .offer(
+                        &mut capture,
+                        Duration::from_millis(100 * i64::from(counter)),
+                    )
+                    .expect("offer a due changed image");
+                drain(&mut persister, 64);
+            }
+        });
+        assert_eq!(one, 0, "{geometry:?}: a reserved capture grew");
+        capture.reserve(36).expect("room for two entries");
+        let two = allocations(|| {
+            for counter in 4..7 {
+                stage_two(&mut capture, counter);
+                persister
+                    .offer(
+                        &mut capture,
+                        Duration::from_millis(100 * i64::from(counter)),
+                    )
+                    .expect("offer a due changed image");
+                drain(&mut persister, 64);
+            }
+        });
+        assert_eq!(
+            two, 0,
+            "{geometry:?}: a capture reserved again after a save grew"
         );
     }
 }

@@ -35,6 +35,7 @@ mod entry;
 mod enums;
 /// The engine's part of the memory figure (specification 34 MEM-12; checklist C1-21).
 mod figure;
+pub(crate) use cycle::retained_payload_bound;
 pub(crate) use figure::engine_parts;
 #[cfg(feature = "std")]
 mod owned;

@@ -161,6 +161,18 @@ impl PreparedModule {
         self.memory_figure
     }
 
+    /// The most bytes one capture of this program's retained values takes (specification 34
+    /// MEM-09): a runtime that keeps the retained values reserves its capture for this many bytes,
+    /// the staged payload and the one a save leaves the next capture, so that no capture grows it.
+    /// The memory figure's `retain_capture` is twice this.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::Overflow`] when the bytes overflow.
+    pub fn retained_payload_bytes(&self) -> Result<usize, RuntimeError> {
+        crate::vm::engine::retained_payload_bound(self).ok_or(RuntimeError::Overflow)
+    }
+
     /// The bytes of heap this prepared program holds: the sum of its
     /// [`program_parts`](Self::program_parts).
     #[must_use]

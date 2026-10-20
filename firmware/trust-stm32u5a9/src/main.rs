@@ -36,7 +36,7 @@ use trust_platform_stm32u5::gpio::{DigitalIo, Ports};
 use trust_platform_stm32u5::reset::ResetControl;
 use trust_platform_stm32u5::usb_link;
 use trust_platform_stm32u5::wait::{Monotonic, Wait};
-use trust_runtime_core::deployment::{Configuration, ControlMode};
+use trust_runtime_core::deployment::{admit_memory, Configuration, ControlMode, DeviceDescriptor};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
 use trust_runtime_core::value::Duration;
@@ -47,11 +47,11 @@ use trust_runtime_services::chip::platform::status_settings;
 use trust_runtime_services::runner::engine::{
     device_limits, CycleSettings, DeviceMemory, DeviceServices, EngineCycle,
 };
-use trust_runtime_services::runner::{EngineLiveValues, Runner};
+use trust_runtime_services::runner::{event_store_bytes, EngineLiveValues, Runner};
 
 use crate::platform::Platform;
 use crate::process_io::{claim, GpioIo};
-use crate::profile::{APPLICATION_BYTES, DEVICE_DESCRIPTOR};
+use crate::profile::{APPLICATION_BYTES, DEVICE_DESCRIPTOR, PROGRAM_MEMORY_RESERVE_BYTES};
 use crate::watchdog::{timeout_for, Watchdog, STOPPED_TIMEOUT_MS};
 
 /// The resource loop's clock: the chip's TIM2 microsecond counter through the adapter's [`Monotonic`].
@@ -151,6 +151,16 @@ fn main() -> ! {
         Err(reason) => serve_stopped(parts, reason),
     };
 
+    // The memory the STM32U5A9 has for a program (specification 34 MEM-12, Appendix D.5): the heap's
+    // free bytes before the program is prepared, its container being in the flash, less what the chip
+    // keeps for the machine: its event store at its maximum of events and the reserve for its replies
+    // and the program's Live Values and services.
+    let events = usize::try_from(DEVICE_DESCRIPTOR.event_store_max).unwrap_or(usize::MAX);
+    let program_memory = memory::HEAP
+        .remaining()
+        .saturating_sub(event_store_bytes(events))
+        .saturating_sub(PROGRAM_MEMORY_RESERVE_BYTES);
+
     // Prepare the program with the limits its region and the heap allow (design §1.1).
     let limits = device_limits(DeviceMemory {
         region_bytes: APPLICATION_BYTES,
@@ -163,6 +173,18 @@ fn main() -> ! {
             format!("the installed application cannot be prepared: {error}"),
         ),
     };
+    // Its memory figure fits the memory the chip has for programs, before anything of it is
+    // constructed (specification 34 MEM-12). Retain mode `none` keeps no capture.
+    let descriptor = DeviceDescriptor {
+        program_memory_bytes: u64::try_from(program_memory).ok(),
+        ..DEVICE_DESCRIPTOR
+    };
+    if let Err(error) = admit_memory(&prepared.memory_figure(), false, &descriptor) {
+        serve_stopped(
+            parts,
+            format!("the installed application cannot be loaded: {error}"),
+        );
+    }
     let prepared: &'static PreparedModule = Box::leak(Box::new(prepared));
 
     // The Live Values of the installed program (specification 11, "Live Values"; specification 34 §4.3.1).
@@ -200,7 +222,7 @@ fn main() -> ! {
     if let Err(reason) = parts.watchdog.start(timeout) {
         halt::emergency_halt(reason);
     }
-    let platform = Platform::new(
+    let mut platform = Platform::new(
         parts.watchdog,
         config.resource_name.clone(),
         status_settings(),
@@ -210,6 +232,7 @@ fn main() -> ! {
         parts.last_reset,
         platform::device_runtime_id(),
     );
+    platform.set_program_memory(program_memory);
     let link = match usb_link::bind(parts.clock) {
         Ok(link) => link,
         Err(_) => halt::emergency_halt("usb-link"),

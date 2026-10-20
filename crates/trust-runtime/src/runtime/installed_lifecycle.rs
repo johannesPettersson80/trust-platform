@@ -36,6 +36,18 @@ impl Runtime {
         }
         self.openot_telemetry.reset_scan_state();
         self.cycle_counter = 0;
+        self.publish_program_memory();
+    }
+
+    /// Gives the metrics the memory figure of the installed program, which `status` reports
+    /// (specification 34 MEM-12): the capture of the retained values counts when a retain store
+    /// keeps them.
+    pub(super) fn publish_program_memory(&self) {
+        self.metrics
+            .set_program_memory(crate::metrics::ProgramMemory {
+                figure: self.prepared().memory_figure(),
+                retains: self.retain.has_store(),
+            });
     }
 
     /// Apply an entire checkpoint through admitted type/default policy. The
@@ -76,6 +88,7 @@ impl Runtime {
         interval: Option<Duration>,
     ) {
         self.retain.configure(store, interval, self.current_time());
+        self.publish_program_memory();
     }
     /// Configure the existing synchronous compatibility-profile save interval.
     pub fn set_retain_save_interval(&mut self, interval: Option<Duration>) {
@@ -457,6 +470,7 @@ impl Runtime {
         self.original_artifact = None;
         self.resource_name = name;
         self.tasks = tasks;
+        self.publish_program_memory();
         Ok(())
     }
 }

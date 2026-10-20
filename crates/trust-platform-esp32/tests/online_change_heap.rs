@@ -483,12 +483,20 @@ fn where_a_loaded_programs_heap_goes() {
             println!("footprint: {name}: {part}: {bytes} B");
         }
         let whole = resident(program, false, None).expect("the program loads");
+        let figure = trust_runtime_core::vm::PreparedModule::from_bytes(
+            program,
+            trust_runtime_services::runner::engine::device_limits(MEMORY),
+        )
+        .expect("the program prepares")
+        .memory_figure();
         println!(
             "footprint: {name}: {} B of bytecode; the decoded container alone {container} B; the \
              prepared module {module} B; the whole loaded program {whole} B, of which the state, \
-             services and the rest {} B",
+             services and the rest {} B; the memory figure {} B, of which the engine {} B",
             program.len(),
-            whole - module
+            whole - module,
+            figure.total(false),
+            figure.total(false) - figure.program
         );
         assert!(module > 0 && whole > module, "{name}");
     }

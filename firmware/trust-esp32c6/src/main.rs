@@ -33,13 +33,16 @@ use core::fmt::Write;
 use core::time::Duration as CoreDuration;
 
 use smol_str::SmolStr;
-use trust_platform_esp32::loader::{default_event_capacity, install_check, Esp32Loader};
+use trust_platform_esp32::loader::{
+    default_event_capacity, install_check, program_memory_bytes, Esp32Loader,
+};
 use trust_platform_esp32::process_io::GpioIo;
 use trust_platform_esp32::profile::{runtime_id, transfer_session, PROGRAM_STEP_BYTES, STBC_BYTES};
 use trust_platform_esp32::program_memory::ProgramCycle;
 use trust_platform_esp32::{emergency_halt, Board, Monotonic, Platform, UsbLink, Wait, Watchdog};
 use trust_runtime_core::deployment::ControlMode;
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, ProgramStore};
+use trust_runtime_core::retain::checkpoint::CheckpointFlash;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_services::chip::platform::status_settings;
 use trust_runtime_services::runner::engine::DeviceMemory;
@@ -123,6 +126,18 @@ fn main() -> ! {
         last_reset,
         runtime_id(parts.identity.mac),
     );
+    // The memory the C6 has for a program (specification 34 MEM-12, Appendix D.2): the heap's free bytes
+    // before any program is loaded, with the installed program's, which the load frees once the program
+    // is prepared, less what the chip keeps for the machine. The descriptor reports it, and a program
+    // whose memory figure is more is refused at its install and at its load.
+    let container = installed.as_ref().map_or(0, |booted| booted.program.len());
+    let largest_payload =
+        usize::try_from(checkpoint_reader.geometry().max_payload_len()).unwrap_or(usize::MAX);
+    platform.set_program_memory(program_memory_bytes(
+        heap_room(),
+        container,
+        largest_payload,
+    ));
     // The loader builds the program of the installed container here and again at every `restart` that
     // finds a newer one (specification 34 STATE-08): the same steps in the same order. It also builds
     // the candidate of an online change (specification 34 §11.3).

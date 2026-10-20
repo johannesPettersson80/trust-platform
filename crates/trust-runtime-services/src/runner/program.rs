@@ -15,6 +15,7 @@ use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
 use super::cycle::{ResourceCycle, RetainSource, TaskDescriptor};
 use super::hold::HoldHandle;
+use crate::metrics::ProgramMemory;
 use crate::status::IoDriverStatus;
 
 /// The program the loop runs, or the reason a device has none: its application region holds no
@@ -106,6 +107,13 @@ impl<Y: ResourceCycle> ResourceCycle for Program<Y> {
     fn last_scan_allocations(&self) -> Option<u64> {
         match self {
             Self::Installed(cycle) => cycle.last_scan_allocations(),
+            Self::Missing(_) => None,
+        }
+    }
+
+    fn program_memory(&self) -> Option<ProgramMemory> {
+        match self {
+            Self::Installed(cycle) => cycle.program_memory(),
             Self::Missing(_) => None,
         }
     }

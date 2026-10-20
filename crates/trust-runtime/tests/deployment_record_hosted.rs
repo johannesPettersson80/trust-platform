@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use serde_json::Value as JsonValue;
+use serde_json::{json, Value as JsonValue};
 use smol_str::SmolStr;
 use trust_runtime::bundle_builder::build_program_stbc;
 use trust_runtime::bundle_template::{build_io_config_auto, render_io_toml, render_runtime_toml};
@@ -20,7 +20,7 @@ use trust_runtime::harness::CompileSession;
 use trust_runtime::runtime_core::deployment::{
     sha256, AdmissionRefusal, DeploymentRecord, DeploymentRecordError, LimitKind, RequestedLimits,
 };
-use trust_runtime::runtime_core::vm::PreparationLimits;
+use trust_runtime::runtime_core::vm::{PreparationLimits, PreparedModule};
 use trust_runtime::value::Value;
 
 static COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -269,5 +269,29 @@ fn build_ci_reports_the_record_it_wrote() {
     let record = DeploymentRecord::decode(&std::fs::read(record_path(&root)).unwrap())
         .expect("the command wrote a readable record");
     assert_eq!(record.application.program_sha256, sha256(&program(&root)));
+    // Specification 34 MEM-12: the build reports the program's memory figure on this computer, the
+    // one preparation computes with the limits of its record, as a whole and part by part. The
+    // project keeps no retained values (`[runtime.retain] mode = "none"`), so their capture is 0 and
+    // the whole is the sum of the other five parts. Wrong behaviour caught: no figure, the capture
+    // counted for a project that keeps no retained values, or a part reported under another's name.
+    let figure = PreparedModule::from_bytes(&program(&root), PreparationLimits::default())
+        .expect("the program prepares")
+        .memory_figure();
+    assert_eq!(
+        payload["program_memory"],
+        json!({
+            "bytes": figure.program
+                + figure.persistent_block
+                + figure.activation_stack
+                + figure.operand_stack
+                + figure.engine,
+            "program": figure.program,
+            "persistent_block": figure.persistent_block,
+            "activation_stack": figure.activation_stack,
+            "operand_stack": figure.operand_stack,
+            "engine": figure.engine,
+            "retain_capture": 0,
+        })
+    );
     let _ = std::fs::remove_dir_all(root);
 }

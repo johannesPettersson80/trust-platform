@@ -32,6 +32,10 @@ pub struct DeviceDescriptor {
     pub event_store_max: u32,
     /// The bytes of the slot that holds the program and its record, on a device that has one.
     pub application_slot_bytes: Option<u64>,
+    /// The bytes of memory the device has for a program: its prepared program and its engine, the
+    /// program's memory figure (specification 34 MEM-12). A chip measures it at boot, before it
+    /// loads a program; a computer has no maximum.
+    pub program_memory_bytes: Option<u64>,
 }
 
 /// The STBC versions a source-free runtime prepares.
@@ -70,7 +74,33 @@ impl DeviceDescriptor {
             event_store_default: 1_000,
             event_store_max: 1_000_000,
             application_slot_bytes: None,
+            program_memory_bytes: None,
         }
+    }
+}
+
+/// Admit a prepared program by its memory figure (specification 34 MEM-12): after preparation and
+/// before anything is constructed, `device` refuses a program whose figure, with the capture of the
+/// retained values when the program keeps them (`retains`), is more than the memory the device has
+/// for programs. A device without a maximum (a computer) admits every figure.
+///
+/// # Errors
+///
+/// `RuntimeError::DeploymentRefused` with [`AdmissionRefusal::Memory`] and both numbers.
+pub fn admit_memory(
+    figure: &crate::vm::MemoryFigure,
+    retains: bool,
+    device: &DeviceDescriptor,
+) -> Result<(), RuntimeError> {
+    let needed = super::wide(figure.total(retains));
+    match device.program_memory_bytes {
+        Some(available) if needed > available => {
+            Err(RuntimeError::DeploymentRefused(AdmissionRefusal::Memory {
+                needed,
+                available,
+            }))
+        }
+        _ => Ok(()),
     }
 }
 

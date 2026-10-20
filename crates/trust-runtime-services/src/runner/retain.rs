@@ -87,6 +87,29 @@ impl RetainStore {
         })
     }
 
+    /// Reserves the capture for a program's largest retained payload, `bytes`
+    /// ([`PreparedModule::retained_payload_bytes`](trust_runtime_core::vm::PreparedModule::retained_payload_bytes)):
+    /// the staged payload and the one a save leaves the next capture, so that no capture grows them
+    /// (specification 34 MEM-09), and the program's memory figure counts them (MEM-12). The room
+    /// already reserved is kept. A store that persists nothing captures nothing and reserves nothing.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::Overflow`] when the heap has no room for them; the capture is unchanged.
+    pub fn reserve(&mut self, bytes: usize) -> Result<(), RuntimeError> {
+        if self.persister.is_none() {
+            return Ok(());
+        }
+        self.capture.reserve(bytes)
+    }
+
+    /// Whether the store persists the retained values: a checkpoint log over the platform's flash,
+    /// not `mode = "none"`.
+    #[must_use]
+    pub fn persists(&self) -> bool {
+        self.persister.is_some()
+    }
+
     /// Captures the finished scan's retained values at the pre-output-sample checkpoint and offers
     /// them to the persister, so a save begins when the project's interval says it is due and the
     /// image changed (specification 34 §10, specification 11 §6.7).

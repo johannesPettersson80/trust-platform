@@ -159,6 +159,15 @@ where
         Ok(())
     }
 
+    /// Gives the metrics the memory figure of the program the loop runs now, which `status` reports
+    /// (specification 34 MEM-12).
+    pub(super) fn record_program_memory(&self) {
+        let memory = self.cycle.program_memory();
+        self.shell
+            .records
+            .record(|metrics| metrics.set_program_memory(memory));
+    }
+
     /// Gives the Live Values the installation generation of the program's state (specification 34
     /// STATE-08 and UPDATE-04). A restart that commits installs the next generation, and a request that
     /// names an instance by a bare identity belongs to the generation the Live Values carry when it is
@@ -185,6 +194,7 @@ where
                 let start = self.clock.now();
                 self.program_start = start;
                 self.shell.records.restart(self.clock.clone(), start);
+                self.record_program_memory();
                 // A program that starts again is a new resource thread: the debugger may hold it,
                 // though a stop ended the holds of the last one (specification 11 §6.9).
                 self.shell.debug.rearm();

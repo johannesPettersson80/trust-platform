@@ -12,6 +12,10 @@ pub struct BundleBuildReport {
     /// The program's deployment record: written next to it, or skipped with the reason when
     /// the runtime cannot prepare the program (specification 34 §5.1.1).
     pub deployment_record: crate::deployment::RecordWrite,
+    /// The program's memory figure on this computer (specification 34 MEM-12), with the capture of
+    /// the retained values when the project keeps them; `None` when the runtime cannot prepare the
+    /// program, which then has no record either.
+    pub program_memory: Option<crate::metrics::ProgramMemory>,
     /// Hash-bound OpenOT definition generated when the source set declares OpenOT data.
     pub openot_definition_path: Option<PathBuf>,
     /// Source files included in the build.

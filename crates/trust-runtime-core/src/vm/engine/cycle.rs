@@ -304,7 +304,7 @@ impl EngineState<'_> {
 /// retained global and each root's retained program variable whose type holds no reference and no
 /// instance, under the name it is written with and at the largest encoding of its type
 /// (specification 34 MEM-09; C1-19c). `None` on overflow.
-pub(super) fn retained_payload_bound(prepared: &PreparedModule) -> Option<usize> {
+pub(crate) fn retained_payload_bound(prepared: &PreparedModule) -> Option<usize> {
     // A variable whose value can hold a reference or an instance is left out of the payload.
     let entry = |key: usize, type_id: Option<u32>| -> Option<usize> {
         let Some(type_id) = type_id.filter(|&type_id| {

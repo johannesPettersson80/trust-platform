@@ -120,8 +120,26 @@ impl ChangeMemory {
         }
     }
 
-    /// The refusal of a program that needs more than the heap that remains for it.
-    fn needs_more(self) -> String {
+    /// The `insufficient memory` refusal of a program whose memory figure (specification 34 MEM-12)
+    /// is `needed` bytes, more than the heap that remains for it once its upload is freed: the room
+    /// less the reserve, with the upload's bytes. `None` when the figure fits.
+    #[must_use]
+    pub fn figure_refusal(self, needed: usize) -> Option<String> {
+        let available = self.available().saturating_add(self.bytes);
+        (needed > available).then(|| {
+            format!(
+                "insufficient memory: {} of {} bytes needs {needed} bytes of memory, more than \
+                 the {available} bytes of heap that remain for it once it is prepared ({} bytes \
+                 are free, {} are kept in reserve)",
+                self.subject, self.bytes, self.room, self.reserve,
+            )
+        })
+    }
+
+    /// The `insufficient memory` refusal of a program that needs more than the heap that remains
+    /// for it.
+    #[must_use]
+    pub fn needs_more(self) -> String {
         format!(
             "insufficient memory: {} of {} bytes needs more than the {} bytes of heap that remain \
              for it ({} bytes are free, {} are kept in reserve)",

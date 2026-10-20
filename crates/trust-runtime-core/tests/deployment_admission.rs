@@ -4,12 +4,12 @@
 
 use trust_runtime_core::bytecode::{BytecodeVersion, BYTECODE_MAX_CONTAINER_BYTES};
 use trust_runtime_core::deployment::{
-    admit, AdmissionRefusal, ApplicationIdentity, Capabilities, Contracts, DeploymentRecord,
-    DeviceDescriptor, ImportKind, LimitKind, NumericContract, ProcessImageSummary, RequestedLimits,
-    RequiredImport, SchedulingProfile, TimingEvidence,
+    admit, admit_memory, AdmissionRefusal, ApplicationIdentity, Capabilities, Contracts,
+    DeploymentRecord, DeviceDescriptor, ImportKind, LimitKind, NumericContract,
+    ProcessImageSummary, RequestedLimits, RequiredImport, SchedulingProfile, TimingEvidence,
 };
 use trust_runtime_core::error::{ImportRefusal, RuntimeError, StableErrorCode};
-use trust_runtime_core::vm::{PreparationLimits, PreparedModule, VM_MAX_CALL_DEPTH};
+use trust_runtime_core::vm::{MemoryFigure, PreparationLimits, PreparedModule, VM_MAX_CALL_DEPTH};
 
 const PROGRAM: &[u8] =
     include_bytes!("../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc");
@@ -75,6 +75,7 @@ fn a_computer_runs_source_free_stbc_with_the_engine_maxima() {
             event_store_default: 1_000,
             event_store_max: 1_000_000,
             application_slot_bytes: None,
+            program_memory_bytes: None,
         }
     );
 }
@@ -371,6 +372,49 @@ fn the_program_and_its_record_must_fit_the_application_slot() {
     assert_eq!(
         admit(&record, PROGRAM, &exact),
         Ok(PreparationLimits::default())
+    );
+}
+
+#[test]
+fn a_memory_figure_above_the_devices_program_memory_is_refused_with_both_numbers() {
+    // Specification 34 MEM-12 and §5.1.1: after preparation and before anything is constructed, a
+    // device refuses a program whose memory figure is more than the memory it has for programs,
+    // naming both numbers; a device without a maximum, a computer, admits every figure. Worked by
+    // hand: the parts 1,000 + 200 + 300 + 100 + 400 make 2,000 bytes, and 2,050 with the 50 bytes of
+    // the capture of the retained values, which count only when the runtime keeps them. The wrong
+    // behaviour: the capture counted for a program whose retained values are not kept (2,000 bytes
+    // refused on a device that has 2,000), a figure equal to the memory refused, or a computer that
+    // refuses a figure.
+    let figure = MemoryFigure {
+        program: 1_000,
+        persistent_block: 200,
+        activation_stack: 300,
+        operand_stack: 100,
+        engine: 400,
+        retain_capture: 50,
+    };
+    let device = |bytes| DeviceDescriptor {
+        program_memory_bytes: Some(bytes),
+        ..DeviceDescriptor::hosted()
+    };
+    assert_eq!(admit_memory(&figure, false, &device(2_000)), Ok(()));
+    assert_eq!(admit_memory(&figure, true, &device(2_050)), Ok(()));
+    let refused = admit_memory(&figure, true, &device(2_000)).unwrap_err();
+    assert_eq!(
+        refused,
+        RuntimeError::DeploymentRefused(AdmissionRefusal::Memory {
+            needed: 2_050,
+            available: 2_000,
+        })
+    );
+    assert_eq!(
+        refused.to_string(),
+        "deployment refused: the program needs 2050 bytes of memory, the device has 2000 for \
+         programs"
+    );
+    assert_eq!(
+        admit_memory(&figure, true, &DeviceDescriptor::hosted()),
+        Ok(())
     );
 }
 

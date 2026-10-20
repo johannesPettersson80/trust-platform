@@ -5,9 +5,10 @@ fn capabilities_answers_the_hosted_descriptor() {
     // has unqualified timing evidence and the wall clock, allows at most a 64 MiB artifact
     // (67,108,864 bytes) and 1,024 call levels, has no maximum for the other limits (`null`, since
     // a JSON number that large is rounded), keeps 1,000 events by default and admits at most
-    // 1,000,000, has no application slot, and starts as a new process, so its last reset is null.
-    // The wrong behaviours it catches: a computer that answers a chip's descriptor (200 events, a
-    // slot); a wrong maximum or a missing wall-clock capability; an unbounded limit written as a
+    // 1,000,000, has no application slot and no maximum of memory for programs (specification 34
+    // MEM-12), and starts as a new process, so its last reset is null. The wrong behaviours it
+    // catches: a computer that answers a chip's descriptor (200 events, a slot, a memory for
+    // programs); a wrong maximum or a missing wall-clock capability; an unbounded limit written as a
     // number; and a last reset reported on a computer.
     let state = hmi_test_state(
         r#"
@@ -45,6 +46,7 @@ END_PROGRAM
             "event_store_default": 1_000,
             "event_store_max": 1_000_000,
             "application_slot_bytes": null,
+            "program_memory_bytes": null,
             "last_reset": null,
         })),
         "a computer answers the hosted descriptor with no last reset"

@@ -43,7 +43,7 @@ use trust_runtime_core::ports::{
 use trust_runtime_core::retain::checkpoint::{CheckpointFlash, FlashError};
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::Duration;
-use trust_runtime_core::vm::PreparationLimits;
+use trust_runtime_core::vm::{PreparationLimits, PreparedModule};
 use trust_runtime_core::watchdog::{RetainMode, WatchdogPolicy};
 use trust_runtime_services::capabilities::{LastReset, ResetCauseName};
 use trust_runtime_services::chip::platform::status_settings;
@@ -382,6 +382,12 @@ impl Chip {
     /// A chip that booted without a program, as a chip with an erased store does, with the loader of the
     /// C6 and an empty flash.
     fn without_program() -> Self {
+        Self::booted(None)
+    }
+
+    /// A chip as [`Self::without_program`] builds it, whose firmware measured `program_memory` bytes for
+    /// programs at boot (specification 34 MEM-12), or none.
+    fn booted(program_memory: Option<usize>) -> Self {
         let link = TestLink::default();
         // The watchdog keeps the intervals the loader set; its list has room for them all, so that
         // the test's own bookkeeping does not grow the heap that the test measures.
@@ -412,7 +418,7 @@ impl Chip {
             claims: claims.clone(),
         };
         let loader = Esp32Loader::new(hardware, TestClock, MEMORY, room, Box::new(change_reader));
-        let platform = Platform::new(
+        let mut platform = Platform::new(
             dog.clone(),
             SmolStr::new_static("Controller"),
             status_settings(),
@@ -426,6 +432,9 @@ impl Chip {
             },
             runtime_id([0x20, 0x6E, 0xF1, 0x17, 0x04, 0xC0]),
         );
+        if let Some(bytes) = program_memory {
+            platform.set_program_memory(bytes);
+        }
         let runner = Runner::stopped(
             link.clone(),
             TestWait,
@@ -845,5 +854,49 @@ fn the_c6_refuses_an_install_whose_dry_run_does_not_fit_the_heap() {
         installed["result"]["sequence"],
         json!(1),
         "the refusal wrote nothing: the first commit takes the first sequence"
+    );
+}
+
+#[test]
+fn the_c6_refuses_an_install_whose_memory_figure_exceeds_its_program_memory() {
+    // Specification 34 MEM-12 and §5.1.1: the C6 measures the memory it has for programs at boot, and
+    // its install refuses, before any write, a program whose memory figure is more, naming both
+    // numbers. The new program keeps retained values, so the capture of them counts. The figure is the
+    // one preparation computes for the A4 program with the limits of its record, the default limits.
+    // A chip whose memory equals the figure installs the same container. Wrong behaviour caught: an
+    // install that skips the check, so that the chip runs out of heap when it loads the program; a
+    // refusal that writes the program store; and a figure equal to the memory refused.
+    let needed = PreparedModule::from_bytes(PROGRAM, PreparationLimits::default())
+        .expect("the A4 program prepares")
+        .memory_figure()
+        .total(true);
+    let configuration = || retaining(vec![gpio(&["GPIO9"], &["GPIO18"])]);
+    arm();
+    TestClock::set(0);
+    let mut tight = Chip::booted(Some(needed - 1));
+    let refused = tight.install(&container(configuration()));
+    assert_eq!(refused["ok"], json!(false), "{refused}");
+    assert_eq!(
+        refused["error"],
+        json!(format!(
+            "deployment refused: the program needs {needed} bytes of memory, the device has {} for \
+             programs",
+            needed - 1
+        ))
+    );
+    let capabilities = tight.call(&json!({"id": 3, "type": "capabilities"}));
+    assert_eq!(
+        capabilities["result"]["program_memory_bytes"],
+        json!(needed - 1),
+        "the chip reports the memory it measured"
+    );
+
+    let mut exact = Chip::booted(Some(needed));
+    let installed = exact.install(&container(configuration()));
+    assert_eq!(installed["ok"], json!(true), "{installed}");
+    assert_eq!(
+        installed["result"]["sequence"],
+        json!(1),
+        "the first commit takes the first sequence"
     );
 }

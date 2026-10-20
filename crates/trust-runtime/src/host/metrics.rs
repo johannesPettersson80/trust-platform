@@ -9,7 +9,7 @@ use std::time::Instant;
 
 pub use trust_runtime_services::metrics::{
     BudgetContributorSnapshot, CallStats, CallStatsSnapshot, CyclePercentilesSnapshot, CycleStats,
-    ProfilingSnapshot, RuntimeMetricsSnapshot, TaskStats, TaskStatsSnapshot,
+    ProfilingSnapshot, ProgramMemory, RuntimeMetricsSnapshot, TaskStats, TaskStatsSnapshot,
 };
 
 /// The host's monotonic clock: the time since the clock was created.

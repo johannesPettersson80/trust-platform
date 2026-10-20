@@ -39,7 +39,7 @@ use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-use trust_runtime_core::deployment::Configuration;
+use trust_runtime_core::deployment::{admit_memory, Configuration};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::{CheckpointStore, HardwareWatchdog, MonotonicClock};
 use trust_runtime_core::retain::checkpoint::{CheckpointFlash, CheckpointIdentity};
@@ -51,13 +51,14 @@ use trust_runtime_services::chip::platform::ProgramValues;
 use trust_runtime_services::chip::process_io::record_lines;
 use trust_runtime_services::installation::Admitted;
 use trust_runtime_services::loading::select::Booted;
+use trust_runtime_services::ports::StatusPort;
 use trust_runtime_services::runner::engine::{
     device_limits, CycleSettings, DeviceMemory, DeviceServices, ProcessIo,
 };
 use trust_runtime_services::runner::{
-    address_text, check_install, newest_checkpoint, newest_checkpoint_payload_len,
-    prepare_candidate, unwired_binding, Candidate, EngineLiveValues, Loaded, ProgramLoader,
-    ResourceCycle, RetainConfig, RetainSource,
+    address_text, check_install, event_store_bytes, newest_checkpoint,
+    newest_checkpoint_payload_len, prepare_candidate, unwired_binding, Candidate, EngineLiveValues,
+    Loaded, ProgramLoader, ResourceCycle, RetainConfig, RetainSource,
 };
 
 use crate::platform::Platform;
@@ -111,6 +112,23 @@ pub trait CycleWatchdog {
 /// bytes, rounded up to 8 KiB. The host's pointers are 64 bits wide and the C6's 32, so the host's
 /// figures are the larger ones; the bench replaces them (specification 34, Appendix D.2).
 pub const ONLINE_CHANGE_WORKING_MEMORY_BYTES: usize = 8 * 1024;
+
+/// The memory the C6 has for a program (specification 34 MEM-12, Appendix D.2), which its descriptor
+/// reports and its admission compares a program's memory figure with: the heap's `free` bytes before
+/// any program is loaded, with the `container` bytes of the installed program, which the load frees
+/// once the program is prepared, less what the chip keeps for the machine beside any program. That is
+/// the working memory of an online change ([`ONLINE_CHANGE_WORKING_MEMORY_BYTES`]), which also holds
+/// the program's Live Values and services; the event store at the C6's maximum of events; and the
+/// checkpoint store's payload buffer and the warm start's read of the newest checkpoint, each the
+/// `largest_payload` that a checkpoint slot takes.
+#[must_use]
+pub fn program_memory_bytes(free: usize, container: usize, largest_payload: usize) -> usize {
+    let events = usize::try_from(DEVICE_DESCRIPTOR.event_store_max).unwrap_or(usize::MAX);
+    let machine = ONLINE_CHANGE_WORKING_MEMORY_BYTES
+        .saturating_add(event_store_bytes(events))
+        .saturating_add(largest_payload.saturating_mul(2));
+    free.saturating_add(container).saturating_sub(machine)
+}
 
 /// The bytes of the heap that a change keeps free (specification 34 §11.3): the working memory,
 /// [`ONLINE_CHANGE_WORKING_MEMORY_BYTES`], always, and, when the record of the program that runs keeps
@@ -261,6 +279,15 @@ where
             .map_err(|error| format!("the installed application cannot be prepared: {error}"))?;
         drop(program);
         platform.feed();
+        // Its memory figure fits the memory the C6 has for programs, before anything of it is
+        // constructed (specification 34 MEM-12).
+        let retains = config.retain_mode == RetainMode::File;
+        admit_memory(
+            &prepared.memory_figure(),
+            retains,
+            &platform.device_descriptor(),
+        )
+        .map_err(|error| format!("the installed application cannot be loaded: {error}"))?;
         let live = live_values(&prepared).map_err(|error| {
             format!("the installed application's Live Values cannot be prepared: {error}")
         })?;
@@ -273,7 +300,6 @@ where
             ));
         }
         platform.feed();
-        let retains = config.retain_mode == RetainMode::File;
         let retain = if retains {
             Some(self.retain_config(&config, identity)?)
         } else {
@@ -339,6 +365,11 @@ where
         let reserve = online_change_reserve(retains, &mut *self.checkpoints);
         let (prepared, budget) = prepare_candidate(program, self.memory, (self.room)(), reserve)?;
         platform.feed();
+        // Its memory figure fits the heap that remains for it beside the running program
+        // (specification 34 MEM-12).
+        if let Some(refusal) = budget.figure_refusal(prepared.memory_figure().total(retains)) {
+            return Err(refusal);
+        }
 
         // The candidate's bindings are checked against the lines of the running program's record.
         let (inputs, outputs) = record_lines(&record.config, "C6")?;
@@ -369,6 +400,9 @@ where
         // program, whenever it is dropped.
         let io = self.hardware.claim_lines(&Configuration::default())?;
         let settings = running.settings().clone();
+        let retained_payload = prepared
+            .retained_payload_bytes()
+            .map_err(|error| budget.refusal(&error))?;
         let (mut cycle, events) = ProgramMemory::replace(
             running,
             prepared,
@@ -385,6 +419,13 @@ where
         cycle
             .check_safe_outputs()
             .map_err(|error| error.to_string())?;
+
+        // The checkpoint store, which the commit hands the candidate, gets room for the candidate's
+        // retained values now, so that the candidate's first capture grows nothing (specification 34
+        // MEM-09).
+        running
+            .reserve_retain(retained_payload)
+            .map_err(|_| budget.needs_more())?;
 
         // A client that names an instance by its identity after the change names the generation that
         // the change installed.

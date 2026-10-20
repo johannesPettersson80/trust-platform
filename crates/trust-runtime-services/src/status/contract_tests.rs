@@ -124,6 +124,7 @@ fn status_reports_identity_modes_settings_and_platform_blocks() {
             "overruns": 0,
             "faults": 0,
             "scan_allocations": null,
+            "program_memory": null,
             "profiling": {"enabled": false, "top": []},
             "execution_backend": "vm",
         })
@@ -149,6 +150,53 @@ fn status_reports_the_scans_allocation_count_and_null_when_none_was_counted() {
         result(status(2, &host))["metrics"]["scan_allocations"],
         json!({"engine": 0, "services": 7})
     );
+}
+
+#[test]
+fn status_reports_the_programs_memory_figure_and_null_without_a_program() {
+    // Specification 34 MEM-12 and specification 11 §6.8.1: `metrics.program_memory` gives the
+    // memory figure of the program the runtime runs, as a whole and part by part, and `null` while
+    // it runs none. Worked by hand from the parts of the A4 program on a 64-bit host: 18,232 +
+    // 460 + 5,418 + 2,158 + 3,838 = 30,106 bytes when the runtime keeps no retained values, whose
+    // capture is then 0, and 30,106 + 86 = 30,192 when it keeps them. The wrong behaviour: the
+    // capture counted for a runtime that keeps no retained values, a part reported under another's
+    // name, or a figure of zero for a runtime without a program.
+    let figure = trust_runtime_core::vm::MemoryFigure {
+        program: 18_232,
+        persistent_block: 460,
+        activation_stack: 5_418,
+        operand_stack: 2_158,
+        engine: 3_838,
+        retain_capture: 86,
+    };
+    let mut host = FakeHost::running();
+    assert_eq!(
+        result(status(1, &host))["metrics"]["program_memory"],
+        Value::Null
+    );
+    host.metrics.program_memory = Some(crate::metrics::ProgramMemory {
+        figure,
+        retains: false,
+    });
+    assert_eq!(
+        result(status(2, &host))["metrics"]["program_memory"],
+        json!({
+            "bytes": 30_106,
+            "program": 18_232,
+            "persistent_block": 460,
+            "activation_stack": 5_418,
+            "operand_stack": 2_158,
+            "engine": 3_838,
+            "retain_capture": 0,
+        })
+    );
+    host.metrics.program_memory = Some(crate::metrics::ProgramMemory {
+        figure,
+        retains: true,
+    });
+    let memory = result(status(3, &host))["metrics"]["program_memory"].clone();
+    assert_eq!(memory["bytes"], json!(30_192));
+    assert_eq!(memory["retain_capture"], json!(86));
 }
 
 #[test]

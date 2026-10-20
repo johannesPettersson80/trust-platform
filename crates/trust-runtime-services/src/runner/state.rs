@@ -151,6 +151,17 @@ impl<C: MonotonicClock> MonotonicClock for ProgramClock<C> {
     }
 }
 
+/// The bytes of heap an event store of `capacity` events takes: one slot for each event and the
+/// spare slot that lets the newest displace the oldest without a reallocation, as the runner
+/// reserves it. A chip keeps them beside the memory it has for programs (specification 34 MEM-12,
+/// Appendix D).
+#[must_use]
+pub fn event_store_bytes(capacity: usize) -> usize {
+    capacity
+        .saturating_add(1)
+        .saturating_mul(core::mem::size_of::<RuntimeEvent>())
+}
+
 /// The metrics and the event store of the program.
 pub(super) struct Records<C> {
     metrics: RefCell<RuntimeMetrics<ProgramClock<C>>>,
@@ -240,5 +251,36 @@ impl<C: MonotonicClock> Records<C> {
     ) -> Option<R> {
         let events = self.events.try_borrow().ok()?;
         Some(read(&events))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A clock that never moves.
+    #[derive(Clone)]
+    struct Still;
+
+    impl MonotonicClock for Still {
+        fn now(&self) -> MonotonicInstant {
+            MonotonicInstant::from_origin(core::time::Duration::ZERO)
+        }
+    }
+
+    #[test]
+    fn the_event_store_takes_the_bytes_a_chip_keeps_for_it() {
+        // Specification 34 MEM-12 and Appendix D: a chip keeps `event_store_bytes(capacity)` beside
+        // the memory it has for programs, so the store takes no more. Worked by hand: a store of 200
+        // events holds 201 slots, the spare one letting the newest event displace the oldest without
+        // a reallocation. The wrong behaviour: a store that reserves more than the chip keeps for it,
+        // which a program at the edge of the chip's memory would find missing when it starts.
+        let records = Records::new(Still, Still.now(), 200);
+        let slots = records.events.borrow().capacity();
+        assert_eq!(slots, 201);
+        assert_eq!(
+            event_store_bytes(200),
+            slots * core::mem::size_of::<RuntimeEvent>()
+        );
     }
 }

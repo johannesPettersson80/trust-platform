@@ -14,7 +14,9 @@ use std::cell::Cell;
 
 use smol_str::SmolStr;
 use support::{booted, configuration, Dog, Hardware, TestClock, PROBE, PROGRAM};
-use trust_platform_esp32::loader::{Esp32Loader, ONLINE_CHANGE_WORKING_MEMORY_BYTES};
+use trust_platform_esp32::loader::{
+    program_memory_bytes, Esp32Loader, ONLINE_CHANGE_WORKING_MEMORY_BYTES,
+};
 use trust_platform_esp32::profile::runtime_id;
 use trust_platform_esp32::Platform;
 use trust_runtime_core::bytecode::{BytecodeModule, ValidationLimits};
@@ -25,6 +27,7 @@ use trust_runtime_core::value::Value;
 use trust_runtime_core::watchdog::RetainMode;
 use trust_runtime_services::capabilities::{LastReset, ResetCauseName};
 use trust_runtime_services::chip::platform::status_settings;
+use trust_runtime_services::events::RuntimeEvent;
 use trust_runtime_services::runner::engine::DeviceMemory;
 use trust_runtime_services::runner::{EngineLiveValues, Loaded, ProgramLoader};
 
@@ -296,4 +299,24 @@ fn the_c6_words_a_validation_limit_as_insufficient_memory_with_the_chips_numbers
              in reserve)"
         )
     );
+}
+
+#[test]
+fn the_c6_has_for_programs_its_free_heap_less_what_it_keeps_for_the_machine() {
+    // Specification 34 MEM-12 and Appendix D.2: the C6's memory for programs is the heap's free bytes
+    // before any program is loaded, with the installed program's bytes, which the load frees, less the
+    // working memory of an online change (8,192 bytes), the event store at the C6's maximum of 200
+    // events (201 slots) and twice the largest payload that a checkpoint slot takes (16,300 bytes: the
+    // checkpoint store's buffer and the warm start's read of the newest checkpoint). Worked by hand
+    // with 120,000 bytes free and a program of 6,412 bytes: 120,000 + 6,412 - 8,192 - 2 x 16,300 =
+    // 85,620 bytes, less the 201 slots. The wrong behaviour: the program's own bytes left out (a
+    // program that fits refused), or the checkpoint's read or the event store left out (a program
+    // admitted that the warm start or the loop could not then start).
+    let slots = 201 * std::mem::size_of::<RuntimeEvent>();
+    assert_eq!(
+        program_memory_bytes(120_000, 6_412, LARGEST_PAYLOAD),
+        85_620 - slots
+    );
+    // A heap that holds less than the chip keeps for the machine leaves no memory for programs.
+    assert_eq!(program_memory_bytes(10_000, 0, LARGEST_PAYLOAD), 0);
 }
