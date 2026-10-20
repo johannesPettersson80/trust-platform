@@ -2,7 +2,7 @@
 //! Plans are compiled before installation; execution never lowers bytecode.
 #![cfg_attr(any(test, feature = "test-support"), allow(missing_docs))]
 use super::call::continuation::NativeCall;
-use super::call::{prepare_native_call, push_call_frame_with_reserved_payload};
+use super::call::push_call_frame_with_reserved_payload;
 use super::dispatch_refs::{
     dynamic_load_ref, dynamic_ref_field, dynamic_ref_field_borrowed, dynamic_ref_index,
     dynamic_store_ref, index_to_i64, load_ref, load_ref_addr, peek_ref_view, store_ref,
@@ -89,6 +89,15 @@ pub enum RegisterInstr {
         symbol_idx: u32,
         args: Vec<RegisterId>,
         dest: RegisterId,
+        /// The offset in the module's code of the call's `CALL_NATIVE`, which names the call's
+        /// prepared plan and, for a built-in text function, its operands (C1-20).
+        pc: u32,
+    },
+    /// The `POP` (opcode 0x12) of a register that no operand left on the stack names: its operand
+    /// is dropped, and a text's or a copy's room is given back where the stack's pop gives it back
+    /// (C1-20). It costs nothing; the pop's unit is charged with the next instruction.
+    Drop {
+        register: RegisterId,
     },
     SizeOfType {
         type_idx: u32,
@@ -274,6 +283,7 @@ pub fn prepare_register_file(registers: &mut Vec<Value>, max_registers: usize) {
 }
 
 mod activation;
+mod calls;
 mod configuration;
 pub mod environment;
 mod interpreter;

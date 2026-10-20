@@ -134,6 +134,9 @@ pub fn verify_register_program(program: &RegisterProgram) -> Result<(), RuntimeE
                 RegisterInstr::StoreRef { src, .. } => {
                     verify_src(src, &defined)?;
                 }
+                RegisterInstr::Drop { register } => {
+                    verify_src(register, &defined)?;
+                }
                 RegisterInstr::Jump { target } => verify_target(target, &known_blocks)?,
                 RegisterInstr::JumpIf { cond, target, .. } => {
                     verify_src(cond, &defined)?;

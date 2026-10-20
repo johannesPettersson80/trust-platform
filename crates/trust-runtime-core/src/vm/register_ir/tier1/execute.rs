@@ -1,3 +1,4 @@
+use super::super::calls::{call_native, drop_register, CallStep, NativeCallSite};
 use super::super::operands::{
     compare_registers, compares_operands, load_constant_value, load_reference, move_register,
     settle_register_places, store_register,
@@ -119,57 +120,32 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                 symbol_idx,
                 args,
                 dest,
+                pc,
             } => {
-                settle_register_places(runtime, registers, None)?;
-                registers.truncate_to_registers();
-                for arg in args.iter() {
-                    let value = checked_read_register_with_counts(
-                        runtime,
-                        registers,
-                        remaining_register_reads,
-                        *arg,
-                    )?;
-                    registers.push(value).map_err(VmTrap::into_runtime_error)?;
-                }
-                let arg_count = u32::try_from(args.len())
-                    .map_err(|_| invalid_bytecode("tier-1 call-native arg_count overflow"))?;
-                let frame = frames
-                    .current_mut()
-                    .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
-                let prepared = prepare_native_call(
+                let site = NativeCallSite {
+                    kind: *kind,
+                    symbol_idx: *symbol_idx,
+                    args,
+                    dest: *dest,
+                    pc: *pc,
+                };
+                if let CallStep::User(call) = call_native(
                     runtime,
                     module,
-                    frame,
+                    frames,
                     registers,
-                    *kind,
-                    *symbol_idx,
-                    arg_count,
-                )
-                .map_err(VmTrap::into_runtime_error)?;
-                match prepared {
-                    NativeCall::Immediate(value) => {
-                        runtime.check_execution_deadline()?;
-                        write_register(registers, *dest, value)?;
-                    }
-                    NativeCall::User(call) => {
-                        if !crate::vm::dispatch::leaf_call_ready(runtime, call.pou_id) {
-                            return Ok(super::super::RegisterBlockStep::Call {
-                                call,
-                                destination: *dest,
-                                next_instruction: instruction_index + 1,
-                            });
-                        }
-                        let value = crate::vm::dispatch::execute_leaf_call(
-                            runtime,
-                            module,
-                            frames,
-                            depth_offset,
-                            call,
-                        )?;
-                        write_register(registers, *dest, value)?;
-                    }
+                    remaining_register_reads,
+                    &site,
+                    depth_offset,
+                )? {
+                    return Ok(super::super::RegisterBlockStep::Call {
+                        call,
+                        destination: *dest,
+                        next_instruction: instruction_index + 1,
+                    });
                 }
             }
+            Tier1CompiledInstr::Drop { register } => drop_register(registers, *register)?,
             Tier1CompiledInstr::LoadRef { dest, ref_idx } => {
                 runtime
                     .register_profile_mut()

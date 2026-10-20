@@ -222,6 +222,40 @@ impl OperandStack {
         self.truncate(self.floor);
     }
 
+    /// Read the enumerations and the copies above the registers, and the places too when `places`,
+    /// into the values they stand for, as the stack's call reads its operands (C1-19a, C1-19b):
+    /// `place_value`, `enum_value` and `copy_value` read them. A copy's room is given back.
+    ///
+    /// # Errors
+    ///
+    /// The first error of a read; the operands before it are values then, and the rest stay.
+    pub(crate) fn read_call_operands(
+        &mut self,
+        places: bool,
+        mut place_value: impl FnMut(Place) -> Result<Value, RuntimeError>,
+        mut enum_value: impl FnMut(EnumTemp) -> Result<Value, RuntimeError>,
+        mut copy_value: impl FnMut(&[u8], u32) -> Result<Value, RuntimeError>,
+    ) -> Result<(), RuntimeError> {
+        for index in self.floor..self.values.len() {
+            let value = match &self.values[index] {
+                Operand::Place(place) if places => place_value(*place)?,
+                Operand::Enum(temp) => enum_value(*temp)?,
+                Operand::Copy(temp) => {
+                    let temp = *temp;
+                    let bytes = self
+                        .copy_bytes(temp)
+                        .map_err(|_| RuntimeError::InvalidExecutionState)?;
+                    copy_value(bytes, temp.type_id)?
+                }
+                _ => continue,
+            };
+            let operand = core::mem::replace(&mut self.values[index], Operand::Value(value));
+            self.count_out(&operand);
+        }
+        self.forget_temps();
+        Ok(())
+    }
+
     /// Push `operand` above the registers, counting its form: an argument of a call.
     pub(crate) fn push_any(&mut self, operand: Operand) -> Result<(), VmTrap> {
         if self.values.len() - self.floor >= VM_MAX_OPERAND_STACK {

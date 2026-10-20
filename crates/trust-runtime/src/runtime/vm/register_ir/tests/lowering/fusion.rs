@@ -337,6 +337,7 @@ fn register_ir_fuse_instruction_read_detection_covers_all_operands() {
             symbol_idx: 0,
             args: vec![other, target],
             dest: third,
+            pc: 0,
         },
         RegisterInstr::SizeOfValue {
             src: target,

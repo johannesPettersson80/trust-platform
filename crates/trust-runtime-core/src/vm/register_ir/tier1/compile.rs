@@ -47,11 +47,16 @@ pub fn compile_tier1_block(
                 symbol_idx,
                 args,
                 dest,
+                pc,
             } => Tier1CompiledInstr::CallNative {
                 kind: *kind,
                 symbol_idx: *symbol_idx,
                 args: args.clone().into_boxed_slice(),
                 dest: *dest,
+                pc: *pc,
+            },
+            RegisterInstr::Drop { register } => Tier1CompiledInstr::Drop {
+                register: *register,
             },
             RegisterInstr::LoadRef { dest, ref_idx } => Tier1CompiledInstr::LoadRef {
                 dest: *dest,

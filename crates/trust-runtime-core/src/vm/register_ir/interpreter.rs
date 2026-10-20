@@ -1,3 +1,4 @@
+use super::calls::{call_native, drop_register, CallStep, NativeCallSite};
 use super::operands::{
     compare_registers, compares_operands, load_constant, load_reference, move_register,
     settle_register_places, store_register,
@@ -196,57 +197,32 @@ pub(super) fn execute_register_block_interpreted_slice(
                 symbol_idx,
                 args,
                 dest,
+                pc,
             } => {
-                settle_register_places(runtime, registers, None)?;
-                registers.truncate_to_registers();
-                for arg in args {
-                    let value = checked_read_register_with_counts(
-                        runtime,
-                        registers,
-                        remaining_register_reads,
-                        *arg,
-                    )?;
-                    registers.push(value).map_err(VmTrap::into_runtime_error)?;
-                }
-                let arg_count = u32::try_from(args.len())
-                    .map_err(|_| invalid_bytecode("register-ir executor arg_count overflow"))?;
-                let frame = frames
-                    .current_mut()
-                    .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
-                let prepared = prepare_native_call(
+                let site = NativeCallSite {
+                    kind: *kind,
+                    symbol_idx: *symbol_idx,
+                    args,
+                    dest: *dest,
+                    pc: *pc,
+                };
+                if let CallStep::User(call) = call_native(
                     runtime,
                     module,
-                    frame,
+                    frames,
                     registers,
-                    *kind,
-                    *symbol_idx,
-                    arg_count,
-                )
-                .map_err(VmTrap::into_runtime_error)?;
-                match prepared {
-                    NativeCall::Immediate(value) => {
-                        runtime.check_execution_deadline()?;
-                        write_register(registers, *dest, value)?;
-                    }
-                    NativeCall::User(call) => {
-                        if !crate::vm::dispatch::leaf_call_ready(runtime, call.pou_id) {
-                            return Ok(RegisterBlockStep::Call {
-                                call,
-                                destination: *dest,
-                                next_instruction: instruction_index + 1,
-                            });
-                        }
-                        let value = crate::vm::dispatch::execute_leaf_call(
-                            runtime,
-                            module,
-                            frames,
-                            depth_offset,
-                            call,
-                        )?;
-                        write_register(registers, *dest, value)?;
-                    }
+                    remaining_register_reads,
+                    &site,
+                    depth_offset,
+                )? {
+                    return Ok(RegisterBlockStep::Call {
+                        call,
+                        destination: *dest,
+                        next_instruction: instruction_index + 1,
+                    });
                 }
             }
+            RegisterInstr::Drop { register } => drop_register(registers, *register)?,
             RegisterInstr::SizeOfType { type_idx, dest } => {
                 let size = crate::vm::sizeof_type_from_table_with_abi(
                     module.types(),

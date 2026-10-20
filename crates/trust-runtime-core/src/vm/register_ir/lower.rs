@@ -222,11 +222,15 @@ pub fn lower_pou_to_register_ir(
                     let args = stack.split_off(split);
                     let dest = alloc_register(&mut next_register);
                     stack.push(dest);
+                    let pc = u32::try_from(instr.pc).map_err(|_| {
+                        invalid_bytecode("register-ir lowering CALL_NATIVE offset overflow")
+                    })?;
                     instructions.push(RegisterInstr::CallNative {
                         kind,
                         symbol_idx,
                         args,
                         dest,
+                        pc,
                     });
                 }
                 0x10 => {
@@ -242,7 +246,15 @@ pub fn lower_pou_to_register_ir(
                     stack.push(top);
                 }
                 0x12 => {
-                    let _ = pop_stack(&mut stack, instr.opcode)?;
+                    let register = pop_stack(&mut stack, instr.opcode)?;
+                    // A register the stack still names below (a `DUP`'s) stays; any other is
+                    // dropped where the stack's pop drops its operand (C1-20). The drop costs
+                    // nothing: the pop's unit stays pending for the next instruction.
+                    if !stack.contains(&register) {
+                        instructions.push(RegisterInstr::Drop { register });
+                        instruction_costs.resize(instructions.len(), 0);
+                        continue;
+                    }
                 }
                 0x13 => {
                     if stack.len() < 2 {

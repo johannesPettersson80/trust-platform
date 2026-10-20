@@ -110,6 +110,7 @@ pub(super) fn for_each_instruction_register_read(
             visit(*cond);
         }
         RegisterInstr::Nop
+        | RegisterInstr::Drop { .. }
         | RegisterInstr::LoadConst { .. }
         | RegisterInstr::LoadRef { .. }
         | RegisterInstr::LoadRefAddr { .. }

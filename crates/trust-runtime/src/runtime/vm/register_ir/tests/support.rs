@@ -389,6 +389,9 @@ fn execute_register_subset(
                 RegisterInstr::LoadNull { dest } => {
                     write_register_value(&mut registers, *dest, Value::Null)?;
                 }
+                RegisterInstr::Drop { register } => {
+                    write_register_value(&mut registers, *register, Value::Null)?;
+                }
                 RegisterInstr::LoadSelf { .. } => {
                     return Err(invalid_bytecode(
                         "parity register executor does not support LOAD_SELF",

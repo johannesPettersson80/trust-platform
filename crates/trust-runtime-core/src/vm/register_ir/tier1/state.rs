@@ -38,6 +38,10 @@ pub enum Tier1CompiledInstr {
         symbol_idx: u32,
         args: Box<[RegisterId]>,
         dest: RegisterId,
+        pc: u32,
+    },
+    Drop {
+        register: RegisterId,
     },
     LoadRef {
         dest: RegisterId,
