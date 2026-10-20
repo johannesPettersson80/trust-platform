@@ -312,6 +312,14 @@ impl RuntimeState<'_> {
         self.data.fault_record
     }
 
+    /// The allocator operations the engine made itself in the last scan, the calls it made into
+    /// services not counted; `None` when the platform does not count them (specification 34, "The
+    /// allocation count").
+    #[must_use]
+    pub fn last_scan_allocations(&self) -> Option<u64> {
+        self.data.resources.scan_allocations.last()
+    }
+
     /// Record a platform failure in the common execution fault latch, together with its
     /// fixed-size record.
     pub fn latch_fault(&mut self, error: RuntimeError) {

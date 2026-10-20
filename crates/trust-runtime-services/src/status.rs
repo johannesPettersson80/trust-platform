@@ -292,6 +292,10 @@ fn metrics_json(metrics: &RuntimeMetricsSnapshot, execution_backend: &str) -> se
         },
         "overruns": metrics.overruns,
         "faults": metrics.faults,
+        "scan_allocations": metrics.scan_allocations.map(|count| json!({
+            "engine": count.engine,
+            "services": count.services,
+        })),
         "profiling": {
             "enabled": metrics.profiling.enabled,
             "top": top_contributors_json(metrics),

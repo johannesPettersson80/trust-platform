@@ -19,6 +19,7 @@ use alloc::format;
 use core::mem::size_of;
 
 mod admission;
+pub(super) mod output_journal;
 pub(super) mod staging;
 mod texts;
 

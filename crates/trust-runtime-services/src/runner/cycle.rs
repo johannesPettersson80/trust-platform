@@ -113,6 +113,19 @@ pub trait ResourceCycle {
         observer: &mut dyn CycleHooks,
     ) -> Result<(), RuntimeError>;
 
+    /// The allocator operations the thread that runs the scans has made so far, each allocation,
+    /// reallocation and free once, as the platform counts them; `None` when it does not
+    /// (specification 34, "The allocation count"). Reading it allocates nothing.
+    fn allocator_operations(&self) -> Option<u64> {
+        None
+    }
+
+    /// The allocator operations the engine made itself in the last scan, its calls into the
+    /// services not counted; `None` when they were not counted.
+    fn last_scan_allocations(&self) -> Option<u64> {
+        None
+    }
+
     /// Latches `fault` in the engine: no further scan runs and no normal outputs are committed
     /// until a restart (STATE-04).
     fn latch_fault(&mut self, fault: RuntimeError);

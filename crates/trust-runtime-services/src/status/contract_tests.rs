@@ -123,9 +123,31 @@ fn status_reports_identity_modes_settings_and_platform_blocks() {
             },
             "overruns": 0,
             "faults": 0,
+            "scan_allocations": null,
             "profiling": {"enabled": false, "top": []},
             "execution_backend": "vm",
         })
+    );
+}
+
+#[test]
+fn status_reports_the_scans_allocation_count_and_null_when_none_was_counted() {
+    // Specification 34, "The allocation count", and specification 11 §6.8.1: `metrics.
+    // scan_allocations` gives the engine's and the services' totals, and `null` while no scan was
+    // counted, never zero. The wrong behaviour: a zero for a count that does not exist, or the two
+    // totals swapped.
+    let mut host = FakeHost::running();
+    assert_eq!(
+        result(status(1, &host))["metrics"]["scan_allocations"],
+        Value::Null
+    );
+    host.metrics.scan_allocations = Some(crate::metrics::ScanAllocations {
+        engine: 0,
+        services: 7,
+    });
+    assert_eq!(
+        result(status(2, &host))["metrics"]["scan_allocations"],
+        json!({"engine": 0, "services": 7})
     );
 }
 

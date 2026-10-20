@@ -660,3 +660,32 @@ fn restart_clears_every_record_and_measures_uptime_with_the_new_clock() {
     assert_eq!(snapshot.cycle_percentiles.window_samples, 1);
     assert_eq!(snapshot.cycle_percentiles.max_ms, 4.0);
 }
+
+#[test]
+fn scan_allocations_add_up_from_none_and_a_restart_clears_them() {
+    // Specification 34, "The allocation count": the metrics report no count until a scan is counted,
+    // then the totals of every counted scan, and a restart starts them again. Worked by hand: scans
+    // of 0 + 0 and 2 + 5 operations give an engine total of 2 and a services total of 5. The wrong
+    // behaviour: a zero reported for scans that were never counted, the last scan reported instead
+    // of the total, or the totals kept across a restart.
+    let mut metrics = metrics();
+    assert_eq!(metrics.snapshot().scan_allocations, None);
+    metrics.record_scan_allocations(0, 0);
+    assert_eq!(
+        metrics.snapshot().scan_allocations,
+        Some(ScanAllocations {
+            engine: 0,
+            services: 0
+        })
+    );
+    metrics.record_scan_allocations(2, 5);
+    assert_eq!(
+        metrics.snapshot().scan_allocations,
+        Some(ScanAllocations {
+            engine: 2,
+            services: 5
+        })
+    );
+    metrics.restart(StoppedClock);
+    assert_eq!(metrics.snapshot().scan_allocations, None);
+}

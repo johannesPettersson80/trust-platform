@@ -719,7 +719,14 @@ impl EngineState<'_> {
     /// staging is still charged as before (TIME-08); only the allocation goes.
     pub(super) fn reserve_execution_scratch(&mut self) -> Result<(), RuntimeError> {
         let plan = ScratchPlan::of(self.prepared)?;
-        self.charge_allocation_bytes(plan.bytes().ok_or(RuntimeError::Overflow)?)?;
+        // With the plan, the copy of the output image that a publication to output hooks keeps
+        // (C1-19f).
+        let output_copy = self.data.images.outputs.len();
+        self.charge_allocation_bytes(
+            plan.bytes()
+                .and_then(|bytes| bytes.checked_add(output_copy))
+                .ok_or(RuntimeError::Overflow)?,
+        )?;
         let refused = |_| VmTrap::BudgetExceeded.into_runtime_error();
         let mut buffers = ExecutionBuffers::default();
         buffers
@@ -789,6 +796,7 @@ impl EngineState<'_> {
         resources
             .staging
             .reserve(plan.staging, &self.prepared.io_bindings)?;
+        resources.staging.reserve_output_copy(output_copy)?;
         let construction = &mut self.data.construction;
         construction
             .initializers

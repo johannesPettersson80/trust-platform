@@ -47,7 +47,8 @@ use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::{RestartMode, RetainSnapshot};
 use trust_runtime_core::value::{Duration, Value};
 use trust_runtime_core::vm::{
-    CycleAccess, CycleHooks, CyclePhase, PreparedModule, RetainApplyEvent, RuntimeState,
+    CycleAccess, CycleHooks, CyclePhase, ExecutionServices, PreparedModule, RetainApplyEvent,
+    RuntimeState,
 };
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
@@ -247,6 +248,14 @@ impl<C: MonotonicClock, I: ProcessIo, M> ResourceCycle for EngineCycle<'_, C, I,
 
     fn fault_policy(&self) -> FaultPolicy {
         self.settings.fault_policy
+    }
+
+    fn allocator_operations(&self) -> Option<u64> {
+        self.services.allocator_operations()
+    }
+
+    fn last_scan_allocations(&self) -> Option<u64> {
+        self.state.last_scan_allocations()
     }
 
     fn held_time(&self) -> TimeSpan {

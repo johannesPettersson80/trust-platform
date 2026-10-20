@@ -96,6 +96,20 @@ impl<Y: ResourceCycle> ResourceCycle for Program<Y> {
         }
     }
 
+    fn allocator_operations(&self) -> Option<u64> {
+        match self {
+            Self::Installed(cycle) => cycle.allocator_operations(),
+            Self::Missing(_) => None,
+        }
+    }
+
+    fn last_scan_allocations(&self) -> Option<u64> {
+        match self {
+            Self::Installed(cycle) => cycle.last_scan_allocations(),
+            Self::Missing(_) => None,
+        }
+    }
+
     fn latch_fault(&mut self, fault: RuntimeError) {
         if let Self::Installed(cycle) = self {
             cycle.latch_fault(fault);

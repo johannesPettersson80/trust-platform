@@ -53,6 +53,9 @@ pub struct DeviceServices<C> {
     /// The health of the process I/O, which the cycle publishes after it reads the inputs while
     /// debugging is live, for a hold to report (the cycle is borrowed whole by the scan).
     drivers: Cell<Vec<IoDriverStatus>>,
+    /// The platform's count of its allocator operations, which the engine reads around a scan
+    /// (specification 34, "The allocation count"); `None` on a device that does not count.
+    allocator_operations: Option<fn() -> u64>,
 }
 
 impl<C> DeviceServices<C> {
@@ -68,7 +71,16 @@ impl<C> DeviceServices<C> {
             statements: Cell::new(None),
             hold: Cell::new(None),
             drivers: Cell::new(Vec::new()),
+            allocator_operations: None,
         }
+    }
+
+    /// These services with the platform's count of its allocator operations, `operations`, which
+    /// must allocate nothing.
+    #[must_use]
+    pub fn with_allocator_operations(mut self, operations: Option<fn() -> u64>) -> Self {
+        self.allocator_operations = operations;
+        self
     }
 
     /// Names the prepared module whose statement starts the hook finds.
@@ -188,6 +200,11 @@ impl<C: MonotonicClock> ExecutionServices for DeviceServices<C> {
     #[inline]
     fn debug_active(&self) -> bool {
         self.debugging.get()
+    }
+
+    /// The platform's count, read through the function the device gave.
+    fn allocator_operations(&self) -> Option<u64> {
+        self.allocator_operations.map(|operations| operations())
     }
 
     /// The statement hook (specification 13, "Safe Points"). At the first instruction of a

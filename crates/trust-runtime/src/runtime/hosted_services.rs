@@ -128,6 +128,10 @@ impl ExecutionServices for HostedExecutionServices {
         self.debug.is_some() && self.metadata.is_some()
     }
 
+    fn allocator_operations(&self) -> Option<u64> {
+        crate::allocation_count::operations()
+    }
+
     fn deadline_exceeded(&self) -> bool {
         self.effective_execution_deadline()
             .is_some_and(|deadline| Instant::now() >= deadline)

@@ -218,6 +218,9 @@ where
         // The holds that run inside the scan are no active time (spec 11 §6.6), so the loop reads
         // them before and after the scan.
         let held_before = self.cycle.held_time();
+        // The scan's allocator operations are read around the cycle's work; the engine's own are
+        // the engine's, the rest the services' (specification 34, "The allocation count").
+        let operations_before = self.cycle.allocator_operations();
         let result = {
             let mut observer = ScanObserver::new(
                 &self.tasks,
@@ -237,6 +240,16 @@ where
             // finds them free (see `shell.rs`).
             self.cycle.run_scan(now, deadline, &mut hooks)
         };
+        if let (Some(before), Some(after), Some(engine)) = (
+            operations_before,
+            self.cycle.allocator_operations(),
+            self.cycle.last_scan_allocations(),
+        ) {
+            let services = after.saturating_sub(before).saturating_sub(engine);
+            self.shell
+                .records
+                .record(|metrics| metrics.record_scan_allocations(engine, services));
+        }
         if let Err(error) = result {
             let reported = self.apply_fault(error, FaultDecision::from_fault_policy(fault_policy));
             match cycle_error_action(watchdog, fault_policy, reported) {

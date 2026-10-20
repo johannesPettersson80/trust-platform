@@ -105,7 +105,7 @@ impl CycleHooks for NoopCycleHooks {
 pub struct CycleAccess<'a, 'engine> {
     pub(super) engine: &'a mut EngineState<'engine>,
     pub(super) phase: CyclePhase,
-    pub(super) output_undo: Option<&'a mut Vec<OutputUndo>>,
+    pub(super) output_undo: Option<&'a mut super::io::output_journal::OutputJournal>,
 }
 
 /// The owner's store as a cycle's host reads it (C1-9d2a, R3): the store-access seam, forwarded to the
@@ -403,25 +403,23 @@ impl CycleAccess<'_, '_> {
     }
 }
 
-pub(super) struct OutputUndo {
-    pub(super) start: usize,
-    pub(super) bytes: Vec<u8>,
-}
-
 impl EngineState<'_> {
     pub(super) fn cycle_hook(
         &mut self,
         hooks: &mut dyn CycleHooks,
         phase: CyclePhase,
     ) -> Result<(), RuntimeError> {
-        hooks.on_phase(
+        let before = self.services.allocator_operations();
+        let result = hooks.on_phase(
             phase,
             &mut CycleAccess {
                 engine: self,
                 phase,
                 output_undo: None,
             },
-        )
+        );
+        self.count_service_operations(before);
+        result
     }
 }
 

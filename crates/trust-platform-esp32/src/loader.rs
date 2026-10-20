@@ -149,6 +149,9 @@ pub struct Esp32Loader<H, C> {
     room: fn() -> usize,
     checkpoints: Box<dyn CheckpointFlash>,
     running: Option<Running>,
+    /// The heap's count of its allocator operations, which each program's services read around a
+    /// scan (specification 34, "The allocation count").
+    allocator_operations: Option<fn() -> u64>,
 }
 
 impl<H, C> Esp32Loader<H, C> {
@@ -171,7 +174,16 @@ impl<H, C> Esp32Loader<H, C> {
             room,
             checkpoints,
             running: None,
+            allocator_operations: None,
         }
+    }
+
+    /// This loader, whose programs count their scans' allocator operations with `operations`, the
+    /// heap's count, which must allocate nothing (specification 34, "The allocation count").
+    #[must_use]
+    pub fn with_allocator_operations(mut self, operations: fn() -> u64) -> Self {
+        self.allocator_operations = Some(operations);
+        self
     }
 }
 
@@ -272,7 +284,7 @@ where
         let io = self.hardware.claim_lines(&config)?;
         let mut cycle = ProgramMemory::start(
             prepared,
-            DeviceServices::new(self.clock),
+            DeviceServices::new(self.clock).with_allocator_operations(self.allocator_operations),
             io,
             settings(&config),
             retain,
@@ -360,7 +372,7 @@ where
         let (mut cycle, events) = ProgramMemory::replace(
             running,
             prepared,
-            DeviceServices::new(self.clock),
+            DeviceServices::new(self.clock).with_allocator_operations(self.allocator_operations),
             io,
             settings,
             saved.as_ref(),

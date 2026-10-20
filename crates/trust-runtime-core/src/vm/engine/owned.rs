@@ -256,6 +256,14 @@ impl<S: ExecutionServices> OwnedRuntimeState<S> {
         self.data.fault_record
     }
 
+    /// The allocator operations the engine made itself in the last scan, the calls it made into
+    /// services not counted; `None` when the platform does not count them (specification 34, "The
+    /// allocation count").
+    #[must_use]
+    pub fn last_scan_allocations(&self) -> Option<u64> {
+        self.data.resources.scan_allocations.last()
+    }
+
     /// Latch a platform/supervision failure in the same owner as execution
     /// faults, together with its fixed-size record. No PLC values, bindings or
     /// executable metadata change here.

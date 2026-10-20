@@ -59,8 +59,45 @@ mod wizard;
 
 use clap::error::ErrorKind;
 use clap::Parser;
+use std::alloc::{GlobalAlloc, Layout, System};
 
 use cli::{Cli, Command};
+
+/// The program's allocator: the system's, counting each thread's allocator operations for the
+/// allocation count the runtime reports with its scans (specification 34, "The allocation count").
+struct CountingAllocator;
+
+// SAFETY: every operation forwards the caller's unchanged layout, pointer and new size to
+// `System` and returns its result; the counting touches only an atomic and a const-initialized
+// thread-local `Cell`, so it allocates nothing and cannot unwind.
+unsafe impl GlobalAlloc for CountingAllocator {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        trust_runtime::allocation_count::count_operation();
+        // SAFETY: the caller's valid layout of non-zero size, unchanged.
+        unsafe { System.alloc(layout) }
+    }
+
+    unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
+        trust_runtime::allocation_count::count_operation();
+        // SAFETY: the caller's valid layout of non-zero size, unchanged.
+        unsafe { System.alloc_zeroed(layout) }
+    }
+
+    unsafe fn dealloc(&self, pointer: *mut u8, layout: Layout) {
+        trust_runtime::allocation_count::count_operation();
+        // SAFETY: the caller returns a pointer/layout pair that `System` produced.
+        unsafe { System.dealloc(pointer, layout) }
+    }
+
+    unsafe fn realloc(&self, pointer: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
+        trust_runtime::allocation_count::count_operation();
+        // SAFETY: the caller's pair from `System` and its valid new size, unchanged.
+        unsafe { System.realloc(pointer, layout, new_size) }
+    }
+}
+
+#[global_allocator]
+static ALLOCATOR: CountingAllocator = CountingAllocator;
 
 fn main() -> anyhow::Result<()> {
     let raw_args: Vec<String> = std::env::args().collect();

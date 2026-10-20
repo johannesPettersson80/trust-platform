@@ -4,6 +4,7 @@
 use crate::board::{Measurement, Memory};
 use core::{
     alloc::{GlobalAlloc, Layout},
+    cell::Cell,
     sync::atomic::{AtomicUsize, Ordering},
 };
 use embedded_alloc::LlffHeap;
@@ -12,8 +13,8 @@ use embedded_alloc::LlffHeap;
 const REGIONS: usize = 2;
 
 /// Allocator wrapper that serves up to two regions and counts live bytes, phase peak, allocation
-/// calls and failures over both. A composition hands in the regions at [`MeasuredHeap::init`]; the
-/// wrapper knows no address of its own.
+/// calls, failures and every allocator operation over both. A composition hands in the regions at
+/// [`MeasuredHeap::init`]; the wrapper knows no address of its own.
 pub struct MeasuredHeap {
     /// One first-fit allocator per region; region 0 first, then region 1.
     inner: [LlffHeap; REGIONS],
@@ -29,6 +30,10 @@ pub struct MeasuredHeap {
     allocations: AtomicUsize,
     /// Failed allocation calls over both regions.
     failures: AtomicUsize,
+    /// Every allocator operation over both regions, each allocation, reallocation and free once,
+    /// never reset: the count a runtime reads around its scans (specification 34, "The allocation
+    /// count"). Kept under a critical section in 64 bits, so it does not wrap on a 32-bit chip.
+    operations: critical_section::Mutex<Cell<u64>>,
 }
 
 impl MeasuredHeap {
@@ -42,6 +47,7 @@ impl MeasuredHeap {
             peak: AtomicUsize::new(0),
             allocations: AtomicUsize::new(0),
             failures: AtomicUsize::new(0),
+            operations: critical_section::Mutex::new(Cell::new(0)),
         }
     }
 
@@ -81,6 +87,58 @@ impl MeasuredHeap {
         self.capacity().saturating_sub(self.used())
     }
 
+    /// Every allocator operation since the allocator began, each allocation, reallocation and
+    /// free once. Reading it allocates nothing.
+    pub fn operations(&self) -> u64 {
+        critical_section::with(|token| self.operations.borrow(token).get())
+    }
+
+    /// Count one allocator operation.
+    fn count_operation(&self) {
+        critical_section::with(|token| {
+            let operations = self.operations.borrow(token);
+            operations.set(operations.get().wrapping_add(1));
+        });
+    }
+
+    /// Allocate from the first region that takes `layout`, recording the allocation call, a
+    /// failure, the live bytes and the phase peak.
+    ///
+    /// # Safety
+    /// `layout` has a non-zero size, as [`GlobalAlloc::alloc`] requires.
+    unsafe fn allocate(&self, layout: Layout) -> *mut u8 {
+        let mut pointer = core::ptr::null_mut();
+        for heap in &self.inner {
+            // SAFETY: the caller supplies a valid allocation layout of non-zero size.
+            pointer = unsafe { heap.alloc(layout) };
+            if !pointer.is_null() {
+                break;
+            }
+        }
+        self.allocations.fetch_add(1, Ordering::Relaxed);
+        if pointer.is_null() {
+            self.failures.fetch_add(1, Ordering::Relaxed);
+        } else {
+            let used = self.used_of_regions();
+            self.used.store(used, Ordering::Relaxed);
+            self.peak.fetch_max(used, Ordering::Relaxed);
+        }
+        pointer
+    }
+
+    /// Free `pointer` into the region that holds it and record the live bytes.
+    ///
+    /// # Safety
+    /// `pointer` and `layout` are a pair this allocator returned, as [`GlobalAlloc::dealloc`]
+    /// requires.
+    unsafe fn free(&self, pointer: *mut u8, layout: Layout) {
+        let index = self.region_of(pointer as usize);
+        // SAFETY: the caller returns a pointer/layout pair the same allocator produced, so `index`
+        // is the region that owns it.
+        unsafe { self.inner[index].dealloc(pointer, layout) };
+        self.used.store(self.used_of_regions(), Ordering::Relaxed);
+    }
+
     /// Lock-free failure evidence even when the panic came from inside the allocator.
     pub fn emergency_metrics(&self) -> (usize, usize, usize, usize) {
         (
@@ -114,31 +172,35 @@ impl MeasuredHeap {
 // Instrumentation never allocates or panics.
 unsafe impl GlobalAlloc for MeasuredHeap {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        let mut pointer = core::ptr::null_mut();
-        for heap in &self.inner {
-            // SAFETY: GlobalAlloc's caller supplies a valid allocation layout.
-            pointer = unsafe { heap.alloc(layout) };
-            if !pointer.is_null() {
-                break;
-            }
-        }
-        self.allocations.fetch_add(1, Ordering::Relaxed);
-        if pointer.is_null() {
-            self.failures.fetch_add(1, Ordering::Relaxed);
-        } else {
-            let used = self.used_of_regions();
-            self.used.store(used, Ordering::Relaxed);
-            self.peak.fetch_max(used, Ordering::Relaxed);
-        }
-        pointer
+        self.count_operation();
+        // SAFETY: GlobalAlloc's caller supplies a valid allocation layout of non-zero size.
+        unsafe { self.allocate(layout) }
     }
 
     unsafe fn dealloc(&self, pointer: *mut u8, layout: Layout) {
-        let index = self.region_of(pointer as usize);
-        // SAFETY: the caller returns a pointer/layout pair the same allocator produced, so `index`
-        // is the region that owns it.
-        unsafe { self.inner[index].dealloc(pointer, layout) };
-        self.used.store(self.used_of_regions(), Ordering::Relaxed);
+        self.count_operation();
+        // SAFETY: GlobalAlloc's caller returns a pair this allocator produced.
+        unsafe { self.free(pointer, layout) };
+    }
+
+    /// A reallocation is one operation: the allocation, the copy and the free of
+    /// `GlobalAlloc::realloc`'s own steps, counted once.
+    unsafe fn realloc(&self, pointer: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
+        self.count_operation();
+        // SAFETY: GlobalAlloc's caller gives a non-zero `new_size` that, rounded up to the
+        // alignment of `layout`, does not overflow `isize`, so the new layout is valid.
+        let new_layout = unsafe { Layout::from_size_align_unchecked(new_size, layout.align()) };
+        // SAFETY: the new layout is valid and of non-zero size.
+        let new_pointer = unsafe { self.allocate(new_layout) };
+        if !new_pointer.is_null() {
+            // SAFETY: both blocks are valid for the smaller of their sizes and are distinct
+            // allocations, and `pointer`/`layout` is a pair this allocator produced.
+            unsafe {
+                core::ptr::copy_nonoverlapping(pointer, new_pointer, layout.size().min(new_size));
+                self.free(pointer, layout);
+            }
+        }
+        new_pointer
     }
 }
 

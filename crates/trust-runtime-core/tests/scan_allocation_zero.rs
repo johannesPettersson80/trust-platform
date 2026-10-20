@@ -75,6 +75,9 @@ impl fmt::Display for Calls {
 thread_local! {
     static ARMED: Cell<bool> = const { Cell::new(false) };
     static COUNTED: Cell<Calls> = const { Cell::new(Calls::ZERO) };
+    /// Every armed call on this thread, never taken: the count the engine reads through
+    /// `ExecutionServices::allocator_operations`.
+    static TOTAL: Cell<u64> = const { Cell::new(0) };
 }
 
 /// Count one call on this thread while it is armed. Only const-initialized `Cell`s are
@@ -87,6 +90,7 @@ fn record(call: fn(&mut Calls)) {
                 call(&mut calls);
                 counted.set(calls);
             });
+            let _ = TOTAL.try_with(|total| total.set(total.get() + 1));
             trace_call();
         }
     });
@@ -238,8 +242,9 @@ impl Phase {
     }
 }
 
-/// Cycle hooks that only split the counted calls at each boundary. Without output hooks the
-/// engine publishes exactly as `execute_cycle` does.
+/// Cycle hooks that only split the counted calls at each boundary. They answer
+/// `has_output_hooks` as the chips' runner and trust-runtime do, so each scan publishes its outputs
+/// through the journal that output hooks may refuse (C1-19f), and they publish nothing themselves.
 struct PhaseMeter {
     phase: Phase,
     calls: [Calls; 5],
@@ -257,7 +262,7 @@ impl PhaseMeter {
 
 impl CycleHooks for PhaseMeter {
     fn has_output_hooks(&self) -> bool {
-        false
+        true
     }
 
     fn on_phase(
@@ -286,6 +291,8 @@ struct Scan {
     outcome: Option<&'static str>,
     calls: [Calls; 5],
     activations: u32,
+    /// The operations the engine counted as its own (specification 34, "The allocation count").
+    engine: Option<u64>,
 }
 
 impl Scan {
@@ -318,7 +325,25 @@ fn measure(state: &mut RuntimeState<'_>, at_ms: i64, probe: bool) -> Scan {
         outcome: result.err().map(|error| error.stable_code().as_str()),
         calls: meter.calls,
         activations: meter.activations,
+        engine: state.last_scan_allocations(),
     }
+}
+
+/// Every scan whose engine count differs from its counted calls: the meter's hooks allocate
+/// nothing, so every call a scan makes is the engine's (specification 34, "The allocation count").
+fn engine_count_violations(name: &str, scans: &[Scan]) -> Vec<String> {
+    scans
+        .iter()
+        .enumerate()
+        .filter(|(_, scan)| scan.engine != Some(scan.sum().count()))
+        .map(|(index, scan)| {
+            format!(
+                "{name}: scan {index} counted {} calls, the engine {:?}",
+                scan.sum().count(),
+                scan.engine
+            )
+        })
+        .collect()
 }
 
 /// The chips' execution services (`crates/trust-board-fixture/src/services.rs`): no UTC clock
@@ -348,6 +373,9 @@ impl Services {
 impl ExecutionServices for Services {
     fn deadline_exceeded(&self) -> bool {
         self.expired.get()
+    }
+    fn allocator_operations(&self) -> Option<u64> {
+        TOTAL.try_with(Cell::get).ok()
     }
     fn has_wall_clock(&self) -> bool {
         false
@@ -1029,6 +1057,7 @@ fn every_fixture_reports_its_scans_on_the_flat_store() {
                 let name = format!("cells/{}", fixture.name);
                 report(&name, &scans);
                 failures.extend(ceiling_violations(&name, &scans));
+                failures.extend(engine_count_violations(&name, &scans));
                 // The whole corpus is in the zero list from its first scan (ARCH-05, MEM-09; C1-19f).
                 if ceiling_of(&name) != Some((0, Calls::ZERO)) {
                     failures.push(format!("{name} is not zero from its first scan"));
@@ -1056,6 +1085,7 @@ fn every_fault_case_ends_with_its_stable_code_and_reports_its_scans() {
             Ok(scans) => {
                 report(case.name, &scans);
                 failures.extend(ceiling_violations(case.name, &scans));
+                failures.extend(engine_count_violations(case.name, &scans));
                 if ceiling_of(case.name) != Some((0, Calls::ZERO)) {
                     failures.push(format!("{} is not zero from its first scan", case.name));
                 }
@@ -1112,8 +1142,8 @@ fn the_meter_counts_armed_calls_exactly_and_in_the_phase_that_makes_them() {
     assert_eq!((plain.outcome, probed.outcome), (None, None));
     assert_eq!((plain.activations, probed.activations), (1, 1));
     // CycleStart opens entry, BeforeInputSample input, AfterInputSample and TaskEnd schedule,
-    // TaskStart tasks and BeforeOutputSample output.
-    let boundaries = [1, 1, 2, 1, 1];
+    // TaskStart tasks, and BeforeOutputSample, AfterOutputSample and CycleEnd output.
+    let boundaries = [1, 1, 2, 1, 3];
     for ((phase, (without, with)), opened) in PHASES
         .iter()
         .zip(plain.calls.iter().zip(probed.calls))
@@ -1126,6 +1156,10 @@ fn the_meter_counts_armed_calls_exactly_and_in_the_phase_that_makes_them() {
         };
         assert_eq!(with, expected, "phase {}", phase.name());
     }
+    // The probe's calls are made in the hooks, so they are the services', and the engine's own
+    // count is the plain scan's: every call of it (specification 34, "The allocation count").
+    assert_eq!(plain.engine, Some(plain.sum().count()));
+    assert_eq!(probed.engine, plain.engine);
 }
 
 /// The retain fixture's retained image captured twice into one capture, counting the allocator calls of

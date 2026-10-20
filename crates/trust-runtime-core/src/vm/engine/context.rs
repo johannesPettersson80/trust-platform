@@ -919,8 +919,16 @@ impl ExecutionContext for EngineState<'_> {
         // Candidate construction must not publish debugger snapshots or pauses
         // into the installed controller's service state.
         if self.data.construction_complete {
+            // While a debugger is attached, its work in the hook is the services' (specification
+            // 34, "The allocation count").
+            let before = self
+                .services
+                .debug_active()
+                .then(|| self.services.allocator_operations())
+                .flatten();
             self.services
                 .on_statement(pou, pc, depth, &self.data.storage, self.data.now);
+            self.count_service_operations(before);
         }
     }
     fn on_statement_with_frame_checked(
@@ -938,7 +946,14 @@ impl ExecutionContext for EngineState<'_> {
             // On the flat store the frames' typed locals, the globals and the instances are read
             // from the blocks (C1-17).
             let frame = frame.with_cells(self.data.reader(self.prepared));
-            return self.services.on_statement_with_frame_checked(
+            // While a debugger is attached, its work in the hook is the services' (specification
+            // 34, "The allocation count").
+            let before = self
+                .services
+                .debug_active()
+                .then(|| self.services.allocator_operations())
+                .flatten();
+            let result = self.services.on_statement_with_frame_checked(
                 pou,
                 pc,
                 depth,
@@ -946,6 +961,8 @@ impl ExecutionContext for EngineState<'_> {
                 self.data.now,
                 frame,
             );
+            self.count_service_operations(before);
+            return result;
         }
         Ok(())
     }

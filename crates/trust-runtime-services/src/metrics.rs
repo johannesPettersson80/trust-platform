@@ -246,6 +246,18 @@ struct CallProfileEntry {
     stats: CallStats,
 }
 
+/// The allocator operations of the thread that runs the scans, each allocation, reallocation and
+/// free once (specification 34, "The allocation count"): those the engine made running the
+/// program, and those the services made in the calls the scan makes into them and in the
+/// runtime's cycle work around the scan.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ScanAllocations {
+    /// The engine's operations.
+    pub engine: u64,
+    /// The services' operations.
+    pub services: u64,
+}
+
 /// Metrics of one runtime, measured with the platform clock `C`.
 #[derive(Debug, Clone)]
 pub struct RuntimeMetrics<C> {
@@ -263,6 +275,9 @@ pub struct RuntimeMetrics<C> {
     pub faults: u64,
     /// Missed periodic activations of all tasks.
     pub overruns: u64,
+    /// The scans' allocator operations since the metrics started; `None` until a scan is counted,
+    /// and on a runtime that does not count them.
+    pub scan_allocations: Option<ScanAllocations>,
 }
 
 impl<C: MonotonicClock> RuntimeMetrics<C> {
@@ -279,6 +294,7 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
             profile_calls: BTreeMap::new(),
             faults: 0,
             overruns: 0,
+            scan_allocations: None,
         }
     }
 
@@ -294,6 +310,7 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
         self.profile_calls.clear();
         self.faults = 0;
         self.overruns = 0;
+        self.scan_allocations = None;
     }
 
     /// Milliseconds since the metrics started: the clock's time since its origin.
@@ -322,6 +339,14 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
         self.overruns = self.overruns.saturating_add(missed);
         let entry = self.tasks.entry(name.clone()).or_default();
         entry.record_overrun(missed);
+    }
+
+    /// Adds the allocator operations of one counted scan: `engine` of the engine's and `services`
+    /// of the services'. Adding allocates nothing.
+    pub fn record_scan_allocations(&mut self, engine: u64, services: u64) {
+        let total = self.scan_allocations.get_or_insert_default();
+        total.engine = total.engine.saturating_add(engine);
+        total.services = total.services.saturating_add(services);
     }
 
     /// Counts one fault.
@@ -435,6 +460,7 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
             cycle_percentiles: self.cycle_window.snapshot(),
             faults: self.faults,
             overruns: self.overruns,
+            scan_allocations: self.scan_allocations,
             tasks,
             profiling: ProfilingSnapshot {
                 enabled: self.profiling_enabled,
@@ -491,6 +517,8 @@ pub struct RuntimeMetricsSnapshot {
     pub faults: u64,
     /// Missed periodic activations of all tasks.
     pub overruns: u64,
+    /// The scans' allocator operations since the metrics started; `None` when none was counted.
+    pub scan_allocations: Option<ScanAllocations>,
     /// Statistics of each task, sorted by name.
     pub tasks: Vec<TaskStatsSnapshot>,
     /// Call profiling.

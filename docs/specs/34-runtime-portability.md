@@ -1363,6 +1363,19 @@ Recursive calls and indirect call targets require a conservative bound or an exp
 
 **MEM-09.** Hosted backing storage may be allocated during preparation. Capacity growth, first-use allocation/lowering, and allocation-producing destruction or cache replacement shall not occur in bounded control paths. Instrument the control thread and its synchronous callbacks, including rare/failure paths; attribute unrelated service allocations separately. Shared allocator contention and other process-wide interference shall still be exercised in stress tests. Retired-generation reclamation shall satisfy Section 11.3.
 
+**The allocation count** (owner, 20 October 2026: metrics on every runtime; checklist C1-19f).
+Every runtime counts the allocator operations of the thread that runs its scans, each allocation,
+reallocation and free once: a chip with the measured heap it allocates from, a computer with the
+counting allocator that the trust-runtime program installs. The engine reads the count when a scan
+begins and when it ends, a scan that is refused included, and around every call it makes into a
+service during the scan: the cycle hooks at each phase, the publication of the outputs, the program
+observers and, while a debugger is attached, the statement hook. The operations made inside those
+calls are the services'; the rest of the scan's are the engine's. The runtime adds the operations
+of its own cycle work around the scan to the services' and reports both totals since the program
+started in `status` (specification 11 §6.8.1): `engine` proves ARCH-05 on the device, and `services`
+is this requirement's separate attribution. A runtime that does not count reports `null`, never
+zero. Reading the count allocates nothing.
+
 **Execution scratch reserved at construction.** Construction reserves the storage that a scan's
 stack execution and process-image staging use, and charges all of it against the construction
 allocation allowance before reserving any of it (TIME-09), as HOST-04 does for register scratch:
@@ -1387,6 +1400,11 @@ allocation allowance before reserving any of it (TIME-09), as HOST-04 does for r
 - the staged input values, their destination snapshot and the output windows of every
   process-image binding, and the key of each published hierarchical image entry, which the entry
   takes when its binding first publishes;
+- a copy of the output image, which a publication to output hooks takes before it applies its
+  patches and copies back when the hooks refuse the publication, so that every window the patches
+  and the hooks' writes touched has its bytes again (checklist C1-19f). The publication is charged
+  as the journal of saved windows that the copy replaces was: an entry for each output patch and
+  for each window a hook writes after the output sample, and the bytes of each window (TIME-08);
 - the text a character write edits, as large as the largest text the module declares;
 - the operand stack's temporary area, for the most bytes of texts and copies ("Places",
   "Texts") the deepest body holds at once plus, for every further call level, those a body keeps

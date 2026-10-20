@@ -57,6 +57,12 @@ fn heap_room() -> usize {
     memory::HEAP.remaining()
 }
 
+/// The heap's count of its allocator operations, which the runtime reads around each scan
+/// (specification 34, "The allocation count").
+fn allocator_operations() -> u64 {
+    memory::HEAP.operations()
+}
+
 #[esp_hal::main]
 fn main() -> ! {
     memory::initialize();
@@ -130,7 +136,8 @@ fn main() -> ! {
         device_memory,
         heap_room,
         change_reader,
-    );
+    )
+    .with_allocator_operations(allocator_operations);
     let (program, loaded) = match installed {
         Ok(booted) => {
             let sequence = booted.sequence;

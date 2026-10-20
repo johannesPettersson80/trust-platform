@@ -545,6 +545,14 @@ impl ResourceCycle for ScriptedCycle<'_> {
         self.engine.held_time()
     }
 
+    fn allocator_operations(&self) -> Option<u64> {
+        self.engine.allocator_operations()
+    }
+
+    fn last_scan_allocations(&self) -> Option<u64> {
+        self.engine.last_scan_allocations()
+    }
+
     fn run_scan(
         &mut self,
         now: value::Duration,

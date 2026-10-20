@@ -2719,6 +2719,13 @@ The status and configuration surfaces project one effective runtime state:
   profiling metrics, realtime requested and observed state, warnings, errors,
   and every I/O-driver health entry. The default realtime projection is
   disabled with scheduler `other` in both status and `config.get`.
+- Status reports in `metrics.scan_allocations` the allocator operations of the
+  thread that runs the scans since the program started, each allocation,
+  reallocation and free once (specification 34, "The allocation count"):
+  `engine`, those the engine made running the program, and `services`, those
+  the services made in the calls the scan makes into them and in the runtime's
+  cycle work around the scan. The engine makes none (specification 34,
+  ARCH-05). A runtime that does not count them reports `null`, never zero.
 - Status reports the truST version in `version`, the platform the runtime runs
   on in `platform` as `<os>-<arch>` on a computer, for example `linux-x86_64`
   or `windows-x86_64`, and as the board name on a device, for example

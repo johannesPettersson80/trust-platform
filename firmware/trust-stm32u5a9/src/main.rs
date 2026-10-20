@@ -73,6 +73,12 @@ struct Parts {
     last_reset: LastReset,
 }
 
+/// The heap's count of its allocator operations, which the runtime reads around each scan
+/// (specification 34, "The allocation count").
+fn allocator_operations() -> u64 {
+    memory::HEAP.operations()
+}
+
 #[entry]
 fn main() -> ! {
     memory::initialize();
@@ -168,7 +174,9 @@ fn main() -> ! {
         ),
     };
 
-    let services = Box::leak(Box::new(DeviceServices::new(parts.clock)));
+    let services = Box::leak(Box::new(
+        DeviceServices::new(parts.clock).with_allocator_operations(Some(allocator_operations)),
+    ));
     let settings = CycleSettings {
         cycle_interval: Duration::from_nanos(
             i64::try_from(config.cycle_interval_nanos).unwrap_or(i64::MAX),

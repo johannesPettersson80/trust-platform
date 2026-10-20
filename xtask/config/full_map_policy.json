@@ -2430,22 +2430,6 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 145,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
-        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 146,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
-        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
         "line": 149,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
@@ -2454,7 +2438,7 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 152,
+        "line": 150,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
         "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
@@ -2462,7 +2446,7 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 155,
+        "line": 153,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
         "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
@@ -2470,7 +2454,7 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 158,
+        "line": 156,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
         "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
@@ -2478,7 +2462,23 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 161,
+        "line": 159,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
+        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
+        "review_date": "2026-10-17"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
+        "line": 162,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
+        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
+        "review_date": "2026-10-17"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
+        "line": 165,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
         "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
@@ -2635,6 +2635,134 @@
         "invariant": "Test-only measuring allocator forwards the caller's unchanged layout and pointer to System; atomics and a const thread-local flag do not allocate or unwind",
         "test_evidence": "cargo test -p trust-runtime --features full --test allocation_lifecycle",
         "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
+        "line": 73,
+        "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
+        "line": 74,
+        "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
+        "line": 77,
+        "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
+        "line": 80,
+        "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
+        "line": 83,
+        "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
+        "line": 86,
+        "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
+        "line": 89,
+        "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
+        "line": 92,
+        "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
+        "line": 95,
+        "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime/tests/allocation_count.rs",
+        "line": 22,
+        "owner": "trust-runtime allocation count test, C1-19f",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; the count touches only an atomic and a const-initialized thread-local Cell.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime/tests/allocation_count.rs",
+        "line": 23,
+        "owner": "trust-runtime allocation count test, C1-19f",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; the count touches only an atomic and a const-initialized thread-local Cell.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime/tests/allocation_count.rs",
+        "line": 26,
+        "owner": "trust-runtime allocation count test, C1-19f",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; the count touches only an atomic and a const-initialized thread-local Cell.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime/tests/allocation_count.rs",
+        "line": 29,
+        "owner": "trust-runtime allocation count test, C1-19f",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; the count touches only an atomic and a const-initialized thread-local Cell.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime/tests/allocation_count.rs",
+        "line": 32,
+        "owner": "trust-runtime allocation count test, C1-19f",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; the count touches only an atomic and a const-initialized thread-local Cell.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime/tests/allocation_count.rs",
+        "line": 35,
+        "owner": "trust-runtime allocation count test, C1-19f",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; the count touches only an atomic and a const-initialized thread-local Cell.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime/tests/allocation_count.rs",
+        "line": 38,
+        "owner": "trust-runtime allocation count test, C1-19f",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; the count touches only an atomic and a const-initialized thread-local Cell.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count",
+        "review_date": "2026-10-20"
       },
       {
         "path": "crates/trust-lsp/src/perf.rs",
@@ -2942,7 +3070,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 54,
+        "line": 60,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "Callers give the allocator up to two regions, once, before any allocation; each non-empty region is valid, aligned and owned by nothing else for the program's lifetime (documented Safety contract).",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -2950,7 +3078,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 61,
+        "line": 67,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "Forwards the caller's init contract unchanged to one inner LlffHeap per region; each composition arena is exclusively owned by the allocator.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -2958,7 +3086,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 115,
+        "line": 173,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "MeasuredHeap delegates to one critical-section protected LlffHeap per composition region; instrumentation uses relaxed atomics and never allocates or panics.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -2966,15 +3094,15 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 116,
+        "line": 174,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
-        "invariant": "GlobalAlloc layout contract is inherited; allocation tries the regions in order, forwards the unchanged layout to each, and records failure/live/peak counts.",
+        "invariant": "GlobalAlloc layout contract is inherited; alloc counts one allocator operation and forwards the unchanged layout to the private allocate helper, which tries the regions in order and records failure/live/peak counts.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
         "review_date": "2026-10-18"
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 120,
+        "line": 113,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "Forwarded allocation uses the caller-supplied valid Layout; a null pointer from one region makes the next region try, and a null pointer from every region is retained as allocation-failure evidence.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -2982,15 +3110,15 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 136,
+        "line": 180,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
-        "invariant": "GlobalAlloc caller owns the pointer/layout allocation pair; deallocation preserves the pair and exposes no alias.",
+        "invariant": "GlobalAlloc caller owns the pointer/layout allocation pair; dealloc counts one allocator operation and forwards the pair unchanged to the private free helper, exposing no alias.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
         "review_date": "2026-10-18"
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 140,
+        "line": 138,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "Underlying deallocation receives the exact pointer and Layout supplied by the allocator caller, routed to the region whose recorded bounds contain the pointer.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -2998,7 +3126,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 210,
+        "line": 272,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Interrupts are masked by the critical section; writes paint only aligned addresses of the composition's stack window below the sampled stack pointer minus a 256-byte guard.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -3006,7 +3134,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 234,
+        "line": 296,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Aligned volatile reads stay inside the composition's stack window; the reported watermark is measured evidence, not a worst-case proof.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -3014,7 +3142,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 270,
+        "line": 332,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the Cortex-M MSP register only (nomem, nostack, preserves_flags); no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -3022,11 +3150,75 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 287,
+        "line": 349,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Copies the RISC-V stack pointer register only (nomem, nostack, preserves_flags); no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
         "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-platform-memory/src/memory.rs",
+        "line": 109,
+        "owner": "runtime portability C1-19f (the allocation count)",
+        "invariant": "Private helper with the contract of GlobalAlloc::alloc (a valid layout of non-zero size); tries each region in order, forwards the unchanged layout and records the allocation call, a failure, the live bytes and the phase peak.",
+        "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-platform-memory/src/memory.rs",
+        "line": 134,
+        "owner": "runtime portability C1-19f (the allocation count)",
+        "invariant": "Private helper with the contract of GlobalAlloc::dealloc (a pair this allocator produced); routes the unchanged pair to the region whose recorded bounds hold the pointer.",
+        "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-platform-memory/src/memory.rs",
+        "line": 177,
+        "owner": "runtime portability C1-19f (the allocation count)",
+        "invariant": "Forwards GlobalAlloc::alloc's valid non-zero layout unchanged to the allocate helper, which has the same contract.",
+        "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-platform-memory/src/memory.rs",
+        "line": 183,
+        "owner": "runtime portability C1-19f (the allocation count)",
+        "invariant": "Forwards GlobalAlloc::dealloc's pair unchanged to the free helper, which has the same contract.",
+        "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-platform-memory/src/memory.rs",
+        "line": 188,
+        "owner": "runtime portability C1-19f (the allocation count)",
+        "invariant": "One counted operation that takes GlobalAlloc::realloc's default steps: allocate the new layout, copy the smaller size, free the old pair; none of them is counted again.",
+        "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-platform-memory/src/memory.rs",
+        "line": 192,
+        "owner": "runtime portability C1-19f (the allocation count)",
+        "invariant": "GlobalAlloc::realloc's caller guarantees a non-zero new_size that, rounded up to the old alignment, does not overflow isize, so the unchecked layout is valid.",
+        "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-platform-memory/src/memory.rs",
+        "line": 194,
+        "owner": "runtime portability C1-19f (the allocation count)",
+        "invariant": "The new layout is valid and of non-zero size, the allocate helper's contract.",
+        "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-platform-memory/src/memory.rs",
+        "line": 198,
+        "owner": "runtime portability C1-19f (the allocation count)",
+        "invariant": "Both blocks are live, distinct allocations valid for the smaller of the two sizes, and the old pointer/layout pair came from this allocator, so the copy and the free are sound.",
+        "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
+        "review_date": "2026-10-20"
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/clock.rs",
@@ -3214,7 +3406,7 @@
       },
       {
         "path": "firmware/trust-stm32u5a9/src/main.rs",
-        "line": 301,
+        "line": 309,
         "owner": "runtime portability STM32U5A9 (S1b-9u)",
         "invariant": "The Cortex-M exception ABI is required by cortex-m-rt. HardFault never returns: it runs the terminal fault path, which masks interrupts and resets the chip.",
         "test_evidence": "The fault path is proved on the bench (S1b-9u); no host test raises an exception.",

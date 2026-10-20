@@ -25,6 +25,7 @@ mod access;
 mod retain_apply;
 pub use retain_apply::RetainApplyEvent;
 mod allocation;
+mod allocation_count;
 mod api;
 mod assignment;
 mod context;
@@ -141,6 +142,8 @@ struct ExecutionResources {
     spare_journal: output_transaction::SavedDestinations,
     /// Process-image staging, empty between scans.
     staging: io::staging::ImageStaging,
+    /// The allocation count of the scan that runs and of the last one (C1-19f).
+    scan_allocations: allocation_count::ScanAllocations,
     #[cfg(feature = "register-ir")]
     register: register::RegisterExecutionState,
 }
@@ -284,6 +287,7 @@ impl<'a> EngineState<'a> {
                 output_journal: None,
                 spare_journal: output_transaction::SavedDestinations::new(),
                 staging: io::staging::ImageStaging::default(),
+                scan_allocations: allocation_count::ScanAllocations::default(),
                 #[cfg(feature = "register-ir")]
                 register: register::RegisterExecutionState::new(services.register_configuration()),
             },
@@ -492,6 +496,19 @@ impl<'a> EngineState<'a> {
     }
 
     fn execute_cycle_with_hooks(
+        &mut self,
+        now: Duration,
+        hooks: &mut dyn CycleHooks,
+    ) -> Result<(), RuntimeError> {
+        // Every scan is counted, a refused one included (specification 34, "The allocation
+        // count").
+        self.begin_allocation_count();
+        let result = self.execute_counted_cycle(now, hooks);
+        self.end_allocation_count();
+        result
+    }
+
+    fn execute_counted_cycle(
         &mut self,
         now: Duration,
         hooks: &mut dyn CycleHooks,

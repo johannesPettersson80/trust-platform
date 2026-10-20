@@ -73,3 +73,45 @@ fn a_full_heap_refuses_and_counts_the_failure() {
     assert_eq!(heap.remaining(), 64);
     assert_eq!(heap.emergency_metrics(), (0, 0, 1, 1));
 }
+
+#[test]
+fn every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes() {
+    // Specification 34, "The allocation count": each allocation, reallocation and free counts once,
+    // the count is never reset, and a reallocation moves the bytes it keeps. Worked by hand: one
+    // allocation of 8 bytes, its reallocation to 40 bytes, an allocation that fails (257 bytes, more
+    // than the 256-byte heap holds) and the free make 4 operations; the allocation calls are 3, the
+    // reallocation's own allocation among them, and 1 of them failed. The wrong behaviour: a
+    // reallocation counted as two operations, a free left out, or the bytes not moved.
+    let heap = MeasuredHeap::empty();
+    // SAFETY: the slice outlives the test, is used by nothing else, and `init` runs once before the
+    // first allocation.
+    unsafe { heap.init(region(256), None) };
+    assert_eq!(heap.operations(), 0);
+
+    let small = layout(8, 8);
+    // SAFETY: the layout is valid.
+    let pointer = unsafe { heap.alloc(small) };
+    assert!(!pointer.is_null());
+    // SAFETY: the pointer is valid for the 8 bytes just allocated.
+    unsafe { core::ptr::copy_nonoverlapping(b"truST-8!".as_ptr(), pointer, 8) };
+    // SAFETY: the pointer/layout pair came from this allocator and 40 is a valid new size.
+    let moved = unsafe { heap.realloc(pointer, small, 40) };
+    assert!(!moved.is_null());
+    // SAFETY: the reallocation keeps the first 8 bytes of the block.
+    assert_eq!(
+        unsafe { core::slice::from_raw_parts(moved, 8) },
+        b"truST-8!"
+    );
+    assert_eq!(heap.operations(), 2);
+
+    // SAFETY: the layout is valid.
+    assert!(unsafe { heap.alloc(layout(257, 8)) }.is_null());
+    assert_eq!(heap.operations(), 3);
+
+    // SAFETY: the pointer came from this allocator with this layout.
+    unsafe { heap.dealloc(moved, layout(40, 8)) };
+    assert_eq!(heap.operations(), 4);
+    assert_eq!(heap.used(), 0);
+    assert_eq!(heap.emergency_metrics().2, 3);
+    assert_eq!(heap.emergency_metrics().3, 1);
+}

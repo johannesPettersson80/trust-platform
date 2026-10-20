@@ -16,6 +16,14 @@ pub trait ExecutionServices {
         false
     }
 
+    /// The allocator operations, each allocation, reallocation and free once, that the thread
+    /// running the scan has made so far, when the platform counts them; `None` when it does not.
+    /// The engine reads it when a scan begins and ends and around every call it makes into a
+    /// service, so reading it must allocate nothing (specification 34, "The allocation count").
+    fn allocator_operations(&self) -> Option<u64> {
+        None
+    }
+
     /// Observe an instruction boundary using read-only installed state.
     /// Hosted debugging/profiling adapters may publish snapshots or pause here.
     /// Writes still enter through the controller's checked management boundary.

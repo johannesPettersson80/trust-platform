@@ -6,6 +6,12 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Added: `status` reports in `metrics.scan_allocations` the allocator operations made during the
+  scans since the program started, on every runtime: `engine`, those the engine made running the
+  program, which is zero, and `services`, those the services made in and around the scans. A chip
+  counts them with its heap and a computer with the trust-runtime program's allocator; a runtime
+  that does not count them reports `null`. A scan that faults, a call refused at the call-depth
+  limit and an output publication that the drivers refuse allocate nothing either.
 - Changed: every runtime, on a computer and on a chip, keeps a program's variables in flat memory
   blocks (specification 34 MEM-12): each variable at its declared size and alignment, texts inline
   and references in 16 bytes, in blocks reserved once when the program is built. What the tools

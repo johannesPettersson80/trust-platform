@@ -1,6 +1,7 @@
 //! Stage bound values/windows, never the unused storage or process image.
-use super::super::cycle_port::{CycleAccess, CycleHooks, CyclePhase, OutputUndo};
+use super::super::cycle_port::{CycleAccess, CycleHooks, CyclePhase};
 use super::super::destinations::{Key, SavedDestinations};
+use super::output_journal::OutputJournal;
 use super::*;
 use crate::io_image::PreparedIoBinding;
 use crate::memory::view::{StoreAccess, StoreMutate};
@@ -120,8 +121,9 @@ enum StagedPatch {
 
 /// Process-image staging that construction reserves for the bindings and every scan reuses
 /// (spec 34 MEM-09; census S1 and S5 to S7): the sampled inputs, the snapshot of their
-/// destinations with its sorting keys, the staged output patches, one encoding window and the
-/// bytes of every staged window. A scan leaves it empty with its storage kept.
+/// destinations with its sorting keys, the staged output patches, one encoding window, the
+/// bytes of every staged window and the copy of the output image that a publication to output
+/// hooks puts back when they refuse it (C1-19f). A scan leaves it empty with its storage kept.
 #[derive(Default)]
 pub(in crate::vm::engine) struct ImageStaging {
     inputs: Vec<StagedInput>,
@@ -134,6 +136,7 @@ pub(in crate::vm::engine) struct ImageStaging {
     /// of its image entry, built at construction and moved into the entry when the binding first
     /// publishes, so that no scan builds one (C1-19c).
     published_keys: Vec<Option<IoAddressKey>>,
+    outputs_before: Vec<u8>,
 }
 
 /// The staging that the bindings of a prepared module use in one scan.
@@ -242,6 +245,27 @@ impl ImageStaging {
         self.bytes.try_reserve_exact(demand.bytes).map_err(refused)
     }
 
+    /// Reserve the copy of an output image of `bytes` bytes (C1-19f).
+    pub(in crate::vm::engine) fn reserve_output_copy(
+        &mut self,
+        bytes: usize,
+    ) -> Result<(), RuntimeError> {
+        self.outputs_before
+            .try_reserve_exact(bytes)
+            .map_err(|_| crate::vm::VmTrap::BudgetExceeded.into_runtime_error())
+    }
+
+    /// Keep the output image a publication begins with, in the reserved copy.
+    fn keep_outputs(&mut self, outputs: &[u8]) {
+        self.outputs_before.clear();
+        self.outputs_before.extend_from_slice(outputs);
+    }
+
+    /// Put back the output image the publication began with.
+    fn restore_outputs(&self, outputs: &mut [u8]) {
+        outputs.copy_from_slice(&self.outputs_before);
+    }
+
     /// Reserve room for `bytes` bytes of input destinations saved as their cells (C1-16).
     pub(in crate::vm::engine) fn reserve_snapshot_bytes(
         &mut self,
@@ -258,6 +282,7 @@ impl ImageStaging {
         self.patches.clear();
         self.window.clear();
         self.bytes.clear();
+        self.outputs_before.clear();
     }
 
     /// Apply the staged patches in binding order. A hierarchical value is stored in its address's
@@ -488,9 +513,9 @@ impl EngineState<'_> {
         // The no-op composition retains its original publication checks/cost.
         self.check_entry_deadline()?;
         let output_hooks = hooks.has_output_hooks();
-        let mut undo = Vec::new();
+        let mut journal = None;
         if output_hooks {
-            let count = staging
+            let windows = staging
                 .patches
                 .iter()
                 .filter(|patch| {
@@ -503,42 +528,51 @@ impl EngineState<'_> {
                     )
                 })
                 .count();
-            self.charge_allocation_bytes(
-                count
-                    .checked_mul(size_of::<OutputUndo>())
-                    .ok_or_else(|| RuntimeError::Overflow)?,
-            )?;
-            undo.try_reserve_exact(count)
-                .map_err(|_| RuntimeError::PreparationLimit)?;
+            let mut opened = self.open_output_journal(windows)?;
             for patch in &staging.patches {
-                self.save_output_patch(&mut undo, patch)?;
+                if let StagedPatch::Flat {
+                    area: IoArea::Output,
+                    start,
+                    len,
+                    ..
+                } = patch
+                {
+                    self.journal_output_window(&mut opened, *start, *len)?;
+                }
             }
+            staging.keep_outputs(&self.data.images.outputs);
+            journal = Some(opened);
         }
         // All fallible conversion/allocation/policy work precedes publication.
         staging.apply(&mut self.data.images, &self.prepared.io_bindings);
-        if output_hooks {
+        if let Some(mut journal) = journal {
             // Provisional output views are callback-scoped. Preserve the hosted
             // rollback domain: flat Q only, not M/hierarchical state effects.
             // Physical effects already completed by a driver cannot be rolled back.
-            let result = hooks
-                .on_phase(
-                    CyclePhase::AfterOutputSample,
-                    &mut CycleAccess {
-                        engine: self,
-                        phase: CyclePhase::AfterOutputSample,
-                        output_undo: Some(&mut undo),
-                    },
-                )
+            let before = self.services.allocator_operations();
+            let sampled = hooks.on_phase(
+                CyclePhase::AfterOutputSample,
+                &mut CycleAccess {
+                    engine: self,
+                    phase: CyclePhase::AfterOutputSample,
+                    output_undo: Some(&mut journal),
+                },
+            );
+            self.count_service_operations(before);
+            let result = sampled
                 .and_then(|()| self.check_entry_deadline())
                 .and_then(|()| {
-                    hooks.publish_outputs(&CycleAccess {
+                    let before = self.services.allocator_operations();
+                    let published = hooks.publish_outputs(&CycleAccess {
                         engine: self,
                         phase: CyclePhase::AfterOutputSample,
                         output_undo: None,
-                    })
+                    });
+                    self.count_service_operations(before);
+                    published
                 });
             if let Err(error) = result {
-                self.restore_output_image(undo);
+                staging.restore_outputs(&mut self.data.images.outputs);
                 return Err(error);
             }
             // Successful submission commits Q. A late deadline/observation
@@ -671,71 +705,6 @@ impl EngineState<'_> {
         result
     }
 
-    fn save_output_patch(
-        &self,
-        undo: &mut Vec<OutputUndo>,
-        patch: &StagedPatch,
-    ) -> Result<(), RuntimeError> {
-        let saved = match patch {
-            StagedPatch::Flat {
-                area: IoArea::Output,
-                start,
-                len,
-                ..
-            } => self.output_window_undo(*start, *len)?,
-            _ => return Ok(()),
-        };
-        self.push_output_undo(undo, saved)
-    }
-
-    fn output_window_undo(&self, start: usize, width: usize) -> Result<OutputUndo, RuntimeError> {
-        let end = start
-            .checked_add(width)
-            .ok_or_else(|| RuntimeError::Overflow)?;
-        let source = self
-            .data
-            .images
-            .outputs
-            .get(start..end)
-            .ok_or_else(|| RuntimeError::TypeMismatch)?;
-        self.charge_allocation_bytes(width)?;
-        let mut bytes = Vec::new();
-        bytes
-            .try_reserve_exact(width)
-            .map_err(|_| RuntimeError::PreparationLimit)?;
-        bytes.extend_from_slice(source);
-        Ok(OutputUndo { start, bytes })
-    }
-
-    fn push_output_undo(
-        &self,
-        undo: &mut Vec<OutputUndo>,
-        value: OutputUndo,
-    ) -> Result<(), RuntimeError> {
-        if undo.len() == undo.capacity() {
-            let count = undo
-                .len()
-                .checked_add(1)
-                .ok_or_else(|| RuntimeError::Overflow)?;
-            self.charge_allocation_bytes(
-                count
-                    .checked_mul(size_of::<OutputUndo>())
-                    .ok_or_else(|| RuntimeError::Overflow)?,
-            )?;
-            undo.try_reserve_exact(1)
-                .map_err(|_| RuntimeError::PreparationLimit)?;
-        }
-        undo.push(value);
-        Ok(())
-    }
-
-    fn restore_output_image(&mut self, undo: Vec<OutputUndo>) {
-        for saved in undo.into_iter().rev() {
-            self.data.images.outputs[saved.start..saved.start + saved.bytes.len()]
-                .copy_from_slice(&saved.bytes);
-        }
-    }
-
     pub(in crate::vm::engine) fn read_cycle_image(
         &mut self,
         address: &IoAddress,
@@ -781,7 +750,7 @@ impl EngineState<'_> {
         &mut self,
         address: &IoAddress,
         value: Value,
-        undo: Option<&mut Vec<OutputUndo>>,
+        journal: Option<&mut OutputJournal>,
     ) -> Result<(), RuntimeError> {
         validate_process_image_address(address)?;
         if address.path.len() > 1 {
@@ -842,10 +811,9 @@ impl EngineState<'_> {
             };
             write_flat_image(&mut patch, &local, value)?;
             if address.area == IoArea::Output
-                && let Some(undo) = undo
+                && let Some(journal) = journal
             {
-                let saved = self.output_window_undo(address.byte as usize, width)?;
-                self.push_output_undo(undo, saved)?;
+                self.journal_output_window(journal, address.byte as usize, width)?;
             }
             self.check_entry_deadline()?;
             let image = match address.area {

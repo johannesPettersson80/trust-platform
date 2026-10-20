@@ -144,7 +144,9 @@ impl EngineState<'_> {
         let name = &prepared.vm.strings[declaration.name_idx as usize];
         let observed = hooks.has_program_hooks();
         if observed {
+            let before = self.services.allocator_operations();
             hooks.program_started(name);
+            self.count_service_operations(before);
         }
         let result = (|| {
             // The program root is read by its declaration's slot, not by its name (C1-9d1, O22); it
@@ -157,7 +159,9 @@ impl EngineState<'_> {
             self.execute_pou(pou, Some(instance))
         })();
         if observed {
+            let before = self.services.allocator_operations();
             hooks.program_finished(name);
+            self.count_service_operations(before);
         }
         result
     }

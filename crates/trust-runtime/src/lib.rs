@@ -13,6 +13,11 @@ include!("../../../tests/support/generated_output_oracle.rs");
 /// Portable runtime-core compatibility surface.
 pub use trust_runtime_core as runtime_core;
 
+/// The allocation count of a computer: each thread's allocator operations, which the program's
+/// allocator counts and the runtime reports with its scans.
+#[path = "host/allocation_count.rs"]
+pub mod allocation_count;
+
 /// Beckhoff ADS client integration contracts.
 #[cfg(feature = "full")]
 #[path = "host/ads/mod.rs"]

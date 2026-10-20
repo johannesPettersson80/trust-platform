@@ -41,6 +41,16 @@ impl MetricsSubsystem {
         }
     }
 
+    /// Add the allocator operations of one counted scan (specification 34, "The allocation
+    /// count").
+    pub(super) fn record_scan_allocations(&self, engine: u64, services: u64) {
+        if let Some(metrics) = self.sink.as_ref()
+            && let Ok(mut guard) = metrics.lock()
+        {
+            guard.record_scan_allocations(engine, services);
+        }
+    }
+
     pub(super) fn record_task(&self, name: &SmolStr, duration: StdDuration) {
         if let Some(metrics) = self.sink.as_ref()
             && let Ok(mut guard) = metrics.lock()

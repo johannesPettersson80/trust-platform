@@ -40,6 +40,9 @@ impl Runtime {
         let debug = self.debug_control();
         let now = self.current_time();
         let cycle_timer = self.metrics.start_timer();
+        // The scan's allocator operations are read around the cycle's work; the engine's own are
+        // the engine's, the rest the services' (specification 34, "The allocation count").
+        let operations_before = crate::allocation_count::operations();
         let mut result = {
             let mut hooks = HostedCycle {
                 io: &mut self.io,
@@ -76,6 +79,14 @@ impl Runtime {
                     }
                 });
             self.io.update_health();
+        }
+        if let (Some(before), Some(after), Some(engine)) = (
+            operations_before,
+            crate::allocation_count::operations(),
+            self.state.last_scan_allocations(),
+        ) {
+            let services = after.saturating_sub(before).saturating_sub(engine);
+            self.metrics.record_scan_allocations(engine, services);
         }
         match result {
             Ok(()) => {
