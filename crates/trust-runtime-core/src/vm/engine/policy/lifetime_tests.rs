@@ -198,8 +198,12 @@ fn initialized_marker_lookup_consumes_no_allowance_before_visibility_read() {
 
     let prepared = prepared();
     let mut data =
-        EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
-            .unwrap();
+        EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
+    let projection = crate::vm::engine::test_store::projection(&EngineState::borrow(
+        &mut data,
+        &prepared,
+        &super::super::services::LOGICAL_ONLY,
+    ));
     let (declaration, instance) = prepared
         .layout
         .entries
@@ -210,7 +214,7 @@ fn initialized_marker_lookup_consumes_no_allowance_before_visibility_read() {
                 return None;
             }
             let template = entry.owner_pou_id?;
-            let instance = data.storage.instances().iter().find_map(|(instance, _)| {
+            let instance = projection.instances().iter().find_map(|(instance, _)| {
                 (data.construction.instance_templates.get(instance) == Some(&template))
                     .then_some(*instance)
             })?;

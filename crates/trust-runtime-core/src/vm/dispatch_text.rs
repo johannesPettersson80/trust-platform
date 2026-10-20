@@ -247,7 +247,8 @@ impl<'a> Lying<'a> {
                 range,
                 type_id,
             }),
-            ValueView::Bits { .. } => None,
+            // A program root's instance is no text either.
+            ValueView::Bits { .. } | ValueView::Instance(_) => None,
         }
     }
 

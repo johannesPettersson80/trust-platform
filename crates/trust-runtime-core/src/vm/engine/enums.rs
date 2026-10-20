@@ -13,7 +13,6 @@ use crate::bytecode::{EnumVariant, TypeData, TypeEntry};
 use crate::memory::cell_access::PlaceTarget;
 use crate::memory::view::ValueView;
 use crate::value::ValueRefView;
-use crate::vm::engine::store_access::Routed;
 use crate::vm::EnumTemp;
 
 impl EngineState<'_> {
@@ -38,7 +37,7 @@ impl EngineState<'_> {
                 leaf,
                 depth,
             } => cells.overlay_enum_number(range, type_id, leaf, depth)?,
-            ValueView::Value(_) => return None,
+            ValueView::Value(_) | ValueView::Instance(_) => return None,
         };
         Some(EnumTemp { type_id, value })
     }
@@ -46,9 +45,6 @@ impl EngineState<'_> {
     /// The operand a load of the enumeration constant `value` pushes on the flat store: its type,
     /// found by the name the value holds, and its number.
     pub(super) fn enum_constant(&self, value: &Value) -> Option<EnumTemp> {
-        if !self.holds_cells() {
-            return None;
-        }
         let Value::Enum(enumeration) = value else {
             return None;
         };
@@ -98,9 +94,7 @@ impl EngineState<'_> {
         if declared.is_some_and(|declared| !self.enum_admitted(declared, temp)) {
             return None;
         }
-        let Routed::Cells(reader) = self.data.routed(self.prepared) else {
-            return None;
-        };
+        let reader = self.data.reader(self.prepared);
         let (range, type_id, presence, beside) =
             match reader.place_target(reference.location, reference.offset, reference.path)? {
                 PlaceTarget::Cells {
@@ -134,12 +128,9 @@ impl EngineState<'_> {
             if beside {
                 self.check_entry_deadline()?;
             }
-            match &mut self.data.store {
-                EngineStore::Cells(arm) => {
-                    arm.write_enum(range, presence, type_id, temp.value, self.prepared)
-                }
-                EngineStore::Values => Ok(false),
-            }
+            self.data
+                .store
+                .write_enum(range, presence, type_id, temp.value, self.prepared)
         })())
     }
 
@@ -172,19 +163,14 @@ impl EngineState<'_> {
             temp.value,
         );
         let patch = {
-            let Routed::Cells(reader) = self.data.routed(self.prepared) else {
-                return Err(RuntimeError::InvalidExecutionState);
-            };
+            let reader = self.data.reader(self.prepared);
             reader
                 .view_cells()
                 .enum_leaf_patch(range, root_type, node, variant)?
                 .ok_or(RuntimeError::TypeMismatch)?
         };
         self.check_entry_deadline()?;
-        Ok(match &mut self.data.store {
-            EngineStore::Cells(arm) => arm.write_leaf_patch(&patch),
-            EngineStore::Values => false,
-        })
+        Ok(self.data.store.write_leaf_patch(&patch))
     }
 
     /// Whether a value of `type_id` takes the enumeration `temp`, as `validate_assignment_enum` and

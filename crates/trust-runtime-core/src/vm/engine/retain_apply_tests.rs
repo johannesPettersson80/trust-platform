@@ -12,13 +12,18 @@ const PROGRAM: &[u8] =
 
 /// Program-v2 with `enabled` and `result` marked retained beside the source's retained
 /// `activations`. `result` is retyped to the fixture's `ARRAY[1..3] OF INT`, so the
-/// snapshot carries an aggregate whose elements are migrated one by one.
+/// snapshot carries an aggregate whose elements are migrated one by one. The module is changed
+/// before preparation, which lays the variables out at their declared types (spec 34 MEM-12):
+/// `result` is retyped wherever the module types it (its declaration, the variable metadata of
+/// the references to it and of its initializers' results, and its default initializer), and each
+/// construction demand is the validator's own.
 fn program_fixture() -> PreparedModule {
-    let mut prepared =
-        PreparedModule::from_bytes(PROGRAM, crate::vm::PreparationLimits::default()).unwrap();
-    let history = prepared
-        .vm
-        .types
+    use crate::bytecode::{construction_demands, BytecodeModule, SectionData, SectionId};
+    let mut module = BytecodeModule::decode(PROGRAM).unwrap();
+    let Some(SectionData::TypeTable(types)) = module.section(SectionId::TypeTable) else {
+        panic!("type table")
+    };
+    let history = types
         .entries
         .iter()
         .position(|entry| {
@@ -28,25 +33,115 @@ fn program_fixture() -> PreparedModule {
             )
         })
         .expect("program-v2 declares ARRAY[1..3] OF INT") as u32;
-    let enabled = program_declaration(&prepared, "enabled");
-    prepared.layout.entries[enabled].retain = 1;
-    let result = program_declaration(&prepared, "result");
-    prepared.layout.entries[result].retain = 1;
-    prepared.layout.entries[result].type_id = Some(history);
-    prepared
-}
-
-fn program_declaration(prepared: &PreparedModule, name: &str) -> usize {
-    prepared
-        .layout
+    let Some(SectionData::StringTable(strings)) = module.section(SectionId::StringTable) else {
+        panic!("string table")
+    };
+    let names = strings.entries.clone();
+    let Some(SectionData::StorageLayout(layout)) = module.section_mut(SectionId::StorageLayout)
+    else {
+        panic!("storage layout")
+    };
+    let mut result = None;
+    for (index, entry) in layout.entries.iter_mut().enumerate() {
+        if entry.owner != StorageOwner::Instance || entry.role != StorageRole::Variable {
+            continue;
+        }
+        let name = &names[entry.name_idx as usize];
+        if name.eq_ignore_ascii_case("enabled") {
+            entry.retain = 1;
+        } else if name.eq_ignore_ascii_case("result") {
+            // An array takes its type's default; the source's INT default constant no longer fits.
+            entry.retain = 1;
+            entry.type_id = Some(history);
+            entry.default_const_idx = None;
+            result = Some((index as u32, entry.owner_pou_id, entry.slot));
+        }
+    }
+    // The variable metadata types each reference that names `result` and each result of its
+    // initializers, and validation compares those types with the declaration's (specification 12
+    // §6.4), so they are retyped with it. An instance reference names its instance by the owner a
+    // construction root gives the program's instance.
+    let (result, template, slot) = result.expect("program-v2 declares result");
+    let Some(SectionData::ConstructionRoots(roots)) = module.section(SectionId::ConstructionRoots)
+    else {
+        panic!("construction roots")
+    };
+    let owners: Vec<u32> = roots
         .entries
         .iter()
-        .position(|entry| {
-            entry.owner == StorageOwner::Instance
-                && entry.role == StorageRole::Variable
-                && prepared.vm.strings[entry.name_idx as usize].eq_ignore_ascii_case(name)
+        .filter(|root| root.template_pou_id == template)
+        .filter_map(|root| root.instance_owner_id)
+        .collect();
+    let Some(SectionData::RefTable(refs)) = module.section(SectionId::RefTable) else {
+        panic!("reference table")
+    };
+    let mut retyped: Vec<u32> = refs
+        .entries
+        .iter()
+        .zip(0u32..)
+        .filter(|(reference, _)| {
+            reference.location == crate::bytecode::RefLocation::Instance
+                && owners.contains(&reference.owner_id)
+                && reference.offset == slot
+                && reference.segments.is_empty()
         })
-        .expect("program-v2 declares the variable")
+        .map(|(_, id)| id)
+        .collect();
+    let Some(SectionData::Initializers(initializers)) = module.section(SectionId::Initializers)
+    else {
+        panic!("initializers")
+    };
+    retyped.extend(
+        initializers
+            .entries
+            .iter()
+            .filter(|entry| entry.declaration_idx == Some(result))
+            .map(|entry| entry.result_ref_idx),
+    );
+    // The default initializer of `result` constructs the default of the type its `DEFAULT_TYPED`
+    // names (specification 12, the opcode 0x66 and its TYPE_TABLE operand), the array's now.
+    let default = initializers
+        .entries
+        .iter()
+        .find(|entry| {
+            entry.declaration_idx == Some(result)
+                && entry.stage == crate::bytecode::InitializationStage::Default
+        })
+        .expect("result has a default initializer")
+        .code_offset as usize;
+    let Some(SectionData::PouBodies(bodies)) = module.section_mut(SectionId::PouBodies) else {
+        panic!("code")
+    };
+    assert_eq!(
+        bodies[default], 0x66,
+        "the default initializer opens with DEFAULT_TYPED"
+    );
+    bodies[default + 1..default + 5].copy_from_slice(&history.to_le_bytes());
+    let Some(SectionData::VarMeta(meta)) = module.section_mut(SectionId::VarMeta) else {
+        panic!("variable metadata")
+    };
+    for entry in &mut meta.entries {
+        if retyped.contains(&entry.ref_idx) {
+            entry.type_id = history;
+        }
+    }
+    let demands =
+        construction_demands(module.view(), crate::bytecode::ValidationLimits::default()).unwrap();
+    let Some(SectionData::StorageLayout(layout)) = module.section_mut(SectionId::StorageLayout)
+    else {
+        panic!("storage layout")
+    };
+    for (entry, demand) in layout.entries.iter_mut().zip(demands) {
+        entry.construction_nodes = demand;
+    }
+    module
+        .validate()
+        .expect("the retyped program is a valid module");
+    PreparedModule::from_bytes(
+        &module.encode().unwrap(),
+        crate::vm::PreparationLimits::default(),
+    )
+    .unwrap()
 }
 
 fn retained_snapshot() -> RetainSnapshot {
@@ -65,7 +160,7 @@ fn retained_snapshot() -> RetainSnapshot {
 }
 
 fn fresh(prepared: &PreparedModule) -> Box<EngineData> {
-    EngineState::construct_values_data(prepared, 0, &services::LOGICAL_ONLY).unwrap()
+    EngineState::construct_data(prepared, 0, &services::LOGICAL_ONLY).unwrap()
 }
 
 /// A constructed owner whose engineering counters start as `engineering_operation`
@@ -99,23 +194,20 @@ struct Observed {
     faulted: bool,
 }
 
-fn plant_instance(data: &EngineData) -> InstanceId {
-    match data.storage.get_global("Plant") {
-        Some(Value::Instance(instance)) => *instance,
-        other => panic!("program root Plant: {other:?}"),
-    }
+fn plant_instance(state: &EngineState<'_>) -> InstanceId {
+    crate::vm::engine::test_store::global_instance(state, "Plant")
 }
 
-fn observe(data: &EngineData) -> Observed {
-    let plant = plant_instance(data);
+fn observe(state: &EngineState<'_>) -> Observed {
+    let plant = plant_instance(state);
     Observed {
-        activations: data.storage.get_instance_var(plant, "activations").cloned(),
-        enabled: data.storage.get_instance_var(plant, "enabled").cloned(),
-        result: data.storage.get_instance_var(plant, "result").cloned(),
-        outputs: data.images.outputs.clone(),
-        memory: data.images.memory.clone(),
-        now: data.now,
-        faulted: data.fault.is_some(),
+        activations: crate::vm::engine::test_store::instance_var(state, plant, "activations"),
+        enabled: crate::vm::engine::test_store::instance_var(state, plant, "enabled"),
+        result: crate::vm::engine::test_store::instance_var(state, plant, "result"),
+        outputs: state.data.images.outputs.clone(),
+        memory: state.data.images.memory.clone(),
+        now: state.data.now,
+        faulted: state.data.fault.is_some(),
     }
 }
 
@@ -127,7 +219,11 @@ fn retained_snapshot_refusal_at_every_allocation_allowance_restores_the_owner() 
     assert!(required > 0, "the snapshot must charge allocation");
     for allowance in 0..required {
         let mut data = armed(&prepared, limit - allowance);
-        let before = observe(&data);
+        let before = observe(&EngineState::borrow(
+            &mut data,
+            &prepared,
+            &services::LOGICAL_ONLY,
+        ));
         let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
         let result = state.apply_retained_snapshot(&retained_snapshot());
         assert!(
@@ -142,7 +238,7 @@ fn retained_snapshot_refusal_at_every_allocation_allowance_restores_the_owner() 
             "allowance {allowance} must refuse with the exact AllocationBytes limit: {result:?}"
         );
         assert_eq!(
-            observe(&*state.data),
+            observe(&state),
             before,
             "allowance {allowance} changed retained state"
         );
@@ -155,12 +251,16 @@ fn retained_snapshot_admits_exactly_its_charged_allowance_and_migrates_each_entr
     let limit = prepared.limits.max_construction_bytes;
     let required = charged_bytes(&prepared);
     let mut data = armed(&prepared, limit - required);
-    let before = observe(&data);
+    let before = observe(&EngineState::borrow(
+        &mut data,
+        &prepared,
+        &services::LOGICAL_ONLY,
+    ));
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
     let events = state
         .apply_retained_snapshot(&retained_snapshot())
         .expect("the measured allowance admits the snapshot");
-    let after = observe(&*state.data);
+    let after = observe(&state);
     assert!(
         events.contains(&RetainApplyEvent::Migrated {
             name: "@program/Plant/activations".into(),
@@ -201,18 +301,24 @@ fn warm_restart_program_values_refusal_at_every_allocation_point_preserves_the_o
         let mut prepared = program_fixture();
         prepared.limits.max_construction_bytes = limit;
         let mut data = fresh(&prepared);
-        let plant = plant_instance(&data);
-        assert!(data
-            .storage
-            .set_instance_var(plant, "activations", Value::DInt(5)));
-        assert!(data
-            .storage
-            .set_instance_var(plant, "result", restored_result()));
-        let before = observe(&data);
         let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+        let plant = plant_instance(&state);
+        assert!(crate::memory::view::StoreMutate::write_instance_var(
+            &mut state,
+            plant,
+            "activations",
+            Value::DInt(5)
+        ));
+        assert!(crate::memory::view::StoreMutate::write_instance_var(
+            &mut state,
+            plant,
+            "result",
+            restored_result()
+        ));
+        let before = observe(&state);
         match state.restart(RestartMode::Warm) {
             Ok(()) => {
-                let restored = observe(&*state.data);
+                let restored = observe(&state);
                 assert_eq!(
                     restored.activations,
                     Some(Value::DInt(5)),
@@ -238,7 +344,7 @@ fn warm_restart_program_values_refusal_at_every_allocation_point_preserves_the_o
                     "limit {limit} must refuse with the exact AllocationBytes limit: {error:?}"
                 );
                 assert_eq!(
-                    observe(&*state.data),
+                    observe(&state),
                     before,
                     "limit {limit} changed the live owner"
                 );

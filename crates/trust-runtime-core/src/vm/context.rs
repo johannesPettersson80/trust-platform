@@ -109,6 +109,9 @@ pub trait ReferenceContext {
     ) -> Result<(), crate::error::RuntimeError> {
         match root {
             ValueView::Value(value) => self.before_path_write(value, path, input),
+            ValueView::Instance(instance) => {
+                self.before_path_write(&Value::Instance(*instance), path, input)
+            }
             ValueView::Cells { .. } | ValueView::Bits { .. } => {
                 Err(crate::error::RuntimeError::InvalidExecutionState)
             }
@@ -137,6 +140,7 @@ pub trait ReferenceContext {
     fn before_view_clone(&self, view: &ValueView<'_>) -> Result<(), crate::error::RuntimeError> {
         match view {
             ValueView::Value(value) => self.before_value_clone(value),
+            ValueView::Instance(instance) => self.before_value_clone(&Value::Instance(*instance)),
             ValueView::Cells { .. } | ValueView::Bits { .. } => {
                 Err(crate::error::RuntimeError::InvalidExecutionState)
             }

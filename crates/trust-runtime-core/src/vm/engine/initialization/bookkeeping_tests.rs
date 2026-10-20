@@ -71,15 +71,14 @@ fn a_trap_inside_an_initializer_returns_its_scratch() {
     )
     .unwrap();
     let mut data =
-        EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
-            .unwrap();
-    let Some(Value::Instance(program)) = data.storage.get_global("Plant") else {
-        panic!("fixture program root");
-    };
-    let program = *program;
+        EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
+    let program = crate::vm::engine::test_store::global_instance(
+        &EngineState::borrow(&mut data, &prepared, &super::super::services::LOGICAL_ONLY),
+        "Plant",
+    );
     let pou = *data.construction.instance_templates.get(&program).unwrap();
-    // Stage the aggregate member that owns a nested instance, so the seed takes its pending,
-    // visited and backup lists.
+    // Stage the member that owns a nested instance, the program's `Counter`, so the seed takes
+    // its pending, visited and backup lists and backs that instance up.
     let declaration = prepared
         .layout
         .entries
@@ -90,17 +89,6 @@ fn a_trap_inside_an_initializer_returns_its_scratch() {
                 && prepared.vm.strings[entry.name_idx as usize].eq_ignore_ascii_case("counter")
         })
         .unwrap();
-    let member_type = prepared.layout.entries[declaration].type_id.unwrap();
-    let array_type = prepared.vm.types.entries.len() as u32;
-    prepared.vm.types.entries.push(crate::bytecode::TypeEntry {
-        kind: crate::bytecode::TypeKind::Array,
-        name_idx: None,
-        data: TypeData::Array {
-            elem_type_id: member_type,
-            dims: vec![(1, 1)],
-        },
-    });
-    prepared.layout.entries[declaration].type_id = Some(array_type);
     let code_offset = prepared.vm.code.len() as u32;
     prepared.vm.code.push(0xFF); // malformed instruction
     prepared.initializers.entries[0].code_offset = code_offset;

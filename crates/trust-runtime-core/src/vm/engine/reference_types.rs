@@ -267,7 +267,8 @@ mod tests {
             &prepared,
             &super::super::services::LOGICAL_ONLY,
         );
-        let mut reference = state.data.storage.ref_for_global("Plant").unwrap();
+        let mut reference =
+            crate::memory::view::StoreAccess::ref_for_global(&state, "Plant").unwrap();
         reference.path.push(RefSegment::Field("activations".into()));
         let value = Value::DInt(1);
         assert!(state

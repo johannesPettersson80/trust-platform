@@ -5,11 +5,7 @@ use crate::value::{DateTimeProfile, Value};
 use crate::vm::construction::values::{
     NodeTarget, Target, ValueConstructionContext, ValueOperation,
 };
-use crate::vm::{
-    engine::{EngineState, EngineStore},
-    module::invalid_bytecode,
-    VmTrap,
-};
+use crate::vm::{engine::EngineState, module::invalid_bytecode, VmTrap};
 use core::mem::size_of;
 
 // Three operation bits per admitted type; two types share a byte. The ordered
@@ -219,9 +215,7 @@ impl ValueConstructionContext for EngineState<'_> {
         type_id: u32,
         value: &Value,
     ) -> Result<(), RuntimeError> {
-        let EngineStore::Cells(arm) = &mut self.data.store else {
-            return Err(RuntimeError::InvalidExecutionState);
-        };
+        let arm = &mut *self.data.store;
         arm.write_in_place(at, type_id, value, self.prepared)
     }
 
@@ -231,9 +225,7 @@ impl ValueConstructionContext for EngineState<'_> {
         type_id: u32,
         numeric: i64,
     ) -> Result<(), RuntimeError> {
-        let EngineStore::Cells(arm) = &mut self.data.store else {
-            return Err(RuntimeError::InvalidExecutionState);
-        };
+        let arm = &mut *self.data.store;
         arm.write_enum_in_place(at, type_id, numeric, self.prepared)
     }
 

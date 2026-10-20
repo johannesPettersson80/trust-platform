@@ -3,6 +3,7 @@
 use super::*;
 use crate::memory::cells::Cell;
 use crate::memory::layout::primitive_shape;
+use alloc::{vec, vec::Vec};
 
 /// The bytes a leaf of `prim_id` takes, from the layout's shape (MEM-12).
 fn width(prim_id: u16) -> usize {

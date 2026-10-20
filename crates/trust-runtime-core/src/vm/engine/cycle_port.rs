@@ -461,12 +461,13 @@ mod tests {
         let prepared =
             PreparedModule::from_bytes(artifact, crate::vm::PreparationLimits::default()).unwrap();
         let mut data =
-            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
-        let reference = data.storage.ref_for_global("probe_depth").unwrap();
-        data.resources.work_budget.reset(512);
         let mut engine =
             EngineState::borrow(&mut data, &prepared, &super::super::services::LOGICAL_ONLY);
+        let reference =
+            crate::memory::view::StoreAccess::ref_for_global(&engine, "probe_depth").unwrap();
+        engine.data.resources.work_budget.reset(512);
         let mut access = CycleAccess {
             engine: &mut engine,
             phase: CyclePhase::CycleStart,
@@ -485,8 +486,8 @@ mod tests {
             .unwrap();
         assert_eq!(access.engine.data.resources.work_budget.remaining(), 0);
         assert_eq!(
-            access.engine.data.storage.get_global("probe_depth"),
-            Some(&Value::Int(3))
+            crate::vm::engine::test_store::global(access.engine, "probe_depth"),
+            Some(Value::Int(3))
         );
     }
 

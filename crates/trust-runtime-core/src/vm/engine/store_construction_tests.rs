@@ -11,6 +11,7 @@
 mod call_instances;
 mod debug_frames;
 mod engineering;
+mod expected;
 mod flat_references;
 mod frames;
 mod identities;
@@ -18,8 +19,7 @@ mod keeper;
 mod retain;
 mod scans;
 
-use super::store_access::Routed;
-use super::{services, Construction, EngineData, EngineState, EngineStore, StoreKind};
+use super::{services, Construction, EngineData, EngineState};
 use crate::bytecode::{StorageOwner, StorageRole, ValidationLimits};
 use crate::collections::OrderedMap;
 use crate::error::RuntimeError;
@@ -184,48 +184,35 @@ fn chip_limits() -> PreparationLimits {
     }
 }
 
-/// The engine data of `prepared` built on `store`, with the default profile.
-fn build(prepared: &PreparedModule, store: StoreKind) -> Result<Box<EngineData>, RuntimeError> {
-    build_with(prepared, store, DateTimeProfile::default())
+/// The engine data of `prepared`, with the default profile.
+fn build(prepared: &PreparedModule) -> Result<Box<EngineData>, RuntimeError> {
+    build_with(prepared, DateTimeProfile::default())
 }
 
 fn build_with(
     prepared: &PreparedModule,
-    store: StoreKind,
     profile: DateTimeProfile,
 ) -> Result<Box<EngineData>, RuntimeError> {
     EngineState::construct_data_with(
         prepared,
         0,
         &services::LOGICAL_ONLY,
-        Construction { store, profile },
+        Construction { profile },
     )
 }
 
-/// The engine data of `prepared` built on `store` with the platform services `services`, with the
-/// default profile (C1-18).
+/// The engine data of `prepared` with the platform services `services`, with the default profile
+/// (C1-18).
 fn build_served(
     prepared: &PreparedModule,
-    store: StoreKind,
     services: &dyn crate::vm::ExecutionServices,
 ) -> Result<Box<EngineData>, RuntimeError> {
-    EngineState::construct_data_with(
-        prepared,
-        0,
-        services,
-        Construction {
-            store,
-            profile: DateTimeProfile::default(),
-        },
-    )
+    EngineState::construct_data_with(prepared, 0, services, Construction::default())
 }
 
-/// The cell arm a state built on `StoreKind::Cells` holds.
+/// The flat store a state holds.
 fn arm(data: &EngineData) -> &CellArm {
-    match &data.store {
-        EngineStore::Cells(arm) => arm,
-        EngineStore::Values => panic!("the state holds the Value store"),
-    }
+    &data.store
 }
 
 /// The value of the global `name`.
@@ -260,10 +247,7 @@ fn declared_values(prepared: &PreparedModule, state: &EngineState<'_>) -> Vec<St
         Ok(Value::Reference(Some(reference))) => {
             Ok(Value::Reference(Some(state.path_form(&reference))))
         }
-        Ok(value) => match state.data.routed(state.prepared) {
-            Routed::Cells(reader) => reader.named_value(value),
-            Routed::Values(_) => Ok(value),
-        },
+        Ok(value) => state.data.reader(state.prepared).named_value(value),
         other => other,
     };
     let mut lines = Vec::new();
@@ -302,7 +286,7 @@ fn persistent_instances_are_registered_at_construction() {
     // `FUNCTION_BLOCK Tracker` (VAR history : ARRAY[1..3] OF INT END_VAR). Its roots are the globals `ticks`,
     // `table`, `origin`, `corners` and `capacity`, the program (template pou 0), the tracker (template pou 34,
     // nested in the program) and the static `calls`. Only the program and the tracker have instances, so they
-    // take identities 0 and 1 on the `Value` store, and the cells must give the same. The globals take
+    // take identities 0 and 1, as they did on the `Value` store. The globals take
     // 26 bytes at their declared sizes (MEM-12: `ticks` a DINT 4, `table` three INTs 6, `origin` two
     // INTs 4, `corners` two of them 8, `capacity` and `calls` an INT 2 each), so the roots start at the
     // next multiple of 8, byte 32. The program holds `gain` (an INT) at 0, `tracker` (an 8-byte
@@ -310,11 +294,10 @@ fn persistent_instances_are_registered_at_construction() {
     // tracker holds `history` (three INTs, 6 bytes rounded up to 8) and follows at byte 56.
     //
     // A second counter for per-call instances would start at 0 and issue identity 0 again: the instance
-    // created next must take 2 on both stores. A store that did not record the instances would answer no
-    // type name for identity 0 or 1.
+    // created next must take 2. A store that did not record the instances would answer no type name for
+    // identity 0 or 1; their types are the program `Initializers` and the function block `Tracker`.
     let prepared = prepare(INITIALIZERS);
-    let mut values = build(&prepared, StoreKind::Values).expect("the Value store constructs");
-    let mut cells = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let mut cells = build(&prepared).expect("the cell store constructs");
     let roots = vec![
         None,
         None,
@@ -325,7 +308,6 @@ fn persistent_instances_are_registered_at_construction() {
         Some(InstanceId(1)),
         None,
     ];
-    assert_eq!(values.construction.roots, roots);
     assert_eq!(cells.construction.roots, roots);
     assert_eq!(
         arm(&cells).instance_range(InstanceId(0)),
@@ -345,14 +327,12 @@ fn persistent_instances_are_registered_at_construction() {
     );
     assert_eq!(arm(&cells).instance_range(InstanceId(2)), None);
 
-    let values = EngineState::borrow(&mut values, &prepared, &services::LOGICAL_ONLY);
     let mut cells = EngineState::borrow(&mut cells, &prepared, &services::LOGICAL_ONLY);
-    for instance in [InstanceId(0), InstanceId(1)] {
-        let name = StoreAccess::instance_type_name(&cells, instance).cloned();
-        assert!(name.is_some(), "instance {instance:?} is recorded");
+    for (instance, type_name) in [(InstanceId(0), "Initializers"), (InstanceId(1), "Tracker")] {
         assert_eq!(
-            name.as_ref(),
-            StoreAccess::instance_type_name(&values, instance)
+            StoreAccess::instance_type_name(&cells, instance).map(SmolStr::as_str),
+            Some(type_name),
+            "instance {instance:?} is recorded"
         );
         assert!(matches!(
             StoreAccess::instance_parent(&cells, instance),
@@ -379,7 +359,7 @@ fn cells_use_the_engine_date_time_profile() {
     // `DateTimeProfile::default()` whatever the engine runs with would read 0 in both cases.
     //
     // The built state agrees: the engine applies its profile before it constructs anything, so the
-    // initializers that follow default the same leaves to the same epoch, on both stores.
+    // initializers that follow default the same leaves to the same epoch.
     let prepared = keeper::prepared();
     let epoch = DateTimeProfile {
         epoch: DateValue::new(1_000),
@@ -405,15 +385,13 @@ fn cells_use_the_engine_date_time_profile() {
             Value::Dt(DateTimeValue::new(ticks))
         );
     }
-    for store in [StoreKind::Values, StoreKind::Cells] {
-        let mut data = build_with(&prepared, store, epoch).expect("the program constructs");
-        let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
-        assert_eq!(global(&state, "day_g"), Value::Date(DateValue::new(1_000)));
-        assert_eq!(
-            global(&state, "stamp_g"),
-            Value::Dt(DateTimeValue::new(1_000))
-        );
-    }
+    let mut data = build_with(&prepared, epoch).expect("the program constructs");
+    let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    assert_eq!(global(&state, "day_g"), Value::Date(DateValue::new(1_000)));
+    assert_eq!(
+        global(&state, "stamp_g"),
+        Value::Dt(DateTimeValue::new(1_000))
+    );
 }
 
 fn array(elements: Vec<Value>, dims: Vec<(i64, i64)>) -> Value {
@@ -457,48 +435,28 @@ fn explicit_initializers_land_in_the_cells() {
     // := INT#9`, reads 9; and the constant in the program, `gain : INT := INT#2`, reads 2. A store that
     // wrote a structure's members in the wrong order would read (2, 1), one that wrote the elements in
     // the wrong order would read (5, 6) before (3, 4), and one that left a constant at its default would
-    // read 0. The `Value` store is read with the same expectations, since the specification names one
-    // value for both.
+    // read 0.
     let prepared = prepare(INITIALIZERS);
-    for kind in [StoreKind::Values, StoreKind::Cells] {
-        let mut data = build(&prepared, kind).expect("the store constructs");
-        let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
-        assert_eq!(global(&state, "ticks"), Value::DInt(0), "{kind:?}");
-        assert_eq!(global(&state, "table"), ints(&[4, 5, 6]), "{kind:?}");
-        assert_eq!(global(&state, "origin"), pair(1, 2), "{kind:?}");
-        assert_eq!(
-            global(&state, "corners"),
-            array(vec![pair(3, 4), pair(5, 6)], vec![(1, 2)]),
-            "{kind:?}"
-        );
-        assert_eq!(global(&state, "capacity"), Value::Int(9), "{kind:?}");
-        assert_eq!(
-            member(&state, InstanceId(0), "slot"),
-            Value::Int(1),
-            "{kind:?}"
-        );
-        assert_eq!(
-            member(&state, InstanceId(0), "result"),
-            Value::Int(0),
-            "{kind:?}"
-        );
-        assert_eq!(
-            member(&state, InstanceId(0), "gain"),
-            Value::Int(2),
-            "{kind:?}"
-        );
-        assert_eq!(
-            member(&state, InstanceId(1), "history"),
-            ints(&[1, 2, 3]),
-            "{kind:?}"
-        );
-    }
+    let mut data = build(&prepared).expect("the store constructs");
+    let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    assert_eq!(global(&state, "ticks"), Value::DInt(0));
+    assert_eq!(global(&state, "table"), ints(&[4, 5, 6]));
+    assert_eq!(global(&state, "origin"), pair(1, 2));
+    assert_eq!(
+        global(&state, "corners"),
+        array(vec![pair(3, 4), pair(5, 6)], vec![(1, 2)])
+    );
+    assert_eq!(global(&state, "capacity"), Value::Int(9));
+    assert_eq!(member(&state, InstanceId(0), "slot"), Value::Int(1));
+    assert_eq!(member(&state, InstanceId(0), "result"), Value::Int(0));
+    assert_eq!(member(&state, InstanceId(0), "gain"), Value::Int(2));
+    assert_eq!(member(&state, InstanceId(1), "history"), ints(&[1, 2, 3]));
 
     // scalar: `gain : REAL := REAL#1.5`, `mask : WORD := WORD#16#00FF`, `elapsed : TIME := T#0ms` and
     // `level : LREAL := LREAL#0.0`, each global of its own kind. The program is instance 0 and its
     // `phase : INT := INT#0` and `ready : BOOL := FALSE` start at 0 and false.
     let prepared = prepare(SCALAR);
-    let mut data = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let mut data = build(&prepared).expect("the cell store constructs");
     let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
     assert_eq!(global(&state, "gain"), Value::Real(1.5));
     assert_eq!(global(&state, "mask"), Value::Word(0x00FF));
@@ -510,7 +468,7 @@ fn explicit_initializers_land_in_the_cells() {
     // strings: the program's `name : STRING[16] := 'pump'`, `wide : WSTRING[16] := "valve"`,
     // `number : DINT := DINT#42` and `reading : REAL := REAL#1.25`; `line : STRING := ''` is empty.
     let prepared = prepare(STRINGS);
-    let mut data = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let mut data = build(&prepared).expect("the cell store constructs");
     let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
     let program = InstanceId(0);
     assert_eq!(
@@ -532,7 +490,7 @@ fn explicit_initializers_land_in_the_cells() {
     // `toggle : BOOL := FALSE`, `slot : INT := INT#1` and `counts : ARRAY[0..1] OF INT`. The declaration
     // constant of `Pulse`'s edge-phase member is the previous value of its R_EDGE input, FALSE.
     let prepared = prepare(BLOCKS);
-    let mut data = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let mut data = build(&prepared).expect("the cell store constructs");
     let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
     let pulse = InstanceId(1);
     assert_eq!(member(&state, pulse, "increment"), Value::Int(1));
@@ -589,7 +547,7 @@ fn a_reference_in_a_structure_and_an_array_of_references_round_trip_on_cells() {
     // written where a reference belongs is refused and changes nothing. A store that refused a nested
     // reference or kept it outside the table would refuse these writes or read null.
     let prepared = keeper::prepared();
-    let mut data = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let mut data = build(&prepared).expect("the cell store constructs");
     let capacity = arm(&data).cells().regions().references().capacity();
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
     let keeper = InstanceId(1);
@@ -679,16 +637,15 @@ fn an_instance_without_a_root_is_placed_or_refused() {
     // `Keeper` instance holds `held` (24) at 0 and `slots` (32) at 24, 56 bytes. Each root is placed in
     // its own range.
     //
-    // An instance with no owner and no root has no range to live in. The cell store refuses it by name
-    // and issues no identity, so the instance created next takes 2; the `Value` store has no range to
-    // fill and keeps it, as it always did, and issues 2 for it. These are the paths that create such an
+    // An instance with no owner and no root has no range to live in. The store refuses it by name and
+    // issues no identity, so the instance created next takes 2. These are the paths that create such an
     // instance: the parent of an instance that no inheritance-parent root names, and a retained object
     // that no root of the replacement names. Both reach this reservation. The first is built end to end
     // below, from the cell fixture without its inheritance-parent root; the second calls the same
     // reservation (`RetainedGraph::instance`) and is not built, since no corpus program retains an
     // object that its replacement has no root for.
     let prepared = keeper::prepared();
-    let mut cells = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let mut cells = build(&prepared).expect("the cell store constructs");
     assert_eq!(
         arm(&cells).instance_range(InstanceId(0)),
         Some(ByteRange {
@@ -723,22 +680,13 @@ fn an_instance_without_a_root_is_placed_or_refused() {
         Ok(InstanceId(2))
     );
 
-    let mut values = build(&prepared, StoreKind::Values).expect("the Value store constructs");
-    let mut state = EngineState::borrow(&mut values, &prepared, &services::LOGICAL_ONLY);
-    assert_eq!(
-        state.engineering_operation(|state| state.reserve_instance(keeper::KEEPER_POU, None)),
-        Ok(InstanceId(2))
-    );
-
     // The parent of an instance: the cell fixture's `fb_g : Derived`, with the inheritance-parent root of
     // its instance removed, is a persistent root whose template extends `Base` and whose parent no root
-    // names. The `Value` store creates that parent instance without a root, as it always did, and
-    // constructs the module. The cell store has no range for it and refuses the construction by name,
-    // before an identity is issued for the parent.
+    // names. The store has no range for that parent and refuses the construction by name, before an
+    // identity is issued for it.
     let prepared = fixture::prepared_without_parent_root();
-    assert!(build(&prepared, StoreKind::Values).is_ok());
     assert_eq!(
-        build(&prepared, StoreKind::Cells).err(),
+        build(&prepared).err(),
         Some(RuntimeError::InitFailed {
             owner: SmolStr::new("Base"),
             variable: SmolStr::new("<instance>"),
@@ -751,19 +699,18 @@ fn an_instance_without_a_root_is_placed_or_refused() {
 
 #[test]
 fn a_cold_restart_reconstructs_the_store_it_replaces() {
-    // Specification 34 §11.3 and TIME-09: a restart constructs the next generation on the store it
-    // replaces, with the profile it ran with. A state built on cells holds cells after a cold restart, in
-    // generation 1, and its program starts again from its initializers: `initializers` reads `slot` 1 and
-    // the identities 0 and 1 again. A restart that rebuilt the `Value` store would leave the arm empty.
+    // Specification 34 §11.3 and TIME-09: a restart constructs the next generation of the store it
+    // replaces, with the profile it ran with. After a cold restart the store is in generation 1 and its
+    // program starts again from its initializers: `initializers` reads `slot` 1 and the identities 0 and 1
+    // again. A restart that kept the old store's cells would read `slot` 3.
     let prepared = prepare(INITIALIZERS);
-    let mut data = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let mut data = build(&prepared).expect("the cell store constructs");
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
     assert!(state.write_instance_var(InstanceId(0), "slot", Value::Int(3)));
     assert_eq!(member(&state, InstanceId(0), "slot"), Value::Int(3));
     state
         .restart(RestartMode::Cold)
         .expect("the cold restart constructs");
-    assert!(state.holds_cells());
     assert_eq!(StoreAccess::generation(&state), Generation(1));
     assert_eq!(member(&state, InstanceId(0), "slot"), Value::Int(1));
     assert_eq!(global(&state, "Plant"), Value::Instance(InstanceId(0)));
@@ -785,7 +732,7 @@ fn a_warm_restart_carries_the_retained_values_on_cells() {
     // initial values 0, 20.0, 0 and 'boiler', and `ticks` 0. A restart that read the retained values from
     // the `Value` half would carry nothing, and one that kept every value would carry `ticks` too.
     let prepared = prepare(RETAIN);
-    let mut data = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let mut data = build(&prepared).expect("the cell store constructs");
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
     let program = InstanceId(0);
     assert!(StoreMutate::set_global(
@@ -805,7 +752,6 @@ fn a_warm_restart_carries_the_retained_values_on_cells() {
     state
         .restart(RestartMode::Warm)
         .expect("the warm restart constructs");
-    assert!(state.holds_cells());
     assert_eq!(global(&state, "counter"), Value::DInt(7));
     assert_eq!(global(&state, "setpoint"), Value::Real(21.5));
     assert_eq!(global(&state, "ticks"), Value::DInt(0));

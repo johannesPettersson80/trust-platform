@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::bytecode::{Field, TypeData, TypeEntry, TypeKind, TypeTable};
+use alloc::vec;
 
 /// The layouts of `entries`, whose member names are `first` (0) and `pointers` (1).
 fn layouts(entries: Vec<TypeEntry>) -> Vec<TypeLayout> {

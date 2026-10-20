@@ -1,7 +1,6 @@
 //! Tests of the store-access seam's writes through a runtime state (specification 34 §6.2, MEM-10;
 //! C1-9c, R1). The state holds the cell arm in these tests, the engine's default store (C1-19d).
 
-use super::EngineStore;
 use crate::memory::cell_access::CellArm;
 use crate::memory::regions::CellStorage;
 use crate::memory::view::{StoreAccess, StoreMutate};
@@ -33,7 +32,7 @@ fn runtime_state_writes_reach_the_store_it_holds() {
     let cells = CellStorage::construct(&prepared, Generation::FIRST, |_| Ok(()))
         .expect("the persistent region reserves");
     let (data, _) = state.engine_parts_mut();
-    data.store = EngineStore::Cells(Box::new(CellArm::new(cells)));
+    *data.store = CellArm::new(cells);
 
     assert!(StoreMutate::set_global(
         &mut state,

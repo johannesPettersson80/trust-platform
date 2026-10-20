@@ -72,7 +72,7 @@ fn the_activation_stack_reserves_a_largest_frame_for_each_call_level() {
 #[test]
 fn a_frame_lies_on_top_of_its_caller_and_holds_its_inputs() {
     let prepared = prepare(corpus("calls"));
-    let mut data = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let mut data = build(&prepared).expect("the cell store constructs");
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
 
     let mut outer = frame_of(

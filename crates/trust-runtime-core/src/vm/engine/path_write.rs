@@ -233,54 +233,68 @@ mod backing;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::collections::OrderedMap;
-    use crate::value::{ArrayValue, StructValue};
+    use crate::value::ArrayValue;
     use crate::vm::{
         call::{bindings::VmWriteTarget, context::CallContext},
         VmTrap,
     };
-    use alloc::sync::Arc;
 
     #[test]
     fn output_copyback_into_a_shared_aggregate_charges_no_detach() {
-        let prepared = PreparedModule::from_bytes(
-            include_bytes!(
-                "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
-            ),
-            crate::vm::PreparationLimits::default(),
-        )
-        .unwrap();
+        // `aggregate_probe : Probe`, a structure of `small : DINT` and a 2,048-element array
+        // `large`, and `first_probe : DINT`, declared beside the cell fixture's globals.
+        let prepared = {
+            let mut builder = crate::memory::cell_access::fixture::Builder::new();
+            let small = builder.name("small");
+            let large = builder.name("large");
+            let probe = builder.name("Probe");
+            let array = builder.ty(crate::memory::cell_access::fixture::anonymous(
+                crate::bytecode::TypeKind::Array,
+                crate::bytecode::TypeData::Array {
+                    elem_type_id: crate::memory::cell_access::fixture::DINT_TYPE,
+                    dims: vec![(0, 2047)],
+                },
+            ));
+            let record = builder.ty(crate::memory::cell_access::fixture::named(
+                crate::bytecode::TypeKind::Struct,
+                probe,
+                crate::bytecode::TypeData::Struct {
+                    fields: vec![
+                        crate::memory::cell_access::fixture::field(
+                            small,
+                            crate::memory::cell_access::fixture::DINT_TYPE,
+                        ),
+                        crate::memory::cell_access::fixture::field(large, array),
+                    ],
+                },
+            ));
+            builder.global("aggregate_probe", record);
+            builder.global(
+                "first_probe",
+                crate::memory::cell_access::fixture::DINT_TYPE,
+            );
+            builder.prepare()
+        };
         let mut state_data =
-            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
         let mut state = EngineState::borrow(
             &mut state_data,
             &prepared,
             &super::super::services::LOGICAL_ONLY,
         );
-        let mut fields = OrderedMap::default();
-        fields.insert("small".into(), Value::DInt(9));
-        fields.insert(
-            "large".into(),
-            Value::Array(alloc::boxed::Box::new(ArrayValue::from_canonical_parts(
-                vec![Value::DInt(0); 2048],
-                vec![(0, 2047)],
-            ))),
-        );
-        state.data.storage.set_global(
-            "aggregate_probe",
-            Value::Struct(Arc::new(StructValue::from_canonical_parts(
-                "Probe".into(),
-                fields,
-            ))),
-        );
-        state.data.storage.set_global("first_probe", Value::DInt(7));
-        let first = state.data.storage.ref_for_global("first_probe").unwrap();
-        let mut second = state
-            .data
-            .storage
-            .ref_for_global("aggregate_probe")
+        state
+            .write_named_path(
+                "aggregate_probe",
+                &[RefSegment::Field("small".into())],
+                Value::DInt(9),
+            )
             .unwrap();
+        crate::vm::engine::test_store::set_global(&mut state, "first_probe", Value::DInt(7));
+        let first =
+            crate::memory::view::StoreAccess::ref_for_global(&state, "first_probe").unwrap();
+        let mut second =
+            crate::memory::view::StoreAccess::ref_for_global(&state, "aggregate_probe").unwrap();
         second.path.push(RefSegment::Field("small".into()));
         let mut frame = VmFrame {
             activation: None,
@@ -295,8 +309,8 @@ mod tests {
             runtime_instance: None,
             instance_owner: None,
         };
-        // The snapshot shares the aggregate Arc. The member write detaches that shared storage,
-        // which the program does not copy (TIME-08), so the 1024 spare bytes admit both writes.
+        // A member write into the aggregate copies nothing of it (TIME-08): on the flat store it
+        // writes the member's bytes where they lie, so the 1024 spare bytes admit both writes.
         state
             .with_output_transaction(&mut frame, |state, frame| {
                 state
@@ -309,37 +323,37 @@ mod tests {
             })
             .unwrap();
         assert_eq!(
-            state.data.storage.get_global("first_probe"),
-            Some(&Value::DInt(70))
+            crate::vm::engine::test_store::global(&state, "first_probe"),
+            Some(Value::DInt(70))
         );
         assert_eq!(
-            state.data.storage.read_by_ref_ref(&second),
-            Some(&Value::DInt(90))
+            crate::vm::engine::test_store::read(&state, &second),
+            Some(Value::DInt(90))
         );
     }
 
     #[test]
     fn string_element_charge_fails_before_replacing_backing_text() {
-        let prepared = PreparedModule::from_bytes(
-            include_bytes!(
-                "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
-            ),
-            crate::vm::PreparationLimits::default(),
-        )
-        .unwrap();
+        // `text_probe : STRING[10]`, declared beside the cell fixture's globals.
+        let prepared = crate::memory::cell_access::fixture::prepared_with_globals(&[(
+            "text_probe",
+            crate::memory::cell_access::fixture::primitive(24, 10),
+        )]);
         let mut state_data =
-            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
         let mut state = EngineState::borrow(
             &mut state_data,
             &prepared,
             &super::super::services::LOGICAL_ONLY,
         );
-        state
-            .data
-            .storage
-            .set_global("text_probe", Value::String("abc".into()));
-        let mut reference = state.data.storage.ref_for_global("text_probe").unwrap();
+        crate::vm::engine::test_store::set_global(
+            &mut state,
+            "text_probe",
+            Value::String("abc".into()),
+        );
+        let mut reference =
+            crate::memory::view::StoreAccess::ref_for_global(&state, "text_probe").unwrap();
         reference.path.push(RefSegment::Index(vec![1]));
         state
             .data
@@ -363,73 +377,47 @@ mod tests {
             }
         ));
         assert_eq!(
-            state.data.storage.get_global("text_probe"),
-            Some(&Value::String("abc".into()))
+            crate::vm::engine::test_store::global(&state, "text_probe"),
+            Some(Value::String("abc".into()))
         );
     }
     #[test]
     fn hundred_field_physical_write_fits_small_work_allowance_and_precharges_scratch() {
-        use crate::bytecode::{Field, TypeData, TypeEntry, TypeKind, TypeTable};
-        use crate::value::StorageAbi;
-        let prepared = PreparedModule::from_bytes(
-            include_bytes!(
-                "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
-            ),
-            crate::vm::PreparationLimits::default(),
-        )
-        .unwrap();
-        let names: Vec<smol_str::SmolStr> =
-            (0..100).map(|i| alloc::format!("f{i:03}").into()).collect();
-        let types = TypeTable {
-            offsets: Vec::new(),
-            entries: vec![
-                TypeEntry {
-                    kind: TypeKind::Primitive,
-                    name_idx: None,
-                    data: TypeData::Primitive {
-                        prim_id: 4,
-                        max_length: 0,
-                    },
+        // `probe : Hundred`, a `STRUCT OVERLAP` of the hundred `DWORD` members `f000` to `f099`, each at
+        // its own 32 bits, declared beside the cell fixture's globals (specification 02 §3.6).
+        let prepared = {
+            let mut builder = crate::memory::cell_access::fixture::Builder::new();
+            let dword = builder.ty(crate::memory::cell_access::fixture::primitive(4, 0));
+            let names: Vec<u32> = (0..100)
+                .map(|i| builder.name(&alloc::format!("f{i:03}")))
+                .collect();
+            // ST declares a `STRUCT OVERLAP` as a named type only, and the store constructs one so.
+            let hundred_name = builder.name("Hundred");
+            let hundred = builder.ty(crate::memory::cell_access::fixture::named(
+                crate::bytecode::TypeKind::OverlappingStruct,
+                hundred_name,
+                crate::bytecode::TypeData::Struct {
+                    fields: names
+                        .iter()
+                        .zip(0u32..)
+                        .map(|(&name_idx, i)| crate::bytecode::Field {
+                            name_idx,
+                            type_id: dword,
+                            bit_offset: Some(i * 32),
+                        })
+                        .collect(),
                 },
-                TypeEntry {
-                    kind: TypeKind::OverlappingStruct,
-                    name_idx: None,
-                    data: TypeData::Struct {
-                        fields: (0..100)
-                            .map(|i| Field {
-                                name_idx: i,
-                                type_id: 0,
-                                bit_offset: Some(i * 32),
-                            })
-                            .collect(),
-                    },
-                },
-            ],
+            ));
+            builder.global("probe", hundred);
+            builder.prepare()
         };
-        let layouts = crate::value::overlap::prepare_layouts(
-            &types,
-            &names,
-            StorageAbi::UniformTemporal64,
-            &mut |_, _| Ok(()),
-        )
-        .unwrap();
-        let fields = names
-            .iter()
-            .map(|name| (name.clone(), Value::DWord(0)))
-            .collect();
-        let probe = StructValue::from_canonical_parts("Hundred".into(), fields)
-            .initialize_physical_layout(layouts[1].clone())
-            .unwrap();
         let mut data =
-            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
         let mut state =
             EngineState::borrow(&mut data, &prepared, &super::super::services::LOGICAL_ONLY);
-        state
-            .data
-            .storage
-            .set_global("probe", Value::Struct(Arc::new(probe)));
-        let mut reference = state.data.storage.ref_for_global("probe").unwrap();
+        let mut reference =
+            crate::memory::view::StoreAccess::ref_for_global(&state, "probe").unwrap();
         reference.path.push(RefSegment::Field("f050".into()));
         state.data.resources.work_budget.reset(4096);
         state.data.resources.construction_bytes.set(0);
@@ -443,8 +431,8 @@ mod tests {
         )
         .unwrap());
         assert_eq!(
-            state.data.storage.read_by_ref_ref(&reference),
-            Some(&Value::DWord(7))
+            crate::vm::engine::test_store::read(&state, &reference),
+            Some(Value::DWord(7))
         );
         assert!(state.data.resources.work_budget.remaining() > 0);
         // Reserving zero scratch refuses the next write before either physical or logical publication.
@@ -471,16 +459,14 @@ mod tests {
             }
         ));
         assert_eq!(
-            state.data.storage.read_by_ref_ref(&reference),
-            Some(&Value::DWord(7))
+            crate::vm::engine::test_store::read(&state, &reference),
+            Some(Value::DWord(7))
         );
     }
 
     #[test]
     fn physical_patch_completion_samples_deadline_before_publication_but_scalar_stores_keep_stride()
     {
-        use crate::bytecode::{Field, TypeData, TypeEntry, TypeKind, TypeTable};
-        use crate::value::StorageAbi;
         use core::cell::Cell;
         struct DeadlineProbe {
             calls: Cell<usize>,
@@ -500,58 +486,46 @@ mod tests {
                 Err(RuntimeError::TypeMismatch)
             }
         }
-        let prepared = PreparedModule::from_bytes(
-            include_bytes!(
-                "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
-            ),
-            crate::vm::PreparationLimits::default(),
-        )
-        .unwrap();
-        let types = TypeTable {
-            offsets: Vec::new(),
-            entries: vec![
-                TypeEntry {
-                    kind: TypeKind::Primitive,
-                    name_idx: None,
-                    data: TypeData::Primitive {
-                        prim_id: 4,
-                        max_length: 0,
-                    },
+        // `physical_probe : Probe`, a `STRUCT OVERLAP` of `word : DWORD`, and `scalar_probe : DWORD`,
+        // declared beside the cell fixture's globals.
+        let prepared = {
+            let mut builder = crate::memory::cell_access::fixture::Builder::new();
+            let dword = builder.ty(crate::memory::cell_access::fixture::primitive(4, 0));
+            let word = builder.name("word");
+            let probe_name = builder.name("Probe");
+            let overlap = builder.ty(crate::memory::cell_access::fixture::named(
+                crate::bytecode::TypeKind::OverlappingStruct,
+                probe_name,
+                crate::bytecode::TypeData::Struct {
+                    fields: vec![crate::bytecode::Field {
+                        name_idx: word,
+                        type_id: dword,
+                        bit_offset: Some(0),
+                    }],
                 },
-                TypeEntry {
-                    kind: TypeKind::OverlappingStruct,
-                    name_idx: None,
-                    data: TypeData::Struct {
-                        fields: vec![Field {
-                            name_idx: 0,
-                            type_id: 0,
-                            bit_offset: Some(0),
-                        }],
-                    },
-                },
-            ],
+            ));
+            builder.global("physical_probe", overlap);
+            builder.global("scalar_probe", dword);
+            builder.prepare()
         };
-        let layouts = crate::value::overlap::prepare_layouts(
-            &types,
-            &["word".into()],
-            StorageAbi::UniformTemporal64,
-            &mut |_, _| Ok(()),
-        )
-        .unwrap();
-        let mut fields = OrderedMap::default();
-        fields.insert("word".into(), Value::DWord(7));
-        let physical = StructValue::from_canonical_parts("Probe".into(), fields)
-            .initialize_physical_layout(layouts[1].clone())
-            .unwrap();
         let mut data =
-            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
-        data.storage
-            .set_global("physical_probe", Value::Struct(Arc::new(physical)));
-        data.storage.set_global("scalar_probe", Value::DWord(0));
-        let mut reference = data.storage.ref_for_global("physical_probe").unwrap();
-        reference.path.push(RefSegment::Field("word".into()));
-        let scalar = data.storage.ref_for_global("scalar_probe").unwrap();
+        let (reference, scalar) = {
+            let mut state =
+                EngineState::borrow(&mut data, &prepared, &super::super::services::LOGICAL_ONLY);
+            let word = [RefSegment::Field("word".into())];
+            state
+                .write_named_path("physical_probe", &word, Value::DWord(7))
+                .unwrap();
+            let mut reference =
+                crate::memory::view::StoreAccess::ref_for_global(&state, "physical_probe").unwrap();
+            reference.path.extend(word);
+            (
+                reference,
+                crate::memory::view::StoreAccess::ref_for_global(&state, "scalar_probe").unwrap(),
+            )
+        };
         let probe = DeadlineProbe {
             calls: Cell::new(0),
         };
@@ -590,89 +564,69 @@ mod tests {
             "completion samples after the non-expired aggregate work sample"
         );
         assert_eq!(
-            state.data.storage.read_by_ref_ref(&reference),
-            Some(&Value::DWord(7))
+            crate::vm::engine::test_store::read(&state, &reference),
+            Some(Value::DWord(7))
         );
         assert_eq!(
-            state.data.storage.read_by_ref_ref(&scalar),
-            Some(&Value::DWord(8))
+            crate::vm::engine::test_store::read(&state, &scalar),
+            Some(Value::DWord(8))
         );
     }
 
     #[test]
     fn function_block_reference_binding_keeps_physical_subrange_fault_before_publication() {
-        use crate::bytecode::{Field, TypeData, TypeEntry, TypeKind, TypeTable};
-        use crate::value::StorageAbi;
-        let prepared = PreparedModule::from_bytes(
-            include_bytes!(
-                "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
-            ),
-            crate::vm::PreparationLimits::default(),
-        )
-        .unwrap();
-        let types = TypeTable {
-            offsets: Vec::new(),
-            entries: vec![
-                TypeEntry {
-                    kind: TypeKind::Primitive,
-                    name_idx: None,
-                    data: TypeData::Primitive {
-                        prim_id: 7,
-                        max_length: 0,
-                    },
+        // `probe : Range`, a `STRUCT OVERLAP` of `raw : INT` and `bounded : INT(0..10)` over the same
+        // bits, declared beside the cell fixture's globals (specification 02 §3.6).
+        let prepared = {
+            let mut builder = crate::memory::cell_access::fixture::Builder::new();
+            let int = builder.ty(crate::memory::cell_access::fixture::primitive(7, 0));
+            let bounded_type = builder.ty(crate::memory::cell_access::fixture::anonymous(
+                crate::bytecode::TypeKind::Subrange,
+                crate::bytecode::TypeData::Subrange {
+                    base_type_id: int,
+                    lower: 0,
+                    upper: 10,
                 },
-                TypeEntry {
-                    kind: TypeKind::Subrange,
-                    name_idx: None,
-                    data: TypeData::Subrange {
-                        base_type_id: 0,
-                        lower: 0,
-                        upper: 10,
-                    },
+            ));
+            let raw = builder.name("raw");
+            let bounded = builder.name("bounded");
+            let range_name = builder.name("Range");
+            let range = builder.ty(crate::memory::cell_access::fixture::named(
+                crate::bytecode::TypeKind::OverlappingStruct,
+                range_name,
+                crate::bytecode::TypeData::Struct {
+                    fields: vec![
+                        crate::bytecode::Field {
+                            name_idx: raw,
+                            type_id: int,
+                            bit_offset: Some(0),
+                        },
+                        crate::bytecode::Field {
+                            name_idx: bounded,
+                            type_id: bounded_type,
+                            bit_offset: Some(0),
+                        },
+                    ],
                 },
-                TypeEntry {
-                    kind: TypeKind::OverlappingStruct,
-                    name_idx: None,
-                    data: TypeData::Struct {
-                        fields: vec![
-                            Field {
-                                name_idx: 0,
-                                type_id: 0,
-                                bit_offset: Some(0),
-                            },
-                            Field {
-                                name_idx: 1,
-                                type_id: 1,
-                                bit_offset: Some(0),
-                            },
-                        ],
-                    },
-                },
-            ],
+            ));
+            builder.global("probe", range);
+            builder.prepare()
         };
-        let layouts = crate::value::overlap::prepare_layouts(
-            &types,
-            &["raw".into(), "bounded".into()],
-            StorageAbi::UniformTemporal64,
-            &mut |_, _| Ok(()),
-        )
-        .unwrap();
-        let fields = [
-            ("raw".into(), Value::Int(7)),
-            ("bounded".into(), Value::Int(7)),
-        ]
-        .into_iter()
-        .collect();
-        let physical = StructValue::from_canonical_parts("Range".into(), fields)
-            .initialize_physical_layout(layouts[2].clone())
-            .unwrap();
         let mut data =
-            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
-        data.storage
-            .set_global("probe", Value::Struct(Arc::new(physical)));
-        let mut reference = data.storage.ref_for_global("probe").unwrap();
-        reference.path.push(RefSegment::Field("raw".into()));
+        let mut reference = {
+            let mut state =
+                EngineState::borrow(&mut data, &prepared, &super::super::services::LOGICAL_ONLY);
+            let raw = [RefSegment::Field("raw".into())];
+            state
+                .write_named_path("probe", &raw, Value::Int(7))
+                .unwrap();
+            let mut reference =
+                crate::memory::view::StoreAccess::ref_for_global(&state, "probe").unwrap();
+            reference.path.extend(raw);
+            reference
+        };
         let binding = crate::vm::call::bindings::VmFbFieldBinding::Reference(reference.clone());
         let mut state =
             EngineState::borrow(&mut data, &prepared, &super::super::services::LOGICAL_ONLY);
@@ -690,13 +644,13 @@ mod tests {
             })
         ));
         assert_eq!(
-            state.data.storage.read_by_ref_ref(&reference),
-            Some(&Value::Int(7))
+            crate::vm::engine::test_store::read(&state, &reference),
+            Some(Value::Int(7))
         );
         reference.path[0] = RefSegment::Field("bounded".into());
         assert_eq!(
-            state.data.storage.read_by_ref_ref(&reference),
-            Some(&Value::Int(7))
+            crate::vm::engine::test_store::read(&state, &reference),
+            Some(Value::Int(7))
         );
     }
 

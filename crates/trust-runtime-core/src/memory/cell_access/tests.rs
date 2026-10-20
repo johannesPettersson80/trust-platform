@@ -254,8 +254,7 @@ impl Fixture {
             bytes: 8,
         };
         let mut arm = CellArm::new(cells);
-        let mut half = VariableStorage::new();
-        half.set_global("Main", Value::Null);
+        let half = VariableStorage::new();
         // The instance table reserves a place for each of the fixture's four instance roots (the program,
         // `base_g`, `fb_g` and the parent of `fb_g`'s instance), so these three fit. The type name of
         // each is its template POU's name, `Base`, `Derived` and `Base`.

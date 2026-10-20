@@ -145,44 +145,10 @@ struct ExecutionResources {
     register: register::RegisterExecutionState,
 }
 
-/// The store the engine reads variables through (specification 34 §6.2; C1-9b). `Values` reads
-/// `EngineData::storage`, today's `Value` storage. `Cells` reads the cell arm for the globals and the
-/// persistent instances, and `EngineData::storage` for the locals and the per-call instances, which both
-/// arms keep there. `build` constructs the arm [`StoreKind`] names (C1-9d2b-1).
-enum EngineStore {
-    /// Today's `Value` storage, `EngineData::storage`.
-    Values,
-    /// The cell arm.
-    Cells(Box<CellArm>),
-}
-
-impl EngineStore {
-    /// The kind of store this is, so that a restart reconstructs the store it replaces.
-    fn kind(&self) -> StoreKind {
-        match self {
-            EngineStore::Values => StoreKind::Values,
-            EngineStore::Cells(_) => StoreKind::Cells,
-        }
-    }
-}
-
-/// Which store [`EngineState::build`] constructs (specification 34 §6.2; C1-9d2b-1). The default is
-/// the cell store, the flat store (C1-19d); the `Value` store remains for the tests that compare the
-/// two until it is deleted (C1-19e).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-enum StoreKind {
-    /// The `Value` storage the engine kept before the flat store.
-    Values,
-    /// The cell store: charged, reserved once and filled by the construction steps.
-    #[default]
-    Cells,
-}
-
-/// How [`EngineState::build`] constructs an application: the store it builds on and the date/time
-/// profile its defaults use (C1-9d2b-1). The default is the cell store with the default profile.
+/// How [`EngineState::build`] constructs an application: the date/time profile its defaults use
+/// (C1-9d2b-1).
 #[derive(Clone, Copy, Debug, Default)]
 struct Construction {
-    store: StoreKind,
     profile: DateTimeProfile,
 }
 
@@ -195,8 +161,13 @@ struct EngineData {
     images: ProcessImages,
     construction: ConstructionState,
     lifetimes: LifetimeState,
+    /// The `Value` half of the store: the execution frames, their value-kept slots and the instances
+    /// created outside any call (C1-19e).
     storage: VariableStorage,
-    store: EngineStore,
+    /// The flat store: the persistent block of the globals and the persistent instances, and the
+    /// activation stack of the frames and the instances calls create (specification 34 §6.2, MEM-12).
+    /// Construction installs it; until then it is empty.
+    store: Box<CellArm>,
     profile: DateTimeProfile,
     now: Duration,
     resource: ResourceEntry,
@@ -243,26 +214,6 @@ impl<'a> EngineState<'a> {
         services: &'a dyn ExecutionServices,
     ) -> Result<Box<EngineData>, RuntimeError> {
         Self::construct_data_with(prepared, resource_index, services, Construction::default())
-    }
-
-    /// The data of a state built on the `Value` store, for the unit tests of that store's own
-    /// behaviour, which seed and read its `Value` half directly, until the store is deleted
-    /// (C1-19d, C1-19e).
-    #[cfg(test)]
-    fn construct_values_data(
-        prepared: &'a PreparedModule,
-        resource_index: usize,
-        services: &'a dyn ExecutionServices,
-    ) -> Result<Box<EngineData>, RuntimeError> {
-        Self::construct_data_with(
-            prepared,
-            resource_index,
-            services,
-            Construction {
-                store: StoreKind::Values,
-                ..Construction::default()
-            },
-        )
     }
 
     /// [`Self::construct_data`] on the store and with the profile `construction` names (C1-9d2b-1).
@@ -361,7 +312,7 @@ impl<'a> EngineState<'a> {
                 owned_instances: OwnedInstances::default(),
             },
             storage,
-            store: EngineStore::Values,
+            store: Box::new(CellArm::new(CellStorage::default())),
             profile: DateTimeProfile::default(),
             now,
             tasks: vec![TaskState::new(now); resource.tasks.len()],
@@ -459,9 +410,7 @@ impl<'a> EngineState<'a> {
             state.copy_process_images(images)?;
         }
         state.reserve_type_operations()?;
-        if construction.store == StoreKind::Cells {
-            state.install_cell_store()?;
-        }
+        state.install_cell_store()?;
         state.construct_resource(retained)?;
         state.reserve_call_lifetimes()?;
         state.reserve_stored_references()?;
@@ -477,36 +426,31 @@ impl<'a> EngineState<'a> {
         // never fail: construction reads every value back once and refuses a store it cannot read
         // (C1-19d; decision O3 (a)). A chip shows no such projection.
         #[cfg(feature = "std")]
-        if let store_access::Routed::Cells(reader) = state.data.routed(prepared) {
-            reader.check_materializes()?;
-        }
+        state.data.reader(prepared).check_materializes()?;
         state.data.construction_complete = true;
         Ok(data)
     }
 
-    /// The storage as the value store holds it: the `Value` storage itself, or, on the flat store,
-    /// the projection of its blocks, made on first use and kept in `cache` until the next mutation
-    /// (C1-19d; the C1-9 note §5). Construction checked that every value reads back (O3 (a)).
+    /// The storage as the value store held it: the projection of the flat store's blocks, made on
+    /// first use and kept in `cache` until the next mutation (C1-19d; the C1-9 note §5). Construction
+    /// checked that every value reads back (O3 (a)).
     fn projected_storage<'s>(
         data: &'s EngineData,
         prepared: &'s PreparedModule,
         cache: &'s core::cell::OnceCell<Box<VariableStorage>>,
     ) -> &'s VariableStorage {
-        match data.routed(prepared) {
-            store_access::Routed::Values(storage) => storage,
-            store_access::Routed::Cells(reader) => cache.get_or_init(|| {
-                Box::new(
-                    reader
-                        .project_storage()
-                        .expect("construction reads every value of the flat store back (O3)"),
-                )
-            }),
-        }
+        cache.get_or_init(|| {
+            Box::new(
+                data.reader(prepared)
+                    .project_storage()
+                    .expect("construction reads every value of the flat store back (O3)"),
+            )
+        })
     }
 
-    /// Charge the cell store's bytes, reserve it once, write the declared defaults of its leaves and make
+    /// Charge the flat store's bytes, reserve it once, write the declared defaults of its leaves and make
     /// it the store the engine reads and writes the globals and persistent instances through (specification
-    /// 34 §6.2; R1, R3, O18). The construction steps that follow fill it as they fill the `Value` store.
+    /// 34 §6.2; R1, R3, O18). The construction steps that follow fill it.
     fn install_cell_store(&mut self) -> Result<(), RuntimeError> {
         let storage = CellStorage::construct_with_profile(
             self.prepared,
@@ -520,7 +464,7 @@ impl<'a> EngineState<'a> {
         self.charge_allocation_bytes(edit)?;
         let mut arm = CellArm::new(storage);
         arm.reserve_text_edit(edit)?;
-        self.data.store = EngineStore::Cells(Box::new(arm));
+        *self.data.store = arm;
         Ok(())
     }
 
@@ -629,6 +573,8 @@ impl<'a> EngineState<'a> {
 mod budget_tests;
 #[cfg(test)]
 mod continuation_tests;
+#[cfg(test)]
+mod test_store;
 
 #[cfg(test)]
 mod generation_tests;

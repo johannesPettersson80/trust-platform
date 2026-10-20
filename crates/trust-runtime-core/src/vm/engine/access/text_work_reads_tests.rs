@@ -3,36 +3,58 @@
 //! its bytes). Creating a reference to a dynamic character index charges 1 unit per byte.
 use super::*;
 use crate::error::ExecutionLimitKind;
+use crate::memory::view::StoreAccess;
 use crate::value::{RefSegment, Value, ValueRef};
 use crate::vm::dispatch_refs::{dynamic_load_ref, dynamic_ref_index};
 use crate::vm::{FrameStack, PreparedModule, VmTrap};
 
-/// Runs `operation` against a fixture engine whose global `probe_depth` holds `text`. The
-/// operation receives a reference to the whole global. The work allowance is `budget` for that
-/// one operation. Returns the outcome and the allowance left afterwards.
+/// The bounded-C corpus program `strings`, whose program instance `Plant` declares the texts
+/// `text : STRING[40]` and `wide : WSTRING[16]`.
+fn strings() -> PreparedModule {
+    PreparedModule::from_bytes(
+        include_bytes!(
+            "../../../../../trust-runtime/tests/fixtures/bounded-c/strings/program.stbc"
+        ),
+        crate::vm::PreparationLimits::default(),
+    )
+    .unwrap()
+}
+
+/// Write `text` into the program's text that holds its kind, `Plant.wide` for a `WSTRING` and
+/// `Plant.text` for a `STRING`, through the engineering write, and answer the reference to it.
+fn probe(state: &mut EngineState<'_>, text: Value) -> ValueRef {
+    let member = match text {
+        Value::WString(_) => "wide",
+        _ => "text",
+    };
+    let path = [RefSegment::Field(member.into())];
+    state.write_named_path("Plant", &path, text).unwrap();
+    let mut reference = StoreAccess::ref_for_global(&*state, "Plant").unwrap();
+    reference.path.push(RefSegment::Field(member.into()));
+    reference
+}
+
+/// Runs `operation` against a fixture engine whose program text holds `text`. The operation
+/// receives a reference to the whole text. The work allowance is `budget` for that one
+/// operation. Returns the outcome and the allowance left afterwards.
 fn with_probe<T>(
     text: Value,
     budget: usize,
     operation: impl FnOnce(&mut EngineState<'_>, ValueRef) -> Result<T, RuntimeError>,
 ) -> (Result<T, RuntimeError>, usize) {
-    let prepared = PreparedModule::from_bytes(
-        include_bytes!("../../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc"),
-        crate::vm::PreparationLimits::default(),
-    )
-    .unwrap();
+    let prepared = strings();
     let services = &super::super::services::LOGICAL_ONLY;
-    let mut data = EngineState::construct_values_data(&prepared, 0, services).unwrap();
-    data.storage.set_global("probe_depth", text);
-    let reference = data.storage.ref_for_global("probe_depth").unwrap();
-    data.resources.construction_bytes.set(0);
-    data.resources.work_budget.reset(budget);
+    let mut data = EngineState::construct_data(&prepared, 0, services).unwrap();
     let mut state = EngineState::borrow(&mut data, &prepared, services);
+    let reference = probe(&mut state, text);
+    state.data.resources.construction_bytes.set(0);
+    state.data.resources.work_budget.reset(budget);
     let outcome = operation(&mut state, reference);
     let remaining = state.data.resources.work_budget.remaining();
     (outcome, remaining)
 }
 
-/// The reference to character `index` (1-based) of the global.
+/// The reference to character `index` (1-based) of the text.
 fn element(mut reference: ValueRef, index: i64) -> ValueRef {
     reference.path.push(RefSegment::Index(alloc::vec![index]));
     reference
@@ -189,19 +211,13 @@ fn program_wstring_parent_copy_charges_its_bytes_with_its_unit() {
     // The WSTRING parent copy of "αβγ" costs 1 unit and allocates 2 bytes per UTF-16 code unit:
     // three units (each Greek letter is one unit) of 2 bytes, 6 bytes in all. The character read
     // itself is a scalar copy and allocates nothing (TIME-08).
-    let prepared = PreparedModule::from_bytes(
-        include_bytes!("../../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc"),
-        crate::vm::PreparationLimits::default(),
-    )
-    .unwrap();
+    let prepared = strings();
     let services = &super::super::services::LOGICAL_ONLY;
-    let mut data = EngineState::construct_values_data(&prepared, 0, services).unwrap();
-    data.storage
-        .set_global("probe_depth", Value::WString("αβγ".into()));
-    let reference = data.storage.ref_for_global("probe_depth").unwrap();
-    data.resources.construction_bytes.set(0);
-    data.resources.work_budget.reset(13);
-    let state = EngineState::borrow(&mut data, &prepared, services);
+    let mut data = EngineState::construct_data(&prepared, 0, services).unwrap();
+    let mut state = EngineState::borrow(&mut data, &prepared, services);
+    let reference = probe(&mut state, Value::WString("αβγ".into()));
+    state.data.resources.construction_bytes.set(0);
+    state.data.resources.work_budget.reset(13);
     let value = dynamic_load_ref(&state, &FrameStack::default(), &element(reference, 2))
         .map_err(VmTrap::into_runtime_error)
         .unwrap();

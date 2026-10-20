@@ -14,10 +14,10 @@ use super::*;
 impl EngineState<'_> {
     /// The bytes of `place`, which a call may copy for the store after it.
     pub(in crate::vm::engine) fn place_copy(&self, place: Place) -> Option<&[u8]> {
-        match self.data.routed(self.prepared) {
-            Routed::Cells(reader) => reader.view_cells().bytes(place.range),
-            Routed::Values(_) => None,
-        }
+        self.data
+            .reader(self.prepared)
+            .view_cells()
+            .bytes(place.range)
     }
 
     /// Charge what normalizing the value the copy `bytes` of `place` stands for to its own type
@@ -31,9 +31,7 @@ impl EngineState<'_> {
         if !holds_text(self.prepared, place.type_id) {
             return Ok(());
         }
-        let Routed::Cells(reader) = self.data.routed(self.prepared) else {
-            return Err(RuntimeError::InvalidExecutionState);
-        };
+        let reader = self.data.reader(self.prepared);
         self.charge_texts(
             (reader, Some(bytes)),
             place.range,
@@ -60,11 +58,9 @@ impl EngineState<'_> {
         if destination.physical {
             self.check_entry_deadline()?;
         }
-        Ok(match &mut self.data.store {
-            EngineStore::Cells(arm) => {
-                arm.write_copy(destination.range, destination.presence, bytes)
-            }
-            EngineStore::Values => false,
-        })
+        Ok(self
+            .data
+            .store
+            .write_copy(destination.range, destination.presence, bytes))
     }
 }

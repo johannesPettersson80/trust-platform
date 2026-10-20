@@ -668,9 +668,7 @@ impl EngineState<'_> {
     /// Reserve a path buffer, and its index buffers, for each reference leaf of the persistent block,
     /// whose reference may keep a path (C1-19c3), charged as construction memory.
     pub(super) fn reserve_stored_references(&mut self) -> Result<(), RuntimeError> {
-        let EngineStore::Cells(arm) = &self.data.store else {
-            return Ok(());
-        };
+        let arm = &*self.data.store;
         let leaves = arm.persistent_reference_leaves();
         if leaves == 0 {
             return Ok(());

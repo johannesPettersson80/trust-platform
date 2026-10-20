@@ -9,17 +9,17 @@ fn fixture() -> (
     VmFrame,
     ValueRef,
 ) {
-    let prepared = PreparedModule::from_bytes(
-        include_bytes!(
-            "../../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
-        ),
-        crate::vm::PreparationLimits::default(),
-    )
-    .unwrap();
-    let mut data =
-        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
-    data.storage.set_global("journal_probe", Value::DInt(7));
-    let reference = data.storage.ref_for_global("journal_probe").unwrap();
+    // A DINT global the tests journal, declared beside the cell fixture's own.
+    let prepared = crate::memory::cell_access::fixture::prepared_with_globals(&[(
+        "journal_probe",
+        crate::memory::cell_access::fixture::primitive(8, 0),
+    )]);
+    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    let reference = {
+        let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+        crate::vm::engine::test_store::set_global(&mut state, "journal_probe", Value::DInt(7));
+        crate::memory::view::StoreAccess::ref_for_global(&state, "journal_probe").unwrap()
+    };
     data.resources.construction_bytes.set(0);
     let frame = VmFrame {
         activation: None,
@@ -51,8 +51,8 @@ fn committed_output_snapshot_draws_no_work() {
     assert_eq!(state.data.resources.work_budget.remaining(), 0);
     assert_eq!(state.data.resources.construction_bytes.get(), 0);
     assert_eq!(
-        state.data.storage.get_global("journal_probe"),
-        Some(&Value::DInt(70))
+        crate::vm::engine::test_store::global(&state, "journal_probe"),
+        Some(Value::DInt(70))
     );
     assert!(state.data.resources.output_journal.is_none());
 }
@@ -73,8 +73,8 @@ fn rolled_back_output_snapshot_restores_its_value_without_work() {
     assert_eq!(state.data.resources.work_budget.remaining(), 0);
     assert_eq!(state.data.resources.construction_bytes.get(), 0);
     assert_eq!(
-        state.data.storage.get_global("journal_probe"),
-        Some(&Value::DInt(7))
+        crate::vm::engine::test_store::global(&state, "journal_probe"),
+        Some(Value::DInt(7))
     );
     assert!(state.data.resources.output_journal.is_none());
 }

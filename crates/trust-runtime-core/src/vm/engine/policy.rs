@@ -1,5 +1,4 @@
 //! Runtime checks for mutable references and initialization visibility.
-use super::store_access::Routed;
 use super::*;
 use crate::bytecode::{InitializerBodyKind, StorageOwner, StorageRole};
 use crate::memory::view::{StoreAccess, ValueView};
@@ -278,38 +277,9 @@ impl EngineState<'_> {
     }
 
     /// The lifetime check of the parent and the members of the instance `instance`, which the check of
-    /// an instance visits once (TIME-08: one unit per node visited). The `Value` store walks the record it
-    /// holds; the cell store walks the members as views, in declaration order (C1-9d2b-1).
+    /// an instance visits once (TIME-08: one unit per node visited): the members are walked as views, in
+    /// declaration order, each checked as the value it holds (C1-9d2b-1).
     fn check_instance_members_lifetime<V: VisitedInstances>(
-        &self,
-        instance: InstanceId,
-        destination: Option<FrameId>,
-        depth: usize,
-        visited: &mut V,
-    ) -> Result<(), RuntimeError> {
-        let Routed::Values(store) = self.data.routed(self.prepared) else {
-            return self.check_cell_instance_lifetime(instance, destination, depth, visited);
-        };
-        let data = store
-            .get_instance(instance)
-            .ok_or_else(|| RuntimeError::NullReference)?;
-        if let Some(parent) = data.parent {
-            self.check_value_lifetime_inner(
-                &Value::Instance(parent),
-                destination,
-                depth + 1,
-                visited,
-            )?;
-        }
-        for value in data.variables.values() {
-            self.check_value_lifetime_inner(value, destination, depth + 1, visited)?;
-        }
-        Ok(())
-    }
-
-    /// The parent and the members of `instance` on the cell store, each checked as the `Value` store
-    /// checks the value it holds.
-    fn check_cell_instance_lifetime<V: VisitedInstances>(
         &self,
         instance: InstanceId,
         destination: Option<FrameId>,
@@ -349,8 +319,20 @@ impl EngineState<'_> {
         depth: usize,
         visited: &mut V,
     ) -> Result<(), RuntimeError> {
-        if let ValueView::Value(value) = view {
-            return self.check_value_lifetime_inner(value, destination, depth, visited);
+        match view {
+            ValueView::Value(value) => {
+                return self.check_value_lifetime_inner(value, destination, depth, visited);
+            }
+            // A program root's instance is checked as the instance value it names.
+            ValueView::Instance(instance) => {
+                return self.check_value_lifetime_inner(
+                    &Value::Instance(instance),
+                    destination,
+                    depth,
+                    visited,
+                );
+            }
+            ValueView::Cells { .. } | ValueView::Bits { .. } => {}
         }
         self.charge_work_units(1)?;
         if depth > crate::bytecode::BYTECODE_MAX_TYPE_NESTING {

@@ -83,10 +83,7 @@ fn a_nested_dispatch_cannot_restart_an_exhausted_outer_allowance() {
     let mut state_data =
         EngineState::construct_data(&prepared, 0, &super::services::LOGICAL_ONLY).unwrap();
     let mut state = EngineState::borrow(&mut state_data, &prepared, &super::services::LOGICAL_ONLY);
-    let Some(Value::Instance(instance)) = state.data.storage.get_global("Plant") else {
-        panic!("fixture root")
-    };
-    let instance = *instance;
+    let instance = crate::vm::engine::test_store::global_instance(&state, "Plant");
     let pou = *state
         .data
         .construction

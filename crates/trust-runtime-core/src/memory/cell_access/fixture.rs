@@ -5,7 +5,7 @@
 //! `Derived`, which extends it. The ST source it encodes is in `super::tests`, where every expected
 //! value is worked out by hand.
 
-use std::sync::Arc;
+use alloc::{boxed::Box, format, sync::Arc, vec, vec::Vec};
 
 use smol_str::SmolStr;
 
@@ -39,8 +39,8 @@ pub(super) const HOLDER: u32 = 10;
 
 /// The POU ids of the fixture's `PROGRAM Main`, `Base` and `Derived`.
 const MAIN_POU: u32 = 1;
-pub(super) const BASE_POU: u32 = 2;
-pub(super) const DERIVED_POU: u32 = 3;
+pub(crate) const BASE_POU: u32 = 2;
+pub(crate) const DERIVED_POU: u32 = 3;
 
 /// The identities the `Value` store issues. `BASE_INSTANCE` is the inheritance parent of `fb_g`'s
 /// instance, which construction creates for the derived root; `DERIVED_INSTANCE` is `fb_g`'s instance;
@@ -714,7 +714,7 @@ fn fixture() -> BytecodeModule {
 }
 
 /// The fixture prepared for execution (`PreparedModule`).
-pub(super) fn prepared() -> PreparedModule {
+pub(crate) fn prepared() -> PreparedModule {
     let module = fixture();
     module
         .validate()
@@ -796,6 +796,153 @@ pub(super) fn prepared_with_held_reference() -> PreparedModule {
         PreparationLimits::default(),
     )
     .expect("the held-reference fixture prepares")
+}
+
+/// The `TYPE_TABLE` ordinal of the fixture's `DINT`, which the types of [`prepared_with_globals`]
+/// name for their elements and members.
+pub(crate) const DINT_TYPE: u32 = DINT;
+
+/// One table of the fixture's module, borrowed mutably.
+macro_rules! table {
+    ($module:expr, $section:ident) => {{
+        let SectionData::$section(table) = $module
+            .section_mut(SectionId::$section)
+            .expect("the fixture's section")
+        else {
+            unreachable!("the section holds its table")
+        };
+        table
+    }};
+}
+
+/// The cell fixture's module with the names, types and globals a test adds after the fixture's own,
+/// so that a test declares the variables it seeds and reads (checklist C1-19e). Each global gets a
+/// default initializer and a construction root; a type may name the fixture's types and those added
+/// before it, and its members the names added before it. The construction demand of each
+/// declaration is the validator's own.
+pub(crate) struct Builder {
+    module: BytecodeModule,
+    globals: u32,
+}
+
+impl Builder {
+    /// The fixture's module, with nothing added yet.
+    pub(crate) fn new() -> Self {
+        Self {
+            module: fixture(),
+            globals: 0,
+        }
+    }
+
+    /// Add `name` to the `STRING_TABLE` and answer its index.
+    pub(crate) fn name(&mut self, name: &str) -> u32 {
+        let strings = table!(self.module, StringTable);
+        strings.entries.push(SmolStr::new(name));
+        u32::try_from(strings.entries.len() - 1).expect("a small table")
+    }
+
+    /// Add `entry` to the `TYPE_TABLE` and answer its ordinal.
+    pub(crate) fn ty(&mut self, entry: TypeEntry) -> u32 {
+        let types = table!(self.module, TypeTable);
+        types.entries.push(entry);
+        u32::try_from(types.entries.len() - 1).expect("a small table")
+    }
+
+    /// Declare the retained global `name` of the type `type_id` ([`Builder::global`]).
+    pub(crate) fn retained(&mut self, name: &str, type_id: u32) {
+        self.global(name, type_id);
+        let layout = table!(self.module, StorageLayout);
+        layout
+            .entries
+            .last_mut()
+            .expect("the global just declared")
+            .retain = 1;
+    }
+
+    /// Declare the global `name` of the type `type_id`, after the fixture's globals and those added
+    /// before it.
+    pub(crate) fn global(&mut self, name: &str, type_id: u32) {
+        let slot = REF_SLOT + 1 + self.globals;
+        self.globals += 1;
+        let name_idx = self.name(name);
+        let initializer_idx =
+            u32::try_from(table!(self.module, Initializers).entries.len()).expect("a small table");
+        let refs = table!(self.module, RefTable);
+        let binding = u32::try_from(refs.entries.len()).expect("a small table");
+        refs.entries.push(global_ref(slot));
+        refs.entries.push(result_ref(initializer_idx));
+        let result = binding + 1;
+        let layout = table!(self.module, StorageLayout);
+        let declaration_idx = u32::try_from(layout.entries.len()).expect("a small table");
+        layout.entries.push(declaration(
+            StorageOwner::Global,
+            StorageRole::Variable,
+            None,
+            name_idx,
+            Some(type_id),
+            slot,
+            Some(binding),
+            1,
+        ));
+        table!(self.module, ConstructionRoots)
+            .entries
+            .push(ConstructionRoot {
+                declaration_idx,
+                binding_ref_idx: Some(binding),
+                instance_owner_id: None,
+                parent_root_idx: None,
+                template_pou_id: None,
+                flags: 0,
+            });
+        table!(self.module, Initializers)
+            .entries
+            .push(initializer(declaration_idx, None, result));
+        table!(self.module, VarMeta)
+            .entries
+            .push(var_meta(name_idx, type_id, result));
+        // The binding is typed under the name `@binding/N`, as the compiler's construction
+        // metadata types it, so that a path from the global resolves its type.
+        let binding_name = self.name(&format!("@binding/{binding}"));
+        table!(self.module, VarMeta)
+            .entries
+            .push(var_meta(binding_name, type_id, binding));
+    }
+
+    /// The module with what was added, validated and prepared for execution.
+    pub(crate) fn prepare(mut self) -> PreparedModule {
+        let types = table!(self.module, TypeTable);
+        types.offsets = compute_type_offsets_for_entries(&types.entries).expect("type offsets");
+        let demands = crate::bytecode::construction_demands(
+            self.module.view(),
+            crate::bytecode::ValidationLimits::default(),
+        )
+        .expect("the construction demands");
+        for (declaration, demand) in table!(self.module, StorageLayout)
+            .entries
+            .iter_mut()
+            .zip(demands)
+        {
+            declaration.construction_nodes = demand;
+        }
+        self.module
+            .validate()
+            .expect("the fixture with its globals is a valid source-free module");
+        PreparedModule::from_bytes(
+            &self.module.encode().expect("encode"),
+            PreparationLimits::default(),
+        )
+        .expect("the fixture with its globals prepares")
+    }
+}
+
+/// The fixture plus `globals`, each a name and the `TYPE_TABLE` entry of its type ([`Builder`]).
+pub(crate) fn prepared_with_globals(globals: &[(&str, TypeEntry)]) -> PreparedModule {
+    let mut builder = Builder::new();
+    for (name, ty) in globals {
+        let type_id = builder.ty(ty.clone());
+        builder.global(name, type_id);
+    }
+    builder.prepare()
 }
 
 /// The fixture plus one global, `holder_g : Holder` ([`HOLDER_G`]), a structure of a `REF_TO DINT` and a

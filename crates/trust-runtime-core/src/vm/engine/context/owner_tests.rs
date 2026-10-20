@@ -12,18 +12,11 @@ fn fixture() -> (
         crate::vm::PreparationLimits::default(),
     )
     .unwrap();
-    let mut data =
-        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
-    // A private three-node hierarchy makes every sorted identity search non-power-of-two.
-    data.storage = VariableStorage::new();
+    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    // Three identities with private templates: the resolutions these tests take read the
+    // templates and the roots, never an instance's variables.
     data.construction.instance_templates = Default::default();
-    let ids = [
-        data.storage.try_create_instance("child").unwrap(),
-        data.storage.try_create_instance("parent").unwrap(),
-        data.storage.try_create_instance("base").unwrap(),
-    ];
-    data.storage.get_instance_mut(ids[0]).unwrap().parent = Some(ids[1]);
-    data.storage.get_instance_mut(ids[1]).unwrap().parent = Some(ids[2]);
+    let ids = [InstanceId(1000), InstanceId(1001), InstanceId(1002)];
     for (id, template) in [(ids[0], 1000), (ids[1], 1001), (ids[2], 9000)] {
         data.construction
             .instance_templates
@@ -53,28 +46,52 @@ fn frame(instance: InstanceId, pou: Option<u32>, owner: Option<u32>) -> VmFrame 
 }
 #[test]
 fn method_fallback_and_each_ancestry_search_consume_no_allowance() {
-    let (prepared, mut data, ids) = fixture();
-    let owner_frame = frame(ids[0], Some(42), Some(u32::MAX));
+    // The cell fixture's `fb_g : Derived` is a persistent instance whose inheritance parent, a
+    // `Base`, lies in its range (specification 34 §6.2). A method that `Base` owns, called on
+    // `fb_g` through an owner no root names, resolves by the method fallback and one parent hop,
+    // which is bookkeeping (TIME-08): an empty allowance resolves the `Base` part and stays empty.
+    use crate::memory::cell_access::fixture::{self as cells, BASE_POU, DERIVED_POU};
+    use crate::memory::view::StoreAccess;
+    let mut prepared = cells::prepared();
+    prepared.method_owners.clear();
+    prepared.method_owners.extend([(42, BASE_POU)]);
+    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
-    // The method fallback, the template searches and both storage parents are walked
-    // uncharged, so an empty allowance resolves the same owner.
+    let derived = super::super::test_store::global_instance(&state, "fb_g");
+    let base = StoreAccess::instance_parent(&state, derived)
+        .unwrap()
+        .expect("the Base part of fb_g");
+    let owner_frame = frame(derived, Some(42), Some(u32::MAX));
     state.data.resources.work_budget.reset(0);
     assert_eq!(
         state
             .resolve_instance_owner(u32::MAX, &owner_frame)
             .map_err(VmTrap::into_runtime_error),
-        Ok(ids[2])
+        Ok(base)
     );
     assert_eq!(state.data.resources.work_budget.remaining(), 0);
     assert_eq!(
-        state.data.storage.get_instance(ids[0]).unwrap().parent,
-        Some(ids[1])
+        StoreAccess::instance_parent(&state, derived).unwrap(),
+        Some(base)
     );
     assert_eq!(
-        state.data.storage.get_instance(ids[1]).unwrap().parent,
-        Some(ids[2])
+        state
+            .data
+            .construction
+            .instance_templates
+            .get(&derived)
+            .copied(),
+        Some(DERIVED_POU)
     );
-    assert_eq!(state.data.construction.instance_templates.len(), 3);
+    assert_eq!(
+        state
+            .data
+            .construction
+            .instance_templates
+            .get(&base)
+            .copied(),
+        Some(BASE_POU)
+    );
 }
 
 #[test]

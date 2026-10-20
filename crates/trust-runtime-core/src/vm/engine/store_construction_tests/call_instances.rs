@@ -73,7 +73,7 @@ fn the_activation_stack_reserves_the_instances_a_frame_holds() {
 #[test]
 fn a_call_creates_its_instances_above_its_frame_and_ends_them_with_it() {
     let prepared = prepare(corpus("instances"));
-    let mut data = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let mut data = build(&prepared).expect("the cell store constructs");
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
     let window3 = pou_named(&prepared, PouKind::Function, "Window3");
     let mut frame = new_frame(&prepared, window3);
@@ -89,9 +89,7 @@ fn a_call_creates_its_instances_above_its_frame_and_ends_them_with_it() {
         .instance_parent(window)
         .unwrap()
         .expect("a Window has its Accumulator part");
-    let EngineStore::Cells(arm) = &state.data.store else {
-        panic!("the engine holds the cell store");
-    };
+    let arm = &*state.data.store;
     let on_stack = |start| ByteRange {
         region: LayoutRegion::Activation,
         start,
@@ -108,9 +106,7 @@ fn a_call_creates_its_instances_above_its_frame_and_ends_them_with_it() {
     state
         .engineering_operation(|state| state.retire_frame(&frame))
         .expect("the frame retires");
-    let EngineStore::Cells(arm) = &state.data.store else {
-        panic!("the engine holds the cell store");
-    };
+    let arm = &*state.data.store;
     assert_eq!(arm.instance_range(window), None);
     assert_eq!(arm.instance_range(parent), None);
     assert_eq!(arm.activation_top(), 0);

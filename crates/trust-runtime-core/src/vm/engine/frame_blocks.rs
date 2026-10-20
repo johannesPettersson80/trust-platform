@@ -35,9 +35,7 @@ impl EngineState<'_> {
         else {
             return Ok(());
         };
-        let EngineStore::Cells(arm) = &mut self.data.store else {
-            return Ok(());
-        };
+        let arm = &mut *self.data.store;
         let range = ByteRange {
             region: LayoutRegion::Activation,
             start: arm.activation_top(),
@@ -67,21 +65,16 @@ impl EngineState<'_> {
     /// Take the frame of activation `id` off the activation stack. Its bytes stay as they are until
     /// the next frame takes them, so a finished call's outputs are read from them.
     pub(super) fn release_frame_block(&mut self, id: FrameId) {
-        if let EngineStore::Cells(arm) = &mut self.data.store {
-            arm.release_frame(id);
-            // The references the frame's leaves and its instances' held give their paths back
-            // (C1-19c4).
-            for reference in arm.take_released_references() {
-                self.data.resources.references.recycle(reference.path);
-            }
+        self.data.store.release_frame(id);
+        // The references the frame's leaves and its instances' held give their paths back (C1-19c4).
+        for reference in self.data.store.take_released_references() {
+            self.data.resources.references.recycle(reference.path);
         }
     }
 
     /// The frame `frame` has on the activation stack, when it has one.
     pub(super) fn frame_block(&self, frame: &VmFrame) -> Option<FrameBlock> {
-        let EngineStore::Cells(arm) = &self.data.store else {
-            return None;
-        };
+        let arm = &*self.data.store;
         arm.frame(frame.activation?)
     }
 
@@ -168,17 +161,13 @@ impl EngineState<'_> {
             .frame_block(frame)
             .ok_or(RuntimeError::InvalidExecutionState)?;
         let range = {
-            let super::store_access::Routed::Cells(reader) = self.data.routed(self.prepared) else {
-                return Err(RuntimeError::InvalidExecutionState);
-            };
+            let reader = self.data.reader(self.prepared);
             match reader.frame_slot_view(block.range, block.pou, slot) {
                 Some(crate::memory::view::ValueView::Cells { range, .. }) => range,
                 _ => return Err(RuntimeError::InvalidExecutionState),
             }
         };
-        let EngineStore::Cells(arm) = &mut self.data.store else {
-            return Err(RuntimeError::InvalidExecutionState);
-        };
+        let arm = &mut *self.data.store;
         if arm.copy_place(place.range, range, None) {
             Ok(())
         } else {
@@ -206,9 +195,7 @@ impl EngineState<'_> {
         block: FrameBlock,
         stack: &mut crate::vm::stack::OperandStack,
     ) -> Result<(), RuntimeError> {
-        let super::store_access::Routed::Cells(reader) = self.data.routed(self.prepared) else {
-            return Err(RuntimeError::InvalidExecutionState);
-        };
+        let reader = self.data.reader(self.prepared);
         let view = reader
             .frame_slot_view(block.range, block.pou, 0)
             .ok_or(RuntimeError::InvalidExecutionState)?;
@@ -238,9 +225,7 @@ impl EngineState<'_> {
         block: FrameBlock,
         slot: usize,
     ) -> Option<Result<Value, RuntimeError>> {
-        let super::store_access::Routed::Cells(reader) = self.data.routed(self.prepared) else {
-            return None;
-        };
+        let reader = self.data.reader(self.prepared);
         let view = reader.frame_slot_view(block.range, block.pou, slot)?;
         Some(view.materialize())
     }

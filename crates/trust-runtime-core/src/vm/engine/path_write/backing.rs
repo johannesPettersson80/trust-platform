@@ -32,7 +32,9 @@ impl EngineState<'_> {
             } => cells
                 .overlay_node_type(type_id, leaf, node_depth)
                 .ok_or(RuntimeError::InvalidExecutionState)?,
-            ValueView::Value(_) => return Err(RuntimeError::InvalidExecutionState),
+            ValueView::Value(_) | ValueView::Instance(_) => {
+                return Err(RuntimeError::InvalidExecutionState);
+            }
         };
         // Every structure in a backing has a physical layout of its own, as its value does.
         if let Some(layout) = self.prepared.vm.physical_layout_ref(node) {

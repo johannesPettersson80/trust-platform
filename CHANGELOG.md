@@ -12,7 +12,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   show, the debugger, Live Values and the variable reads, is read from those blocks. A program's
   construction allowance now also covers the working memory its scans need, which is reserved when
   the program is built: for example the buffer a character write edits a text in, sized for the
-  largest text the program declares, up to three bytes for each `WSTRING` character.
+  largest text the program declares, up to three bytes for each `WSTRING` character. The value store
+  the runtimes kept before is removed: the flat blocks are the only store, and a program reads,
+  writes and is charged exactly as it was on the value store, which the tests keep as recorded facts.
 - The ESP32-C6 changes its running program online. `bytecode.reload` (Admin) works on a chip as on a
   computer: the change is applied at the program's next scan boundary, without a reset, the lines keep
   their pins and output levels, and a change that fails leaves the program running as it was. The chip

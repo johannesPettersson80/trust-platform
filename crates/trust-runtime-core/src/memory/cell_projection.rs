@@ -33,12 +33,11 @@ impl<'a> CellReader<'a> {
                 Some((range, type_id, presence)) => {
                     self.view(range, type_id, presence).materialize()?
                 }
-                // A global that owns no cells, a program root, is the `Value` half's.
-                None => self
-                    .values
-                    .get_global(name)
-                    .cloned()
-                    .ok_or(RuntimeError::InvalidExecutionState)?,
+                // A global that owns no cells is a program root, which names its instance.
+                None => Value::Instance(
+                    self.program_root(ordinal)
+                        .ok_or(RuntimeError::InvalidExecutionState)?,
+                ),
             };
             globals.insert(SmolStr::new(name), self.named(value, 0)?);
         }

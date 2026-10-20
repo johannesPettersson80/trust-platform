@@ -18,7 +18,7 @@ pub enum MemoryLocation {
     /// A target in a flat block (specification 34 MEM-12; C1-11d): the reference's `offset` is the
     /// target's byte offset in the block of `region`, and `type_id` its type. `elements` is the
     /// element count of the path the reference was taken through, which a copy of the reference
-    /// is charged by until the value store goes (TIME-08; C1-19).
+    /// is charged by, as the value store charged the copy of the path (TIME-08; C1-19e).
     Flat {
         /// The block that holds the target.
         region: layout::LayoutRegion,

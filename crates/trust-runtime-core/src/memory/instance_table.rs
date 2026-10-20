@@ -112,6 +112,11 @@ impl InstanceTable {
         self.entries.len()
     }
 
+    /// The persistent instance at `position` in identity order.
+    pub(crate) fn at(&self, position: usize) -> Option<(InstanceId, PersistentInstance)> {
+        self.entries.get(position).copied()
+    }
+
     /// The identities of the persistent instances, in identity order.
     pub(crate) fn ids(&self) -> impl Iterator<Item = InstanceId> + '_ {
         self.entries.iter().map(|(id, _)| *id)

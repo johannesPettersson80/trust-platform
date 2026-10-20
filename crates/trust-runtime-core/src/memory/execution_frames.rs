@@ -72,18 +72,6 @@ impl VariableStorage {
         }
     }
 
-    /// Begin a top-level execution entry (specification 34 §4.3.1). No activation is
-    /// reserved, so nothing of an earlier entry's activations is live: activation
-    /// identities start again at zero. The instance identities issued since the
-    /// previous entry began are issued again only when none of those instances is
-    /// still live; otherwise the next entry starts above them. A live instance's
-    /// identity is never issued again.
-    pub(crate) fn begin_execution_entry(&mut self) -> Result<(), RuntimeError> {
-        self.begin_activation_entry()?;
-        self.identities.begin_entry();
-        Ok(())
-    }
-
     /// Begin the activation half of a top-level execution entry: no activation is reserved, and
     /// activation identities start again at zero. The cell store keeps its instance identities in its
     /// own counter and begins their half of the entry there (specification 34 §6.2).
@@ -103,7 +91,7 @@ impl VariableStorage {
     }
 
     /// Reserve an identity without activating it. Identities only increase until the
-    /// next `begin_execution_entry`, so a completed identity is never issued again
+    /// next top-level entry, so a completed identity is never issued again
     /// within its entry, and exhaustion fails with `Overflow` instead of wrapping.
     pub fn reserve_execution_frame(&mut self) -> Result<FrameId, RuntimeError> {
         let Some(next) = self.activations.next_frame_id.checked_add(1) else {

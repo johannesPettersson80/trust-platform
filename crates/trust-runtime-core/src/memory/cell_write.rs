@@ -4,7 +4,9 @@
 //! is normalized by the declared type of its target (O11), checked against that type, and only then
 //! copied, so a refused write leaves every cell unchanged (R4). A text leaf takes its capacity cut in
 //! its buffer (R3). A non-null reference leaf holds its `ValueRef` on the `Value` side, keyed by its
-//! cell (O9). Locals, per-call instances and the program root stay on the `Value` half, as before.
+//! cell (O9). The `Value` half keeps the activation registry, the slots a frame keeps as values and
+//! the instances created outside any call; a write to a program root, which holds no bytes, is
+//! refused (C1-19e).
 
 use alloc::vec::Vec;
 
@@ -60,7 +62,8 @@ pub(crate) struct TextElement {
 pub(crate) struct CellWriter<'a> {
     prepared: &'a PreparedModule,
     arm: &'a mut CellArm,
-    /// The `Value` half: the activations' locals and the per-call instances.
+    /// The `Value` half: the activation registry, the slots a frame keeps as values and the
+    /// instances created outside any call.
     values: &'a mut VariableStorage,
 }
 
@@ -246,6 +249,8 @@ impl<'a> CellWriter<'a> {
             Ok(Target::Values(location, offset, rest)) => self
                 .values
                 .write_by_ref_parts_checked(location, offset, rest, value),
+            // A program root holds no storage: it is never replaced (`ProgramRootReplacement`).
+            Ok(Target::Instance(_)) => Ok(false),
             // A write into the backing of a structure with a physical layout patches the
             // structure's value as the value store patches it, then stores it (C1-15); a scalar
             // leaf is written where it lies (C1-15b).
@@ -318,6 +323,7 @@ impl CellReader<'_> {
                     physical,
                 }))))
             }
+            Ok(Target::Instance(_)) => Ok(None),
             Ok(Target::Values(location, offset, rest)) => {
                 let consumed = path.len() - rest.len();
                 let staged = self
@@ -515,8 +521,9 @@ impl StoreMutate for CellWriter<'_> {
             Ok(Target::Values(location, offset, _)) => self
                 .values
                 .write_direct_slot_by_location(location, offset, value),
-            // A slot is a whole declaration, never a node inside one.
-            Ok(Target::Bits(..)) | Err(_) => false,
+            // A slot is a whole declaration, never a node inside one, and a program root holds no
+            // storage.
+            Ok(Target::Bits(..) | Target::Instance(_)) | Err(_) => false,
         }
     }
 
@@ -565,10 +572,8 @@ impl StoreMutate for CellWriter<'_> {
                 Ok(leaf) => self.store(range, type_id, presence, leaf),
                 Err(_) => false,
             },
-            None => {
-                self.values.set_global(name, value);
-                true
-            }
+            // A program root holds no storage: its instance is construction's.
+            None => false,
         }
     }
 
@@ -690,7 +695,7 @@ impl StoreMutate for CellWriter<'_> {
             Ok(Target::Values(location, offset, _)) => {
                 self.values.restore_direct_slot(location, offset, value);
             }
-            Ok(Target::Bits(..)) | Err(_) => {}
+            Ok(Target::Bits(..) | Target::Instance(_)) | Err(_) => {}
         }
     }
 }

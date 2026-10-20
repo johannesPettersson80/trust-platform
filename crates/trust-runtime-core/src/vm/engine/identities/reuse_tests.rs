@@ -138,20 +138,21 @@ fn assert_refused(state: &mut EngineState<'_>, stale: &ValueRef) {
 #[test]
 fn scans_run_past_the_activation_identity_limit_and_follow_the_a4_trace() {
     let prepared = prepared();
-    let mut data =
-        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
-    let persistent = data.storage.instances().len();
-    let installed_roots = roots(&data.storage);
+    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     // One activation identity is left. Each task activation takes four: Main, the Counter
     // call, the Advance method and the result of Advance's call-time initializer.
     data.storage.set_next_frame_id_for_test(u32::MAX - 1);
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    let persistent = crate::vm::engine::test_store::projection(&state)
+        .instances()
+        .len();
+    let installed_roots = roots(&crate::vm::engine::test_store::projection(&state));
     let mut samples = 0;
     for row in TRACE.lines().filter(|line| !line.starts_with('#')).skip(1) {
         let n: Vec<i64> = row.split(',').map(|cell| cell.parse().unwrap()).collect();
         state.execute_cycle(Duration::from_millis(n[0])).unwrap();
         assert_eq!(
-            sample(&state.data.storage),
+            sample(&crate::vm::engine::test_store::projection(&state)),
             (
                 Value::Int(n[1] as i16),
                 Value::Int(n[2] as i16),
@@ -163,12 +164,23 @@ fn scans_run_past_the_activation_identity_limit_and_follow_the_a4_trace() {
             n[0]
         );
         assert_eq!(state.data.storage.execution_frame_count(), 0);
-        assert_eq!(state.data.storage.instances().len(), persistent);
-        assert_eq!(roots(&state.data.storage), installed_roots);
+        assert_eq!(
+            crate::vm::engine::test_store::projection(&state)
+                .instances()
+                .len(),
+            persistent
+        );
+        assert_eq!(
+            roots(&crate::vm::engine::test_store::projection(&state)),
+            installed_roots
+        );
         samples += 1;
     }
     // The trace ends after 40 task activations, 160 activations against the one left.
-    assert_eq!(sample(&state.data.storage).2, Value::DInt(40));
+    assert_eq!(
+        sample(&crate::vm::engine::test_store::projection(&state)).2,
+        Value::DInt(40)
+    );
     assert!(samples >= 40);
     assert!(state.data.fault.is_none());
 }
@@ -176,22 +188,31 @@ fn scans_run_past_the_activation_identity_limit_and_follow_the_a4_trace() {
 #[test]
 fn engineering_entries_reissue_the_identities_the_entry_before_them_released() {
     let prepared = prepared();
-    let mut data =
-        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
-    let persistent = data.storage.instances().len();
-    let installed_roots = roots(&data.storage);
+    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     // No activation identity and one instance identity are left. Each entry reserves an
     // engineering scope, constructs a temporary Counter, initializes and runs it.
     data.storage.set_next_frame_id_for_test(u32::MAX);
-    data.storage.set_next_instance_id_for_test(u32::MAX - 1);
+    data.set_next_instance_id_for_test(u32::MAX - 1);
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    let persistent = crate::vm::engine::test_store::projection(&state)
+        .instances()
+        .len();
+    let installed_roots = roots(&crate::vm::engine::test_store::projection(&state));
     for _ in 0..8 {
         state
             .engineering_operation(|engine| engine.execute_temporary_function_block("Counter"))
             .unwrap();
-        assert_eq!(state.data.storage.instances().len(), persistent);
+        assert_eq!(
+            crate::vm::engine::test_store::projection(&state)
+                .instances()
+                .len(),
+            persistent
+        );
         assert_eq!(state.data.storage.execution_frame_count(), 0);
-        assert_eq!(roots(&state.data.storage), installed_roots);
+        assert_eq!(
+            roots(&crate::vm::engine::test_store::projection(&state)),
+            installed_roots
+        );
     }
     // The same building blocks show the reissued values: each entry's first activation is 0,
     // and its invocation-owned instance takes the identity the previous entry released.
@@ -212,9 +233,16 @@ fn engineering_entries_reissue_the_identities_the_entry_before_them_released() {
             })
             .unwrap();
         assert_eq!((scope, owned), (FrameId(0), InstanceId(u32::MAX - 1)));
-        assert!(state.data.storage.get_instance(owned).is_none());
+        assert!(crate::vm::engine::test_store::projection(&state)
+            .get_instance(owned)
+            .is_none());
     }
-    assert_eq!(state.data.storage.instances().len(), persistent);
+    assert_eq!(
+        crate::vm::engine::test_store::projection(&state)
+            .instances()
+            .len(),
+        persistent
+    );
 }
 
 #[test]
@@ -226,7 +254,7 @@ fn a_local_reference_from_a_finished_entry_never_resolves_after_its_identity_is_
         .get(&prepared.vm.strings, "COUNTER")
         .unwrap();
     let observer = Observer::default();
-    let mut data = EngineState::construct_values_data(&prepared, 0, &observer).unwrap();
+    let mut data = EngineState::construct_data(&prepared, 0, &observer).unwrap();
     let mut state = EngineState::borrow(&mut data, &prepared, &observer);
     // The first task activation (A4 trace, 30 ms) runs the Advance method below Main. A
     // debugger that inspected it holds a reference to the method's return slot.
@@ -235,17 +263,24 @@ fn a_local_reference_from_a_finished_entry_never_resolves_after_its_identity_is_
     let stale = ValueRef {
         location: MemoryLocation::Local(advance),
         offset: 0,
-        generation: state.data.storage.generation(),
+        generation: crate::memory::view::StoreAccess::generation(&state),
         path: Vec::new(),
     };
-    assert_no_activation_state_outlives_its_entry(&state.data.storage);
+    assert_no_activation_state_outlives_its_entry(&crate::vm::engine::test_store::projection(
+        &state,
+    ));
     for (now, result) in [(50, 2), (80, 3), (100, 1)] {
         assert_refused(&mut state, &stale);
         state.execute_cycle(Duration::from_millis(now)).unwrap();
         // The next entry gives the same identity to its own, different Advance activation.
         assert_eq!(observer.nested_activation(counter), advance);
-        assert_eq!(sample(&state.data.storage).1, Value::Int(result));
-        assert_no_activation_state_outlives_its_entry(&state.data.storage);
+        assert_eq!(
+            sample(&crate::vm::engine::test_store::projection(&state)).1,
+            Value::Int(result)
+        );
+        assert_no_activation_state_outlives_its_entry(&crate::vm::engine::test_store::projection(
+            &state,
+        ));
     }
     assert_refused(&mut state, &stale);
     assert!(state.data.fault.is_none());

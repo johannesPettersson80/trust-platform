@@ -81,9 +81,7 @@ impl EngineState<'_> {
         range: ByteRange,
         node: PlaceNode,
     ) -> Result<(), RuntimeError> {
-        let Routed::Cells(reader) = self.data.routed(self.prepared) else {
-            return Err(RuntimeError::InvalidExecutionState);
-        };
+        let reader = self.data.reader(self.prepared);
         let cells = reader.view_cells();
         let layout = self
             .prepared
@@ -129,9 +127,7 @@ impl EngineState<'_> {
         type_id: u32,
         ordinal: usize,
     ) -> Result<Target, RuntimeError> {
-        let Routed::Cells(reader) = self.data.routed(self.prepared) else {
-            return Err(RuntimeError::InvalidExecutionState);
-        };
+        let reader = self.data.reader(self.prepared);
         let child = reader.view_cells().overlay_child(
             node.root,
             node.root_type,
@@ -168,18 +164,14 @@ impl EngineState<'_> {
             return Err(RuntimeError::InvalidExecutionState);
         }
         let backing = {
-            let Routed::Cells(reader) = self.data.routed(self.prepared) else {
-                return Err(RuntimeError::InvalidExecutionState);
-            };
+            let reader = self.data.reader(self.prepared);
             reader
                 .view_cells()
                 .node_cells(node.root, node.root_type, None)
                 .ok_or(RuntimeError::InvalidExecutionState)?
                 .backing
         };
-        let EngineStore::Cells(arm) = &mut self.data.store else {
-            return Err(RuntimeError::InvalidExecutionState);
-        };
+        let arm = &mut *self.data.store;
         if arm.write_backing_leaf(backing, layout, node.anchor, bits) {
             Ok(())
         } else {
@@ -206,9 +198,7 @@ impl EngineState<'_> {
         })?;
         self.charge_allocation_bytes(staging)?;
         self.charge_work_units(layout.construction_work()?)?;
-        let Routed::Cells(reader) = self.data.routed(self.prepared) else {
-            return Err(RuntimeError::InvalidExecutionState);
-        };
+        let reader = self.data.reader(self.prepared);
         let cells = reader.view_cells();
         let nested = (node.depth > 0).then_some((node.anchor, node.depth));
         let backing = cells
@@ -230,9 +220,7 @@ impl EngineState<'_> {
         type_id: u32,
     ) -> Result<(), RuntimeError> {
         if holds_text(self.prepared, type_id) {
-            let Routed::Cells(reader) = self.data.routed(self.prepared) else {
-                return Err(RuntimeError::InvalidExecutionState);
-            };
+            let reader = self.data.reader(self.prepared);
             let cells = reader.view_cells();
             let placed = cells
                 .node_cells(node.root, node.root_type, Some((node.anchor, node.depth)))

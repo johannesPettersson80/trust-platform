@@ -19,14 +19,10 @@ use crate::memory::view::ValueView;
 use crate::value::{RefPath, ValueRef};
 
 impl RetainedGraph<'_, '_> {
-    /// Whether `target` takes the retained value `view` in place: both stores hold cells and every
-    /// reference the value holds is flat. Charges nothing.
-    pub(super) fn copies_in_place(
-        &self,
-        target: &EngineState<'_>,
-        view: ValueView<'_>,
-    ) -> Result<bool, RuntimeError> {
-        if !target.holds_cells() || !matches!(view, ValueView::Cells { .. }) {
+    /// Whether the candidate takes the retained value `view` in place: the value lies in cells and
+    /// every reference it holds is flat. Charges nothing.
+    pub(super) fn copies_in_place(&self, view: ValueView<'_>) -> Result<bool, RuntimeError> {
+        if !matches!(view, ValueView::Cells { .. }) {
             return Ok(false);
         }
         references_are_flat(self.source.prepared, view, 0)
@@ -201,7 +197,7 @@ impl RetainedGraph<'_, '_> {
     /// the target's lifecycle tables stays reserved while the value is published.
     pub(super) fn write_cells(
         &mut self,
-        store: &mut EngineStore,
+        store: &mut CellArm,
         prepared: &PreparedModule,
         generation: crate::memory::Generation,
         view: ValueView<'_>,
@@ -289,9 +285,7 @@ impl RetainedGraph<'_, '_> {
         };
         match rewritten {
             Some(value) => {
-                let EngineStore::Cells(arm) = store else {
-                    return Err(RuntimeError::InvalidExecutionState);
-                };
+                let arm = store;
                 arm.write_in_place(at, type_id, &value, prepared)
             }
             // A leaf that names no instance or reference, and every value without such leaves, has
@@ -303,14 +297,12 @@ impl RetainedGraph<'_, '_> {
 
 /// Copy the source's cells `range` into the bytes `at` of the target's `store`.
 fn write_bytes(
-    store: &mut EngineStore,
+    store: &mut CellArm,
     at: ByteRange,
     cells: CellsView<'_>,
     range: ByteRange,
 ) -> Result<(), RuntimeError> {
-    let EngineStore::Cells(arm) = store else {
-        return Err(RuntimeError::InvalidExecutionState);
-    };
+    let arm = store;
     let bytes = cells
         .bytes(range)
         .ok_or(RuntimeError::InvalidExecutionState)?;

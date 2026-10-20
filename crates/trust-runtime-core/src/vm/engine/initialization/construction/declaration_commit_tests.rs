@@ -44,8 +44,7 @@ fn frame(slot: usize, initial: Value) -> VmFrame {
 }
 
 fn state_data(prepared: &PreparedModule) -> alloc::boxed::Box<super::super::super::EngineData> {
-    EngineState::construct_values_data(prepared, 0, &super::super::super::services::LOGICAL_ONLY)
-        .unwrap()
+    EngineState::construct_data(prepared, 0, &super::super::super::services::LOGICAL_ONLY).unwrap()
 }
 
 #[test]
@@ -132,7 +131,7 @@ fn frame_commit_still_rejects_stale_references_before_publication() {
     let invalid = Value::Reference(Some(crate::value::ValueRef {
         location: crate::memory::MemoryLocation::Local(crate::memory::FrameId(u32::MAX)),
         offset: 0,
-        generation: state.data.storage.generation(),
+        generation: crate::memory::view::StoreAccess::generation(&state),
         path: Vec::new(),
     }));
     let marks = state.data.construction.initialized_declarations.len();
@@ -250,7 +249,9 @@ fn failed_instance_storage_write_does_not_publish_its_initialized_mark() {
         .initialized_declarations
         .contains(&(declaration, Some(instance)))
         .unwrap());
-    assert!(state.data.storage.get_instance(instance).is_none());
+    assert!(crate::vm::engine::test_store::projection(&state)
+        .get_instance(instance)
+        .is_none());
 }
 
 #[test]
@@ -270,15 +271,18 @@ fn marker_allocation_refusals_precede_instance_publication() {
         .owner_pou_id
         .unwrap();
     let mut data = state_data(&prepared);
-    let instance = *data
-        .storage
+    let projection = crate::vm::engine::test_store::projection(&EngineState::borrow(
+        &mut data,
+        &prepared,
+        &super::super::super::services::LOGICAL_ONLY,
+    ));
+    let instance = *projection
         .instances()
         .iter()
         .find(|(id, _)| data.construction.instance_templates.get(id) == Some(&owner))
         .unwrap()
         .0;
-    let previous = data
-        .storage
+    let previous = projection
         .get_instance_var(instance, "value")
         .unwrap()
         .clone();
@@ -324,8 +328,8 @@ fn marker_allocation_refusals_precede_instance_publication() {
         marker_capacity_before
     );
     assert_eq!(
-        state.data.storage.get_instance_var(instance, "value"),
-        Some(&previous)
+        crate::vm::engine::test_store::instance_var(&state, instance, "value"),
+        Some(previous.clone())
     );
     assert!(!state
         .data
@@ -360,8 +364,8 @@ fn marker_allocation_refusals_precede_instance_publication() {
         marker_capacity_before
     );
     assert_eq!(
-        state.data.storage.get_instance_var(instance, "value"),
-        Some(&previous)
+        crate::vm::engine::test_store::instance_var(&state, instance, "value"),
+        Some(previous.clone())
     );
     assert!(!state
         .data
@@ -397,8 +401,12 @@ fn native_state_mark_is_admitted_before_publication() {
     }
 
     let mut data = state_data(&prepared);
-    let instance = *data
-        .storage
+    let projection = crate::vm::engine::test_store::projection(&EngineState::borrow(
+        &mut data,
+        &prepared,
+        &super::super::super::services::LOGICAL_ONLY,
+    ));
+    let instance = *projection
         .instances()
         .iter()
         .find(|(id, _)| data.construction.instance_templates.get(id) == Some(&pou))
@@ -434,12 +442,10 @@ fn native_state_mark_is_admitted_before_publication() {
     let field_name = SmolStr::new(
         &prepared.vm.strings[prepared.layout.entries[declaration as usize].name_idx as usize],
     );
-    let before_value = state
-        .data
-        .storage
-        .get_instance_var(instance, &field_name)
-        .cloned();
-    let instance_count = state.data.storage.instances().len();
+    let before_value = crate::vm::engine::test_store::instance_var(&state, instance, &field_name);
+    let instance_count = crate::vm::engine::test_store::projection(&state)
+        .instances()
+        .len();
     // TIME-08: the native marker's admission is an allocation. An exhausted work
     // allowance neither refuses it earlier nor is consumed by it.
     state.data.resources.work_budget.reset(0);
@@ -472,10 +478,15 @@ fn native_state_mark_is_admitted_before_publication() {
         .construction
         .initialized_instances
         .contains(&instance));
-    assert_eq!(state.data.storage.instances().len(), instance_count);
     assert_eq!(
-        state.data.storage.get_instance_var(instance, &field_name),
-        before_value.as_ref()
+        crate::vm::engine::test_store::projection(&state)
+            .instances()
+            .len(),
+        instance_count
+    );
+    assert_eq!(
+        crate::vm::engine::test_store::instance_var(&state, instance, &field_name),
+        before_value.clone()
     );
 
     state
@@ -502,10 +513,15 @@ fn native_state_mark_is_admitted_before_publication() {
         .construction
         .initialized_instances
         .contains(&instance));
-    assert_eq!(state.data.storage.instances().len(), instance_count);
     assert_eq!(
-        state.data.storage.get_instance_var(instance, &field_name),
-        before_value.as_ref()
+        crate::vm::engine::test_store::projection(&state)
+            .instances()
+            .len(),
+        instance_count
+    );
+    assert_eq!(
+        crate::vm::engine::test_store::instance_var(&state, instance, &field_name),
+        before_value.clone()
     );
     assert_eq!(
         state
@@ -525,11 +541,15 @@ fn lifecycle_mark_allocation_refusal_precedes_global_and_instance_value_writes()
         let entry = &prepared.layout.entries[declaration as usize];
         let name = &prepared.vm.strings[entry.name_idx as usize];
         let mut data = state_data(&prepared);
+        let projection = crate::vm::engine::test_store::projection(&EngineState::borrow(
+            &mut data,
+            &prepared,
+            &super::super::super::services::LOGICAL_ONLY,
+        ));
         let instance = if owner == StorageOwner::Instance {
             let template = entry.owner_pou_id.expect("instance declaration owner");
             Some(
-                *data
-                    .storage
+                *projection
                     .instances()
                     .iter()
                     .find(|(id, _)| data.construction.instance_templates.get(id) == Some(&template))
@@ -540,8 +560,8 @@ fn lifecycle_mark_allocation_refusal_precedes_global_and_instance_value_writes()
             None
         };
         let previous = match owner {
-            StorageOwner::Global => data.storage.get_global(name),
-            StorageOwner::Instance => data.storage.get_instance_var(instance.unwrap(), name),
+            StorageOwner::Global => projection.get_global(name),
+            StorageOwner::Instance => projection.get_instance_var(instance.unwrap(), name),
             StorageOwner::Frame => unreachable!(),
         }
         .cloned()
@@ -592,11 +612,13 @@ fn lifecycle_mark_allocation_refusal_precedes_global_and_instance_value_writes()
             "owner={owner:?}"
         );
         let current = match owner {
-            StorageOwner::Global => state.data.storage.get_global(name),
-            StorageOwner::Instance => state.data.storage.get_instance_var(instance.unwrap(), name),
+            StorageOwner::Global => crate::vm::engine::test_store::global(&state, name),
+            StorageOwner::Instance => {
+                crate::vm::engine::test_store::instance_var(&state, instance.unwrap(), name)
+            }
             StorageOwner::Frame => unreachable!(),
         };
-        assert_eq!(current, Some(&previous), "owner={owner:?}");
+        assert_eq!(current, Some(previous.clone()), "owner={owner:?}");
         assert!(!state
             .data
             .construction
@@ -638,11 +660,15 @@ fn initialized_marker_refusal_does_not_publish_prepared_once_marker_or_global_va
         &prepared.vm.strings[prepared.layout.entries[declaration as usize].name_idx as usize],
     );
     let mut data = state_data(&prepared);
-    let previous = data
-        .storage
-        .get_global(&name)
-        .expect("constructed global")
-        .clone();
+    let previous = crate::vm::engine::test_store::global(
+        &EngineState::borrow(
+            &mut data,
+            &prepared,
+            &super::super::super::services::LOGICAL_ONLY,
+        ),
+        &name,
+    )
+    .expect("constructed global");
     data.construction.initialized_declarations = Default::default();
     data.construction.once = Default::default();
 
@@ -726,7 +752,10 @@ fn initialized_marker_refusal_does_not_publish_prepared_once_marker_or_global_va
                 .capacity_state_for_test(),
             initialized_capacity_before
         );
-        assert_eq!(state.data.storage.get_global(&name), Some(&previous));
+        assert_eq!(
+            crate::vm::engine::test_store::global(&state, &name),
+            Some(previous.clone())
+        );
     }
     data.resources.construction_bytes.set(0);
     let mut state = EngineState::borrow(
@@ -752,7 +781,10 @@ fn initialized_marker_refusal_does_not_publish_prepared_once_marker_or_global_va
     );
     assert_eq!(state.data.resources.work_budget.remaining(), 1);
     assert_eq!(state.data.resources.construction_bytes.get(), once_demand.0);
-    assert_eq!(state.data.storage.get_global(&name), Some(&previous));
+    assert_eq!(
+        crate::vm::engine::test_store::global(&state, &name),
+        Some(previous.clone())
+    );
     assert_eq!(
         state
             .data
@@ -791,11 +823,15 @@ fn lifetime_fault_still_precedes_once_marker_admission() {
     let name = SmolStr::new(
         &prepared.vm.strings[prepared.layout.entries[declaration as usize].name_idx as usize],
     );
-    let value_before = data
-        .storage
-        .get_global(&name)
-        .expect("constructed global")
-        .clone();
+    let value_before = crate::vm::engine::test_store::global(
+        &EngineState::borrow(
+            &mut data,
+            &prepared,
+            &super::super::super::services::LOGICAL_ONLY,
+        ),
+        &name,
+    )
+    .expect("constructed global");
     data.construction.initialized_declarations = Default::default();
     data.construction.once = Default::default();
     let once_before = data.construction.once.capacity_state_for_test();
@@ -813,7 +849,7 @@ fn lifetime_fault_still_precedes_once_marker_admission() {
     let invalid = Value::Reference(Some(crate::value::ValueRef {
         location: crate::memory::MemoryLocation::Local(crate::memory::FrameId(u32::MAX)),
         offset: 0,
-        generation: state.data.storage.generation(),
+        generation: crate::memory::view::StoreAccess::generation(&state),
         path: Vec::new(),
     }));
     assert_eq!(
@@ -828,7 +864,10 @@ fn lifetime_fault_still_precedes_once_marker_admission() {
     );
     assert_eq!(state.data.resources.work_budget.remaining(), 0);
     assert_eq!(state.data.resources.construction_bytes.get(), 0);
-    assert_eq!(state.data.storage.get_global(&name), Some(&value_before));
+    assert_eq!(
+        crate::vm::engine::test_store::global(&state, &name),
+        Some(value_before.clone())
+    );
     assert_eq!(state.data.construction.once.len(), 0);
     assert_eq!(
         state.data.construction.once.capacity_state_for_test(),

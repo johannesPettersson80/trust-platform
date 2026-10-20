@@ -43,6 +43,9 @@ impl EngineState<'_> {
     ) -> Result<usize, RuntimeError> {
         match view {
             ValueView::Value(value) => self.value_clone_charge(value, 0),
+            ValueView::Instance(instance) => {
+                self.value_clone_charge(&Value::Instance(*instance), 0)
+            }
             ValueView::Cells {
                 cells,
                 range,
@@ -457,23 +460,29 @@ mod tests {
 
     #[test]
     fn character_cycle_reads_consume_one_cumulative_allowance_before_materialization() {
+        // The program `strings` of the bounded-C corpus declares `text : STRING[40]` in its
+        // program instance `Plant`.
         let prepared = PreparedModule::from_bytes(
-            include_bytes!("../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc"),
+            include_bytes!(
+                "../../../../trust-runtime/tests/fixtures/bounded-c/strings/program.stbc"
+            ),
             crate::vm::PreparationLimits::default(),
         )
         .unwrap();
         let services = &super::super::services::LOGICAL_ONLY;
-        let mut data = EngineState::construct_values_data(&prepared, 0, services).unwrap();
-        // An explicit low-level storage fixture isolates the reader's accounting;
-        // the hosted native test supplies real admitted STRING/WSTRING declarations.
-        data.storage
-            .set_global("probe_depth", Value::String("AB".into()));
-        let mut reference = data.storage.ref_for_global("probe_depth").unwrap();
+        let mut data = EngineState::construct_data(&prepared, 0, services).unwrap();
+        let mut engine = EngineState::borrow(&mut data, &prepared, services);
+        let text_path = [RefSegment::Field("text".into())];
+        engine
+            .write_named_path("Plant", &text_path, Value::String("AB".into()))
+            .unwrap();
+        let mut text = crate::memory::view::StoreAccess::ref_for_global(&engine, "Plant").unwrap();
+        text.path.push(RefSegment::Field("text".into()));
+        let mut reference = text.clone();
         reference.path.push(RefSegment::Index(alloc::vec![2]));
         // TIME-08 TEXT: each read scans the 2-byte text (2 units); the path walk is
         // bookkeeping. 3 units admit one read and refuse the second.
-        data.resources.work_budget.reset(3);
-        let mut engine = EngineState::borrow(&mut data, &prepared, services);
+        engine.data.resources.work_budget.reset(3);
         let mut access = CycleAccess {
             engine: &mut engine,
             phase: CyclePhase::BeforeInputSample,
@@ -493,115 +502,10 @@ mod tests {
             })
         ));
         let store = access.store();
-        let probe = store.read_global("probe_depth").expect("probe_depth");
+        let probe = store.read_reference(text.as_view()).expect("text");
         assert_eq!(
             store.materialize(&probe).unwrap(),
             Value::String("AB".into())
-        );
-    }
-    #[test]
-    fn engineering_bits_preflight_rejects_nonfinite_alias_before_storage_commit() {
-        use crate::bytecode::{Field, TypeData, TypeEntry, TypeKind, TypeTable};
-        use crate::value::{StorageAbi, StructValue};
-        use alloc::sync::Arc;
-        let prepared = PreparedModule::from_bytes(
-            include_bytes!(
-                "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
-            ),
-            crate::vm::PreparationLimits::default(),
-        )
-        .unwrap();
-        let mut data =
-            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
-                .unwrap();
-        let state =
-            EngineState::borrow(&mut data, &prepared, &super::super::services::LOGICAL_ONLY);
-        let names = vec!["real".into(), "bits".into()];
-        let types = TypeTable {
-            offsets: Vec::new(),
-            entries: vec![
-                TypeEntry {
-                    kind: TypeKind::Primitive,
-                    name_idx: None,
-                    data: TypeData::Primitive {
-                        prim_id: 14,
-                        max_length: 0,
-                    },
-                },
-                TypeEntry {
-                    kind: TypeKind::Primitive,
-                    name_idx: None,
-                    data: TypeData::Primitive {
-                        prim_id: 4,
-                        max_length: 0,
-                    },
-                },
-                TypeEntry {
-                    kind: TypeKind::OverlappingStruct,
-                    name_idx: None,
-                    data: TypeData::Struct {
-                        fields: vec![
-                            Field {
-                                name_idx: 0,
-                                type_id: 0,
-                                bit_offset: Some(0),
-                            },
-                            Field {
-                                name_idx: 1,
-                                type_id: 1,
-                                bit_offset: Some(0),
-                            },
-                        ],
-                    },
-                },
-            ],
-        };
-        let layouts = crate::value::overlap::prepare_layouts(
-            &types,
-            &names,
-            StorageAbi::UniformTemporal64,
-            &mut |_, _| Ok(()),
-        )
-        .unwrap();
-        let probe = StructValue::from_canonical_parts(
-            "IEEE".into(),
-            crate::collections::OrderedMap::from_iter([
-                ("real".into(), Value::Real(0.0)),
-                ("bits".into(), Value::DWord(0)),
-            ]),
-        )
-        .initialize_physical_layout(layouts[2].clone())
-        .unwrap();
-        state
-            .data
-            .storage
-            .set_global("probe", Value::Struct(Arc::new(probe)));
-        let mut reference = state.data.storage.ref_for_global("probe").unwrap();
-        reference.path = vec![RefSegment::Field("BiTs".into())];
-        let input = Value::DWord(0x7FC0_0000);
-        state.validate_engineering_value(&input, 0).unwrap();
-        state
-            .charge_storage_path_write(
-                &state.data.storage,
-                reference.location,
-                reference.offset as usize,
-                &reference.path,
-                &input,
-            )
-            .unwrap();
-        let error = match state.prepare_engineering_storage_write(reference.as_view(), &input) {
-            Ok(_) => panic!("non-finite alias admitted"),
-            Err(error) => error,
-        };
-        assert_eq!(error, RuntimeError::NonFiniteValue);
-        assert_eq!(
-            state.data.storage.read_by_ref_ref(&reference),
-            Some(&Value::DWord(0))
-        );
-        reference.path = vec![RefSegment::Field("ReAl".into())];
-        assert_eq!(
-            state.data.storage.read_by_ref_ref(&reference),
-            Some(&Value::Real(0.0))
         );
     }
 }

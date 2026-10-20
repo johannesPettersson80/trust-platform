@@ -721,7 +721,7 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// and the persistent reference leaves, each buffer with room for the longest path. Every corpus
 /// run on the flat store, the saved `main` included, makes no allocator call in any scan, the
 /// first included, measured on the builder on 19 October 2026.
-const CEILINGS: [(&str, usize, Calls); 39] = [
+const CEILINGS: [(&str, usize, Calls); 31] = [
     ("faults/division", 2, Calls::ZERO),
     ("faults/index", 2, Calls::ZERO),
     ("faults/null", 2, Calls::ZERO),
@@ -736,40 +736,6 @@ const CEILINGS: [(&str, usize, Calls); 39] = [
             dealloc: 8,
         },
     ),
-    ("scalar", 1, Calls::ZERO),
-    ("gpio", 1, Calls::ZERO),
-    ("saved/gpio", 1, Calls::ZERO),
-    (
-        "initializers",
-        1,
-        Calls {
-            alloc: 9,
-            realloc: 0,
-            dealloc: 9,
-        },
-    ),
-    ("sizeof", 1, Calls::ZERO),
-    (
-        "calls",
-        1,
-        Calls {
-            alloc: 19,
-            realloc: 0,
-            dealloc: 19,
-        },
-    ),
-    (
-        "blocks",
-        1,
-        Calls {
-            alloc: 13,
-            realloc: 0,
-            dealloc: 13,
-        },
-    ),
-    ("methods", 1, Calls::ZERO),
-    // The same runs on the flat store (C1-10 on): those at zero, and each other at the allocator
-    // calls of its steady scans when the reference buffers were kept (19 October 2026).
     ("cells/saved/main", 0, Calls::ZERO),
     ("cells/scalar", 0, Calls::ZERO),
     ("cells/gpio", 0, Calls::ZERO),
@@ -925,10 +891,10 @@ fn unmeasured_entries() -> Vec<String> {
     unmeasured
 }
 
-/// Prepare and construct a fixture outside the counted window, on the flat store (`cells`) or the
-/// `Value` store, then count every scan. Before each scan every input byte is set to alternating
-/// ASCII, so each bound bit toggles and every STRING window stays valid text.
-fn run_fixture(fixture: &Fixture, cells: bool) -> Result<Vec<Scan>, String> {
+/// Prepare and construct a fixture outside the counted window, then count every scan. Before each
+/// scan every input byte is set to alternating ASCII, so each bound bit toggles and every STRING
+/// window stays valid text.
+fn run_fixture(fixture: &Fixture) -> Result<Vec<Scan>, String> {
     let bytes = match fixture.artifact {
         Artifact::Saved(bytes) => bytes.to_vec(),
         Artifact::Corpus => corpus_artifact(fixture.name)?,
@@ -936,12 +902,9 @@ fn run_fixture(fixture: &Fixture, cells: bool) -> Result<Vec<Scan>, String> {
     let prepared = PreparedModule::from_bytes(&bytes, run_limits())
         .map_err(|error| format!("preparation refused: {error}"))?;
     let services = Services::new(fixture.retain_store);
-    let constructed = if cells {
-        prepared.instantiate_on_cells_with_services(0, &services)
-    } else {
-        prepared.instantiate_with_services(0, &services)
-    };
-    let mut state = constructed.map_err(|error| format!("construction refused: {error}"))?;
+    let mut state = prepared
+        .instantiate_with_services(0, &services)
+        .map_err(|error| format!("construction refused: {error}"))?;
     for address in fixture.hierarchical_inputs {
         IoAddress::parse(address)
             .and_then(|parsed| state.set_hierarchical_input(&parsed, Value::Bool(true)))
@@ -1030,10 +993,21 @@ fn run_fault_case(prepared: &PreparedModule, case: &FaultCase) -> Result<Vec<Sca
     Ok(scans)
 }
 
-/// Spec 34 ARCH-05, MEM-04 and MEM-09: every fixture runs its scans under the chips' admission
-/// limits, the zero-list runs make no allocator call, and every run's counts are printed.
+/// The flat-store runs that still allocate, listed with their measured ceilings: none since C1-19c4
+/// removed the value paths of the corpus cases it added. The list only shrinks.
+const NOT_YET_ZERO: [&str; 0] = [];
+
+/// The fixtures the flat store refuses until a later slice, with the slice that admits them. None
+/// since C1-15 placed the `STRUCT OVERLAP` of `structures` and `overlays` as its backing.
+const REFUSED_ON_THE_FLAT_STORE: [&str; 0] = [];
+
+/// Spec 34 MEM-12, ARCH-05, MEM-04 and MEM-09: every fixture runs its scans on the flat store under
+/// the chips' admission limits, which C1-10 to C1-19 build and make the only store. Every scan's
+/// counts are printed under `cells/<name>`; the zero-list runs make no allocator call. A fixture the
+/// store refuses must be one of [`REFUSED_ON_THE_FLAT_STORE`], and every listed one must still be
+/// refused, so the list shrinks as the slices admit them.
 #[test]
-fn listed_runs_stay_within_their_allocator_ceilings_and_every_fixture_reports_its_scans() {
+fn every_fixture_reports_its_scans_on_the_flat_store() {
     let unmeasured = unmeasured_entries();
     assert!(
         unmeasured.is_empty(),
@@ -1053,36 +1027,8 @@ fn listed_runs_stay_within_their_allocator_ceilings_and_every_fixture_reports_it
     );
     let mut failures = Vec::new();
     for fixture in &FIXTURES {
-        match run_fixture(fixture, false) {
-            Ok(scans) => {
-                report(fixture.name, &scans);
-                failures.extend(ceiling_violations(fixture.name, &scans));
-            }
-            Err(error) => failures.push(format!("{}: {error}", fixture.name)),
-        }
-    }
-    assert_eq!(failures, Vec::<String>::new(), "failing runs");
-}
-
-/// The flat-store runs that still allocate, listed with their measured ceilings: none since C1-19c4
-/// removed the value paths of the corpus cases it added. The list only shrinks.
-const NOT_YET_ZERO: [&str; 0] = [];
-
-/// The fixtures the flat store refuses until a later slice, with the slice that admits them. None
-/// since C1-15 placed the `STRUCT OVERLAP` of `structures` and `overlays` as its backing.
-const REFUSED_ON_THE_FLAT_STORE: [&str; 0] = [];
-
-/// Spec 34 MEM-12 and ARCH-05: the same runs on the flat store, which C1-10 to C1-19 build on and
-/// make the default. Every scan's counts are printed under `cells/<name>`, so each slice is
-/// measured against the store it changes; the ceilings move here as the slices bring them to zero.
-/// A fixture the store refuses must be one of [`REFUSED_ON_THE_FLAT_STORE`], and every listed one
-/// must still be refused, so the list shrinks as the slices admit them.
-#[test]
-fn every_fixture_reports_its_scans_on_the_flat_store() {
-    let mut failures = Vec::new();
-    for fixture in &FIXTURES {
         let listed = REFUSED_ON_THE_FLAT_STORE.contains(&fixture.name);
-        match run_fixture(fixture, true) {
+        match run_fixture(fixture) {
             Ok(scans) if !listed => {
                 let name = format!("cells/{}", fixture.name);
                 report(&name, &scans);
@@ -1283,7 +1229,7 @@ fn the_cell_retain_capture_allocates_nothing() {
         .expect("the chips' admission accepts the retain fixture");
     let services = Services::new(true);
     let mut state = prepared
-        .instantiate_on_cells_with_services(0, &services)
+        .instantiate_with_services(0, &services)
         .expect("the retain fixture constructs on the cell store");
 
     let (capture, first, later) = capture_twice(&mut state);
@@ -1314,7 +1260,7 @@ fn trace_flat_store_allocations() {
     for fixture in &FIXTURES {
         TRACES.with(|traces| traces.borrow_mut().clear());
         TRACING.with(|flag| flag.set(true));
-        let outcome = run_fixture(fixture, true);
+        let outcome = run_fixture(fixture);
         TRACING.with(|flag| flag.set(false));
         let traces = TRACES.with(|traces| std::mem::take(&mut *traces.borrow_mut()));
         if let Err(error) = outcome {
@@ -1357,7 +1303,7 @@ fn trace_flat_store_restart_allocations() {
             continue;
         };
         let services = Services::new(fixture.retain_store);
-        let Ok(mut state) = prepared.instantiate_on_cells_with_services(0, &services) else {
+        let Ok(mut state) = prepared.instantiate_with_services(0, &services) else {
             eprintln!("trace-restart,cells/{},refused=construction", fixture.name);
             continue;
         };

@@ -342,13 +342,13 @@ mod tests {
             .resources
             .work_budget
             .reset(prepared.limits.max_work);
-        let mut preflight = state.data.storage.instance_insertion_demand().unwrap().0;
+        let mut defaults = 0;
         for &id in prepared.declarations(StorageOwner::Instance, Some(pou)) {
             if let Some(value) = prepared.layout.entries[id as usize]
                 .default_const_idx
                 .and_then(|index| prepared.vm.consts.get(index as usize))
             {
-                preflight += state.value_clone_charge(value, 0).unwrap();
+                defaults += state.value_clone_charge(value, 0).unwrap();
             }
         }
         let future = crate::memory::InstanceId(u32::MAX);
@@ -368,11 +368,16 @@ mod tests {
             .0;
         // Stop before templates, before lifetimes, and before owner registration.
         // The latter two exercise cleanup after earlier metadata was inserted.
-        for (completed, allowed) in [
-            (0, preflight),
-            (1, preflight + template_bytes),
-            (2, preflight + template_bytes + lifetime_bytes),
+        for (completed, metadata) in [
+            (0, 0),
+            (1, template_bytes),
+            (2, template_bytes + lifetime_bytes),
         ] {
+            // The instance's record grows its list only when the list is full, so an attempt that
+            // grew it and was refused leaves room for the next: each attempt's preflight is read
+            // before it. (A hosted list charges its nodes elsewhere and answers 0.)
+            let record = state.data.storage.instance_insertion_demand().unwrap().0;
+            let allowed = record + defaults + metadata;
             state.data.resources.construction_bytes.set(limit - allowed);
             let error = state.reserve_instance(pou, Some(owner)).unwrap_err();
             assert!(

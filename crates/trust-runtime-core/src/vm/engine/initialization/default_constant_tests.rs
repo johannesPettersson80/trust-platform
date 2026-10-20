@@ -257,43 +257,68 @@ fn constant_default_charges_exact_clone_demand_and_cleans_rejected_staging() {
 
 #[test]
 fn member_default_preflight_cannot_strand_an_instance_or_lifetime_metadata() {
-    let mut prepared = fixture();
-    let mut data =
-        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    // The program `Strings` of the bounded-C corpus declares `wide : WSTRING[16]`. Its default
+    // becomes 16 characters, whose copy demands 2 x 16 = 32 bytes (TIME-08: two bytes per UTF-16
+    // code unit). The instance belongs to an activation, as a call's or an engineering entry's
+    // does: a persistent one needs a construction root on the flat store (R5).
+    let mut prepared = PreparedModule::from_bytes(
+        include_bytes!(
+            "../../../../../trust-runtime/tests/fixtures/bounded-c/strings/program.stbc"
+        ),
+        PreparationLimits::default(),
+    )
+    .unwrap();
+    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let declaration = prepared
         .layout
         .entries
         .iter()
-        .position(|entry| entry.owner == StorageOwner::Instance && entry.type_id.is_some())
+        .position(|entry| {
+            entry.owner == StorageOwner::Instance
+                && prepared.vm.strings[entry.name_idx as usize].eq_ignore_ascii_case("wide")
+        })
         .unwrap();
     let pou = prepared.layout.entries[declaration].owner_pou_id.unwrap();
-    let name =
-        SmolStr::new(&prepared.vm.strings[prepared.layout.entries[declaration].name_idx as usize]);
+    let wide = Value::WString("A".repeat(16));
     let constant = prepared.vm.consts.len() as u32;
-    prepared.vm.consts.push(Value::WString("A".repeat(8192)));
+    prepared.vm.consts.push(wide.clone());
     prepared.layout.entries[declaration].default_const_idx = Some(constant);
-    let instances = data.storage.instances().len();
     let templates = data.construction.instance_templates.len();
     let lifetimes = data.lifetimes.instance_lifetimes.len();
+    let (instances, scope) = {
+        let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+        let instances = crate::vm::engine::test_store::projection(&state)
+            .instances()
+            .len();
+        let scope = state.reserve_activation_identity().unwrap();
+        state.data.storage.activate_execution_frame(scope).unwrap();
+        (instances, scope)
+    };
+    let activations = data.storage.execution_activation_count();
     {
         let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
         // TIME-08: the instance node takes the one unit; the first member preflight
         // (a CONSTRUCT node) refuses before any instance is issued.
         state.data.resources.work_budget.reset(1);
         assert!(matches!(
-            state.reserve_instance(pou, None),
+            state.reserve_instance(pou, Some(scope)),
             Err(RuntimeError::ExecutionLimit {
                 kind: crate::error::ExecutionLimitKind::Work,
                 ..
             })
         ));
-        assert_eq!(state.data.storage.instances().len(), instances);
+        assert_eq!(
+            crate::vm::engine::test_store::projection(&state)
+                .instances()
+                .len(),
+            instances
+        );
         assert_eq!(state.data.construction.instance_templates.len(), templates);
         assert_eq!(state.data.lifetimes.instance_lifetimes.len(), lifetimes);
-        assert_eq!(state.data.storage.execution_activation_count(), 0);
+        assert_eq!(state.data.storage.execution_activation_count(), activations);
     }
-    // One byte below the copy's exact demand of 8192 x 2 bytes (TIME-08).
-    prepared.limits.max_construction_bytes = 2 * 8192 - 1;
+    // One byte below the copy's exact demand of 16 x 2 bytes (TIME-08).
+    prepared.limits.max_construction_bytes = 2 * 16 - 1;
     {
         let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
         state.data.resources.construction_bytes.set(0);
@@ -303,16 +328,21 @@ fn member_default_preflight_cannot_strand_an_instance_or_lifetime_metadata() {
             .work_budget
             .reset(prepared.limits.max_work);
         assert!(matches!(
-            state.reserve_instance(pou, None),
+            state.reserve_instance(pou, Some(scope)),
             Err(RuntimeError::ExecutionLimit {
                 kind: crate::error::ExecutionLimitKind::AllocationBytes,
                 ..
             })
         ));
-        assert_eq!(state.data.storage.instances().len(), instances);
+        assert_eq!(
+            crate::vm::engine::test_store::projection(&state)
+                .instances()
+                .len(),
+            instances
+        );
         assert_eq!(state.data.construction.instance_templates.len(), templates);
         assert_eq!(state.data.lifetimes.instance_lifetimes.len(), lifetimes);
-        assert_eq!(state.data.storage.execution_activation_count(), 0);
+        assert_eq!(state.data.storage.execution_activation_count(), activations);
     }
     prepared.limits.max_construction_bytes = 32768;
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
@@ -322,16 +352,10 @@ fn member_default_preflight_cannot_strand_an_instance_or_lifetime_metadata() {
         .resources
         .work_budget
         .reset(prepared.limits.max_work);
-    let instance = state.reserve_instance(pou, None).unwrap();
+    let instance = state.reserve_instance(pou, Some(scope)).unwrap();
     assert_eq!(
-        state
-            .data
-            .storage
-            .get_instance(instance)
-            .unwrap()
-            .variables
-            .get(&name),
-        Some(&Value::WString("A".repeat(8192)))
+        crate::vm::engine::test_store::instance_var(&state, instance, "wide"),
+        Some(wide)
     );
-    assert!(state.data.resources.construction_bytes.get() >= 2 * 8192);
+    assert!(state.data.resources.construction_bytes.get() >= 2 * 16);
 }

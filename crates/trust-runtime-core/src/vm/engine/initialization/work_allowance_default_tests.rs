@@ -17,8 +17,7 @@ fn fixture() -> PreparedModule {
 #[test]
 fn instance_node_and_first_member_preflight_each_take_one_unit() {
     let prepared = fixture();
-    let mut data =
-        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let pou = prepared
         .layout
         .entries
@@ -26,15 +25,21 @@ fn instance_node_and_first_member_preflight_each_take_one_unit() {
         .find(|entry| entry.owner == StorageOwner::Instance && entry.type_id.is_some())
         .and_then(|entry| entry.owner_pou_id)
         .unwrap();
-    let instances = data.storage.instances().len();
     let templates = data.construction.instance_templates.len();
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    let instances = crate::vm::engine::test_store::projection(&state)
+        .instances()
+        .len();
+    // The instance belongs to an activation, as a call's or an engineering entry's does: a
+    // persistent one needs a construction root on the flat store (R5).
+    let scope = state.reserve_activation_identity().unwrap();
+    state.data.storage.activate_execution_frame(scope).unwrap();
 
     // TIME-08: the instance node is the first unit. With none available, the instance is
     // refused before anything is issued.
     state.data.resources.work_budget.reset(0);
     assert_eq!(
-        state.reserve_instance(pou, None),
+        state.reserve_instance(pou, Some(scope)),
         Err(RuntimeError::ExecutionLimit {
             kind: ExecutionLimitKind::Work,
             used: 0,
@@ -42,13 +47,18 @@ fn instance_node_and_first_member_preflight_each_take_one_unit() {
             limit: 0,
         })
     );
-    assert_eq!(state.data.storage.instances().len(), instances);
+    assert_eq!(
+        crate::vm::engine::test_store::projection(&state)
+            .instances()
+            .len(),
+        instances
+    );
 
     // With one unit, the instance node takes it, and the first member preflight (one unit per
     // declaration, CONSTRUCT) is refused with the instance node already charged.
     state.data.resources.work_budget.reset(1);
     assert_eq!(
-        state.reserve_instance(pou, None),
+        state.reserve_instance(pou, Some(scope)),
         Err(RuntimeError::ExecutionLimit {
             kind: ExecutionLimitKind::Work,
             used: 1,
@@ -56,6 +66,11 @@ fn instance_node_and_first_member_preflight_each_take_one_unit() {
             limit: 1,
         })
     );
-    assert_eq!(state.data.storage.instances().len(), instances);
+    assert_eq!(
+        crate::vm::engine::test_store::projection(&state)
+            .instances()
+            .len(),
+        instances
+    );
     assert_eq!(state.data.construction.instance_templates.len(), templates);
 }

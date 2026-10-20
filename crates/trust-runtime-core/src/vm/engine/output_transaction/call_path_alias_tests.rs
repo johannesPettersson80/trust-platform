@@ -5,27 +5,20 @@ use crate::vm::call::{bindings::VmWriteTarget, context::CallContext};
 /// journal snapshot, the writes land in order, and a later failure restores the slot to its value before the call.
 #[test]
 fn call_path_aliased_output_writes_keep_one_snapshot_and_restore_after_a_later_failure() {
-    let prepared = PreparedModule::from_bytes(
-        include_bytes!(
-            "../../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
-        ),
-        crate::vm::PreparationLimits::default(),
-    )
-    .unwrap();
+    let prepared = crate::memory::cell_access::fixture::prepared_with_globals(&[(
+        "output_probe",
+        crate::memory::cell_access::fixture::primitive(8, 0),
+    )]);
     let mut state_data =
-        EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
-            .unwrap();
+        EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
     let mut state = EngineState::borrow(
         &mut state_data,
         &prepared,
         &super::super::services::LOGICAL_ONLY,
     );
-    state
-        .data
-        .storage
-        .set_global("output_probe", Value::DInt(7));
-    let first = state.data.storage.ref_for_global("output_probe").unwrap();
-    let second = state.data.storage.ref_for_global("output_probe").unwrap();
+    crate::vm::engine::test_store::set_global(&mut state, "output_probe", Value::DInt(7));
+    let first = crate::memory::view::StoreAccess::ref_for_global(&state, "output_probe").unwrap();
+    let second = crate::memory::view::StoreAccess::ref_for_global(&state, "output_probe").unwrap();
     let id = state.data.storage.reserve_execution_frame().unwrap();
     let mut frame = VmFrame {
         activation: Some(id),
@@ -52,8 +45,8 @@ fn call_path_aliased_output_writes_keep_one_snapshot_and_restore_after_a_later_f
             .map_or(0, |journal| journal.len());
         assert_eq!(snapshots, 1, "one snapshot per physical destination");
         assert_eq!(
-            state.data.storage.get_global("output_probe"),
-            Some(&Value::DInt(90)),
+            crate::vm::engine::test_store::global(state, "output_probe"),
+            Some(Value::DInt(90)),
             "the second write lands after the first"
         );
         Err::<(), _>(VmTrap::Runtime(RuntimeError::Overflow))
@@ -63,8 +56,8 @@ fn call_path_aliased_output_writes_keep_one_snapshot_and_restore_after_a_later_f
         Err(VmTrap::Runtime(RuntimeError::Overflow))
     ));
     assert_eq!(
-        state.data.storage.get_global("output_probe"),
-        Some(&Value::DInt(7)),
+        crate::vm::engine::test_store::global(&state, "output_probe"),
+        Some(Value::DInt(7)),
         "the first snapshot is restored after the later failure"
     );
     assert!(state.data.resources.output_journal.is_none());

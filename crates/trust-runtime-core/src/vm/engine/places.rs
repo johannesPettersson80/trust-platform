@@ -9,7 +9,6 @@
 //! lie in the backing, whose bytes there are the cells of a structure of its type (C1-15b,
 //! `places/backing.rs`).
 
-use super::store_access::Routed;
 use super::*;
 use crate::bytecode::{TypeData, BYTECODE_MAX_TYPE_NESTING};
 use crate::memory::cell_access::CellReader;
@@ -62,16 +61,17 @@ impl EngineState<'_> {
                     type_id: node_type,
                 })
             }
-            ValueView::Value(_) => None,
+            ValueView::Value(_) | ValueView::Instance(_) => None,
         }
     }
 
     /// The view of the compound `place` stands for.
     pub(super) fn place_view(&self, place: Place) -> Option<ValueView<'_>> {
-        match self.data.routed(self.prepared) {
-            Routed::Cells(reader) => Some(reader.place_view(place.range, place.type_id)),
-            Routed::Values(_) => None,
-        }
+        Some(
+            self.data
+                .reader(self.prepared)
+                .place_view(place.range, place.type_id),
+        )
     }
 
     /// Where a store through `reference` copies `place`: the destination's bytes, in the persistent
@@ -85,9 +85,7 @@ impl EngineState<'_> {
         place: Place,
         declared: Option<u32>,
     ) -> Option<PlaceDestination> {
-        let Routed::Cells(reader) = self.data.routed(self.prepared) else {
-            return None;
-        };
+        let reader = self.data.reader(self.prepared);
         let same = |other: u32| same_type(self.prepared, other, place.type_id, 0);
         let (range, type_id, presence, node, physical) =
             match reader.place_target(reference.location, reference.offset, reference.path)? {
@@ -137,9 +135,7 @@ impl EngineState<'_> {
         if layout.reference_leaves.is_empty() {
             return;
         }
-        let EngineStore::Cells(arm) = &mut self.data.store else {
-            return;
-        };
+        let arm = &mut *self.data.store;
         for leaf in &layout.reference_leaves {
             if let Some(reference) =
                 arm.forget_reference(range.region, range.start.saturating_add(leaf.byte_offset))
@@ -169,9 +165,7 @@ impl EngineState<'_> {
         if !holds_text(self.prepared, place.type_id) {
             return Ok(());
         }
-        let Routed::Cells(reader) = self.data.routed(self.prepared) else {
-            return Err(RuntimeError::InvalidExecutionState);
-        };
+        let reader = self.data.reader(self.prepared);
         self.charge_texts(
             (reader, None),
             place.range,
@@ -193,9 +187,7 @@ impl EngineState<'_> {
         type_id: u32,
     ) -> Result<(), RuntimeError> {
         if holds_text(self.prepared, type_id) {
-            let Routed::Cells(reader) = self.data.routed(self.prepared) else {
-                return Err(RuntimeError::InvalidExecutionState);
-            };
+            let reader = self.data.reader(self.prepared);
             self.charge_texts((reader, None), range, type_id, TextRule::Canonical, 0)?;
         }
         self.check_place_lifetime(type_id)
@@ -392,19 +384,19 @@ impl EngineState<'_> {
             }
             None => None,
         };
-        let (range, type_id, presence, beside) = match self.data.routed(self.prepared) {
-            Routed::Cells(reader) => {
-                match reader.place_target(reference.location, reference.offset, reference.path)? {
-                    PlaceTarget::Cells {
-                        range,
-                        type_id,
-                        presence,
-                        beside,
-                    } => (range, type_id, presence, beside),
-                    PlaceTarget::Node { .. } => return None,
-                }
-            }
-            Routed::Values(_) => return None,
+        let target = self.data.reader(self.prepared).place_target(
+            reference.location,
+            reference.offset,
+            reference.path,
+        )?;
+        let PlaceTarget::Cells {
+            range,
+            type_id,
+            presence,
+            beside,
+        } = target
+        else {
+            return None;
         };
         let geometry =
             text_geometry(self.prepared, type_id).filter(|(_, _, other)| *other == wide)?;
@@ -433,10 +425,10 @@ impl EngineState<'_> {
             if beside {
                 self.check_entry_deadline()?;
             }
-            Ok(match &mut self.data.store {
-                EngineStore::Cells(arm) => arm.write_text(range, geometry, presence, &text[..kept]),
-                EngineStore::Values => false,
-            })
+            Ok(self
+                .data
+                .store
+                .write_text(range, geometry, presence, &text[..kept]))
         })())
     }
 
@@ -455,12 +447,10 @@ impl EngineState<'_> {
         if destination.physical {
             self.check_entry_deadline()?;
         }
-        Ok(match &mut self.data.store {
-            EngineStore::Cells(arm) => {
-                arm.copy_place(place.range, destination.range, destination.presence)
-            }
-            EngineStore::Values => false,
-        })
+        Ok(self
+            .data
+            .store
+            .copy_place(place.range, destination.range, destination.presence))
     }
 
     /// The lifetime check of the value of `type_id` a place stands for, as `check_value_lifetime`

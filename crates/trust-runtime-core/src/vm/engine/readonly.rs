@@ -151,7 +151,8 @@ mod tests {
                 &prepared,
                 &super::super::services::LOGICAL_ONLY,
             );
-            let mut reference = state.data.storage.ref_for_global("Plant").unwrap();
+            let mut reference =
+                crate::memory::view::StoreAccess::ref_for_global(&state, "Plant").unwrap();
             assert_eq!(
                 state.check_write(reference.as_view(), &Value::DInt(9)),
                 Err(RuntimeError::ProgramRootReplacement)

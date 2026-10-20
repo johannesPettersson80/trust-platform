@@ -3,11 +3,10 @@
 //! The arm reads the globals and the persistent instances from the persistent flat block, through
 //! the prepared layouts. A [`crate::memory::view::ValueView::Cells`] names the bytes of one value and
 //! reads them without copying.
-//! Locals, per-call instances and the rest of the `Value` half stay in today's
-//! [`crate::memory::VariableStorage`], which the engine owns beside the arm and lends to the reader and
-//! the writer of each call (C1-9d2b-1), so the engine's activations and the arm's reads of locals and
-//! per-call instances address one `Value` half and their reads are unchanged. The engine builds the arm
-//! at construction when it is asked to (`vm::engine`), and builds only the `Value` store otherwise.
+//! The activation registry, the slots a frame keeps as values and the instances an entry creates
+//! outside any call stay in the `Value` half, a [`crate::memory::VariableStorage`] that the engine
+//! owns beside the arm and lends to the reader and the writer of each call (C1-9d2b-1). The engine
+//! builds the arm at construction; it is the only store since the value store was deleted (C1-19e).
 //!
 //! The reads take the prepared module through `CellReader`: a cell view needs the layouts that
 //! place its members and elements, and the store-access trait carries no prepared module. The
@@ -17,7 +16,7 @@
 use alloc::string::String;
 use smol_str::SmolStr;
 
-use crate::bytecode::{StorageOwner, TypeData, TypeEntry, BYTECODE_MAX_TYPE_NESTING};
+use crate::bytecode::{StorageOwner, StorageRole, TypeData, TypeEntry, BYTECODE_MAX_TYPE_NESTING};
 use crate::collections::OrderedMap;
 use crate::error::RuntimeError;
 use crate::memory::cells::{
@@ -200,8 +199,9 @@ impl<'a> CellsView<'a> {
 
 /// The cell arm's state (specification 34 §6.2; C1-9b): the cell store, whose one identity counter issues
 /// every instance identity and whose fixed instance table records the persistent instances (C1-9d2b-2).
-/// The `Value` half that holds locals and per-call instances is the engine's own `VariableStorage`, lent to
-/// each reader and writer.
+/// The `Value` half, which holds the activation registry, the slots a frame keeps as values and the
+/// instances created outside any call, is the engine's own `VariableStorage`, lent to each reader
+/// and writer.
 #[derive(Debug, Default)]
 pub(crate) struct CellArm {
     cells: CellStorage,
@@ -359,7 +359,7 @@ impl CellArm {
     }
 
     /// Whether `instance` is a persistent instance, which lives as long as its generation.
-    fn is_root_instance(&self, instance: InstanceId) -> bool {
+    pub(crate) fn is_root_instance(&self, instance: InstanceId) -> bool {
         self.cells.regions().is_persistent_instance(instance)
     }
 
@@ -699,6 +699,9 @@ enum Target<'p> {
     /// its type and the presence byte of the declaration it is, and the path from the structure to
     /// the node.
     Bits(ByteRange, u32, Option<u32>, &'p [RefSegment]),
+    /// The instance a program root names (C1-19e): the root holds no storage, so a read of it is its
+    /// instance, and nothing is written to it.
+    Instance(InstanceId),
 }
 
 /// The reads of the cell arm (specification 34 §6.2, MEM-10; C1-9b): the reads of
@@ -755,6 +758,7 @@ impl<'a> CellReader<'a> {
                 .view(range, type_id, presence)
                 .walk(rest)
                 .ok_or(VmTrap::NullReference),
+            Target::Instance(instance) => Ok(ValueView::Instance(instance)),
         }
     }
 
@@ -776,6 +780,7 @@ impl<'a> CellReader<'a> {
                 .view(range, type_id, presence)
                 .walk(rest)
                 .ok_or(VmTrap::NullReference),
+            Target::Instance(instance) => Ok(ValueView::Instance(instance)),
         }
     }
 
@@ -825,14 +830,47 @@ impl<'a> CellReader<'a> {
             .map(ValueView::Value)
     }
 
-    /// The view of the global named `name`. A declared global that owns no cells, the program root,
-    /// is read from the `Value` half.
+    /// The view of the global named `name`. A program root owns no cells and is read as its
+    /// instance.
     pub(crate) fn read_global(self, name: &str) -> Option<ValueView<'a>> {
         let ordinal = self.global_index(name)?;
         match self.global(ordinal) {
             Some((range, type_id, presence)) => Some(self.view(range, type_id, presence)),
-            None => self.values.get_global(name).map(ValueView::Value),
+            None => self.program_root(ordinal).map(ValueView::Instance),
         }
+    }
+
+    /// The instance of the program root that is the global at `ordinal` in declaration order, or
+    /// `None` when that global is no program root or its instance is not constructed (C1-19e).
+    /// Construction creates the persistent instances first, in CONSTRUCTION_ROOTS order, one for each
+    /// root that has a template, so a root's instance is the instance table's entry at the count of
+    /// such roots before it; the entry's template is the root's.
+    pub(crate) fn program_root(self, ordinal: usize) -> Option<InstanceId> {
+        let declaration = *self
+            .prepared
+            .declarations(StorageOwner::Global, None)
+            .get(ordinal)?;
+        let entry = self.prepared.layout.entries.get(declaration as usize)?;
+        if entry.role != StorageRole::ProgramRoot {
+            return None;
+        }
+        let pou = entry.owner_pou_id?;
+        let roots = &self.prepared.roots.entries;
+        let root = self
+            .prepared
+            .program_roots(pou)
+            .iter()
+            .copied()
+            .find(|&index| {
+                roots.get(index).map(|root| root.declaration_idx) == Some(declaration)
+            })?;
+        let before = roots
+            .get(..root)?
+            .iter()
+            .filter(|root| root.template_pou_id.is_some())
+            .count();
+        let (instance, recorded) = self.arm.cells.regions().instance_at(before)?;
+        (recorded.pou == pou).then_some(instance)
     }
 
     /// The declared name of the global at `offset`, in declaration order.
@@ -1160,13 +1198,6 @@ impl<'a> CellReader<'a> {
         ))
     }
 
-    /// The `Value` half's index of the global at declaration ordinal `ordinal`, which owns no cells:
-    /// the half holds such a global under its name (C1-9c).
-    fn values_global(self, ordinal: usize) -> Option<usize> {
-        let name = self.global_name(ordinal)?;
-        self.values.globals().get_index_of(name)
-    }
-
     /// The declaration-order ordinal of the global named `name`.
     fn global_index(self, name: &str) -> Option<usize> {
         self.prepared
@@ -1288,7 +1319,7 @@ impl<'a> CellReader<'a> {
                 .entries
                 .get(entry.declaration_idx as usize)?;
             match (holder.owner, holder.role) {
-                (StorageOwner::Global, crate::bytecode::StorageRole::Variable) => {
+                (StorageOwner::Global, StorageRole::Variable) => {
                     members.push(RefSegment::Field(self.member_named(own.pou, slot)?));
                     members.reverse();
                     path.extend(members);
@@ -1547,9 +1578,16 @@ impl<'a> CellReader<'a> {
         match location {
             MemoryLocation::Global => match self.global(offset) {
                 Some((range, type_id, presence)) => self.walk(range, type_id, presence, path),
+                // A program root names its instance, and a path from it goes on in its members.
                 None => {
-                    let index = self.values_global(offset).ok_or(VmTrap::NullReference)?;
-                    self.values_target(MemoryLocation::Global, index, path)
+                    let instance = self.program_root(offset).ok_or(VmTrap::NullReference)?;
+                    match path.split_first() {
+                        None => Ok(Target::Instance(instance)),
+                        Some((RefSegment::Field(name), rest)) => {
+                            self.field(instance, name.as_str(), rest)
+                        }
+                        Some(_) => Err(VmTrap::NullReference),
+                    }
                 }
             },
             MemoryLocation::Instance(instance) if self.arm.is_persistent(instance) => {
@@ -1584,8 +1622,8 @@ impl<'a> CellReader<'a> {
 
     /// Where `path` leads from the slot `offset` of `location` in the `Value` half: a place of the
     /// `Value` half, unless the path goes on into an instance the cells hold, whose members it is
-    /// then walked through (C1-19d). The `Value` half names such an instance in a program root,
-    /// which has no cells of its own, and in an initializer's staged result.
+    /// then walked through (C1-19d). An initializer's staged result names such an instance, for
+    /// one; a program root, which holds no bytes, is located by its instance (C1-19e).
     fn values_target<'p>(
         self,
         location: MemoryLocation,
@@ -1806,8 +1844,16 @@ mod cell_overlay;
 /// The flat store as the debugger reads it (C1-17), in its own file.
 #[path = "cell_projection.rs"]
 mod cell_projection;
-/// The bytecode fixture of the cell arm's tests, whose builders the engine's construction tests reuse.
-#[cfg(all(test, feature = "std"))]
+/// The bytecode fixture of the cell arm's tests, whose builders the engine's tests reuse. It builds
+/// without `std`, as the engine's tests do; the cell arm's own tests, which use the rest, need `std`.
+#[cfg(test)]
+#[cfg_attr(
+    not(feature = "std"),
+    allow(
+        dead_code,
+        reason = "only the engine's tests use the fixture without std"
+    )
+)]
 pub(crate) mod fixture;
 #[cfg(all(test, feature = "std"))]
 mod retain_tests;

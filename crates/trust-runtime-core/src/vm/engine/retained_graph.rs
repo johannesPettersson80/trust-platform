@@ -81,7 +81,7 @@ impl EngineState<'_> {
             // and made in place at the publication below; nothing builds a value (C1-14b).
             // The generation the candidate's references take, read before its tables are reserved.
             let generation = StoreAccess::generation(&*self);
-            let value = if graph.copies_in_place(self, view)? {
+            let value = if graph.copies_in_place(view)? {
                 self.charge_allocation_bytes(self.view_clone_charge(&view)?)?;
                 graph.owned_cells(self, view, 0)?;
                 None
@@ -116,12 +116,12 @@ impl EngineState<'_> {
                 Some(value) => {
                     // The marker reservation borrows the lifecycle tables; the destination write needs
                     // only the storage and store fields, and goes through the store the engine holds.
-                    let mut routed = super::store_access::routed_mut_fields(
+                    let mut writer = super::store_access::store_writer(
                         &mut self.data.storage,
                         &mut self.data.store,
                         self.prepared,
                     );
-                    if !StoreMutate::set_global(&mut routed, name, value) {
+                    if !StoreMutate::set_global(&mut writer, name, value) {
                         return Err(RuntimeError::InvalidExecutionState);
                     }
                 }
@@ -299,7 +299,7 @@ impl RetainedGraph<'_, '_> {
             };
             // On the flat store the member is copied from the source's cells into the
             // candidate's, charged as its value's copy is (C1-14b).
-            if self.copies_in_place(target, view)? {
+            if self.copies_in_place(view)? {
                 target.charge_allocation_bytes(target.view_clone_charge(&view)?)?;
                 self.owned_cells(target, view, depth + 1)?;
                 let Some(ValueView::Cells { range: at, .. }) = target.read_instance_var(new, name)
@@ -466,16 +466,21 @@ mod tests {
         prepared.layout.entries[declaration as usize].retain = 1;
         let mut source_data =
             EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
-        source_data.storage.set_global(name.clone(), Value::Int(17));
+        crate::vm::engine::test_store::set_global(
+            &mut EngineState::borrow(&mut source_data, &prepared, &services::LOGICAL_ONLY),
+            &name,
+            Value::Int(17),
+        );
         let source = EngineState::borrow(&mut source_data, &prepared, &services::LOGICAL_ONLY);
         let mut target_data =
             EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
-        target_data.storage.set_global(name.clone(), Value::Int(99));
-        let previous = target_data
-            .storage
-            .get_global(&name)
-            .expect("constructed retained global")
-            .clone();
+        let previous = {
+            let mut target =
+                EngineState::borrow(&mut target_data, &prepared, &services::LOGICAL_ONLY);
+            crate::vm::engine::test_store::set_global(&mut target, &name, Value::Int(99));
+            crate::vm::engine::test_store::global(&target, &name)
+                .expect("constructed retained global")
+        };
         assert_ne!(
             previous,
             Value::Int(17),
@@ -486,7 +491,11 @@ mod tests {
         // allow one byte less so its last admission, the marker, is refused.
         let mut probe_data =
             EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
-        probe_data.storage.set_global(name.clone(), Value::Int(99));
+        crate::vm::engine::test_store::set_global(
+            &mut EngineState::borrow(&mut probe_data, &prepared, &services::LOGICAL_ONLY),
+            &name,
+            Value::Int(99),
+        );
         probe_data.construction.initialized_declarations = Default::default();
         probe_data.resources.construction_bytes.set(0);
         let mut probe = EngineState::borrow(&mut probe_data, &prepared, &services::LOGICAL_ONLY);
@@ -500,9 +509,11 @@ mod tests {
         for allowance in 0..required {
             let mut candidate_data =
                 EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
-            candidate_data
-                .storage
-                .set_global(name.clone(), Value::Int(99));
+            crate::vm::engine::test_store::set_global(
+                &mut EngineState::borrow(&mut candidate_data, &prepared, &services::LOGICAL_ONLY),
+                &name,
+                Value::Int(99),
+            );
             candidate_data.construction.initialized_declarations = Default::default();
             candidate_data
                 .resources
@@ -525,8 +536,8 @@ mod tests {
                 "allowance {allowance} must refuse the import with AllocationBytes"
             );
             assert_eq!(
-                candidate.data.storage.get_global(&name),
-                Some(&Value::Int(99)),
+                crate::vm::engine::test_store::global(&candidate, &name),
+                Some(Value::Int(99)),
                 "allowance {allowance} published the global"
             );
             assert!(
@@ -564,7 +575,10 @@ mod tests {
                 ..
             })
         ));
-        assert_eq!(target.data.storage.get_global(&name), Some(&previous));
+        assert_eq!(
+            crate::vm::engine::test_store::global(&target, &name),
+            Some(previous.clone())
+        );
         assert!(!target
             .data
             .construction
@@ -592,20 +606,15 @@ mod tests {
             Duration,
             bool,
         );
-        fn observe(data: &EngineData) -> Observed {
-            let plant = match data.storage.get_global("Plant") {
-                Some(Value::Instance(instance)) => *instance,
-                other => panic!("program root Plant: {other:?}"),
-            };
+        fn observe(state: &EngineState<'_>) -> Observed {
+            let plant = crate::vm::engine::test_store::global_instance(state, "Plant");
             (
-                data.storage.get_global("probe_depth").cloned(),
-                data.storage
-                    .get_instance_var(plant, "depth_result")
-                    .cloned(),
-                data.images.outputs.clone(),
-                data.images.memory.clone(),
-                data.now,
-                data.fault.is_some(),
+                crate::vm::engine::test_store::global(state, "probe_depth"),
+                crate::vm::engine::test_store::instance_var(state, plant, "depth_result"),
+                state.data.images.outputs.clone(),
+                state.data.images.memory.clone(),
+                state.data.now,
+                state.data.fault.is_some(),
             )
         }
         let retained_fixture = || {
@@ -632,8 +641,7 @@ mod tests {
         // allocation point that is charged below it is outside this test.
         let live_bytes = {
             let prepared = retained_fixture();
-            let data =
-                EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+            let data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
             data.resources.construction_bytes.get()
         };
         // Raise the admitted construction limit one byte at a time until the warm
@@ -645,15 +653,15 @@ mod tests {
             let mut prepared = retained_fixture();
             prepared.limits.max_construction_bytes = limit;
             let mut data =
-                EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
-            data.storage.set_global("probe_depth", Value::Int(99));
-            let before = observe(&data);
+                EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
             let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+            crate::vm::engine::test_store::set_global(&mut state, "probe_depth", Value::Int(99));
+            let before = observe(&state);
             match state.restart(RestartMode::Warm) {
                 Ok(()) => {
                     assert_eq!(
-                        state.data.storage.get_global("probe_depth"),
-                        Some(&Value::Int(99)),
+                        crate::vm::engine::test_store::global(&state, "probe_depth"),
+                        Some(Value::Int(99)),
                         "limit {limit} admitted a restart that did not transfer the global"
                     );
                     break;
@@ -671,7 +679,7 @@ mod tests {
                         "limit {limit} must refuse with the exact AllocationBytes limit: {error:?}"
                     );
                     assert_eq!(
-                        observe(&*state.data),
+                        observe(&state),
                         before,
                         "limit {limit} changed the live owner"
                     );
@@ -895,29 +903,35 @@ mod tests {
         )
         .unwrap();
         let mut source_data =
-            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
-        let source = EngineState::borrow(
+        let mut source = EngineState::borrow(
             &mut source_data,
             &prepared,
             &super::super::services::LOGICAL_ONLY,
         );
         let mut target_data =
-            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
         let mut target = EngineState::borrow(
             &mut target_data,
             &prepared,
             &super::super::services::LOGICAL_ONLY,
         );
-        let Some(Value::Instance(program)) = source.data.storage.get_global("Plant") else {
-            panic!("program")
-        };
+        let program = crate::vm::engine::test_store::global_instance(&source, "Plant");
         let Some(Value::Instance(counter)) =
-            source.data.storage.get_instance_var(*program, "counter")
+            crate::vm::engine::test_store::instance_var(&source, program, "counter")
         else {
             panic!("counter")
         };
+        // `value` starts at INT#3 in both stores; the source's 9 shows the copy.
+        assert!(StoreMutate::write_instance_var(
+            &mut source,
+            counter,
+            "value",
+            Value::Int(9)
+        ));
+        let source = source;
         source.data.resources.work_budget.reset(0);
         let before = target.data.resources.work_budget.remaining();
         let mut graph = RetainedGraph {
@@ -928,10 +942,24 @@ mod tests {
             once: BTreeMap::new(),
             root_indices: BTreeMap::new(),
         };
-        let copied = graph.instance(&mut target, *counter, 0).unwrap();
+        // On the flat store every persistent instance lies in its construction root's range, so the
+        // candidate's instances are its roots', to which a warm restart maps the source's before it
+        // copies (`import_retained_globals`).
+        for (old, new) in source
+            .data
+            .construction
+            .roots
+            .iter()
+            .zip(&target.data.construction.roots)
+        {
+            if let (Some(old), Some(new)) = (old, new) {
+                graph.identities.insert(old.0, new.0);
+            }
+        }
+        let copied = graph.instance(&mut target, counter, 0).unwrap();
         assert_eq!(
-            target.data.storage.get_instance_var(copied, "value"),
-            Some(&Value::Int(3))
+            crate::vm::engine::test_store::instance_var(&target, copied, "value"),
+            Some(Value::Int(9))
         );
         // TIME-08 VERIFY: the copied `history` array costs 1 + 3 elements (COPY); the
         // scalar fields and the reference type queries (bookkeeping) cost nothing.
@@ -963,45 +991,24 @@ mod tests {
     /// 256.
     #[test]
     fn import_retained_global_charges_its_copy_once() {
-        let mut prepared = PreparedModule::from_bytes(
-            include_bytes!("../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc"),
-            crate::vm::PreparationLimits::default(),
-        )
-        .unwrap();
-        let (declaration, name) = prepared
-            .layout
-            .entries
-            .iter()
-            .enumerate()
-            .find(|(_, entry)| {
-                entry.owner == StorageOwner::Global && entry.role == StorageRole::Variable
-            })
-            .map(|(index, entry)| {
-                (
-                    index,
-                    SmolStr::new(&prepared.vm.strings[entry.name_idx as usize]),
-                )
-            })
-            .expect("GPIO fixture has a global variable");
-        // A WSTRING declaration (primitive id 25) for the retained global.
-        let wstring_type = u32::try_from(prepared.vm.types.entries.len()).unwrap();
-        prepared.vm.types.entries.push(crate::bytecode::TypeEntry {
-            kind: crate::bytecode::TypeKind::Primitive,
-            name_idx: None,
-            data: TypeData::Primitive {
-                prim_id: 25,
-                max_length: 0,
-            },
-        });
-        prepared.layout.entries[declaration].retain = 1;
-        prepared.layout.entries[declaration].type_id = Some(wstring_type);
+        // A retained `probe : WSTRING`, declared beside the cell fixture's globals.
+        let prepared = {
+            let mut builder = crate::memory::cell_access::fixture::Builder::new();
+            let wstring = builder.ty(crate::memory::cell_access::fixture::primitive(25, 0));
+            builder.retained("probe", wstring);
+            builder.prepare()
+        };
         let imported_bytes = |value: Value| -> usize {
             let mut source_data =
-                EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
-            source_data.storage.set_global(name.clone(), value);
+                EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+            crate::vm::engine::test_store::set_global(
+                &mut EngineState::borrow(&mut source_data, &prepared, &services::LOGICAL_ONLY),
+                "probe",
+                value,
+            );
             let source = EngineState::borrow(&mut source_data, &prepared, &services::LOGICAL_ONLY);
             let mut target_data =
-                EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+                EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
             target_data.construction.initialized_declarations = Default::default();
             target_data.resources.construction_bytes.set(0);
             target_data

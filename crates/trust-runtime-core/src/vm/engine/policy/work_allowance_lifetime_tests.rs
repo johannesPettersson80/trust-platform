@@ -53,34 +53,32 @@ fn struct_visit_costs_one_unit_for_the_node_and_one_for_each_field() {
 
 #[test]
 fn instance_visit_costs_one_unit_for_the_node_and_one_for_each_variable() {
-    let prepared = prepared();
+    // The cell fixture's `base_g : Base` holds `base_v : DINT`, `series_v : ARRAY[1..3] OF INT`
+    // and `pair_v : Pair`, a structure of the INTs `x` and `y`. TIME-08 LIFETIME charges one unit
+    // per node visited: the instance 1, `base_v` 1, the array of primitives 1 (its elements hold
+    // nothing to visit) and the structure 1 plus its two fields, 6 units in all.
+    let prepared = crate::memory::cell_access::fixture::prepared();
     let services = &super::super::services::LOGICAL_ONLY;
-    let mut data = EngineState::construct_values_data(&prepared, 0, services).unwrap();
-    let instance = data.storage.create_instance("Probe");
-    assert!(data
-        .storage
-        .set_instance_var(instance, "count", Value::Int(1)));
-    assert!(data
-        .storage
-        .set_instance_var(instance, "link", Value::Reference(None)));
+    let mut data = EngineState::construct_data(&prepared, 0, services).unwrap();
     data.resources.construction_bytes.set(0);
     let state = EngineState::borrow(&mut data, &prepared, services);
-    let value = Value::Instance(instance);
+    let value = Value::Instance(crate::vm::engine::test_store::global_instance(
+        &state, "base_g",
+    ));
 
-    // TIME-08 LIFETIME: the instance node plus its two variables cost 3 units. The visited-set
-    // growth is allocation, not work.
-    state.data.resources.work_budget.reset(3);
+    // The visited-set growth is allocation, not work.
+    state.data.resources.work_budget.reset(6);
     assert_eq!(state.check_value_lifetime(&value, None), Ok(()));
     assert_eq!(state.data.resources.work_budget.remaining(), 0);
 
-    state.data.resources.work_budget.reset(2);
+    state.data.resources.work_budget.reset(5);
     assert_eq!(
         state.check_value_lifetime(&value, None),
         Err(RuntimeError::ExecutionLimit {
             kind: ExecutionLimitKind::Work,
-            used: 2,
+            used: 5,
             requested: 1,
-            limit: 2,
+            limit: 5,
         })
     );
     assert_eq!(state.data.resources.work_budget.remaining(), 0);
@@ -90,9 +88,10 @@ fn instance_visit_costs_one_unit_for_the_node_and_one_for_each_variable() {
 fn writability_check_of_a_scalar_global_draws_no_work() {
     let prepared = prepared();
     let services = &super::super::services::LOGICAL_ONLY;
-    let mut data = EngineState::construct_values_data(&prepared, 0, services).unwrap();
-    let reference = data.storage.ref_for_global("probe_depth").unwrap();
+    let mut data = EngineState::construct_data(&prepared, 0, services).unwrap();
     let state = EngineState::borrow(&mut data, &prepared, services);
+    let reference =
+        crate::memory::view::StoreAccess::ref_for_global(&state, "probe_depth").unwrap();
 
     // TIME-08: writability, visibility and staging are bookkeeping. An empty allowance admits
     // a scalar write to a writable global.
@@ -108,9 +107,14 @@ fn writability_check_of_a_scalar_global_draws_no_work() {
 fn staging_refusal_of_a_global_write_draws_no_work() {
     let prepared = prepared();
     let services = &super::super::services::LOGICAL_ONLY;
-    let mut data = EngineState::construct_values_data(&prepared, 0, services).unwrap();
-    let reference = data.storage.ref_for_global("probe_depth").unwrap();
-    let before = data.storage.get_global("probe_depth").cloned();
+    let mut data = EngineState::construct_data(&prepared, 0, services).unwrap();
+    let (reference, before) = {
+        let state = EngineState::borrow(&mut data, &prepared, services);
+        (
+            crate::memory::view::StoreAccess::ref_for_global(&state, "probe_depth").unwrap(),
+            crate::vm::engine::test_store::global(&state, "probe_depth"),
+        )
+    };
     let (initializer_id, entry) = prepared
         .initializers
         .entries
@@ -142,7 +146,7 @@ fn staging_refusal_of_a_global_write_draws_no_work() {
     );
     assert_eq!(state.data.resources.work_budget.remaining(), 0);
     assert_eq!(
-        state.data.storage.get_global("probe_depth").cloned(),
+        crate::vm::engine::test_store::global(&state, "probe_depth"),
         before
     );
 }

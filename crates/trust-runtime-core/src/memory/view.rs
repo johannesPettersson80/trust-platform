@@ -33,7 +33,7 @@ use smol_str::SmolStr;
 /// `&`[`Value`] into storage.
 #[derive(Clone, Copy)]
 pub enum ValueView<'a> {
-    /// A value of today's `Value` tree, borrowed from storage (the `Values` arm).
+    /// A value the store holds as a `Value`, borrowed from it: a slot a frame keeps as a value.
     Value(&'a Value),
     /// The cells of one value of type `type_id` at `range`, read through `cells` (the cell arm,
     /// C1-9b). The view carries what it reads through, so it needs no store to step, text or
@@ -64,6 +64,10 @@ pub enum ValueView<'a> {
         /// The number of the anchor's path segments that name the node.
         depth: u8,
     },
+    /// The instance a program root names (C1-19e). A program root is construction-only and holds no
+    /// storage (specification 12 §6.4), so reading it names its program's instance, and the view
+    /// answers as the instance value `Value::Instance` does.
+    Instance(InstanceId),
 }
 
 impl<'a> ValueView<'a> {
@@ -133,6 +137,8 @@ impl<'a> ValueView<'a> {
                     range,
                     type_id,
                 }),
+            // An instance's members are read through the store, which knows where they lie.
+            Self::Instance(_) => None,
         }
     }
 
@@ -151,7 +157,7 @@ impl<'a> ValueView<'a> {
                 type_id,
             } => cells.string_text(range, type_id),
             // A text lies beside the backing, so no node of it is one.
-            Self::Bits { .. } => None,
+            Self::Bits { .. } | Self::Instance(_) => None,
         }
     }
 
@@ -159,7 +165,7 @@ impl<'a> ValueView<'a> {
     pub(crate) fn borrowed_value(&self) -> Option<&'a Value> {
         match *self {
             Self::Value(value) => Some(value),
-            Self::Cells { .. } | Self::Bits { .. } => None,
+            Self::Cells { .. } | Self::Bits { .. } | Self::Instance(_) => None,
         }
     }
 
@@ -184,6 +190,7 @@ impl<'a> ValueView<'a> {
                 Some(scalar) => Ok(scalar),
                 None => cells.overlay_value(range, type_id, leaf, depth),
             },
+            Self::Instance(instance) => Ok(Value::Instance(instance)),
         }
     }
 
@@ -192,6 +199,8 @@ impl<'a> ValueView<'a> {
     pub(crate) fn materialize_flagged(&self) -> Result<(Value, bool), RuntimeError> {
         match *self {
             Self::Value(value) => Ok(crate::vm::materialize_borrowed_value(value)),
+            // An instance value names its instance: its copy clones no payload.
+            Self::Instance(instance) => Ok((Value::Instance(instance), false)),
             Self::Cells { .. } | Self::Bits { .. } => {
                 let value = self.materialize()?;
                 let cloned = !matches!(
@@ -282,6 +291,8 @@ impl<'a> ValueView<'a> {
                 leaf,
                 depth,
             } => cells.overlay_scalar(range, type_id, leaf, depth),
+            // An instance owns storage, as `Value::Instance` does.
+            Self::Instance(_) => Ok(None),
         }
     }
 
@@ -300,6 +311,7 @@ impl<'a> ValueView<'a> {
             } => cells.instance(range, type_id),
             // An overlay holds no instance.
             Self::Bits { .. } => Ok(None),
+            Self::Instance(instance) => Ok(Some(instance)),
         }
     }
 
@@ -317,14 +329,14 @@ impl<'a> ValueView<'a> {
                 range,
                 type_id,
             } => cells.text_utf8_len(range, type_id),
-            Self::Bits { .. } => Ok(None),
+            Self::Bits { .. } | Self::Instance(_) => Ok(None),
         }
     }
 
     /// Whether this view holds a structure with a physical layout, or a node of its backing (C1-15).
     pub(crate) fn lies_as_backing(&self) -> bool {
         match *self {
-            Self::Value(_) => false,
+            Self::Value(_) | Self::Instance(_) => false,
             Self::Cells { cells, type_id, .. } => cells.overlay_layout(type_id).is_some(),
             Self::Bits { .. } => true,
         }
@@ -344,6 +356,7 @@ impl<'a> ValueView<'a> {
             } => cells
                 .overlay_node_type(type_id, leaf, depth)
                 .is_some_and(|node| cells.is_struct(node)),
+            Self::Instance(_) => false,
         }
     }
 
@@ -367,6 +380,7 @@ impl<'a> ValueView<'a> {
             } => cells
                 .overlay_node_type(type_id, leaf, depth)
                 .is_some_and(|node| cells.overlay_has_field(node, name)),
+            Self::Instance(_) => false,
         }
     }
 
@@ -388,6 +402,7 @@ impl<'a> ValueView<'a> {
             } => cells
                 .overlay_node_type(type_id, leaf, depth)
                 .and_then(|node| cells.array_dimensions(node)),
+            Self::Instance(_) => None,
         }
     }
 
@@ -406,7 +421,7 @@ impl<'a> ValueView<'a> {
                 range,
                 type_id,
             } => cells.text_char_count(range, type_id),
-            Self::Bits { .. } => Ok(None),
+            Self::Bits { .. } | Self::Instance(_) => Ok(None),
         }
     }
 
@@ -420,7 +435,7 @@ impl<'a> ValueView<'a> {
                 _ => None,
             },
             Self::Cells { cells, type_id, .. } => cells.text_is_wide(type_id),
-            Self::Bits { .. } => None,
+            Self::Bits { .. } | Self::Instance(_) => None,
         }
     }
 
@@ -433,6 +448,8 @@ impl<'a> ValueView<'a> {
             Self::Cells { .. } | Self::Bits { .. } => path
                 .iter()
                 .try_fold(*self, |view, segment| view.member(segment)),
+            // As a `Value::Instance` walks: itself, and no member (the store reads members).
+            Self::Instance(_) => path.is_empty().then_some(*self),
         }
     }
 
@@ -461,7 +478,7 @@ impl<'a> ValueView<'a> {
                 Some(true) => cells.wide_text_element(range, type_id, index),
                 None => Ok(None),
             },
-            Self::Bits { .. } => Ok(None),
+            Self::Bits { .. } | Self::Instance(_) => Ok(None),
         }
     }
 
@@ -469,7 +486,7 @@ impl<'a> ValueView<'a> {
     /// (C1-9d2a, item (e)). `None` for any other value; a `Value` view is walked as its `Value`.
     pub(crate) fn cell_child_count(&self) -> Result<Option<usize>, RuntimeError> {
         match *self {
-            Self::Value(_) => Ok(None),
+            Self::Value(_) | Self::Instance(_) => Ok(None),
             Self::Cells { cells, type_id, .. } if cells.overlay_layout(type_id).is_some() => {
                 cells.overlay_child_count(type_id)
             }
@@ -491,7 +508,7 @@ impl<'a> ValueView<'a> {
     /// (C1-9d2a, item (e)): a member in declaration order, an element in flat order.
     pub(crate) fn cell_child(&self, ordinal: usize) -> Result<Self, RuntimeError> {
         match *self {
-            Self::Value(_) => Err(RuntimeError::InvalidExecutionState),
+            Self::Value(_) | Self::Instance(_) => Err(RuntimeError::InvalidExecutionState),
             Self::Cells {
                 cells,
                 range,
@@ -537,14 +554,14 @@ impl<'a> ValueView<'a> {
                 range,
                 type_id,
             } => cells.reference_leaf(range, type_id),
-            Self::Bits { .. } => Ok(None),
+            Self::Bits { .. } | Self::Instance(_) => Ok(None),
         }
     }
 
     /// Whether this view holds a cell array of primitives, enumerations or subranges (C1-9d2b-1).
     pub(crate) fn cell_array_of_primitives(&self) -> bool {
         match *self {
-            Self::Value(_) => false,
+            Self::Value(_) | Self::Instance(_) => false,
             Self::Cells { cells, type_id, .. } => cells.array_of_primitives(type_id),
             Self::Bits {
                 cells,
@@ -855,11 +872,11 @@ pub trait StoreMutate {
         value: Value,
     ) -> bool;
 
-    /// Replace one global variable selected by its declared name, or store a declared global
-    /// that owns no cells on the `Value` half (the program root).
+    /// Replace one global variable selected by its declared name.
     ///
-    /// Answers `false`, and stores nothing, for a name no declaration holds: the cell arm admits
-    /// declared names only (specification 34 §6.2, MEM-10; O15). Callers:
+    /// Answers `false`, and stores nothing, for a name no declaration holds and for a program root,
+    /// which holds no storage: the flat store admits declared variables only (specification 34 §6.2,
+    /// MEM-10; O15). Callers:
     /// `vm::engine::initialization::construction`, `vm::engine::retained_graph` and
     /// `vm::engine::retain_apply`.
     fn set_global(&mut self, name: impl Into<SmolStr>, value: Value) -> bool;

@@ -372,6 +372,9 @@ impl EngineState<'_> {
     ) -> Result<(), RuntimeError> {
         match view {
             ValueView::Value(value) => self.owned_value_instances(type_id, value, output, depth),
+            ValueView::Instance(instance) => {
+                self.owned_value_instances(type_id, &Value::Instance(instance), output, depth)
+            }
             ValueView::Cells { .. } => self.owned_cell_instances(view, output, depth),
             // A structure with a physical layout holds no instance (C1-15).
             ValueView::Bits { .. } => Ok(()),
@@ -440,7 +443,6 @@ impl PendingInstances {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::boxed::Box;
 
     #[test]
     fn existing_instance_seed_reuses_exact_visited_identity_set() {
@@ -451,21 +453,15 @@ mod tests {
             crate::vm::PreparationLimits::default(),
         )
         .unwrap();
-        let mut state_data = EngineState::construct_values_data(
-            &prepared,
-            0,
-            &super::super::super::services::LOGICAL_ONLY,
-        )
-        .unwrap();
+        let mut state_data =
+            EngineState::construct_data(&prepared, 0, &super::super::super::services::LOGICAL_ONLY)
+                .unwrap();
         let mut state = EngineState::borrow(
             &mut state_data,
             &prepared,
             &super::super::super::services::LOGICAL_ONLY,
         );
-        let Some(Value::Instance(program)) = state.data.storage.get_global("Plant") else {
-            panic!("program")
-        };
-        let program = *program;
+        let program = crate::vm::engine::test_store::global_instance(&state, "Plant");
         let pou = *state
             .data
             .construction
@@ -500,10 +496,14 @@ mod tests {
                 .into_iter()
                 .collect::<Vec<_>>()
         );
+        let projection = crate::vm::engine::test_store::projection(&state);
         for id in seed.writable_instances {
-            assert!(state.data.storage.get_instance(id).is_some());
+            assert!(projection.get_instance(id).is_some());
         }
     }
+    /// The seed of an instance member backs that instance up, and a write through the staged member
+    /// that a later fault abandons is undone (specification 34 §6.2: staging restores what it
+    /// owns). The seed of an array of function blocks is not in a fixture yet (C1-19f corpus).
     #[test]
     fn aggregate_seed_keeps_nested_instance_and_restores_its_graph_on_failure() {
         let mut prepared = PreparedModule::from_bytes(
@@ -513,16 +513,18 @@ mod tests {
             crate::vm::PreparationLimits::default(),
         )
         .unwrap();
-        let mut data = EngineState::construct_values_data(
-            &prepared,
-            0,
-            &super::super::super::services::LOGICAL_ONLY,
-        )
-        .unwrap();
-        let Some(Value::Instance(program)) = data.storage.get_global("Plant") else {
-            panic!("program")
+        let mut data =
+            EngineState::construct_data(&prepared, 0, &super::super::super::services::LOGICAL_ONLY)
+                .unwrap();
+        let (program, original) = {
+            let state = EngineState::borrow(
+                &mut data,
+                &prepared,
+                &super::super::super::services::LOGICAL_ONLY,
+            );
+            let program = crate::vm::engine::test_store::global_instance(&state, "Plant");
+            (program, crate::vm::engine::test_store::projection(&state))
         };
-        let program = *program;
         let pou = *data.construction.instance_templates.get(&program).unwrap();
         let declaration = prepared
             .layout
@@ -537,35 +539,12 @@ mod tests {
         let name = SmolStr::new(
             &prepared.vm.strings[prepared.layout.entries[declaration].name_idx as usize],
         );
-        let Some(Value::Instance(counter)) = data.storage.get_instance_var(program, &name) else {
+        let Some(Value::Instance(counter)) = original.get_instance_var(program, &name) else {
             panic!("counter")
         };
         let counter = *counter;
         let member_type = prepared.layout.entries[declaration].type_id.unwrap();
-        let array_type = prepared.vm.types.entries.len() as u32;
-        prepared.vm.types.entries.push(crate::bytecode::TypeEntry {
-            kind: crate::bytecode::TypeKind::Array,
-            name_idx: None,
-            data: TypeData::Array {
-                elem_type_id: member_type,
-                dims: vec![(1, 1)],
-            },
-        });
-        prepared.layout.entries[declaration].type_id = Some(array_type);
-        data.storage.set_instance_var(
-            program,
-            name.as_str(),
-            Value::Array(Box::new(crate::value::ArrayValue::from_canonical_parts(
-                vec![Value::Instance(counter)],
-                vec![(1, 1)],
-            ))),
-        );
-        let original = data
-            .storage
-            .get_instance(counter)
-            .unwrap()
-            .variables
-            .clone();
+        let original = original.get_instance(counter).unwrap().variables.clone();
         let (changed_name, changed_value) = original
             .iter()
             .find_map(|(name, value)| match value {
@@ -581,10 +560,7 @@ mod tests {
             .refs
             .push(crate::vm::module::VmRef::InitializerResult {
                 initializer_id: 0,
-                path: vec![
-                    crate::value::RefSegment::Index(crate::value::ref_indices_from_iter([1])),
-                    crate::value::RefSegment::Field(changed_name),
-                ],
+                path: vec![crate::value::RefSegment::Field(changed_name)],
             });
         prepared.vm.ref_types.push(None);
         let constant = prepared.vm.consts.len() as u32;
@@ -592,7 +568,7 @@ mod tests {
         let code_offset = prepared.vm.code.len() as u32;
         prepared.vm.code.push(0x10); // LOAD_CONST
         prepared.vm.code.extend_from_slice(&constant.to_le_bytes());
-        prepared.vm.code.push(0x21); // STORE_REF through the privately staged aggregate
+        prepared.vm.code.push(0x21); // STORE_REF through the privately staged member
         prepared.vm.code.extend_from_slice(&reference.to_le_bytes());
         prepared.vm.code.push(0xFF); // malformed instruction after the staged write
         prepared.initializers.entries[0].code_offset = code_offset;
@@ -604,33 +580,36 @@ mod tests {
             .vm
             .ref_types
             .get_mut(result_ref_idx)
-            .expect("initializer reference has a dense type slot") = Some(array_type);
+            .expect("initializer reference has a dense type slot") = Some(member_type);
         let mut state = EngineState::borrow(
             &mut data,
             &prepared,
             &super::super::super::services::LOGICAL_ONLY,
         );
+        let variables = |state: &EngineState<'_>| {
+            crate::vm::engine::test_store::projection(state)
+                .get_instance(counter)
+                .unwrap()
+                .variables
+                .clone()
+        };
         let mut entry = prepared.initializers.entries[0].clone();
         entry.stage = InitializationStage::Explicit;
         entry.declaration_idx = Some(declaration as u32);
         let mut seed = state
             .initializer_seed(&entry, Some(program), None, false)
             .unwrap();
-        let Value::Array(array) = &seed.value else {
-            panic!("staged array")
-        };
-        assert_eq!(array.elements(), &[Value::Instance(counter)]);
+        assert_eq!(seed.value, Value::Instance(counter));
         assert!(seed.writable_instances.contains(&counter));
         let member = original.get_index(0).unwrap().0.clone();
-        state
-            .data
-            .storage
-            .set_instance_var(counter, member.as_str(), Value::Null);
+        assert!(crate::memory::view::StoreMutate::write_instance_var(
+            &mut state,
+            counter,
+            member.as_str(),
+            Value::Null
+        ));
         state.restore_initializer_instances(&mut seed.backups);
-        assert_eq!(
-            state.data.storage.get_instance(counter).unwrap().variables,
-            original
-        );
+        assert_eq!(variables(&state), original);
         // The actual initializer cleanup path must restore an already-written
         // nested object after the following instruction faults.
         assert_eq!(
@@ -640,14 +619,11 @@ mod tests {
                 .stable_code(),
             crate::error::StableErrorCode::BytecodeInvalidOpcode
         );
-        assert_eq!(
-            state.data.storage.get_instance(counter).unwrap().variables,
-            original
-        );
+        assert_eq!(variables(&state), original);
         assert_eq!(state.data.storage.execution_frame_count(), 0);
         assert!(state.data.construction.initializers.is_empty());
         // An exhausted construction budget rejects before cloning or changing
-        // either the aggregate destination or the owned instance graph.
+        // either the destination or the owned instance graph.
         state
             .data
             .resources
@@ -656,13 +632,10 @@ mod tests {
         assert!(state
             .initializer_seed(&entry, Some(program), None, false)
             .is_err());
+        assert_eq!(variables(&state), original);
         assert_eq!(
-            state.data.storage.get_instance(counter).unwrap().variables,
-            original
+            crate::vm::engine::test_store::instance_var(&state, program, &name),
+            Some(Value::Instance(counter))
         );
-        let Some(Value::Array(array)) = state.data.storage.get_instance_var(program, &name) else {
-            panic!("original array")
-        };
-        assert_eq!(array.elements(), &[Value::Instance(counter)]);
     }
 }

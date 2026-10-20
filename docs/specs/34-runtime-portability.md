@@ -1119,8 +1119,9 @@ and the work of computing them are charged once at preparation, under the admitt
 A region's cells are only recorded at preparation, not charged: construction charges them when it
 reserves the region, so no storage is counted twice and the refusal points of large programs do not
 move. A program whose layout tables and other preparation demand exceed those limits is refused at
-preparation, never at run time. Every state is built on the cell store, which reads the layouts at
-run time (checklist C1-19d); stored values, outputs and faults are those of the value store.
+preparation, never at run time. Every state is built on the flat store, which reads the layouts at
+run time (checklist C1-19d) and is the only store since the value store was deleted (C1-19e); stored
+values, outputs and faults are those the value store gave.
 
 **The flat store.** The bounded value store is MEM-12's flat blocks: a variable's bytes at its
 declared size and alignment, read and written as the type of its layout says, little-endian on every
@@ -1156,19 +1157,28 @@ the identity of every instance, persistent or per-call, and it holds the entry f
 a top-level execution entry begins on the store, the identities issued since the previous entry began
 are issued again if none of their instances is still live, exactly as on the value store, and an
 instance that construction created is never issued again. The engine reads and writes the globals,
-the persistent instances and the retained variables only through the store-access seam, whichever
-store it holds: a scan with its program-root read, its input apply, its output journals and its
-built-in blocks, an engineering read or write, a
-cycle-port lookup, a named program entry, a retained apply or capture, a restart and the scalar readers
-of a state all go through it. A program that runs on the cell store therefore reads, writes, faults and
-is charged exactly as it does on the value store, scan after scan; locals, per-call instances and the
-activation registry stay in the value half until C1-11. A text written into a leaf is cut exactly
-where assignment normalization cuts it. A subscript of a text in the block counts characters, as for
-a `Value` (DEV-017): the first is index 1 and the last is the count of the text's characters, whether
-the leaf holds UTF-8 bytes or UTF-16 code units. A `WSTRING` has no borrowed UTF-8 text, so its
-characters are counted and read from its code units in place without building a `String`, and a
-character outside the Basic Multilingual Plane, which a `WCHAR` cannot hold, reads as none, as it
-does for a `Value`.
+the persistent instances and the retained variables only through the store-access seam: a scan with
+its program-root read, its input apply, its output journals and its built-in blocks, an engineering
+read or write, a cycle-port lookup, a named program entry, a retained apply or capture, a restart and
+the scalar readers of a state all go through it. Until the value store was deleted (checklist
+C1-19e), every program of the bounded-C corpus ran on both stores and read, wrote, faulted and was
+charged alike, scan after scan; what the value store left (every declared variable, the process
+images, the latched fault, the debugger's copy of the storage, each scan's result and the work and
+bytes charged at each of its phases, each engineering operation's result and charge, the call stack a
+debugger reads and the retained payload) is kept as the recorded facts the flat store is tested
+against, and where this section says that a result, a charge or a refusal is the value store's, it is
+the one the value store gave. A program root is construction-only (specification 12 §6.4) and holds
+no bytes: a read of it names its program's instance, and a write to it is refused. The value half
+the store keeps holds the activation registry, the slots a frame keeps as values (compiler scratch,
+`ARRAY[*]` parameters and initializer results that are not staged in place) and the instances an
+entry or construction creates outside any call, such as the temporary instance of a function-block
+entry; every instance a call creates lies on the activation stack. A text written into a leaf is cut
+exactly where assignment normalization cuts it. A subscript of a text in the block counts
+characters, as for a `Value` (DEV-017): the first is index 1 and the last is the count of the text's
+characters, whether the leaf holds UTF-8 bytes or UTF-16 code units. A `WSTRING` has no borrowed
+UTF-8 text, so its characters are counted and read from its code units in place without building a
+`String`, and a character outside the Basic Multilingual Plane, which a `WCHAR` cannot hold, reads
+as none, as it does for a `Value`.
 
 **The default store.** Every runtime keeps a program's variables in the flat store (checklist
 C1-19d). The storage a computer's tools read whole, the debugger's copy of the storage, its tests and
@@ -1598,10 +1608,10 @@ taken in. A reference to a variable of a frame, to a character of a text or to a
 cannot be written, and one taken while an initializer runs, keeps its root and path, which the
 lifetime, mutability and staging checks read, and the region's reference table keeps it. A flat
 reference keeps the element count of the path it was taken through, and a copy of it is charged by
-that count as a copy of the path is (TIME-08), until the value store is deleted (C1-19). Where a
-reference leaves the engine, a retained reference carried into a new generation or a value shown to
-a tool, it is named by the variable that holds its target and the path to it, as the value store
-names it.
+that count as a copy of the path is (TIME-08), so its charges stayed the value store's when that
+store was deleted (C1-19e). Where a reference leaves the engine, a retained reference carried into a
+new generation or a value shown to a tool, it is named by the variable that holds its target and the
+path to it, as the value store names it.
 
 **Process images.** On the flat store a scan's input synchronization and output publication build
 no value of a variable and no image key (checklist C1-16). A `STRING` bound to a byte window of

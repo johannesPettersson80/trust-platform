@@ -11,7 +11,8 @@
 //! lifetime rules (capacity follows live entries; identity exhaustion stays a checked fault).
 //!
 //! Production under test: `VariableStorage::try_create_instance`, `remove_instance`,
-//! `begin_execution_entry` and `reset_runtime_values`.
+//! `begin_activation_entry` with the counter's entry floor (the one counter the flat store's
+//! `CellStorage::begin_execution_entry` begins an entry on) and `reset_runtime_values`.
 //!
 //! Model. A counter issues identities. `create` takes the counter value and advances it. `remove`
 //! frees a live identity. A floor marks where the current top-level entry started. `begin entry`
@@ -85,8 +86,9 @@ fn apply(storage: &mut VariableStorage, model: &mut Model, op: Op) {
         }
         Op::BeginEntry => {
             storage
-                .begin_execution_entry()
+                .begin_activation_entry()
                 .expect("no activation is reserved in this model");
+            storage.identities.begin_entry();
             if model.live.range(model.floor..).next().is_none() {
                 model.next = model.floor;
             } else {

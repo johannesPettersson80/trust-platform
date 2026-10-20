@@ -4,19 +4,21 @@ use crate::error::StableErrorCode;
 
 #[test]
 fn dynamic_string_index_charges_the_text_scan_before_extending_the_reference() {
-    let prepared = PreparedModule::from_bytes(
-        include_bytes!("../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc"),
-        crate::vm::PreparationLimits::default(),
-    )
-    .unwrap();
-    let mut data =
-        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
-    data.storage
-        .set_global("probe_depth", Value::String("abcdefgh".into()));
-    let reference = data.storage.ref_for_global("probe_depth").unwrap();
-    data.resources.construction_bytes.set(0);
-    data.resources.work_budget.reset(4);
-    let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    // `probe : STRING[10]`, declared beside the cell fixture's globals.
+    let prepared = crate::memory::cell_access::fixture::prepared_with_globals(&[(
+        "probe",
+        crate::memory::cell_access::fixture::primitive(24, 10),
+    )]);
+    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    crate::vm::engine::test_store::set_global(
+        &mut state,
+        "probe",
+        Value::String("abcdefgh".into()),
+    );
+    let reference = crate::memory::view::StoreAccess::ref_for_global(&state, "probe").unwrap();
+    state.data.resources.construction_bytes.set(0);
+    state.data.resources.work_budget.reset(4);
     let error = crate::vm::dispatch_refs::dynamic_ref_index(
         &state,
         &crate::vm::FrameStack::default(),
@@ -36,24 +38,34 @@ fn dynamic_string_index_charges_the_text_scan_before_extending_the_reference() {
     ));
     assert_eq!(state.data.resources.construction_bytes.get(), 0);
     assert_eq!(
-        state.data.storage.get_global("probe_depth"),
-        Some(&Value::String("abcdefgh".into()))
+        crate::vm::engine::test_store::global(&state, "probe"),
+        Some(Value::String("abcdefgh".into()))
     );
 }
 
 #[test]
 fn dynamic_multidimensional_reference_growth_is_charged_before_allocation() {
-    let prepared = PreparedModule::from_bytes(
-        include_bytes!("../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc"),
-        crate::vm::PreparationLimits::default(),
-    )
-    .unwrap();
-    let mut data =
-        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    // `probe : ARRAY[1..2, 1..2] OF INT`, declared beside the cell fixture's globals.
+    let prepared = {
+        let mut builder = crate::memory::cell_access::fixture::Builder::new();
+        let int = builder.ty(crate::memory::cell_access::fixture::primitive(7, 0));
+        let grid = builder.ty(crate::memory::cell_access::fixture::anonymous(
+            crate::bytecode::TypeKind::Array,
+            crate::bytecode::TypeData::Array {
+                elem_type_id: int,
+                dims: vec![(1, 2), (1, 2)],
+            },
+        ));
+        builder.global("probe", grid);
+        builder.prepare()
+    };
+    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     // Isolate owned reference growth; full admitted dynamic execution is covered
     // separately by portable_register_parity and the source-free fixture.
-    data.storage.set_global(
-        "probe_depth",
+    let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    crate::vm::engine::test_store::set_global(
+        &mut state,
+        "probe",
         Value::Array(alloc::boxed::Box::new(
             crate::value::ArrayValue::from_canonical_parts(
                 vec![Value::Int(7); 4],
@@ -61,14 +73,15 @@ fn dynamic_multidimensional_reference_growth_is_charged_before_allocation() {
             ),
         )),
     );
-    let reference = data.storage.ref_for_global("probe_depth").unwrap();
-    data.resources.construction_bytes.set(0);
-    data.resources.work_budget.reset(100);
-    let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    let reference = crate::memory::view::StoreAccess::ref_for_global(&state, "probe").unwrap();
+    state.data.resources.construction_bytes.set(0);
+    state.data.resources.work_budget.reset(100);
     let frames = crate::vm::FrameStack::default();
     // TIME-08: the new segment and its subscript cost one unit each, and one 16-byte cell each.
     let partial =
-        crate::vm::dispatch_refs::dynamic_ref_index(&state, &frames, reference, 1).unwrap();
+        crate::vm::dispatch_refs::dynamic_ref_index(&state, &frames, reference.clone(), 1).unwrap();
+    // One subscript of two names no element, so the reference keeps its path.
+    assert_eq!(partial.path, vec![crate::value::RefSegment::Index(vec![1])]);
     // A new segment and its subscript are two cells of 16 bytes: 2 x 16 = 32.
     let first = 32;
     assert_eq!(state.data.resources.construction_bytes.get(), first);
@@ -76,20 +89,25 @@ fn dynamic_multidimensional_reference_growth_is_charged_before_allocation() {
     let pointer = partial.path.as_ptr();
     let complete =
         crate::vm::dispatch_refs::dynamic_ref_index(&state, &frames, partial, 2).unwrap();
-    assert_eq!(complete.path.as_ptr(), pointer);
+    // The two subscripts name the element `probe[1, 2]`, so the reference is made flat
+    // (specification 34 §6.3; C1-11d), and the path it was extended in goes back to the engine.
+    assert!(matches!(
+        complete.location,
+        crate::memory::MemoryLocation::Flat { .. }
+    ));
+    assert!(complete.path.is_empty());
+    let kept = state.data.resources.references.take_path();
+    assert_eq!(kept.as_ptr(), pointer);
     assert_eq!(
-        complete.path,
-        vec![crate::value::RefSegment::Index(vec![1, 2])]
+        crate::vm::engine::test_store::read(&state, &complete),
+        Some(Value::Int(7))
     );
     // TIME-08: the trailing subscript costs one unit and one cell, not a copy of the earlier one.
     assert_eq!(state.data.resources.construction_bytes.get(), first + 16);
     assert_eq!(state.data.resources.work_budget.remaining(), 97);
 
-    let mut partial = complete;
-    let crate::value::RefSegment::Index(indices) = &mut partial.path[0] else {
-        panic!("index")
-    };
-    *indices = vec![1];
+    let mut partial = reference;
+    partial.path = vec![crate::value::RefSegment::Index(vec![1])];
     state
         .data
         .resources
@@ -109,15 +127,25 @@ fn dynamic_multidimensional_reference_growth_is_charged_before_allocation() {
 
 #[test]
 fn equal_length_reference_paths_charge_the_same_whatever_their_capacity() {
-    let prepared = PreparedModule::from_bytes(
-        include_bytes!("../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc"),
-        crate::vm::PreparationLimits::default(),
-    )
-    .unwrap();
-    let mut data =
-        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
-    data.storage.set_global(
-        "probe_depth",
+    // `probe : ARRAY[1..2, 1..2] OF INT`, declared beside the cell fixture's globals.
+    let prepared = {
+        let mut builder = crate::memory::cell_access::fixture::Builder::new();
+        let int = builder.ty(crate::memory::cell_access::fixture::primitive(7, 0));
+        let grid = builder.ty(crate::memory::cell_access::fixture::anonymous(
+            crate::bytecode::TypeKind::Array,
+            crate::bytecode::TypeData::Array {
+                elem_type_id: int,
+                dims: vec![(1, 2), (1, 2)],
+            },
+        ));
+        builder.global("probe", grid);
+        builder.prepare()
+    };
+    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    crate::vm::engine::test_store::set_global(
+        &mut state,
+        "probe",
         Value::Array(alloc::boxed::Box::new(
             crate::value::ArrayValue::from_canonical_parts(
                 vec![Value::Int(7); 4],
@@ -125,10 +153,9 @@ fn equal_length_reference_paths_charge_the_same_whatever_their_capacity() {
             ),
         )),
     );
-    let reference = data.storage.ref_for_global("probe_depth").unwrap();
-    data.resources.construction_bytes.set(0);
-    data.resources.work_budget.reset(100);
-    let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    let reference = crate::memory::view::StoreAccess::ref_for_global(&state, "probe").unwrap();
+    state.data.resources.construction_bytes.set(0);
+    state.data.resources.work_budget.reset(100);
     let frames = crate::vm::FrameStack::default();
 
     // Two empty paths with different starting capacities each add a segment and its subscript.
@@ -153,7 +180,16 @@ fn equal_length_reference_paths_charge_the_same_whatever_their_capacity() {
         state.data.resources.work_budget.reset(100);
         let next =
             crate::vm::dispatch_refs::dynamic_ref_index(&state, &frames, partial, 2).unwrap();
-        assert_eq!(next.path, vec![crate::value::RefSegment::Index(vec![1, 2])]);
+        // `probe[1, 2]` is an element, so the reference is made flat (C1-11d).
+        assert!(matches!(
+            next.location,
+            crate::memory::MemoryLocation::Flat { .. }
+        ));
+        assert!(next.path.is_empty());
+        assert_eq!(
+            crate::vm::engine::test_store::read(&state, &next),
+            Some(Value::Int(7))
+        );
         assert_eq!(state.data.resources.work_budget.remaining(), 99);
         assert_eq!(state.data.resources.construction_bytes.get(), 16);
     }
@@ -162,15 +198,28 @@ fn equal_length_reference_paths_charge_the_same_whatever_their_capacity() {
 #[cfg(feature = "register-ir")]
 #[test]
 fn borrowed_dynamic_field_materialization_charges_the_new_owned_path() {
-    let prepared = PreparedModule::from_bytes(
-        include_bytes!("../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc"),
-        crate::vm::PreparationLimits::default(),
-    )
-    .unwrap();
-    let mut data =
-        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
-    data.storage.set_global(
-        "probe_depth",
+    use crate::memory::cell_access::fixture;
+    // `probe : Record`, a structure of `field : INT`, declared beside the cell fixture's globals.
+    let prepared = {
+        let mut builder = fixture::Builder::new();
+        let record_name = builder.name("Record");
+        let field_name = builder.name("field");
+        let int = builder.ty(fixture::primitive(7, 0));
+        let record = builder.ty(fixture::named(
+            crate::bytecode::TypeKind::Struct,
+            record_name,
+            crate::bytecode::TypeData::Struct {
+                fields: vec![fixture::field(field_name, int)],
+            },
+        ));
+        builder.global("probe", record);
+        builder.prepare()
+    };
+    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    crate::vm::engine::test_store::set_global(
+        &mut state,
+        "probe",
         Value::Struct(alloc::sync::Arc::new(
             crate::value::StructValue::from_canonical_parts(
                 "Record".into(),
@@ -178,9 +227,8 @@ fn borrowed_dynamic_field_materialization_charges_the_new_owned_path() {
             ),
         )),
     );
-    let reference = data.storage.ref_for_global("probe_depth").unwrap();
-    data.resources.construction_bytes.set(0);
-    let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    let reference = crate::memory::view::StoreAccess::ref_for_global(&state, "probe").unwrap();
+    state.data.resources.construction_bytes.set(0);
     let frames = crate::vm::FrameStack::default();
     let next = crate::vm::dispatch_refs::dynamic_ref_field_borrowed(
         &state,
@@ -364,22 +412,19 @@ fn four_deep_gpio_call_with_primitive_defaults_fits_admitted_storage() {
     )
     .unwrap();
     let mut state_data =
-        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+        EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let mut state = EngineState::borrow(&mut state_data, &prepared, &services::LOGICAL_ONLY);
     let activation_capacity = state.data.storage.execution_frame_capacity();
     assert!(activation_capacity >= 8);
-    let Some(Value::Instance(plant)) = state.data.storage.get_global("Plant") else {
-        panic!("root");
-    };
-    let plant = *plant;
-    state.data.storage.set_global("probe_depth", Value::Int(4));
+    let plant = crate::vm::engine::test_store::global_instance(&state, "Plant");
+    crate::vm::engine::test_store::set_global(&mut state, "probe_depth", Value::Int(4));
     for scan in 1..=32 {
         state
             .execute_cycle(Duration::from_millis(scan * 10))
             .unwrap();
         assert_eq!(
-            state.data.storage.get_instance_var(plant, "depth_result"),
-            Some(&Value::Int(4))
+            crate::vm::engine::test_store::instance_var(&state, plant, "depth_result"),
+            Some(Value::Int(4))
         );
         assert_eq!(state.data.storage.execution_frame_count(), 0);
         assert_eq!(state.data.storage.execution_activation_count(), 0);
@@ -403,10 +448,7 @@ fn executable_initializer_fails_cleanly_when_staging_frame_capacity_is_full() {
     .unwrap();
     let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
-    let Some(Value::Instance(plant)) = state.data.storage.get_global("Plant") else {
-        panic!("fixture root");
-    };
-    let plant = *plant;
+    let plant = crate::vm::engine::test_store::global_instance(&state, "Plant");
     let (initializer, name) = prepared
         .initializers
         .entries
@@ -427,7 +469,8 @@ fn executable_initializer_fails_cleanly_when_staging_frame_capacity_is_full() {
             Some((u32::try_from(id).ok()?, name))
         })
         .expect("fixture executable BOOL initializer");
-    let original = state.data.storage.get_instance_var(plant, name).cloned();
+    let original = crate::vm::engine::test_store::instance_var(&state, plant, name)
+        .expect("the plant declares enabled");
 
     assert_eq!(state.data.storage.execution_frame_count(), 0);
     state.data.storage.reserve_execution_frames(1).unwrap();
@@ -443,8 +486,8 @@ fn executable_initializer_fails_cleanly_when_staging_frame_capacity_is_full() {
     assert!(state.data.construction.frames.is_empty());
     assert!(state.data.construction.types.is_empty());
     assert_eq!(
-        state.data.storage.get_instance_var(plant, name),
-        original.as_ref()
+        crate::vm::engine::test_store::instance_var(&state, plant, name),
+        Some(original)
     );
     assert!(state.data.storage.release_execution_frame(occupied));
     assert_eq!(state.data.storage.execution_frame_count(), 0);
@@ -496,8 +539,8 @@ fn zero_allowance_cleanup_still_retires_owned_instances_and_preserves_promoted_o
     // allowance neither refuses the cleanup nor draws work from it.
     state.remove_owned_instances(old).unwrap();
     assert_eq!(state.data.resources.work_budget.remaining(), 0);
-    assert!(state.data.storage.get_instance(retired).is_none());
-    assert!(state.data.storage.get_instance(promoted).is_some());
+    assert!(crate::memory::view::StoreAccess::instance_type_name(&state, retired).is_none());
+    assert!(crate::memory::view::StoreAccess::instance_type_name(&state, promoted).is_some());
     assert!(!state
         .data
         .lifetimes
@@ -521,7 +564,7 @@ fn zero_allowance_cleanup_still_retires_owned_instances_and_preserves_promoted_o
         .work_budget
         .reset(prepared.limits.max_work);
     state.remove_owned_instances(new).unwrap();
-    assert!(state.data.storage.get_instance(promoted).is_none());
+    assert!(crate::memory::view::StoreAccess::instance_type_name(&state, promoted).is_none());
 }
 
 #[test]
@@ -532,9 +575,10 @@ fn journal_growth_budget_failure_does_not_publish_snapshot_entries_or_writes() {
     )
     .unwrap();
     let mut state_data =
-        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+        EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let state = EngineState::borrow(&mut state_data, &prepared, &services::LOGICAL_ONLY);
-    let reference = state.data.storage.ref_for_global("probe_depth").unwrap();
+    let reference =
+        crate::memory::view::StoreAccess::ref_for_global(&state, "probe_depth").unwrap();
     state.data.resources.output_journal = Some(destinations::SavedDestinations::new());
     state
         .data
@@ -558,8 +602,8 @@ fn journal_growth_budget_failure_does_not_publish_snapshot_entries_or_writes() {
         0
     );
     assert_eq!(
-        state.data.storage.get_global("probe_depth"),
-        Some(&Value::Int(1))
+        crate::vm::engine::test_store::global(&state, "probe_depth"),
+        Some(Value::Int(1))
     );
 }
 
@@ -571,12 +615,9 @@ fn io_staging_capacity_failure_preserves_existing_bound_values_and_outputs() {
     )
     .unwrap();
     let mut state_data =
-        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+        EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let mut state = EngineState::borrow(&mut state_data, &prepared, &services::LOGICAL_ONLY);
-    let Some(Value::Instance(plant)) = state.data.storage.get_global("Plant") else {
-        panic!("root");
-    };
-    let plant = *plant;
+    let plant = crate::vm::engine::test_store::global_instance(&state, "Plant");
     state.data.images.inputs[0] = 1;
     state
         .data
@@ -591,13 +632,15 @@ fn io_staging_capacity_failure_preserves_existing_bound_values_and_outputs() {
         })
     ));
     assert_eq!(
-        state.data.storage.get_instance_var(plant, "button"),
-        Some(&Value::Bool(false))
+        crate::vm::engine::test_store::instance_var(&state, plant, "button"),
+        Some(Value::Bool(false))
     );
-    state
-        .data
-        .storage
-        .set_instance_var(plant, "led", Value::Bool(true));
+    assert!(crate::memory::view::StoreMutate::write_instance_var(
+        &mut state,
+        plant,
+        "led",
+        Value::Bool(true)
+    ));
     assert!(matches!(
         state.publish_output_image(),
         Err(RuntimeError::ExecutionLimit {

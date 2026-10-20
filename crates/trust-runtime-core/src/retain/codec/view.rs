@@ -42,6 +42,8 @@ pub(super) fn encode_view(out: &mut Vec<u8>, view: &ValueView<'_>) -> Result<(),
         } => encode_cells(out, cells, range, type_id, 0),
         // A node of a backing is written as the value it decodes to (C1-15).
         ValueView::Bits { .. } => encode_value(out, &view.materialize()?),
+        // A program root's instance, refused as an instance value is.
+        ValueView::Instance(instance) => encode_value(out, &Value::Instance(instance)),
     }
 }
 
@@ -62,6 +64,7 @@ pub(crate) fn view_is_retainable(view: &ValueView<'_>) -> Result<bool, RuntimeEr
             type_id,
         } => cells_are_retainable(cells, range, type_id, 0),
         ValueView::Bits { .. } => value_is_retainable(&view.materialize()?, 0),
+        ValueView::Instance(_) => Ok(false),
     }
 }
 

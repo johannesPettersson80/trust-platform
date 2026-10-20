@@ -358,6 +358,11 @@ impl CellRegions {
         self.instances.holding(offset)
     }
 
+    /// The persistent instance at `position` in identity order.
+    pub(crate) fn instance_at(&self, position: usize) -> Option<(InstanceId, PersistentInstance)> {
+        self.instances.at(position)
+    }
+
     /// The number of persistent instances recorded.
     pub(crate) fn instance_count(&self) -> usize {
         self.instances.len()

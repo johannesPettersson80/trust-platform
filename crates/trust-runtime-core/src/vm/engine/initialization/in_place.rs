@@ -7,7 +7,7 @@
 //! `DEFAULT_TYPED`, `COERCE_INIT_VALUE` or `APPLY_INIT_VALUE` whose value the next instruction stores
 //! as the result writes it there. The commit copies the bytes into the variable's slot. Each step
 //! charges and checks what the value path's step does, in the same order (TIME-08), so a result, a
-//! charge and a refusal are the same on both stores, and the evaluation allocates nothing. An
+//! charge and a refusal are the same on either path, and the evaluation allocates nothing. An
 //! initializer whose result finds no room on the stack runs on the value path, decided before
 //! anything is charged.
 
@@ -52,10 +52,8 @@ impl EngineState<'_> {
             .evaluate_in_place(id, instance, frame, depth, place, &mut staged)
             .and_then(|()| self.commit_in_place(declaration, place, once_marker));
         // The staged result leaves the stack on every path, once its bytes are committed.
-        if let Some(result) = staged
-            && let EngineStore::Cells(arm) = &mut self.data.store
-        {
-            arm.release_result(result);
+        if let Some(result) = staged {
+            self.data.store.release_result(result);
         }
         committed.map(|()| true)
     }
@@ -65,16 +63,11 @@ impl EngineState<'_> {
     /// for the result above it. None of this charges anything.
     fn in_place(&self, id: u32, declaration: u32, frame: &VmFrame) -> Option<InPlace> {
         let (result_type, _) = self.prepared.in_place_result(id)?;
-        let EngineStore::Cells(arm) = &self.data.store else {
-            return None;
-        };
+        let arm = &*self.data.store;
         let declared = self.prepared.layout.entries.get(declaration as usize)?;
         let slot = declared.slot as usize;
         let owner = self.frame_slot_activation(frame, slot)?;
-        let super::super::store_access::Routed::Cells(reader) = self.data.routed(self.prepared)
-        else {
-            return None;
-        };
+        let reader = self.data.reader(self.prepared);
         let (slot, _, _) = reader.cells_target(MemoryLocation::Local(owner), slot, &[])?;
         let range = arm.result_room(self.prepared.type_layout(result_type)?.shape.bytes)?;
         Some(InPlace {
@@ -193,9 +186,7 @@ impl EngineState<'_> {
     ) -> Result<(), RuntimeError> {
         let seeded = entry.stage == crate::bytecode::InitializationStage::Explicit
             && is_compound(self.prepared, place.result_type);
-        let EngineStore::Cells(arm) = &mut self.data.store else {
-            return Err(RuntimeError::InvalidExecutionState);
-        };
+        let arm = &mut *self.data.store;
         if !arm.clear_activation(place.range) {
             return Err(RuntimeError::InvalidExecutionState);
         }
@@ -312,9 +303,7 @@ impl EngineState<'_> {
         } else {
             None
         };
-        let EngineStore::Cells(arm) = &mut self.data.store else {
-            return Err(RuntimeError::InvalidExecutionState);
-        };
+        let arm = &mut *self.data.store;
         if !arm.copy_place(place.range, place.slot, None) {
             return Err(RuntimeError::InvalidExecutionState);
         }
@@ -346,9 +335,7 @@ impl EngineState<'_> {
         else {
             return Ok(false);
         };
-        let EngineStore::Cells(arm) = &self.data.store else {
-            return Ok(false);
-        };
+        let arm = &*self.data.store;
         let Some(block) = arm.result(result) else {
             return Ok(false);
         };

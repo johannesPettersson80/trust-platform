@@ -7,9 +7,8 @@
 //! a character of a text, to a declaration that cannot be written and one taken while an
 //! initializer runs keeps its root and path, which the lifetime, mutability and staging checks
 //! read. A flat reference keeps the element count of the path it was taken through, which its
-//! copies are charged by until the value store goes (TIME-08; C1-19).
+//! copies are charged by, as the value store charged the copy of the path (TIME-08; C1-19e).
 
-use super::store_access::Routed;
 use super::*;
 use crate::memory::layout::LayoutRegion;
 use crate::memory::MemoryLocation;
@@ -34,9 +33,7 @@ impl EngineState<'_> {
         {
             return None;
         }
-        let Routed::Cells(reader) = self.data.routed(self.prepared) else {
-            return None;
-        };
+        let reader = self.data.reader(self.prepared);
         let (range, type_id, presence) = reader.cells_target(
             reference.location,
             reference.offset as usize,
@@ -67,9 +64,7 @@ impl EngineState<'_> {
     /// and the path to it, as the value store names it (C1-11d). Read at the boundary, not in a
     /// scan; any other reference comes back as it is.
     pub(crate) fn path_form(&self, reference: &ValueRef) -> ValueRef {
-        let Routed::Cells(reader) = self.data.routed(self.prepared) else {
-            return reference.clone();
-        };
+        let reader = self.data.reader(self.prepared);
         reader
             .path_reference(reference)
             .unwrap_or_else(|| reference.clone())

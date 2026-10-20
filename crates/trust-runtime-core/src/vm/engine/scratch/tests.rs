@@ -481,7 +481,6 @@ fn the_reference_pool_holds_every_reference_a_scan_can_hold() {
         0,
         &services::LOGICAL_ONLY,
         Construction {
-            store: StoreKind::Cells,
             profile: crate::value::DateTimeProfile::default(),
         },
     )

@@ -6,7 +6,7 @@
 //! The program is the bounded-C corpus program `initializers`: `PROGRAM Initializers` (instance 0) holds
 //! a `Tracker` (instance 1), the two persistent instances. Every other instance is a per-call one.
 
-use super::{arm, build, prepare, services, EngineState, EngineStore, StoreKind, INITIALIZERS};
+use super::{arm, build, prepare, services, EngineState, INITIALIZERS};
 use crate::error::RuntimeError;
 use crate::memory::view::StoreAccess;
 use crate::memory::{FrameId, InstanceId};
@@ -49,7 +49,7 @@ fn the_entry_floor_comes_from_the_one_identity_counter() {
         .function_block_ids
         .get(&prepared.vm.strings, "TRACKER")
         .expect("the program declares the function block Tracker");
-    let mut data = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let mut data = build(&prepared).expect("the cell store constructs");
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
     for round in 0..4 {
         assert_eq!(
@@ -64,13 +64,10 @@ fn the_entry_floor_comes_from_the_one_identity_counter() {
         assert!(StoreAccess::instance_type_name(&state, persistent).is_some());
     }
 
-    let mut data = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
-    match &mut data.store {
-        EngineStore::Cells(cell_arm) => cell_arm
-            .cells_mut()
-            .set_next_instance_id_for_test(u32::MAX - 1),
-        EngineStore::Values => panic!("the state holds the Value store"),
-    }
+    let mut data = build(&prepared).expect("the cell store constructs");
+    data.store
+        .cells_mut()
+        .set_next_instance_id_for_test(u32::MAX - 1);
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
     for round in 0..8 {
         assert_eq!(

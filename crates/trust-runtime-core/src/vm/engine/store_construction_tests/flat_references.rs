@@ -24,7 +24,7 @@ fn global(state: &EngineState<'_>, name: &str, path: RefPath) -> ValueRef {
 #[test]
 fn a_reference_to_a_persistent_target_is_its_byte_offset() {
     let prepared = prepare(corpus("references"));
-    let mut data = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let mut data = build(&prepared).expect("the cell store constructs");
     let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
     let dint = |reference: &ValueRef| match reference.location {
         MemoryLocation::Flat { type_id, .. } => type_id,
@@ -69,7 +69,7 @@ fn a_reference_to_a_persistent_target_is_its_byte_offset() {
 #[test]
 fn a_reference_to_a_constant_keeps_its_root_and_path() {
     let prepared = prepare(corpus("initializers"));
-    let mut data = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
+    let mut data = build(&prepared).expect("the cell store constructs");
     let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
     let constant = global(&state, "capacity", RefPath::new());
     assert_eq!(state.flatten_reference(constant.clone()), constant);

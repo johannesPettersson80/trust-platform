@@ -180,9 +180,6 @@ impl EngineState<'_> {
     /// own bytes are (specification 34 MEM-09; C1-16). A destination that does not resolve yet is
     /// left to the scan, which refuses it as before.
     pub(super) fn reserve_input_snapshot(&mut self) -> Result<(), RuntimeError> {
-        if !matches!(self.data.store, EngineStore::Cells(_)) {
-            return Ok(());
-        }
         let inputs = self
             .prepared
             .io_bindings
@@ -312,11 +309,8 @@ impl EngineState<'_> {
                 Saved::Value(value) => value,
                 // A root saved as its cells gets its bytes back (C1-16).
                 Saved::Cells { range, at } => {
-                    if let (EngineStore::Cells(arm), Some(held)) = (
-                        &mut self.data.store,
-                        bytes.get(at..at + range.bytes as usize),
-                    ) {
-                        arm.write_bytes(range, held);
+                    if let Some(held) = bytes.get(at..at + range.bytes as usize) {
+                        self.data.store.write_bytes(range, held);
                     }
                     continue;
                 }
@@ -377,15 +371,24 @@ mod tests {
 
     #[test]
     fn bulk_input_snapshots_deduplicate_nested_roots_and_restore_all_values() {
-        let prepared = PreparedModule::from_bytes(
-            include_bytes!(
-                "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
+        let prepared = crate::memory::cell_access::fixture::prepared_with_globals(&[
+            (
+                "bulk_array",
+                crate::memory::cell_access::fixture::anonymous(
+                    crate::bytecode::TypeKind::Array,
+                    crate::bytecode::TypeData::Array {
+                        elem_type_id: crate::memory::cell_access::fixture::DINT_TYPE,
+                        dims: vec![(0, 1)],
+                    },
+                ),
             ),
-            crate::vm::PreparationLimits::default(),
-        )
-        .unwrap();
+            (
+                "bulk_scalar",
+                crate::memory::cell_access::fixture::primitive(8, 0),
+            ),
+        ]);
         let mut state_data =
-            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
         let mut state = EngineState::borrow(
             &mut state_data,
@@ -398,20 +401,15 @@ mod tests {
                 vec![(0, 1)],
             ),
         ));
-        state
-            .data
-            .storage
-            .set_global("bulk_array", original.clone());
-        state
-            .data
-            .storage
-            .set_global("bulk_scalar", Value::DInt(11));
-        let root = state.data.storage.ref_for_global("bulk_array").unwrap();
+        crate::vm::engine::test_store::set_global(&mut state, "bulk_array", original.clone());
+        crate::vm::engine::test_store::set_global(&mut state, "bulk_scalar", Value::DInt(11));
+        let root = crate::memory::view::StoreAccess::ref_for_global(&state, "bulk_array").unwrap();
         let mut first = root.clone();
         first.path.push(crate::value::RefSegment::Index(vec![0]));
         let mut second = root.clone();
         second.path.push(crate::value::RefSegment::Index(vec![1]));
-        let scalar = state.data.storage.ref_for_global("bulk_scalar").unwrap();
+        let scalar =
+            crate::memory::view::StoreAccess::ref_for_global(&state, "bulk_scalar").unwrap();
         let references = [&scalar, &second, &first, &second];
         let (mut keys, mut saved) = (Vec::new(), SavedDestinations::new());
         state
@@ -429,43 +427,58 @@ mod tests {
                 (scalar.location, scalar.offset as usize)
             ]
         );
-        assert!(state
-            .data
-            .storage
-            .write_by_ref_ref(&second, Value::DInt(90)));
-        assert!(state.data.storage.write_by_ref_ref(&first, Value::DInt(70)));
-        assert!(state
-            .data
-            .storage
-            .write_by_ref_ref(&scalar, Value::DInt(110)));
+        assert_eq!(
+            crate::memory::view::StoreMutate::write_reference(
+                &mut state,
+                second.as_view(),
+                Value::DInt(90)
+            ),
+            Ok(true)
+        );
+        assert_eq!(
+            crate::memory::view::StoreMutate::write_reference(
+                &mut state,
+                first.as_view(),
+                Value::DInt(70)
+            ),
+            Ok(true)
+        );
+        assert_eq!(
+            crate::memory::view::StoreMutate::write_reference(
+                &mut state,
+                scalar.as_view(),
+                Value::DInt(110)
+            ),
+            Ok(true)
+        );
         state.restore_destinations(None, &mut saved);
         assert_eq!(saved.len(), 0);
-        assert_eq!(state.data.storage.get_global("bulk_array"), Some(&original));
         assert_eq!(
-            state.data.storage.get_global("bulk_scalar"),
-            Some(&Value::DInt(11))
+            crate::vm::engine::test_store::global(&state, "bulk_array"),
+            Some(original.clone())
+        );
+        assert_eq!(
+            crate::vm::engine::test_store::global(&state, "bulk_scalar"),
+            Some(Value::DInt(11))
         );
     }
 
     #[test]
     fn bulk_input_snapshots_stop_at_first_invalid_reference_without_mutation() {
-        let prepared = PreparedModule::from_bytes(
-            include_bytes!(
-                "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
-            ),
-            crate::vm::PreparationLimits::default(),
-        )
-        .unwrap();
+        let prepared = crate::memory::cell_access::fixture::prepared_with_globals(&[(
+            "bulk_probe",
+            crate::memory::cell_access::fixture::primitive(8, 0),
+        )]);
         let mut state_data =
-            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
-        let state = EngineState::borrow(
+        let mut state = EngineState::borrow(
             &mut state_data,
             &prepared,
             &super::super::services::LOGICAL_ONLY,
         );
-        state.data.storage.set_global("bulk_probe", Value::DInt(7));
-        let valid = state.data.storage.ref_for_global("bulk_probe").unwrap();
+        crate::vm::engine::test_store::set_global(&mut state, "bulk_probe", Value::DInt(7));
+        let valid = crate::memory::view::StoreAccess::ref_for_global(&state, "bulk_probe").unwrap();
         let mut invalid = valid.clone();
         invalid.offset = u32::MAX;
         let references = [&valid, &invalid, &valid];
@@ -486,42 +499,37 @@ mod tests {
             "later references must not be inspected after failure"
         );
         assert_eq!(
-            state.data.storage.get_global("bulk_probe"),
-            Some(&Value::DInt(7))
+            crate::vm::engine::test_store::global(&state, "bulk_probe"),
+            Some(Value::DInt(7))
         );
     }
 
     #[test]
     fn journal_growth_is_not_charged_and_a_later_failure_rolls_back_every_destination() {
-        let prepared = PreparedModule::from_bytes(
-            include_bytes!(
-                "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
+        let prepared = crate::memory::cell_access::fixture::prepared_with_globals(&[
+            (
+                "output_probe",
+                crate::memory::cell_access::fixture::primitive(8, 0),
             ),
-            crate::vm::PreparationLimits::default(),
-        )
-        .unwrap();
+            (
+                "output_probe_extra",
+                crate::memory::cell_access::fixture::primitive(8, 0),
+            ),
+        ]);
         let mut state_data =
-            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
         let mut state = EngineState::borrow(
             &mut state_data,
             &prepared,
             &super::super::services::LOGICAL_ONLY,
         );
-        state
-            .data
-            .storage
-            .set_global("output_probe", Value::DInt(7));
-        let output = state.data.storage.ref_for_global("output_probe").unwrap();
-        state
-            .data
-            .storage
-            .set_global("output_probe_extra", Value::DInt(8));
-        let extra = state
-            .data
-            .storage
-            .ref_for_global("output_probe_extra")
-            .unwrap();
+        crate::vm::engine::test_store::set_global(&mut state, "output_probe", Value::DInt(7));
+        let output =
+            crate::memory::view::StoreAccess::ref_for_global(&state, "output_probe").unwrap();
+        crate::vm::engine::test_store::set_global(&mut state, "output_probe_extra", Value::DInt(8));
+        let extra =
+            crate::memory::view::StoreAccess::ref_for_global(&state, "output_probe_extra").unwrap();
         let id = state.data.storage.reserve_execution_frame().unwrap();
         state.data.storage.activate_execution_frame(id).unwrap();
         let suspended = state.data.storage.reserve_execution_frame().unwrap();
@@ -589,12 +597,12 @@ mod tests {
             "unexpected later failure: {error:?}"
         );
         assert_eq!(
-            state.data.storage.get_global("output_probe"),
-            Some(&Value::DInt(7))
+            crate::vm::engine::test_store::global(&state, "output_probe"),
+            Some(Value::DInt(7))
         );
         assert_eq!(
-            state.data.storage.get_global("output_probe_extra"),
-            Some(&Value::DInt(8))
+            crate::vm::engine::test_store::global(&state, "output_probe_extra"),
+            Some(Value::DInt(8))
         );
         assert_eq!(frame.locals, [Value::DInt(9)]);
         assert_eq!(
@@ -614,44 +622,38 @@ mod tests {
     }
     #[test]
     fn native_output_journal_ignores_unrelated_large_values_and_preserves_aliases() {
-        let prepared = PreparedModule::from_bytes(
-            include_bytes!(
-                "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
-            ),
-            crate::vm::PreparationLimits::default(),
-        )
-        .unwrap();
-        let mut state_data =
-            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
-                .unwrap();
-        let mut state = EngineState::borrow(
-            &mut state_data,
-            &prepared,
-            &super::super::services::LOGICAL_ONLY,
-        );
-        state
-            .data
-            .storage
-            .set_global("output_probe", Value::DInt(7));
-        let reference = state.data.storage.ref_for_global("output_probe").unwrap();
-        let id = state.data.storage.reserve_execution_frame().unwrap();
-        let mut frame = VmFrame {
-            activation: Some(id),
-            pou_id: None,
-            return_pc: 0,
-            code_start: 0,
-            code_end: 0,
-            local_ref_start: 0,
-            local_ref_count: 0,
-            locals: Vec::new(),
-            parameter_values_present: Vec::new(),
-            runtime_instance: None,
-            instance_owner: None,
-        };
-        let measure = |state: &mut EngineState<'_>, frame: &mut VmFrame| {
+        // Two writes through one reference to `output_probe`, measured on a program that
+        // declares only it and on one that also declares a 32,768-element array the writes
+        // never reach: the journal's cost follows its destinations, not the program's size.
+        let measure = |prepared: &PreparedModule| {
+            let mut state_data =
+                EngineState::construct_data(prepared, 0, &super::super::services::LOGICAL_ONLY)
+                    .unwrap();
+            let mut state = EngineState::borrow(
+                &mut state_data,
+                prepared,
+                &super::super::services::LOGICAL_ONLY,
+            );
+            crate::vm::engine::test_store::set_global(&mut state, "output_probe", Value::DInt(7));
+            let reference =
+                crate::memory::view::StoreAccess::ref_for_global(&state, "output_probe").unwrap();
+            let id = state.data.storage.reserve_execution_frame().unwrap();
+            let mut frame = VmFrame {
+                activation: Some(id),
+                pou_id: None,
+                return_pc: 0,
+                code_start: 0,
+                code_end: 0,
+                local_ref_start: 0,
+                local_ref_count: 0,
+                locals: Vec::new(),
+                parameter_values_present: Vec::new(),
+                runtime_instance: None,
+                instance_owner: None,
+            };
             let before = state.data.resources.construction_bytes.get();
             state
-                .with_output_transaction(frame, |state, frame| {
+                .with_output_transaction(&mut frame, |state, frame| {
                     VmWriteTarget::from_reference(&reference).write(
                         state,
                         frame,
@@ -665,67 +667,95 @@ mod tests {
                     Ok(())
                 })
                 .unwrap();
+            assert_eq!(
+                crate::vm::engine::test_store::global(&state, "output_probe"),
+                Some(Value::DInt(90))
+            );
             state.data.resources.construction_bytes.get() - before
         };
-        let small = measure(&mut state, &mut frame);
-        state.data.storage.set_global(
-            "unrelated",
-            Value::Array(alloc::boxed::Box::new(
-                crate::value::ArrayValue::from_canonical_parts(
-                    vec![Value::DInt(0); 32768],
-                    vec![(0, 32767)],
+        let small = measure(&crate::memory::cell_access::fixture::prepared_with_globals(
+            &[(
+                "output_probe",
+                crate::memory::cell_access::fixture::primitive(8, 0),
+            )],
+        ));
+        let large = measure(&crate::memory::cell_access::fixture::prepared_with_globals(
+            &[
+                (
+                    "output_probe",
+                    crate::memory::cell_access::fixture::primitive(8, 0),
                 ),
-            )),
-        );
-        let large = measure(&mut state, &mut frame);
+                (
+                    "unrelated",
+                    crate::memory::cell_access::fixture::anonymous(
+                        crate::bytecode::TypeKind::Array,
+                        crate::bytecode::TypeData::Array {
+                            elem_type_id: crate::memory::cell_access::fixture::DINT_TYPE,
+                            dims: vec![(0, 32767)],
+                        },
+                    ),
+                ),
+            ],
+        ));
         // TIME-08: journal growth is bookkeeping, so neither size draws allocation.
         assert_eq!(small, 0, "journal growth draws no allocation");
         assert_eq!(
             small, large,
             "snapshot cost follows destinations, not runtime size"
         );
-        assert_eq!(
-            state.data.storage.get_global("output_probe"),
-            Some(&Value::DInt(90))
-        );
     }
 
     #[test]
     fn redirected_instance_output_is_journaled_at_its_actual_write() {
+        // The program `Methods` of the bounded-C corpus declares the interface `port : IGauge` and
+        // the instances `tank : Tank` (`level` 5) and `probe : Probe` (`sample` 9) that implement
+        // it. A transaction writes `tank.level`, redirects `port` from the tank to the probe and
+        // writes `probe.sample`; each destination is journaled at the slot its write reaches, past
+        // the instance hop of its path, and the later failure restores `port` and both instances.
+        // A path through `port` into a member is no ST path (an interface names methods only), and
+        // the write check refuses it, so the journal is not given one.
         let prepared = PreparedModule::from_bytes(
             include_bytes!(
-                "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
+                "../../../../trust-runtime/tests/fixtures/bounded-c/methods/program.stbc"
             ),
             crate::vm::PreparationLimits::default(),
         )
         .unwrap();
         let mut state_data =
-            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
         let mut state = EngineState::borrow(
             &mut state_data,
             &prepared,
             &super::super::services::LOGICAL_ONLY,
         );
-        let first = state.data.storage.create_instance("Probe");
-        let second = state.data.storage.create_instance("Probe");
+        let plant = crate::vm::engine::test_store::global_instance(&state, "Plant");
+        let member = |state: &EngineState<'_>, name: &str| {
+            match crate::vm::engine::test_store::instance_var(state, plant, name) {
+                Some(Value::Instance(instance)) => instance,
+                other => panic!("{name} names no instance: {other:?}"),
+            }
+        };
+        let (tank, probe) = (member(&state, "tank"), member(&state, "probe"));
+        let port = [crate::value::RefSegment::Field("port".into())];
         state
-            .data
-            .storage
-            .set_instance_var(first, "number", Value::DInt(7));
-        state
-            .data
-            .storage
-            .set_instance_var(second, "number", Value::DInt(9));
-        state
-            .data
-            .storage
-            .set_global("alias_probe", Value::Instance(first));
-        let root = state.data.storage.ref_for_global("alias_probe").unwrap();
-        let mut field = root.clone();
-        field
-            .path
-            .push(crate::value::RefSegment::Field("number".into()));
+            .write_named_path("Plant", &port, Value::Instance(tank))
+            .unwrap();
+        let plant_ref = crate::memory::view::StoreAccess::ref_for_global(&state, "Plant").unwrap();
+        let path = |segments: &[&str]| {
+            let mut reference = plant_ref.clone();
+            reference.path.extend(
+                segments
+                    .iter()
+                    .map(|name| crate::value::RefSegment::Field((*name).into())),
+            );
+            reference
+        };
+        let (root, level, sample) = (
+            path(&["port"]),
+            path(&["tank", "level"]),
+            path(&["probe", "sample"]),
+        );
         let mut frame = VmFrame {
             activation: None,
             pou_id: None,
@@ -741,28 +771,24 @@ mod tests {
         };
         let error = state
             .with_output_transaction(&mut frame, |state, frame| {
-                VmWriteTarget::from_reference(&field).write(state, frame, Value::DInt(70))?;
-                VmWriteTarget::from_reference(&root).write(
-                    state,
-                    frame,
-                    Value::Instance(second),
-                )?;
-                VmWriteTarget::from_reference(&field).write(state, frame, Value::DInt(90))?;
+                VmWriteTarget::from_reference(&level).write(state, frame, Value::Int(70))?;
+                VmWriteTarget::from_reference(&root).write(state, frame, Value::Instance(probe))?;
+                VmWriteTarget::from_reference(&sample).write(state, frame, Value::Int(90))?;
                 Err::<(), _>(VmTrap::Runtime(RuntimeError::Overflow))
             })
             .unwrap_err();
-        assert!(matches!(error, VmTrap::Runtime(RuntimeError::Overflow)));
+        assert!(
+            matches!(error, VmTrap::Runtime(RuntimeError::Overflow)),
+            "{error:?}"
+        );
+        assert_eq!(member(&state, "port"), tank);
         assert_eq!(
-            state.data.storage.get_global("alias_probe"),
-            Some(&Value::Instance(first))
+            crate::vm::engine::test_store::instance_var(&state, tank, "level"),
+            Some(Value::Int(5))
         );
         assert_eq!(
-            state.data.storage.get_instance_var(first, "number"),
-            Some(&Value::DInt(7))
-        );
-        assert_eq!(
-            state.data.storage.get_instance_var(second, "number"),
-            Some(&Value::DInt(9))
+            crate::vm::engine::test_store::instance_var(&state, probe, "sample"),
+            Some(Value::Int(9))
         );
         assert!(state.data.resources.output_journal.is_none());
     }

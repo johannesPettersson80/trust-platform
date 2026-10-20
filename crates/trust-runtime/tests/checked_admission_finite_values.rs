@@ -308,3 +308,44 @@ fn checked_admission_public_writes_accept_finite_boundary_values_bit_for_bit() {
     );
     assert!(!runtime.faulted());
 }
+
+const OVERLAP_SOURCE: &str = r#"
+TYPE Ieee : STRUCT OVERLAP
+    number AT %B0 : REAL;
+    bits AT %B0 : DWORD;
+END_STRUCT; END_TYPE
+
+VAR_GLOBAL
+    probe : Ieee;
+END_VAR
+
+PROGRAM Main
+END_PROGRAM
+"#;
+
+/// Spec 34 §4.3.1 (an engineering write checks the IEEE aliases it reconstructs, not only the
+/// incoming bits) and specification 02 §3.6 (`STRUCT OVERLAP` members share their bits): writing
+/// `16#7FC00000`, the bits of a quiet NaN, into the `DWORD` view of an overlap whose `REAL` shares
+/// them is refused with `runtime_non_finite_value`, and both views keep their zero bits. Wrong
+/// behaviour caught: a write that checks only the `DWORD` it was given and leaves a NaN in the
+/// `REAL` view, which the finite policy forbids.
+#[test]
+fn checked_admission_overlap_bits_write_rejects_a_non_finite_real_alias() {
+    let mut runtime = CompileSession::from_source(OVERLAP_SOURCE)
+        .build_runtime()
+        .expect("overlap fixture compiles");
+    let mut bits = runtime
+        .storage()
+        .ref_for_global("probe")
+        .expect("probe reference");
+    bits.path = vec![trust_runtime::value::RefSegment::Field("BiTs".into())];
+    let error = runtime
+        .write_reference(&bits, Value::DWord(0x7FC0_0000))
+        .expect_err("a NaN in the REAL alias must be rejected");
+    assert_non_finite(error);
+    let mut number = bits.clone();
+    number.path = vec![trust_runtime::value::RefSegment::Field("NuMbEr".into())];
+    assert_eq!(runtime.read_reference(&bits), Ok(Value::DWord(0)));
+    assert_eq!(runtime.read_reference(&number), Ok(Value::Real(0.0)));
+    assert!(!runtime.faulted());
+}

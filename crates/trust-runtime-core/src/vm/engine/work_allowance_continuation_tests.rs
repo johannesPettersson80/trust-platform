@@ -43,13 +43,10 @@ fn nested_call_work_total_is_equal_on_the_stack_register_and_tier1_backends() {
     fn consumed(prepared: &PreparedModule, mode: &Mode) -> usize {
         let mut data = EngineState::construct_data(prepared, 0, mode).unwrap();
         let mut state = EngineState::borrow(&mut data, prepared, mode);
-        state.data.storage.set_global("probe_depth", Value::Int(2));
+        crate::vm::engine::test_store::set_global(&mut state, "probe_depth", Value::Int(2));
         let full = prepared.limits.max_work;
         state.data.resources.work_budget.reset(full);
-        let Some(Value::Instance(plant)) = state.data.storage.get_global("Plant") else {
-            panic!("program root")
-        };
-        let plant = *plant;
+        let plant = crate::vm::engine::test_store::global_instance(&state, "Plant");
         let pou = *state
             .data
             .construction

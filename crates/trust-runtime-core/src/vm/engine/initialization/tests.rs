@@ -17,19 +17,16 @@ fn forged_dynamic_initializer_store_cannot_modify_global_storage() {
         &prepared,
         &super::super::services::LOGICAL_ONLY,
     );
-    state
-        .data
-        .storage
-        .set_global("staging_escape_probe", Value::DInt(7));
-    let destination = state
-        .data
-        .storage
-        .ref_for_global("staging_escape_probe")
-        .unwrap();
+    // The escape's target is the program's `activations` (DINT 0), reached from the program root
+    // global: a variable outside the initializer's staged result.
+    let plant = crate::vm::engine::test_store::global_instance(&state, "Plant");
+    let (_, root) = prepared
+        .global("Plant")
+        .expect("the program root is declared");
     let reference = forged.vm.refs.len() as u32;
     forged.vm.refs.push(VmRef::Global {
-        offset: destination.offset as usize,
-        path: Vec::new(),
+        offset: root.slot as usize,
+        path: vec![crate::value::RefSegment::Field("activations".into())],
     });
     forged.vm.ref_types.push(None);
     let constant = forged.vm.consts.len() as u32;
@@ -53,8 +50,8 @@ fn forged_dynamic_initializer_store_cannot_modify_global_storage() {
         Err(RuntimeError::StagingViolation)
     );
     assert_eq!(
-        state.data.storage.get_global("staging_escape_probe"),
-        Some(&Value::DInt(7))
+        crate::vm::engine::test_store::instance_var(&state, plant, "activations"),
+        Some(Value::DInt(0))
     );
     assert!(
         state.data.construction.initializers.is_empty(),
@@ -72,18 +69,14 @@ fn forged_dynamic_initializer_store_cannot_modify_global_storage() {
         .all(|bits| *bits == 0));
     // A trap must leave no staged slot or context that affects the next action.
     state.prepared = &prepared;
-    let Some(Value::Instance(plant)) = state.data.storage.get_global("Plant") else {
-        panic!("fixture root");
-    };
-    let plant = *plant;
     assert_eq!(
         state.evaluate_initializer(enabled_initializer(&prepared), None, Some(plant), 0),
         Ok(Value::Bool(true))
     );
     assert_eq!(state.data.storage.execution_frame_count(), 0);
     assert_eq!(
-        state.data.storage.get_global("staging_escape_probe"),
-        Some(&Value::DInt(7))
+        crate::vm::engine::test_store::instance_var(&state, plant, "activations"),
+        Some(Value::DInt(0))
     );
 }
 
@@ -123,10 +116,7 @@ fn deepest_admitted_initializer_reuses_staging_and_rejects_the_next_depth() {
         &prepared,
         &super::super::services::LOGICAL_ONLY,
     );
-    let Some(Value::Instance(plant)) = state.data.storage.get_global("Plant") else {
-        panic!("fixture root");
-    };
-    let plant = *plant;
+    let plant = crate::vm::engine::test_store::global_instance(&state, "Plant");
     let initializer = enabled_initializer(&prepared);
     let before = state.data.storage.instances().len();
     for _ in 0..3 {

@@ -2,6 +2,7 @@
 //! a replacement is refused with `Overflow` before anything changes, and the installed
 //! generation's references keep working.
 use super::*;
+use crate::memory::view::StoreAccess;
 use crate::retain::RestartMode;
 
 const GPIO: &[u8] =
@@ -14,25 +15,21 @@ fn prepared() -> PreparedModule {
 #[test]
 fn a_restart_at_the_last_generation_is_refused_and_changes_nothing() {
     let prepared = prepared();
-    let mut data =
-        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     // Reaching the limit otherwise takes 2^32 - 1 restarts of one installation.
-    data.storage.set_generation(Generation(u32::MAX - 1));
+    data.set_generation_for_test(Generation(u32::MAX - 1));
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
     state.execute_cycle(Duration::from_millis(10)).unwrap();
     state.restart(RestartMode::Warm).unwrap();
-    assert_eq!(state.data.storage.generation(), Generation(u32::MAX));
+    assert_eq!(StoreAccess::generation(&state), Generation(u32::MAX));
 
-    let held = state.data.storage.ref_for_global("probe_depth").unwrap();
-    let globals = state.data.storage.globals().clone();
+    let held = StoreAccess::ref_for_global(&state, "probe_depth").unwrap();
+    let globals = super::test_store::projection(&state).globals().clone();
     for mode in [RestartMode::Warm, RestartMode::Cold] {
         assert_eq!(state.restart(mode), Err(RuntimeError::Overflow));
-        assert_eq!(state.data.storage.generation(), Generation(u32::MAX));
-        assert_eq!(state.data.storage.globals(), &globals);
-        assert_eq!(
-            state.data.storage.read_by_ref_ref(&held),
-            Some(&Value::Int(1))
-        );
+        assert_eq!(StoreAccess::generation(&state), Generation(u32::MAX));
+        assert_eq!(super::test_store::projection(&state).globals(), &globals);
+        assert_eq!(super::test_store::read(&state, &held), Some(Value::Int(1)));
         assert!(state.data.fault.is_none());
     }
     state.execute_cycle(Duration::from_millis(20)).unwrap();

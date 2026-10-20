@@ -14,7 +14,6 @@ use crate::memory::cell_access::PlaceTarget;
 use crate::memory::cells::text_geometry;
 use crate::memory::layout::ByteRange;
 use crate::stdlib::conversions::ConversionType;
-use crate::vm::engine::store_access::Routed;
 use crate::vm::prepared::byte_types::text_primitive;
 use core::ops::Range;
 
@@ -121,9 +120,7 @@ impl EngineState<'_> {
             .get(bytes)
             .and_then(|bytes| core::str::from_utf8(bytes).ok())
             .ok_or(RuntimeError::InvalidExecutionState)?;
-        let EngineStore::Cells(arm) = &mut self.data.store else {
-            return Err(RuntimeError::InvalidExecutionState);
-        };
+        let arm = &mut *self.data.store;
         if arm.write_text(leaf.range, leaf.geometry, leaf.presence, text) {
             Ok(())
         } else {
@@ -134,9 +131,7 @@ impl EngineState<'_> {
     /// The `STRING` leaf of the flat store that `reference` names, or `None` for any other
     /// destination.
     fn text_leaf(&self, reference: ValueRefView<'_>) -> Option<TextLeaf> {
-        let Routed::Cells(reader) = self.data.routed(self.prepared) else {
-            return None;
-        };
+        let reader = self.data.reader(self.prepared);
         let PlaceTarget::Cells {
             range,
             type_id,

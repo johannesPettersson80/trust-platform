@@ -1,5 +1,5 @@
 //! Public state surface excludes internal storage and dispatcher context traits.
-use super::{Construction, EngineData, EngineState, ExecutionServices, PreparedModule, StoreKind};
+use super::{EngineData, EngineState, ExecutionServices, PreparedModule};
 use crate::{
     error::RuntimeError,
     fault::{FaultRecord, NO_TASK},
@@ -56,30 +56,6 @@ impl PreparedModule {
     ) -> Result<RuntimeState<'a>, RuntimeError> {
         Ok(RuntimeState {
             data: EngineState::construct_data(self, resource_index, services)?,
-            prepared: self,
-            services,
-            projection: core::cell::OnceCell::new(),
-        })
-    }
-
-    /// Construct as [`PreparedModule::instantiate_with_services`]: on the flat store, which every
-    /// state holds its globals and persistent instances in since C1-19d.
-    #[doc(hidden)]
-    pub fn instantiate_on_cells_with_services<'a>(
-        &'a self,
-        resource_index: usize,
-        services: &'a dyn ExecutionServices,
-    ) -> Result<RuntimeState<'a>, RuntimeError> {
-        Ok(RuntimeState {
-            data: EngineState::construct_data_with(
-                self,
-                resource_index,
-                services,
-                Construction {
-                    store: StoreKind::Cells,
-                    ..Construction::default()
-                },
-            )?,
             prepared: self,
             services,
             projection: core::cell::OnceCell::new(),
@@ -194,10 +170,9 @@ impl RuntimeState<'_> {
     pub fn storage(&self) -> &VariableStorage {
         EngineState::projected_storage(&self.data, self.prepared, &self.projection)
     }
-    /// The storage the engine lends its statement hooks with each frame: the value store, or on the
-    /// flat store its `Value` half, beside the frame's view of the blocks (C1-19d). A debugger hold
-    /// lends it rather than a copy (specification 11 §6.13.1), which the device tests check by its
-    /// address.
+    /// The storage the engine lends its statement hooks with each frame: the flat store's `Value`
+    /// half, beside the frame's view of the blocks (C1-19d). A debugger hold lends it rather than a
+    /// copy (specification 11 §6.13.1), which the device tests check by its address.
     #[doc(hidden)]
     pub fn hook_storage(&self) -> &VariableStorage {
         &self.data.storage

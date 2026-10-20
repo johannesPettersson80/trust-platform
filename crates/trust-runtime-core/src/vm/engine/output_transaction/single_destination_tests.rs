@@ -8,17 +8,17 @@ fn fixture() -> (
     VmFrame,
     ValueRef,
 ) {
-    let prepared = PreparedModule::from_bytes(
-        include_bytes!(
-            "../../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
-        ),
-        crate::vm::PreparationLimits::default(),
-    )
-    .unwrap();
-    let mut data =
-        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
-    data.storage.set_global("journal_probe", Value::DInt(7));
-    let reference = data.storage.ref_for_global("journal_probe").unwrap();
+    // A DINT global the tests journal, declared beside the cell fixture's own.
+    let prepared = crate::memory::cell_access::fixture::prepared_with_globals(&[(
+        "journal_probe",
+        crate::memory::cell_access::fixture::primitive(8, 0),
+    )]);
+    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    let reference = {
+        let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+        crate::vm::engine::test_store::set_global(&mut state, "journal_probe", Value::DInt(7));
+        crate::memory::view::StoreAccess::ref_for_global(&state, "journal_probe").unwrap()
+    };
     data.resources.construction_bytes.set(0);
     let frame = VmFrame {
         activation: None,
@@ -52,8 +52,8 @@ fn single_output_snapshot_draws_no_allocation_at_any_limit() {
         assert!(result.is_ok(), "limit {limit}: {result:?}");
         assert_eq!(state.data.resources.construction_bytes.get(), 0);
         assert_eq!(
-            state.data.storage.get_global("journal_probe"),
-            Some(&Value::DInt(70))
+            crate::vm::engine::test_store::global(&state, "journal_probe"),
+            Some(Value::DInt(70))
         );
         assert!(state.data.resources.output_journal.is_none());
     }
@@ -72,9 +72,11 @@ fn repeated_output_keeps_first_snapshot_and_late_failure_rolls_back() {
         assert_eq!(state.data.resources.construction_bytes.get(), 0);
         let journal = state.data.resources.output_journal.as_ref().unwrap();
         assert_eq!(journal.len(), 1);
+        // The flat store saves the root as its bytes (C1-16): DINT#7 is 7 and three zero bytes,
+        // little-endian (specification 34 §6.2).
         assert_eq!(
-            journal.get(&(reference.location, reference.offset as usize)),
-            Some(&Value::DInt(7))
+            journal.saved_bytes(&(reference.location, reference.offset as usize)),
+            Some(&[7u8, 0, 0, 0][..])
         );
         Err::<(), _>(VmTrap::Runtime(RuntimeError::DivisionByZero))
     });
@@ -83,8 +85,8 @@ fn repeated_output_keeps_first_snapshot_and_late_failure_rolls_back() {
         Err(VmTrap::Runtime(RuntimeError::DivisionByZero))
     ));
     assert_eq!(
-        state.data.storage.get_global("journal_probe"),
-        Some(&Value::DInt(7))
+        crate::vm::engine::test_store::global(&state, "journal_probe"),
+        Some(Value::DInt(7))
     );
     assert!(state.data.resources.output_journal.is_none());
 }
@@ -115,7 +117,7 @@ fn invalid_snapshot_resolves_before_allocation_and_never_inserts() {
     );
     assert_eq!(state.data.resources.construction_bytes.get(), 0);
     assert_eq!(
-        state.data.storage.get_global("journal_probe"),
-        Some(&Value::DInt(7))
+        crate::vm::engine::test_store::global(&state, "journal_probe"),
+        Some(Value::DInt(7))
     );
 }

@@ -54,7 +54,7 @@ fn charge_of(view: ValueView<'_>) -> CopyCharge {
         } => cells
             .copy_charge(range, type_id, 0)
             .expect("the cells of a value copy"),
-        ValueView::Value(_) | ValueView::Bits { .. } => {
+        ValueView::Value(_) | ValueView::Bits { .. } | ValueView::Instance(_) => {
             panic!("a view of a declaration of the cell arm holds cells")
         }
     }
@@ -105,32 +105,18 @@ fn write_normalizes_to_the_declared_type() {
 
 #[test]
 fn a_null_slot_is_not_widened() {
-    // Specification 34 §6.2 (O11): a slot that holds Null is not widened, as the `Value` store keeps it
-    // (`value/types.rs:943`, the last arm). The program root `Main` holds Null on the `Value` half of both
-    // stores, so a SINT 3 written over it stays a SINT 3, not an INT or a DINT. A Null written over the
-    // cell-backed `dint_g` leaves the empty cell, which reads as Null and not as the DINT zero.
+    // Specification 34 §6.2 (O11): a slot that holds Null is not widened, as the `Value` store kept it
+    // (`value/types.rs:943`, the last arm). The program root `Main` holds no storage on the flat store
+    // (specification 12 §6.4, construction-only; C1-19e): it names its program's instance, which the
+    // fixture does not construct, so it reads as nothing and a write to it is refused, where the `Value`
+    // store kept a SINT 3 written over its Null. A Null written over the cell-backed `dint_g` leaves the
+    // empty cell, which reads as Null and not as the DINT zero.
     let mut fixture = Fixture::new();
-    assert_eq!(
-        fixture.reader().read_global("Main").map(value_of),
-        Some(Value::Null)
-    );
-    assert!(with_writer(&mut fixture, |writer| {
+    assert_eq!(fixture.reader().read_global("Main").map(value_of), None);
+    assert!(!with_writer(&mut fixture, |writer| {
         StoreMutate::write_slot(writer, MemoryLocation::Global, MAIN_G, Value::SInt(3))
     }));
-    assert!(StoreMutate::write_slot(
-        &mut fixture.values,
-        MemoryLocation::Global,
-        MAIN_G,
-        Value::SInt(3)
-    ));
-    assert_eq!(
-        fixture.reader().read_global("Main").map(value_of),
-        Some(Value::SInt(3))
-    );
-    assert_eq!(
-        StoreAccess::read_global(&fixture.values, "Main").map(value_of),
-        Some(Value::SInt(3))
-    );
+    assert_eq!(fixture.reader().read_global("Main").map(value_of), None);
     // A DINT holds four bytes and no tag (specification 34 MEM-12): the null value writes zero
     // bytes, which read as 0.
     assert!(with_writer(&mut fixture, |writer| {
@@ -382,7 +368,10 @@ fn apply_cell_and_value_writes(fixture: &mut Fixture) {
 
 /// Every global and every path read compares the two stores, and the hand values hold.
 fn assert_cell_and_value_reads_equal(fixture: &Fixture) {
-    for (ordinal, name) in GLOBAL_NAMES.iter().enumerate() {
+    // The program root `Main` holds no storage and names no instance the fixture constructs
+    // (C1-19e), where the `Value` store held its Null; every other global reads alike.
+    assert_eq!(fixture.reader().read_global("Main").map(value_of), None);
+    for (ordinal, name) in GLOBAL_NAMES.iter().enumerate().skip(1) {
         let from_cells = fixture.reader().read_global(name).map(value_of);
         assert_eq!(
             from_cells,
@@ -401,10 +390,6 @@ fn assert_cell_and_value_reads_equal(fixture: &Fixture) {
     assert_eq!(
         fixture.reader().read_global("text_g").map(value_of),
         Some(Value::String(SmolStr::new("xyz")))
-    );
-    assert_eq!(
-        fixture.reader().read_global("Main").map(value_of),
-        Some(Value::Null)
     );
 
     let paths: [(usize, Vec<RefSegment>, Value); 5] = [

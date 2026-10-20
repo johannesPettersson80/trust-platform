@@ -1,14 +1,15 @@
-//! The call stack a debugger reads, on both stores (specification 34 §6.3, specification 11 §6.13.1;
-//! C1-17).
+//! The call stack a debugger reads (specification 34 §6.3, specification 11 §6.13.1; C1-17, C1-19e).
 //!
 //! At every instruction the engine gives the statement observer the active frame, and through it the
 //! frames suspended below it. A debugger acts only where a statement starts, as the module's
 //! `LINE_TABLE` names the starts (specification 12 §6.13). On the flat store a frame's typed locals lie
 //! on the activation stack and the frame's own entries for them are `Null`, so an observer reads each
-//! local with [`StatementFrame::local`]; on the value store the frame holds them. The test records what
-//! an observer reads at every statement start of the corpus programs and compares the two stores.
+//! local with [`StatementFrame::local`]; on the value store the frame held them. The test checks what an
+//! observer reads at every statement start of the corpus programs against what it read on the `Value`
+//! store, which is recorded (`expected.rs`).
 
-use super::{build, prepare, EngineState, StoreKind, CORPUS};
+use super::expected::Facts;
+use super::{build, prepare, EngineState, CORPUS};
 use crate::bytecode::BytecodeModule;
 use crate::debug::StatementIndex;
 use crate::error::RuntimeError;
@@ -75,9 +76,9 @@ impl ExecutionServices for FrameRecorder {
     }
 }
 
-/// What an observer reads at every statement start of `SCANS` scans of the program `bytes` on
-/// `store`, and how each scan ended; `None` for a program without a `LINE_TABLE`.
-fn observed(bytes: &[u8], store: StoreKind) -> Option<Vec<String>> {
+/// What an observer reads at every statement start of `SCANS` scans of the program `bytes`, and how
+/// each scan ended; `None` for a program without a `LINE_TABLE`.
+fn observed(bytes: &[u8]) -> Option<Vec<String>> {
     let module = BytecodeModule::decode(bytes).expect("the corpus program decodes");
     let table = module.line_table()?;
     let recorder = FrameRecorder {
@@ -85,7 +86,7 @@ fn observed(bytes: &[u8], store: StoreKind) -> Option<Vec<String>> {
         lines: RefCell::new(Vec::new()),
     };
     let prepared = prepare(bytes);
-    let mut data = build(&prepared, store).expect("the program constructs");
+    let mut data = build(&prepared).expect("the program constructs");
     {
         let mut state = EngineState::borrow(&mut data, &prepared, &recorder);
         for scan in 1..=SCANS {
@@ -100,55 +101,46 @@ fn observed(bytes: &[u8], store: StoreKind) -> Option<Vec<String>> {
     Some(recorder.lines.take())
 }
 
-#[test]
-fn an_observer_reads_the_same_call_stack_on_both_stores() {
-    // Specification 34 §6.3 and specification 11 §6.13.1 (C1-17): the debugger shows the values a
-    // program holds, whichever store holds them, and a program cannot tell the stores apart (§6.2).
-    // Each corpus program runs three scans on both stores with an observer that records, at every
-    // statement start (where a debugger stops, evaluates a condition or writes a logpoint), each frame
-    // of the call stack: its activation, its POU and all its locals read with `StatementFrame::local`.
-    // The value store's record is the expected one. A flat store whose observer read a typed local from
-    // the frame's own entry would record `Null` where the value store records the value; one that read
-    // another activation's bytes would record the caller's or the callee's values in the wrong frame;
-    // one that lost the reader in a suspended frame would record `Null` for the callers' locals. The
-    // record reaches below the active frame: in `calls` the program calls `Twice`, which calls `Scale`,
-    // so three frames are live at `Scale`'s statement.
-    // The saved STBC 2.0 programs predate the LINE_TABLE; every bounded-C program carries one.
-    let mut differences = Vec::new();
+/// What an observer reads in every corpus program that carries a `LINE_TABLE`.
+fn every_call_stack(facts: &mut Facts) {
     let mut deepest = 0;
     for (name, bytes) in CORPUS {
-        let (Some(expected), Some(actual)) = (
-            observed(bytes, StoreKind::Values),
-            observed(bytes, StoreKind::Cells),
-        ) else {
+        let Some(lines) = observed(bytes) else {
             assert!(name.starts_with("saved/"), "{name} carries a LINE_TABLE");
             continue;
         };
         if name == "calls" {
-            deepest = expected
+            deepest = lines
                 .iter()
                 .map(|line| line.matches(" [").count())
                 .max()
                 .unwrap_or(0);
         }
-        if expected.len() != actual.len() {
-            differences.push(format!(
-                "{name}: the value store records {} lines and the flat store {}",
-                expected.len(),
-                actual.len()
-            ));
-        }
-        differences.extend(
-            expected
-                .iter()
-                .zip(&actual)
-                .filter(|(expected, actual)| expected != actual)
-                .take(3)
-                .map(|(expected, actual)| {
-                    format!("{name}: values `{expected}` / cells `{actual}`")
-                }),
-        );
+        facts.check(&format!("call stacks/{name}"), &lines);
     }
-    assert_eq!(differences, Vec::<String>::new());
     assert_eq!(deepest, 3, "calls: the program, Twice and Scale");
+}
+
+#[test]
+fn an_observer_reads_the_call_stack_the_value_store_showed() {
+    // Specification 34 §6.3 and specification 11 §6.13.1 (C1-17): the debugger shows the values a
+    // program holds, whichever store holds them, and a program cannot tell the stores apart (§6.2).
+    // Each corpus program runs three scans with an observer that records, at every statement start
+    // (where a debugger stops, evaluates a condition or writes a logpoint), each frame of the call
+    // stack: its activation, its POU and all its locals read with `StatementFrame::local`. The value
+    // store's record is the expected one. A flat store whose observer read a typed local from the
+    // frame's own entry would record `Null` where the value store recorded the value; one that read
+    // another activation's bytes would record the caller's or the callee's values in the wrong frame;
+    // one that lost the reader in a suspended frame would record `Null` for the callers' locals. The
+    // record reaches below the active frame: in `calls` the program calls `Twice`, which calls `Scale`,
+    // so three frames are live at `Scale`'s statement.
+    // The saved STBC 2.0 programs predate the LINE_TABLE; every bounded-C program carries one.
+    let mut facts = Facts::compared();
+    every_call_stack(&mut facts);
+    facts.finish("call stacks/");
+}
+
+/// Record the facts of every test of this file.
+pub(super) fn record(facts: &mut Facts) {
+    every_call_stack(facts);
 }

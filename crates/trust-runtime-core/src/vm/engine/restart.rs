@@ -30,7 +30,6 @@ impl EngineState<'_> {
             self.data.now,
             // The restart reconstructs the store it replaces, with the profile it ran with.
             Construction {
-                store: self.data.store.kind(),
                 profile: self.data.profile,
             },
         )?;
@@ -111,7 +110,6 @@ impl EngineState<'_> {
             self.data.now,
             // The replacement continues the installation on the store it runs on, with its profile.
             super::Construction {
-                store: self.data.store.kind(),
                 profile: self.data.profile,
             },
         )?;
@@ -246,9 +244,9 @@ impl EngineState<'_> {
         Ok(())
     }
 
-    /// Whether this store takes the source value `view` as its cells: both stores hold cells (C1-14b).
+    /// Whether this store takes the source value `view` as its cells: the value lies in cells (C1-14b).
     fn copies_cells_from(&self, view: &ValueView<'_>) -> bool {
-        self.holds_cells() && matches!(view, ValueView::Cells { .. })
+        matches!(view, ValueView::Cells { .. })
     }
 
     /// `restore_program_value` from the source's cells: the copy charged as the copy of the value
@@ -271,9 +269,7 @@ impl EngineState<'_> {
         let bytes = cells
             .bytes(range)
             .ok_or(RuntimeError::InvalidExecutionState)?;
-        let EngineStore::Cells(arm) = &mut self.data.store else {
-            return Err(RuntimeError::InvalidExecutionState);
-        };
+        let arm = &mut *self.data.store;
         if arm.write_bytes(at, bytes) {
             Ok(())
         } else {

@@ -339,9 +339,7 @@ END_CONFIGURATION
             prepared: Arc::clone(&prepared),
             deepest: Arc::new(Mutex::new(None)),
         };
-        let mut state = prepared
-            .instantiate_on_cells_with_services(0, &observer)
-            .unwrap();
+        let mut state = prepared.instantiate_with_services(0, &observer).unwrap();
         state.write_global("probe_depth", Value::Int(4)).unwrap();
         state.execute_cycle(Duration::from_millis(10)).unwrap();
         let snapshot = observer

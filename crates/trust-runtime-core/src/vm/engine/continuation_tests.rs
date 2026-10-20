@@ -13,25 +13,23 @@ fn compiled_call_depth_does_not_grow_native_dispatch_buffer_nesting() {
     )
     .unwrap();
     let mut state_data =
-        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+        EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let mut state = EngineState::borrow(&mut state_data, &prepared, &services::LOGICAL_ONLY);
-    state.data.storage.set_global("probe_depth", Value::Int(2));
+    crate::vm::engine::test_store::set_global(&mut state, "probe_depth", Value::Int(2));
     state.execute_cycle(Duration::from_millis(10)).unwrap();
     // Depth two already covers ordinary entry plus synchronous return initialization.
     let buffers = state.data.resources.buffers.len();
-    state.data.storage.set_global("probe_depth", Value::Int(4));
+    crate::vm::engine::test_store::set_global(&mut state, "probe_depth", Value::Int(4));
     state.execute_cycle(Duration::from_millis(20)).unwrap();
     assert_eq!(
         state.data.resources.buffers.len(),
         buffers,
         "user call nesting must not acquire another recursive dispatcher buffer"
     );
-    let Some(Value::Instance(plant)) = state.data.storage.get_global("Plant") else {
-        panic!("program root")
-    };
+    let plant = crate::vm::engine::test_store::global_instance(&state, "Plant");
     assert_eq!(
-        state.data.storage.get_instance_var(*plant, "depth_result"),
-        Some(&Value::Int(4))
+        crate::vm::engine::test_store::instance_var(&state, plant, "depth_result"),
+        Some(Value::Int(4))
     );
     assert_eq!(state.data.storage.execution_activation_count(), 0);
     assert_eq!(state.data.storage.execution_frame_count(), 0);
@@ -49,13 +47,9 @@ fn stack_only_native_chain_preserves_depth_and_cleans_up_after_refusal() {
         },
     )
     .unwrap();
-    let mut data =
-        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
-    let Some(Value::Instance(plant)) = state.data.storage.get_global("Plant") else {
-        panic!("program root")
-    };
-    let plant = *plant;
+    let plant = crate::vm::engine::test_store::global_instance(&state, "Plant");
     let pou = *state
         .data
         .construction
@@ -63,11 +57,11 @@ fn stack_only_native_chain_preserves_depth_and_cleans_up_after_refusal() {
         .get(&plant)
         .expect("Plant has an admitted program template");
 
-    state.data.storage.set_global("probe_depth", Value::Int(4));
+    crate::vm::engine::test_store::set_global(&mut state, "probe_depth", Value::Int(4));
     state.execute_pou(pou, Some(plant)).unwrap();
     assert_eq!(
-        state.data.storage.get_instance_var(plant, "depth_result"),
-        Some(&Value::Int(4)),
+        crate::vm::engine::test_store::instance_var(&state, plant, "depth_result"),
+        Some(Value::Int(4)),
         "native user calls must return through the stack-only cursor driver"
     );
     assert_eq!(state.data.storage.execution_frame_count(), 0);
@@ -82,24 +76,17 @@ fn stack_only_native_chain_preserves_depth_and_cleans_up_after_refusal() {
     )
     .unwrap();
     let mut limited_data =
-        EngineState::construct_values_data(&limited, 0, &services::LOGICAL_ONLY).unwrap();
+        EngineState::construct_data(&limited, 0, &services::LOGICAL_ONLY).unwrap();
     let mut limited_state =
         EngineState::borrow(&mut limited_data, &limited, &services::LOGICAL_ONLY);
-    let Some(Value::Instance(limited_plant)) = limited_state.data.storage.get_global("Plant")
-    else {
-        panic!("program root")
-    };
-    let limited_plant = *limited_plant;
+    let limited_plant = crate::vm::engine::test_store::global_instance(&limited_state, "Plant");
     let limited_pou = *limited_state
         .data
         .construction
         .instance_templates
         .get(&limited_plant)
         .expect("Plant has an admitted program template");
-    limited_state
-        .data
-        .storage
-        .set_global("probe_depth", Value::Int(4));
+    crate::vm::engine::test_store::set_global(&mut limited_state, "probe_depth", Value::Int(4));
     assert_eq!(
         limited_state.execute_pou(limited_pou, Some(limited_plant)),
         Err(VmTrap::CallStackOverflow.into_runtime_error())
@@ -113,19 +100,13 @@ fn stack_only_native_chain_preserves_depth_and_cleans_up_after_refusal() {
         .resources
         .work_budget
         .reset(limited.limits.max_work);
-    limited_state
-        .data
-        .storage
-        .set_global("probe_depth", Value::Int(2));
+    crate::vm::engine::test_store::set_global(&mut limited_state, "probe_depth", Value::Int(2));
     limited_state
         .execute_pou(limited_pou, Some(limited_plant))
         .unwrap();
     assert_eq!(
-        limited_state
-            .data
-            .storage
-            .get_instance_var(limited_plant, "depth_result"),
-        Some(&Value::Int(2))
+        crate::vm::engine::test_store::instance_var(&limited_state, limited_plant, "depth_result"),
+        Some(Value::Int(2))
     );
     assert_eq!(limited_state.data.storage.execution_frame_count(), 0);
     assert_eq!(limited_state.data.storage.execution_activation_count(), 0);
@@ -143,15 +124,11 @@ fn explicit_stack_root_yields_to_distinct_register_callees() {
         },
     )
     .unwrap();
-    let mut data =
-        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
-    state.data.storage.set_global("probe_depth", Value::Int(2));
+    crate::vm::engine::test_store::set_global(&mut state, "probe_depth", Value::Int(2));
     state.data.resources.register.set_profile_enabled(true);
-    let Some(Value::Instance(plant)) = state.data.storage.get_global("Plant") else {
-        panic!("program root")
-    };
-    let plant = *plant;
+    let plant = crate::vm::engine::test_store::global_instance(&state, "Plant");
     let pou = *state
         .data
         .construction
@@ -229,12 +206,9 @@ fn nested_call_work_allowance_is_shared_across_all_dispatch_modes() {
     ) -> (Result<(), RuntimeError>, usize, u64, usize, usize, usize) {
         let mut data = EngineState::construct_data(prepared, 0, mode).unwrap();
         let mut state = EngineState::borrow(&mut data, prepared, mode);
-        state.data.storage.set_global("probe_depth", Value::Int(2));
+        crate::vm::engine::test_store::set_global(&mut state, "probe_depth", Value::Int(2));
         state.data.resources.work_budget.reset(work_limit);
-        let Some(Value::Instance(plant)) = state.data.storage.get_global("Plant") else {
-            panic!("program root")
-        };
-        let plant = *plant;
+        let plant = crate::vm::engine::test_store::global_instance(&state, "Plant");
         let pou = *state
             .data
             .construction
@@ -325,9 +299,9 @@ fn over_depth_unwinds_every_frame_and_allows_a_new_operation() {
     )
     .unwrap();
     let mut state_data =
-        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+        EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let mut state = EngineState::borrow(&mut state_data, &prepared, &services::LOGICAL_ONLY);
-    state.data.storage.set_global("probe_depth", Value::Int(4));
+    crate::vm::engine::test_store::set_global(&mut state, "probe_depth", Value::Int(4));
     assert_eq!(
         state.execute_cycle(Duration::from_millis(10)),
         Err(VmTrap::CallStackOverflow.into_runtime_error())
@@ -336,7 +310,7 @@ fn over_depth_unwinds_every_frame_and_allows_a_new_operation() {
     assert_eq!(state.data.storage.execution_frame_count(), 0);
     assert_eq!(state.data.storage.execution_frame_owner_count(), 0);
     assert!(state.data.construction.initializers.is_empty());
-    state.data.storage.set_global("probe_depth", Value::Int(2));
+    crate::vm::engine::test_store::set_global(&mut state, "probe_depth", Value::Int(2));
     // Invoke the same shared entry after resetting the enclosing operation;
     // this checks cleanup without clearing or reconstructing the installed state.
     state
@@ -344,10 +318,7 @@ fn over_depth_unwinds_every_frame_and_allows_a_new_operation() {
         .resources
         .work_budget
         .reset(prepared.limits.max_work);
-    let Some(Value::Instance(plant)) = state.data.storage.get_global("Plant") else {
-        panic!("program root")
-    };
-    let plant = *plant;
+    let plant = crate::vm::engine::test_store::global_instance(&state, "Plant");
     let pou = *state
         .data
         .construction
@@ -356,8 +327,8 @@ fn over_depth_unwinds_every_frame_and_allows_a_new_operation() {
         .unwrap();
     state.execute_pou(pou, Some(plant)).unwrap();
     assert_eq!(
-        state.data.storage.get_instance_var(plant, "depth_result"),
-        Some(&Value::Int(2))
+        crate::vm::engine::test_store::instance_var(&state, plant, "depth_result"),
+        Some(Value::Int(2))
     );
     assert_eq!(state.data.storage.execution_activation_count(), 0);
 }

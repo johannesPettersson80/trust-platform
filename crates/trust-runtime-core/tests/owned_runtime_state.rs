@@ -128,7 +128,10 @@ fn instruction_observer_borrows_the_complete_live_call_stack_and_retires_ancesto
                 let name = self.prepared.pou_name(frame.pou_id().unwrap()).unwrap();
                 if count == 0 {
                     assert_eq!(name, "Gpio");
-                    let Some(Value::Instance(root)) = storage.get_global("Plant") else {
+                    // The program root names its instance in the storage a debugger reads (the
+                    // projection of the flat store; specification 34 §6.2, C1-19e).
+                    let projected = active.storage_copy(storage).expect("the storage projects");
+                    let Some(Value::Instance(root)) = projected.get_global("Plant") else {
                         panic!("installed program root");
                     };
                     assert_eq!(frame.runtime_instance(), Some(*root));
@@ -404,7 +407,12 @@ fn instruction_observer_receives_read_only_current_state_during_the_common_dispa
             // vacuous because candidate construction also executes bytecode.
             self.observations.fetch_add(1, Ordering::SeqCst);
             assert!(matches!(now.as_millis(), 30 | 60));
-            assert!(storage.get_global("Plant").is_some());
+            // The current state: the storage a debugger reads names the installed program root.
+            assert!(frame
+                .storage_copy(storage)
+                .expect("the storage projects")
+                .get_global("Plant")
+                .is_some());
             assert_eq!(frame.pou_id(), Some(pou));
             // On the flat store a typed local lies on the activation stack, so each is read
             // where it lies (`StatementFrame::local`); the frame's own entry for it is `Null`.
@@ -509,7 +517,8 @@ fn legacy_instruction_observer_remains_supported_by_frame_hook_default_delegatio
         }
         fn on_statement(&self, _: u32, _: usize, _: u32, storage: &VariableStorage, now: Duration) {
             assert_eq!(now, Duration::from_millis(30));
-            assert!(storage.get_global("Plant").is_some());
+            // The current state: the frame that runs is live in the storage the hook receives.
+            assert!(storage.execution_frame_count() > 0);
             self.0.fetch_add(1, Ordering::SeqCst);
         }
     }

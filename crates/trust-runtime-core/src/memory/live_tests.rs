@@ -3,6 +3,16 @@ use super::*;
 use crate::error::RuntimeError;
 use alloc::vec;
 
+/// Begin a top-level execution entry on `storage` (specification 34 §4.3.1): no activation is reserved,
+/// so activation identities start again at zero, and the instance identities issued since the previous
+/// entry began are issued again only when none of those instances is still live. The flat store's
+/// counter is the same counter (`CellStorage::begin_execution_entry`).
+fn begin_entry(storage: &mut VariableStorage) -> Result<(), RuntimeError> {
+    storage.begin_activation_entry()?;
+    storage.identities.begin_entry();
+    Ok(())
+}
+
 #[test]
 fn live_array_keeps_full_keys_sorted_and_supports_non_lifo_retirement() {
     let mut entries = live::LiveEntries::default();
@@ -88,7 +98,7 @@ fn frame_and_instance_id_exhaustion_never_wrap_or_replace_live_state() {
     assert_eq!(storage.get_instance(instance).unwrap().type_name, "LAST");
     // A reserved activation keeps its entry open: no new entry, so nothing restarts.
     assert_eq!(
-        storage.begin_execution_entry(),
+        begin_entry(&mut storage),
         Err(RuntimeError::InvalidExecutionState)
     );
     assert_eq!(
@@ -109,7 +119,7 @@ fn frame_and_instance_id_exhaustion_never_wrap_or_replace_live_state() {
     );
     // The next entry restarts activations at zero. Nothing the finished entry issued is
     // live, so its instance identities are issued again from where that entry started.
-    storage.begin_execution_entry().unwrap();
+    begin_entry(&mut storage).unwrap();
     let restarted = storage.reserve_execution_frame().unwrap();
     assert_eq!(restarted, FrameId(0));
     assert_eq!(storage.try_create_instance("FIRST"), Ok(InstanceId(0)));
@@ -118,7 +128,7 @@ fn frame_and_instance_id_exhaustion_never_wrap_or_replace_live_state() {
     storage.identities.next_instance_id = u32::MAX - 1;
     let last = storage.try_create_instance("LAST").unwrap();
     assert!(storage.release_execution_frame(restarted));
-    storage.begin_execution_entry().unwrap();
+    begin_entry(&mut storage).unwrap();
     assert_eq!(
         storage.try_create_instance("REPLACED"),
         Err(RuntimeError::Overflow)
@@ -127,7 +137,7 @@ fn frame_and_instance_id_exhaustion_never_wrap_or_replace_live_state() {
     assert_eq!(storage.instances().len(), 2);
     // LAST outlived an entry, so even after its removal no later entry issues its identity.
     storage.remove_instance(last);
-    storage.begin_execution_entry().unwrap();
+    begin_entry(&mut storage).unwrap();
     assert_eq!(
         storage.try_create_instance("REUSED"),
         Err(RuntimeError::Overflow)
@@ -148,7 +158,7 @@ fn frame_and_instance_id_exhaustion_never_wrap_or_replace_live_state() {
 fn entry_boundary_reissues_only_identities_released_inside_the_finished_entry() {
     let mut storage = VariableStorage::new();
     let root = storage.try_create_instance("ROOT").unwrap();
-    storage.begin_execution_entry().unwrap();
+    begin_entry(&mut storage).unwrap();
     let caller = storage.reserve_execution_frame().unwrap();
     storage.activate_execution_frame(caller).unwrap();
     let first = storage.try_create_instance("LOCAL").unwrap();
@@ -175,7 +185,7 @@ fn entry_boundary_reissues_only_identities_released_inside_the_finished_entry() 
     );
     assert_eq!(storage.retain_instances(|id| id != second), 1);
 
-    storage.begin_execution_entry().unwrap();
+    begin_entry(&mut storage).unwrap();
     let restarted = storage.reserve_execution_frame().unwrap();
     assert_eq!(restarted, FrameId(0));
     let reissued = storage.try_create_instance("LOCAL").unwrap();
@@ -184,12 +194,12 @@ fn entry_boundary_reissues_only_identities_released_inside_the_finished_entry() 
     assert!(storage.release_execution_frame(restarted));
 
     // `reissued` is live when its entry ends, so its identity is never issued again.
-    storage.begin_execution_entry().unwrap();
+    begin_entry(&mut storage).unwrap();
     let beyond = storage.try_create_instance("LOCAL").unwrap();
     assert_eq!(beyond, InstanceId(2));
     storage.remove_instance(reissued);
     storage.remove_instance(beyond);
-    storage.begin_execution_entry().unwrap();
+    begin_entry(&mut storage).unwrap();
     assert_eq!(storage.try_create_instance("LOCAL"), Ok(InstanceId(2)));
     assert_eq!(storage.get_instance(root).unwrap().type_name, "ROOT");
     assert_eq!(storage.instances().len(), 2);

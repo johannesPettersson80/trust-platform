@@ -19,8 +19,8 @@ use crate::value::{write_value_path, RefSegment};
 mod owner_tests;
 
 impl<'e> ReferenceContext for EngineState<'e> {
-    // The dispatcher reaches the variables through the state itself, which routes each read and write to
-    // the store the engine holds: the `Value` storage or the cell arm (C1-9d2b-1).
+    // The dispatcher reaches the variables through the state itself, which routes each read and write
+    // to the flat store and the `Value` half it keeps (C1-9d2b-1; C1-19e).
     type Store = EngineState<'e>;
 
     fn dynamic_reference_candidates(
@@ -103,6 +103,7 @@ impl<'e> ReferenceContext for EngineState<'e> {
     fn before_view_clone(&self, view: &ValueView<'_>) -> Result<(), RuntimeError> {
         match view {
             ValueView::Value(value) => self.before_value_clone(value),
+            ValueView::Instance(instance) => self.before_value_clone(&Value::Instance(*instance)),
             ValueView::Cells { .. } | ValueView::Bits { .. } => {
                 let bytes = self.view_clone_charge(view)?;
                 self.charge_allocation_bytes(bytes)
@@ -792,18 +793,14 @@ impl CallContext for EngineState<'_> {
 
 impl ExecutionContext for EngineState<'_> {
     fn take_text_buffers(&mut self) -> Option<crate::vm::TextBuffers> {
-        // The value store keeps the call that binds values, against which the differential test
-        // proves the flat store's text calls (C1-12).
-        match self.data.store {
-            EngineStore::Cells(_) => Some(core::mem::take(&mut self.data.resources.text_call)),
-            EngineStore::Values => None,
-        }
+        // Every text call takes the engine's kept buffers (C1-12).
+        Some(core::mem::take(&mut self.data.resources.text_call))
     }
     fn return_text_buffers(&mut self, buffers: crate::vm::TextBuffers) {
         self.data.resources.text_call = buffers;
     }
     fn keeps_texts(&self) -> bool {
-        matches!(self.data.store, EngineStore::Cells(_))
+        true
     }
     fn call_depth_limit(&self) -> usize {
         self.prepared.limits.max_call_depth
@@ -940,10 +937,7 @@ impl ExecutionContext for EngineState<'_> {
             let frame = frame.with_call_stack(&self.data.storage);
             // On the flat store the frames' typed locals, the globals and the instances are read
             // from the blocks (C1-17).
-            let frame = match self.data.routed(self.prepared) {
-                super::store_access::Routed::Cells(reader) => frame.with_cells(reader),
-                super::store_access::Routed::Values(_) => frame,
-            };
+            let frame = frame.with_cells(self.data.reader(self.prepared));
             return self.services.on_statement_with_frame_checked(
                 pou,
                 pc,

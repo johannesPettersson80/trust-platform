@@ -306,9 +306,9 @@ pub fn checked_read_bool_register_with_counts(
 
 /// What a static reference gives a register operation (C1-18).
 pub enum RefOperand<'a> {
-    /// The value stored there: borrowed where it lies on the value store, or read from its cells on
-    /// the flat store, where the read stands for that borrow. Neither is charged here, and whatever
-    /// charges the borrow charges the read alike.
+    /// The value stored there: borrowed where it lies in the `Value` half, or read from its cells,
+    /// where the read stands for that borrow. Neither is charged here, and whatever charges the
+    /// borrow charges the read alike.
     Stored(Cow<'a, Value>),
     /// A value the load built and charged itself: a CHAR or WCHAR of a string.
     Loaded(Value),
