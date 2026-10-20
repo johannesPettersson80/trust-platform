@@ -1,6 +1,6 @@
 //! Typed identity boundaries over compact sorted live entries.
 use super::ordered::{fresh_growth_demand, reserve_growth, Entries};
-use super::{FrameId, InstanceId, RuntimeError, Vec};
+use super::{EngineState, FrameId, InstanceId, RuntimeError, Vec};
 
 #[derive(Debug, Default, PartialEq, Eq)]
 pub(super) struct InstanceSet(Entries<u32, ()>);
@@ -26,6 +26,10 @@ impl InstanceSet {
     /// Room for `capacity` identities, so that inserting as many allocates nothing (C1-19c).
     pub(super) fn reserve_capacity(&mut self, capacity: usize) -> Result<(), RuntimeError> {
         self.0.reserve_capacity(capacity)
+    }
+    /// Room for `capacity` entries that changes no charge (C1-21).
+    pub(super) fn reserve_room(&mut self, capacity: usize) -> Result<(), RuntimeError> {
+        self.0.reserve_room(capacity)
     }
     /// Remove every identity and keep the room they took.
     pub(super) fn clear(&mut self) {
@@ -70,6 +74,10 @@ impl InstanceTemplates {
         self.0.insert(id.0, pou)?;
         Ok(())
     }
+    /// Room for `capacity` entries that changes no charge (C1-21).
+    pub(super) fn reserve_room(&mut self, capacity: usize) -> Result<(), RuntimeError> {
+        self.0.reserve_room(capacity)
+    }
     pub(super) fn retain(&mut self, mut keep: impl FnMut(InstanceId) -> bool) {
         self.0.retain(|id, _| keep(InstanceId(*id)));
     }
@@ -100,6 +108,10 @@ impl InstanceLifetimes {
     ) -> Result<(), RuntimeError> {
         self.0.insert(id.0, owner.map(|id| id.0))?;
         Ok(())
+    }
+    /// Room for `capacity` entries that changes no charge (C1-21).
+    pub(super) fn reserve_room(&mut self, capacity: usize) -> Result<(), RuntimeError> {
+        self.0.reserve_room(capacity)
     }
     /// Rollback only restores an existing association, without allocation/fuel.
     pub(super) fn restore(&mut self, id: InstanceId, owner: Option<FrameId>) {
@@ -335,6 +347,75 @@ impl super::EngineState<'_> {
             self.begin_execution_entry()?;
         }
         self.data.storage.reserve_execution_frame()
+    }
+}
+
+/// The bytes of heap that the bookkeeping of `bounds` takes once reserved
+/// ([`EngineState::reserve_instance_bookkeeping`]): for each instance its template, its lifetime,
+/// its initialized flag and its slot in the lifetime check's visited set; each mark; each claimed
+/// root (specification 34 MEM-12; C1-21).
+pub(super) fn instance_bookkeeping_bytes(
+    bounds: &crate::vm::prepared::InstanceBookkeeping,
+) -> Option<usize> {
+    let instance = core::mem::size_of::<(u32, u32)>()
+        + core::mem::size_of::<(u32, Option<u32>)>()
+        + core::mem::size_of::<(u32, ())>();
+    let mark = core::mem::size_of::<(u64, ())>();
+    bounds
+        .instances
+        .checked_mul(instance)?
+        .checked_add(visited_capacity(bounds.instances)?.checked_mul(core::mem::size_of::<u32>())?)?
+        .checked_add(bounds.marks.checked_add(bounds.once)?.checked_mul(mark)?)?
+        .checked_add(
+            bounds
+                .claimed_roots
+                .checked_mul(core::mem::size_of::<u32>())?,
+        )
+}
+
+/// The room of the lifetime check's visited set for `instances` instances: the capacity that a set
+/// which grew on demand to hold them has, 0, then 4, then each power of two, which its charge counts
+/// and its growth reserves (spec 34 TIME-08).
+fn visited_capacity(instances: usize) -> Option<usize> {
+    match instances {
+        0 => Some(0),
+        _ => Some(instances.checked_next_power_of_two()?.max(4)),
+    }
+}
+
+impl EngineState<'_> {
+    /// Reserve, before construction creates any instance, the bookkeeping of every instance the
+    /// program holds at once: its persistent instances and those the deepest chain of calls creates
+    /// on the activation stack, with their marks, the claimed roots and the lifetime check's visited
+    /// set, charged as construction memory (specification 34 MEM-09; C1-21). Neither construction
+    /// nor a scan grows it then, and each insertion is still charged the growth of a list without
+    /// the room (TIME-08).
+    pub(super) fn reserve_instance_bookkeeping(&mut self) -> Result<(), RuntimeError> {
+        let bounds = self.prepared.instance_bookkeeping()?;
+        self.charge_allocation_bytes(
+            instance_bookkeeping_bytes(&bounds).ok_or(RuntimeError::Overflow)?,
+        )?;
+        let construction = &mut self.data.construction;
+        construction
+            .instance_templates
+            .reserve_room(bounds.instances)?;
+        construction
+            .initialized_instances
+            .reserve_room(bounds.instances)?;
+        construction
+            .initialized_declarations
+            .reserve_room(bounds.marks)?;
+        construction.once.reserve_room(bounds.once)?;
+        construction.claimed_roots =
+            crate::collections::SortedSet::try_with_capacity(bounds.claimed_roots)
+                .map_err(|_| RuntimeError::Overflow)?;
+        self.data
+            .lifetimes
+            .instance_lifetimes
+            .reserve_room(bounds.instances)?;
+        self.data.resources.bookkeeping.reserve_lifetime_visited(
+            visited_capacity(bounds.instances).ok_or(RuntimeError::Overflow)?,
+        )
     }
 }
 

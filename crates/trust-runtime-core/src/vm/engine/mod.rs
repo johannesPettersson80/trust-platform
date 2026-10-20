@@ -33,6 +33,9 @@ mod cycle;
 mod cycle_port;
 mod entry;
 mod enums;
+/// The engine's part of the memory figure (specification 34 MEM-12; checklist C1-21).
+mod figure;
+pub(crate) use figure::engine_parts;
 #[cfg(feature = "std")]
 mod owned;
 #[cfg(feature = "register-ir")]
@@ -91,7 +94,7 @@ struct LifetimeState {
 /// Declaration, instance and initializer lifecycle bookkeeping.
 struct ConstructionState {
     roots: Vec<Option<InstanceId>>,
-    claimed_roots: BTreeSet<u32>,
+    claimed_roots: crate::collections::SortedSet<u32>,
     instance_templates: InstanceTemplates,
     initialized_instances: InstanceSet,
     initialized_declarations: LifecycleMarks,
@@ -299,7 +302,7 @@ impl<'a> EngineState<'a> {
             },
             construction: ConstructionState {
                 roots: vec![None; prepared.roots.entries.len()],
-                claimed_roots: BTreeSet::new(),
+                claimed_roots: crate::collections::SortedSet::new(),
                 instance_templates: InstanceTemplates::default(),
                 initialized_instances: InstanceSet::default(),
                 initialized_declarations: LifecycleMarks::default(),
@@ -415,8 +418,8 @@ impl<'a> EngineState<'a> {
         }
         state.reserve_type_operations()?;
         state.install_cell_store()?;
+        state.reserve_instance_bookkeeping()?;
         state.construct_resource(retained)?;
-        state.reserve_call_lifetimes()?;
         state.reserve_stored_references()?;
         state.reserve_retain_capture()?;
         state.reserve_input_snapshot()?;

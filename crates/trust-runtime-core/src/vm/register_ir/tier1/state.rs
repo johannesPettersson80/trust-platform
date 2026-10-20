@@ -140,7 +140,7 @@ pub struct RegisterTier1SpecializedExecutorState {
     compile_attempts: u64,
     compile_successes: u64,
     compile_failures: u64,
-    compile_failure_reasons: BTreeMap<String, u64>,
+    compile_failure_reasons: crate::collections::SortedMap<String, u64>,
     cache_evictions: u64,
     block_executions: u64,
 }
@@ -158,7 +158,7 @@ impl Default for RegisterTier1SpecializedExecutorState {
             compile_attempts: 0,
             compile_successes: 0,
             compile_failures: 0,
-            compile_failure_reasons: BTreeMap::new(),
+            compile_failure_reasons: crate::collections::SortedMap::new(),
             cache_evictions: 0,
             block_executions: 0,
         }
@@ -170,6 +170,14 @@ impl RegisterTier1SpecializedExecutorState {
     /// during preparation. No hot-block counter can trigger RUN compilation.
     pub fn prepare(&mut self, plans: &PreparedRegisterPlans) -> Result<(), RuntimeError> {
         self.invalidate_all();
+        // The reasons the prepared blocks failed with, each in the table once, reserved exactly
+        // (spec 34 MEM-12; C1-21).
+        let mut reasons = Self::failure_reasons(plans);
+        reasons.retain(|(reason, _)| !self.compile_failure_reasons.contains_key(reason.as_str()));
+        if !reasons.is_empty() {
+            reasons.extend(core::mem::take(&mut self.compile_failure_reasons).into_entries());
+            self.compile_failure_reasons = crate::collections::SortedMap::from_unsorted(reasons);
+        }
         self.selection
             .try_reserve_exact(plans.specialized_blocks())
             .map_err(|_| RuntimeError::PreparationLimit)?;
@@ -196,6 +204,41 @@ impl RegisterTier1SpecializedExecutorState {
         }
         Ok(())
     }
+    /// The distinct reasons the specialized blocks of `plans` failed with, each with a zero count,
+    /// in a vector of exactly their number.
+    fn failure_reasons(plans: &PreparedRegisterPlans) -> Vec<(String, u64)> {
+        let failed = || {
+            plans.entries.iter().flat_map(|(_, plan)| {
+                let ready = matches!(plan.lowered, RegisterLoweringCacheEntry::Ready(_));
+                plan.tier1_blocks
+                    .iter()
+                    .enumerate()
+                    .filter(move |(_, block)| ready && block.is_none())
+                    .map(|(index, _)| {
+                        plan.tier1_failures
+                            .get(index)
+                            .and_then(Option::as_deref)
+                            .unwrap_or("invalid_prepared_block")
+                    })
+            })
+        };
+        let mut distinct = failed().collect::<Vec<_>>();
+        distinct.sort_unstable();
+        distinct.dedup();
+        let mut reasons = Vec::with_capacity(distinct.len());
+        reasons.extend(distinct.into_iter().map(|reason| (String::from(reason), 0)));
+        reasons
+    }
+
+    /// The bytes of heap this state takes once prepared for `plans` (spec 34 MEM-12; C1-21): its
+    /// selection blocks and its table of failure reasons.
+    pub(crate) fn prepared_heap_bytes(plans: &PreparedRegisterPlans) -> usize {
+        let mut count = crate::memory::figure::HeapCount::new();
+        count.array::<SelectionBlock>(plans.specialized_blocks());
+        count.of(&Self::failure_reasons(plans));
+        count.take()
+    }
+
     /// Select by a dense index assigned during preparation. Hits and fixed LRU
     /// links require constant work and never shift, search, allocate or compile.
     pub fn select_prepared_block(&mut self, index: usize) -> bool {
@@ -338,11 +381,13 @@ impl RegisterTier1SpecializedExecutorState {
 
     pub fn record_compile_failure(&mut self, reason: impl Into<String>) {
         self.compile_failures = self.compile_failures.saturating_add(1);
-        let entry = self
-            .compile_failure_reasons
-            .entry(reason.into())
-            .or_insert(0);
-        *entry = entry.saturating_add(1);
+        let reason = reason.into();
+        match self.compile_failure_reasons.get_mut(reason.as_str()) {
+            Some(entry) => *entry = entry.saturating_add(1),
+            None => {
+                self.compile_failure_reasons.insert(reason, 1);
+            }
+        }
     }
 
     pub fn record_block_execution(&mut self) {

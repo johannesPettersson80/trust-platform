@@ -494,7 +494,7 @@ fn the_reference_pool_holds_every_reference_a_scan_can_hold() {
 #[test]
 fn a_returned_visited_set_is_empty_when_taken_again() {
     let mut scratch = BookkeepingScratch::default();
-    scratch.reserve(1, 1).unwrap();
+    scratch.reserve(1, 1, 1).unwrap();
     let mut visited = scratch.take_visited();
     assert!(visited.insert(InstanceId(7)).unwrap());
     scratch.return_visited(visited);

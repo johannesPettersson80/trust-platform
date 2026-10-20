@@ -7,6 +7,7 @@ use super::*;
 use crate::value::{ArrayValue, RefIndices, RefPath, RefSegment, StructValue};
 use crate::vm::construction::values::ValueOperation;
 use crate::vm::module::VmNativeSymbolSpec;
+use crate::vm::prepared::RawShellBounds;
 use crate::vm::VmTrap;
 use alloc::sync::Arc;
 
@@ -32,13 +33,11 @@ pub(super) struct BookkeepingScratch {
 
 impl BookkeepingScratch {
     /// The bytes this scratch reserves for `levels` callback levels whose calls create at most
-    /// `instances` instances each.
-    fn reservation_bytes(levels: usize, instances: usize) -> Option<usize> {
-        let identities = instances.checked_mul(
-            core::mem::size_of::<u32>()
-                + core::mem::size_of::<(u32, ())>()
-                + core::mem::size_of::<InstanceId>(),
-        )?;
+    /// `instances` instances each and whose promotions walk at most `visited` instances.
+    fn reservation_bytes(levels: usize, instances: usize, visited: usize) -> Option<usize> {
+        let identities = instances
+            .checked_mul(core::mem::size_of::<u32>() + core::mem::size_of::<InstanceId>())?
+            .checked_add(visited.checked_mul(core::mem::size_of::<(u32, ())>())?)?;
         let per_level = core::mem::size_of::<Vec<Value>>()
             .checked_add(core::mem::size_of::<Value>())?
             .checked_add(core::mem::size_of::<Vec<u32>>())?
@@ -48,16 +47,20 @@ impl BookkeepingScratch {
             >())?
             .checked_add(core::mem::size_of::<Vec<InstanceId>>())?
             .checked_add(identities)?;
-        levels
-            .checked_mul(per_level)?
-            .checked_add(core::mem::size_of::<Self>())
+        levels.checked_mul(per_level)
     }
 
     /// Reserve the per-level lists and the fixed one-element result slots (spec 34 MEM-09), the
-    /// pending identities, the visited set and the owned-instance snapshot of each level with room
-    /// for the `instances` a call creates at most, so that the first call that creates instances
-    /// allocates none of them either (C1-19c).
-    fn reserve(&mut self, levels: usize, instances: usize) -> Result<(), RuntimeError> {
+    /// pending identities and the owned-instance snapshot of each level with room for the
+    /// `instances` a call creates at most, so that the first call that creates instances allocates
+    /// none of them either (C1-19c), and each level's visited set with room for the `visited`
+    /// instances a promotion walks at most (C1-21).
+    fn reserve(
+        &mut self,
+        levels: usize,
+        instances: usize,
+        visited: usize,
+    ) -> Result<(), RuntimeError> {
         let refused = |_| VmTrap::BudgetExceeded.into_runtime_error();
         self.levels = levels;
         self.slots.try_reserve_exact(levels).map_err(refused)?;
@@ -72,9 +75,9 @@ impl BookkeepingScratch {
             let mut pending = Vec::new();
             pending.try_reserve_exact(instances).map_err(refused)?;
             self.pending.push(pending);
-            let mut visited = InstanceSet::default();
-            visited.reserve_capacity(instances)?;
-            self.visited.push(visited);
+            let mut set = InstanceSet::default();
+            set.reserve_capacity(visited)?;
+            self.visited.push(set);
             self.backups.push(Vec::new());
             let mut snapshot = Vec::new();
             snapshot.try_reserve_exact(instances).map_err(refused)?;
@@ -381,6 +384,59 @@ pub(super) struct RawShells {
 const KEPT_RAW_SHELLS: usize = 16;
 
 impl RawShells {
+    /// Keep the containers that the initializer bodies of the module hold at once: `arrays` with room
+    /// for `elements` elements and one dimension, and `structures` with room for `fields` fields
+    /// (spec 34 MEM-09; C1-21), so that no evaluation allocates a container.
+    fn reserve(&mut self, bounds: RawShellBounds) -> Result<(), RuntimeError> {
+        let refused = |_| RuntimeError::Overflow;
+        self.arrays
+            .try_reserve_exact(bounds.arrays)
+            .map_err(refused)?;
+        for _ in 0..bounds.arrays {
+            let mut elements = Vec::new();
+            elements
+                .try_reserve_exact(bounds.elements)
+                .map_err(refused)?;
+            let mut dimensions = Vec::new();
+            dimensions.try_reserve_exact(1).map_err(refused)?;
+            self.arrays.push(Box::new(ArrayValue::from_canonical_parts(
+                elements, dimensions,
+            )));
+        }
+        self.structures
+            .try_reserve_exact(bounds.structures)
+            .map_err(refused)?;
+        for _ in 0..bounds.structures {
+            let mut fields = crate::collections::OrderedMap::default();
+            fields
+                .try_reserve_exact(bounds.fields)
+                .map_err(|_| RuntimeError::Overflow)?;
+            self.structures
+                .push(Arc::new(StructValue::from_canonical_parts(
+                    SmolStr::default(),
+                    fields,
+                )));
+        }
+        Ok(())
+    }
+
+    /// The bytes [`RawShells::reserve`] takes.
+    fn reservation_bytes(bounds: RawShellBounds) -> Option<usize> {
+        let array = core::mem::size_of::<Box<ArrayValue>>()
+            .checked_add(core::mem::size_of::<ArrayValue>())?
+            .checked_add(bounds.elements.checked_mul(core::mem::size_of::<Value>())?)?
+            .checked_add(core::mem::size_of::<(i64, i64)>())?;
+        let structure = core::mem::size_of::<Arc<StructValue>>()
+            .checked_add(crate::memory::figure::arc_allocation_bytes::<StructValue>())?
+            .checked_add(crate::memory::figure::index_map_bytes::<SmolStr, Value>(
+                bounds.fields,
+            ))?;
+        bounds
+            .arrays
+            .checked_mul(array)?
+            .checked_add(bounds.structures.checked_mul(structure)?)
+    }
+
     /// A raw array of `count` null elements whose one dimension runs from 0 to `count - 1`: in a
     /// kept container, else in a new one.
     pub(super) fn array(&mut self, count: u32) -> Result<Box<ArrayValue>, RuntimeError> {
@@ -446,7 +502,8 @@ struct ScratchPlan {
     /// the call that the depth check refuses when the module can call deeper than the admitted
     /// ceiling, which binds its arguments into them before it is refused (C1-19f).
     call_locals: usize,
-    /// Nested initializer evaluations and construction frames.
+    /// Nested initializer evaluations and construction frames: on each call level, an initializer
+    /// and the default recipes nested in it (C1-21).
     initializers: usize,
     /// The execution buffers of nested initializer bodies, one for each nested evaluation when
     /// the module has an initializer body, and the operands each body needs (spec 34 MEM-09).
@@ -455,6 +512,11 @@ struct ScratchPlan {
     /// The most instances on the activation stack that one call creates (C1-11c): each owner of
     /// instances and each bookkeeping list a call takes has room for them (C1-19c).
     call_instances: usize,
+    /// The most instances one promotion walks: those a call creates, or those an initializer's
+    /// result holds (C1-21).
+    visited: usize,
+    /// The raw containers the initializer bodies hold at once (C1-21).
+    raw: RawShellBounds,
     /// The bytes of the temporary area: of the scan's operand stack, the deepest body's
     /// temporaries and, for every further call level, those a body keeps below a call; of each
     /// initializer body's (C1-19c2).
@@ -543,10 +605,22 @@ impl ScratchPlan {
             call_locals: levels
                 .checked_add(usize::from(prepared.calls_beyond_admitted_depth()))
                 .ok_or(RuntimeError::Overflow)?,
-            initializers: levels,
-            initializer_buffers: if bodies { levels } else { 0 },
+            initializers: levels
+                .checked_mul(prepared.initializer_nesting())
+                .ok_or(RuntimeError::Overflow)?,
+            initializer_buffers: if bodies {
+                levels
+                    .checked_mul(prepared.initializer_nesting())
+                    .ok_or(RuntimeError::Overflow)?
+            } else {
+                0
+            },
             initializer_operands: prepared.max_initializer_operand_depth,
             call_instances: prepared.largest_call_instances()?,
+            visited: prepared
+                .largest_call_instances()?
+                .max(prepared.largest_result_instances()?),
+            raw: prepared.raw_shell_bounds(KEPT_RAW_SHELLS),
             temporaries: levels
                 .saturating_sub(1)
                 .checked_mul(prepared.operand_bounds.temporaries_below_call)
@@ -600,6 +674,17 @@ impl ScratchPlan {
 
     /// Every byte the plan reserves.
     fn bytes(&self) -> Option<usize> {
+        let parts = self.parts()?;
+        parts
+            .activation
+            .checked_add(parts.operands)?
+            .checked_add(parts.engine)
+    }
+
+    /// The bytes the plan reserves, by the part of the memory figure they belong to (specification
+    /// 34 MEM-12; C1-21): what each call level takes, the operand stacks and their buffers, and the
+    /// engine's own lists.
+    fn parts(&self) -> Option<ScratchParts> {
         let buffer = ExecutionBuffers::reservation_bytes(self.operands, self.levels)?
             .checked_add(core::mem::size_of::<ExecutionBuffers>())?;
         // Each initializer body's buffers: its operands, its temporaries and the one frame it runs in.
@@ -628,8 +713,7 @@ impl ScratchPlan {
             crate::vm::frames::payloads::FramePayloads::reservation_bytes(self.levels, self.slots)?;
         // One edge-input list and one restore list, the most edge inputs of any POU.
         let edge_input = core::mem::size_of::<crate::vm::call::context::VmEdgeInput>();
-        let edge_restore =
-            core::mem::size_of::<smol_str::SmolStr>().checked_add(core::mem::size_of::<Value>())?;
+        let edge_restore = core::mem::size_of::<(usize, Value)>();
         let edges = self
             .edges
             .checked_mul(edge_input.checked_add(edge_restore)?)?;
@@ -642,30 +726,57 @@ impl ScratchPlan {
         let journal = SavedDestinations::allocation_bytes(self.journal)
             .ok()?
             .checked_add(self.journal_bytes)?;
-        let bookkeeping =
-            BookkeepingScratch::reservation_bytes(self.initializers, self.call_instances)?
-                .checked_add(OwnedInstances::list_reservation_bytes(
-                    self.owner_lists(),
-                    self.call_instances,
-                )?)?;
+        let bookkeeping = BookkeepingScratch::reservation_bytes(
+            self.initializers,
+            self.call_instances,
+            self.visited,
+        )?
+        .checked_add(OwnedInstances::list_reservation_bytes(
+            self.owner_lists(),
+            self.call_instances,
+        )?)?;
         let call_scratch = crate::vm::call::scratch::CallScratch::reservation_bytes(
             self.levels,
             self.call_scratch,
         )?;
-        buffer
-            .checked_add(initializer_buffers)?
-            .checked_add(temporaries)?
-            .checked_add(references)?
-            .checked_add(frame_locals)?
-            .checked_add(frame_payloads)?
-            .checked_add(edges)?
-            .checked_add(initializers)?
-            .checked_add(types)?
-            .checked_add(journal)?
-            .checked_add(bookkeeping)?
-            .checked_add(call_scratch)?
-            .checked_add(self.staging.reservation_bytes()?)
+        Some(ScratchParts {
+            activation: frame_locals
+                .checked_add(frame_payloads)?
+                .checked_add(edges)?
+                .checked_add(initializers)?
+                .checked_add(bookkeeping)?
+                .checked_add(call_scratch)?,
+            operands: buffer
+                .checked_add(initializer_buffers)?
+                .checked_add(temporaries)?
+                .checked_add(references)?
+                .checked_add(RawShells::reservation_bytes(self.raw)?)?,
+            engine: types
+                .checked_add(journal)?
+                .checked_add(self.staging.reservation_bytes()?)?,
+        })
     }
+}
+
+/// The bytes of the scratch plan by the part of the memory figure they belong to (C1-21).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(super) struct ScratchParts {
+    /// What each call level takes: frame locals and payloads, edge lists, nested initializers,
+    /// bookkeeping and call bindings.
+    pub(super) activation: usize,
+    /// The operand stacks, frames and pending calls of the execution buffers, their temporaries, the
+    /// text and reference buffers and the raw containers of initializer bodies.
+    pub(super) operands: usize,
+    /// The engine's own lists: the typed value operations, the output journal and the image staging.
+    pub(super) engine: usize,
+}
+
+/// The bytes that [`EngineState::reserve_execution_scratch`] reserves for `prepared`, the copy of
+/// the output image aside (specification 34 MEM-12; C1-21).
+pub(super) fn scratch_heap_parts(prepared: &PreparedModule) -> Result<ScratchParts, RuntimeError> {
+    ScratchPlan::of(prepared)?
+        .parts()
+        .ok_or(RuntimeError::Overflow)
 }
 
 impl EngineState<'_> {
@@ -689,26 +800,6 @@ impl EngineState<'_> {
             ReferenceBuffers::reservation_bytes(paths, indices).ok_or(RuntimeError::Overflow)?,
         )?;
         self.data.resources.references.reserve(paths, indices)
-    }
-
-    /// Reserve the lifetime check's visited set for the persistent instances construction made and
-    /// the most per-call instances the activation stack holds, charged as construction memory, so
-    /// that a call that creates instances does not grow it (spec 34 MEM-09; C1-19c).
-    pub(super) fn reserve_call_lifetimes(&mut self) -> Result<(), RuntimeError> {
-        let calls = self.prepared.call_instance_reservation()?;
-        self.charge_allocation_bytes(
-            calls
-                .checked_mul(core::mem::size_of::<u32>())
-                .ok_or(RuntimeError::Overflow)?,
-        )?;
-        let live = self
-            .live_instance_count()
-            .checked_add(calls)
-            .ok_or(RuntimeError::Overflow)?;
-        self.data
-            .resources
-            .bookkeeping
-            .reserve_lifetime_visited(live)
     }
 
     /// Reserve the scratch that every scan reuses, charged in full against the construction
@@ -813,10 +904,12 @@ impl EngineState<'_> {
             .lifetimes
             .owned_instances
             .reserve_lists(plan.owner_lists(), plan.call_instances)?;
-        self.data
-            .resources
-            .bookkeeping
-            .reserve(plan.initializers, plan.call_instances)
+        self.data.resources.raw_shells.reserve(plan.raw)?;
+        self.data.resources.bookkeeping.reserve(
+            plan.initializers,
+            plan.call_instances,
+            plan.visited,
+        )
     }
 }
 

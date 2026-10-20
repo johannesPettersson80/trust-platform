@@ -1,12 +1,23 @@
 //! Sorted pairs for the engine's small live identity collections; growth is charged as bytes.
 use super::{EngineState, RuntimeError, Vec};
 
-#[derive(Debug, PartialEq, Eq)]
-pub(super) struct Entries<K, V>(Vec<(K, V)>);
+/// Sorted pairs and the capacity they are charged for: the capacity the list would have had it grown
+/// on demand from empty and by its charged reservations. Room reserved beyond it
+/// ([`Entries::reserve_room`]) changes no charge (spec 34 TIME-08; C1-21).
+#[derive(Debug)]
+pub(super) struct Entries<K, V>(Vec<(K, V)>, usize);
+
+impl<K: PartialEq, V: PartialEq> PartialEq for Entries<K, V> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<K: Eq, V: Eq> Eq for Entries<K, V> {}
 
 impl<K, V> Default for Entries<K, V> {
     fn default() -> Self {
-        Self(Vec::new())
+        Self(Vec::new(), 0)
     }
 }
 impl<K: Ord, V> Entries<K, V> {
@@ -18,7 +29,7 @@ impl<K: Ord, V> Entries<K, V> {
         &self,
         capacity: usize,
     ) -> Result<(usize, usize), RuntimeError> {
-        if capacity <= self.0.capacity() {
+        if capacity <= self.1 {
             return Ok((0, 0));
         }
         Ok((
@@ -28,7 +39,15 @@ impl<K: Ord, V> Entries<K, V> {
             1,
         ))
     }
+    /// Reserve and charge room for `capacity` entries, as a list that grew to them would have.
     pub(super) fn reserve_capacity(&mut self, capacity: usize) -> Result<(), RuntimeError> {
+        self.reserve_room(capacity)?;
+        self.1 = self.1.max(capacity);
+        Ok(())
+    }
+    /// Reserve room for `capacity` entries without changing the capacity the list is charged for, so
+    /// that every insertion is charged the growth of a list without the room (C1-21).
+    pub(super) fn reserve_room(&mut self, capacity: usize) -> Result<(), RuntimeError> {
         if capacity > self.0.capacity() {
             self.0
                 .try_reserve_exact(capacity - self.0.len())
@@ -54,7 +73,7 @@ impl<K: Ord, V> Entries<K, V> {
         Some(&mut self.0[index].1)
     }
     pub(super) fn insertion_demand(&self, key: &K) -> Result<(usize, usize), RuntimeError> {
-        self.insertion_demand_by(key, || growth_demand::<(K, V)>(&self.0))
+        self.insertion_demand_by(key, || charged_growth::<(K, V)>(self.0.len(), self.1))
     }
     /// The demand of inserting `key` into entries reused from a reserved list: the growth is the
     /// one entries that grew on demand from empty would make, whatever capacity the reused list
@@ -104,6 +123,9 @@ impl<K: Ord, V> Entries<K, V> {
             Ok(index) => Ok(Some(core::mem::replace(&mut self.0[index].1, value))),
             Err(index) => {
                 reserve_growth(&mut self.0)?;
+                if self.0.len() >= self.1 {
+                    self.1 = self.1.checked_mul(2).ok_or(RuntimeError::Overflow)?.max(4);
+                }
                 self.0.insert(index, (key, value));
                 Ok(None)
             }
@@ -131,12 +153,14 @@ impl<K: Ord, V> Entries<K, V> {
     }
 }
 
-pub(super) fn growth_demand<T>(entries: &Vec<T>) -> Result<(usize, usize), RuntimeError> {
-    if entries.len() < entries.capacity() {
+/// The growth of a list of `len` entries charged for a capacity of `charged`: none while it has room,
+/// else to twice the capacity and at least 4 entries, the growth of a list whose capacity is
+/// `charged`.
+fn charged_growth<T>(len: usize, charged: usize) -> Result<(usize, usize), RuntimeError> {
+    if len < charged {
         return Ok((0, 0));
     }
-    let capacity = entries
-        .capacity()
+    let capacity = charged
         .checked_mul(2)
         .ok_or_else(|| RuntimeError::Overflow)?
         .max(4);
@@ -144,11 +168,12 @@ pub(super) fn growth_demand<T>(entries: &Vec<T>) -> Result<(usize, usize), Runti
         capacity
             .checked_mul(core::mem::size_of::<T>())
             .ok_or_else(|| RuntimeError::Overflow)?,
-        entries.len(),
+        len,
     ))
 }
+
 /// The growth that a list of `len` entries which grew on demand from empty makes for one more
-/// entry: [`growth_demand`] of such a list, whose capacity is 0, then 4, then each power of two.
+/// entry: [`charged_growth`] of such a list, whose capacity is 0, then 4, then each power of two.
 /// A list reused from a reserved list is charged by it, so that reusing changes no charge (spec 34
 /// TIME-08; C1-11c).
 pub(super) fn fresh_growth_demand<T>(len: usize) -> Result<(usize, usize), RuntimeError> {
@@ -411,7 +436,7 @@ mod tests {
 
     /// Spec 34 TIME-08: a list reused from the reserved lists is charged the growth that a list
     /// growing on demand from empty makes, which is its capacity 0, then 4, then each power of two.
-    /// Each expected value is that list's own `growth_demand` as it grows one entry at a time.
+    /// Each expected value is that list's own `charged_growth` as it grows one entry at a time.
     /// Catches a rule that grows at a length one too early or late (4 to 8 at the fourth or the
     /// sixth entry) and one that charges the old capacity instead of the new.
     #[test]
@@ -420,7 +445,7 @@ mod tests {
         for len in 0..70usize {
             assert_eq!(
                 fresh_growth_demand::<u64>(len),
-                growth_demand(&grown),
+                charged_growth::<u64>(grown.len(), grown.capacity()),
                 "length {len}"
             );
             reserve_growth(&mut grown).unwrap();

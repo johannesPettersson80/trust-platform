@@ -1,11 +1,12 @@
 //! Spec 34 MEM-12 and MEM-14 (checklist C1-21): the memory figure is the heap a program holds,
-//! computed from its own tables, so it equals what the allocator measures.
+//! computed at preparation from the program, so it equals what the allocator measures.
 //!
 //! A counting global allocator measures, on this thread, the bytes a prepared module holds, and,
 //! with the `footprint` feature, the bytes each of its parts gives back when the module is freed
-//! part by part. The figure of every program of the bounded-C corpus and of the saved board
-//! artifacts must equal the measurement, part by part. Run with `-- --nocapture` to see each
-//! program's figures part by part against its container's bytes, the target of MEM-14.
+//! part by part, and the bytes construction leaves allocated for the program's engine. The figure
+//! of every program of the bounded-C corpus and of the saved board artifacts must equal the
+//! measurement, part by part. Run with `-- --nocapture` to see each program's figures part by part
+//! against its container's bytes, the target of MEM-14.
 //!
 //! The corpus is generated on the builder, never written by hand:
 //!
@@ -13,9 +14,12 @@
 //! cargo run --locked -p trust-runtime --example bounded_c_fixtures -- crates/trust-runtime/tests/fixtures/bounded-c
 //! ```
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use trust_runtime_core::bytecode::ValidationLimits;
-use trust_runtime_core::vm::{PreparationLimits, PreparedModule};
+use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::retain::capture::RetainCapture;
+use trust_runtime_core::value::{DateTimeValue, Duration};
+use trust_runtime_core::vm::{ExecutionServices, PreparationLimits, PreparedModule};
 
 thread_local! {
     static ARMED: Cell<bool> = const { Cell::new(false) };
@@ -181,6 +185,11 @@ fn the_prepared_programs_figure_is_the_heap_it_holds() {
             std::mem::size_of::<PreparedModule>(),
             "{name}: the record is the module's own bytes"
         );
+        assert_eq!(
+            prepared.memory_figure().program,
+            prepared.program_bytes(),
+            "{name}: preparation computed the program's part of the figure"
+        );
         let computed = prepared.program_bytes() - record;
         println!(
             "figure: {name}: {} bytes of bytecode; prepared program {} bytes, {:.2} times the \
@@ -233,4 +242,100 @@ fn part_differences(name: &str, prepared: PreparedModule) -> Vec<String> {
             })
         })
         .collect()
+}
+
+/// The corpus programs that keep retained values, which a device keeps a retain store for.
+const RETAINING: [&str; 5] = [
+    "retain",
+    "retained_blocks",
+    "retained_values",
+    "overlays",
+    "unions",
+];
+
+/// Execution services without a wall clock that keep a retain store when `retain_store` holds, as
+/// a device whose record keeps retained values does.
+struct Services {
+    retain_store: bool,
+    retain: RefCell<RetainCapture>,
+}
+
+impl Services {
+    fn new(retain_store: bool) -> Self {
+        let mut retain = RetainCapture::new();
+        retain.configure(Some(Duration::ZERO), Duration::ZERO);
+        Self {
+            retain_store,
+            retain: RefCell::new(retain),
+        }
+    }
+}
+
+impl ExecutionServices for Services {
+    fn deadline_exceeded(&self) -> bool {
+        false
+    }
+    fn has_wall_clock(&self) -> bool {
+        false
+    }
+    fn has_retain_store(&self) -> bool {
+        self.retain_store
+    }
+    fn retain_capture(&self) -> Option<&RefCell<RetainCapture>> {
+        self.retain_store.then_some(&self.retain)
+    }
+    fn save_retain_payload(&self, _payload: &[u8]) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+    fn current_dt(&self) -> Result<DateTimeValue, RuntimeError> {
+        Err(RuntimeError::ProfileUnsupported("no UTC clock".into()))
+    }
+}
+
+#[test]
+fn the_constructed_programs_figure_is_the_heap_it_holds() {
+    // Spec 34 MEM-12: preparation computes what construction reserves for the program's engine: the
+    // persistent block, the activation stack for the deepest call chain, the operand stack, the
+    // engine's own state and, when the runtime keeps retained values, their capture. The allocator
+    // measures what construction leaves allocated; the figure less the prepared program must equal
+    // it for every program. A reservation the figure leaves out or computes otherwise than
+    // construction reserves it, or a list that grows on first use during construction, makes them
+    // differ. A scan allocates nothing (ARCH-05; `scan_allocation_zero`), so this is what the
+    // running program holds.
+    let mut differences = Vec::new();
+    for (name, bytes) in programs() {
+        let retains = RETAINING.contains(&name.as_str());
+        let prepared = PreparedModule::from_bytes(&bytes, limits()).expect("prepares");
+        let figure = prepared.memory_figure();
+        let services = Services::new(retains);
+        let mut state = None;
+        let measured = live_after(|| {
+            state = Some(
+                prepared
+                    .instantiate_with_services(0, &services)
+                    .expect("constructs"),
+            );
+        });
+        drop(state);
+        println!(
+            "figure: {name}: {} bytes in all{}: program {}, persistent block {}, activation stack \
+             {}, operand stack {}, engine {}, retain capture {}",
+            figure.total(retains),
+            if retains { " with retained values" } else { "" },
+            figure.program,
+            figure.persistent_block,
+            figure.activation_stack,
+            figure.operand_stack,
+            figure.engine,
+            figure.retain_capture
+        );
+        let computed = figure.total(retains) - figure.program;
+        if computed as i64 != measured {
+            differences.push(format!(
+                "{name}: the figure counts {computed} bytes for the engine, construction left \
+                 {measured}"
+            ));
+        }
+    }
+    assert!(differences.is_empty(), "{differences:#?}");
 }

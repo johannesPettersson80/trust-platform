@@ -71,6 +71,22 @@ fn arc_bytes(value: Layout) -> usize {
         .map_or(usize::MAX, |(layout, _)| layout.pad_to_align().size())
 }
 
+/// The bytes of an `Arc<T>`'s allocation (C1-21).
+pub(crate) fn arc_allocation_bytes<T>() -> usize {
+    arc_bytes(Layout::new::<T>())
+}
+
+/// The bytes of an insertion-ordered map with room for `capacity` entries of `K` and `V`: its entries,
+/// each a bucket of the hash, the key and the value, and its hash table of indexes (C1-21).
+pub(crate) fn index_map_bytes<K, V>(capacity: usize) -> usize {
+    if capacity == 0 {
+        return 0;
+    }
+    capacity
+        .saturating_mul(core::mem::size_of::<(usize, K, V)>())
+        .saturating_add(hash_table_bytes::<usize>(capacity))
+}
+
 /// The bytes of a hashbrown table of `T` that has room for `capacity` items: its buckets, padded
 /// to the control alignment, then one control byte per bucket and one group of them more.
 fn hash_table_bytes<T>(capacity: usize) -> usize {
@@ -222,13 +238,7 @@ impl<A: HeapBytes, B: HeapBytes, C: HeapBytes, D: HeapBytes> HeapBytes for (A, B
 
 impl<K: HeapBytes, V: HeapBytes, S> HeapBytes for indexmap::IndexMap<K, V, S> {
     fn add_heap(&self, count: &mut HeapCount) {
-        let capacity = self.capacity();
-        if capacity == 0 {
-            return;
-        }
-        // Each entry is a bucket of its hash, its key and its value; the table holds an index.
-        count.array::<(usize, K, V)>(capacity);
-        count.add(hash_table_bytes::<usize>(capacity));
+        count.add(index_map_bytes::<K, V>(self.capacity()));
         for (key, value) in self {
             key.add_heap(count);
             value.add_heap(count);

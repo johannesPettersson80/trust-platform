@@ -486,6 +486,97 @@ impl CellRegions {
     }
 }
 
+/// What the store of a prepared module reserves: the persistent extent, the activation stack's bytes,
+/// its frame and staged-result records, the instances calls create on it and its reference leaves.
+struct StoreShape {
+    extent: PersistentExtent,
+    activation_bytes: u32,
+    levels: usize,
+    result_count: usize,
+    call_instance_count: usize,
+    activation_leaves: usize,
+}
+
+impl StoreShape {
+    fn of(prepared: &PreparedModule) -> Result<Self, RuntimeError> {
+        // The stack and one frame record for each call level, when some POU has a frame (C1-11),
+        // a record for each instance the frames on it can own (C1-11c) and, when some initializer
+        // is evaluated in place, a staged-result record for each call level (C1-13); and the
+        // activation stack's reference table, for the reference leaves its frames and their
+        // instances hold at most (C1-19c4).
+        let activation_bytes = prepared.activation_reservation()?;
+        let (levels, result_count) = match activation_bytes {
+            0 => (0, 0),
+            _ => (
+                prepared.reserved_call_levels(),
+                prepared.result_block_reservation(),
+            ),
+        };
+        Ok(Self {
+            extent: PersistentExtent::of(prepared)?,
+            activation_bytes,
+            levels,
+            result_count,
+            call_instance_count: prepared.call_instance_reservation()?,
+            activation_leaves: prepared.activation_reference_reservation()?,
+        })
+    }
+}
+
+impl CellStorage {
+    /// The reference leaves of the persistent block of `prepared` (C1-19c3).
+    pub(crate) fn persistent_reference_leaves_of(
+        prepared: &PreparedModule,
+    ) -> Result<usize, RuntimeError> {
+        Ok(PersistentExtent::of(prepared)?.references.len())
+    }
+
+    /// The bytes of heap the store of `prepared` keeps once construction has reserved it
+    /// (specification 34 MEM-12), as [`CellStorage::construct`] reserves them: the persistent
+    /// region's (its range tables, its block, its reference table and its instance table) and the
+    /// activation stack's (its block, its frame, staged-result and call-instance records and its
+    /// reference table). The lists construction only walks are not kept.
+    pub(crate) fn heap_bytes(prepared: &PreparedModule) -> Result<(usize, usize), RuntimeError> {
+        let shape = StoreShape::of(prepared)?;
+        let ranges = shape
+            .extent
+            .globals
+            .len()
+            .checked_add(shape.extent.roots.len())
+            .and_then(|count| count.checked_mul(core::mem::size_of::<Option<ByteRange>>()));
+        let records = shape
+            .levels
+            .checked_mul(core::mem::size_of::<FrameBlock>())
+            .zip(
+                shape
+                    .result_count
+                    .checked_mul(core::mem::size_of::<ResultBlock>()),
+            )
+            .and_then(|(frames, results)| frames.checked_add(results))
+            .zip(InstanceTable::reservation_bytes(shape.call_instance_count))
+            .and_then(|(records, instances)| records.checked_add(instances));
+        let sum = |parts: &[Option<usize>]| {
+            parts
+                .iter()
+                .try_fold(0usize, |sum, bytes| sum.checked_add((*bytes)?))
+                .ok_or(RuntimeError::Overflow)
+        };
+        Ok((
+            sum(&[
+                ranges,
+                usize::try_from(shape.extent.bytes).ok(),
+                ReferenceTable::reservation_bytes(shape.extent.references.len()),
+                InstanceTable::reservation_bytes(shape.extent.instance_roots()),
+            ])?,
+            sum(&[
+                usize::try_from(shape.activation_bytes).ok(),
+                records,
+                ReferenceTable::room_bytes(shape.activation_leaves),
+            ])?,
+        ))
+    }
+}
+
 /// The bounded value store (specification 34 §6.2, MEM-12): the regions, the activation half and
 /// the identities. It is built only through [`CellStorage::construct`]; the engine constructs and
 /// charges it when it builds the cell arm (O18; C1-9d2b-1), and switches to it by default in C1-9d3.
@@ -534,30 +625,21 @@ impl CellStorage {
         profile: DateTimeProfile,
         charge: impl FnOnce(usize) -> Result<(), RuntimeError>,
     ) -> Result<Self, RuntimeError> {
-        let extent = PersistentExtent::of(prepared)?;
+        let StoreShape {
+            extent,
+            activation_bytes,
+            levels,
+            result_count,
+            call_instance_count,
+            activation_leaves,
+        } = StoreShape::of(prepared)?;
         let block_bytes = usize::try_from(extent.bytes).map_err(|_| RuntimeError::Overflow)?;
         let table_bytes = ReferenceTable::reservation_bytes(extent.references.len())
             .ok_or(RuntimeError::Overflow)?;
         let bookkeeping_bytes = extent.bookkeeping_bytes()?;
         let instance_count = extent.instance_roots();
-        // The activation stack's reference table, for the reference leaves its frames and their
-        // instances hold at most (C1-19c4).
-        let activation_leaves = prepared.activation_reference_reservation()?;
         let activation_table_bytes =
             ReferenceTable::room_bytes(activation_leaves).ok_or(RuntimeError::Overflow)?;
-        // The stack and one frame record for each call level, when some POU has a frame (C1-11),
-        // a record for each instance the frames on it can own (C1-11c) and, when some initializer
-        // is evaluated in place, a staged-result record for each call level (C1-13).
-        let activation_bytes = prepared.activation_reservation()?;
-        let levels = match activation_bytes {
-            0 => 0,
-            _ => prepared.reserved_call_levels(),
-        };
-        let result_count = match activation_bytes {
-            0 => 0,
-            _ => prepared.result_block_reservation(),
-        };
-        let call_instance_count = prepared.call_instance_reservation()?;
         let frame_bytes = levels
             .checked_mul(FRAME_RECORD_BYTES)
             .and_then(|bytes| bytes.checked_add(result_count.checked_mul(RESULT_RECORD_BYTES)?))

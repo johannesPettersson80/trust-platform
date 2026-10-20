@@ -104,28 +104,55 @@ impl<K, V> SortedMap<K, V> {
     pub fn shrink_to_fit(&mut self) {
         self.entries.shrink_to_fit();
     }
+
+    /// The entries, in ascending key order, with their room.
+    #[must_use]
+    pub fn into_entries(self) -> alloc::vec::Vec<(K, V)> {
+        self.entries
+    }
 }
 
 impl<K: Ord, V> SortedMap<K, V> {
-    fn position(&self, key: &K) -> Result<usize, usize> {
-        self.entries.binary_search_by(|(entry, _)| entry.cmp(key))
+    fn position<Q: Ord + ?Sized>(&self, key: &Q) -> Result<usize, usize>
+    where
+        K: core::borrow::Borrow<Q>,
+    {
+        self.entries
+            .binary_search_by(|(entry, _)| entry.borrow().cmp(key))
     }
 
     /// The value of `key`.
     #[must_use]
-    pub fn get(&self, key: &K) -> Option<&V> {
+    pub fn get<Q: Ord + ?Sized>(&self, key: &Q) -> Option<&V>
+    where
+        K: core::borrow::Borrow<Q>,
+    {
         self.position(key).ok().map(|at| &self.entries[at].1)
     }
 
     /// The value of `key`, to change in place.
-    pub fn get_mut(&mut self, key: &K) -> Option<&mut V> {
+    pub fn get_mut<Q: Ord + ?Sized>(&mut self, key: &Q) -> Option<&mut V>
+    where
+        K: core::borrow::Borrow<Q>,
+    {
         self.position(key).ok().map(|at| &mut self.entries[at].1)
     }
 
     /// Whether the map holds `key`.
     #[must_use]
-    pub fn contains_key(&self, key: &K) -> bool {
+    pub fn contains_key<Q: Ord + ?Sized>(&self, key: &Q) -> bool
+    where
+        K: core::borrow::Borrow<Q>,
+    {
         self.position(key).is_ok()
+    }
+
+    /// The map of `entries`, which it sorts by key; of two entries with one key, the first stays.
+    /// It keeps the room of `entries`.
+    pub fn from_unsorted(mut entries: alloc::vec::Vec<(K, V)>) -> Self {
+        entries.sort_by(|left, right| left.0.cmp(&right.0));
+        entries.dedup_by(|later, earlier| later.0 == earlier.0);
+        Self { entries }
     }
 
     /// Set `key` to `value`, returning the value it replaced. The map grows when it has no room.
@@ -158,7 +185,10 @@ impl<K: Ord, V> SortedMap<K, V> {
     }
 
     /// Remove `key`, returning its value.
-    pub fn remove(&mut self, key: &K) -> Option<V> {
+    pub fn remove<Q: Ord + ?Sized>(&mut self, key: &Q) -> Option<V>
+    where
+        K: core::borrow::Borrow<Q>,
+    {
         self.position(key).ok().map(|at| self.entries.remove(at).1)
     }
 }

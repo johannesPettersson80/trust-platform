@@ -1,12 +1,18 @@
 use super::*;
 
+/// Fallback reasons, each with its count.
+type ReasonCounts = Vec<(String, u64)>;
+
+/// Blocks by POU, block and start, each with its hits.
+type BlockHits = Vec<((u32, u32, u32), u64)>;
+
 #[derive(Debug, Clone, Default)]
 pub struct RegisterProfileState {
     enabled: bool,
     register_programs_executed: u64,
     register_program_fallbacks: u64,
-    fallback_reasons: BTreeMap<String, u64>,
-    block_hits: BTreeMap<(u32, u32, u32), u64>,
+    fallback_reasons: crate::collections::SortedMap<String, u64>,
+    block_hits: crate::collections::SortedMap<(u32, u32, u32), u64>,
     interpreted_block_entries: u64,
     ref_ops: VmRegisterRefOpCounters,
     call_ops: VmRegisterCallOpCounters,
@@ -14,33 +20,62 @@ pub struct RegisterProfileState {
 }
 
 impl RegisterProfileState {
-    /// Preallocate telemetry keys before enabling a bounded controller.
+    /// Preallocate telemetry keys before enabling a bounded controller: one table of the fallback
+    /// reasons and one of the blocks, each reserved for exactly its keys (spec 34 MEM-12; C1-21).
     pub fn prepare(&mut self, plans: &PreparedRegisterPlans) {
-        self.fallback_reasons
-            .entry("debug_mode".into())
-            .or_insert(0);
-        self.fallback_reasons
-            .entry("unprepared_program".into())
-            .or_insert(0);
-        self.fallback_reasons
-            .entry("nested_scratch".into())
-            .or_insert(0);
+        let (reasons, blocks) = Self::prepared_keys(plans);
+        self.fallback_reasons = crate::collections::SortedMap::from_unsorted(reasons);
+        self.block_hits = crate::collections::SortedMap::from_unsorted(blocks);
+    }
+
+    /// The fallback reasons and the blocks of `plans`, each with a zero count, in vectors of exactly
+    /// their length.
+    fn prepared_keys(plans: &PreparedRegisterPlans) -> (ReasonCounts, BlockHits) {
+        const FIXED: [&str; 3] = ["debug_mode", "unprepared_program", "nested_scratch"];
+        let mut reasons = Vec::with_capacity(
+            FIXED.len()
+                + plans
+                    .entries
+                    .iter()
+                    .filter(|(_, plan)| plan.fallback_reason().is_some())
+                    .count(),
+        );
+        reasons.extend(FIXED.iter().map(|reason| (String::from(*reason), 0)));
+        let mut blocks = Vec::with_capacity(
+            plans
+                .entries
+                .iter()
+                .filter_map(|(_, plan)| plan.program())
+                .map(|program| program.blocks.len())
+                .sum(),
+        );
         for (_, plan) in &plans.entries {
             if let Some(reason) = plan.fallback_reason() {
-                self.fallback_reasons.entry(reason.into()).or_insert(0);
+                reasons.push((reason.into(), 0));
             }
             if let Some(program) = plan.program() {
                 for block in &program.blocks {
-                    self.block_hits
-                        .entry((
+                    blocks.push((
+                        (
                             program.pou_id,
                             block.id,
                             block.start_pc.try_into().unwrap_or(u32::MAX),
-                        ))
-                        .or_insert(0);
+                        ),
+                        0,
+                    ));
                 }
             }
         }
+        (reasons, blocks)
+    }
+
+    /// The bytes of heap the telemetry of `plans` takes once prepared (spec 34 MEM-12; C1-21).
+    pub(crate) fn prepared_heap_bytes(plans: &PreparedRegisterPlans) -> usize {
+        let (reasons, blocks) = Self::prepared_keys(plans);
+        let mut count = crate::memory::figure::HeapCount::new();
+        count.of(&reasons);
+        count.of(&blocks);
+        count.take()
     }
     pub fn record_prepared_fallback(&mut self, reason: &str) {
         if !self.enabled {
@@ -117,11 +152,12 @@ impl RegisterProfileState {
         if !self.enabled {
             return;
         }
-        let entry = self
-            .block_hits
-            .entry((pou_id, block_id, start_pc))
-            .or_insert(0);
-        *entry = entry.saturating_add(1);
+        match self.block_hits.get_mut(&(pou_id, block_id, start_pc)) {
+            Some(entry) => *entry = entry.saturating_add(1),
+            None => {
+                self.block_hits.insert((pou_id, block_id, start_pc), 1);
+            }
+        }
     }
 
     /// Count a block entry that the interpreter runs; Tier-1 entries are counted separately.

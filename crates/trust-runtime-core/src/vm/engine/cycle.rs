@@ -189,43 +189,7 @@ impl EngineState<'_> {
     /// reference and no instance, under the name it is written with and at the largest encoding of
     /// its type (specification 34 MEM-09; C1-19c). `None` on overflow.
     pub(super) fn retained_payload_bound(&self) -> Option<usize> {
-        let prepared = self.prepared;
-        // A variable whose value can hold a reference or an instance is left out of the payload.
-        let entry = |key: usize, type_id: Option<u32>| -> Option<usize> {
-            let Some(type_id) = type_id.filter(|&type_id| {
-                prepared
-                    .type_layout(type_id)
-                    .is_some_and(|layout| !layout.holds_reference_or_instance)
-            }) else {
-                return Some(0);
-            };
-            crate::memory::cells::max_encoded_len(prepared, type_id, 0)?.checked_add(key + 4)
-        };
-        let mut total = 4usize;
-        for &id in prepared.retained_declarations(StorageOwner::Global, None) {
-            let declaration = prepared.layout.entries.get(id as usize)?;
-            let name = prepared.vm.strings.get(declaration.name_idx as usize)?;
-            total = total.checked_add(entry(name.len(), declaration.type_id)?)?;
-        }
-        for root in &prepared.roots.entries {
-            let root_declaration = prepared.layout.entries.get(root.declaration_idx as usize)?;
-            if root.parent_root_idx.is_some() || root_declaration.role != StorageRole::ProgramRoot {
-                continue;
-            }
-            let program = prepared
-                .vm
-                .strings
-                .get(root_declaration.name_idx as usize)?;
-            for &id in prepared.retained_declarations(StorageOwner::Instance, root.template_pou_id)
-            {
-                let declaration = prepared.layout.entries.get(id as usize)?;
-                let name = prepared.vm.strings.get(declaration.name_idx as usize)?;
-                // The key `@program/<program>/<variable>`.
-                let key = program.len().checked_add(name.len())?.checked_add(10)?;
-                total = total.checked_add(entry(key, declaration.type_id)?)?;
-            }
-        }
-        Some(total)
+        retained_payload_bound(self.prepared)
     }
 
     /// Reserve the retain capture the services persist through, when they have one, for the largest
@@ -334,4 +298,46 @@ impl EngineState<'_> {
             .and_then(|bytes| bytes.checked_add(4 * CELL_BYTES))
             .ok_or_else(|| RuntimeError::Overflow)
     }
+}
+
+/// The most bytes a retained payload of `prepared`'s resource takes, with the entry count: each
+/// retained global and each root's retained program variable whose type holds no reference and no
+/// instance, under the name it is written with and at the largest encoding of its type
+/// (specification 34 MEM-09; C1-19c). `None` on overflow.
+pub(super) fn retained_payload_bound(prepared: &PreparedModule) -> Option<usize> {
+    // A variable whose value can hold a reference or an instance is left out of the payload.
+    let entry = |key: usize, type_id: Option<u32>| -> Option<usize> {
+        let Some(type_id) = type_id.filter(|&type_id| {
+            prepared
+                .type_layout(type_id)
+                .is_some_and(|layout| !layout.holds_reference_or_instance)
+        }) else {
+            return Some(0);
+        };
+        crate::memory::cells::max_encoded_len(prepared, type_id, 0)?.checked_add(key + 4)
+    };
+    let mut total = 4usize;
+    for &id in prepared.retained_declarations(StorageOwner::Global, None) {
+        let declaration = prepared.layout.entries.get(id as usize)?;
+        let name = prepared.vm.strings.get(declaration.name_idx as usize)?;
+        total = total.checked_add(entry(name.len(), declaration.type_id)?)?;
+    }
+    for root in &prepared.roots.entries {
+        let root_declaration = prepared.layout.entries.get(root.declaration_idx as usize)?;
+        if root.parent_root_idx.is_some() || root_declaration.role != StorageRole::ProgramRoot {
+            continue;
+        }
+        let program = prepared
+            .vm
+            .strings
+            .get(root_declaration.name_idx as usize)?;
+        for &id in prepared.retained_declarations(StorageOwner::Instance, root.template_pou_id) {
+            let declaration = prepared.layout.entries.get(id as usize)?;
+            let name = prepared.vm.strings.get(declaration.name_idx as usize)?;
+            // The key `@program/<program>/<variable>`.
+            let key = program.len().checked_add(name.len())?.checked_add(10)?;
+            total = total.checked_add(entry(key, declaration.type_id)?)?;
+        }
+    }
+    Some(total)
 }

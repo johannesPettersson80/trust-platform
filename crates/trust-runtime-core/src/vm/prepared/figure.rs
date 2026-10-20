@@ -2,6 +2,7 @@
 //! C1-21): the bytes of heap its tables hold, part by part, counted from the tables themselves.
 
 use super::PreparedModule;
+use crate::error::RuntimeError;
 use crate::memory::figure::HeapCount;
 
 /// One part of a prepared program and the bytes of heap it holds.
@@ -15,6 +16,58 @@ pub struct ProgramPart {
 
 /// The number of parts of a prepared program ([`PreparedModule::program_parts`]).
 pub const PROGRAM_PARTS: usize = 22;
+
+/// The memory figure of a prepared program (specification 34 MEM-12, MEM-14): the bytes of heap
+/// that the program needs on the device that prepared it, part by part, which preparation computes
+/// from the program and the device's own sizes. A scan allocates nothing, so the figure is what the
+/// constructed program holds while it runs.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct MemoryFigure {
+    /// The prepared program, its layout tables among them (MEM-14).
+    pub program: usize,
+    /// The persistent block: the globals, the programs and their instances, with its tables.
+    pub persistent_block: usize,
+    /// The activation stack for the deepest call chain, with what each call level takes.
+    pub activation_stack: usize,
+    /// The operand stack, its temporaries and buffers, and the register tier's register files.
+    pub operand_stack: usize,
+    /// The engine's own state: its records, the process images, the tasks, the bookkeeping of the
+    /// instances, the input snapshot and the output journal.
+    pub engine: usize,
+    /// The capture of the retained values, which a runtime reserves when it keeps them.
+    pub retain_capture: usize,
+}
+
+impl MemoryFigure {
+    /// The figure of `prepared`, finished but for this figure.
+    pub(super) fn of(prepared: &PreparedModule) -> Result<Self, RuntimeError> {
+        let engine = crate::vm::engine::engine_parts(prepared)?;
+        Ok(Self {
+            program: prepared.program_bytes(),
+            persistent_block: engine.persistent_block,
+            activation_stack: engine.activation_stack,
+            operand_stack: engine.operand_stack,
+            engine: engine.engine,
+            retain_capture: engine.retain_capture,
+        })
+    }
+
+    /// The bytes of the whole figure, the capture of the retained values included when the runtime
+    /// keeps them (`retains`).
+    #[must_use]
+    pub fn total(&self, retains: bool) -> usize {
+        [
+            self.program,
+            self.persistent_block,
+            self.activation_stack,
+            self.operand_stack,
+            self.engine,
+            if retains { self.retain_capture } else { 0 },
+        ]
+        .iter()
+        .fold(0usize, |sum, bytes| sum.saturating_add(*bytes))
+    }
+}
 
 impl PreparedModule {
     /// The bytes of heap this prepared program holds, part by part (specification 34 MEM-14): each
@@ -100,6 +153,12 @@ impl PreparedModule {
         part("module record", &mut count);
         debug_assert_eq!(at, 0, "every part is named once");
         parts
+    }
+
+    /// The memory figure of this program, which preparation computed (specification 34 MEM-12).
+    #[must_use]
+    pub fn memory_figure(&self) -> MemoryFigure {
+        self.memory_figure
     }
 
     /// The bytes of heap this prepared program holds: the sum of its

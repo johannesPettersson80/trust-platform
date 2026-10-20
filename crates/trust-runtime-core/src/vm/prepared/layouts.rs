@@ -8,8 +8,7 @@
 
 use super::*;
 use crate::bytecode::{
-    InitializationStage, InitializerBodyKind, StorageOwner, StorageRole, TypeData, TypeKind,
-    BYTECODE_MAX_TYPE_NESTING,
+    InitializationStage, InitializerBodyKind, StorageOwner, StorageRole, TypeData,
 };
 use crate::collections::SortedMap;
 use crate::memory::layout::{
@@ -390,6 +389,11 @@ impl PreparedModule {
         start.checked_add(self.type_layout(entry.type_id?)?.shape.bytes)
     }
 
+    /// The POUs that have a frame on the activation stack, in ascending order.
+    pub(crate) fn frame_pous(&self) -> impl Iterator<Item = u32> + '_ {
+        self.layouts.locals.keys().copied()
+    }
+
     /// The activation byte range of a POU's frame locals.
     #[must_use]
     pub fn local_range(&self, pou: u32) -> Option<ByteRange> {
@@ -407,11 +411,11 @@ impl PreparedModule {
     pub(crate) fn activation_reservation(&self) -> Result<u32, RuntimeError> {
         let mut largest = 0u32;
         for (&pou, range) in &self.layouts.locals {
-            let (instances, _, _) = self.call_instance_room(pou).ok_or(RuntimeError::Overflow)?;
+            let room = self.call_instance_room(pou).ok_or(RuntimeError::Overflow)?;
             largest = largest.max(
                 range
                     .bytes
-                    .checked_add(instances)
+                    .checked_add(room.bytes)
                     .ok_or(RuntimeError::Overflow)?,
             );
         }
@@ -548,8 +552,8 @@ impl PreparedModule {
     pub(crate) fn largest_call_instances(&self) -> Result<usize, RuntimeError> {
         let mut largest = 0u32;
         for &pou in self.layouts.locals.keys() {
-            let (_, count, _) = self.call_instance_room(pou).ok_or(RuntimeError::Overflow)?;
-            largest = largest.max(count);
+            let room = self.call_instance_room(pou).ok_or(RuntimeError::Overflow)?;
+            largest = largest.max(room.count);
         }
         usize::try_from(largest).map_err(|_| RuntimeError::Overflow)
     }
@@ -580,11 +584,11 @@ impl PreparedModule {
     pub(crate) fn largest_call_reference_leaves(&self) -> Result<usize, RuntimeError> {
         let mut largest = 0usize;
         for &pou in self.layouts.locals.keys() {
-            let (_, _, instances) = self.call_instance_room(pou).ok_or(RuntimeError::Overflow)?;
+            let room = self.call_instance_room(pou).ok_or(RuntimeError::Overflow)?;
             let leaves = self
                 .frame_reference_leaves(pou)
                 .len()
-                .checked_add(instances as usize)
+                .checked_add(room.leaves as usize)
                 .ok_or(RuntimeError::Overflow)?;
             largest = largest.max(leaves);
         }
@@ -596,114 +600,6 @@ impl PreparedModule {
             .max()
             .unwrap_or(0);
         largest.checked_add(staged).ok_or(RuntimeError::Overflow)
-    }
-
-    /// The bytes, the number and the reference leaves of the instances a frame of `pou` creates for
-    /// its function-block and class variables, which lie on the activation stack above the frame
-    /// (C1-11c, C1-19c4).
-    fn call_instance_room(&self, pou: u32) -> Option<(u32, u32, u32)> {
-        let mut room = (0u32, 0u32, 0u32);
-        for declaration in &self.layout.entries {
-            if declaration.owner != StorageOwner::Frame
-                || declaration.owner_pou_id != Some(pou)
-                || !declaration.owns_storage()
-            {
-                continue;
-            }
-            let Some(type_id) = declaration.type_id else {
-                continue;
-            };
-            let (bytes, count, leaves) = self.instance_tree(type_id, 0)?;
-            room = (
-                room.0.checked_add(bytes)?,
-                room.1.checked_add(count)?,
-                room.2.checked_add(leaves)?,
-            );
-        }
-        Some(room)
-    }
-
-    /// The bytes, the number and the reference leaves of the instances on the activation stack a
-    /// value of `type_id` holds: a function block or a class its instance, one for each level of
-    /// its inheritance chain with that level's own variables, and the instances those variables
-    /// hold; an array each element's; a structure each member's.
-    fn instance_tree(&self, type_id: u32, depth: usize) -> Option<(u32, u32, u32)> {
-        if depth > BYTECODE_MAX_TYPE_NESTING {
-            return None;
-        }
-        let mut current = type_id;
-        let entry = loop {
-            let entry = self.vm.types.entries.get(current as usize)?;
-            match &entry.data {
-                TypeData::Alias { target_type_id } => current = *target_type_id,
-                _ => break entry,
-            }
-        };
-        match &entry.data {
-            TypeData::Pou { pou_id }
-                if matches!(entry.kind, TypeKind::FunctionBlock | TypeKind::Class) =>
-            {
-                let mut total = (0u32, 0u32, 0u32);
-                let mut level = Some(*pou_id);
-                for _ in 0..=BYTECODE_MAX_TYPE_NESTING {
-                    let Some(pou) = level else {
-                        break;
-                    };
-                    let own = self
-                        .instance_template(pou)
-                        .map_or(0, |template| template.range.bytes);
-                    let leaves = u32::try_from(self.instance_reference_leaves(pou).len()).ok()?;
-                    total = (
-                        total.0.checked_add(own)?,
-                        total.1.checked_add(1)?,
-                        total.2.checked_add(leaves)?,
-                    );
-                    for &id in self.declarations(StorageOwner::Instance, Some(pou)) {
-                        let member = self.layout.entries.get(id as usize)?;
-                        let Some(member_type) = member.type_id.filter(|_| member.owns_storage())
-                        else {
-                            continue;
-                        };
-                        let (bytes, count, leaves) = self.instance_tree(member_type, depth + 1)?;
-                        total = (
-                            total.0.checked_add(bytes)?,
-                            total.1.checked_add(count)?,
-                            total.2.checked_add(leaves)?,
-                        );
-                    }
-                    level = self.vm.parent_pou_ids.get(&pou).copied();
-                }
-                Some(total)
-            }
-            TypeData::Array { elem_type_id, dims } => {
-                let (bytes, count, leaves) = self.instance_tree(*elem_type_id, depth + 1)?;
-                // An array of values that hold no instance holds none, whatever its bounds (an
-                // `ARRAY[*]` parameter has none of its own).
-                if (bytes, count, leaves) == (0, 0, 0) {
-                    return Some((0, 0, 0));
-                }
-                let elements = dims.iter().try_fold(1u32, |elements, (lower, upper)| {
-                    let length = u32::try_from(upper.checked_sub(*lower)?.checked_add(1)?).ok()?;
-                    elements.checked_mul(length)
-                })?;
-                Some((
-                    bytes.checked_mul(elements)?,
-                    count.checked_mul(elements)?,
-                    leaves.checked_mul(elements)?,
-                ))
-            }
-            TypeData::Struct { fields } | TypeData::Union { fields } => {
-                fields.iter().try_fold((0u32, 0u32, 0u32), |total, field| {
-                    let (bytes, count, leaves) = self.instance_tree(field.type_id, depth + 1)?;
-                    Some((
-                        total.0.checked_add(bytes)?,
-                        total.1.checked_add(count)?,
-                        total.2.checked_add(leaves)?,
-                    ))
-                })
-            }
-            _ => Some((0, 0, 0)),
-        }
     }
 
     /// Where slot `slot` of a frame of `pou` lies in the frame's bytes on the activation stack

@@ -4,7 +4,7 @@ use super::*;
 use crate::memory::cell_access::CellsView;
 use crate::memory::layout::ByteRange;
 use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
-use crate::memory::{IoArea, MemoryLocation};
+use crate::memory::MemoryLocation;
 use crate::value::{RefSegment, ValueRefView};
 use crate::vm::VmTrap;
 
@@ -176,39 +176,11 @@ impl EngineState<'_> {
     }
 
     /// Reserve the bytes that the snapshot of the input destinations saves at a scan start: the cells
-    /// of every distinct root an input writes that it saves as its bytes, charged as the cell store's
-    /// own bytes are (specification 34 MEM-09; C1-16). A destination that does not resolve yet is
-    /// left to the scan, which refuses it as before.
+    /// of every distinct variable an input writes into that it saves as its bytes, computed from the
+    /// module ([`PreparedModule::input_snapshot_bytes`]) and charged as the cell store's own bytes are
+    /// (specification 34 MEM-09; C1-16, C1-21).
     pub(super) fn reserve_input_snapshot(&mut self) -> Result<(), RuntimeError> {
-        let inputs = self
-            .prepared
-            .io_bindings
-            .iter()
-            .filter(|binding| matches!(binding.address.area, IoArea::Input | IoArea::Memory));
-        let mut roots: Vec<(Key, u32)> = Vec::new();
-        roots
-            .try_reserve_exact(inputs.clone().count())
-            .map_err(|_| RuntimeError::Overflow)?;
-        for binding in inputs {
-            let Ok(reference) = self.persistent_io_target(binding.ref_idx) else {
-                continue;
-            };
-            let Ok(key) = self.snapshot_key(None, reference) else {
-                continue;
-            };
-            let Ok(root) = self.snapshot_root(None, key) else {
-                continue;
-            };
-            if let Some((range, _)) = cells_of_root(self.prepared, &root) {
-                roots.push((key, range.bytes));
-            }
-        }
-        roots.sort_unstable_by_key(|(key, _)| *key);
-        roots.dedup_by_key(|(key, _)| *key);
-        let bytes = roots
-            .iter()
-            .try_fold(0usize, |sum, (_, bytes)| sum.checked_add(*bytes as usize))
-            .ok_or(RuntimeError::Overflow)?;
+        let bytes = self.prepared.input_snapshot_bytes()?;
         self.charge_allocation_bytes(bytes)?;
         self.data.resources.staging.reserve_snapshot_bytes(bytes)
     }

@@ -86,6 +86,13 @@ impl LifecycleMarks {
         Ok(inserted)
     }
 
+    /// Room for `capacity` marks, so that construction and the calls of a scan insert theirs without
+    /// growing the table; each insertion is still charged the growth of a table without the room
+    /// (specification 34 MEM-09, TIME-08; C1-21).
+    pub(super) fn reserve_room(&mut self, capacity: usize) -> Result<(), RuntimeError> {
+        self.0.reserve_room(capacity)
+    }
+
     pub(super) fn contains(&self, key: &(u32, Option<InstanceId>)) -> Result<bool, RuntimeError> {
         Ok(self.0.get(&encode_mark(key.0, key.1)?).is_some())
     }

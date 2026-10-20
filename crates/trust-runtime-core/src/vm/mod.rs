@@ -42,7 +42,7 @@ pub use engine::{
 #[cfg(feature = "std")]
 pub use engine::{OwnedRuntimeState, ResourceReconfiguration};
 pub use prepared::{
-    PreparationLimits, PreparationUsage, PreparedModule, ProgramPart, PROGRAM_PARTS,
+    MemoryFigure, PreparationLimits, PreparationUsage, PreparedModule, ProgramPart, PROGRAM_PARTS,
 };
 #[cfg(any(feature = "hir", test))]
 mod debug_map;

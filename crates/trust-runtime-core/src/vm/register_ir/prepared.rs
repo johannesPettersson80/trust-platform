@@ -968,6 +968,53 @@ impl crate::memory::figure::HeapBytes for PreparedRegisterProgram {
     }
 }
 
+impl PreparedRegisterPlans {
+    /// The bytes of heap the engine's register state takes for these plans once constructed
+    /// (specification 34 MEM-12; C1-21): each lowered POU's execution buffers, as
+    /// [`Self::reserve_execution_buffers`] reserves them, and the prepared telemetry of the profile
+    /// and of the tier-1 state, in this order.
+    pub(crate) fn state_heap_bytes(&self, module: &VmModule) -> Option<(usize, usize)> {
+        let mut buffers = 0usize;
+        let mut bytes = 0usize;
+        for (id, plan) in &self.entries {
+            if plan.fallback_reason().is_some() {
+                continue;
+            }
+            buffers += 1;
+            let program = plan.program()?;
+            let locals = module.pou(*id)?.local_ref_count as usize;
+            let arguments = program
+                .blocks
+                .iter()
+                .flat_map(|block| &block.instructions)
+                .map(operands_above_registers)
+                .max()
+                .unwrap_or(0);
+            let registers = program.max_registers as usize;
+            bytes = bytes
+                .checked_add(
+                    registers
+                        .checked_add(arguments)?
+                        .checked_mul(mem::size_of::<crate::vm::stack::Operand>())?,
+                )?
+                .checked_add(plan.temporaries)?
+                .checked_add(registers.checked_mul(mem::size_of::<u32>())?)?
+                .checked_add(mem::size_of::<super::super::VmFrame>())?
+                .checked_add(
+                    locals.checked_mul(mem::size_of::<Value>() + mem::size_of::<bool>())?,
+                )?;
+        }
+        Some((
+            buffers
+                .checked_mul(mem::size_of::<(u32, Option<RegisterExecutionBuffers>)>())?
+                .checked_add(bytes)?,
+            super::profile::RegisterProfileState::prepared_heap_bytes(self).checked_add(
+                super::tier1::RegisterTier1SpecializedExecutorState::prepared_heap_bytes(self),
+            )?,
+        ))
+    }
+}
+
 #[cfg(test)]
 mod allocation_model_tests {
     use super::*;

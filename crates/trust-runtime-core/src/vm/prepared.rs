@@ -18,15 +18,23 @@ mod figure;
 #[cfg(feature = "footprint")]
 mod footprint;
 mod indexes;
+/// What a program's instances take: on the activation stack, and in the engine's bookkeeping.
+mod instances;
+/// The roots that the inputs of a program write, which a scan start saves.
+mod io_roots;
 mod layouts;
 mod metadata;
+/// How deep the evaluation of initializers nests.
+mod nesting;
 /// The most a scan keeps beside its operands (C1-19c2).
 pub(crate) mod operand_bounds;
 mod reference_names;
 pub(crate) use budget::PreparationBudget;
 pub use budget::PreparationUsage;
 pub(crate) use call_plans::CallPlan;
-pub use figure::{ProgramPart, PROGRAM_PARTS};
+pub use figure::{MemoryFigure, ProgramPart, PROGRAM_PARTS};
+pub(crate) use instances::InstanceBookkeeping;
+pub(crate) use nesting::RawShellBounds;
 
 /// Explicit preparation limits for an allocator-backed execution profile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -141,6 +149,8 @@ pub struct PreparedModule {
     /// The statement starts of an artifact with a LINE_TABLE, built once at preparation
     /// (specification 12 §6.13); `None` for an artifact without one.
     statements: Option<StatementTable>,
+    /// The memory figure, computed once the module is finished (specification 34 MEM-12).
+    memory_figure: figure::MemoryFigure,
 }
 
 impl PreparedModule {
@@ -475,6 +485,7 @@ impl PreparedModule {
             method_owners,
             recipes,
             statements,
+            memory_figure: figure::MemoryFigure::default(),
         };
         // The walk reads the layouts and the tables above (C1-19c2).
         #[cfg(not(feature = "register-ir"))]
@@ -491,6 +502,7 @@ impl PreparedModule {
                 });
             prepared.register_plans = plans;
         }
+        prepared.memory_figure = figure::MemoryFigure::of(&prepared)?;
         Ok(prepared)
     }
 
