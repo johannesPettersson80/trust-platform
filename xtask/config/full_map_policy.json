@@ -3110,7 +3110,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 60,
+        "line": 65,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "Callers give the allocator up to two regions, once, before any allocation; each non-empty region is valid, aligned and owned by nothing else for the program's lifetime (documented Safety contract).",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -3118,7 +3118,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 67,
+        "line": 72,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "Forwards the caller's init contract unchanged to one inner LlffHeap per region; each composition arena is exclusively owned by the allocator.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -3126,7 +3126,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 173,
+        "line": 185,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "MeasuredHeap delegates to one critical-section protected LlffHeap per composition region; instrumentation uses relaxed atomics and never allocates or panics.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -3134,7 +3134,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 174,
+        "line": 186,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "GlobalAlloc layout contract is inherited; alloc counts one allocator operation and forwards the unchanged layout to the private allocate helper, which tries the regions in order and records failure/live/peak counts.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -3142,7 +3142,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 113,
+        "line": 118,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "Forwarded allocation uses the caller-supplied valid Layout; a null pointer from one region makes the next region try, and a null pointer from every region is retained as allocation-failure evidence.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -3150,7 +3150,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 180,
+        "line": 192,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "GlobalAlloc caller owns the pointer/layout allocation pair; dealloc counts one allocator operation and forwards the pair unchanged to the private free helper, exposing no alias.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -3158,7 +3158,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 138,
+        "line": 144,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "Underlying deallocation receives the exact pointer and Layout supplied by the allocator caller, routed to the region whose recorded bounds contain the pointer.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -3166,7 +3166,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 272,
+        "line": 284,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Interrupts are masked by the critical section; writes paint only aligned addresses of the composition's stack window below the sampled stack pointer minus a 256-byte guard.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -3174,7 +3174,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 296,
+        "line": 308,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Aligned volatile reads stay inside the composition's stack window; the reported watermark is measured evidence, not a worst-case proof.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -3182,7 +3182,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 332,
+        "line": 344,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the Cortex-M MSP register only (nomem, nostack, preserves_flags); no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -3190,7 +3190,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 349,
+        "line": 361,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Copies the RISC-V stack pointer register only (nomem, nostack, preserves_flags); no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -3198,7 +3198,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 109,
+        "line": 114,
         "owner": "runtime portability C1-19f (the allocation count)",
         "invariant": "Private helper with the contract of GlobalAlloc::alloc (a valid layout of non-zero size); tries each region in order, forwards the unchanged layout and records the allocation call, a failure, the live bytes and the phase peak.",
         "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
@@ -3206,7 +3206,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 134,
+        "line": 140,
         "owner": "runtime portability C1-19f (the allocation count)",
         "invariant": "Private helper with the contract of GlobalAlloc::dealloc (a pair this allocator produced); routes the unchanged pair to the region whose recorded bounds hold the pointer.",
         "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
@@ -3214,7 +3214,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 177,
+        "line": 189,
         "owner": "runtime portability C1-19f (the allocation count)",
         "invariant": "Forwards GlobalAlloc::alloc's valid non-zero layout unchanged to the allocate helper, which has the same contract.",
         "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
@@ -3222,7 +3222,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 183,
+        "line": 195,
         "owner": "runtime portability C1-19f (the allocation count)",
         "invariant": "Forwards GlobalAlloc::dealloc's pair unchanged to the free helper, which has the same contract.",
         "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
@@ -3230,7 +3230,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 188,
+        "line": 200,
         "owner": "runtime portability C1-19f (the allocation count)",
         "invariant": "One counted operation that takes GlobalAlloc::realloc's default steps: allocate the new layout, copy the smaller size, free the old pair; none of them is counted again.",
         "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
@@ -3238,7 +3238,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 192,
+        "line": 204,
         "owner": "runtime portability C1-19f (the allocation count)",
         "invariant": "GlobalAlloc::realloc's caller guarantees a non-zero new_size that, rounded up to the old alignment, does not overflow isize, so the unchecked layout is valid.",
         "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
@@ -3246,7 +3246,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 194,
+        "line": 206,
         "owner": "runtime portability C1-19f (the allocation count)",
         "invariant": "The new layout is valid and of non-zero size, the allocate helper's contract.",
         "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
@@ -3254,7 +3254,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 198,
+        "line": 210,
         "owner": "runtime portability C1-19f (the allocation count)",
         "invariant": "Both blocks are live, distinct allocations valid for the smaller of the two sizes, and the old pointer/layout pair came from this allocator, so the copy and the free are sound.",
         "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",

@@ -58,13 +58,15 @@ fn allocations_spill_into_the_second_region() {
 
 #[test]
 fn a_full_heap_refuses_and_counts_the_failure() {
-    // R1: an allocation neither region can take is refused and counted. The wrong behaviour: a null
-    // result that no failure counter records, and a failure counter that also counts a successful
-    // allocation.
+    // R1: an allocation neither region can take is refused and counted, and the bytes it asked for
+    // are kept as the last failure (0 before the first). The wrong behaviour: a null result that no
+    // failure counter records, a failure counter that also counts a successful allocation, and a
+    // failure whose size is not kept, or kept from a later successful allocation.
     let heap = MeasuredHeap::empty();
     // SAFETY: the slice outlives the test, is used by nothing else, and `init` runs once before the
     // first allocation.
     unsafe { heap.init(region(64), None) };
+    assert_eq!(heap.last_failure(), 0);
 
     // SAFETY: the layout is valid.
     let pointer = unsafe { heap.alloc(layout(65, 8)) };
@@ -72,6 +74,18 @@ fn a_full_heap_refuses_and_counts_the_failure() {
     assert_eq!(heap.used(), 0);
     assert_eq!(heap.remaining(), 64);
     assert_eq!(heap.emergency_metrics(), (0, 0, 1, 1));
+    assert_eq!(heap.last_failure(), 65);
+
+    // SAFETY: the layout is valid; the block is freed below with the same layout.
+    let taken = unsafe { heap.alloc(layout(8, 8)) };
+    assert!(!taken.is_null());
+    assert_eq!(
+        heap.last_failure(),
+        65,
+        "a successful allocation keeps the last failure"
+    );
+    // SAFETY: `taken` came from this heap with this layout.
+    unsafe { heap.dealloc(taken, layout(8, 8)) };
 }
 
 #[test]

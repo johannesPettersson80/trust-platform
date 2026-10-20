@@ -30,6 +30,10 @@ pub struct MeasuredHeap {
     allocations: AtomicUsize,
     /// Failed allocation calls over both regions.
     failures: AtomicUsize,
+    /// The bytes the last failed allocation call asked for, 0 before the first failure: where a
+    /// first-fit heap with enough free bytes in all has no single block left for a request, this
+    /// names the request, which the bench reads beside the failure count.
+    last_failure: AtomicUsize,
     /// Every allocator operation over both regions, each allocation, reallocation and free once,
     /// never reset: the count a runtime reads around its scans (specification 34, "The allocation
     /// count"). Kept under a critical section in 64 bits, so it does not wrap on a 32-bit chip.
@@ -47,6 +51,7 @@ impl MeasuredHeap {
             peak: AtomicUsize::new(0),
             allocations: AtomicUsize::new(0),
             failures: AtomicUsize::new(0),
+            last_failure: AtomicUsize::new(0),
             operations: critical_section::Mutex::new(Cell::new(0)),
         }
     }
@@ -118,6 +123,7 @@ impl MeasuredHeap {
         self.allocations.fetch_add(1, Ordering::Relaxed);
         if pointer.is_null() {
             self.failures.fetch_add(1, Ordering::Relaxed);
+            self.last_failure.store(layout.size(), Ordering::Relaxed);
         } else {
             let used = self.used_of_regions();
             self.used.store(used, Ordering::Relaxed);
@@ -137,6 +143,12 @@ impl MeasuredHeap {
         // is the region that owns it.
         unsafe { self.inner[index].dealloc(pointer, layout) };
         self.used.store(self.used_of_regions(), Ordering::Relaxed);
+    }
+
+    /// The bytes the last failed allocation call asked for, 0 before the first failure.
+    #[must_use]
+    pub fn last_failure(&self) -> usize {
+        self.last_failure.load(Ordering::Relaxed)
     }
 
     /// Lock-free failure evidence even when the panic came from inside the allocator.
