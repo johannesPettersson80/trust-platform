@@ -42,10 +42,11 @@ impl<C, I, M> EngineCycle<'_, C, I, M> {
 
     /// The installation generation the program's state is in (specification 34 §11.3, MEM-07). Every
     /// restart and every online change installs the next one, so a reference taken in an earlier
-    /// generation is refused as stale.
+    /// generation is refused as stale. It is read from the store, not from the storage view, whose
+    /// projection of every value a chip would build and keep for this one number (C1-19f).
     #[must_use]
     pub fn generation(&self) -> Generation {
-        self.state.storage().generation()
+        trust_runtime_core::memory::view::StoreAccess::generation(&self.state)
     }
 
     /// The program's variables, for inspection: a read-only view, as `RuntimeState::storage` gives it.

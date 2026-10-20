@@ -422,31 +422,61 @@ impl Instruction {
     }
 }
 
-/// The body's instructions, or none when its code does not decode (the validator refused it).
-fn decode(code: &[u8]) -> Vec<Instruction> {
-    let mut instructions = Vec::new();
+/// The instruction that starts at byte `at` of `code`, or none when the code does not decode there.
+fn instruction_at(code: &[u8], at: usize) -> Option<Instruction> {
+    let opcode = *code.get(at)?;
+    let width = crate::vm::opcode_operand_len(opcode)?;
+    let mut operands = [0u32; 3];
+    for (index, operand) in operands.iter_mut().enumerate().take(width / 4) {
+        let from = at + 1 + 4 * index;
+        let bytes = code.get(from..from + 4)?;
+        *operand = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+    }
+    Some(Instruction {
+        at,
+        opcode,
+        operands,
+    })
+}
+
+/// Where the body's blocks start, in order: its first instruction, every jump target that is an
+/// instruction's start and the instruction after a jump or a return, as the validator's blocks
+/// start; none when its code does not decode (the validator refused it). Two passes over the code
+/// find them, so the walk keeps nothing for each instruction (C1-19f: a candidate prepared during
+/// an online change runs this walk while the running program and the upload are in the heap).
+fn block_starts(code: &[u8]) -> Vec<usize> {
+    let mut starts = vec![0];
     let mut at = 0;
     while at < code.len() {
-        let opcode = code[at];
-        let Some(width) = crate::vm::opcode_operand_len(opcode) else {
+        let Some(instruction) = instruction_at(code, at) else {
             return Vec::new();
         };
-        let mut operands = [0u32; 3];
-        for (index, operand) in operands.iter_mut().enumerate().take(width / 4) {
-            let from = at + 1 + 4 * index;
-            let Some(bytes) = code.get(from..from + 4) else {
-                return Vec::new();
-            };
-            *operand = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+        if let Some(target) = instruction.target() {
+            starts.push(target);
         }
-        instructions.push(Instruction {
-            at,
-            opcode,
-            operands,
-        });
-        at += 1 + width;
+        let next = instruction.next();
+        if matches!(instruction.opcode, 0x02..=0x04 | 0x06) && next < code.len() {
+            starts.push(next);
+        }
+        at = next;
     }
-    instructions
+    starts.sort_unstable();
+    starts.dedup();
+    // A jump target that is not an instruction's start starts no block. The instructions start in
+    // increasing order, so one more pass keeps the targets that are starts.
+    let mut kept = 0;
+    let mut at = 0;
+    for index in 0..starts.len() {
+        while at < starts[index] && at < code.len() {
+            at = instruction_at(code, at).map_or(code.len(), |instruction| instruction.next());
+        }
+        if at == starts[index] && at < code.len() {
+            starts[kept] = starts[index];
+            kept += 1;
+        }
+    }
+    starts.truncate(kept);
+    starts
 }
 
 /// Walk `body`, block by block, and fold its text functions into `bounds`.
@@ -456,38 +486,21 @@ fn walk(
     body: &Body<'_>,
     bounds: &mut OperandBounds,
 ) -> Walked {
-    let instructions = decode(body.code);
+    let starts = block_starts(body.code);
     let mut walked = Walked::default();
-    if instructions.is_empty() {
+    if starts.is_empty() {
         return walked;
     }
-    let index_of = |at: usize| {
-        instructions
-            .binary_search_by_key(&at, |instruction| instruction.at)
-            .ok()
-    };
-    // A block starts at the first instruction, at a jump's target and after a jump or a return,
-    // as the validator's blocks do.
-    let mut leader = vec![false; instructions.len()];
-    leader[0] = true;
-    for (index, instruction) in instructions.iter().enumerate() {
-        if let Some(target) = instruction.target().and_then(index_of) {
-            leader[target] = true;
-        }
-        if matches!(instruction.opcode, 0x02..=0x04 | 0x06) && index + 1 < instructions.len() {
-            leader[index + 1] = true;
-        }
-    }
-    let mut entries: Vec<Option<(Vec<Operand>, u8)>> = vec![None; instructions.len()];
+    let block_of = |at: usize| starts.binary_search(&at).ok();
+    let mut entries: Vec<Option<(Vec<Operand>, u8)>> = vec![None; starts.len()];
     entries[0] = Some((Vec::new(), 0));
     let mut work = vec![0usize];
     while let Some(first) = work.pop() {
         let Some((mut stack, _)) = entries[first].clone() else {
             continue;
         };
-        let mut index = first;
-        loop {
-            let instruction = instructions[index];
+        let mut at = starts[first];
+        while let Some(instruction) = instruction_at(body.code, at) {
             step(
                 prepared,
                 types,
@@ -500,18 +513,19 @@ fn walk(
             walked.peak = walked.peak.max(held(&stack));
             walked.references = walked.references.max(references(&stack));
             let ends = matches!(instruction.opcode, 0x02..=0x04 | 0x06);
-            if !ends && index + 1 < instructions.len() && !leader[index + 1] {
-                index += 1;
+            let next = instruction.next();
+            if !ends && next < body.code.len() && block_of(next).is_none() {
+                at = next;
                 continue;
             }
             let successors = match instruction.opcode {
                 0x06 => [None, None],
                 0x02 => [instruction.target(), None],
-                0x03 | 0x04 => [instruction.target(), Some(instruction.next())],
-                _ => [Some(instruction.next()), None],
+                0x03 | 0x04 => [instruction.target(), Some(next)],
+                _ => [Some(next), None],
             };
             for at in successors.into_iter().flatten() {
-                if let Some(target) = index_of(at)
+                if let Some(target) = block_of(at)
                     && merge(&mut entries[target], &stack, types)
                 {
                     work.push(target);
