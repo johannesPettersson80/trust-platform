@@ -307,3 +307,16 @@ impl RegisterLoweringCacheState {
         }
     }
 }
+
+impl crate::memory::figure::HeapBytes for RegisterLoweringCacheEntry {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        match self {
+            Self::Ready(entry) => {
+                count.of(&entry.program);
+                count.of(&entry.register_read_counts_by_block);
+                count.of(&entry.block_has_register_reads);
+            }
+            Self::LoweringError { message } => count.of(message),
+        }
+    }
+}

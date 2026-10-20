@@ -955,5 +955,31 @@ fn finish_register_result(
     }
 }
 
+crate::memory::figure::holds_no_heap!(RegisterId);
+
+impl crate::memory::figure::HeapBytes for RegisterProgram {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.blocks);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for RegisterBlock {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.instruction_costs);
+        count.of(&self.instruction_cost_steps);
+        count.of(&self.instructions);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for RegisterInstr {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        match self {
+            Self::CallNative { args, .. } => count.of(args),
+            Self::VmFallback { operands, .. } => count.of(operands),
+            _ => {}
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests;

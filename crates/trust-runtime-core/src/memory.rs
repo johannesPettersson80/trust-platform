@@ -325,6 +325,9 @@ pub mod cell_access;
 /// The decoded value of one leaf and one region's flat block (specification 34 §6.2, MEM-12).
 pub mod cells;
 mod execution_frames;
+/// The bytes of heap that a prepared program holds, counted from its own tables (specification 34
+/// MEM-12, MEM-14).
+pub(crate) mod figure;
 /// The bytes of one leaf of a flat block: every variable at its declared size, with no tag
 /// (specification 34 MEM-12).
 pub mod flat;

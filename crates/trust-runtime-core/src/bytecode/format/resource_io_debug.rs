@@ -80,3 +80,22 @@ pub struct DebugEntry {
     /// Wire record kind.
     pub kind: u8,
 }
+
+impl crate::memory::figure::HeapBytes for ResourceMeta {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.resources);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for ResourceEntry {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.tasks);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for TaskEntry {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.program_name_idx);
+        count.of(&self.fb_ref_idx);
+    }
+}

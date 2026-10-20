@@ -460,3 +460,10 @@ pub fn coerce_scalar_to_io(value: Value, target: ConversionType) -> Result<Value
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
+
+impl crate::memory::figure::HeapBytes for IoEnumBinding {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.type_name);
+        count.of(&self.variants);
+    }
+}

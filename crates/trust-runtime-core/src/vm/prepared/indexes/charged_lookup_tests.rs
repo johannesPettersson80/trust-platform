@@ -75,7 +75,7 @@ fn fixture(dense_globals: bool) -> PreparedModule {
         .prepare_declaration_plan(
             prepared.vm.pou_by_id.len(),
             &prepared.layout,
-            &BTreeMap::new(),
+            &crate::collections::SortedMap::new(),
             &mut budget,
         )
         .unwrap();
@@ -259,7 +259,7 @@ fn sparse_owner_and_slot_resolve_without_a_former_work_bound() {
         .prepare_declaration_plan(
             prepared.vm.pou_by_id.len(),
             &prepared.layout,
-            &BTreeMap::new(),
+            &crate::collections::SortedMap::new(),
             &mut budget,
         )
         .unwrap();

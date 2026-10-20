@@ -224,3 +224,21 @@ impl StandardLibrary {
         Err(RuntimeError::UndefinedFunction(name.into()))
     }
 }
+
+impl crate::memory::figure::HeapBytes for StandardLibrary {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.functions);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for StdFunction {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        match &self.params {
+            StdParams::Fixed(names) => count.of(names),
+            StdParams::Variadic { fixed, prefix, .. } => {
+                count.of(fixed);
+                count.of(prefix);
+            }
+        }
+    }
+}

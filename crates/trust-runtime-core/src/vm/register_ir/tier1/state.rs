@@ -349,3 +349,22 @@ impl RegisterTier1SpecializedExecutorState {
         self.block_executions = self.block_executions.saturating_add(1);
     }
 }
+
+impl crate::memory::figure::HeapBytes for Tier1CompiledBlock {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.instructions);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for Tier1CompiledInstr {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        match self {
+            Self::LoadConst { value, .. } => count.of(value),
+            Self::LoadSelfFieldDynamic { field, .. }
+            | Self::StoreSelfFieldDynamic { field, .. }
+            | Self::RefField { field, .. } => count.of(field),
+            Self::CallNative { args, .. } => count.of(args),
+            _ => {}
+        }
+    }
+}

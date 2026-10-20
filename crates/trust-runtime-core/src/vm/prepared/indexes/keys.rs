@@ -52,6 +52,8 @@ const fn encode_optional_pou(pou: Option<u32>) -> u64 {
     }
 }
 
+crate::memory::figure::holds_no_heap!(DeclarationKey, ActionKey);
+
 #[cfg(test)]
 mod tests {
     use super::*;

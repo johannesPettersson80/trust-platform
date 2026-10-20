@@ -62,7 +62,7 @@ fn actual_lookup_geometry_preserves_dense_fallback_missing_and_root_results() {
         .prepare_declaration_plan(
             prepared.vm.pou_by_id.len(),
             &prepared.layout,
-            &BTreeMap::new(),
+            &crate::collections::SortedMap::new(),
             &mut budget,
         )
         .unwrap();

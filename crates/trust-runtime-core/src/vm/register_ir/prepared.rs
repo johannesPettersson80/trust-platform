@@ -950,6 +950,24 @@ fn value_payload_bytes(value: &Value, depth: usize) -> Result<usize, RuntimeErro
     }
 }
 
+impl crate::memory::figure::HeapBytes for PreparedRegisterPlans {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.entries);
+        count.of(&self.summary);
+        count.of(&self.text_calls);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for PreparedRegisterProgram {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.lowered);
+        count.of(&self.tier1_blocks);
+        count.of(&self.tier1_selection_indices);
+        count.of(&self.tier1_failures);
+        count.of(&self.fallback_reason);
+    }
+}
+
 #[cfg(test)]
 mod allocation_model_tests {
     use super::*;

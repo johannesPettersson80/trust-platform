@@ -2429,6 +2429,46 @@
         "review_date": "2026-10-15"
       },
       {
+        "path": "crates/trust-runtime-core/tests/memory_figure.rs",
+        "line": 40,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
+        "test_evidence": "cargo test -p trust-runtime-core --test memory_figure",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/memory_figure.rs",
+        "line": 41,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
+        "test_evidence": "cargo test -p trust-runtime-core --test memory_figure",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/memory_figure.rs",
+        "line": 43,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
+        "test_evidence": "cargo test -p trust-runtime-core --test memory_figure",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/memory_figure.rs",
+        "line": 50,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
+        "test_evidence": "cargo test -p trust-runtime-core --test memory_figure",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/memory_figure.rs",
+        "line": 53,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
+        "test_evidence": "cargo test -p trust-runtime-core --test memory_figure",
+        "review_date": "2026-10-20"
+      },
+      {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
         "line": 149,
         "owner": "runtime portability",

@@ -569,3 +569,5 @@ pub(super) fn equal_texts(runtime: &impl ExecutionContext, stack: &OperandStack)
     let (right_wide, right) = operand_text(runtime, stack, right)?;
     Some(left_wide == right_wide && left.same(&right))
 }
+
+crate::memory::figure::holds_no_heap!(TextCall);

@@ -115,6 +115,16 @@ fn reserve_one<T>(values: &mut Vec<T>, budget: &mut PreparationBudget) -> Result
     Ok(())
 }
 
+impl<K: crate::memory::figure::HeapBytes, V: crate::memory::figure::HeapBytes>
+    crate::memory::figure::HeapBytes for Groups<K, V>
+{
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.pending);
+        count.of(&self.keys);
+        count.of(&self.values);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

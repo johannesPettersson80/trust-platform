@@ -11,30 +11,37 @@ use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::vec::Vec;
 
 use crate::bytecode::{LineStatement, LineTable};
+use crate::collections::SortedMap;
 
 /// Statement lookup over one module's `LINE_TABLE` (specification 12 §6.13).
 ///
 /// A statement is named by its table index, its position in
 /// [`LineTable::statements`](crate::bytecode::LineTable::statements). Build the index
 /// once with [`StatementIndex::new`] and keep it: every query is a binary search.
+/// Each POU's lists are ranges of three lists that every POU shares (specification 34
+/// MEM-14).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StatementIndex {
     /// Each POU that owns at least one statement, keyed by `pou_id`.
-    pous: BTreeMap<u32, PouStatements>,
-}
-
-/// One POU's statements: where each one starts, and which one contains each offset.
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct PouStatements {
-    /// The distinct statement start offsets, ascending.
+    pous: SortedMap<u32, PouStatements>,
+    /// The distinct statement start offsets of each POU, ascending.
     starts: Vec<u32>,
     /// For each entry of `starts`, the table index of the innermost statement that
     /// starts there.
     owners: Vec<u32>,
-    /// Boundaries in ascending offset order. From a segment's offset up to the next
-    /// segment's offset, the innermost statement whose span contains the offset is
+    /// Each POU's boundaries in ascending offset order. From a segment's offset up to the
+    /// next segment's offset, the innermost statement whose span contains the offset is
     /// the segment's `statement`.
     segments: Vec<Segment>,
+}
+
+/// One POU's statements: its ranges of the shared lists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PouStatements {
+    /// Its starts, and their owners at the same positions.
+    starts: (u32, u32),
+    /// Its segments.
+    segments: (u32, u32),
 }
 
 /// The innermost statement that contains every offset from `offset` up to the next
@@ -43,6 +50,17 @@ struct PouStatements {
 struct Segment {
     offset: u32,
     statement: Option<u32>,
+}
+
+/// A range of a shared list, as `start..end`.
+fn span(range: (u32, u32)) -> core::ops::Range<usize> {
+    range.0 as usize..range.1 as usize
+}
+
+/// The length of a shared list as a range bound; a validated table holds fewer than
+/// `u32::MAX` statements.
+fn position(list_len: usize) -> u32 {
+    u32::try_from(list_len).unwrap_or(u32::MAX)
 }
 
 impl StatementIndex {
@@ -58,11 +76,21 @@ impl StatementIndex {
                 .or_default()
                 .push((index, statement));
         }
-        let pous = by_pou
-            .into_iter()
-            .map(|(pou_id, entries)| (pou_id, PouStatements::new(&entries)))
-            .collect();
-        Self { pous }
+        let mut index = Self {
+            pous: SortedMap::new(),
+            starts: Vec::new(),
+            owners: Vec::new(),
+            segments: Vec::new(),
+        };
+        let mut pous = Vec::with_capacity(by_pou.len());
+        for (pou_id, entries) in by_pou {
+            pous.push((pou_id, index.push_pou(&entries)));
+        }
+        index.pous = pous.into_iter().collect();
+        index.starts.shrink_to_fit();
+        index.owners.shrink_to_fit();
+        index.segments.shrink_to_fit();
+        index
     }
 
     /// The table index of the innermost statement that starts at `code_offset` in
@@ -72,9 +100,11 @@ impl StatementIndex {
     /// start (specification 12 §6.13).
     #[must_use]
     pub fn statement_at_start(&self, pou_id: u32, code_offset: u32) -> Option<u32> {
-        let pou = self.pous.get(&pou_id)?;
-        let position = pou.starts.binary_search(&code_offset).ok()?;
-        pou.owners.get(position).copied()
+        let range = span(self.pous.get(&pou_id)?.starts);
+        let position = self.starts[range.clone()]
+            .binary_search(&code_offset)
+            .ok()?;
+        self.owners[range].get(position).copied()
     }
 
     /// The table index of the innermost statement whose code span contains
@@ -84,14 +114,12 @@ impl StatementIndex {
     /// lies outside it (specification 12 §6.13).
     #[must_use]
     pub fn statement_containing(&self, pou_id: u32, code_offset: u32) -> Option<u32> {
-        let pou = self.pous.get(&pou_id)?;
+        let segments = &self.segments[span(self.pous.get(&pou_id)?.segments)];
         // The segments ascend by offset, so the last one that starts at or before
         // `code_offset` holds it. A count of zero means it precedes every boundary.
-        let count = pou
-            .segments
-            .partition_point(|segment| segment.offset <= code_offset);
+        let count = segments.partition_point(|segment| segment.offset <= code_offset);
         let segment = count.checked_sub(1)?;
-        pou.segments.get(segment)?.statement
+        segments.get(segment)?.statement
     }
 
     /// The statement start offsets of `pou_id`, ascending and each listed once: the
@@ -101,23 +129,25 @@ impl StatementIndex {
     #[must_use]
     pub fn starts(&self, pou_id: u32) -> &[u32] {
         match self.pous.get(&pou_id) {
-            Some(pou) => &pou.starts,
+            Some(pou) => &self.starts[span(pou.starts)],
             None => &[],
         }
     }
-}
 
-impl PouStatements {
-    /// Build one POU's lookup tables from its `entries`, each with its table index, in
-    /// table order.
-    fn new(entries: &[(u32, &LineStatement)]) -> Self {
+    /// Append one POU's lookup tables, built from its `entries`, each with its table
+    /// index, in table order, and return its ranges.
+    fn push_pou(&mut self, entries: &[(u32, &LineStatement)]) -> PouStatements {
         // A later entry with the same start is the inner one, so it replaces the
         // earlier entry in the map.
         let mut owner_of_start: BTreeMap<u32, u32> = BTreeMap::new();
         for &(index, statement) in entries {
             owner_of_start.insert(statement.start_code_offset, index);
         }
-        let (starts, owners): (Vec<u32>, Vec<u32>) = owner_of_start.into_iter().unzip();
+        let first_start = position(self.starts.len());
+        for (start, owner) in owner_of_start {
+            self.starts.push(start);
+            self.owners.push(owner);
+        }
 
         // An entry covers offsets with `start <= offset < end`, so an empty span covers
         // none. Each other entry joins the active set at its start and leaves it at its
@@ -134,7 +164,7 @@ impl PouStatements {
         // The active set is ordered by table index, so its last member is the innermost
         // statement containing the offsets of the segment.
         let mut active: BTreeSet<u32> = BTreeSet::new();
-        let mut segments = Vec::new();
+        let first_segment = position(self.segments.len());
         for group in events.chunk_by(|a, b| a.0 == b.0) {
             for &(_, enters, index) in group {
                 if enters {
@@ -143,15 +173,14 @@ impl PouStatements {
                     active.remove(&index);
                 }
             }
-            segments.push(Segment {
+            self.segments.push(Segment {
                 offset: group[0].0,
                 statement: active.last().copied(),
             });
         }
-        Self {
-            starts,
-            owners,
-            segments,
+        PouStatements {
+            starts: (first_start, position(self.starts.len())),
+            segments: (first_segment, position(self.segments.len())),
         }
     }
 }
@@ -186,7 +215,8 @@ pub struct StatementTable {
 const BYTES_PER_STATEMENT: usize = 104;
 
 /// Bytes that [`StatementTable::new`] takes per POU that owns a statement, as an upper bound
-/// for the 64-bit layout: the POU's key (4) and its per-POU lists (72).
+/// for the 64-bit layout: the POU's key and ranges (20), and the build's scratch (the POU's
+/// grouping entry 28 and its ranges before they are sorted into the table 20).
 const BYTES_PER_POU: usize = 76;
 
 // The fixed charges must cover what the build takes on every target, so admission does not
@@ -201,8 +231,12 @@ const _: () = assert!(
         + core::mem::size_of::<u32>()
         <= BYTES_PER_STATEMENT
 );
-const _: () =
-    assert!(core::mem::size_of::<u32>() + core::mem::size_of::<PouStatements>() <= BYTES_PER_POU);
+const _: () = assert!(
+    2 * (core::mem::size_of::<u32>() + core::mem::size_of::<PouStatements>())
+        + core::mem::size_of::<u32>()
+        + core::mem::size_of::<Vec<(u32, &LineStatement)>>()
+        <= BYTES_PER_POU
+);
 
 impl StatementTable {
     /// Build the table from `table`, which the decoder and the validator have accepted
@@ -248,6 +282,24 @@ impl StatementTable {
     pub fn statement_start(&self, pou_id: u32, code_offset: u32) -> Option<StatementSpan> {
         let statement = self.index.statement_at_start(pou_id, code_offset)?;
         self.spans.get(statement as usize).copied()
+    }
+}
+
+crate::memory::figure::holds_no_heap!(PouStatements, Segment, StatementSpan);
+
+impl crate::memory::figure::HeapBytes for StatementIndex {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.pous);
+        count.of(&self.starts);
+        count.of(&self.owners);
+        count.of(&self.segments);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for StatementTable {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.index);
+        count.of(&self.spans);
     }
 }
 

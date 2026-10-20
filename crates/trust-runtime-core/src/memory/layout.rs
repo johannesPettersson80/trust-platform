@@ -812,6 +812,45 @@ fn array_count(dims: &[(i64, i64)]) -> Result<u64, RuntimeError> {
     Ok(count)
 }
 
+crate::memory::figure::holds_no_heap!(
+    ByteShape,
+    ByteRange,
+    InstanceTemplateLayout,
+    MemberLayout,
+    TextLeaf,
+    ReferenceLeaf,
+    InstanceLeaf,
+);
+
+impl crate::memory::figure::HeapBytes for TypeLayout {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.members);
+        count.of(&self.array);
+        count.of(&self.text_leaves);
+        count.of(&self.reference_leaves);
+        count.of(&self.instance_leaves);
+        count.of(&self.overlay);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for ArrayLayout {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.dims);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for OverlayLayout {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.slots);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for OverlaySlot {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.path);
+    }
+}
+
 #[cfg(test)]
 #[path = "layout/tests.rs"]
 mod tests;

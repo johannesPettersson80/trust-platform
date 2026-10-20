@@ -363,6 +363,14 @@ fn pou_by_name(module: &VmModule, kind: crate::bytecode::PouKind, name: &str) ->
     })
 }
 
+impl crate::memory::figure::HeapBytes for CallPlan {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.arguments.formal_args);
+        count.of(&self.arguments.present);
+        count.of(&self.arguments.outputs);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

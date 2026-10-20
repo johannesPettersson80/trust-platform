@@ -160,3 +160,9 @@ fn parse_u8(value: &str, full: &str) -> Result<u8, RuntimeError> {
         .parse::<u8>()
         .map_err(|_| RuntimeError::InvalidIoAddress(full.into()))
 }
+
+impl crate::memory::figure::HeapBytes for IoAddress {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.path);
+    }
+}

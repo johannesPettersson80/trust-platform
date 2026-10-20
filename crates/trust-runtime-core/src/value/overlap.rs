@@ -340,6 +340,45 @@ fn path_work(path: &[RefSegment]) -> usize {
     })
 }
 
+impl crate::memory::figure::HeapBytes for PhysicalLayout {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.leaves);
+        count.of(&self.children);
+        count.of(&self.path_order);
+        count.of(&self.bit_order);
+        count.of(&self.bit_max_end);
+        count.of(&self.child_path_order);
+        count.of(&self.child_bit_order);
+        count.of(&self.child_max_end);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for Leaf {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.path);
+        count.of(&self.enumeration);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for Child {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.path);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for Enumeration {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.variants);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for PhysicalValue {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.layout);
+        count.of(&self.bytes);
+    }
+}
+
 #[cfg(test)]
 mod writer_tests;
 

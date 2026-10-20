@@ -366,3 +366,10 @@ pub enum RegisterValueOpKind {
     /// A call result was cloned for copy-back.
     CopyOutput,
 }
+
+impl crate::memory::figure::HeapBytes for VmEdgeInput {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.name);
+        count.of(&self.phase_name);
+    }
+}

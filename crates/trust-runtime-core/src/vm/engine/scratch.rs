@@ -522,18 +522,11 @@ impl ScratchPlan {
             })
             .max()
             .unwrap_or(0);
-        // `PouMap::keys` exists only with the register feature, so iterate the identity and
-        // payload pairs and ignore the payloads; clippy's `keys()` suggestion does not
-        // compile on the chips.
-        #[allow(
-            clippy::iter_kv_map,
-            reason = "PouMap::keys exists only with register-ir"
-        )]
         let edges = prepared
             .vm
             .pou_by_id
-            .iter()
-            .map(|(pou, _)| prepared.edge_inputs(*pou).len())
+            .keys()
+            .map(|pou| prepared.edge_inputs(*pou).len())
             .max()
             .unwrap_or(0);
         // An initializer body runs in execution buffers of its own (C1-13); construction reserves

@@ -18,6 +18,34 @@ use declaration_plan::DeclarationPlanIndex;
 use frame_plan::FrameActionPlan;
 use groups::Groups;
 use keys::{ActionKey, DeclarationKey};
+impl crate::memory::figure::HeapBytes for PreparedIndexes {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.members);
+        count.of(&self.globals);
+        count.of(&self.type_members);
+        count.of(&self.named_types);
+        count.of(&self.root_owners);
+        count.of(&self.root_owner_ordinals);
+        count.of(&self.root_candidates);
+        count.of(&self.program_roots);
+        count.of(&self.edge_declarations);
+        count.of(&self.declarations);
+        count.of(&self.declaration_plan);
+        count.of(&self.static_ordinals);
+        count.of(&self.retained_declarations);
+        count.of(&self.actions);
+        count.of(&self.frame_action_plans);
+        count.of(&self.instance_actions);
+        count.of(&self.resource_actions);
+        count.of(&self.module_statics);
+        count.of(&self.configuration_actions);
+        count.of(&self.explicit_actions);
+        count.of(&self.edges);
+        count.of(&self.reference_candidates);
+        count.of(&self.background_programs);
+    }
+}
+
 #[cfg(test)]
 mod charged_lookup_tests;
 #[cfg(all(test, feature = "std", feature = "test-support"))]
@@ -74,7 +102,7 @@ impl PreparedIndexes {
         layout: &StorageLayout,
         roots: &ConstructionRoots,
         initializers: &InitializerIndex,
-        methods: &BTreeMap<u32, u32>,
+        methods: &crate::collections::SortedMap<u32, u32>,
         resources: &ResourceMeta,
         budget: &mut PreparationBudget,
     ) -> Result<Self, RuntimeError> {

@@ -220,6 +220,12 @@ fn parse_native_symbol(symbol: &SmolStr) -> Result<(SmolStr, Vec<VmNativeArgSpec
     Ok((target, args))
 }
 
+impl crate::memory::figure::HeapBytes for NativeSymbols {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.entries);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

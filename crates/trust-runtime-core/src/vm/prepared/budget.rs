@@ -180,16 +180,9 @@ impl PreparationBudget {
         }
         Ok(())
     }
+    /// A table of `count` POU entries of `V`, sorted by identity (specification 34 MEM-14).
     fn pou_map<V>(&mut self, count: usize) -> Result<(), RuntimeError> {
-        #[cfg(feature = "std")]
-        {
-            self.map::<u32, V>(count)
-        }
-        #[cfg(not(feature = "std"))]
-        {
-            self.map::<u32, usize>(count)?;
-            self.records::<V>(count)
-        }
+        self.records::<(u32, V)>(count)
     }
 
     fn pou_metadata(
@@ -209,16 +202,16 @@ impl PreparationBudget {
             if entry.kind != PouKind::Method {
                 // Function names remain a preparation-time native-resolution
                 // index without HIR, even though only hosted adapters retain it.
-                self.map::<SmolStr, u32>(1)?;
+                self.records::<(u32, u32)>(1)?;
             }
             self.charge(name_len(entry.name_idx), name_len(entry.name_idx))?;
             self.pou_map::<Vec<VmParamMeta>>(1)?;
             self.records::<VmParamMeta>(entry.params.len())?;
             if entry.return_type_id.is_some() {
-                self.map::<u32, ()>(1)?;
+                self.records::<u32>(1)?;
             }
             if entry.kind == PouKind::Method {
-                self.map::<u32, u32>(1)?;
+                self.records::<(u32, u32)>(1)?;
             }
             // Owner inference visits this body with scalar state and no owner set.
             let Some(SectionData::PouBodies(code)) = raw.section(SectionId::PouBodies) else {
@@ -251,15 +244,11 @@ impl PreparationBudget {
             }
             if let Some(class) = &entry.class_meta {
                 if class.parent_pou_id.is_some() {
-                    self.map::<u32, u32>(1)?;
+                    self.records::<(u32, u32)>(1)?;
                 }
                 self.pou_map::<Vec<u32>>(1)?;
                 self.records::<u32>(class.interfaces.len())?;
-                #[cfg(feature = "std")]
-                self.map::<u32, usize>(1)?;
-                #[cfg(not(feature = "std"))]
-                self.pou_map::<alloc::collections::BTreeMap<SmolStr, u32>>(1)?;
-                self.map::<SmolStr, u32>(class.methods.len())?;
+                self.records::<(u32, u32, u32)>(class.methods.len())?;
                 for method in &class.methods {
                     self.charge(name_len(method.name_idx), name_len(method.name_idx))?;
                 }
@@ -327,14 +316,14 @@ mod tests {
     };
     use alloc::vec;
 
-    #[cfg(not(feature = "std"))]
     #[test]
-    fn portable_pou_map_charges_index_and_reserved_payload() {
+    fn a_pou_table_charges_its_sorted_entries() {
+        // Spec 34 MEM-14: a POU table is one array of entries sorted by identity, on every target,
+        // and preparation charges exactly its entries: three entries of an identity (4 bytes) and a
+        // 24-byte payload are 3 x 28 = 84 bytes and one unit of work each. A charge by an index
+        // tree or a hash map (four words per entry more) would refuse the exact allowance.
         let count = 3;
-        let required = count
-            * (core::mem::size_of::<u32>()
-                + 5 * core::mem::size_of::<usize>()
-                + core::mem::size_of::<[u8; 24]>());
+        let required = 84;
         let limits = PreparationLimits {
             max_preparation_bytes: required,
             max_preparation_work: usize::MAX,
@@ -343,7 +332,7 @@ mod tests {
         let mut exact = PreparationBudget::new(limits);
         exact.pou_map::<[u8; 24]>(count).unwrap();
         assert_eq!(exact.usage().bytes, required);
-        assert_eq!(exact.usage().work, count * 2);
+        assert_eq!(exact.usage().work, count);
         let mut below = PreparationBudget::new(PreparationLimits {
             max_preparation_bytes: required - 1,
             ..limits

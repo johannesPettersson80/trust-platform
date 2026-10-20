@@ -7,7 +7,7 @@ impl PreparedIndexes {
     pub(super) fn prepare_actions(
         &mut self,
         initializers: &InitializerIndex,
-        methods: &BTreeMap<u32, u32>,
+        methods: &crate::collections::SortedMap<u32, u32>,
         budget: &mut PreparationBudget,
     ) -> Result<(), RuntimeError> {
         let count = initializers.entries.len();

@@ -308,6 +308,26 @@ impl<'a> NameLookup<'a> {
     }
 }
 
+impl crate::memory::figure::HeapBytes for Names {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.text);
+        count.of(&self.ends);
+        count.of(&self.shared);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for NameIndex {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.entries);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for MethodIndex {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.entries);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

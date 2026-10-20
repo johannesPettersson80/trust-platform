@@ -10,6 +10,8 @@ impl PreparedModule {
     pub fn drop_in_parts(self, mut after: impl FnMut(&'static str)) {
         let Self {
             vm,
+            #[cfg(feature = "register-ir")]
+            register_plans,
             layout,
             layouts,
             roots,
@@ -51,6 +53,9 @@ impl PreparedModule {
         drop(recipes);
         after("method owners and recipes");
         drop_module(vm, &mut after);
+        #[cfg(feature = "register-ir")]
+        drop(register_plans);
+        after("register plans");
     }
 }
 
@@ -74,6 +79,10 @@ fn drop_module(vm: VmModule, after: &mut impl FnMut(&'static str)) {
         pou_has_return_slot,
         method_table_by_owner,
         ref_types,
+        #[cfg(feature = "hir")]
+        function_ids,
+        #[cfg(feature = "hir")]
+        debug_map,
         ..
     } = vm;
     drop(code);
@@ -101,4 +110,10 @@ fn drop_module(vm: VmModule, after: &mut impl FnMut(&'static str)) {
     after("module: name maps");
     drop(native_symbol_specs);
     after("module: native symbols");
+    #[cfg(feature = "hir")]
+    {
+        drop(function_ids);
+        drop(debug_map);
+    }
+    after("module: source names and debug map");
 }

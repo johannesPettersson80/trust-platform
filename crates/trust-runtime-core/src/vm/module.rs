@@ -12,51 +12,30 @@ use crate::bytecode::{
     PouKind, RefEntry, RefLocation, RefTable, SectionData, SectionId, StringTable, TypeData,
     TypeTable, VarMeta,
 };
+use crate::collections::{SortedMap as IdMap, SortedSet as IdSet};
 use crate::error::{PreparationDiagnostic, RuntimeError};
 use crate::memory::IoArea;
 use crate::value::{ref_indices_from_iter, RefPath, RefSegment as ValueRefSegment, Value};
 #[cfg(all(not(feature = "std"), feature = "hir"))]
 use alloc::collections::BTreeMap as HashMap;
-#[cfg(not(feature = "std"))]
-use alloc::collections::{BTreeMap as IdMap, BTreeSet as IdSet};
 use alloc::vec::Vec;
 use smol_str::SmolStr;
-// POU ids are integer keys that the call path looks up on every invocation, so
-// hosted builds hash them with Fx rather than SipHash.
-#[cfg(feature = "std")]
-use rustc_hash::{FxHashMap as IdMap, FxHashSet as IdSet};
 #[cfg(all(feature = "std", feature = "hir"))]
 use std::collections::HashMap;
 
-#[cfg(not(feature = "std"))]
-mod pou_map;
-#[cfg(not(feature = "std"))]
-pub use pou_map::PouMap;
-/// Hosted metadata keeps a hash map, with the Fx hasher.
-#[cfg(feature = "std")]
+/// The POU metadata by POU identity: one table sorted by identity, the same on every target
+/// (specification 34 MEM-14), looked up by binary search on every call.
 pub type PouMap<V> = IdMap<u32, V>;
 
 fn pou_map<V>(count: usize) -> Result<PouMap<V>, RuntimeError> {
-    #[cfg(not(feature = "std"))]
-    {
-        PouMap::with_capacity(count)
-    }
-    #[cfg(feature = "std")]
-    {
-        let _ = count;
-        Ok(IdMap::default())
-    }
+    PouMap::try_with_capacity(count).map_err(|_| RuntimeError::PreparationLimit)
 }
 
+/// Materialization reserves from the validated record count: a new identity beyond it is a broken
+/// capacity plan, refused rather than growing an uncharged table.
 fn insert_pou<V>(map: &mut PouMap<V>, id: u32, value: V) -> Result<Option<V>, RuntimeError> {
-    #[cfg(not(feature = "std"))]
-    {
-        map.try_insert(id, value)
-    }
-    #[cfg(feature = "std")]
-    {
-        Ok(map.insert(id, value))
-    }
+    map.insert_within_capacity(id, value)
+        .map_err(|_| RuntimeError::PreparationLimit)
 }
 
 /// Immutable execution metadata for a validated legacy hosted module.
@@ -274,16 +253,12 @@ impl VmModule {
         );
 
         let count = pou_index.entries.len();
-        #[cfg(not(feature = "std"))]
         charge(0, count)?; // Count class payloads before exact vector reservations.
-        #[cfg(not(feature = "std"))]
         let class_count = pou_index
             .entries
             .iter()
             .filter(|entry| entry.class_meta.is_some())
             .count();
-        #[cfg(feature = "std")]
-        let class_count = 0;
         let names = super::Names::from_entries(&strings.entries)?;
         let kind_count = |kind: PouKind| {
             pou_index
@@ -297,10 +272,27 @@ impl VmModule {
         let mut function_ids = NameIndex::with_capacity(kind_count(PouKind::Function))?;
         let mut function_block_ids = NameIndex::with_capacity(kind_count(PouKind::FunctionBlock))?;
         let mut class_ids = NameIndex::with_capacity(kind_count(PouKind::Class))?;
-        let mut parent_pou_ids = IdMap::default();
+        let parents = pou_index
+            .entries
+            .iter()
+            .filter(|entry| {
+                entry
+                    .class_meta
+                    .as_ref()
+                    .is_some_and(|meta| meta.parent_pou_id.is_some())
+            })
+            .count();
+        let mut parent_pou_ids =
+            IdMap::try_with_capacity(parents).map_err(|_| RuntimeError::PreparationLimit)?;
         let mut interface_type_ids_by_pou = pou_map(class_count)?;
         let mut pou_params = pou_map(count)?;
-        let mut pou_has_return_slot = IdSet::default();
+        let returns = pou_index
+            .entries
+            .iter()
+            .filter(|entry| entry.return_type_id.is_some())
+            .count();
+        let mut pou_has_return_slot =
+            IdSet::try_with_capacity(returns).map_err(|_| RuntimeError::PreparationLimit)?;
         let mut method_table_by_owner = MethodIndex::with_capacity(
             pou_index
                 .entries
@@ -755,6 +747,56 @@ pub fn infer_primary_instance_owner(
         None
     } else {
         owner
+    }
+}
+
+impl crate::memory::figure::HeapBytes for VmNativeArgSpec {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.name);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for VmNativeSymbolSpec {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        match self {
+            Self::Parsed {
+                target_name,
+                normalized_target_name,
+                resolved_function_pou_id: _,
+                conversion_spec: _,
+                arg_specs,
+            } => {
+                count.of(target_name);
+                count.of(normalized_target_name);
+                count.of(arg_specs);
+            }
+            Self::ParseError(text) => count.of(text),
+        }
+    }
+}
+
+impl crate::memory::figure::HeapBytes for VmPouEntry {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.name);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for VmParamMeta {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.name);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for VmRef {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        match self {
+            Self::InitializerResult { path, .. }
+            | Self::Global { path, .. }
+            | Self::Local { path, .. }
+            | Self::Instance { path, .. }
+            | Self::Retain { path, .. }
+            | Self::Io { path, .. } => count.of(path),
+        }
     }
 }
 

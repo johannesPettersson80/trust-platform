@@ -56,7 +56,7 @@ fn declaration_owner_index_allocation_is_bounded_and_charged() {
         .prepare_declaration_plan(
             pou_count,
             &crate::bytecode::StorageLayout::default(),
-            &BTreeMap::new(),
+            &crate::collections::SortedMap::new(),
             &mut budget,
         )
         .unwrap();
@@ -83,7 +83,7 @@ fn declaration_owner_index_allocation_is_bounded_and_charged() {
             refused_indexes.prepare_declaration_plan(
                 pou_count,
                 &crate::bytecode::StorageLayout::default(),
-                &BTreeMap::new(),
+                &crate::collections::SortedMap::new(),
                 &mut refused,
             ),
             Err(RuntimeError::PreparationLimit)
@@ -254,7 +254,12 @@ fn declaration_cache_fixture(pou_count: usize, owners: &[u32]) -> PreparedIndexe
     }
     indexes.declarations.finish(&mut budget).unwrap();
     indexes
-        .prepare_declaration_plan(pou_count, &layout, &BTreeMap::new(), &mut budget)
+        .prepare_declaration_plan(
+            pou_count,
+            &layout,
+            &crate::collections::SortedMap::new(),
+            &mut budget,
+        )
         .unwrap();
     indexes
 }

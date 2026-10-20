@@ -781,6 +781,21 @@ fn write_string_path(
     write_string_element(text, index, value, wide, capacity).ok()
 }
 
+impl crate::memory::figure::HeapBytes for RefSegment {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        match self {
+            Self::Index(indices) => count.of(indices),
+            Self::Field(name) => count.of(name),
+        }
+    }
+}
+
+impl crate::memory::figure::HeapBytes for ValueRef {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.path);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{

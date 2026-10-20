@@ -13,6 +13,8 @@ mod budget;
 pub(crate) mod byte_types;
 pub(crate) mod call_plans;
 mod duration_slots;
+/// The prepared program's part of the memory figure (specification 34 MEM-12, MEM-14).
+mod figure;
 #[cfg(feature = "footprint")]
 mod footprint;
 mod indexes;
@@ -24,6 +26,7 @@ mod reference_names;
 pub(crate) use budget::PreparationBudget;
 pub use budget::PreparationUsage;
 pub(crate) use call_plans::CallPlan;
+pub use figure::{ProgramPart, PROGRAM_PARTS};
 
 /// Explicit preparation limits for an allocator-backed execution profile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -69,6 +72,35 @@ impl Default for PreparationLimits {
     }
 }
 
+/// The POU that owns each method of `index`, by the method's identity: a method's instance
+/// variables belong to the POU that owns the method, so the layouts and the indexes read the same
+/// owners. The metadata charge counted each entry (`PreparationBudget::metadata`); the lookups are
+/// charged here.
+fn method_owners(
+    index: &crate::bytecode::PouIndex,
+    preparation: &mut PreparationBudget,
+) -> Result<crate::collections::SortedMap<u32, u32>, RuntimeError> {
+    let methods = index
+        .entries
+        .iter()
+        .filter(|entry| {
+            entry.kind == crate::bytecode::PouKind::Method && entry.owner_pou_id.is_some()
+        })
+        .count();
+    let mut owners = crate::collections::SortedMap::try_with_capacity(methods)
+        .map_err(|_| RuntimeError::PreparationLimit)?;
+    for entry in &index.entries {
+        preparation.charge(0, 1)?;
+        if entry.kind == crate::bytecode::PouKind::Method
+            && let Some(owner) = entry.owner_pou_id
+        {
+            preparation.charge(0, 12 * (owners.len().max(1).ilog2() as usize + 1))?;
+            owners.insert(entry.id, owner);
+        }
+    }
+    Ok(owners)
+}
+
 /// A prepared source-free STBC application with immutable version-selected storage ABI.
 /// Mutable execution state is created separately.
 /// Fields are private so raw metadata cannot forge executable admission.
@@ -104,7 +136,7 @@ pub struct PreparedModule {
     call_plans: Vec<(u32, Arc<CallPlan>)>,
     pub(crate) stdlib: crate::stdlib::StandardLibrary,
     /// Canonical recipe context, type, member (None for type default), initializer id.
-    pub(crate) method_owners: BTreeMap<u32, u32>,
+    pub(crate) method_owners: crate::collections::SortedMap<u32, u32>,
     pub(crate) recipes: Vec<(u32, u32, Option<u32>, u32)>,
     /// The statement starts of an artifact with a LINE_TABLE, built once at preparation
     /// (specification 12 §6.13); `None` for an artifact without one.
@@ -339,21 +371,10 @@ impl PreparedModule {
         // The overloaded timers' durations take the native duration slot before anything is laid
         // out or admitted (specification 34 §6.2).
         duration_slots::bind_duration_slots(&mut vm, &mut layout, &mut preparation)?;
-        // A method's instance variables belong to the POU that owns the method (its statics live in
-        // each receiver), so the layouts and the indexes read the same owners.
-        let mut method_owners = BTreeMap::new();
-        if let Some(SectionData::PouIndex(index)) = token.section(SectionId::PouIndex) {
-            for entry in &index.entries {
-                preparation.charge(0, 1)?;
-                if entry.kind == crate::bytecode::PouKind::Method
-                    && let Some(owner) = entry.owner_pou_id
-                {
-                    preparation
-                        .charge(0, 12 * (method_owners.len().max(1).ilog2() as usize + 1))?;
-                    method_owners.insert(entry.id, owner);
-                }
-            }
-        }
+        let method_owners = match token.section(SectionId::PouIndex) {
+            Some(SectionData::PouIndex(index)) => method_owners(index, &mut preparation)?,
+            _ => crate::collections::SortedMap::new(),
+        };
         let layouts = layouts::PreparedLayouts::build(
             &vm,
             &layout,

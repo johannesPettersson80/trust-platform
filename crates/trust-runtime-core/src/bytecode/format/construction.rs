@@ -492,3 +492,34 @@ impl AccessBindingEntry {
         self.flags & 1 != 0
     }
 }
+
+crate::memory::figure::holds_no_heap!(
+    StorageDeclaration,
+    ConstructionRoot,
+    InitializerEntry,
+    AccessBindingEntry,
+);
+
+impl crate::memory::figure::HeapBytes for StorageLayout {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.entries);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for ConstructionRoots {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.entries);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for InitializerIndex {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.entries);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for AccessBindings {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.entries);
+    }
+}

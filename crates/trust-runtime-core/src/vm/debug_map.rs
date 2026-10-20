@@ -73,6 +73,23 @@ impl VmDebugMap {
     }
 }
 
+// The memory figure counts the debug map only where hosted tooling keeps it (`hir`).
+#[cfg(feature = "hir")]
+impl crate::memory::figure::HeapBytes for VmDebugMap {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.symbol_to_ref);
+        count.of(&self.ref_to_symbol);
+        count.of(&self.source_by_pc);
+    }
+}
+
+#[cfg(feature = "hir")]
+impl crate::memory::figure::HeapBytes for VmSourceLocation {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.file);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -8,7 +8,7 @@ impl PreparedIndexes {
         vm: &VmModule,
         layout: &StorageLayout,
         roots: &ConstructionRoots,
-        methods: &BTreeMap<u32, u32>,
+        methods: &crate::collections::SortedMap<u32, u32>,
         budget: &mut PreparationBudget,
     ) -> Result<(), RuntimeError> {
         self.prepare_type_members(vm, budget)?;

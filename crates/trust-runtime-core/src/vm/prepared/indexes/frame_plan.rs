@@ -155,3 +155,5 @@ fn frame_action_owner(key: ActionKey) -> Option<u32> {
     )
     .then_some(owner)
 }
+
+crate::memory::figure::holds_no_heap!(FrameActionPlan);

@@ -170,3 +170,15 @@ pub struct VmRegisterLoweringCacheSnapshot {
     /// Prepared-entry observations invalidated by lifecycle changes.
     pub invalidations: u64,
 }
+
+impl crate::memory::figure::HeapBytes for VmRegisterPreparationSnapshot {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.specialization_failure_reasons);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for VmTier1SpecializedExecutorCompileFailureReason {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.reason);
+    }
+}

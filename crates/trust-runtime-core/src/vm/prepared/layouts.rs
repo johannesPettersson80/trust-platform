@@ -11,6 +11,7 @@ use crate::bytecode::{
     InitializationStage, InitializerBodyKind, StorageOwner, StorageRole, TypeData, TypeKind,
     BYTECODE_MAX_TYPE_NESTING,
 };
+use crate::collections::SortedMap;
 use crate::memory::layout::{
     align_up, compute_type_layouts, ByteRange, ByteShape, InstanceTemplateLayout, LayoutRegion,
     TypeLayout, INSTANCE_ALIGN,
@@ -24,20 +25,69 @@ use crate::vm::type_policy::is_wildcard_dim;
 pub(crate) struct PreparedLayouts {
     types: Vec<TypeLayout>,
     globals: Vec<Option<ByteRange>>,
-    templates: BTreeMap<u32, InstanceTemplateLayout>,
+    templates: SortedMap<u32, InstanceTemplateLayout>,
     /// The reference leaves of each POU's own instance variables, by their offset from the
     /// template's first byte, and of each POU's frame, by their offset from the frame's first byte,
     /// ascending, for the activation stack's reference table (C1-19c4). A POU without any has no
     /// entry.
-    instance_reference_leaves: BTreeMap<u32, Vec<u32>>,
-    frame_reference_leaves: BTreeMap<u32, Vec<u32>>,
-    locals: BTreeMap<u32, ByteRange>,
+    instance_reference_leaves: LeafLists,
+    frame_reference_leaves: LeafLists,
+    locals: SortedMap<u32, ByteRange>,
     initializer_results: Vec<Option<ByteRange>>,
     /// Each storage declaration's byte offset: a global's in the persistent block, an instance
     /// variable's in its POU's template and a frame variable's in its POU's frame.
     offsets: Vec<u32>,
     /// What these layout tables and their computation were charged (specification 34 §6.2).
     charged: PreparationUsage,
+}
+
+/// Each POU's reference leaves, ascending, as a range of one list that every POU shares
+/// (specification 34 MEM-14: lists are ranges into shared arrays, not one vector per entry).
+#[derive(Debug, Default)]
+struct LeafLists {
+    ranges: SortedMap<u32, (u32, u32)>,
+    leaves: Vec<u32>,
+}
+
+impl LeafLists {
+    /// The lists of `pairs`, each a POU and one of its leaves, charged through the budget.
+    fn of(
+        mut pairs: Vec<(u32, u32)>,
+        budget: &mut PreparationBudget,
+    ) -> Result<Self, RuntimeError> {
+        pairs.sort_unstable();
+        let pous = pairs
+            .iter()
+            .enumerate()
+            .filter(|&(at, &(pou, _))| at == 0 || pairs[at - 1].0 != pou)
+            .count();
+        budget.records::<(u32, (u32, u32))>(pous)?;
+        budget.records::<u32>(pairs.len())?;
+        let mut ranges =
+            SortedMap::try_with_capacity(pous).map_err(|_| RuntimeError::PreparationLimit)?;
+        let mut leaves = Vec::new();
+        leaves
+            .try_reserve_exact(pairs.len())
+            .map_err(|_| RuntimeError::PreparationLimit)?;
+        for (at, &(pou, leaf)) in pairs.iter().enumerate() {
+            if at == 0 || pairs[at - 1].0 != pou {
+                let start = u32::try_from(at).map_err(|_| RuntimeError::Overflow)?;
+                ranges.insert(pou, (start, start));
+            }
+            leaves.push(leaf);
+            if let Some(range) = ranges.get_mut(&pou) {
+                range.1 = u32::try_from(at + 1).map_err(|_| RuntimeError::Overflow)?;
+            }
+        }
+        Ok(Self { ranges, leaves })
+    }
+
+    /// The leaves of `pou`, ascending.
+    fn leaves(&self, pou: u32) -> &[u32] {
+        self.ranges.get(&pou).map_or(&[], |&(start, end)| {
+            &self.leaves[start as usize..end as usize]
+        })
+    }
 }
 
 impl PreparedLayouts {
@@ -51,7 +101,7 @@ impl PreparedLayouts {
         vm: &VmModule,
         layout: &StorageLayout,
         initializers: &InitializerIndex,
-        methods: &BTreeMap<u32, u32>,
+        methods: &crate::collections::SortedMap<u32, u32>,
         budget: &mut PreparationBudget,
     ) -> Result<Self, RuntimeError> {
         let charged_before = budget.usage();
@@ -113,7 +163,7 @@ impl PreparedLayouts {
             offsets[index] = start;
             *cursor = slot_end(start, shape, declaration.role)?;
         }
-        let mut templates = BTreeMap::new();
+        let mut templates = SortedMap::new();
         for &pou in own.keys().chain(vm.parent_pou_ids.keys()) {
             templates.insert(
                 pou,
@@ -127,11 +177,12 @@ impl PreparedLayouts {
                 },
             );
         }
-        budget.map::<u32, InstanceTemplateLayout>(templates.len())?;
+        templates.shrink_to_fit();
+        budget.records::<(u32, InstanceTemplateLayout)>(templates.len())?;
 
         // Each POU's frame variables, then the initializer results, on the activation stack.
         let mut activation_cursor = 0u32;
-        let mut locals = BTreeMap::new();
+        let mut locals = SortedMap::new();
         for declaration in &layout.entries {
             if declaration.owner != StorageOwner::Frame || !declaration.owns_storage() {
                 continue;
@@ -154,16 +205,16 @@ impl PreparedLayouts {
             );
             activation_cursor = start.checked_add(bytes).ok_or(RuntimeError::Overflow)?;
         }
-        budget.map::<u32, ByteRange>(locals.len())?;
+        locals.shrink_to_fit();
+        budget.records::<(u32, ByteRange)>(locals.len())?;
 
         // The reference leaves of each template's own variables and of each frame (C1-19c4).
-        let mut instance_reference_leaves: BTreeMap<u32, Vec<u32>> = BTreeMap::new();
-        let mut frame_reference_leaves: BTreeMap<u32, Vec<u32>> = BTreeMap::new();
-        let mut leaf_count = 0usize;
+        let mut instance_leaves = Vec::new();
+        let mut frame_leaves = Vec::new();
         for (index, declaration) in layout.entries.iter().enumerate() {
             let owner = match declaration.owner {
-                StorageOwner::Instance => &mut instance_reference_leaves,
-                StorageOwner::Frame => &mut frame_reference_leaves,
+                StorageOwner::Instance => &mut instance_leaves,
+                StorageOwner::Frame => &mut frame_leaves,
                 StorageOwner::Global => continue,
             };
             let (Some(pou), Some(type_id)) = (declaration.owner_pou_id, declaration.type_id) else {
@@ -178,25 +229,17 @@ impl PreparedLayouts {
             }) else {
                 continue;
             };
-            let leaves = owner.entry(pou).or_default();
             for leaf in &type_layout.reference_leaves {
-                leaves.push(
+                owner.push((
+                    pou,
                     offsets[index]
                         .checked_add(leaf.byte_offset)
                         .ok_or(RuntimeError::Overflow)?,
-                );
-                leaf_count += 1;
+                ));
             }
         }
-        for leaves in instance_reference_leaves
-            .values_mut()
-            .chain(frame_reference_leaves.values_mut())
-        {
-            leaves.sort_unstable();
-        }
-        budget
-            .map::<u32, Vec<u32>>(instance_reference_leaves.len() + frame_reference_leaves.len())?;
-        budget.records::<u32>(leaf_count)?;
+        let instance_reference_leaves = LeafLists::of(instance_leaves, budget)?;
+        let frame_reference_leaves = LeafLists::of(frame_leaves, budget)?;
 
         let mut initializer_results: Vec<Option<ByteRange>> = Vec::new();
         initializer_results.resize(initializers.entries.len(), None);
@@ -514,19 +557,13 @@ impl PreparedModule {
     /// The reference leaves of a frame of `pou`, by their offset from the frame's first byte, in
     /// ascending order (C1-19c4).
     pub(crate) fn frame_reference_leaves(&self, pou: u32) -> &[u32] {
-        self.layouts
-            .frame_reference_leaves
-            .get(&pou)
-            .map_or(&[], Vec::as_slice)
+        self.layouts.frame_reference_leaves.leaves(pou)
     }
 
     /// The reference leaves of the own variables of an instance of `pou`, by their offset from the
     /// first byte of its own range, in ascending order (C1-19c4).
     pub(crate) fn instance_reference_leaves(&self, pou: u32) -> &[u32] {
-        self.layouts
-            .instance_reference_leaves
-            .get(&pou)
-            .map_or(&[], Vec::as_slice)
+        self.layouts.instance_reference_leaves.leaves(pou)
     }
 
     /// The reference leaves the activation stack holds at most (C1-19c4): for each reserved call
@@ -714,5 +751,25 @@ impl PreparedModule {
                 .is_some_and(|member_name| member_name.eq_ignore_ascii_case(name))
         })?;
         u32::try_from(ordinal).ok()
+    }
+}
+
+impl crate::memory::figure::HeapBytes for PreparedLayouts {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.types);
+        count.of(&self.globals);
+        count.of(&self.templates);
+        count.of(&self.instance_reference_leaves);
+        count.of(&self.frame_reference_leaves);
+        count.of(&self.locals);
+        count.of(&self.initializer_results);
+        count.of(&self.offsets);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for LeafLists {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.ranges);
+        count.of(&self.leaves);
     }
 }

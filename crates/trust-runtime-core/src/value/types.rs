@@ -1007,5 +1007,67 @@ impl From<u16> for Value {
     }
 }
 
+impl crate::memory::figure::HeapBytes for Value {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        match self {
+            Self::String(text) => count.of(text),
+            Self::WString(text) => count.of(text),
+            Self::Array(array) => count.of(array),
+            Self::Struct(structure) => count.of(structure),
+            Self::Enum(enumeration) => count.of(enumeration),
+            Self::Reference(reference) => count.of(reference),
+            Self::Bool(_)
+            | Self::SInt(_)
+            | Self::Int(_)
+            | Self::DInt(_)
+            | Self::LInt(_)
+            | Self::USInt(_)
+            | Self::UInt(_)
+            | Self::UDInt(_)
+            | Self::ULInt(_)
+            | Self::Real(_)
+            | Self::LReal(_)
+            | Self::Byte(_)
+            | Self::Word(_)
+            | Self::DWord(_)
+            | Self::LWord(_)
+            | Self::Time(_)
+            | Self::LTime(_)
+            | Self::Date(_)
+            | Self::LDate(_)
+            | Self::Tod(_)
+            | Self::LTod(_)
+            | Self::Dt(_)
+            | Self::Ldt(_)
+            | Self::Char(_)
+            | Self::WChar(_)
+            | Self::Instance(_)
+            | Self::Null => {}
+        }
+    }
+}
+
+impl crate::memory::figure::HeapBytes for ArrayValue {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.elements);
+        count.of(&self.dimensions);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for StructValue {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.type_name);
+        count.of(&self.fields);
+        count.of(&self.physical);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for EnumValue {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.type_name);
+        count.of(&self.variant_name);
+    }
+}
+
 #[cfg(test)]
 mod tests;

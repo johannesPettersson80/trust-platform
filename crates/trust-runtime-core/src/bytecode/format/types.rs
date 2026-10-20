@@ -174,3 +174,28 @@ pub struct InterfaceMethod {
     /// Virtual dispatch slot.
     pub slot: u32,
 }
+
+crate::memory::figure::holds_no_heap!(Field, EnumVariant, InterfaceMethod);
+
+impl crate::memory::figure::HeapBytes for TypeTable {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.offsets);
+        count.of(&self.entries);
+    }
+}
+
+impl crate::memory::figure::HeapBytes for TypeEntry {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        match &self.data {
+            TypeData::Array { dims, .. } => count.of(dims),
+            TypeData::Struct { fields } | TypeData::Union { fields } => count.of(fields),
+            TypeData::Enum { variants, .. } => count.of(variants),
+            TypeData::Interface { methods } => count.of(methods),
+            TypeData::Primitive { .. }
+            | TypeData::Alias { .. }
+            | TypeData::Subrange { .. }
+            | TypeData::Reference { .. }
+            | TypeData::Pou { .. } => {}
+        }
+    }
+}

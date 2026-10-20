@@ -142,7 +142,7 @@ impl PreparedIndexes {
         &mut self,
         pou_count: usize,
         layout: &StorageLayout,
-        methods: &BTreeMap<u32, u32>,
+        methods: &crate::collections::SortedMap<u32, u32>,
         budget: &mut PreparationBudget,
     ) -> Result<(), RuntimeError> {
         let mut owner_count = 0usize;
@@ -250,4 +250,13 @@ fn declaration_range(
         .map(DeclarationRange::from_range)
         .transpose()
         .map(|range| range.unwrap_or_default())
+}
+
+crate::memory::figure::holds_no_heap!(PouDeclarationPlan);
+
+impl crate::memory::figure::HeapBytes for DeclarationPlanIndex {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.owners);
+        count.of(&self.owner_ordinals);
+    }
 }

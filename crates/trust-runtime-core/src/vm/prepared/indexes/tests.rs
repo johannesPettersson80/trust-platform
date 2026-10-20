@@ -850,7 +850,7 @@ fn declaration_plan_falls_back_for_sparse_reordered_pou_ids() {
         .prepare_declaration_plan(
             prepared.vm.pou_by_id.len(),
             &prepared.layout,
-            &BTreeMap::new(),
+            &crate::collections::SortedMap::new(),
             &mut budget,
         )
         .unwrap();

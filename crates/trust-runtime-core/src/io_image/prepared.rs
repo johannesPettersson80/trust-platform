@@ -165,3 +165,10 @@ impl PreparedIoBinding {
         })
     }
 }
+
+impl crate::memory::figure::HeapBytes for PreparedIoBinding {
+    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
+        count.of(&self.address);
+        count.of(&self.codec.enum_type);
+    }
+}
