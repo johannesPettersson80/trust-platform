@@ -24,6 +24,9 @@ use smol_str::SmolStr;
 mod access;
 mod retain_apply;
 pub use retain_apply::RetainApplyEvent;
+/// The values an online change carries into its candidate (specification 34 §11.3; C1-24).
+mod carry;
+pub use carry::{CarriedValueEvent, MAX_EVENTS as MAX_CARRIED_VALUE_EVENTS};
 mod allocation;
 mod allocation_count;
 mod api;

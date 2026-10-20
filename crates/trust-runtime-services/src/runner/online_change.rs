@@ -33,7 +33,7 @@ use core::cell::RefCell;
 use trust_runtime_core::ports::{
     ControlLink, MonotonicClock, MonotonicInstant, RunnerWait, TimeSpan,
 };
-use trust_runtime_core::vm::RetainApplyEvent;
+use trust_runtime_core::vm::CarriedValueEvent;
 
 pub use rules::{address_text, is_memory_limit, prepare_candidate, unwired_binding, ChangeMemory};
 
@@ -52,9 +52,9 @@ pub struct Candidate<Y> {
     /// running program's: they hold no queued write and no force, and carry the candidate's
     /// installation generation.
     pub live: EngineLiveValues,
-    /// The retained values that building the candidate dropped or migrated, which the loop
-    /// records at the moment of the commit, as a restart records them (specification 11 §6.7).
-    pub events: Vec<RetainApplyEvent>,
+    /// The variables of the candidate that did not keep the running program's values as they were,
+    /// which the loop records at the moment of the commit (specification 34 §11.3).
+    pub events: Vec<CarriedValueEvent>,
 }
 
 /// The online change that waits for the program's next boundary.
@@ -286,7 +286,7 @@ where
         let now = self.logical(self.clock.now());
         self.program_time = now;
         self.cycle_count = 0;
-        self.record_retain_events(events);
+        self.record_carried_events(events);
         // The debugger keeps its breakpoints and its pause, and forgets what belonged to the old
         // statements.
         self.shell.debug.program_replaced();

@@ -20,7 +20,7 @@ use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::memory::{Generation, VariableStorage};
 use trust_runtime_core::ports::MonotonicClock;
 use trust_runtime_core::value::{Value, ValueRef};
-use trust_runtime_core::vm::{PreparationLimits, PreparedModule, RetainApplyEvent};
+use trust_runtime_core::vm::{CarriedValueEvent, PreparationLimits, PreparedModule};
 
 use super::{CycleSettings, DeviceServices, EngineCycle, ProcessIo, RESOURCE_INDEX};
 
@@ -109,20 +109,19 @@ impl<C, I, M> EngineCycle<'_, C, I, M> {
 
 impl<C: MonotonicClock, I, M> EngineCycle<'_, C, I, M> {
     /// Builds the cycle of the program `prepared` that replaces this one at a boundary, over the
-    /// process I/O `io` and the settings `settings`, and returns it with the retained values that
-    /// its construction dropped or migrated (specification 34 §11.3; specification 11 §6.7.1). It is the
-    /// engine's replacement of a computer's online change on the state this device borrows
-    /// (`RuntimeState::prepare_replacement`):
+    /// process I/O `io` and the settings `settings`, and returns it with the events of the variables
+    /// that did not keep this program's values as they were (specification 34 §11.3; specification 11
+    /// §6.7.1). It is the engine's replacement of a computer's online change on the state this device
+    /// borrows (`RuntimeState::prepare_replacement`):
     ///
     /// - the candidate continues this program's installation generation with the next one, so a
     ///   reference or an instance identity taken before the change is refused as stale after it
     ///   (UPDATE-04);
     /// - it keeps the logical time of this program and carries its process images, and its tasks
     ///   continue this program's schedule (decision OC-2);
-    /// - a candidate that declares the same retained storage keeps the retained function-block
-    ///   instances and references live, and a candidate that does not migrates a snapshot of this
-    ///   program's retained values by name, and is refused when a retained live object cannot be
-    ///   serialized into one;
+    /// - every variable it declares at the same place and by the same name takes this program's
+    ///   value, retained or not, the members of function-block instances included, and a variable
+    ///   whose declaration changed keeps what fits; no value refuses the change;
     /// - no checkpoint is applied: it holds older values than the program does (decision OC-1).
     ///
     /// The candidate holds the module and the services given here and no borrow of this program, so
@@ -132,8 +131,7 @@ impl<C: MonotonicClock, I, M> EngineCycle<'_, C, I, M> {
     ///
     /// # Errors
     ///
-    /// The [`RuntimeError`] of a candidate that cannot be built: a retained value that its declared
-    /// type refuses, a retained live object that cannot be migrated, an allocation that the device
+    /// The [`RuntimeError`] of a candidate that cannot be built: an allocation that the device
     /// refuses, or an allowance that is exceeded.
     pub fn replacement<'b, J: ProcessIo>(
         &mut self,
@@ -141,7 +139,7 @@ impl<C: MonotonicClock, I, M> EngineCycle<'_, C, I, M> {
         services: &'b DeviceServices<C>,
         io: J,
         settings: CycleSettings,
-    ) -> Result<(EngineCycle<'b, C, J>, Vec<RetainApplyEvent>), RuntimeError> {
+    ) -> Result<(EngineCycle<'b, C, J>, Vec<CarriedValueEvent>), RuntimeError> {
         let (state, events) = self
             .state
             .prepare_replacement(prepared, RESOURCE_INDEX, services)?;

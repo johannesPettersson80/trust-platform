@@ -218,20 +218,19 @@ fn a_reload_the_program_does_not_take_within_five_seconds_is_withdrawn_with_relo
 }
 
 #[test]
-fn an_online_change_keeps_the_retained_values_and_applies_no_checkpoint() {
+fn an_online_change_keeps_the_values_and_applies_no_checkpoint() {
     // Specification 11 §6.7.1 and specification 34 §11.3 (decision OC-1): the candidate takes the
-    // retained values the running program holds at the boundary, as a computer's does, and no saved
-    // snapshot is applied over them: a checkpoint holds older values, and stays the source of a
+    // values the running program holds at the boundary, retained or not, as a computer's does, and no
+    // saved snapshot is applied over them: a checkpoint holds older values, and stays the source of a
     // restart after a stop or a power loss. The A4 program runs 0 to 80 ms, with `activations` 3 and
-    // `result` 3; the change is committed at 90 ms.
-    //   a record without a retain store: the running program's value carries over, 3, and the
-    //     non-retained `result` is back at its declared initial value, 0;
+    // `result` 3; the change is committed at 90 ms, before the task is due again at 100 ms.
+    //   a record without a retain store: the running program's values carry over, `activations` 3 and
+    //     the non-retained `result` 3;
     //   a record that keeps retained values, whose newest checkpoint holds 2: the running program's 3
     //     stays (before decision OC-1 the checkpoint's 2 replaced it);
     //   a checkpoint that names another variable only: the running program's 3 stays.
-    // Wrong behaviour caught: retained values reset to their declared initial value; a checkpoint that
-    // replaces the values the program holds; non-retained variables that keep the old program's values
-    // (until checklist C1-24 carries every matching variable).
+    // Wrong behaviour caught: values reset to their declared initial values (a non-retained `result`
+    // 0, as before checklist C1-24); a checkpoint that replaces the values the program holds.
     let cases = [
         (
             "without a store",
@@ -273,7 +272,7 @@ fn an_online_change_keeps_the_retained_values_and_applies_no_checkpoint() {
             "{kind}: the change reads no checkpoint"
         );
         assert_eq!(plant(&runner, "activations"), expected, "{kind}");
-        assert_eq!(plant(&runner, "result"), Retained::Int(0), "{kind}");
+        assert_eq!(plant(&runner, "result"), Retained::Int(3), "{kind}");
     }
 }
 

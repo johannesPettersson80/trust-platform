@@ -13,11 +13,13 @@
 //! `debugger_hold_operations.rs` covers it with a second thread.
 //!
 //! The fixture programs are in `stateful_lifecycle_sequences.rs`. Program A is installed first.
-//! Program B is a compatible replacement. Program C is an incompatible replacement: `Main.r` changes
-//! from INT to BOOL. Retained: `g_r` (global) and `Main.r`. Non-retained: `i`, `d`, `n`, `q`, `lamp`
-//! and the `ident` global. `out` is the process output `%QX0.0`, which the program assigns in every
-//! scan. `lamp` is the global `lamp AT %QX0.1` with the initial value TRUE; no program assigns it, so
-//! its output image `lamp_out` shows how a restart treats the image of a located variable.
+//! Program B is a replacement with the same declarations and other arithmetic; the refused candidate
+//! is bytes that do not decode (an online change refuses no candidate because of a value, spec 11
+//! 6.7.1). Retained: `g_r` (global) and `Main.r`. Non-retained: `i`, `d`, `n`, `q` and
+//! `lamp`. The constant `ident` tells the installed program. `out` is the process output `%QX0.0`,
+//! which the program assigns in every scan. `lamp` is the global `lamp AT %QX0.1` with the initial
+//! value TRUE; no program assigns it, so its output image `lamp_out` shows how a restart treats the
+//! image of a located variable.
 
 const R_INIT: i16 = 1;
 const G_R_INIT: i16 = 5;
@@ -35,7 +37,7 @@ pub enum Exe {
 }
 
 impl Exe {
-    /// The initial value of the program's `ident` global, which differs between the programs.
+    /// The value of the program's `ident` constant, which differs between the programs.
     #[must_use]
     pub fn ident(self) -> i16 {
         match self {
@@ -84,8 +86,6 @@ pub enum Op {
     OnlineChangeB,
     /// Replace with bytes that do not decode.
     OnlineChangeMalformed,
-    /// Replace with program C, whose retained `Main.r` has another type.
-    OnlineChangeIncompatible,
     /// Advance logical time by the given milliseconds.
     AdvanceTime(i64),
 }
@@ -347,14 +347,13 @@ impl Model {
             }
             Op::OnlineChangeB => {
                 self.exe = Exe::B;
-                self.restart(Retained::Live);
+                self.change();
                 Step {
                     outcome: Outcome::Accepted,
                     installed_changed: true,
                 }
             }
             Op::OnlineChangeMalformed => refused(Outcome::BytecodeRejected),
-            Op::OnlineChangeIncompatible => refused(Outcome::CandidateRejected),
             Op::AdvanceTime(ms) => {
                 self.time_ms += ms;
                 accepted()
@@ -411,9 +410,21 @@ impl Model {
         accepted()
     }
 
-    /// Warm and cold restart (spec 10 4.8, spec 11 6.7, 6.9.2). The online change of B is the
-    /// same transaction with the live values as the retained source: it reads no retain store
-    /// (spec 11 6.7.1; spec 34 11.3, decision OC-1).
+    /// The commit of an online change (spec 11 6.7.1; spec 34 11.3, decisions OC-1 and OC-2). B
+    /// declares what A declares, so every variable keeps its value, retained or not, the value that
+    /// faulted the resource included, and no retain store is read. Like a restart, the commit clears
+    /// the queued writes, the forces and the fault, restarts the cycle count and leaves the debugger
+    /// hold (spec 11 6.6, 6.9, 6.9.2). The process images are carried over.
+    fn change(&mut self) {
+        self.fault = None;
+        self.pending_i = None;
+        self.pending_d = None;
+        self.forced_i = None;
+        self.forced_d = None;
+        self.cycles = 0;
+    }
+
+    /// Warm and cold restart (spec 10 4.8, spec 11 6.7, 6.9.2).
     fn restart(&mut self, retained: Retained) {
         // Pending writes and forces are cleared by every restart (spec 11 6.9.2), also those that
         // were accepted while the resource was faulted. The fault is cleared because the commit

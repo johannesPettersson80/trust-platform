@@ -32,49 +32,6 @@ pub enum RetainApplyEvent {
 }
 
 impl EngineState<'_> {
-    pub(super) fn require_serializable_retained_values(&self) -> Result<(), RuntimeError> {
-        let check = |value: &Value| -> Result<(), RuntimeError> {
-            self.check_retention_walk(value, 0)?;
-            if !value_is_retainable(value) {
-                return Err(RuntimeError::RetainMigration(
-                    "retained live-object graph requires congruent admitted schema".into(),
-                ));
-            }
-            Ok(())
-        };
-        for &id in self
-            .prepared
-            .retained_declarations(StorageOwner::Global, None)
-        {
-            let declaration = &self.prepared.layout.entries[id as usize];
-            let name = &self.prepared.vm.strings[declaration.name_idx as usize];
-            if let Some(view) = self.read_global(name) {
-                check(&view.materialize()?)?;
-            }
-        }
-        for (index, root) in self.prepared.roots.entries.iter().enumerate() {
-            if root.parent_root_idx.is_some()
-                || self.prepared.layout.entries[root.declaration_idx as usize].role
-                    != StorageRole::ProgramRoot
-            {
-                continue;
-            }
-            let instance =
-                self.data.construction.roots[index].ok_or(RuntimeError::InvalidExecutionState)?;
-            for &id in self
-                .prepared
-                .retained_declarations(StorageOwner::Instance, root.template_pou_id)
-            {
-                let declaration = &self.prepared.layout.entries[id as usize];
-                let name = &self.prepared.vm.strings[declaration.name_idx as usize];
-                if let Some(view) = self.read_instance_var(instance, name) {
-                    check(&view.materialize()?)?;
-                }
-            }
-        }
-        Ok(())
-    }
-
     pub(super) fn apply_retained_snapshot(
         &mut self,
         snapshot: &RetainSnapshot,

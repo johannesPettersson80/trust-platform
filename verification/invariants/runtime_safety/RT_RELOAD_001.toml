@@ -10,7 +10,7 @@ claim = "Online change and hot reload must not leave live runtime state partiall
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/runtime"]
-tests = ["TEST_AUTO_1A54FB3BD7AFBA32F5B0", "TEST_AUTO_4F2995A2CBD7C4CB4598", "TEST_AUTO_536B258421ADD8E350A4", "TEST_AUTO_6881AED77BE0CFD99ED5", "TEST_AUTO_6D63E21F9D9B39D9AF6D", "TEST_AUTO_E067B79A22B8500C7619", "TEST_RUNTIME_RELOAD_TRANSACTION_001"]
+tests = ["TEST_AUTO_4F2995A2CBD7C4CB4598", "TEST_AUTO_536B258421ADD8E350A4", "TEST_AUTO_6881AED77BE0CFD99ED5", "TEST_AUTO_A0DC7334328B65BCFDBA", "TEST_AUTO_E067B79A22B8500C7619", "TEST_AUTO_F48BA48F6FB8942539AE", "TEST_RUNTIME_RELOAD_TRANSACTION_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_RUNTIME_RELOAD_TRANSACTION_001_RED",
@@ -54,7 +54,7 @@ oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
-rationale = "Successful identical-schema warm reload preserves the reviewed retained globals and program values while resetting non-retained storage and the reviewed function-block instance."
+rationale = "A successful online change keeps the reviewed retained and non-retained globals, program values and the function-block instance's member: every variable at the same place keeps its value (specification 34 section 11.3, decision OC-1)."
 
 [[behavior]]
 partition = { equals = "SUCCESSFUL_IO_REBIND" }
@@ -72,16 +72,16 @@ oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
-rationale = "Successful reload resets the reviewed non-retained value and scan counter to zero, then executes the changed body from its entry point on the following cycle."
+rationale = "A successful reload keeps the reviewed non-retained value, restarts the scan counter at zero, and executes the changed body from its entry point on the following cycle."
 
 [[behavior]]
-partition = { equals = "RETAIN_MIGRATION_REJECTION_PRESERVES_LIVE_RUNTIME" }
+partition = { equals = "RETAINED_VALUE_THAT_DOES_NOT_FIT_TAKES_ITS_INITIAL_VALUE" }
 case_family = "persistence_or_recovery"
 oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction"
-outcome = "reject"
+outcome = "accept_value"
 no_partial_apply = true
-delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
-rationale = "The reviewed out-of-range retained INT rejects with its cause-identifying subrange text while the old executable and scan counter remain live for the next cycle."
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The reviewed retained INT 100, which the new declaration INT(0..10) does not hold, takes its initial value and is recorded as an online_change_value event; no value refuses the change, and the new body runs from the kept program value (owner, 20 October 2026, keep what fits)."
 
 [[behavior]]
 partition = { equals = "INVALID_BYTECODE_TYPED_REJECTION" }
@@ -95,4 +95,4 @@ rationale = "The reviewed malformed four-byte module rejects as typed RuntimeErr
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
 state = "gap_open"
-rationale = "Focused mapped tests now cover completed-scan commit, warm storage and I/O replacement, entrypoint/counter restart, retained-migration rejection, and typed malformed-byte rejection. Broader bytecode/resource commit failure cases remain pending."
+rationale = "Focused mapped tests now cover completed-scan commit, storage kept across a change and I/O replacement, entrypoint/counter restart, a retained value that does not fit taking its initial value, and typed malformed-byte rejection. Broader bytecode/resource commit failure cases remain pending."

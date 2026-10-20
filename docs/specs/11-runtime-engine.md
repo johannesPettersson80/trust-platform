@@ -2202,10 +2202,11 @@ value reaches the image first:
   value is the declared initial value at the first start, for a `NON_RETAIN` or
   unqualified variable in a warm restart and for every variable in a cold
   restart, and the retained value for a `RETAIN` or `PERSISTENT` variable in a
-  warm restart, a warm restart from the store and an online change. A retained
-  value is published after it has been restored, from the checkpoint at a warm
-  restart from the store and from the running program at an online change, so
-  the restored value, not the carried-over image, decides it;
+  warm restart and a warm restart from the store. At an online change it is the
+  value the variable carried from the running program, whatever its qualifier,
+  or its initial value when it carried none (section 6.7.1). A restored or
+  carried value is published after it has been restored, so it, not the
+  carried-over image, decides the image;
 - the publication writes exactly the bits and bytes that the variables are bound
   to. Every other bit and byte of the marker image keeps its carried-over value,
   and `%I` and `%Q` are not touched (above);
@@ -2234,10 +2235,9 @@ needed by the change before replacing live execution state:
 - decode and validate the complete bytecode container and materialize its VM
   module;
 - validate the selected resource, tasks, and process-image sizes; and
-- construct the complete warm-restart variable and instance image in staged
-  storage, including the retained values the running program holds, retained
-  program variables and all fallible function-block, class, and program instance
-  initialization.
+- construct the candidate's variables and instances in staged storage, with all
+  fallible function-block, class, and program instance initialization, and
+  carry the running program's values into them (below).
 
 When a caller names a bytecode resource, selection is case-insensitive but
 must resolve that exact resource; an unknown name is an error and must not
@@ -2258,20 +2258,15 @@ reload therefore never commits after its caller was told it timed out.
 If preparation fails, the request returns an error and leaves the prior
 executable module, task schedule, variable storage, process image and bindings,
 debug mutations, logical time, cycle counter, and runtime fault/status state
-unchanged. The old program remains executable on the next scan.
-For the reviewed retained `INT(0..10)` value `100`, this rejection retains the
-cause-identifying diagnostic text `outside declared subrange 0..10`.
-The typed retain-subrange rejection carries the destination and value/bounds,
-with stable code `runtime_subrange_violation`; retain context must not erase the
-cause into a generic type mismatch or migration string.
+unchanged. The old program remains executable on the next scan. A value never
+fails the preparation (below).
 The reviewed malformed byte sequence `[00, 01, 02, 03]` fails preparation as
 the typed `RuntimeError::Bytecode`; no stable message text is implied.
 
 After successful preparation, the commit replaces the executable and resource
 metadata as one cycle-boundary operation, restarts at the program entry point,
-rebinds I/O, and returns the new runtime metadata. Retained variables keep the
-values the running program holds (below); non-retained variables and
-function-block instances follow warm-restart initialization. Logical time is
+rebinds I/O, and returns the new runtime metadata. The candidate's variables
+keep the values the running program holds (below). Logical time is
 preserved, and the candidate's tasks continue the running program's schedule
 (specification 34 §11.3, decision OC-2): a task takes the last activation, the
 level of its event input and the overruns of the running program's task of the
@@ -2286,25 +2281,50 @@ a reference or an instance identity taken before it is refused as stale after it
 (specification 34 §11.3, UPDATE-04), and it carries the process images and the
 logical time.
 
-The retained variables of the candidate take, by name, the retained values that
-the running program holds in memory at the boundary, on every runtime. Nothing is
-applied over them (specification 34 §11.3, decision OC-1): the change reads no
-retain store, because the retain file or checkpoint holds older values, saved at
-the configured interval and when the program stops, and stays the source of a
-warm restart after a stop or a power loss (section 6.7). A retain store whose
-read would fail therefore cannot refuse a change. A candidate that declares the same retained
-storage as the running program (the same declarations, types and identities, with
-other executable bodies) keeps the retained function-block instances and
-references of its retained globals live, with the object graph they hold, and
-copies the retained program variables that a snapshot can hold. Any other
-candidate migrates a snapshot of the running program's retained values. A
-retained function-block instance or reference is not part of a snapshot (section
-6.7), so the change is then refused with `retained live-object graph requires
-congruent admitted schema`, and the running program runs on. The snapshot is
-applied atomically through the declared types, so a value that the candidate
-refuses fails the preparation (above): a running value `100` of a retained `INT`
-that the candidate declares as `INT(0..10)` is refused with `outside declared
-subrange 0..10`.
+The candidate's variables take the values that the running program holds in
+memory at the boundary, on every runtime, retained or not, as CODESYS and
+TwinCAT keep them (specification 34 §11.3; decision OC-1, 19 October 2026, and
+"keep what fits", 20 October 2026):
+
+- a variable of the candidate that the running program declares at the same
+  place and by the same name, names compared without regard to case, takes the
+  running value: a global, a function static, a variable of a program instance
+  (the program instances matched by their names), and the members of every
+  function-block or class instance they hold, recursively, edge memories and
+  the internal state of a standard function block such as a timer included (the
+  internal state only into an instance of the same function block);
+- a variable whose declaration changed keeps what fits: an elementary value is
+  converted to its new type when that type holds it, which is when the value
+  converted to the new type and back comes out unchanged (`INT` 5 to `DINT`,
+  `DINT` 5 to `INT`, a `STRING[10]` "abc" to `STRING[5]`, a value inside a new
+  subrange, an enumeration value by its variant's name); a structure keeps its
+  fields by name, an array the elements at the indices both arrays have, an
+  instance its members by name; anything else, a value the new type does not
+  hold (a `DINT` 70,000 in an `INT`, a running value `100` in an `INT(0..10)`, a
+  text longer than the new length) and a structure with a physical layout whose
+  declaration changed, keeps its declared initial value;
+- a reference or interface value names the same variable or instance in the
+  candidate when the candidate has it with the type the reference names, and is
+  NULL otherwise;
+- a variable that the running program does not declare starts with its declared
+  initial value; constants keep the candidate's values, in-out members are bound
+  again by every call, and a static or an internal state that the running
+  program has not set yet is not carried.
+
+Nothing is applied over these values: the change reads no retain store, because
+the retain file or checkpoint holds older values, saved at the configured
+interval and when the program stops, and stays the source of a warm restart
+after a stop or a power loss (section 6.7). A retain store whose read would fail
+therefore cannot refuse a change. No value fails the change. A change that
+recovers a faulted resource keeps the value that caused the fault, so the
+candidate's code must handle it.
+
+Each variable of the candidate that does not go on with the running value as it
+was (a new variable, a converted value, a value that does not fit, a reference
+set to NULL) is recorded at the commit as an `online_change_value` event with
+the variable's path as `name` (`total`, `Plant.motor.speed`, `Plant.table[3]`)
+and what happened as `detail`, at most 32 events per change and then one event
+whose `name` is null and whose `detail` gives the number of further variables.
 
 ##### 6.7.2 Runtime agent command conformance
 

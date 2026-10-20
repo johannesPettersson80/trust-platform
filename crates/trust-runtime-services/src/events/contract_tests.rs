@@ -250,6 +250,58 @@ fn diagnostic_events_project_to_their_exact_json() {
 /// overflow, the work limit and the call depth. It would catch a reply that renders the stable
 /// code instead of the text, one that drops a bounded detail, and one whose `error` field moved.
 #[test]
+fn an_online_change_value_event_projects_to_its_exact_json() {
+    // Specification 11 §6.7.1: each variable an online change did not give its running value as it
+    // was is an `online_change_value` event with the variable's path as `name` and what happened as
+    // `detail`; the event that counts the variables beyond the bound has a null `name`. Wrong
+    // behaviour caught: another type or member name than the specification gives, and a count event
+    // that names a variable.
+    let at = Duration::from_millis(90);
+    let cases = [
+        (
+            CarriedValueEvent::New {
+                name: "Plant.motor.speed".into(),
+            },
+            json!("Plant.motor.speed"),
+            "new variable: declared initial value",
+        ),
+        (
+            CarriedValueEvent::Converted { name: "a".into() },
+            json!("a"),
+            "declaration changed: the running value converted to it",
+        ),
+        (
+            CarriedValueEvent::NotKept {
+                name: "P1.lim".into(),
+            },
+            json!("P1.lim"),
+            "declaration changed: the running value does not fit, declared initial value",
+        ),
+        (
+            CarriedValueEvent::Cleared { name: "q".into() },
+            json!("q"),
+            "its target is gone or has another type: NULL",
+        ),
+        (
+            CarriedValueEvent::More { count: 8 },
+            serde_json::Value::Null,
+            "8 more variables did not keep their running values",
+        ),
+    ];
+    for (event, name, detail) in cases {
+        assert_eq!(
+            runtime_event_to_json(RuntimeEvent::OnlineChangeValue { event, time: at }),
+            json!({
+                "type": "online_change_value",
+                "name": name,
+                "detail": detail,
+                "time_ns": 90_000_000,
+            })
+        );
+    }
+}
+
+#[test]
 fn a_fault_event_replies_as_before() {
     use crate::status::{events_tail, faults};
     use crate::tests::fake_host::FakeHost;

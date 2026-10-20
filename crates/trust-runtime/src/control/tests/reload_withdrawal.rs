@@ -2,8 +2,10 @@
 // within the wait is withdrawn and never applied; a reload the scan thread took reports its own
 // result. The waits are injected, so no test waits for the production bound.
 
+/// The program that runs. `marker` is a constant, which an online change takes from the new program
+/// (specification 11 §6.7.1), so its value tells whether a reload was applied.
 const RELOAD_WITHDRAWAL_BEFORE: &str = r#"
-VAR_GLOBAL
+VAR_GLOBAL CONSTANT
     marker : DINT := DINT#1;
 END_VAR
 
@@ -12,7 +14,7 @@ END_PROGRAM
 "#;
 
 const RELOAD_WITHDRAWAL_AFTER: &str = r#"
-VAR_GLOBAL
+VAR_GLOBAL CONSTANT
     marker : DINT := DINT#2;
 END_VAR
 

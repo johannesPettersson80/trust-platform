@@ -7,7 +7,7 @@ status = "mapped"
 invariant = "RT_RELOAD_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:10f3f8f459e1447677076fdba7f77f7702d725374de7b3c944fcb2da5560de5a"
-source_digest = "sha256:0bcdb6dc0c119aeee04c56209645bfd55c5d764ed8bf3207e4a15300b7dc40c1"
+source_digest = "sha256:147c4ec43849d1b78d31b18608b9f488dcb7d371357d93552c47c45e6c295a72"
 last_reviewed = "2026-10-20"
 
 [[case]]

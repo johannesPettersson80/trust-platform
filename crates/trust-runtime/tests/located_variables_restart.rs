@@ -427,12 +427,15 @@ fn retained_program_marker_variable_has_its_retained_value_in_the_image_after_a_
     );
 }
 
-/// Spec 11 6.7.1: an online change is a warm restart of the new module. The marker image holds the new
-/// module's initial value for a `NON_RETAIN` or unqualified variable, and the retained value for a
-/// `RETAIN` one, whatever the image held before.
+/// Spec 11 6.7 and 6.7.1: an online change keeps the running value of every variable at the same
+/// place, whatever its qualifier (decision OC-1), and publishes it into the marker image before the
+/// first scan. The running program's `m` is 100 and the image was overwritten with 7; the new module
+/// declares `m` with the initial value 8. For an unqualified, a `NON_RETAIN` and a `RETAIN` `m` alike,
+/// the new module holds 100 and so does its image. Wrong behaviour caught: a variable that is not
+/// retained reset to the new initial value 8, and an image that keeps the overwritten 7.
 #[test]
-fn online_change_publishes_the_initial_or_retained_value_of_a_marker_variable() {
-    for (qualifier, expected) in [("", 8), ("NON_RETAIN", 8), ("RETAIN", 100)] {
+fn online_change_publishes_the_carried_value_of_a_marker_variable() {
+    for (qualifier, expected) in [("", 100), ("NON_RETAIN", 100), ("RETAIN", 100)] {
         let case = format!("online change, '{qualifier}'");
         let mut harness =
             TestHarness::from_source(&marker_source(qualifier, 5)).expect("fixture compiles");
@@ -449,7 +452,7 @@ fn online_change_publishes_the_initial_or_retained_value_of_a_marker_variable() 
         assert_eq!(
             image(&harness, "%MW0"),
             Value::Word(u16::try_from(expected).expect("a small positive value")),
-            "{case}: the image holds the value of the new module, not the carried one"
+            "{case}: the image holds the variable's carried value, not the overwritten image"
         );
 
         scan(&mut harness);

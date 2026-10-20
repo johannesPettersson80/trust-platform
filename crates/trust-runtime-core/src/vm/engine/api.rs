@@ -394,18 +394,19 @@ impl RuntimeState<'_> {
     }
 
     /// Prepare a distinct installation that replaces this one at a quiescent owner boundary, and
-    /// return it with the retained values that its construction dropped or migrated.
+    /// return it with the events of the variables that did not keep this installation's values as
+    /// they were.
     ///
     /// The replacement is built over `prepared` and `services`, which it borrows for its own
     /// lifetime and which need not outlive this state, and it holds no borrow of this installation.
     /// It continues this installation's lineage with the next generation, so a reference or an
     /// instance identity taken before it is refused as stale after it (MEM-07, UPDATE-04). The
     /// logical time and the process images are carried over, and its tasks continue this
-    /// installation's schedule. A replacement that declares the same retained storage keeps the
-    /// retained function-block instances and references live; any other migrates a snapshot of the
-    /// retained values by name, and is refused when a retained live object cannot be serialized into
-    /// one. No retain file or checkpoint is applied (specification 34 §11.3, decisions OC-1 and
-    /// OC-2). This installation is unchanged if any preparation, initializer or snapshot fails.
+    /// installation's schedule. Every variable it declares at the same place and by the same name
+    /// takes this installation's value, retained or not; a variable whose declaration changed keeps
+    /// what fits. No retain file or checkpoint is applied, and no value refuses the change
+    /// (specification 34 §11.3, decisions OC-1, OC-2 and "keep what fits"). This installation is
+    /// unchanged if any preparation or initializer fails.
     ///
     /// This is the body of `OwnedRuntimeState::prepare_replacement`: a computer's hosted state and
     /// a chip's borrowed state replace their program by the same rules (specification 34 §11.3).
@@ -418,7 +419,7 @@ impl RuntimeState<'_> {
         prepared: &'b PreparedModule,
         resource_index: usize,
         services: &'b dyn ExecutionServices,
-    ) -> Result<(RuntimeState<'b>, Vec<super::RetainApplyEvent>), RuntimeError> {
+    ) -> Result<(RuntimeState<'b>, Vec<super::CarriedValueEvent>), RuntimeError> {
         let (data, events) =
             self.engine()
                 .prepare_replacement_data(prepared, resource_index, services)?;

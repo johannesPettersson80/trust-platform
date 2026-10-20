@@ -347,12 +347,13 @@ impl<S: ExecutionServices> OwnedRuntimeState<S> {
         self.engine().restart_with_snapshot(mode, Some(snapshot))
     }
 
-    /// Prepare a distinct installation at a quiescent owner boundary. Live
-    /// retained object graphs require congruent admitted identities; serializable
-    /// retained values migrate by name when the schema changes. The tasks continue
-    /// this installation's schedule, and no retain file or checkpoint is applied
-    /// (specification 34 §11.3, decisions OC-1 and OC-2). The old owner is
-    /// unchanged if any preparation, initializer or migration fails.
+    /// Prepare a distinct installation at a quiescent owner boundary. Every variable
+    /// it declares at the same place and by the same name takes this installation's
+    /// value, retained or not, and a variable whose declaration changed keeps what
+    /// fits. The tasks continue this installation's schedule, and no retain file or
+    /// checkpoint is applied (specification 34 §11.3, decisions OC-1, OC-2 and
+    /// "keep what fits"). The old owner is unchanged if any preparation or
+    /// initializer fails.
     ///
     /// The body is shared with `RuntimeState::prepare_replacement`, which a chip's
     /// borrowed state calls, so both replace their program by the same rules.
@@ -361,7 +362,7 @@ impl<S: ExecutionServices> OwnedRuntimeState<S> {
         prepared: Arc<PreparedModule>,
         resource_index: usize,
         services: S,
-    ) -> Result<(Self, Vec<super::RetainApplyEvent>), RuntimeError> {
+    ) -> Result<(Self, Vec<super::CarriedValueEvent>), RuntimeError> {
         let (data, events) =
             self.engine()
                 .prepare_replacement_data(&prepared, resource_index, &services)?;
@@ -530,7 +531,7 @@ mod tests {
     use super::*;
     use crate::bytecode::{BytecodeModule, SectionData, SectionId};
     use crate::memory::Generation;
-    use crate::vm::{PreparationLimits, RetainApplyEvent};
+    use crate::vm::{CarriedValueEvent, PreparationLimits};
     use smol_str::SmolStr;
 
     const BLOCKS: &[u8] = include_bytes!(
@@ -584,7 +585,7 @@ mod tests {
     /// What a state shows of an installation.
     #[derive(Debug, PartialEq)]
     struct Observed {
-        events: Vec<RetainApplyEvent>,
+        events: Vec<CarriedValueEvent>,
         generation: Generation,
         time: Duration,
         inputs: Vec<u8>,
@@ -594,8 +595,9 @@ mod tests {
         total: Option<Value>,
         count: Option<Value>,
         followed: Option<Value>,
-        /// The members `runs`, `activations` and `activations2` of the program instance `Plant`.
-        members: [Option<Value>; 3],
+        /// The members `runs`, `activations`, `activations2` and `seen` of the program instance
+        /// `Plant`.
+        members: [Option<Value>; 4],
     }
 
     macro_rules! observe {
@@ -633,6 +635,7 @@ mod tests {
                     member("runs"),
                     member("activations"),
                     member("activations2"),
+                    member("seen"),
                 ],
             }
         }};
@@ -731,12 +734,14 @@ mod tests {
         // refusal), and a replacement that is not the next generation of its lineage.
 
         // 1. A congruent candidate. `retained_blocks` runs a 10 ms task: `kept` counts by the call's
-        // argument, `total` and `runs` by 1. The scans at 10, 20 and 30 ms leave count, total and runs
+        // argument, `total` and `runs` by 1, and the program variable `seen`, which is not retained,
+        // copies what `follow` reads. The scans at 10, 20 and 30 ms leave count, total, runs and seen
         // at 3, and `follow` pointing at `kept.count`. The candidate has the same declarations and
         // another body (`kept(delta := DINT#2)`). It continues the lineage (generation 2), keeps the
-        // logical time of the last scan (30 ms) and the live function-block instance, whose count is
-        // still 3 (an instance built anew would count 0), and the reference reads that count. Its
-        // scan at 40 ms runs the new body: count 3 + 2 = 5, total and runs 4, and `follow` reads 5.
+        // logical time of the last scan (30 ms) and every value (decision OC-1): the instance's count
+        // is still 3 (an instance built anew would count 0), the reference reads that count, and
+        // `seen` is 3, not its initial 0. Its scan at 40 ms runs the new body: count 3 + 2 = 5, total
+        // and runs 4, and `follow` and `seen` read 5.
         let congruent = blocks_that_count_by_two();
         let one = replace_through_both(BLOCKS, &congruent, 0, &[10, 20, 30], 40);
         assert_eq!(one.borrowed, one.owned, "congruent");
@@ -747,11 +752,17 @@ mod tests {
         assert_eq!(built.followed, Some(Value::DInt(3)), "the live reference");
         assert_eq!(built.total, Some(Value::DInt(3)));
         assert_eq!(built.members[0], Some(Value::DInt(3)), "runs");
+        assert_eq!(
+            built.members[3],
+            Some(Value::DInt(3)),
+            "seen, not retained, is kept"
+        );
         assert!(built.events.is_empty());
         assert_eq!(next.count, Some(Value::DInt(5)), "the new body runs");
         assert_eq!(next.followed, Some(Value::DInt(5)));
         assert_eq!(next.total, Some(Value::DInt(4)));
         assert_eq!(next.members[0], Some(Value::DInt(4)));
+        assert_eq!(next.members[3], Some(Value::DInt(5)));
         assert_eq!(one.after.generation, Generation::FIRST, "the source stays");
         assert_eq!(one.after, one.before);
 
@@ -772,12 +783,11 @@ mod tests {
         );
         assert_eq!(next.members[1], Some(Value::DInt(2)), "the due task runs");
 
-        // 3. A candidate that is not congruent. The A4 program runs a 25 ms task; its scans at 25, 50
-        // and 75 ms leave the retained `activations` at 3. The candidate names that variable
-        // `activations2`, so it is not congruent and the snapshot of the retained values migrates by
-        // name: the saved key `@program/Plant/activations` names no declared destination and is
-        // reported as an orphan, and `activations2` has its declared initial value, 0. The generation
-        // is 2 and the time 75 ms.
+        // 3. A candidate that renames a variable. The A4 program runs a 25 ms task; its scans at 25,
+        // 50 and 75 ms leave the retained `activations` at 3. The candidate names that variable
+        // `activations2`: the running program declares no such variable, so it starts with its
+        // declared initial value, 0, and the change records it as new; `activations` is gone. The
+        // generation is 2 and the time 75 ms.
         let renamed_a4 = renamed(A4, "activations", "activations2");
         let three = replace_through_both(A4, &renamed_a4, 0, &[25, 50, 75], 100);
         assert_eq!(three.borrowed, three.owned, "not congruent");
@@ -789,22 +799,39 @@ mod tests {
         assert_eq!(built.members[2], Some(Value::DInt(0)));
         assert_eq!(
             built.events,
-            [RetainApplyEvent::Orphan {
-                name: "@program/Plant/activations".into()
+            [CarriedValueEvent::New {
+                name: "Plant.activations2".into()
             }]
         );
         assert_eq!(next.members[2], Some(Value::DInt(1)), "it runs on from 0");
 
-        // 4. A candidate that is not congruent while the program holds a retained function-block
-        // instance and a retained reference. Neither can be serialized into a snapshot, so both
-        // states refuse the change with the same error, and the source is exactly as it was.
+        // 4. A candidate that renames the retained global `total` to `sum` while the program holds a
+        // retained function-block instance and a retained reference to its member. The change never
+        // fails because of a value ("keep what fits"): the instance `kept` is at the same place, so
+        // its count stays 3, `follow` names `kept.count` in the candidate and reads 3, `runs` and
+        // `seen` stay 3, and `sum` starts at its initial 0 as a new variable; `total` is gone. The
+        // scan at 40 ms counts on: count 4, `sum` 1, runs 4, and `follow` reads 4. The source is
+        // exactly as it was.
         let renamed_blocks = renamed(BLOCKS, "total", "sum");
         let four = replace_through_both(BLOCKS, &renamed_blocks, 0, &[10, 20, 30], 40);
-        let refusal = RuntimeError::RetainMigration(
-            "retained live-object graph requires congruent admitted schema".into(),
+        assert_eq!(four.borrowed, four.owned, "a renamed retained global");
+        let (built, next) = candidate_of(&four.borrowed);
+        assert_eq!(built.count, Some(Value::DInt(3)), "the instance is carried");
+        assert_eq!(
+            built.followed,
+            Some(Value::DInt(3)),
+            "the reference is carried"
         );
-        assert_eq!(four.borrowed, Err(refusal.clone()));
-        assert_eq!(four.owned, Err(refusal));
+        assert_eq!(built.total, None, "the old name is gone");
+        assert_eq!(built.members[0], Some(Value::DInt(3)));
+        assert_eq!(built.members[3], Some(Value::DInt(3)));
+        assert_eq!(
+            built.events,
+            [CarriedValueEvent::New { name: "sum".into() }]
+        );
+        assert_eq!(next.count, Some(Value::DInt(4)));
+        assert_eq!(next.followed, Some(Value::DInt(4)));
+        assert_eq!(next.members[0], Some(Value::DInt(4)));
         assert_eq!(four.after, four.before);
 
         // 5. The images and the logical time. The board probe copies its input to its output every

@@ -181,7 +181,13 @@ END_PROGRAM
 }
 
 #[test]
-fn hot_reload_migrates_retain_and_resets_nonretain_and_instances() {
+fn hot_reload_keeps_retained_and_other_values_and_instances() {
+    // Specification 11 §6.7.1 (decision OC-1): an online change keeps every variable at the same
+    // place, retained or not, and the members of function-block instances. The test sets g_ret 30,
+    // g_plain 40, p_ret 50, p_plain 60 and the instance member g_fb.count 7, and changes the program
+    // to the same declarations: all five values are kept. Wrong behaviour caught: variables that are
+    // not retained reset to their initial values (g_plain 2, p_plain 4) and an instance built anew
+    // (count 0), which was the rule before decision OC-1.
     let source_v1 = r#"
 CONFIGURATION Conf
 VAR_GLOBAL RETAIN
@@ -260,9 +266,9 @@ END_PROGRAM
         .expect("apply online change");
 
     assert_numeric_output(&harness, "g_ret", 30);
-    assert_numeric_output(&harness, "g_plain", 2);
+    assert_numeric_output(&harness, "g_plain", 40);
     assert_numeric_output(&harness, "p_ret", 50);
-    assert_numeric_output(&harness, "p_plain", 4);
+    assert_numeric_output(&harness, "p_plain", 60);
     let g_fb_after = match harness.runtime().storage().get_global("g_fb") {
         Some(Value::Instance(id)) => *id,
         other => panic!("expected g_fb instance after reload, got {other:?}"),
@@ -272,12 +278,10 @@ END_PROGRAM
         .storage()
         .get_instance_var(g_fb_after, "count")
         .cloned();
-    assert!(
-        matches!(
-            count_after,
-            Some(Value::Int(0)) | Some(Value::DInt(0)) | Some(Value::LInt(0))
-        ),
-        "expected recreated instance count to reset to 0, got {count_after:?}"
+    assert_eq!(
+        count_after,
+        Some(Value::Int(7)),
+        "the instance keeps its member's value"
     );
 }
 
@@ -352,6 +356,11 @@ END_PROGRAM
     ));
 }
 
+/// Specification 11 §6.7.1: a changed body runs from its entry point on the cycle after the change,
+/// the scan counter restarts at 0, and the variable keeps its running value (decision OC-1): `count`
+/// is 3 after the change and 3 + 10 = 13 after the next cycle. Wrong behaviour caught: a body that
+/// resumes mid-way, a scan counter that goes on, and a value reset to its initial 0 (the rule before
+/// checklist C1-24).
 #[test]
 fn hot_reload_changed_body_restarts_at_entrypoint_policy() {
     let source_v1 = r#"
@@ -386,7 +395,7 @@ END_PROGRAM
         .expect("apply online change");
 
     assert_eq!(harness.runtime().cycle_counter(), 0);
-    assert_numeric_output(&harness, "count", 0);
+    assert_numeric_output(&harness, "count", 3);
 
     let cycle = harness.cycle();
     assert!(
@@ -394,7 +403,7 @@ END_PROGRAM
         "unexpected errors after reload: {:?}",
         cycle.errors
     );
-    assert_numeric_output(&harness, "count", 10);
+    assert_numeric_output(&harness, "count", 13);
 }
 
 /// A retain store that holds `snapshot` and counts the loads of it.
@@ -464,11 +473,16 @@ END_PROGRAM
 }
 
 #[test]
-fn hot_reload_retain_migration_failure_preserves_live_runtime() {
-    // Specification 11 §6.7.1: a candidate whose declaration of a retained variable cannot take
-    // the value that the running program holds refuses the change, and the running program runs
-    // on. The running program holds `limited` 100, which its `INT` takes; the candidate declares
-    // `limited : INT(0..10)`, so the value migrated by name is outside its subrange.
+fn hot_reload_retained_value_that_does_not_fit_takes_its_initial_value() {
+    // Specification 11 §6.7.1 ("keep what fits", owner 20 October 2026): a variable whose new
+    // declaration does not hold the running value takes its declared initial value, the change
+    // records it as an event, and no value refuses the change. The running program holds the
+    // retained `limited` 100, which its `INT` takes, and its program variable `marker` 1 after one
+    // scan; the candidate declares `limited : INT(0..10) := INT#0` and adds 10 to `marker`. After the
+    // change `limited` is 0, `marker` keeps 1 and the scan counter restarts at 0; the next scan makes
+    // `marker` 11. Wrong behaviour caught: a change refused because of a value (the rule before the
+    // owner's decision), a value cut to the subrange (10), and a value that does not fit kept as it
+    // is (100 outside 0..10).
     let source_v1 = r#"
 CONFIGURATION Conf
 RESOURCE R ON CPU
@@ -519,32 +533,42 @@ END_PROGRAM
 
     harness.set_input("limited", Value::Int(100));
 
+    let debug = harness.runtime_mut().enable_debug();
     let bytes_v2 = bytecode_bytes_from_source(source_v2).expect("build bytecode v2");
-    let error = harness
+    harness
         .runtime_mut()
         .apply_online_change_bytes(&bytes_v2, None)
-        .expect_err("invalid retained state must reject the online change");
-    assert!(
-        error
-            .to_string()
-            .contains("outside declared subrange 0..10"),
-        "expected retained migration rejection, got {error}"
-    );
+        .expect("a value that does not fit refuses no change");
+    assert_numeric_output(&harness, "limited", 0);
     assert_eq!(program_numeric_output(&harness, "P1", "marker"), 1);
     assert_eq!(
         harness.runtime().cycle_counter(),
-        1,
-        "rejected reload must preserve the scan counter"
+        0,
+        "the committed change restarts the scan counter"
     );
+    let not_kept = debug
+        .drain_runtime_events()
+        .into_iter()
+        .filter(|event| {
+            matches!(
+                event,
+                trust_runtime::debug::RuntimeEvent::OnlineChangeValue {
+                    event: trust_runtime::runtime_core::vm::CarriedValueEvent::NotKept { name },
+                    ..
+                } if name == "limited"
+            )
+        })
+        .count();
+    assert_eq!(not_kept, 1, "the change records the value it did not keep");
 
     harness.advance_time(Duration::from_millis(1));
     let next_cycle = harness.cycle();
     assert!(
         next_cycle.errors.is_empty(),
-        "old runtime must remain executable: {next_cycle:?}"
+        "the new program runs: {next_cycle:?}"
     );
-    assert_eq!(program_numeric_output(&harness, "P1", "marker"), 2);
-    assert_eq!(harness.runtime().cycle_counter(), 2);
+    assert_eq!(program_numeric_output(&harness, "P1", "marker"), 11);
+    assert_eq!(harness.runtime().cycle_counter(), 1);
 }
 
 #[test]

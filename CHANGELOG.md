@@ -6,6 +6,18 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Changed: an online change keeps the value of every variable that the new program declares at the
+  same place and by the same name, retained or not, function-block members, timers' state and edge
+  memories included, as CODESYS and TwinCAT do. A variable whose declaration changed keeps what
+  fits: a value converted when the new type holds it (`INT` to `DINT`, a value inside a new
+  subrange, an enumeration value by name), structure and function-block members by name, array
+  elements by index; anything else starts with its initial value. References keep naming the same
+  variable, or become NULL when it is gone. Before, every variable that was not retained took its
+  initial value at an online change, and a retained value that did not fit its new declaration, or a
+  retained function-block instance in a changed program, refused the change; no value refuses a
+  change now. Each variable that did not keep its value as it was is recorded as an
+  `online_change_value` event (at most 32 per change, then their count). A change that recovers a
+  faulted program keeps the value that caused the fault, so the new code must handle it.
 - Changed: an online change keeps the retained values the running program holds and applies no
   retain file or checkpoint over them, on a computer and on a chip, as CODESYS and TwinCAT do: the
   file holds older values and stays the source of a warm restart after a stop or a power loss.

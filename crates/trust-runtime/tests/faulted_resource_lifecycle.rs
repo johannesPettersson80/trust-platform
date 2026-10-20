@@ -39,6 +39,28 @@ PROGRAM Main
 END_PROGRAM
 "#;
 
+/// The fixed program an online change gives a faulted resource: the same globals, and a body that
+/// handles the divisor 0 that faulted the running program. An online change keeps every value
+/// (specification 11 §6.7.1, decision OC-1), the divisor 0 included, so the new code must handle it.
+const GUARDED_PROGRAM: &str = r#"
+VAR_GLOBAL RETAIN
+    retained_value : DINT := DINT#0;
+END_VAR
+VAR_GLOBAL
+    divisor : DINT := DINT#1;
+    cycles : DINT := DINT#0;
+    quotient : DINT := DINT#0;
+END_VAR
+
+PROGRAM Main
+    cycles := cycles + DINT#1;
+    IF divisor = DINT#0 THEN
+        divisor := DINT#1;
+    END_IF;
+    quotient := DINT#100 / divisor;
+END_PROGRAM
+"#;
+
 const WAIT: WallDuration = WallDuration::from_secs(5);
 
 type RestartSignal = Arc<Mutex<Option<RestartMode>>>;
@@ -241,7 +263,8 @@ fn online_change_recovers_a_faulted_resource() {
     let control = handle.control();
     fault_running_resource(&handle, &control, None);
 
-    let bytes = bytecode_bytes_from_source(DIVIDE_PROGRAM).expect("build replacement bytecode");
+    // The replacement keeps the divisor 0 that faulted the program, and handles it.
+    let bytes = bytecode_bytes_from_source(GUARDED_PROGRAM).expect("build replacement bytecode");
     let (reply_tx, reply_rx) = mpsc::channel();
     control
         .send_command(ResourceCommand::ReloadBytecode {
@@ -259,7 +282,11 @@ fn online_change_recovers_a_faulted_resource() {
         handle.state() == ResourceState::Running
     });
     assert_eq!(handle.last_error(), None);
-    assert_eq!(global(&control, "divisor"), Value::DInt(1));
+    // The first scan of the new program repairs the divisor it kept, and the resource runs on.
+    wait_until("the new program handles the kept divisor", || {
+        matches!(global(&control, "divisor"), Value::DInt(1))
+    });
+    assert_eq!(handle.state(), ResourceState::Running);
     stop_and_join(handle);
 }
 

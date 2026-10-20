@@ -126,6 +126,19 @@ fn log_runtime_event(logger: &RuntimeLogger, event: &trust_runtime::debug::Runti
                 }),
             );
         }
+        trust_runtime::debug::RuntimeEvent::OnlineChangeValue { event, time } => {
+            let (name, detail) = trust_runtime_services::events::carried_value_text(event);
+            logger.log(
+                LogLevel::Info,
+                "runtime_online_change_value",
+                json!({
+                    "event_id": "TRUST-RT-ONLINE-CHANGE-VALUE-001",
+                    "name": name,
+                    "detail": detail,
+                    "time_ms": time.as_millis(),
+                }),
+            );
+        }
         trust_runtime::debug::RuntimeEvent::RetainMigrationApplied { name, detail, time } => {
             logger.log(
                 LogLevel::Info,

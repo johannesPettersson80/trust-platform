@@ -131,8 +131,12 @@ END_CONFIGURATION
     assert!(installed.io().outputs().is_empty());
 }
 
+/// Specification 11 §6.7.1 (decision OC-1): a code replacement keeps every value at the same place,
+/// retained (`count` 12) or not (`transient` 99), and the logical time; the next scan runs the new
+/// body from them. Wrong behaviour caught: a variable that is not retained reset to its initial value
+/// 4, as before checklist C1-24.
 #[test]
-fn checked_code_replacement_preserves_retained_values_and_restarts_nonretained_state() {
+fn checked_code_replacement_keeps_retained_and_other_values() {
     let mut installed = runtime(SOURCE);
     installed.write_global("count", Value::DInt(12)).unwrap();
     installed
@@ -151,7 +155,7 @@ fn checked_code_replacement_preserves_retained_values_and_restarts_nonretained_s
     );
     assert_eq!(
         installed.storage().get_global("transient"),
-        Some(&Value::DInt(4))
+        Some(&Value::DInt(99))
     );
     installed.execute_cycle().unwrap();
     assert_eq!(
@@ -309,8 +313,14 @@ fn durable_restart_failure_is_atomic_and_cold_restart_skips_store() {
     );
 }
 
+/// Specification 11 §6.7.1 ("keep what fits", owner 20 October 2026): a change of a member's type in a
+/// retained function-block instance of a program refuses nothing; the member keeps its value converted
+/// to the new type (`INT` 7 to `DINT` 7), and the force queued before the commit is cleared with it
+/// (§6.9.2), so the next scan leaves 7. Wrong behaviour caught: the change refused because a retained
+/// program object cannot be put into a snapshot (the rule before checklist C1-24), a member reset to
+/// its new initial value 3, and a force that replays after the commit (99).
 #[test]
-fn schema_change_rejects_retained_program_object_without_dropping_graph_or_debug_queue() {
+fn schema_change_keeps_what_fits_in_a_retained_program_object() {
     let source = "FUNCTION_BLOCK CounterFb VAR count : INT := INT#3; END_VAR END_FUNCTION_BLOCK PROGRAM Main VAR RETAIN block : CounterFb; END_VAR END_PROGRAM";
     let mut installed = runtime(source);
     installed
@@ -342,18 +352,24 @@ fn schema_change_rejects_retained_program_object_without_dropping_graph_or_debug
     )
     .build_bytecode_module()
     .unwrap();
-    let error = installed.apply_bytecode_module(&changed, None).unwrap_err();
-    assert!(matches!(error, RuntimeError::RetainMigration(_)));
-    assert_eq!(
-        installed.storage().get_instance_var(block, "count"),
-        Some(&Value::Int(7))
-    );
+    installed.apply_bytecode_module(&changed, None).unwrap();
+    let count = |installed: &Runtime| {
+        let Some(Value::Instance(main)) = installed.storage().get_global("Main") else {
+            panic!("Main")
+        };
+        let Some(Value::Instance(block)) = installed.storage().get_instance_var(*main, "block")
+        else {
+            panic!("block")
+        };
+        installed
+            .storage()
+            .get_instance_var(*block, "count")
+            .cloned()
+    };
+    assert_eq!(count(&installed), Some(Value::DInt(7)));
     assert!(!installed.faulted());
     installed.execute_cycle().unwrap();
-    assert_eq!(
-        installed.storage().get_instance_var(block, "count"),
-        Some(&Value::Int(99))
-    );
+    assert_eq!(count(&installed), Some(Value::DInt(7)));
 }
 
 #[test]

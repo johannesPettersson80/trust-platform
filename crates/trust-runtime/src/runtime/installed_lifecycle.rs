@@ -74,6 +74,22 @@ impl Runtime {
         }
     }
 
+    /// Publish the variables an online change did not give the running program's values as they
+    /// were (specification 34 §11.3), at the time of the commit.
+    fn publish_carried_events(&self, events: Vec<trust_runtime_core::vm::CarriedValueEvent>) {
+        let Some(debug) = self.debug_control() else {
+            return;
+        };
+        for event in events {
+            debug.push_runtime_event(
+                trust_runtime_services::events::RuntimeEvent::OnlineChangeValue {
+                    event,
+                    time: self.current_time(),
+                },
+            );
+        }
+    }
+
     /// Capture retained values using the shared declaration and allocation policy.
     pub fn retain_snapshot(&mut self) -> Result<RetainSnapshot, RuntimeError> {
         self.state
@@ -248,7 +264,7 @@ impl Runtime {
         if let Some(control) = self.debug_control() {
             control.invalidate_schema_observations();
         }
-        self.publish_retain_events(events);
+        self.publish_carried_events(events);
         Ok(())
     }
 }

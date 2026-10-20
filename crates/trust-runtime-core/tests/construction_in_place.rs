@@ -12,7 +12,7 @@ use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 
 use trust_runtime_core::value::Value;
-use trust_runtime_core::vm::{PreparationLimits, PreparedModule};
+use trust_runtime_core::vm::{LogicalExecutionServices, PreparationLimits, PreparedModule};
 
 /// The fixture: `Table : ARRAY[0..4999] OF DINT` as a global and `Samples : ARRAY[0..4999] OF DINT`
 /// as a variable of the program `Fill`, both declared without an initial value.
@@ -69,5 +69,34 @@ fn a_large_array_is_built_in_its_own_bytes_without_a_value_of_it() {
         LARGE.with(Cell::get),
         expected,
         "the allocations of a value of 5,000 elements while the program is constructed"
+    );
+}
+
+#[test]
+fn an_online_change_carries_a_large_array_without_a_value_of_it() {
+    // Specification 34 §11.3 (checklist C1-24) and C1's acceptance: an online change copies a
+    // variable whose type has the same shape in both programs as bytes. The program is changed to
+    // itself, so both arrays of 5,000 DINTs are carried. The replacement's own construction reads
+    // every variable back once on a computer, which builds one value of each array: two such
+    // allocations there, none on a chip, as at the first construction above; the carry adds none,
+    // and no variable records an event. The wrong behaviour caught: a carry that builds the running
+    // value of each array, two more allocations of 160,000 bytes, more than the ESP32-C6's heap.
+    let prepared = PreparedModule::from_bytes(LARGE_ARRAYS, PreparationLimits::default())
+        .expect("the fixture prepares");
+    let mut state = prepared.instantiate(0).expect("the fixture constructs");
+    AT_LEAST.with(|at_least| at_least.set(ELEMENTS * std::mem::size_of::<Value>()));
+    LARGE.with(|large| large.set(0));
+    ARMED.with(|armed| armed.set(true));
+    let replaced = state.prepare_replacement(&prepared, 0, &LogicalExecutionServices);
+    ARMED.with(|armed| armed.set(false));
+    let (candidate, events) = replaced.expect("the program replaces itself");
+    assert!(events.is_empty(), "every value was kept: {events:?}");
+    drop(candidate);
+    drop(state);
+    let expected = if cfg!(feature = "std") { 2 } else { 0 };
+    assert_eq!(
+        LARGE.with(Cell::get),
+        expected,
+        "the allocations of a value of 5,000 elements while the change is prepared"
     );
 }

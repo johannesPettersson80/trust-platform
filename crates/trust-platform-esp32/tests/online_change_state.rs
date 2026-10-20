@@ -20,7 +20,7 @@ use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::memory::{Generation, VariableStorage};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::value::{Duration, Value};
-use trust_runtime_core::vm::CycleHooks;
+use trust_runtime_core::vm::{CarriedValueEvent, CycleHooks};
 use trust_runtime_core::watchdog::RetainMode;
 use trust_runtime_services::capabilities::{LastReset, ResetCauseName};
 use trust_runtime_services::chip::platform::status_settings;
@@ -258,15 +258,16 @@ fn an_identity_taken_before_an_online_change_is_stale_after_it() {
 }
 
 #[test]
-fn an_online_change_that_cannot_keep_a_retained_live_object_is_refused_as_on_a_computer() {
-    // Specification 11 §6.7.1 and specification 34 §11.3: a candidate that does not declare the same
-    // retained storage migrates a snapshot of the retained values, and a retained function-block
-    // instance or reference cannot be serialized into one, so a computer refuses the change with
-    // `retained live-object graph requires congruent admitted schema`. The chip's candidate is built
-    // by the same replacement, so it is refused with the same text, and the running program is as it
-    // was: generation 1, `count` 2 and the scan at 30 ms counting on to 3. Wrong behaviour caught: a
-    // chip that resets the retained instance to its initial value instead of refusing, and a refusal
-    // that disturbs the running program.
+fn an_online_change_keeps_the_values_of_a_program_that_renames_a_retained_global() {
+    // Specification 11 §6.7.1 and specification 34 §11.3 (decision OC-1 and "keep what fits"): the
+    // chip carries values as a computer does, and no value refuses a change. The candidate renames the
+    // retained global `total` to `sum`. The program has run two scans: count, total and runs 2, and
+    // `follow` reads count. The candidate keeps the instance `kept` at its place (count 2), names
+    // `kept.count` with `follow` (it reads 2), keeps `runs` 2 and starts `sum` at its initial 0, which
+    // the change records as new; it continues the lineage (generation 2). Its scan at 30 ms counts on:
+    // count 3, `sum` 1. Wrong behaviour caught: a chip that refuses the change because a retained
+    // instance or reference cannot be put into a snapshot (the rule before checklist C1-24), and a
+    // reference that still names the old program's storage.
     let hardware = Hardware::erased();
     let mut loader = Esp32Loader::new(hardware, TestClock, MEMORY, room);
     let mut platform = platform();
@@ -283,16 +284,27 @@ fn an_online_change_that_cannot_keep_a_retained_live_object_is_refused_as_on_a_c
         scan(&mut running, at);
     }
 
-    let refused = loader
+    let mut candidate = loader
         .prepare_change(&mut platform, &mut running, blocks_with_another_name())
-        .err()
-        .expect("a candidate that is not congruent is refused");
-    assert!(
-        refused.contains("retained live-object graph requires congruent admitted schema"),
-        "{refused}"
+        .expect("a value refuses no change");
+    loader.commit_change(&mut platform, &mut running, &mut candidate);
+    drop(running);
+
+    assert_eq!(
+        candidate.events,
+        [CarriedValueEvent::New { name: "sum".into() }]
     );
-    assert_eq!(running.generation(), Generation::FIRST);
-    assert_eq!(count(running.storage()), Some(Value::DInt(2)));
-    scan(&mut running, 30);
-    assert_eq!(count(running.storage()), Some(Value::DInt(3)));
+    let mut cycle = candidate.cycle;
+    assert_eq!(cycle.generation(), Generation::FIRST.next().unwrap());
+    assert_eq!(count(cycle.storage()), Some(Value::DInt(2)), "the instance");
+    assert_eq!(
+        followed(cycle.storage()),
+        Some(Value::DInt(2)),
+        "the reference"
+    );
+    assert_eq!(cycle.storage().get_global("sum"), Some(&Value::DInt(0)));
+    assert_eq!(cycle.storage().get_global("total"), None);
+    scan(&mut cycle, 30);
+    assert_eq!(count(cycle.storage()), Some(Value::DInt(3)));
+    assert_eq!(cycle.storage().get_global("sum"), Some(&Value::DInt(1)));
 }

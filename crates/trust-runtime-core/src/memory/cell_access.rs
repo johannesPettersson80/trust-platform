@@ -292,7 +292,7 @@ impl CellArm {
 
     /// The instance `instance` the arm holds in its blocks, persistent or owned by a frame on the
     /// activation stack, or `None` for an identity it does not hold.
-    fn instance(&self, instance: InstanceId) -> Option<&PersistentInstance> {
+    pub(crate) fn instance(&self, instance: InstanceId) -> Option<&PersistentInstance> {
         self.cells.regions().instance(instance)
     }
 

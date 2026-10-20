@@ -60,8 +60,10 @@ const SOURCE_A: &str = r#"
 VAR_GLOBAL RETAIN
     g_r : INT := INT#5;
 END_VAR
-VAR_GLOBAL
+VAR_GLOBAL CONSTANT
     ident : INT := INT#1;
+END_VAR
+VAR_GLOBAL
     i : INT := INT#0;
     d : INT(0..10) := INT#1;
     out_bit AT %QX0.0 : BOOL := FALSE;
@@ -84,13 +86,15 @@ out_bit := n >= INT#10;
 END_PROGRAM
 "#;
 
-/// Program B, a compatible replacement: the same declarations with another `ident` and other arithmetic.
+/// Program B, a replacement with the same declarations, another `ident` constant and other arithmetic.
 const SOURCE_B: &str = r#"
 VAR_GLOBAL RETAIN
     g_r : INT := INT#5;
 END_VAR
-VAR_GLOBAL
+VAR_GLOBAL CONSTANT
     ident : INT := INT#2;
+END_VAR
+VAR_GLOBAL
     i : INT := INT#0;
     d : INT(0..10) := INT#1;
     out_bit AT %QX0.0 : BOOL := FALSE;
@@ -113,49 +117,18 @@ out_bit := n >= INT#4;
 END_PROGRAM
 "#;
 
-/// Program C, an incompatible replacement: the retained `Main.r` changes from INT to BOOL.
-const SOURCE_C: &str = r#"
-VAR_GLOBAL RETAIN
-    g_r : INT := INT#5;
-END_VAR
-VAR_GLOBAL
-    ident : INT := INT#1;
-    i : INT := INT#0;
-    d : INT(0..10) := INT#1;
-    out_bit AT %QX0.0 : BOOL := FALSE;
-    lamp AT %QX0.1 : BOOL := TRUE;
-END_VAR
-
-PROGRAM Main
-VAR RETAIN
-    r : BOOL := FALSE;
-END_VAR
-VAR
-    n : INT := INT#2;
-    q : INT := INT#0;
-END_VAR
-q := INT#100 / d;
-r := NOT r;
-g_r := g_r + INT#1;
-n := n + i;
-out_bit := n >= INT#10;
-END_PROGRAM
-"#;
-
 /// Bytes that do not decode as bytecode.
 const MALFORMED_BYTECODE: [u8; 4] = [0x00, 0x01, 0x02, 0x03];
 
-/// The compiled candidates, built once per test binary.
+/// The compiled candidate, built once per test binary.
 struct Candidates {
     b: Vec<u8>,
-    c: Vec<u8>,
 }
 
 fn candidates() -> &'static Candidates {
     static CANDIDATES: OnceLock<Candidates> = OnceLock::new();
     CANDIDATES.get_or_init(|| Candidates {
         b: bytecode_bytes_from_source(SOURCE_B).expect("candidate B compiles"),
-        c: bytecode_bytes_from_source(SOURCE_C).expect("candidate C compiles"),
     })
 }
 
@@ -257,9 +230,6 @@ impl Sut {
                 .map(|_| ()),
             Op::OnlineChangeMalformed => runtime
                 .apply_online_change_bytes(&MALFORMED_BYTECODE, None)
-                .map(|_| ()),
-            Op::OnlineChangeIncompatible => runtime
-                .apply_online_change_bytes(&candidates().c, None)
                 .map(|_| ()),
             Op::AdvanceTime(ms) => {
                 runtime.advance_time(Duration::from_millis(ms));
@@ -512,7 +482,6 @@ fn op_strategy() -> impl Strategy<Value = Op> {
         (2, Just(Op::SaveStore).boxed()),
         (2, Just(Op::OnlineChangeB).boxed()),
         (1, Just(Op::OnlineChangeMalformed).boxed()),
-        (1, Just(Op::OnlineChangeIncompatible).boxed()),
         (2, (1i64..=5).prop_map(Op::AdvanceTime).boxed()),
     ])
 }
@@ -575,7 +544,6 @@ fn refused_candidates_keep_a_queued_write_and_a_force() {
         Op::EnqueueI(9),
         Op::ForceD(2),
         Op::OnlineChangeMalformed,
-        Op::OnlineChangeIncompatible,
         Op::Scan,
     ]);
 }
@@ -707,7 +675,8 @@ fn writes_and_forces_accepted_while_faulted_are_cleared_by_the_recovery_commit()
 }
 
 /// An online change recovers a faulted resource and clears what was accepted while it was faulted
-/// (spec 11 6.6, 6.9.2).
+/// (spec 11 6.6, 6.9.2). It keeps every value (spec 11 6.7.1, decision OC-1), the divisor 0 that
+/// faulted the resource included, so B, which does not handle it, faults again at its first scan.
 #[test]
 fn online_change_recovery_clears_what_was_accepted_while_faulted() {
     run_exact(&[
@@ -731,7 +700,6 @@ fn failed_recovery_leaves_what_was_accepted_while_faulted_pending() {
         Op::EnqueueI(8),
         Op::ForceI(6),
         Op::OnlineChangeMalformed,
-        Op::OnlineChangeIncompatible,
         Op::Scan,
         Op::ReleaseI,
         Op::RestartCold,
@@ -786,7 +754,6 @@ fn refused_candidates_under_a_hold_leave_the_hold_and_the_mutations_in_place() {
         Op::ForceD(3),
         Op::Pause,
         Op::OnlineChangeMalformed,
-        Op::OnlineChangeIncompatible,
         Op::Resume,
         Op::Scan,
     ]);
@@ -811,8 +778,9 @@ fn writes_and_forces_under_a_hold_behave_as_without_a_hold() {
 
 /// A restart reinitializes the variable that is located at an output and carries the output image
 /// over: the image keeps the last published value until a scan completes (spec 11 6.7, directly
-/// represented variables at restart; spec 34 10). The same holds for both restart modes, a restart
-/// from the store, and an online change. The first sequence has TRUE images before the restart
+/// represented variables at restart; spec 34 10). The same holds for both restart modes and a restart
+/// from the store; an online change carries the image over too and keeps the variable's value
+/// (spec 11 6.7.1, decision OC-1). The first sequence has TRUE images before the restart
 /// (`WriteI(8)` makes `out` TRUE), so a restart that zeroed the images would show at once. The second
 /// has a FALSE `lamp` image while the variable is TRUE again after the restart, so a restart that
 /// wrote the initializer into the image would show.

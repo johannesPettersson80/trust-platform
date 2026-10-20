@@ -22,7 +22,7 @@ use core::ptr::NonNull;
 
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::MonotonicClock;
-use trust_runtime_core::vm::{PreparedModule, RetainApplyEvent};
+use trust_runtime_core::vm::{CarriedValueEvent, PreparedModule};
 use trust_runtime_services::runner::engine::{
     CycleSettings, DeviceServices, EngineCycle, ProcessIo,
 };
@@ -72,7 +72,8 @@ impl<C: MonotonicClock + 'static> ProgramMemory<C> {
     /// services, has no checkpoint store, and lets the debugger hold its scans as [`start`](Self::start)
     /// does. The running program is unchanged and keeps its memory: the candidate holds no borrow of it.
     ///
-    /// Returns the cycle with the retained values that its construction dropped or migrated.
+    /// Returns the cycle with the events of the variables that did not keep the running program's
+    /// values as they were.
     ///
     /// # Errors
     ///
@@ -83,7 +84,7 @@ impl<C: MonotonicClock + 'static> ProgramMemory<C> {
         services: DeviceServices<C>,
         io: I,
         settings: CycleSettings,
-    ) -> Result<(ProgramCycle<C, I>, Vec<RetainApplyEvent>), RuntimeError> {
+    ) -> Result<(ProgramCycle<C, I>, Vec<CarriedValueEvent>), RuntimeError> {
         Self::build(module, services, |module, services| {
             running.replacement(module, services, io, settings)
         })

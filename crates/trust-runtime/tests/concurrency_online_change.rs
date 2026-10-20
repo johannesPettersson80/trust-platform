@@ -1,9 +1,12 @@
 //! Readers during a replacement, and debugger mutations across an online change (specification 11
 //! sections 6.6, 6.7.1 and 6.9.2; specification 34 UPDATE-01 and UPDATE-04).
 //!
-//! Every generation sets `generation` and `echo` to its own number when it initializes, and each
-//! scan copies `generation` into `echo`. A snapshot that mixed two generations would show
-//! `echo <> generation`, and a generation that was never accepted would be out of range.
+//! Every generation declares the constant `generation` with its own number, which an online change
+//! takes from the new program, and a variable `echo<n>` of its own (`echo2` in generation 2), which
+//! starts at that number and which each scan sets from `generation`; an online change keeps every
+//! other variable's value (specification 11 §6.7.1). A snapshot that mixed two generations would
+//! show a `generation` whose `echo<n>` is missing or another number, and a generation that was never
+//! accepted would be out of range.
 
 mod concurrency_support;
 
@@ -29,8 +32,13 @@ const MALFORMED: [u8; 4] = [0x00, 0x01, 0x02, 0x03];
 
 fn generation_source(generation: i32) -> String {
     format!(
-        "VAR_GLOBAL\n    generation : DINT := DINT#{generation};\n    echo : DINT := DINT#{generation};\n    cycles : DINT := DINT#0;\n    marker : DINT := DINT#0;\nEND_VAR\n\nPROGRAM Main\n    echo := generation;\n    cycles := cycles + DINT#1;\nEND_PROGRAM\n"
+        "VAR_GLOBAL CONSTANT\n    generation : DINT := DINT#{generation};\nEND_VAR\nVAR_GLOBAL\n    echo{generation} : DINT := DINT#{generation};\n    cycles : DINT := DINT#0;\n    marker : DINT := DINT#0;\n    forced : DINT := DINT#0;\nEND_VAR\n\nPROGRAM Main\n    echo{generation} := generation;\n    cycles := cycles + DINT#1;\nEND_PROGRAM\n"
     )
+}
+
+/// The `echo<n>` of the generation a snapshot holds.
+fn echo(snapshot: &trust_runtime::debug::DebugSnapshot, generation: i32) -> i32 {
+    dint(snapshot, &format!("echo{generation}"))
 }
 
 fn spawn_first_generation() -> (ResourceHandle<StdClock>, DebugControl) {
@@ -70,8 +78,11 @@ fn snapshot_reader(control: ResourceControl<StdClock>, done: Arc<AtomicBool>) ->
     while !done.load(Ordering::SeqCst) {
         let snap = snapshot(&control);
         let generation = dint(&snap, "generation");
-        let echo = dint(&snap, "echo");
-        assert_eq!(echo, generation, "a snapshot is wholly one generation");
+        assert_eq!(
+            echo(&snap, generation),
+            generation,
+            "a snapshot is wholly one generation"
+        );
         assert!(
             (1..=GENERATIONS).contains(&generation),
             "generation {generation} was never accepted"
@@ -131,7 +142,7 @@ fn applier(control: ResourceControl<StdClock>) -> i32 {
         current = generation;
         wait_until(&format!("generation {generation} is visible"), || {
             let snap = snapshot(&control);
-            dint(&snap, "generation") == generation && dint(&snap, "echo") == generation
+            dint(&snap, "generation") == generation && echo(&snap, generation) == generation
         });
     }
     current
@@ -199,7 +210,7 @@ fn debugger_writes_and_forces_queued_before_a_committed_change_do_not_replay() {
     });
 
     debug
-        .try_force_global("generation", Value::DInt(999))
+        .try_force_global("forced", Value::DInt(999))
         .expect("a new force is inside the bound");
     debug
         .try_enqueue_global_write("marker", Value::DInt(777))
@@ -213,9 +224,10 @@ fn debugger_writes_and_forces_queued_before_a_committed_change_do_not_replay() {
         dint(&snapshot(&control), "cycles") >= 3
     });
     let snap = snapshot(&control);
+    assert_eq!(dint(&snap, "generation"), 2, "the new generation runs");
     assert_eq!(
-        dint(&snap, "generation"),
-        2,
+        dint(&snap, "forced"),
+        0,
         "the force queued before the commit did not replay"
     );
     assert_eq!(
@@ -224,7 +236,7 @@ fn debugger_writes_and_forces_queued_before_a_committed_change_do_not_replay() {
         "the write queued before the commit did not replay"
     );
     assert_eq!(
-        debug.forced_var_value(&ForcedVarTarget::Global(SmolStr::new("generation"))),
+        debug.forced_var_value(&ForcedVarTarget::Global(SmolStr::new("forced"))),
         None,
         "the commit cleared the force"
     );
@@ -244,7 +256,7 @@ fn queued_debugger_writes_and_forces_survive_a_rejected_change() {
     });
 
     debug
-        .try_force_global("generation", Value::DInt(999))
+        .try_force_global("forced", Value::DInt(999))
         .expect("a new force is inside the bound");
     debug
         .try_enqueue_global_write("marker", Value::DInt(777))
@@ -261,7 +273,7 @@ fn queued_debugger_writes_and_forces_survive_a_rejected_change() {
         dint(&snapshot(&control), "marker") == 777
     });
     assert_eq!(
-        dint(&snapshot(&control), "generation"),
+        dint(&snapshot(&control), "forced"),
         999,
         "the force queued before the rejection still holds"
     );

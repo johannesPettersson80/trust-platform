@@ -12919,10 +12919,10 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_6D63E21F9D9B39D9AF6D"
+discovery_id = "DISC_F48BA48F6FB8942539AE"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/hot_reload.rs"
-name = "hot_reload_migrates_retain_and_resets_nonretain_and_instances"
+name = "hot_reload_keeps_retained_and_other_values_and_instances"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"

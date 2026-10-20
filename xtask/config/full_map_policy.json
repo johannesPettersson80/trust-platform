@@ -3414,7 +3414,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/program_memory.rs",
-        "line": 112,
+        "line": 113,
         "owner": "runtime portability S4-6b (program loading in place)",
         "invariant": "Both pointers came from Box::leak a few lines above, so they are valid and nothing else reaches the boxes. The 'static borrows are stored only in the cycle that the engine closure builds (a program started by start, or the candidate of an online change built by replace), which owns the memory as its last field and returns no reference of its lifetime, or they are dropped in this function; an early return drops the memory after their last use.",
         "test_evidence": "cargo test -p trust-platform-esp32 --test reload (install_and_restart_rounds_leave_the_heap_where_one_round_left_it) and --test online_change_state (an_online_change_keeps_a_retained_function_block_instance_of_a_congruent_candidate).",
@@ -3422,7 +3422,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/program_memory.rs",
-        "line": 125,
+        "line": 126,
         "owner": "runtime portability S4-6b (program loading in place)",
         "invariant": "Both pointers came from Box::leak in build and are freed here and nowhere else, once, because ProgramMemory is neither Clone nor Copy. The cycle that owns this memory drops its engine state, its process I/O and its checkpoint store before it drops the memory (the last field), so no borrow of either box is alive; the services go first because they hold a borrow of the module.",
         "test_evidence": "cargo test -p trust-platform-esp32 --test reload (install_and_restart_rounds_leave_the_heap_where_one_round_left_it).",

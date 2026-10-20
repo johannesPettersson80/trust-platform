@@ -16,7 +16,7 @@ use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::fault::{FaultMessage, FaultRecord, FaultSite, NO_TASK};
 use trust_runtime_core::value::{Duration, Value};
-use trust_runtime_core::vm::RetainApplyEvent;
+use trust_runtime_core::vm::{CarriedValueEvent, RetainApplyEvent};
 
 /// Runtime scheduling and diagnostic events.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -97,6 +97,16 @@ pub enum RuntimeEvent {
         /// Retained variable name.
         name: SmolStr,
         /// Time when the orphan was dropped.
+        time: Duration,
+    },
+    /// A variable of the program that an online change installed did not keep the running program's
+    /// value as it was (specification 34 §11.3): it is new, its value was converted to its changed
+    /// declaration or does not fit it, or it was a reference whose target is gone. `event` holds the
+    /// variable's path; `events.tail` renders its text at reply time.
+    OnlineChangeValue {
+        /// What the change did with the variable's value.
+        event: CarriedValueEvent,
+        /// The program's time at the commit of the change.
         time: Duration,
     },
     /// A retained value was explicitly migrated to the current declared type.
@@ -331,6 +341,7 @@ pub fn runtime_event_to_json(event: RuntimeEvent) -> serde_json::Value {
             "detail": detail,
             "time_ns": time.as_nanos(),
         }),
+        RuntimeEvent::OnlineChangeValue { event, time } => online_change_value_json(&event, time),
         RuntimeEvent::AuditDropped {
             request_id,
             request_type,
@@ -353,6 +364,49 @@ pub fn runtime_event_to_json(event: RuntimeEvent) -> serde_json::Value {
             "request_type": request_type.as_deref(),
             "time_ns": time.map(Duration::as_nanos),
         }),
+    }
+}
+
+/// The JSON form of an `online_change_value` event: the variable's path as `name`, null for the
+/// count of the events beyond the bound, and what the change did as `detail` (specification 11
+/// §6.7.1).
+fn online_change_value_json(event: &CarriedValueEvent, time: Duration) -> serde_json::Value {
+    let (name, detail) = carried_value_text(event);
+    json!({
+        "type": "online_change_value",
+        "name": name,
+        "detail": detail,
+        "time_ns": time.as_nanos(),
+    })
+}
+
+/// The variable's path and the text of what an online change did with its value (specification 34
+/// §11.3). The count of the events beyond the bound has no variable.
+#[must_use]
+pub fn carried_value_text(event: &CarriedValueEvent) -> (Option<&str>, String) {
+    match event {
+        CarriedValueEvent::New { name } => (
+            Some(name.as_str()),
+            String::from("new variable: declared initial value"),
+        ),
+        CarriedValueEvent::Converted { name } => (
+            Some(name.as_str()),
+            String::from("declaration changed: the running value converted to it"),
+        ),
+        CarriedValueEvent::NotKept { name } => (
+            Some(name.as_str()),
+            String::from(
+                "declaration changed: the running value does not fit, declared initial value",
+            ),
+        ),
+        CarriedValueEvent::Cleared { name } => (
+            Some(name.as_str()),
+            String::from("its target is gone or has another type: NULL"),
+        ),
+        CarriedValueEvent::More { count } => (
+            None,
+            format!("{count} more variables did not keep their running values"),
+        ),
     }
 }
 

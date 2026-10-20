@@ -64,12 +64,12 @@ impl EngineState<'_> {
     /// - The replacement continues this installation's lineage with the next generation, so no
     ///   earlier reference names its state (MEM-07, UPDATE-04). An exhausted counter refuses it
     ///   before anything changes.
-    /// - A replacement that declares the same retained storage (`warm_graph_congruent`) keeps the
-    ///   retained function-block instances and references live: the retained globals are copied
-    ///   into the replacement with their object graphs, and the retained program variables that a
-    ///   snapshot can hold are copied by name. Any other replacement migrates a snapshot of this
-    ///   installation's retained values by name, and refuses the change when a retained live object
-    ///   or reference cannot be serialized into one.
+    /// - The replacement is constructed with its own initial values, and then every variable it
+    ///   declares at the same place and by the same name as this installation takes this
+    ///   installation's value, retained or not, the members of function-block instances included;
+    ///   a variable whose declaration changed keeps what fits, and the rest keeps its initial value
+    ///   (decision OC-1 and "keep what fits"; [`carry_running_values`](Self::carry_running_values)).
+    ///   No value refuses the change.
     /// - The process images and the logical time are carried over, and the replacement's tasks
     ///   continue this installation's schedule: a task of the same name keeps its last activation,
     ///   the level of its event input and its overruns, so the first cycle after the change runs the
@@ -83,32 +83,21 @@ impl EngineState<'_> {
     /// # Errors
     ///
     /// The [`RuntimeError`] of a replacement that cannot be prepared: the generation counter is
-    /// exhausted, a retained live object cannot be migrated, a retained value is refused by its
-    /// declared type, or an allowance or the physical deadline is exceeded.
+    /// exhausted, or an allowance or the physical deadline is exceeded.
     pub(super) fn prepare_replacement_data<'b>(
         &mut self,
         prepared: &'b PreparedModule,
         resource_index: usize,
         services: &'b dyn ExecutionServices,
-    ) -> Result<(Box<EngineData>, Vec<super::RetainApplyEvent>), RuntimeError> {
+    ) -> Result<(Box<EngineData>, Vec<super::CarriedValueEvent>), RuntimeError> {
         let generation = self.next_generation()?;
-        let congruent = warm_graph_congruent(self.prepared, prepared);
-        let snapshot = if congruent {
-            None
-        } else {
-            self.engineering_operation(|source| {
-                source.require_serializable_retained_values()?;
-                source.cycle_retain_snapshot()
-            })
-            .map(Some)?
-        };
         let mut data = EngineState::build(
             prepared,
             resource_index,
             services,
             generation,
             true,
-            congruent.then_some(&*self),
+            None,
             Some(&self.data.images),
             self.data.now,
             // The replacement continues the installation on the store it runs on, with its profile.
@@ -118,16 +107,7 @@ impl EngineState<'_> {
         )?;
         let mut candidate = EngineState::borrow(&mut data, prepared, services);
         candidate.carry_task_schedule(self);
-        let events = if congruent {
-            candidate.restore_retained_program_values(self)?;
-            Vec::new()
-        } else {
-            candidate.apply_retained_snapshot(
-                snapshot
-                    .as_ref()
-                    .ok_or(RuntimeError::InvalidExecutionState)?,
-            )?
-        };
+        let events = candidate.carry_running_values(self)?;
         candidate.check_entry_deadline()?;
         Ok((data, events))
     }
@@ -333,42 +313,4 @@ impl EngineState<'_> {
         }
         Ok(())
     }
-}
-
-/// Index-based object preservation is valid only for the same admitted identity
-/// graph. Changed executable bodies/default code are allowed; changed physical
-/// declarations, types, inheritance or interface identities require migration.
-pub(super) fn warm_graph_congruent(old: &PreparedModule, new: &PreparedModule) -> bool {
-    old.layout == new.layout
-        && old.roots == new.roots
-        && old.vm.types.entries == new.vm.types.entries
-        && old.vm.physical_layouts.len() == new.vm.physical_layouts.len()
-        && old
-            .vm
-            .physical_layouts
-            .iter()
-            .zip(&new.vm.physical_layouts)
-            .all(|(old, new)| match (old, new) {
-                (None, None) => true,
-                (Some(old), Some(new)) => old.storage_compatible(new),
-                _ => false,
-            })
-        && old
-            .vm
-            .strings
-            .iter()
-            .zip(new.vm.strings.iter())
-            .all(|(a, b)| a == b)
-        && old.vm.parent_pou_ids == new.vm.parent_pou_ids
-        && old.vm.interface_type_ids_by_pou == new.vm.interface_type_ids_by_pou
-        && old.vm.pou_by_id.len() == new.vm.pou_by_id.len()
-        && old.vm.pou_by_id.iter().all(|(id, pou)| {
-            new.vm.pou(*id).is_some_and(|next| {
-                pou.kind == next.kind
-                    && pou.name == next.name
-                    && pou.local_ref_start == next.local_ref_start
-                    && pou.local_ref_count == next.local_ref_count
-                    && pou.primary_instance_owner == next.primary_instance_owner
-            })
-        })
 }

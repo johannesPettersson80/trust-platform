@@ -17,7 +17,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_RUNTIME_RELOAD_TRANSACTION_001";
 const CASE_FILE: &str = "verification/cases/runtime_safety/RT_RELOAD_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:456ac1a73e40612bf2156a70fdd6fc52440fee66bf3513a0f6bcbf4cb7f429f3";
+    "sha256:ec25c44f510526d8d69a7c9f24d3a980fa30684366c47b258696f9da4efffdb6";
 const CASE_ID: &str = "RT_RELOAD_001_RETAIN_STORE_NOT_READ_BY_ONLINE_CHANGE";
 /// Trace `expected` fields this runner compares. Any other field fails the case.
 const RELOAD_EXPECTED_FIELDS: &[&str] =

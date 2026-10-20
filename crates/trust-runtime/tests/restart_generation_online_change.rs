@@ -258,7 +258,8 @@ fn host_references_follow_the_generation_through_restarts_and_online_changes() {
         .apply_online_change_bytes(&changed, None)
         .expect("apply online change");
     assert_host_references_current(&runtime);
-    assert_eq!(runtime.read_access("Engineering"), Some(Value::Int(2)));
+    // An online change keeps the value a restart re-initializes (specification 11 §6.7.1).
+    assert_eq!(runtime.read_access("Engineering"), Some(Value::Int(9)));
     runtime.execute_cycle().expect("cycle after the change");
     assert!(!runtime.faulted());
 }

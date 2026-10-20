@@ -14,7 +14,7 @@ use trust_runtime_core::ports::{
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value;
-use trust_runtime_core::vm::RetainApplyEvent;
+use trust_runtime_core::vm::{CarriedValueEvent, RetainApplyEvent};
 use trust_runtime_core::watchdog::FaultDecision;
 
 use super::engine::LiveValuesHooks;
@@ -411,6 +411,19 @@ where
             self.shell
                 .records
                 .push_event(retain_apply_event(event, self.program_time));
+        }
+    }
+
+    /// Records the variables an online change did not give the running program's values as they
+    /// were, at the program's current time (specification 34 §11.3).
+    pub(super) fn record_carried_events(&self, events: Vec<CarriedValueEvent>) {
+        for event in events {
+            self.shell
+                .records
+                .push_event(RuntimeEvent::OnlineChangeValue {
+                    event,
+                    time: self.program_time,
+                });
         }
     }
 }

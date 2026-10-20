@@ -60,9 +60,10 @@ fn an_instance_write_resolved_before_an_online_change_is_rejected_at_its_boundar
     runtime.execute_cycle().unwrap();
 
     assert!(!runtime.faulted());
+    // The change kept `count` 1 (specification 11 §6.7.1), and the replacement's scan added 10.
     assert_eq!(
         runtime.storage().get_instance_var(main, "count"),
-        Some(&Value::DInt(10)),
+        Some(&Value::DInt(11)),
         "the replacement's own scan ran; the stale write changed nothing"
     );
     assert_eq!(

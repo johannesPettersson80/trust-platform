@@ -78,7 +78,7 @@ pub use limits::{VM_MAX_CALL_DEPTH, VM_MAX_EXECUTED_INSTRUCTIONS, VM_MAX_OPERAND
 pub(crate) use stack::{EnumTemp, Operand, OperandStack, Place, PlaceDestination, PlaceNode};
 
 /// Atomic retained-value migration observations.
-pub use engine::RetainApplyEvent;
+pub use engine::{CarriedValueEvent, RetainApplyEvent, MAX_CARRIED_VALUE_EVENTS};
 
 #[cfg(test)]
 mod tests {

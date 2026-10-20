@@ -152,16 +152,17 @@ fn ambiguous_source_free_retained_labels_reject_without_replacing_the_controller
             .validate()
             .expect("opaque artifact names are valid wire data");
         let error = runtime.apply_bytecode_module(&forged, None).unwrap_err();
-        // Replacement reaches shared retained-value migration before hosted
-        // management metadata. Pin that owning rejection, not the later host
-        // construction layer originally (incorrectly) expected by this new test.
+        // An online change carries values by declaration, not by retained label (specification 11
+        // §6.7.1), so the replacement reaches the hosted management metadata, which refuses the
+        // ambiguous label as a construction does.
         assert!(
-            matches!(&error, trust_runtime::error::RuntimeError::RetainMigration(detail)
-            if detail.as_str() == "ambiguous retained destination label")
+            matches!(&error, trust_runtime::error::RuntimeError::InvalidConfig(detail)
+            if detail.contains("ambiguous retained management label")),
+            "{error:?}"
         );
         assert_eq!(
             error.stable_code(),
-            trust_runtime::error::RuntimeError::RetainMigration("".into()).stable_code()
+            trust_runtime::error::RuntimeError::InvalidConfig("".into()).stable_code()
         );
         let construction =
             trust_runtime::Runtime::from_bytes(&forged.encode().unwrap(), Default::default())
