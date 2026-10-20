@@ -30,7 +30,7 @@ use super::{
     read_reference_register_with_counts, read_register_with_counts, register_statement_location,
     sparse_register_read_counts_by_block, try_execute_pou_with_register_ir,
     try_execute_pou_with_register_ir_with_locals, verify_register_program, BlockTarget,
-    LegacyRegisterFixtureContext, RegisterBlock, RegisterBlockExecutionOutcome,
+    LegacyRegisterFixtureContext, OperandStack, RegisterBlock, RegisterBlockExecutionOutcome,
     RegisterExecutionBuffers, RegisterExecutionOutcome, RegisterId, RegisterInstr,
     RegisterProfileState, RegisterProgram, Tier1BlockExecutionOutcome, Tier1CompiledBlock,
     Tier1CompiledInstr, VmModule,
@@ -653,15 +653,15 @@ fn register_execution_buffers_return_clean_buffers_and_respect_pool_limit() {
     // reserved scratch. Exercise the same clearing invariant directly.
     let mut buffers = RegisterExecutionBuffers::reserve(3, 2).expect("reserve scratch");
     {
-        let (_, registers, reads, _) = buffers.buffers_mut();
-        registers[0] = Value::DInt(41);
+        let (_, registers, reads) = buffers.buffers_mut();
+        registers.set_register_value(0, Value::DInt(41));
         reads[0] = 7;
     }
     let capacity = buffers.storage_bytes();
     buffers.select(2).expect("select smaller body");
     {
-        let (_, registers, reads, _) = buffers.buffers_mut();
-        assert_eq!(registers, [Value::Null, Value::Null]);
+        let (_, registers, reads) = buffers.buffers_mut();
+        assert_eq!(registers.register_values(), [Value::Null, Value::Null]);
         assert_eq!(reads, [0, 0]);
     }
     assert_eq!(buffers.storage_bytes(), capacity);
@@ -744,7 +744,8 @@ fn next_linear_block_target_uses_following_block_not_current_block() {
 
 #[test]
 fn register_read_helpers_preserve_bool_and_null_reference_errors() {
-    let bool_registers = vec![Value::Bool(true), Value::Bool(false), Value::DInt(1)];
+    let bool_registers =
+        OperandStack::from_register_values([Value::Bool(true), Value::Bool(false), Value::DInt(1)]);
     assert_eq!(read_bool_register(&bool_registers, RegisterId(0)), Ok(true));
     assert_eq!(
         read_bool_register(&bool_registers, RegisterId(1)),
@@ -755,14 +756,14 @@ fn register_read_helpers_preserve_bool_and_null_reference_errors() {
         Err(RuntimeError::ConditionNotBool)
     ));
 
-    let reference_registers = vec![Value::Reference(None)];
+    let reference_registers = OperandStack::from_register_values([Value::Reference(None)]);
     assert!(matches!(
         read_reference_register(&reference_registers, RegisterId(0)),
         Err(RuntimeError::NullReference)
     ));
 
     let mut profile = RegisterProfileState::default();
-    let mut counted_registers = vec![Value::Reference(None)];
+    let mut counted_registers = OperandStack::from_register_values([Value::Reference(None)]);
     let mut remaining_reads = vec![1];
     assert!(matches!(
         read_reference_register_with_counts(
@@ -791,9 +792,8 @@ fn interpreted_ref_field_reports_null_reference_base() {
     let block = &program.blocks[0];
     let mut runtime = Runtime::new();
     let mut frames = Default::default();
-    let mut registers = vec![Value::Reference(None), Value::Null];
+    let mut registers = OperandStack::from_register_values([Value::Reference(None), Value::Null]);
     let mut remaining_reads = vec![1, 0];
-    let mut native_call_stack = Default::default();
     runtime.vm_execution_budget.reset(10);
 
     let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
@@ -805,7 +805,6 @@ fn interpreted_ref_field_reports_null_reference_base() {
         &mut frames,
         &mut registers,
         &mut remaining_reads,
-        &mut native_call_stack,
         block,
         0,
     )

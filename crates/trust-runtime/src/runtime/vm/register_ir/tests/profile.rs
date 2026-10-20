@@ -326,19 +326,19 @@ fn register_executor_profile_avoids_clone_counters_for_struct_inout_function_blo
 fn read_register_with_counts_records_clone_then_move_reads() {
     let mut profile = RegisterProfileState::default();
     profile.set_enabled(true);
-    let mut registers = vec![Value::DInt(7)];
+    let mut registers = OperandStack::from_register_values([Value::DInt(7)]);
     let mut remaining = vec![2_u32];
 
     let first = read_register_with_counts(
         &mut profile,
-        registers.as_mut_slice(),
+        &mut registers,
         remaining.as_mut_slice(),
         RegisterId(0),
     )
     .expect("first read");
     let second = read_register_with_counts(
         &mut profile,
-        registers.as_mut_slice(),
+        &mut registers,
         remaining.as_mut_slice(),
         RegisterId(0),
     )
@@ -346,7 +346,7 @@ fn read_register_with_counts_records_clone_then_move_reads() {
 
     assert_eq!(first, Value::DInt(7));
     assert_eq!(second, Value::DInt(7));
-    assert_eq!(registers[0], Value::Null);
+    assert_eq!(registers.register_values()[0], Value::Null);
     let snapshot = profile.snapshot();
     assert_eq!(snapshot.value_ops.register_read_clones, 1);
     assert_eq!(snapshot.value_ops.register_read_moves, 1);

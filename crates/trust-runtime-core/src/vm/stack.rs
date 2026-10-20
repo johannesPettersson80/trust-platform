@@ -93,6 +93,12 @@ pub(crate) struct CopyTemp {
 }
 
 impl CopyTemp {
+    /// The `TYPE_TABLE` type of the value the copy holds.
+    #[cfg(feature = "register-ir")]
+    pub(crate) fn type_id(self) -> u32 {
+        self.type_id
+    }
+
     /// The place the copy was taken from as the checks of a store see it: a value of its type, as
     /// long as the copy, in the persistent block, where every place lies (C1-10c). The copy keeps
     /// no offset there.
@@ -154,16 +160,6 @@ impl OperandStack {
         self.values
             .capacity()
             .saturating_mul(core::mem::size_of::<Value>())
-    }
-    /// Reserve native operand scratch during controller construction.
-    #[cfg(feature = "register-ir")]
-    pub fn try_reserve_values(&mut self, capacity: usize) -> Result<(), VmTrap> {
-        if capacity > VM_MAX_OPERAND_STACK {
-            return Err(VmTrap::StackOverflow);
-        }
-        self.values
-            .try_reserve_exact(capacity.saturating_sub(self.values.len()))
-            .map_err(|_| VmTrap::Runtime(crate::error::RuntimeError::PreparationLimit))
     }
 
     /// Reserve storage for `capacity` operands across the whole activation tree at
@@ -747,6 +743,9 @@ fn text_value(bytes: &[u8], temp: TextTemp) -> Result<Value, VmTrap> {
         Value::String(SmolStr::new(text))
     })
 }
+
+#[cfg(feature = "register-ir")]
+mod registers;
 
 #[cfg(test)]
 mod continuation_tests {

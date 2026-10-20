@@ -76,7 +76,7 @@ impl RegisterActivation {
         destination: RegisterId,
         value: Value,
     ) -> Result<(), RuntimeError> {
-        let (_, registers, _, _) = self.buffers.buffers_mut();
+        let (_, registers, _) = self.buffers.buffers_mut();
         write_register(registers, destination, value)
     }
 }
@@ -143,7 +143,7 @@ pub(crate) fn start_register_activation(
     }
     let mut buffers = runtime.take_register_buffers(pou_id, max_registers)?;
     let profile_enabled = {
-        let (frames, _, _, _) = buffers.buffers_mut();
+        let (frames, _, _) = buffers.buffers_mut();
         prepare_register_entry_frame(
             runtime,
             module,
@@ -192,8 +192,7 @@ pub(crate) fn step_register_activation(
     let lowered = ready_program(&activation.plan)?;
     let program = &lowered.program;
     loop {
-        let (frames, registers, remaining_reads, native_call_stack) =
-            activation.buffers.buffers_mut();
+        let (frames, registers, remaining_reads) = activation.buffers.buffers_mut();
         let block_index = block_index_from_id(program, activation.current_block)?;
         let block = program
             .blocks
@@ -261,7 +260,6 @@ pub(crate) fn step_register_activation(
                 frames,
                 registers,
                 remaining_reads,
-                native_call_stack,
                 block,
                 activation.depth,
                 activation.instruction_index,
@@ -279,7 +277,6 @@ pub(crate) fn step_register_activation(
                     frames,
                     registers,
                     remaining_reads,
-                    native_call_stack,
                     compiled,
                     activation.depth,
                     activation.instruction_index,

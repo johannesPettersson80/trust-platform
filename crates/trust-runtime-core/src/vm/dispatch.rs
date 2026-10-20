@@ -1281,7 +1281,7 @@ fn call_operands(module: &VmModule, pc: usize) -> Option<usize> {
 /// `=` (`equal`) or `<>` of the top two operands. When one of them is a reference they compare as
 /// `apply_binary` compares them, and the path buffers of the references go back to the engine
 /// (spec 34 ARCH-05), so a test such as `r <> NULL` allocates nothing once the engine is warm.
-fn compare_equality(
+pub(crate) fn compare_equality(
     runtime: &impl ExecutionContext,
     stack: &mut OperandStack,
     equal: bool,

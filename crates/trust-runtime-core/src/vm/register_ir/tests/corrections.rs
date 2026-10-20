@@ -581,7 +581,7 @@ fn failed_non_last_clone_admission_keeps_register_and_read_count_unchanged() {
     let mut context = Context::new(&module);
     context.charge_clone_work = true;
     context.budget.reset(0);
-    let mut registers = [Value::String("payload".into())];
+    let mut registers = OperandStack::from_register_values([Value::String("payload".into())]);
     let mut reads = [2_u32];
 
     let error =
@@ -595,7 +595,10 @@ fn failed_non_last_clone_admission_keeps_register_and_read_count_unchanged() {
         }
     ));
     assert_eq!(reads, [2]);
-    assert_eq!(registers, [Value::String("payload".into())]);
+    assert_eq!(
+        registers.register_values(),
+        [Value::String("payload".into())]
+    );
 
     context.budget.reset(1);
     let first =
@@ -603,7 +606,10 @@ fn failed_non_last_clone_admission_keeps_register_and_read_count_unchanged() {
             .unwrap();
     assert_eq!(first, Value::String("payload".into()));
     assert_eq!(reads, [1]);
-    assert_eq!(registers, [Value::String("payload".into())]);
+    assert_eq!(
+        registers.register_values(),
+        [Value::String("payload".into())]
+    );
     assert_eq!(context.budget.remaining(), 0);
 
     let last =
@@ -611,7 +617,7 @@ fn failed_non_last_clone_admission_keeps_register_and_read_count_unchanged() {
             .unwrap();
     assert_eq!(last, Value::String("payload".into()));
     assert_eq!(reads, [0]);
-    assert_eq!(registers, [Value::Null]);
+    assert_eq!(registers.register_values(), [Value::Null]);
     assert_eq!(context.budget.remaining(), 0);
     let movement = context.profile.snapshot().value_ops;
     assert_eq!(movement.register_read_clones, 1);
@@ -710,17 +716,16 @@ fn tier1_store_dynamic_validates_reference_before_value_copy_admission() {
         let mut context = Context::new(&module);
         context.charge_clone_work = true;
         context.budget.reset(0);
-        let mut registers = [
+        let mut registers = OperandStack::from_register_values([
             invalid_reference,
             Value::String("value must remain unread".into()),
             Value::Null,
-        ];
+        ]);
         let mut remaining_register_reads = vec![0; program.max_registers as usize];
         for (register, count) in &counts[0] {
             remaining_register_reads[*register as usize] = *count;
         }
         let mut frames = FrameStack::default();
-        let mut native_call_stack = OperandStack::default();
 
         let error = super::super::tier1::execute_tier1_compiled_block(
             &mut context,
@@ -730,7 +735,6 @@ fn tier1_store_dynamic_validates_reference_before_value_copy_admission() {
             &mut frames,
             &mut registers,
             &mut remaining_register_reads,
-            &mut native_call_stack,
             &compiled,
             0,
         )
@@ -738,12 +742,10 @@ fn tier1_store_dynamic_validates_reference_before_value_copy_admission() {
 
         assert_eq!(error, expected_error);
         assert_eq!(context.budget.remaining(), 0);
-        assert_eq!(registers[0], Value::Null);
+        let values = registers.register_values();
+        assert_eq!(values[0], Value::Null);
         assert_eq!(remaining_register_reads[0], 0);
-        assert_eq!(
-            registers[1],
-            Value::String("value must remain unread".into())
-        );
+        assert_eq!(values[1], Value::String("value must remain unread".into()));
         assert_eq!(remaining_register_reads[1], 2);
         let movement = context.profile.snapshot().value_ops;
         assert_eq!(movement.register_read_clones, 0);
@@ -791,12 +793,14 @@ fn tier1_fault_after_last_use_move_recycles_buffers_for_next_entry() {
     assert_eq!(context.storage.get_global("g1"), Some(&Value::DInt(9)));
     assert!(context.tier1.snapshot().cached_blocks > 0);
     assert_eq!(context.profile.snapshot().value_ops.register_read_moves, 1);
-    let (frames, registers, reads, native_call_stack) =
-        context.scratch.as_mut().unwrap().buffers_mut();
+    let (frames, registers, reads) = context.scratch.as_mut().unwrap().buffers_mut();
     assert!(frames.is_empty());
-    assert!(registers.iter().all(|value| matches!(value, Value::Null)));
+    assert!(registers
+        .register_values()
+        .iter()
+        .all(|value| matches!(value, Value::Null)));
     assert!(reads.iter().all(|count| *count == 0));
-    assert!(native_call_stack.peek().is_err());
+    assert!(registers.peek().is_err());
 
     context.storage.set_global("g3", Value::DInt(2));
     context.budget.reset(99);

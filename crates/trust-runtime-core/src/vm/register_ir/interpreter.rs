@@ -1,3 +1,7 @@
+use super::operands::{
+    compare_registers, compares_operands, load_constant, load_reference, move_register,
+    settle_register_places, store_register,
+};
 use super::*;
 use crate::memory::view::StoreAccess;
 
@@ -55,9 +59,8 @@ pub(super) fn execute_register_block_interpreted_slice(
     module: &VmModule,
     _program: &RegisterProgram,
     frames: &mut FrameStack,
-    registers: &mut [Value],
+    registers: &mut OperandStack,
     remaining_register_reads: &mut [u32],
-    native_call_stack: &mut OperandStack,
     block: &RegisterBlock,
     depth_offset: u32,
     start_instruction: usize,
@@ -81,23 +84,7 @@ pub(super) fn execute_register_block_interpreted_slice(
         match instruction {
             RegisterInstr::Nop => {}
             RegisterInstr::LoadConst { dest, const_idx } => {
-                let value = module
-                    .consts()
-                    .get(*const_idx as usize)
-                    .map(|value| -> Result<Value, RuntimeError> {
-                        runtime.before_value_clone(value)?;
-                        let (value, cloned) = materialize_borrowed_value(value);
-                        if cloned {
-                            runtime
-                                .register_profile_mut()
-                                .record_value_op(RegisterValueOpKind::LoadConstant);
-                        }
-                        Ok(value)
-                    })
-                    .transpose()?
-                    .ok_or(VmTrap::InvalidConstIndex(*const_idx))
-                    .map_err(VmTrap::into_runtime_error)?;
-                write_register(registers, *dest, value)?;
+                load_constant(runtime, module, registers, *dest, *const_idx)?;
             }
             RegisterInstr::LoadNull { dest } => {
                 write_register(registers, *dest, Value::Null)?;
@@ -148,6 +135,7 @@ pub(super) fn execute_register_block_interpreted_slice(
                 write_register(registers, *dest, value)?;
             }
             RegisterInstr::StoreSelfFieldDynamic { field_idx, value } => {
+                settle_register_places(runtime, registers, None)?;
                 charge_instruction_cost_step(runtime, instruction_cost_steps, 0)?;
                 let self_instance = current_self_instance(frames)?;
                 charge_instruction_cost_step(runtime, instruction_cost_steps, 1)?;
@@ -173,31 +161,13 @@ pub(super) fn execute_register_block_interpreted_slice(
                     .map_err(VmTrap::into_runtime_error)?;
             }
             RegisterInstr::Move { src, dest } => {
-                let value = checked_read_register_with_counts(
-                    runtime,
-                    registers,
-                    remaining_register_reads,
-                    *src,
-                )?;
-                write_register(registers, *dest, value)?;
+                move_register(runtime, registers, remaining_register_reads, *src, *dest)?;
             }
             RegisterInstr::LoadRef { dest, ref_idx } => {
                 runtime
                     .register_profile_mut()
                     .record_ref_op(RegisterRefOpKind::LoadRef);
-                let value = {
-                    let value = register_ref_operand(runtime, module, frames, *ref_idx)
-                        .map_err(VmTrap::into_runtime_error)?;
-                    runtime.before_value_clone(&value)?;
-                    let (value, cloned) = materialize_borrowed_value(&value);
-                    if cloned {
-                        runtime
-                            .register_profile_mut()
-                            .record_value_op(RegisterValueOpKind::ReadReference);
-                    }
-                    value
-                };
-                write_register(registers, *dest, value)?;
+                load_reference(runtime, module, frames, registers, *dest, *ref_idx)?;
             }
             RegisterInstr::LoadRefAddr { dest, ref_idx } => {
                 runtime
@@ -211,14 +181,15 @@ pub(super) fn execute_register_block_interpreted_slice(
                 runtime
                     .register_profile_mut()
                     .record_ref_op(RegisterRefOpKind::StoreRef);
-                let value = checked_read_register_with_counts(
+                store_register(
                     runtime,
+                    module,
+                    frames,
                     registers,
                     remaining_register_reads,
+                    *ref_idx,
                     *src,
                 )?;
-                store_ref(runtime, module, frames, *ref_idx, value)
-                    .map_err(VmTrap::into_runtime_error)?;
             }
             RegisterInstr::CallNative {
                 kind,
@@ -226,7 +197,8 @@ pub(super) fn execute_register_block_interpreted_slice(
                 args,
                 dest,
             } => {
-                native_call_stack.clear();
+                settle_register_places(runtime, registers, None)?;
+                registers.truncate_to_registers();
                 for arg in args {
                     let value = checked_read_register_with_counts(
                         runtime,
@@ -234,9 +206,7 @@ pub(super) fn execute_register_block_interpreted_slice(
                         remaining_register_reads,
                         *arg,
                     )?;
-                    native_call_stack
-                        .push(value)
-                        .map_err(VmTrap::into_runtime_error)?;
+                    registers.push(value).map_err(VmTrap::into_runtime_error)?;
                 }
                 let arg_count = u32::try_from(args.len())
                     .map_err(|_| invalid_bytecode("register-ir executor arg_count overflow"))?;
@@ -247,7 +217,7 @@ pub(super) fn execute_register_block_interpreted_slice(
                     runtime,
                     module,
                     frame,
-                    native_call_stack,
+                    registers,
                     *kind,
                     *symbol_idx,
                     arg_count,
@@ -381,6 +351,7 @@ pub(super) fn execute_register_block_interpreted_slice(
                 write_register(registers, *dest, value)?;
             }
             RegisterInstr::StoreDynamic { reference, value } => {
+                settle_register_places(runtime, registers, None)?;
                 runtime
                     .register_profile_mut()
                     .record_ref_op(RegisterRefOpKind::StoreDynamic);
@@ -414,6 +385,22 @@ pub(super) fn execute_register_block_interpreted_slice(
                 left,
                 right,
                 dest,
+            } if compares_operands(registers, *op, *left, *right)? => {
+                let result = compare_registers(
+                    runtime,
+                    registers,
+                    remaining_register_reads,
+                    *left,
+                    *right,
+                    matches!(op, BinaryOp::Eq),
+                )?;
+                write_register(registers, *dest, result)?;
+            }
+            RegisterInstr::Binary {
+                op,
+                left,
+                right,
+                dest,
             } => {
                 let left = checked_read_register_with_counts(
                     runtime,
@@ -436,6 +423,7 @@ pub(super) fn execute_register_block_interpreted_slice(
                 right_ref_idx,
                 dest_ref_idx,
             } => {
+                settle_register_places(runtime, registers, None)?;
                 charge_instruction_cost_step(runtime, instruction_cost_steps, 0)?;
                 let left = register_ref_operand(runtime, module, frames, *left_ref_idx)
                     .map_err(VmTrap::into_runtime_error)?;
@@ -477,6 +465,7 @@ pub(super) fn execute_register_block_interpreted_slice(
                 const_idx,
                 dest_ref_idx,
             } => {
+                settle_register_places(runtime, registers, None)?;
                 charge_instruction_cost_step(runtime, instruction_cost_steps, 0)?;
                 let left = register_ref_operand(runtime, module, frames, *left_ref_idx)
                     .map_err(VmTrap::into_runtime_error)?;
@@ -521,6 +510,7 @@ pub(super) fn execute_register_block_interpreted_slice(
                 right_ref_idx,
                 dest_ref_idx,
             } => {
+                settle_register_places(runtime, registers, None)?;
                 charge_instruction_cost_step(runtime, instruction_cost_steps, 0)?;
                 let left = module
                     .consts()
@@ -650,9 +640,8 @@ pub fn execute_register_block_interpreted(
     module: &VmModule,
     program: &RegisterProgram,
     frames: &mut FrameStack,
-    registers: &mut [Value],
+    registers: &mut OperandStack,
     remaining_register_reads: &mut [u32],
-    native_call_stack: &mut OperandStack,
     block: &RegisterBlock,
     depth_offset: u32,
 ) -> Result<RegisterBlockExecutionOutcome, RuntimeError> {
@@ -665,7 +654,6 @@ pub fn execute_register_block_interpreted(
             frames,
             registers,
             remaining_register_reads,
-            native_call_stack,
             block,
             depth_offset,
             instruction_index,

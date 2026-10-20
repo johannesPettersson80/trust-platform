@@ -463,11 +463,14 @@ fn register_fault_retires_frame_and_returns_clean_owner_scratch() {
     );
     assert_eq!(context.initialized, 1);
     assert_eq!(context.retired, 1);
-    let (frames, registers, counts, stack) = context.scratch.as_mut().unwrap().buffers_mut();
+    let (frames, registers, counts) = context.scratch.as_mut().unwrap().buffers_mut();
     assert!(frames.is_empty());
-    assert!(registers.iter().all(|value| matches!(value, Value::Null)));
+    assert!(registers
+        .register_values()
+        .iter()
+        .all(|value| matches!(value, Value::Null)));
     assert!(counts.iter().all(|count| *count == 0));
-    assert!(stack.peek().is_err());
+    assert!(registers.peek().is_err());
 }
 
 #[test]
@@ -897,26 +900,32 @@ fn optimized_reference_operands_materialize_string_elements_without_losing_fault
 fn failed_scratch_selection_preserves_values_and_cleanup_is_repeatable() {
     let mut scratch = RegisterExecutionBuffers::reserve(2, 1).unwrap();
     {
-        let (_, values, reads, operands) = scratch.buffers_mut();
-        values[0] = Value::String("owned scratch".into());
+        let (_, registers, reads) = scratch.buffers_mut();
+        registers.set_register_value(0, Value::String("owned scratch".into()));
         reads[0] = 5;
-        operands.push(Value::DInt(3)).unwrap();
+        registers.push(Value::DInt(3)).unwrap();
     }
     assert_eq!(scratch.select(3), Err(RuntimeError::PreparationLimit));
     {
-        let (_, values, reads, operands) = scratch.buffers_mut();
-        assert_eq!(values[0], Value::String("owned scratch".into()));
+        let (_, registers, reads) = scratch.buffers_mut();
+        assert_eq!(
+            registers.register_values()[0],
+            Value::String("owned scratch".into())
+        );
         assert_eq!(reads[0], 5);
-        assert_eq!(operands.peek().unwrap(), &Value::DInt(3));
+        assert_eq!(registers.peek().unwrap(), &Value::DInt(3));
     }
     scratch.clear();
     scratch.clear();
     scratch.select(2).unwrap();
-    let (frames, values, reads, operands) = scratch.buffers_mut();
+    let (frames, registers, reads) = scratch.buffers_mut();
     assert!(frames.is_empty());
-    assert!(values.iter().all(|value| matches!(value, Value::Null)));
+    assert!(registers
+        .register_values()
+        .iter()
+        .all(|value| matches!(value, Value::Null)));
     assert!(reads.iter().all(|count| *count == 0));
-    assert!(operands.peek().is_err());
+    assert!(registers.peek().is_err());
 }
 
 #[test]

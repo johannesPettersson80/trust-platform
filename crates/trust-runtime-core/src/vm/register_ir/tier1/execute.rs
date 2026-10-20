@@ -1,3 +1,7 @@
+use super::super::operands::{
+    compare_registers, compares_operands, load_constant_value, load_reference, move_register,
+    settle_register_places, store_register,
+};
 use super::*;
 use crate::memory::view::StoreAccess;
 
@@ -8,9 +12,8 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
     _program: &RegisterProgram,
     source_block: &RegisterBlock,
     frames: &mut FrameStack,
-    registers: &mut [Value],
+    registers: &mut OperandStack,
     remaining_register_reads: &mut [u32],
-    native_call_stack: &mut OperandStack,
     block: &Tier1CompiledBlock,
     depth_offset: u32,
     start_instruction: usize,
@@ -34,14 +37,7 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
         match instruction {
             Tier1CompiledInstr::Nop => {}
             Tier1CompiledInstr::LoadConst { dest, value } => {
-                runtime.before_value_clone(value)?;
-                let (value, cloned) = materialize_borrowed_value(value);
-                if cloned {
-                    runtime
-                        .register_profile_mut()
-                        .record_value_op(RegisterValueOpKind::LoadConstant);
-                }
-                write_register(registers, *dest, value)?;
+                load_constant_value(runtime, registers, *dest, value)?;
             }
             Tier1CompiledInstr::LoadNull { dest } => {
                 write_register(registers, *dest, Value::Null)?;
@@ -91,6 +87,7 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                 write_register(registers, *dest, value)?;
             }
             Tier1CompiledInstr::StoreSelfFieldDynamic { field, value } => {
+                settle_register_places(runtime, registers, None)?;
                 super::super::charge_instruction_cost_step(runtime, instruction_cost_steps, 0)?;
                 let self_instance = current_self_instance(frames)?;
                 super::super::charge_instruction_cost_step(runtime, instruction_cost_steps, 1)?;
@@ -115,13 +112,7 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                     .map_err(VmTrap::into_runtime_error)?;
             }
             Tier1CompiledInstr::Move { src, dest } => {
-                let value = checked_read_register_with_counts(
-                    runtime,
-                    registers,
-                    remaining_register_reads,
-                    *src,
-                )?;
-                write_register(registers, *dest, value)?;
+                move_register(runtime, registers, remaining_register_reads, *src, *dest)?;
             }
             Tier1CompiledInstr::CallNative {
                 kind,
@@ -129,7 +120,8 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                 args,
                 dest,
             } => {
-                native_call_stack.clear();
+                settle_register_places(runtime, registers, None)?;
+                registers.truncate_to_registers();
                 for arg in args.iter() {
                     let value = checked_read_register_with_counts(
                         runtime,
@@ -137,9 +129,7 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                         remaining_register_reads,
                         *arg,
                     )?;
-                    native_call_stack
-                        .push(value)
-                        .map_err(VmTrap::into_runtime_error)?;
+                    registers.push(value).map_err(VmTrap::into_runtime_error)?;
                 }
                 let arg_count = u32::try_from(args.len())
                     .map_err(|_| invalid_bytecode("tier-1 call-native arg_count overflow"))?;
@@ -150,7 +140,7 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                     runtime,
                     module,
                     frame,
-                    native_call_stack,
+                    registers,
                     *kind,
                     *symbol_idx,
                     arg_count,
@@ -184,19 +174,7 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                 runtime
                     .register_profile_mut()
                     .record_ref_op(RegisterRefOpKind::LoadRef);
-                let value = {
-                    let value = register_ref_operand(runtime, module, frames, *ref_idx)
-                        .map_err(VmTrap::into_runtime_error)?;
-                    runtime.before_value_clone(&value)?;
-                    let (value, cloned) = materialize_borrowed_value(&value);
-                    if cloned {
-                        runtime
-                            .register_profile_mut()
-                            .record_value_op(RegisterValueOpKind::ReadReference);
-                    }
-                    value
-                };
-                write_register(registers, *dest, value)?;
+                load_reference(runtime, module, frames, registers, *dest, *ref_idx)?;
             }
             Tier1CompiledInstr::LoadRefAddr { dest, ref_idx } => {
                 runtime
@@ -210,14 +188,15 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                 runtime
                     .register_profile_mut()
                     .record_ref_op(RegisterRefOpKind::StoreRef);
-                let value = checked_read_register_with_counts(
+                store_register(
                     runtime,
+                    module,
+                    frames,
                     registers,
                     remaining_register_reads,
+                    *ref_idx,
                     *src,
                 )?;
-                store_ref(runtime, module, frames, *ref_idx, value)
-                    .map_err(VmTrap::into_runtime_error)?;
             }
             Tier1CompiledInstr::RefField { base, field, dest } => {
                 runtime
@@ -276,6 +255,7 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                 write_register(registers, *dest, value)?;
             }
             Tier1CompiledInstr::StoreDynamic { reference, value } => {
+                settle_register_places(runtime, registers, None)?;
                 runtime
                     .register_profile_mut()
                     .record_ref_op(RegisterRefOpKind::StoreDynamic);
@@ -302,6 +282,22 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                     *src,
                 )?;
                 let result = apply_unary(*op, source)?;
+                write_register(registers, *dest, result)?;
+            }
+            Tier1CompiledInstr::BinaryDIntGuard {
+                op,
+                left,
+                right,
+                dest,
+            } if compares_operands(registers, *op, *left, *right)? => {
+                let result = compare_registers(
+                    runtime,
+                    registers,
+                    remaining_register_reads,
+                    *left,
+                    *right,
+                    matches!(op, BinaryOp::Eq),
+                )?;
                 write_register(registers, *dest, result)?;
             }
             Tier1CompiledInstr::BinaryDIntGuard {
@@ -336,6 +332,7 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                 right_ref_idx,
                 dest_ref_idx,
             } => {
+                settle_register_places(runtime, registers, None)?;
                 super::super::charge_instruction_cost_step(runtime, instruction_cost_steps, 0)?;
                 let left = register_ref_operand(runtime, module, frames, *left_ref_idx)
                     .map_err(VmTrap::into_runtime_error)?;
@@ -377,6 +374,7 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                 const_idx,
                 dest_ref_idx,
             } => {
+                settle_register_places(runtime, registers, None)?;
                 super::super::charge_instruction_cost_step(runtime, instruction_cost_steps, 0)?;
                 let left = register_ref_operand(runtime, module, frames, *left_ref_idx)
                     .map_err(VmTrap::into_runtime_error)?;
@@ -421,6 +419,7 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                 right_ref_idx,
                 dest_ref_idx,
             } => {
+                settle_register_places(runtime, registers, None)?;
                 super::super::charge_instruction_cost_step(runtime, instruction_cost_steps, 0)?;
                 let left = module
                     .consts()
@@ -540,9 +539,8 @@ pub fn execute_tier1_compiled_block(
     program: &RegisterProgram,
     source_block: &RegisterBlock,
     frames: &mut FrameStack,
-    registers: &mut [Value],
+    registers: &mut OperandStack,
     remaining_register_reads: &mut [u32],
-    native_call_stack: &mut OperandStack,
     block: &Tier1CompiledBlock,
     depth_offset: u32,
 ) -> Result<Tier1BlockExecutionOutcome, RuntimeError> {
@@ -556,7 +554,6 @@ pub fn execute_tier1_compiled_block(
             frames,
             registers,
             remaining_register_reads,
-            native_call_stack,
             block,
             depth_offset,
             instruction_index,

@@ -456,7 +456,20 @@ impl PreparedModule {
             statements,
         };
         // The walk reads the layouts and the tables above (C1-19c2).
-        prepared.operand_bounds = operand_bounds::OperandBounds::of(&prepared);
+        #[cfg(not(feature = "register-ir"))]
+        {
+            prepared.operand_bounds = operand_bounds::OperandBounds::of(&prepared);
+        }
+        // Each register plan keeps the room its POU's register file needs (C1-20).
+        #[cfg(feature = "register-ir")]
+        {
+            let mut plans = core::mem::take(&mut prepared.register_plans);
+            prepared.operand_bounds =
+                operand_bounds::OperandBounds::walked(&prepared, |pou, peak| {
+                    plans.set_temporaries(pou, peak);
+                });
+            prepared.register_plans = plans;
+        }
         Ok(prepared)
     }
 

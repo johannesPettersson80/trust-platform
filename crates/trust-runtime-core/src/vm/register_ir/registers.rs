@@ -1,16 +1,22 @@
 use super::*;
 use crate::memory::view::{StoreAccess, ValueView};
+use crate::vm::stack::Operand;
 
+/// The value register `register` holds. A register that holds a place, a text, an enumeration or a
+/// copy (C1-20) is refused, as the stack refuses to peek one.
 pub fn read_register_ref(
-    registers: &[Value],
+    registers: &OperandStack,
     register: RegisterId,
 ) -> Result<&Value, RuntimeError> {
-    registers.get(register.index() as usize).ok_or_else(|| {
-        invalid_bytecode(format!(
-            "register-ir executor read out-of-bounds register {}",
-            register.index()
-        ))
-    })
+    registers
+        .register_value(register.index() as usize)
+        .map_err(|_| {
+            invalid_bytecode(format!(
+                "register-ir executor read out-of-bounds register {}",
+                register.index()
+            ))
+        })?
+        .ok_or(RuntimeError::InvalidExecutionState)
 }
 
 #[cfg(any(test, feature = "test-support"))]
@@ -130,15 +136,14 @@ fn increment_register_read_count(counts: &mut [u32], register: RegisterId) {
     }
 }
 
-pub fn read_register_with_counts(
-    profile: &mut RegisterProfileState,
-    registers: &mut [Value],
+/// Count one read of `register`: whether it is the register's last read of the block, which takes
+/// its operand out.
+fn count_read(
     remaining_register_reads: &mut [u32],
     register: RegisterId,
-) -> Result<Value, RuntimeError> {
-    let register_index = register.index() as usize;
-    let consume = remaining_register_reads
-        .get_mut(register_index)
+) -> Result<bool, RuntimeError> {
+    remaining_register_reads
+        .get_mut(register.index() as usize)
         .ok_or_else(|| {
             invalid_bytecode(format!(
                 "register-ir executor read-count out-of-bounds register {}",
@@ -152,19 +157,37 @@ pub fn read_register_with_counts(
                 *slot = slot.saturating_sub(1);
                 *slot == 0
             }
-        })?;
-    let slot = registers.get_mut(register_index).ok_or_else(|| {
-        invalid_bytecode(format!(
-            "register-ir executor read out-of-bounds register {}",
-            register.index()
-        ))
-    })?;
-    if consume {
+        })
+}
+
+/// Read `register`'s operand: its last read takes it out, an earlier one duplicates it (C1-20).
+pub(crate) fn read_operand_with_counts(
+    profile: &mut RegisterProfileState,
+    registers: &mut OperandStack,
+    remaining_register_reads: &mut [u32],
+    register: RegisterId,
+) -> Result<Operand, RuntimeError> {
+    let index = register.index() as usize;
+    if count_read(remaining_register_reads, register)? {
         profile.record_value_op(RegisterValueOpKind::RegisterReadMove);
-        Ok(core::mem::replace(slot, Value::Null))
+        registers.take_register(index)
     } else {
         profile.record_value_op(RegisterValueOpKind::RegisterReadClone);
-        Ok(slot.clone())
+        registers.duplicate_register(index)
+    }
+    .map_err(VmTrap::into_runtime_error)
+}
+
+#[cfg(any(test, feature = "test-support"))]
+pub fn read_register_with_counts(
+    profile: &mut RegisterProfileState,
+    registers: &mut OperandStack,
+    remaining_register_reads: &mut [u32],
+    register: RegisterId,
+) -> Result<Value, RuntimeError> {
+    match read_operand_with_counts(profile, registers, remaining_register_reads, register)? {
+        Operand::Value(value) => Ok(value),
+        _ => Err(RuntimeError::InvalidExecutionState),
     }
 }
 
@@ -212,7 +235,7 @@ pub fn load_instance_field_dynamic(
 #[cfg(feature = "test-support")]
 pub fn read_reference_register_with_counts(
     profile: &mut RegisterProfileState,
-    registers: &mut [Value],
+    registers: &mut OperandStack,
     remaining_register_reads: &mut [u32],
     register: RegisterId,
 ) -> Result<crate::value::ValueRef, RuntimeError> {
@@ -223,7 +246,10 @@ pub fn read_reference_register_with_counts(
     }
 }
 
-pub fn read_bool_register(registers: &[Value], register: RegisterId) -> Result<bool, RuntimeError> {
+pub fn read_bool_register(
+    registers: &OperandStack,
+    register: RegisterId,
+) -> Result<bool, RuntimeError> {
     match read_register_ref(registers, register)? {
         Value::Bool(value) => Ok(*value),
         _ => Err(VmTrap::ConditionNotBool.into_runtime_error()),
@@ -232,7 +258,7 @@ pub fn read_bool_register(registers: &[Value], register: RegisterId) -> Result<b
 
 #[cfg(feature = "test-support")]
 pub fn read_reference_register(
-    registers: &[Value],
+    registers: &OperandStack,
     register: RegisterId,
 ) -> Result<crate::value::ValueRef, RuntimeError> {
     read_reference_register_ref(registers, register).cloned()
@@ -240,7 +266,7 @@ pub fn read_reference_register(
 
 /// Borrow a reference operand without copying its compound path.
 pub fn read_reference_register_ref(
-    registers: &[Value],
+    registers: &OperandStack,
     register: RegisterId,
 ) -> Result<&crate::value::ValueRef, RuntimeError> {
     match read_register_ref(registers, register)? {
@@ -251,37 +277,127 @@ pub fn read_reference_register_ref(
 }
 
 pub fn write_register(
-    registers: &mut [Value],
+    registers: &mut OperandStack,
     register: RegisterId,
     value: Value,
 ) -> Result<(), RuntimeError> {
-    let slot = registers
-        .get_mut(register.index() as usize)
-        .ok_or_else(|| {
+    write_operand(registers, register, Operand::Value(value))
+}
+
+/// Put `operand` into `register` (C1-20).
+pub(crate) fn write_operand(
+    registers: &mut OperandStack,
+    register: RegisterId,
+    operand: Operand,
+) -> Result<(), RuntimeError> {
+    registers
+        .set_register(register.index() as usize, operand)
+        .map_err(|_| {
             invalid_bytecode(format!(
                 "register-ir executor write out-of-bounds register {}",
                 register.index()
             ))
-        })?;
-    *slot = value;
-    Ok(())
+        })
+}
+
+/// Charge the copy that a read of `register` other than its last makes: of the value, of the
+/// place's value, of the enumeration's value, of the text, or of the copy's value, as the read of
+/// the value it stands for charged before (TIME-08; C1-20).
+fn charge_register_copy(
+    runtime: &impl RegisterContext,
+    registers: &OperandStack,
+    register: RegisterId,
+) -> Result<(), RuntimeError> {
+    match registers
+        .register(register.index() as usize)
+        .map_err(VmTrap::into_runtime_error)?
+    {
+        Operand::Value(value) => runtime.before_value_clone(value),
+        Operand::Place(place) => {
+            let view = runtime
+                .place_view(*place)
+                .ok_or(RuntimeError::InvalidExecutionState)?;
+            runtime.before_view_clone(&view)
+        }
+        Operand::Enum(temp) => runtime.before_enum_clone(*temp),
+        Operand::Text(temp) => runtime.before_text_clone(
+            registers.text(*temp).map_err(VmTrap::into_runtime_error)?,
+            temp.wide(),
+        ),
+        // A copy read twice is read into its value, as the stack does before a `DUP` (C1-19b).
+        Operand::Copy(temp) => {
+            let value = runtime.copy_value(
+                registers
+                    .copy_bytes(*temp)
+                    .map_err(VmTrap::into_runtime_error)?,
+                temp.type_id(),
+            )?;
+            runtime.before_value_clone(&value)
+        }
+    }
+}
+
+/// Read `register`'s operand for an instruction that takes it as it is (C1-20): the last read takes
+/// it out, an earlier one charges its copy and duplicates it.
+pub(crate) fn checked_read_operand_with_counts(
+    runtime: &mut impl RegisterContext,
+    registers: &mut OperandStack,
+    reads: &mut [u32],
+    register: RegisterId,
+) -> Result<Operand, RuntimeError> {
+    if reads.get(register.index() as usize).copied() != Some(1) {
+        charge_register_copy(runtime, registers, register)?;
+    }
+    read_operand_with_counts(runtime.register_profile_mut(), registers, reads, register)
+}
+
+/// The value `operand`, read from `registers`, stands for: a place's, an enumeration's, a text's or
+/// a copy's value is read as the stack reads one an instruction pops as a value (C1-20).
+pub(crate) fn operand_value(
+    runtime: &impl RegisterContext,
+    registers: &mut OperandStack,
+    operand: Operand,
+) -> Result<Value, RuntimeError> {
+    let value = kept_operand_value(runtime, registers, operand);
+    registers.release_temps();
+    value
+}
+
+/// The value `operand` stands for, read as [`operand_value`] reads it, its room in `registers`
+/// left for the caller to give back: a caller that reads two operands taken out of the registers
+/// reads both before it gives their room back.
+pub(crate) fn kept_operand_value(
+    runtime: &impl RegisterContext,
+    registers: &OperandStack,
+    operand: Operand,
+) -> Result<Value, RuntimeError> {
+    match operand {
+        Operand::Value(value) => Ok(value),
+        Operand::Place(place) => crate::vm::dispatch_refs::materialize_place(runtime, place),
+        Operand::Enum(temp) => runtime.enum_value(temp),
+        Operand::Text(temp) => registers
+            .text_value(temp)
+            .map_err(VmTrap::into_runtime_error),
+        Operand::Copy(temp) => registers
+            .copy_bytes(temp)
+            .map_err(VmTrap::into_runtime_error)
+            .and_then(|bytes| runtime.copy_value(bytes, temp.type_id())),
+    }
 }
 
 pub fn checked_read_register_with_counts(
     runtime: &mut impl RegisterContext,
-    registers: &mut [Value],
+    registers: &mut OperandStack,
     reads: &mut [u32],
     register: RegisterId,
 ) -> Result<Value, RuntimeError> {
-    if reads.get(register.index() as usize).copied() != Some(1) {
-        runtime.before_value_clone(read_register_ref(registers, register)?)?;
-    }
-    read_register_with_counts(runtime.register_profile_mut(), registers, reads, register)
+    let operand = checked_read_operand_with_counts(runtime, registers, reads, register)?;
+    operand_value(runtime, registers, operand)
 }
 
 pub fn checked_read_reference_register_with_counts(
     runtime: &mut impl RegisterContext,
-    registers: &mut [Value],
+    registers: &mut OperandStack,
     reads: &mut [u32],
     register: RegisterId,
 ) -> Result<crate::value::ValueRef, RuntimeError> {
@@ -294,7 +410,7 @@ pub fn checked_read_reference_register_with_counts(
 
 pub fn checked_read_bool_register_with_counts(
     runtime: &mut impl RegisterContext,
-    registers: &mut [Value],
+    registers: &mut OperandStack,
     reads: &mut [u32],
     register: RegisterId,
 ) -> Result<bool, RuntimeError> {

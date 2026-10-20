@@ -20,6 +20,9 @@ pub struct PreparedRegisterProgram {
     fallback_reason: Option<String>,
     /// The program makes no user call, so its activation cannot suspend.
     leaf: bool,
+    /// The most bytes the body holds in the temporary area at once: the room of the register
+    /// file's texts and copies (C1-20).
+    temporaries: usize,
 }
 
 impl PreparedRegisterProgram {
@@ -37,6 +40,16 @@ impl PreparedRegisterProgram {
 }
 
 impl PreparedRegisterPlans {
+    /// Keep `peak`, the most bytes the body of `pou` holds in the temporary area at once, in its
+    /// plan. Preparation sets it before the plans are shared.
+    pub(crate) fn set_temporaries(&mut self, pou: u32, peak: usize) {
+        if let Some((_, plan)) = self.entries.iter_mut().find(|(id, _)| *id == pou)
+            && let Some(plan) = Arc::get_mut(plan)
+        {
+            plan.temporaries = peak;
+        }
+    }
+
     /// Prepare every decoded POU before controller installation. Unsupported
     /// bodies retain a prepared stack fallback; no execution path compiles them.
     pub fn prepare(
@@ -163,6 +176,8 @@ impl PreparedRegisterPlans {
                     tier1_failures,
                     fallback_reason,
                     leaf,
+                    // Preparation sets it from the walk of the body (C1-20).
+                    temporaries: 0,
                 }),
             ));
         }
@@ -273,18 +288,20 @@ impl PreparedRegisterPlans {
                     }
                 }
             }
-            let (bytes, work) = RegisterExecutionBuffers::reservation_demand_with_frame(
+            let (bytes, work) = RegisterExecutionBuffers::reservation_demand_with_temporaries(
                 program.max_registers as usize,
                 arguments,
                 local_count,
+                plan.temporaries,
             )?;
             charge(bytes, work)?;
             buffers.push((
                 *id,
-                Some(RegisterExecutionBuffers::reserve_with_frame(
+                Some(RegisterExecutionBuffers::reserve_with_temporaries(
                     program.max_registers as usize,
                     arguments,
                     local_count,
+                    plan.temporaries,
                 )?),
             ));
         }
@@ -477,9 +494,10 @@ impl PreparedRegisterPlans {
 #[derive(Debug, Default)]
 pub struct RegisterExecutionBuffers {
     pub(super) frames: FrameStack,
-    registers: Vec<Value>,
+    /// The register file and, above it, the operands of a call the activation makes, whose texts
+    /// and copies lie in its temporary area (C1-20).
+    registers: OperandStack,
     remaining_register_reads: Vec<u32>,
-    native_call_stack: OperandStack,
     needs_clear: bool,
 }
 
@@ -493,10 +511,26 @@ impl RegisterExecutionBuffers {
         Self::reservation_demand_with_frame(max_registers, max_native_arguments, 0)
     }
     /// Reservation demand including the eligible POU's reusable local frame.
+    #[cfg(any(test, feature = "test-support"))]
     pub fn reservation_demand_with_frame(
         max_registers: usize,
         max_native_arguments: usize,
         local_count: usize,
+    ) -> Result<(usize, usize), RuntimeError> {
+        Self::reservation_demand_with_temporaries(
+            max_registers,
+            max_native_arguments,
+            local_count,
+            0,
+        )
+    }
+    /// Reservation demand including the local frame and `temporaries` bytes of texts and copies
+    /// the register file holds at once (C1-20).
+    pub fn reservation_demand_with_temporaries(
+        max_registers: usize,
+        max_native_arguments: usize,
+        local_count: usize,
+        temporaries: usize,
     ) -> Result<(usize, usize), RuntimeError> {
         let registers = max_registers
             .checked_mul(mem::size_of::<Value>() + mem::size_of::<u32>())
@@ -510,6 +544,7 @@ impl RegisterExecutionBuffers {
         let bytes = registers
             .checked_add(operands)
             .and_then(|bytes| bytes.checked_add(frame_payload))
+            .and_then(|bytes| bytes.checked_add(temporaries))
             .and_then(|bytes| bytes.checked_add(mem::size_of::<super::super::VmFrame>()))
             .and_then(|bytes| bytes.checked_add(mem::size_of::<Self>()))
             .ok_or(RuntimeError::Overflow)?;
@@ -529,16 +564,34 @@ impl RegisterExecutionBuffers {
         Self::reserve_with_frame(max_registers, max_native_arguments, 0)
     }
     /// Reserve execution buffers and one reusable local/presence frame payload.
+    #[cfg(any(test, feature = "test-support"))]
     pub fn reserve_with_frame(
         max_registers: usize,
         max_native_arguments: usize,
         local_count: usize,
     ) -> Result<Self, RuntimeError> {
+        Self::reserve_with_temporaries(max_registers, max_native_arguments, local_count, 0)
+    }
+    /// Reserve execution buffers, the local frame and room for `temporaries` bytes of the texts and
+    /// copies the register file holds at once (C1-20).
+    pub fn reserve_with_temporaries(
+        max_registers: usize,
+        max_native_arguments: usize,
+        local_count: usize,
+        temporaries: usize,
+    ) -> Result<Self, RuntimeError> {
         let mut result = Self::default();
+        let operands = max_registers
+            .checked_add(max_native_arguments)
+            .ok_or(RuntimeError::Overflow)?;
         result
             .registers
-            .try_reserve_exact(max_registers)
-            .map_err(|_| RuntimeError::PreparationLimit)?;
+            .reserve_storage(operands)
+            .map_err(VmTrap::into_runtime_error)?;
+        result
+            .registers
+            .reserve_temporaries(temporaries)
+            .map_err(VmTrap::into_runtime_error)?;
         result
             .remaining_register_reads
             .try_reserve_exact(max_registers)
@@ -552,22 +605,23 @@ impl RegisterExecutionBuffers {
             .try_reserve_frame_payload(local_count)
             .map_err(VmTrap::into_runtime_error)?;
         result
-            .native_call_stack
-            .try_reserve_values(max_native_arguments)
+            .registers
+            .reset_registers(max_registers)
             .map_err(VmTrap::into_runtime_error)?;
-        result.registers.resize(max_registers, Value::Null);
         result.remaining_register_reads.resize(max_registers, 0);
         Ok(result)
     }
     /// Select a body without reallocating its pre-reserved scratch.
     pub fn select(&mut self, registers: usize) -> Result<(), RuntimeError> {
-        if registers > self.registers.capacity()
+        if registers > self.registers.register_capacity()
             || registers > self.remaining_register_reads.capacity()
         {
             return Err(RuntimeError::PreparationLimit);
         }
         self.clear();
-        self.registers.resize(registers, Value::Null);
+        self.registers
+            .reset_registers(registers)
+            .map_err(VmTrap::into_runtime_error)?;
         self.remaining_register_reads.resize(registers, 0);
         Ok(())
     }
@@ -576,9 +630,8 @@ impl RegisterExecutionBuffers {
             return;
         }
         self.frames.clear();
-        reset_register_file(&mut self.registers);
+        self.registers.clear_registers();
         self.remaining_register_reads.fill(0);
-        self.native_call_stack.clear();
         self.needs_clear = false;
     }
 
@@ -595,9 +648,7 @@ impl RegisterExecutionBuffers {
     pub(crate) fn can_enter_with_frame_payload(&self) -> bool {
         self.frames.has_reserved_frame_payload()
     }
-    pub fn buffers_mut(
-        &mut self,
-    ) -> (&mut FrameStack, &mut [Value], &mut [u32], &mut OperandStack) {
+    pub fn buffers_mut(&mut self) -> (&mut FrameStack, &mut OperandStack, &mut [u32]) {
         // Every mutable lease may dirty scratch; cleanup is idempotent across
         // selection, executor finalization and owner recycling.
         self.needs_clear = true;
@@ -605,20 +656,17 @@ impl RegisterExecutionBuffers {
             &mut self.frames,
             &mut self.registers,
             &mut self.remaining_register_reads,
-            &mut self.native_call_stack,
         )
     }
     #[cfg(any(test, feature = "test-support"))]
     pub fn storage_bytes(&self) -> usize {
         self.registers
-            .capacity()
-            .saturating_mul(mem::size_of::<Value>())
+            .storage_bytes()
             .saturating_add(
                 self.remaining_register_reads
                     .capacity()
                     .saturating_mul(mem::size_of::<u32>()),
             )
-            .saturating_add(self.native_call_stack.storage_bytes())
             .saturating_add(self.frames.storage_bytes())
     }
 }

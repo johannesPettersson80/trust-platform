@@ -131,7 +131,7 @@ fn register_execution_buffers_reuse_clears_frames_and_register_files() {
     let mut buffers =
         super::RegisterExecutionBuffers::reserve(3, 0).expect("reserve owned scratch");
     {
-        let (frames, registers, remaining_reads, _) = buffers.buffers_mut();
+        let (frames, registers, remaining_reads) = buffers.buffers_mut();
         frames
             .push(super::super::frames::VmFrame {
                 parameter_values_present: Vec::new(),
@@ -147,14 +147,17 @@ fn register_execution_buffers_reuse_clears_frames_and_register_files() {
                 instance_owner: None,
             })
             .expect("push pooled frame");
-        registers[0] = Value::DInt(7);
+        registers.set_register_value(0, Value::DInt(7));
         remaining_reads[0] = 11;
     }
 
     buffers.select(3).expect("reuse admitted scratch");
-    let (frames, registers, remaining_reads, _) = buffers.buffers_mut();
+    let (frames, registers, remaining_reads) = buffers.buffers_mut();
     assert!(frames.is_empty());
-    assert!(registers.iter().all(|value| matches!(value, Value::Null)));
+    assert!(registers
+        .register_values()
+        .iter()
+        .all(|value| matches!(value, Value::Null)));
     assert!(remaining_reads.iter().all(|count| *count == 0));
 }
 

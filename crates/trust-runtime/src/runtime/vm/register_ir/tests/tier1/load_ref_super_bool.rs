@@ -3,7 +3,7 @@ fn tier1_executor_rejects_null_reference_ref_field() {
     let (module, pou_id) = manual_vm_module(Vec::new(), Vec::new(), 0);
     let (program, source_block) = tier1_two_block_program(pou_id, 2);
     let mut runtime = Runtime::new();
-    let mut registers = vec![Value::Reference(None), Value::Null];
+    let mut registers = OperandStack::from_register_values([Value::Reference(None), Value::Null]);
 
     let err = execute_single_compiled_tier1_instruction(
         &module,
@@ -41,7 +41,7 @@ fn tier1_executor_cmp_ref_const_jump_takes_matching_branch() {
     program.blocks[0] = source_block.clone();
     let mut runtime = Runtime::new();
     runtime.storage_mut().set_global("g0", Value::DInt(3));
-    let mut registers = Vec::new();
+    let mut registers = OperandStack::default();
 
     let outcome = execute_single_compiled_tier1_instruction(
         &module,
@@ -70,7 +70,7 @@ fn tier1_executor_jump_if_takes_matching_branch() {
     let (module, pou_id) = manual_vm_module(Vec::new(), Vec::new(), 0);
     let (program, source_block) = tier1_two_block_program(pou_id, 1);
     let mut runtime = Runtime::new();
-    let mut registers = vec![Value::Bool(true)];
+    let mut registers = OperandStack::from_register_values([Value::Bool(true)]);
 
     let outcome = execute_single_compiled_tier1_instruction(
         &module,
@@ -128,13 +128,12 @@ fn execute_single_compiled_tier1_instruction(
     source_block: &RegisterBlock,
     instruction: Tier1CompiledInstr,
     runtime: &mut Runtime,
-    registers: &mut [Value],
+    registers: &mut OperandStack,
 ) -> Result<RegisterBlockExecutionOutcome, RuntimeError> {
     let compiled = Tier1CompiledBlock {
         instructions: vec![instruction],
     };
     let mut frames = super::FrameStack::default();
-    let mut native_call_stack = super::OperandStack::default();
     runtime.vm_execution_budget.reset(16);
     let mut runtime = LegacyRegisterFixtureContext::new(runtime, module)
         .expect("prepare legacy register fixture");
@@ -157,7 +156,6 @@ fn execute_single_compiled_tier1_instruction(
         &mut frames,
         registers,
         &mut remaining_register_reads,
-        &mut native_call_stack,
         &compiled,
         0,
     )?;

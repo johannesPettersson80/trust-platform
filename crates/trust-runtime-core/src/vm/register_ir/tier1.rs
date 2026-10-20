@@ -18,9 +18,8 @@ pub fn maybe_execute_tier1_block(
     program: &RegisterProgram,
     block: &RegisterBlock,
     frames: &mut FrameStack,
-    registers: &mut [Value],
+    registers: &mut OperandStack,
     remaining_register_reads: &mut [u32],
-    native_call_stack: &mut OperandStack,
     depth_offset: u32,
 ) -> Result<Option<RegisterBlockExecutionOutcome>, RuntimeError> {
     if !runtime.tier1_state_mut().enabled() {
@@ -44,7 +43,6 @@ pub fn maybe_execute_tier1_block(
         frames,
         registers,
         remaining_register_reads,
-        native_call_stack,
         compiled.as_ref(),
         depth_offset,
     )?;

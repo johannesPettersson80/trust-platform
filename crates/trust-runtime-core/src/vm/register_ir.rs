@@ -273,19 +273,12 @@ pub fn prepare_register_file(registers: &mut Vec<Value>, max_registers: usize) {
     registers.resize(max_registers, Value::Null);
 }
 
-pub fn reset_register_file(registers: &mut [Value]) {
-    for slot in registers {
-        if !matches!(slot, Value::Null) {
-            *slot = Value::Null;
-        }
-    }
-}
-
 mod activation;
 mod configuration;
 pub mod environment;
 mod interpreter;
 mod lower;
+mod operands;
 mod profile;
 pub use configuration::RegisterExecutionConfiguration;
 mod registers;
@@ -548,7 +541,7 @@ fn execute_register_program(
     let mut register_execution_buffers =
         runtime.take_register_buffers(program.pou_id, program.max_registers as usize)?;
     let result = (|| {
-        let (frames, registers, remaining_register_reads, native_call_stack) =
+        let (frames, registers, remaining_register_reads) =
             register_execution_buffers.buffers_mut();
         let profile_enabled = prepare_register_entry_frame(
             runtime,
@@ -617,7 +610,6 @@ fn execute_register_program(
                     frames,
                     registers,
                     remaining_register_reads,
-                    native_call_stack,
                     depth_offset,
                 )? {
                     Some(outcome) => outcome,
@@ -628,7 +620,6 @@ fn execute_register_program(
                         frames,
                         registers,
                         remaining_register_reads,
-                        native_call_stack,
                         block,
                         depth_offset,
                     )?,
@@ -641,7 +632,6 @@ fn execute_register_program(
                     frames,
                     registers,
                     remaining_register_reads,
-                    native_call_stack,
                     block,
                     depth_offset,
                 )?

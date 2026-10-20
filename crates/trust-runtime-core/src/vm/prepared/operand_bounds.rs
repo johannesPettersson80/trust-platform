@@ -78,7 +78,14 @@ pub(crate) struct OperandBounds {
 
 impl OperandBounds {
     /// The bounds of every body of `prepared`.
+    #[cfg(not(feature = "register-ir"))]
     pub(crate) fn of(prepared: &PreparedModule) -> Self {
+        Self::walked(prepared, |_, _| {})
+    }
+
+    /// The bounds of every body of `prepared`, giving `pou_peak` the most bytes each POU's own
+    /// body holds in the temporary area at once: the room of its register file (C1-20).
+    pub(crate) fn walked(prepared: &PreparedModule, mut pou_peak: impl FnMut(u32, usize)) -> Self {
         let types = Types::of(prepared);
         let mut bounds = Self::default();
         let code = &prepared.vm.code;
@@ -91,6 +98,7 @@ impl OperandBounds {
                 pou: Some(*pou),
             };
             let walked = walk(prepared, &types, &body, &mut bounds);
+            pou_peak(*pou, walked.peak);
             bounds.temporaries = bounds.temporaries.max(walked.peak);
             bounds.temporaries_below_call = bounds.temporaries_below_call.max(walked.below_call);
             bounds.references = bounds.references.max(walked.references);
