@@ -2469,6 +2469,46 @@
         "review_date": "2026-10-20"
       },
       {
+        "path": "crates/trust-runtime-core/tests/construction_in_place.rs",
+        "line": 37,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
+        "test_evidence": "cargo test -p trust-runtime-core --test construction_in_place",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/construction_in_place.rs",
+        "line": 38,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
+        "test_evidence": "cargo test -p trust-runtime-core --test construction_in_place",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/construction_in_place.rs",
+        "line": 45,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
+        "test_evidence": "cargo test -p trust-runtime-core --test construction_in_place",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/construction_in_place.rs",
+        "line": 48,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
+        "test_evidence": "cargo test -p trust-runtime-core --test construction_in_place",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/construction_in_place.rs",
+        "line": 50,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
+        "test_evidence": "cargo test -p trust-runtime-core --test construction_in_place",
+        "review_date": "2026-10-20"
+      },
+      {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
         "line": 149,
         "owner": "runtime portability",

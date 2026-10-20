@@ -15,6 +15,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   measures the memory it has for programs when it boots, reports it in `capabilities` as
   `program_memory_bytes`, and refuses a program whose figure is more, naming both numbers: at its
   install, before any byte is written, at its load and at an online change. A computer has no maximum.
+- Fixed: a chip builds the default of a global or a program variable that is an array, a structure or
+  a text in the variable's own bytes. Before, it built the default as a value of every element on the
+  heap at once, 32 bytes per element on the ESP32-C6, so an array of a few thousand elements could not
+  be loaded there, and an online change to a program with an array of 1,000 elements was refused with
+  `arithmetic overflow`.
 - Changed: a chip's checkpoint store reserves the capture of the retained values for the program's
   largest payload when the program loads, and grows it before an online change commits, so the first
   scans no longer allocate it. A warm start reads the newest checkpoint into the store's own buffer

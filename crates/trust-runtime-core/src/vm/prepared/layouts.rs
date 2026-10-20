@@ -489,6 +489,49 @@ impl PreparedModule {
         Some((result, bytes))
     }
 
+    /// The type of the result of initializer `id` when the flat store builds it in its variable's own
+    /// bytes (specification 34 MEM-12, ARCH-05; C1-22): the default, from no body or from the body the
+    /// encoder writes for a variable that declares no initial value, of a global or of a variable of an
+    /// instance, of an array, a structure or a text that a store copies as bytes, or of a structure
+    /// that lies as its backing and that no recipe builds, which holds no reference and no instance.
+    /// Such a result needs no room on the activation stack: the value path's commit would write all
+    /// of its bytes into the variable anyway. `None` for every other initializer.
+    pub(crate) fn persistent_in_place_result(&self, id: u32) -> Option<u32> {
+        let entry = self.initializers.entries.get(id as usize)?;
+        let declaration = self.layout.entries.get(entry.declaration_idx? as usize)?;
+        if !matches!(
+            declaration.owner,
+            StorageOwner::Global | StorageOwner::Instance
+        ) || entry.body_kind != InitializerBodyKind::Action
+            || entry.stage != InitializationStage::Default
+        {
+            return None;
+        }
+        let result = self.vm.ref_type(entry.result_ref_idx)?;
+        let default = if entry.code_length == 0 {
+            declaration.default_const_idx.is_none()
+        } else {
+            self.default_body(entry, result)
+        };
+        let layout = self.type_layout(result)?;
+        let plain = layout.reference_leaves.is_empty() && layout.instance_leaves.is_empty();
+        let in_place = super::byte_types::copies_as_bytes(self, result)
+            || (super::byte_types::backing_place(self, result) && self.recipe_free(result, 0));
+        (default
+            && plain
+            && in_place
+            && super::byte_types::same_type(self, result, declaration.type_id?, 0))
+        .then_some(result)
+    }
+
+    /// Whether the result of some initializer is built in its variable's own bytes (C1-22), which
+    /// then takes a staged-result record of its own while it is built.
+    pub(crate) fn has_persistent_in_place_result(&self) -> bool {
+        (0..self.initializers.entries.len()).any(|id| {
+            u32::try_from(id).is_ok_and(|id| self.persistent_in_place_result(id).is_some())
+        })
+    }
+
     /// Whether the body of initializer `entry` only builds the default of its result's type `result`
     /// and stores it as the result, as the encoder writes the body of a variable that declares no
     /// initial value: `DEFAULT_TYPED` of that type, then the store of the result (C1-19c4).

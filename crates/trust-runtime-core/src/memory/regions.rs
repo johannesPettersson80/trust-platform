@@ -121,9 +121,12 @@ impl CellRegions {
         let instance = self.call_instances.last().map_or(0, |(_, instance)| {
             instance.range.start.saturating_add(instance.range.bytes)
         });
+        // A result built in its variable's bytes in the persistent block takes no room here (C1-22).
         let result = self
             .results
-            .last()
+            .iter()
+            .rev()
+            .find(|result| result.range.region == LayoutRegion::Activation)
             .map_or(0, |result| result_end(result.range));
         frame.max(instance).max(result)
     }
@@ -142,15 +145,22 @@ impl CellRegions {
         .then_some(range)
     }
 
-    /// Record `result` on top of the activation stack (C1-13). Refused, as a frame is, when its
-    /// bytes leave the reserved block or the reserved records are all in use; neither grows.
+    /// Record `result` on top of the activation stack (C1-13), or, for a result built in its
+    /// variable's own bytes in the persistent block, which holds no reference leaf, beside it
+    /// (C1-22). Refused, as a frame is, when its bytes leave the reserved block or the reserved
+    /// records are all in use; neither grows.
     pub(crate) fn push_result(
         &mut self,
         result: ResultBlock,
         leaves: &[crate::memory::layout::ReferenceLeaf],
     ) -> Result<(), RuntimeError> {
-        if result.range.region != LayoutRegion::Activation
-            || result_end(result.range) as usize > self.activation.reserved()
+        let refused = match result.range.region {
+            LayoutRegion::Activation => {
+                result_end(result.range) as usize > self.activation.reserved()
+            }
+            LayoutRegion::Persistent => !leaves.is_empty(),
+        };
+        if refused
             || self.results.len() == self.results.capacity()
             || !self.activation_references.push_leaves(
                 leaves
@@ -164,7 +174,13 @@ impl CellRegions {
         Ok(())
     }
 
-    /// The staged result of activation `id`, when it is on the activation stack (C1-13).
+    /// Whether a staged-result record is free (C1-13, C1-22).
+    pub(crate) fn has_result_record(&self) -> bool {
+        self.results.len() < self.results.capacity()
+    }
+
+    /// The staged result of activation `id`: on the activation stack (C1-13), or in its variable's
+    /// own bytes in the persistent block (C1-22).
     pub(crate) fn result(&self, id: FrameId) -> Option<ResultBlock> {
         self.results
             .iter()
@@ -492,7 +508,10 @@ struct StoreShape {
     extent: PersistentExtent,
     activation_bytes: u32,
     levels: usize,
+    /// The staged-result records construction charges.
     result_count: usize,
+    /// The records reserved: the charged ones and one for a result built in its variable's bytes.
+    result_records: usize,
     call_instance_count: usize,
     activation_leaves: usize,
 }
@@ -512,11 +531,18 @@ impl StoreShape {
                 prepared.result_block_reservation(),
             ),
         };
+        // A result built in its variable's own bytes takes one record of its own while it is built,
+        // reserved beside the charged ones, so that its reservation changes no charge (TIME-08;
+        // C1-22).
+        let result_records = result_count
+            .checked_add(usize::from(prepared.has_persistent_in_place_result()))
+            .ok_or(RuntimeError::Overflow)?;
         Ok(Self {
             extent: PersistentExtent::of(prepared)?,
             activation_bytes,
             levels,
             result_count,
+            result_records,
             call_instance_count: prepared.call_instance_reservation()?,
             activation_leaves: prepared.activation_reference_reservation()?,
         })
@@ -549,7 +575,7 @@ impl CellStorage {
             .checked_mul(core::mem::size_of::<FrameBlock>())
             .zip(
                 shape
-                    .result_count
+                    .result_records
                     .checked_mul(core::mem::size_of::<ResultBlock>()),
             )
             .and_then(|(frames, results)| frames.checked_add(results))
@@ -630,6 +656,7 @@ impl CellStorage {
             activation_bytes,
             levels,
             result_count,
+            result_records,
             call_instance_count,
             activation_leaves,
         } = StoreShape::of(prepared)?;
@@ -661,7 +688,7 @@ impl CellStorage {
             .map_err(|_| crate::vm::VmTrap::BudgetExceeded.into_runtime_error())?;
         let mut results = Vec::new();
         results
-            .try_reserve_exact(result_count)
+            .try_reserve_exact(result_records)
             .map_err(|_| crate::vm::VmTrap::BudgetExceeded.into_runtime_error())?;
         let mut call_instances = Vec::new();
         call_instances

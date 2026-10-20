@@ -10,6 +10,12 @@
 //! charge and a refusal are the same on either path, and the evaluation allocates nothing. An
 //! initializer whose result finds no room on the stack runs on the value path, decided before
 //! anything is charged.
+//!
+//! The default of a global or of a variable of a persistent instance
+//! ([`PreparedModule::persistent_in_place_result`]) is built in the variable's own bytes in the
+//! persistent block, so that no value of it is built on the heap, however large it is (C1-22): its
+//! staged result is those bytes, and its commit admits the markers the value path's commit admits
+//! and writes nothing more.
 
 use super::super::super::construction::values::{construct_in_place, ValueConstructionMode};
 use super::*;
@@ -25,9 +31,10 @@ use crate::vm::{OperandStack, Place};
 struct InPlace {
     /// The result's type.
     result_type: u32,
-    /// The bytes the staged result takes on the activation stack.
+    /// The bytes the staged result takes: on the activation stack, or the variable's own bytes for a
+    /// result built there (C1-22).
     range: ByteRange,
-    /// The bytes of the variable's slot in its frame.
+    /// The bytes of the variable's slot.
     slot: ByteRange,
 }
 
@@ -49,13 +56,78 @@ impl EngineState<'_> {
         };
         let mut staged = None;
         let committed = self
-            .evaluate_in_place(id, instance, frame, depth, place, &mut staged)
+            .evaluate_in_place(id, instance, Some(frame), depth, place, &mut staged)
             .and_then(|()| self.commit_in_place(declaration, place, once_marker));
         // The staged result leaves the stack on every path, once its bytes are committed.
         if let Some(result) = staged {
             self.data.store.release_result(result);
         }
         committed.map(|()| true)
+    }
+
+    /// Run declaration action `id` of the global or persistent instance variable `declaration` by
+    /// building its default in the variable's own bytes, when the prepared module builds it there,
+    /// committing it with `once_marker` as the value path commits it (C1-22). `Ok(false)`, having
+    /// charged nothing, when the value path must run it.
+    pub(super) fn run_persistent_in_place(
+        &mut self,
+        id: u32,
+        declaration: u32,
+        instance: Option<InstanceId>,
+        lexical: Option<&mut VmFrame>,
+        depth: u32,
+        once_marker: Option<(u32, Option<InstanceId>)>,
+    ) -> Result<bool, RuntimeError> {
+        let Some(place) = self.persistent_in_place(id, declaration, instance) else {
+            return Ok(false);
+        };
+        let mut staged = None;
+        let committed = self
+            .evaluate_in_place(id, instance, lexical, depth, place, &mut staged)
+            .and_then(|()| {
+                self.commit_persistent_in_place(declaration, instance, place, once_marker)
+            });
+        // The record of the staged result is given back on every path; its bytes are the variable's.
+        if let Some(result) = staged {
+            self.data.store.release_result(result);
+        }
+        committed.map(|()| true)
+    }
+
+    /// Where initializer `id` of the global or persistent instance variable `declaration` builds its
+    /// result: the variable's own bytes, when the prepared module builds it there, the variable has
+    /// no presence byte and a staged-result record is free. None of this charges anything.
+    fn persistent_in_place(
+        &self,
+        id: u32,
+        declaration: u32,
+        instance: Option<InstanceId>,
+    ) -> Option<InPlace> {
+        let result_type = self.prepared.persistent_in_place_result(id)?;
+        let declared = self.prepared.layout.entries.get(declaration as usize)?;
+        let arm = &*self.data.store;
+        let location = match declared.owner {
+            StorageOwner::Global => MemoryLocation::Global,
+            // A per-call instance keeps its variables on the activation stack, written as values.
+            StorageOwner::Instance => {
+                let instance = instance.filter(|id| arm.is_root_instance(*id))?;
+                MemoryLocation::Instance(instance)
+            }
+            StorageOwner::Frame => return None,
+        };
+        if !arm.has_result_record() {
+            return None;
+        }
+        let reader = self.data.reader(self.prepared);
+        let (range, _, presence) = reader.cells_target(location, declared.slot as usize, &[])?;
+        if presence.is_some() || range.region != crate::memory::layout::LayoutRegion::Persistent {
+            return None;
+        }
+        Some(InPlace {
+            result_type,
+            range,
+            slot: range,
+        })
     }
 
     /// Where initializer `id` of `declaration` stages its result in place for `frame`: a result the
@@ -83,7 +155,7 @@ impl EngineState<'_> {
         &mut self,
         id: u32,
         instance: Option<InstanceId>,
-        lexical: &mut VmFrame,
+        mut lexical: Option<&mut VmFrame>,
         depth: u32,
         place: InPlace,
         staged: &mut Option<FrameId>,
@@ -109,7 +181,7 @@ impl EngineState<'_> {
             value: _,
             backups,
             writable_instances,
-        } = self.initializer_seed(&entry, instance, Some(&*lexical), true)?;
+        } = self.initializer_seed(&entry, instance, lexical.as_deref(), true)?;
         let result = match self.reserve_activation_identity() {
             Ok(result) => result,
             Err(error) => return Err(self.abandon_seed(backups, writable_instances, error)),
@@ -129,7 +201,7 @@ impl EngineState<'_> {
             return Err(self.abandon_seed(backups, writable_instances, error));
         }
         *staged = Some(result);
-        let lexical_frame = lexical.activation;
+        let lexical_frame = lexical.as_ref().and_then(|frame| frame.activation);
         self.data.construction.initializers.push(ActiveInitializer {
             id,
             context,
@@ -152,7 +224,9 @@ impl EngineState<'_> {
             code_end,
             local_ref_start: template.map_or(0, |pou| pou.local_ref_start),
             local_ref_count: template.map_or(0, |pou| pou.local_ref_count),
-            locals: core::mem::take(&mut lexical.locals),
+            locals: lexical
+                .as_mut()
+                .map_or_else(Vec::new, |frame| core::mem::take(&mut frame.locals)),
             runtime_instance: instance,
             instance_owner: template.and_then(|pou| pou.primary_instance_owner),
         };
@@ -171,7 +245,9 @@ impl EngineState<'_> {
         } else {
             execute_initializer_body(self, &self.prepared.vm, &mut frame, depth)
         };
-        lexical.locals = frame.locals;
+        if let Some(lexical) = lexical {
+            lexical.locals = frame.locals;
+        }
         self.finish_in_place(outcome, result, backups, place)
     }
 
@@ -187,7 +263,12 @@ impl EngineState<'_> {
         let seeded = entry.stage == crate::bytecode::InitializationStage::Explicit
             && is_compound(self.prepared, place.result_type);
         let arm = &mut *self.data.store;
-        if !arm.clear_activation(place.range) {
+        let cleared = match place.range.region {
+            crate::memory::layout::LayoutRegion::Activation => arm.clear_activation(place.range),
+            // The variable's own bytes, which the value path's commit would write whole (C1-22).
+            crate::memory::layout::LayoutRegion::Persistent => arm.clear_range(place.range),
+        };
+        if !cleared {
             return Err(RuntimeError::InvalidExecutionState);
         }
         // The result's reference leaves take entries in the activation stack's table (C1-19c4).
@@ -203,7 +284,7 @@ impl EngineState<'_> {
             },
             leaves,
         )?;
-        if seeded && !arm.copy_place(place.slot, place.range, None) {
+        if seeded && place.range != place.slot && !arm.copy_place(place.slot, place.range, None) {
             arm.release_result(result);
             return Err(RuntimeError::InvalidExecutionState);
         }
@@ -307,6 +388,63 @@ impl EngineState<'_> {
         if !arm.copy_place(place.range, place.slot, None) {
             return Err(RuntimeError::InvalidExecutionState);
         }
+        if let Some(prepared_once_marker) = prepared_once_marker {
+            prepared_once_marker.publish();
+        }
+        Ok(())
+    }
+
+    /// `commit_declaration_with_once` for a global or a persistent instance variable whose default
+    /// was built in its own bytes (C1-22): the lifetime check of the result, the admission of the
+    /// once marker and of the initialized marker, charged as the value path charges them, and their
+    /// publication. The value path's write of the value is already done: its bytes are the result.
+    fn commit_persistent_in_place(
+        &mut self,
+        declaration: u32,
+        instance: Option<InstanceId>,
+        place: InPlace,
+        once_marker: Option<(u32, Option<InstanceId>)>,
+    ) -> Result<(), RuntimeError> {
+        #[cfg(all(feature = "std", feature = "test-support"))]
+        let _timing = crate::vm::diagnostic_timing::begin(
+            crate::vm::diagnostic_timing::Phase::InitializerCommit,
+        );
+        let Some(declared) = self.prepared.layout.entries.get(declaration as usize) else {
+            return Err(RuntimeError::InvalidExecutionState);
+        };
+        if self
+            .prepared
+            .vm
+            .strings
+            .get(declared.name_idx as usize)
+            .is_none()
+        {
+            return Err(RuntimeError::InvalidExecutionState);
+        }
+        self.check_place_lifetime(place.result_type)?;
+        let once_plan = once_marker
+            .map(|marker| self.data.construction.once.insertion_plan(marker))
+            .transpose()?;
+        if let Some(plan) = once_plan {
+            self.charge_allocation_bytes(plan.demand().0)?;
+        }
+        let initialized_plan = self
+            .data
+            .construction
+            .initialized_declarations
+            .insertion_plan((declaration, instance))?;
+        self.charge_allocation_bytes(initialized_plan.demand().0)?;
+        let prepared_once_marker = if let Some(plan) = once_plan {
+            Some(self.data.construction.once.prepare_insert(plan)?)
+        } else {
+            None
+        };
+        let prepared_marker = self
+            .data
+            .construction
+            .initialized_declarations
+            .prepare_insert(initialized_plan)?;
+        prepared_marker.publish();
         if let Some(prepared_once_marker) = prepared_once_marker {
             prepared_once_marker.publish();
         }

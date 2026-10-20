@@ -604,7 +604,8 @@ impl CellArm {
         self.cells.regions().result_room(bytes)
     }
 
-    /// Record the staged result `result` on top of the activation stack (C1-13).
+    /// Record the staged result `result` on top of the activation stack (C1-13), or one built in its
+    /// variable's own bytes in the persistent block (C1-22).
     pub(crate) fn push_result(
         &mut self,
         result: ResultBlock,
@@ -613,7 +614,8 @@ impl CellArm {
         self.cells.regions_mut().push_result(result, leaves)
     }
 
-    /// The staged result of activation `id`, when it is on the activation stack (C1-13).
+    /// The staged result of activation `id`, on the activation stack or in the persistent block
+    /// (C1-13, C1-22).
     pub(crate) fn result(&self, id: FrameId) -> Option<ResultBlock> {
         self.cells.regions().result(id)
     }
@@ -621,6 +623,25 @@ impl CellArm {
     /// Take the staged result of activation `id` off the activation stack (C1-13).
     pub(crate) fn release_result(&mut self, id: FrameId) {
         self.cells.regions_mut().release_result(id);
+    }
+
+    /// Set every byte of `range` to zero, in the block that holds it: a result built in its
+    /// variable's own bytes starts from no value of an earlier one, as the value path's commit
+    /// writes every byte of the variable (C1-22). `false` when the block refuses the range.
+    pub(crate) fn clear_range(&mut self, range: ByteRange) -> bool {
+        let (block, _) = self.cells.regions_mut().block_mut(range.region);
+        match block.bytes_mut(range) {
+            Some(bytes) => {
+                bytes.fill(0);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Whether a staged-result record is free (C1-13, C1-22).
+    pub(crate) fn has_result_record(&self) -> bool {
+        self.cells.regions().has_result_record()
     }
 
     /// Set every byte of `range` on the activation stack to zero, so a new frame starts from no

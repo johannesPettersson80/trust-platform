@@ -457,6 +457,18 @@ impl EngineState<'_> {
         {
             return Ok(());
         }
+        // The default of a global's or a persistent instance variable's array, structure or text
+        // is built in the variable's own bytes, so that no value of it is built (C1-22).
+        if self.run_persistent_in_place(
+            id,
+            declaration,
+            instance,
+            frame.as_deref_mut(),
+            depth,
+            once_marker,
+        )? {
+            return Ok(());
+        }
         let value = self.evaluate_initializer(id, frame.as_deref_mut(), instance, depth)?;
         self.commit_declaration_with_once(declaration, instance, frame, value, once_marker)
     }
