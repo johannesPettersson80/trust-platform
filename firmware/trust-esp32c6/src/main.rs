@@ -37,6 +37,7 @@ use trust_platform_esp32::loader::{
     default_event_capacity, install_check, program_memory_bytes, Esp32Loader,
 };
 use trust_platform_esp32::process_io::GpioIo;
+use trust_platform_esp32::profile::DEVICE_DESCRIPTOR;
 use trust_platform_esp32::profile::{runtime_id, transfer_session, PROGRAM_STEP_BYTES, STBC_BYTES};
 use trust_platform_esp32::program_memory::ProgramCycle;
 use trust_platform_esp32::{emergency_halt, Board, Monotonic, Platform, UsbLink, Wait, Watchdog};
@@ -45,6 +46,7 @@ use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, ProgramStore};
 use trust_runtime_core::retain::checkpoint::CheckpointFlash;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_services::chip::platform::status_settings;
+use trust_runtime_services::link::DeviceLineLink;
 use trust_runtime_services::runner::engine::DeviceMemory;
 use trust_runtime_services::runner::{EngineLiveValues, Loaded, ProgramLoader, Runner};
 
@@ -54,6 +56,11 @@ esp_bootloader_esp_idf::esp_app_desc!();
 
 /// Bytes the reset record keeps for a panic's location.
 const LOCATION_BYTES: usize = 32;
+
+/// The C6's resource loop: the USB link, the wait, the program the loader builds, the platform and
+/// the clock.
+type ChipRunner =
+    Runner<UsbLink, Wait, ProgramCycle<ChipClock, GpioIo>, Platform<Watchdog>, ChipClock>;
 
 /// The bytes of the heap that a container can take now (specification 34 §5.1).
 fn heap_room() -> usize {
@@ -126,18 +133,6 @@ fn main() -> ! {
         last_reset,
         runtime_id(parts.identity.mac),
     );
-    // The memory the C6 has for a program (specification 34 MEM-12, Appendix D.2): the heap's free bytes
-    // before any program is loaded, with the installed program's, which the load frees once the program
-    // is prepared, less what the chip keeps for the machine. The descriptor reports it, and a program
-    // whose memory figure is more is refused at its install and at its load.
-    let container = installed.as_ref().map_or(0, |booted| booted.program.len());
-    let largest_payload =
-        usize::try_from(checkpoint_reader.geometry().max_payload_len()).unwrap_or(usize::MAX);
-    platform.set_program_memory(program_memory_bytes(
-        heap_room(),
-        container,
-        largest_payload,
-    ));
     // The loader builds the program of the installed container here and again at every `restart` that
     // finds a newer one (specification 34 STATE-08): the same steps in the same order. It also builds
     // the candidate of an online change (specification 34 §11.3).
@@ -153,6 +148,26 @@ fn main() -> ! {
         change_reader,
     )
     .with_allocator_operations(allocator_operations);
+    let largest_payload =
+        usize::try_from(checkpoint_reader.geometry().max_payload_len()).unwrap_or(usize::MAX);
+    let retained_check = install_check(checkpoint_reader, device_memory, heap_room);
+    // The memory the C6 has for a program (specification 34 MEM-12, Appendix D.2): the heap's free bytes
+    // before any program is loaded, with the installed program's, which the load frees once the program
+    // is prepared, less what the chip keeps beside any program: its resource loop, with the event store
+    // at its maximum and the loader and the retained-value check it is given, the working memory of an
+    // online change and the checkpoint store. The descriptor reports it, and a program whose memory
+    // figure is more is refused at its install and at its load.
+    let container = installed.as_ref().map_or(0, |booted| booted.program.len());
+    let events = usize::try_from(DEVICE_DESCRIPTOR.event_store_max).unwrap_or(usize::MAX);
+    let loop_bytes = ChipRunner::heap_bytes(DeviceLineLink::MAX_FRAME_LEN, events)
+        .saturating_add(core::mem::size_of_val(&loader))
+        .saturating_add(core::mem::size_of_val(&retained_check));
+    platform.set_program_memory(program_memory_bytes(
+        heap_room(),
+        container,
+        largest_payload,
+        loop_bytes,
+    ));
     let (program, loaded) = match installed {
         Ok(booted) => {
             let sequence = booted.sequence;
@@ -169,7 +184,7 @@ fn main() -> ! {
     platform.watchdog_mut().start();
     let link = UsbLink::bind();
     let wait = Wait::new(alarm);
-    let runner = match program {
+    let runner: ChipRunner = match program {
         Ok(Loaded {
             cycle,
             events,
@@ -181,8 +196,8 @@ fn main() -> ! {
             runner.record_boot_retain_events(events);
             runner
         }
-        // A Stopped loop holds no cycle, so its type is named: the cycle a program would run.
-        Err(reason) => Runner::<_, _, ProgramCycle<ChipClock, GpioIo>, _, _>::stopped(
+        // A Stopped loop holds no cycle, so its type is named: the loop a program would run in.
+        Err(reason) => ChipRunner::stopped(
             link,
             wait,
             platform,
@@ -194,10 +209,7 @@ fn main() -> ! {
     let mut runner = Box::new(
         runner
             .with_transfers(transfer_session(boot_count))
-            .with_program_store(
-                store,
-                install_check(checkpoint_reader, device_memory, heap_room),
-            )
+            .with_program_store(store, retained_check)
             .with_program_loader(loader, loaded),
     );
     let _ = runner.run();

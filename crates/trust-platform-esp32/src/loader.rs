@@ -56,9 +56,9 @@ use trust_runtime_services::runner::engine::{
     device_limits, CycleSettings, DeviceMemory, DeviceServices, ProcessIo,
 };
 use trust_runtime_services::runner::{
-    address_text, check_install, event_store_bytes, newest_checkpoint,
-    newest_checkpoint_payload_len, prepare_candidate, unwired_binding, Candidate, EngineLiveValues,
-    Loaded, ProgramLoader, ResourceCycle, RetainConfig, RetainSource,
+    address_text, check_install, newest_checkpoint, newest_checkpoint_payload_len,
+    prepare_candidate, unwired_binding, Candidate, EngineLiveValues, Loaded, ProgramLoader,
+    ResourceCycle, RetainConfig, RetainSource,
 };
 
 use crate::platform::Platform;
@@ -116,17 +116,23 @@ pub const ONLINE_CHANGE_WORKING_MEMORY_BYTES: usize = 8 * 1024;
 /// The memory the C6 has for a program (specification 34 MEM-12, Appendix D.2), which its descriptor
 /// reports and its admission compares a program's memory figure with: the heap's `free` bytes before
 /// any program is loaded, with the `container` bytes of the installed program, which the load frees
-/// once the program is prepared, less what the chip keeps for the machine beside any program. That is
-/// the working memory of an online change ([`ONLINE_CHANGE_WORKING_MEMORY_BYTES`]), which also holds
-/// the program's Live Values and services; the event store at the C6's maximum of events; and the
-/// checkpoint store's payload buffer and the warm start's read of the newest checkpoint, each the
-/// `largest_payload` that a checkpoint slot takes.
+/// once the program is prepared, less what the chip keeps beside any program. That is the
+/// `loop_bytes` of its resource loop (`Runner::heap_bytes`, with its event store at the C6's maximum
+/// of events, and the program loader and the retained-value check the firmware gives the loop); the
+/// working memory of an online change ([`ONLINE_CHANGE_WORKING_MEMORY_BYTES`]), which also holds the
+/// program's Live Values and services; and the checkpoint store's payload buffer, the
+/// `largest_payload` that a checkpoint slot takes, which a warm start also reads the newest
+/// checkpoint into.
 #[must_use]
-pub fn program_memory_bytes(free: usize, container: usize, largest_payload: usize) -> usize {
-    let events = usize::try_from(DEVICE_DESCRIPTOR.event_store_max).unwrap_or(usize::MAX);
+pub fn program_memory_bytes(
+    free: usize,
+    container: usize,
+    largest_payload: usize,
+    loop_bytes: usize,
+) -> usize {
     let machine = ONLINE_CHANGE_WORKING_MEMORY_BYTES
-        .saturating_add(event_store_bytes(events))
-        .saturating_add(largest_payload.saturating_mul(2));
+        .saturating_add(loop_bytes)
+        .saturating_add(largest_payload);
     free.saturating_add(container).saturating_sub(machine)
 }
 

@@ -71,6 +71,8 @@ mod supervision;
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
+use core::alloc::Layout;
+use core::ptr::NonNull;
 
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
@@ -114,6 +116,20 @@ pub const FRAMES_PER_PASS: usize = 8;
 /// its hardware, so a reply in flight is driven to its end within a millisecond per packet without
 /// depending on the link's interrupts (specification 34, PORT-05).
 pub const REPLY_SERVICE_INTERVAL: TimeSpan = TimeSpan::new(core::time::Duration::from_millis(1));
+
+/// The leaf of a standard B-tree of thread numbers and call depths, which the debugger's table of
+/// threads takes when the loop is built ([`Runner::heap_bytes`]). The standard library lays a leaf
+/// out in C order: the link to its parent, its index in the parent and its length, then room for
+/// eleven keys and eleven values. Only its size is read.
+#[allow(dead_code, reason = "only the size of the layout is read")]
+#[repr(C)]
+struct ThreadTableLeaf {
+    parent: Option<NonNull<u8>>,
+    parent_index: u16,
+    len: u16,
+    keys: [u32; 11],
+    values: [u32; 11],
+}
 
 /// The single-thread resource loop of one installed program, or of a device without one.
 ///
@@ -283,6 +299,29 @@ where
 }
 
 impl<L, W, Y, P, C> Runner<L, W, Y, P, C> {
+    /// The bytes of heap a loop of this type takes when it is built, beside any program
+    /// (specification 34 MEM-12, Appendix D): its shell behind a shared pointer, the shell's receive
+    /// buffer of `frame_len` bytes, the event store of `event_capacity` events, the debugger's table
+    /// of threads, and the loop itself, which a firmware keeps in a box. A chip keeps these bytes
+    /// beside the memory it has for programs; what the firmware gives the loop besides, such as a
+    /// program loader or a retained-value check, it counts itself.
+    #[must_use]
+    pub fn heap_bytes(frame_len: usize, event_capacity: usize) -> usize {
+        // A shared pointer keeps its two counts before the value, as `Rc` lays it out.
+        let shell = Layout::new::<[usize; 2]>()
+            .extend(Layout::new::<Shell<L, W, P, C>>())
+            .map_or(usize::MAX, |(layout, _)| layout.pad_to_align().size());
+        [
+            shell,
+            frame_len,
+            event_store_bytes(event_capacity),
+            core::mem::size_of::<ThreadTableLeaf>(),
+            core::mem::size_of::<Self>(),
+        ]
+        .iter()
+        .fold(0usize, |sum, bytes| sum.saturating_add(*bytes))
+    }
+
     /// Gives the loop the transfer session of this boot, which the transfer operations use (specification
     /// 34, PORT-05). A device builds it with the boot number it keeps across resets, so that a transfer
     /// id of an earlier boot never names a transfer of this one.

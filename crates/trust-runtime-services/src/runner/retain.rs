@@ -13,7 +13,6 @@
 //! that scan before physical outputs.
 
 use alloc::boxed::Box;
-use alloc::vec;
 
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::CheckpointStore;
@@ -50,8 +49,6 @@ pub struct RetainStore {
     capture: RetainCapture,
     /// The persister over the platform's checkpoint flash, or `None` for `mode = "none"`.
     persister: Option<CheckpointPersister<OwnedFlash>>,
-    /// The admitted retain image size: the recover buffer's length.
-    image_bytes: usize,
     /// The most bytes one persister step may program between two scans.
     program_budget: usize,
 }
@@ -65,13 +62,11 @@ impl RetainStore {
     /// [`RuntimeError::RetainStore`] or [`RuntimeError::RetainCorruption`] when the checkpoint
     /// flash cannot be read.
     pub fn open(config: RetainConfig) -> Result<Self, RuntimeError> {
-        let image_bytes = config.image_bytes;
         let program_budget = config.store.program_budget;
         if config.mode == RetainMode::None {
             return Ok(Self {
                 capture: RetainCapture::new(),
                 persister: None,
-                image_bytes,
                 program_budget,
             });
         }
@@ -81,8 +76,11 @@ impl RetainStore {
         capture.configure(Some(config.save_interval), Duration::ZERO);
         Ok(Self {
             capture,
-            persister: Some(CheckpointPersister::new(log, config.identity, image_bytes)),
-            image_bytes,
+            persister: Some(CheckpointPersister::new(
+                log,
+                config.identity,
+                config.image_bytes,
+            )),
             program_budget,
         })
     }
@@ -183,14 +181,12 @@ impl RetainStore {
         let Some(persister) = self.persister.as_mut() else {
             return Ok(RetainSnapshot::default());
         };
-        let mut payload = vec![0; self.image_bytes];
-        let Some(record) = persister.recover(&mut payload)? else {
-            return Ok(RetainSnapshot::default());
-        };
-        let length = usize::try_from(record.payload_len).map_err(|_| {
-            RuntimeError::RetainCorruption("retain payload length exceeds platform size".into())
-        })?;
-        decode_snapshot_payload_v3(&payload[..length])
+        // The checkpoint is read into the persister's own payload buffer, so a warm start takes no
+        // second buffer of the largest payload (specification 34 MEM-09).
+        match persister.recover_with(decode_snapshot_payload_v3)? {
+            Some((_, snapshot)) => snapshot,
+            None => Ok(RetainSnapshot::default()),
+        }
     }
 }
 

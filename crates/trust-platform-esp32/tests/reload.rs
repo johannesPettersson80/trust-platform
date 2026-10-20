@@ -900,3 +900,80 @@ fn the_c6_refuses_an_install_whose_memory_figure_exceeds_its_program_memory() {
         "the first commit takes the first sequence"
     );
 }
+
+#[test]
+fn the_loop_takes_the_heap_its_type_gives_beside_any_program() {
+    // Specification 34 MEM-12 and Appendix D.2: the C6 keeps for its resource loop the bytes that
+    // `Runner::heap_bytes` gives for the loop's type, the link's frame and the event store at the C6's
+    // maximum of 200 events, with the program loader and the retained-value check that the firmware
+    // gives the loop, beside the memory it has for programs. Building the loop of a chip that boots
+    // without a program, boxed as the firmware keeps it, takes exactly those bytes. The wrong
+    // behaviour caught: a loop that takes more than the chip keeps for it, so that a program at the
+    // edge of the memory for programs would leave the chip no room for its loop.
+    let link = TestLink::default();
+    let dog = Dog(Rc::new(RefCell::new(DogState {
+        feeds: 0,
+        intervals: Vec::with_capacity(64),
+    })));
+    let mut owner = FlashOwner::new(RamFlash {
+        bytes: vec![0xFF; 0x80_0000],
+    });
+    let program_flash = owner
+        .take_program()
+        .expect("the program slots have a geometry")
+        .expect("the program slots are handed out");
+    let reader = owner
+        .checkpoint_reader()
+        .expect("the checkpoint slots have a geometry");
+    let change_reader = owner
+        .checkpoint_reader()
+        .expect("the checkpoint slots have a geometry");
+    let store = ProgramStore {
+        flash: Box::new(program_flash),
+        program_budget: PROGRAM_STEP_BYTES,
+    };
+    let hardware = Hardware {
+        owner,
+        claims: PinClaims::default(),
+    };
+    let loader = Esp32Loader::new(hardware, TestClock, MEMORY, room, Box::new(change_reader));
+    let check = install_check(Box::new(reader), MEMORY, room);
+    let platform = Platform::new(
+        dog,
+        SmolStr::new_static("Controller"),
+        status_settings(),
+        false,
+        trust_runtime_core::deployment::ControlMode::Production,
+        EngineLiveValues::empty(),
+        LastReset {
+            cause: ResetCauseName::PowerOn,
+            text: SmolStr::default(),
+            boot_count: 1,
+        },
+        runtime_id([0x20, 0x6E, 0xF1, 0x17, 0x04, 0xC0]),
+    );
+    let expected = TestRunner::heap_bytes(link.max_frame_len(), 200)
+        + std::mem::size_of_val(&loader)
+        + std::mem::size_of_val(&check);
+    arm();
+    let runner = Box::new(
+        Runner::stopped(
+            link,
+            TestWait,
+            platform,
+            TestClock,
+            SmolStr::new_static("no TRSTA002 container in either slot"),
+            200,
+        )
+        .with_transfers(transfer_session(1))
+        .with_program_store(store, check)
+        .with_program_loader(loader, None),
+    );
+    let taken = live_bytes();
+    drop(runner);
+    assert_eq!(
+        taken,
+        bytes(expected),
+        "the loop takes the {expected} bytes the chip keeps for it"
+    );
+}

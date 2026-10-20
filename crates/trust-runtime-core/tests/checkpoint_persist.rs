@@ -677,6 +677,63 @@ fn a_reserved_capture_grows_on_no_capture_and_no_save() {
 }
 
 #[test]
+fn recovery_reads_into_the_persisters_own_buffer_and_allocates_nothing() {
+    // Specification 34 MEM-09 and §10.1: a warm start reads the newest committed checkpoint into the
+    // persister's own payload buffer, which construction reserved for the largest payload, so the
+    // recovery of the 20-byte image of `counter` (`image`) allocates nothing. An image of this
+    // persister's identity stays as the image last written, so its unchanged image is not written
+    // again; one of another identity does not, so the first due save writes it once. The wrong
+    // behaviour caught: a recovery that takes a second buffer of the largest payload, and an image of
+    // another identity taken as written.
+    for geometry in geometries() {
+        let mut flash = SimFlash::new(geometry);
+        write(&mut flash, 1);
+        let expected = image(1);
+        {
+            let mut persister = persister(&mut flash);
+            let mut outcome = None;
+            let count = allocations(|| {
+                outcome = persister
+                    .recover_with(|payload| payload == expected.as_slice())
+                    .expect("recover");
+            });
+            assert_eq!(count, 0, "{geometry:?}: the recovery allocated");
+            let (record, same) = outcome.expect("a checkpoint");
+            assert_eq!((record.sequence, record.payload_len, same), (1, 20, true));
+            let mut capture = new_capture();
+            stage(&mut capture, 1);
+            persister
+                .offer(&mut capture, Duration::from_millis(100))
+                .expect("offer the recovered image");
+            assert!(
+                !persister.is_writing(),
+                "{geometry:?}: the recovered image of this identity started a write"
+            );
+        }
+        let other = CheckpointIdentity {
+            application: APPLICATION,
+            schema: [0x33; 16],
+        };
+        let log = CheckpointLog::open(&mut flash).expect("open the checkpoint log");
+        let mut persister = CheckpointPersister::new(log, other, IMAGE_BYTES);
+        let (record, length) = persister
+            .recover_with(<[u8]>::len)
+            .expect("recover")
+            .expect("a checkpoint");
+        assert_eq!((record.identity, length), (IDENTITY, 20));
+        let mut capture = new_capture();
+        stage(&mut capture, 1);
+        persister
+            .offer(&mut capture, Duration::from_millis(100))
+            .expect("offer the due image");
+        assert!(
+            persister.is_writing(),
+            "{geometry:?}: another identity's image was kept as the image last written"
+        );
+    }
+}
+
+#[test]
 fn a_recovered_image_of_this_identity_is_not_written_again() {
     for geometry in geometries() {
         // A committed checkpoint of this identity, as an earlier run left it (specification 34

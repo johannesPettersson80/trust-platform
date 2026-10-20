@@ -2197,9 +2197,12 @@ and offers them, the resource loop advances one step between scans with the stor
 budget, and a stop or shutdown completes the pending checkpoint and the newest image before the
 resource reports Stopped. No step runs inside a scan, and a failure a step or a start latched fails
 the next scan with `RuntimeError::RetainStore` before physical outputs, as a computer's failed retain
-save does. A warm start decodes the newest committed checkpoint with the shared codec and applies it
-by name (specification 11 §6.7); an empty log or a `mode = "none"` project starts the retained values
-with their declared initial values.
+save does. The capture of the retained values is reserved for the program's largest payload when the
+program loads, and grown, keeping its room, before an online change commits, so no capture and no save
+grows it (MEM-09). A warm start reads the newest committed checkpoint into the persister's own payload
+buffer, which the store reserved for the largest payload, so it takes no second buffer; it decodes the
+checkpoint with the shared codec and applies it by name (specification 11 §6.7); an empty log or a
+`mode = "none"` project starts the retained values with their declared initial values.
 
 ### 10.1 Checkpoint log in flash
 
@@ -3670,15 +3673,16 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
 - **Program memory (MEM-12; checklist C1-21).** The C6 measures the memory it has for programs at
   boot, before it loads a program (`loader::program_memory_bytes`): the heap's free bytes then, with
   the bytes of the installed program, which the load frees once the program is prepared, less what the
-  chip keeps for the machine beside any program. That is the working memory of an online change,
-  8,192 bytes, which also holds the program's Live Values and services; the event store at the C6's
-  maximum of 200 events, 201 slots of the device's own event size; and twice the largest payload that
-  a checkpoint slot takes, 2 x 16,300 bytes, for the checkpoint store's buffer and the warm start's
-  read of the newest checkpoint. The checkpoint store's capture of the retained values is reserved
-  from the program's figure when the program loads, so no scan grows it. The `capabilities` reply
-  reports the number as `program_memory_bytes`; an install, a load and an online change refuse a
-  program whose figure is more (§5.1.1, §11.3). The bench of checklist C1-21d compares, for the
-  bench programs, the figure each reports in `status` with the heap the C6 measures.
+  chip keeps beside any program. That is its resource loop, which `Runner::heap_bytes` gives from the
+  loop's types (its shell with the link's receive buffer, the event store at the C6's maximum of 200
+  events, the debugger's thread table and the loop's own box), with the program loader and the
+  retained-value check the firmware gives it; the working memory of an online change, 8,192 bytes,
+  which also holds the program's Live Values and services; and the largest payload that a checkpoint
+  slot takes, 16,300 bytes, for the checkpoint store's buffer, which the warm start also reads the
+  newest checkpoint into. The `capabilities` reply reports the number as `program_memory_bytes`; an
+  install, a load and an online change refuse a program whose figure is more (§5.1.1, §11.3). The
+  bench of checklist C1-21d compared, for the bench programs, the figure each reports in `status` with
+  the heap the C6 holds (see that checklist entry).
 - **Long replies.** The C6's transfer session holds a reply of up to the capacity of its heap,
   139,264 bytes: the 72 KiB main heap and the 64 KiB of the boot loader's reclaimed RAM that the
   firmware's `memory.rs` gives the allocator. `profile::transfer_session` names the figure
@@ -3851,7 +3855,7 @@ its clock with no hardware run; the rows marked S1b-8u-2, S1b-8u-3 and S1b-9u ar
 | Flash (S1b-8u-3) | The chip file's layout: the vectors in the first 8 KiB page of bank 1, the firmware of 2040 KiB from 0x0800_2000, the installed application of 2016 KiB as the rest of bank 2, and two checkpoint slots of 16 KiB (two 8 KiB pages each) at the end of bank 2. | Page erase and quad-word programming are S1b-8u-3. |
 | RAM (S1b-8u-3) | Heap region A of 1 MiB: SRAM1, SRAM2 and the first 192 KiB of SRAM3. Statics in the rest of SRAM3. The main stack of 32 KiB at the top of SRAM5 (0x2026_8000 to 0x2027_0000): the C6 measured a 15,740 B high-water in a 16 KiB window (D.2), and this chip has the room. Heap region B of 800 KiB below the stack, in SRAM5. | The map is written in S1b-8u-3, with the shared measurement crate; the bench (S1b-9u) measures the high-water against the 2 KiB headroom rule. |
 | Console | None in the product firmware. The F407's USART2 console was a fixture of the paused track. | Decided with S1b-9u. |
-| Program memory (MEM-12; checklist C1-21) | Measured at boot, before the program is prepared, with the chip's own sizes: the heap's free bytes then (the installed program stays in the flash), less the event store at the chip's maximum of 1,000 events, 1,001 slots, and a reserve of 8,192 bytes for the replies and the program's Live Values and services (`PROGRAM_MEMORY_RESERVE_BYTES`). The chip keeps no retained values yet (retain mode `none`), so its figure has no capture. A program whose figure is more is refused before anything of it is constructed, and the chip serves the link stopped with the reason; `capabilities` reports the number as `program_memory_bytes`. | The reserve is unverified until the bench (S1b-9u). |
+| Program memory (MEM-12; checklist C1-21) | Measured at boot, before the program is prepared, with the chip's own sizes: the heap's free bytes then (the installed program stays in the flash), less its resource loop with the event store at the chip's maximum of 1,000 events (`Runner::heap_bytes`), and a reserve of 8,192 bytes for the replies and the program's Live Values and services (`PROGRAM_MEMORY_RESERVE_BYTES`). The chip keeps no retained values yet (retain mode `none`), so its figure has no capture. A program whose figure is more is refused before anything of it is constructed, and the chip serves the link stopped with the reason; `capabilities` reports the number as `program_memory_bytes`. | The reserve is unverified until the bench (S1b-9u). |
 | Firmware (S1b-9u) | `firmware/trust-stm32u5a9`, built from `chips/stm32u5a9.toml`. Not part of S1b-8u-1. | Pending. |
 | Evidence (S1b-9u) | `build-firmware stm32u5a9` and `inspect riverdi-rvt50hqsnwc00-b`, the M0 record and the bench steps of the slice. `inspect` refuses a linked image whose vector table is not alone at 0x0800_0000 in the 8 KiB vectors page; whose firmware or `.data` load image leaves 0x0800_2000 to 0x0820_0000; that puts a section or a load in the application (0x0820_0000 to 0x083F_8000) or a checkpoint slot (0x083F_8000 to 0x0840_0000); whose statics leave 0x2010_0000 to 0x201A_0000; or whose initial stack pointer is not 0x2027_0000 with the 32 KiB window below it. It names the section and the address. The CI portable lane checks the adapter for `thumbv8m.main-none-eabihf`. | The inspect checks and the lane are tested on the host with synthetic layouts only; the reader of a real linked ELF is proved by the first build and the bench run. Pending: the bench has not run. |
 

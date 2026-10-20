@@ -44,10 +44,11 @@ use trust_runtime_core::vm::PreparedModule;
 use trust_runtime_core::watchdog::RetainMode;
 use trust_runtime_services::capabilities::LastReset;
 use trust_runtime_services::chip::platform::status_settings;
+use trust_runtime_services::link::DeviceLineLink;
 use trust_runtime_services::runner::engine::{
     device_limits, CycleSettings, DeviceMemory, DeviceServices, EngineCycle,
 };
-use trust_runtime_services::runner::{event_store_bytes, EngineLiveValues, Runner};
+use trust_runtime_services::runner::{EngineLiveValues, Runner};
 
 use crate::platform::Platform;
 use crate::process_io::{claim, GpioIo};
@@ -64,6 +65,16 @@ impl MonotonicClock for ChipClock {
         self.0.now()
     }
 }
+
+/// The STM32U5A9's resource loop: the USB link, the wait, the installed program, the platform and the
+/// clock.
+type ChipRunner = Runner<
+    usb_link::UsbLink<ChipClock>,
+    Wait,
+    EngineCycle<'static, ChipClock, GpioIo>,
+    Platform,
+    ChipClock,
+>;
 
 /// What the boot has taken for the resource loop before the program is known.
 struct Parts {
@@ -153,12 +164,15 @@ fn main() -> ! {
 
     // The memory the STM32U5A9 has for a program (specification 34 MEM-12, Appendix D.5): the heap's
     // free bytes before the program is prepared, its container being in the flash, less what the chip
-    // keeps for the machine: its event store at its maximum of events and the reserve for its replies
-    // and the program's Live Values and services.
+    // keeps beside any program: its resource loop, with its event store at its maximum of events, and
+    // the reserve for its replies and the program's Live Values and services.
     let events = usize::try_from(DEVICE_DESCRIPTOR.event_store_max).unwrap_or(usize::MAX);
     let program_memory = memory::HEAP
         .remaining()
-        .saturating_sub(event_store_bytes(events))
+        .saturating_sub(ChipRunner::heap_bytes(
+            DeviceLineLink::MAX_FRAME_LEN,
+            events,
+        ))
         .saturating_sub(PROGRAM_MEMORY_RESERVE_BYTES);
 
     // Prepare the program with the limits its region and the heap allow (design §1.1).
@@ -237,7 +251,7 @@ fn main() -> ! {
         Ok(link) => link,
         Err(_) => halt::emergency_halt("usb-link"),
     };
-    let mut runner = Box::new(Runner::new(
+    let mut runner: Box<ChipRunner> = Box::new(Runner::new(
         link,
         parts.wait,
         cycle,
@@ -277,17 +291,15 @@ fn serve_stopped(parts: Parts, reason: String) -> ! {
         Ok(link) => link,
         Err(_) => halt::emergency_halt("usb-link"),
     };
-    // A Stopped loop holds no cycle, so its type is named: the cycle a program would run.
-    let mut runner = Box::new(
-        Runner::<_, _, EngineCycle<'static, ChipClock, GpioIo>, _, _>::stopped(
-            link,
-            wait,
-            platform,
-            clock,
-            SmolStr::from(reason),
-            default_event_capacity(),
-        ),
-    );
+    // A Stopped loop holds no cycle, so its type is named: the loop a program would run in.
+    let mut runner = Box::new(ChipRunner::stopped(
+        link,
+        wait,
+        platform,
+        clock,
+        SmolStr::from(reason),
+        default_event_capacity(),
+    ));
     let _ = runner.run();
     halt::emergency_halt("runner-stopped")
 }

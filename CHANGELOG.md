@@ -17,7 +17,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   install, before any byte is written, at its load and at an online change. A computer has no maximum.
 - Changed: a chip's checkpoint store reserves the capture of the retained values for the program's
   largest payload when the program loads, and grows it before an online change commits, so the first
-  scans no longer allocate it.
+  scans no longer allocate it. A warm start reads the newest checkpoint into the store's own buffer
+  instead of a second one, which leaves the ESP32-C6 16,300 bytes more for programs.
 - Added: `status` reports in `metrics.scan_allocations` the allocator operations made during the
   scans since the program started, on every runtime: `engine`, those the engine made running the
   program, which is zero, and `services`, those the services made in and around the scans. A chip

@@ -114,6 +114,45 @@ impl<F: CheckpointFlash> CheckpointPersister<F> {
         Ok(Some(record))
     }
 
+    /// The recovery rule of [`recover`](Self::recover), reading the newest committed checkpoint into
+    /// this persister's own payload buffer, which construction reserved for the largest payload, so
+    /// that recovery takes no second buffer (specification 34 MEM-09). `decode` reads the payload,
+    /// and its result is returned with the record; `None` for an empty log. A record written for this
+    /// persister's identity stays in the buffer as the image last written; a record of another
+    /// identity does not.
+    ///
+    /// # Errors
+    ///
+    /// As [`recover`](Self::recover): [`RuntimeError::RetainCorruption`] when the newest committed
+    /// checkpoint fails its checks, and [`RuntimeError::RetainStore`] when the flash cannot be read
+    /// or its payload is longer than the buffer. The buffer then holds no image.
+    pub fn recover_with<T>(
+        &mut self,
+        decode: impl FnOnce(&[u8]) -> T,
+    ) -> Result<Option<(RecordInfo, T)>, RuntimeError> {
+        // The buffer's whole reserved room is the read's room; filling it allocates nothing.
+        let room = self.payload.capacity();
+        self.payload.clear();
+        self.payload.resize(room, 0);
+        let record = match self.log.recover(&mut self.payload) {
+            Ok(Some(record)) => record,
+            Ok(None) => {
+                self.payload.clear();
+                return Ok(None);
+            }
+            Err(error) => {
+                self.payload.clear();
+                return Err(error.into());
+            }
+        };
+        self.payload.truncate(record.payload_len as usize);
+        let decoded = decode(&self.payload);
+        if record.identity != self.identity {
+            self.payload.clear();
+        }
+        Ok(Some((record, decoded)))
+    }
+
     /// Start a checkpoint of the capture's staged image when the shared save rule says a save is due
     /// and that image differs from the one last written (specification 11 §6.7).
     ///
