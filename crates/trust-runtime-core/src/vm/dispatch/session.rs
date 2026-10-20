@@ -314,7 +314,7 @@ fn drive(
                     return_value: result.return_value,
                     locals: result.locals,
                     block: result.block,
-                    return_in_block: false,
+                    return_in_block: result.return_in_block,
                 };
                 if buffers.continuations.is_empty() {
                     return Ok(result);
@@ -447,10 +447,10 @@ fn start_child(
             let Some(continuation) = buffers.continuations.last_mut() else {
                 return Err((None, RuntimeError::InvalidExecutionState));
             };
-            // A register activation takes its inputs as values (C1-19c4).
-            match continuation.call.resolve_inputs(runtime) {
-                Err(error) => Err(error),
-                Ok(()) => runtime.start_register_activation(
+            // A register child takes the inputs bound as places into its frame's bytes and leaves
+            // a result there for this call to copy, as a stack child does (C1-19c4, C1-20).
+            runtime
+                .start_register_activation(
                     module,
                     continuation.call.pou_id,
                     continuation.call.instance,
@@ -461,8 +461,17 @@ fn start_child(
                     child_depth,
                     ExecutionEntry::Nested,
                     true,
-                ),
-            }
+                )
+                .and_then(|child| match child {
+                    Some(mut child) => match child.enter_call(runtime, &mut continuation.call) {
+                        Ok(()) => Ok(Some(child)),
+                        Err(error) => {
+                            let _ = runtime.abort_register_activation(child);
+                            Err(error)
+                        }
+                    },
+                    None => Ok(None),
+                })
         };
         match start {
             Ok(Some(activation)) => {
@@ -785,14 +794,14 @@ pub(super) fn complete_call(
 
     #[cfg(feature = "register-ir")]
     let placed = if let Activation::Register(activation) = &mut parent {
-        // A register takes the result as a value.
+        // A register takes a result the finished frame's bytes hold as a copy of them, as the
+        // operand stack does (C1-19c4, C1-20), and any other result as its value.
         match (continuation.register_destination, in_block) {
             (None, _) => Err(RuntimeError::InvalidExecutionState),
             (Some(destination), None) => activation.set_call_result(destination, value),
-            (Some(destination), Some(block)) => runtime
-                .read_finished_slot(block, 0)
-                .unwrap_or(Err(RuntimeError::InvalidExecutionState))
-                .and_then(|value| activation.set_call_result(destination, value)),
+            (Some(destination), Some(block)) => {
+                activation.set_call_result_copy(&*runtime, destination, block)
+            }
         }
     } else {
         push_result(runtime, operand_stack, in_block, value)

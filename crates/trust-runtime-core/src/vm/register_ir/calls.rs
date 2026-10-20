@@ -8,8 +8,10 @@
 use super::operands::settle_register_places;
 use super::registers::{checked_read_operand_with_counts, write_operand, write_register};
 use super::*;
+use crate::memory::regions::FrameBlock;
 use crate::vm::call::continuation::PreparedCall;
 use crate::vm::call::prepare_native_call_planned;
+use crate::vm::dispatch::CallResult;
 use crate::vm::dispatch_refs::materialize_place;
 use crate::vm::dispatch_text::{run_text_call, text_call_at};
 
@@ -99,17 +101,38 @@ pub(crate) fn call_native(
             if !crate::vm::dispatch::leaf_call_ready(runtime, call.pou_id) {
                 return Ok(CallStep::User(call));
             }
-            let value = crate::vm::dispatch::execute_leaf_call(
+            match crate::vm::dispatch::execute_leaf_call(
                 runtime,
                 module,
                 frames,
                 depth_offset,
                 call,
-            )?;
-            write_register(registers, site.dest, value)?;
+            )? {
+                CallResult::Value(value) => write_register(registers, site.dest, value)?,
+                CallResult::InBlock(block) => {
+                    take_result_copy(&*runtime, registers, site.dest, block)?;
+                }
+            }
             Ok(CallStep::Done)
         }
     }
+}
+
+/// Copy the result a finished call left in its frame's bytes `block` into `dest`: a text into the
+/// temporary area as a text, any other value as a copy of its bytes, as the stack takes it
+/// (C1-19c4, C1-20).
+pub(crate) fn take_result_copy(
+    runtime: &impl ExecutionContext,
+    registers: &mut OperandStack,
+    dest: RegisterId,
+    block: FrameBlock,
+) -> Result<(), RuntimeError> {
+    registers.truncate_to_registers();
+    runtime.push_return_copy(block, registers)?;
+    let result = registers
+        .pop_operand()
+        .map_err(VmTrap::into_runtime_error)?;
+    write_operand(registers, dest, result)
 }
 
 /// Read the call operands above the registers into their values: the enumerations and the copies,

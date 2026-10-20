@@ -20,6 +20,7 @@ pub fn build_register_pou_result(
         return_value,
         locals: frame.locals,
         block: None,
+        return_in_block: false,
     }
 }
 

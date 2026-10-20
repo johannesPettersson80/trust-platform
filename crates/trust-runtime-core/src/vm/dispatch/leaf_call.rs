@@ -38,7 +38,7 @@ pub(in crate::vm) fn execute_leaf_call(
     frames: &mut FrameStack,
     depth_offset: u32,
     mut call: PreparedCall,
-) -> Result<Value, RuntimeError> {
+) -> Result<CallResult, RuntimeError> {
     #[cfg(feature = "test-support")]
     runtime.record_in_place_call();
     let caller_depth = depth_offset.saturating_add(frames.len().saturating_sub(1) as u32);
@@ -61,10 +61,6 @@ pub(in crate::vm) fn execute_leaf_call(
         call.restore_edges(runtime);
         return Err(error);
     }
-    // A register activation takes its inputs as values (C1-19c4).
-    if let Err(error) = call.resolve_inputs(runtime) {
-        return Err(resume_after_failure(runtime, frames, &mut call, error));
-    }
     let started = start_register_activation(
         runtime,
         module,
@@ -78,6 +74,18 @@ pub(in crate::vm) fn execute_leaf_call(
         ExecutionEntry::Nested,
         true,
     );
+    // The child takes the inputs bound as places into its frame's bytes and leaves a result there
+    // for this call to copy, as a stack child does (C1-19c4, C1-20).
+    let started = started.and_then(|child| match child {
+        Some(mut child) => match child.enter_call(runtime, &mut call) {
+            Ok(()) => Ok(Some(child)),
+            Err(error) => {
+                let _ = abort_register_activation(runtime, child);
+                Err(error)
+            }
+        },
+        None => Ok(None),
+    });
     let mut child = match started {
         Ok(Some(child)) => child,
         // `leaf_call_ready` admitted every condition that declines a start.
@@ -106,16 +114,34 @@ pub(in crate::vm) fn execute_leaf_call(
     if let Err(error) = recycle_register_activation(runtime, child) {
         return Err(resume_after_failure(runtime, frames, &mut call, error));
     }
+    let in_block = if result.return_in_block {
+        result.block
+    } else {
+        None
+    };
     let result = VmPouStackResult {
         return_value: result.return_value,
         locals: result.locals,
         block: result.block,
-        return_in_block: false,
+        return_in_block: result.return_in_block,
     };
     let caller = frames
         .current_mut()
         .ok_or_else(|| RuntimeError::InvalidExecutionState);
-    finish_child_call(runtime, module, caller, call, result)
+    let value = finish_child_call(runtime, module, caller, call, result)?;
+    Ok(match in_block {
+        Some(block) => CallResult::InBlock(block),
+        None => CallResult::Value(value),
+    })
+}
+
+/// What a call run in place hands its caller: its value, or the finished frame's bytes that hold
+/// it, which the caller copies (C1-19c4, C1-20).
+pub(in crate::vm) enum CallResult {
+    /// The result's value.
+    Value(Value),
+    /// The finished frame's bytes, which hold the result.
+    InBlock(crate::memory::regions::FrameBlock),
 }
 
 /// The pump's cleanup for a child that failed after its caller was suspended:

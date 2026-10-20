@@ -30,6 +30,9 @@ pub struct RegisterActivation {
     profile_enabled: bool,
     capture_return: bool,
     capture_result_locals: bool,
+    /// Whether a result that lies in the frame's bytes stays there for the caller to copy: a call
+    /// the activation runs for a caller (C1-20).
+    defer_return: bool,
 }
 
 /// A user POU call that suspended a register caller at its native-call
@@ -78,6 +81,36 @@ impl RegisterActivation {
     ) -> Result<(), RuntimeError> {
         let (_, registers, _) = self.buffers.buffers_mut();
         write_register(registers, destination, value)
+    }
+
+    /// Put the result a finished call left in its frame's bytes `block` into `destination`, as a
+    /// copy (C1-19c4, C1-20).
+    pub(crate) fn set_call_result_copy(
+        &mut self,
+        runtime: &impl ExecutionContext,
+        destination: RegisterId,
+        block: crate::memory::regions::FrameBlock,
+    ) -> Result<(), RuntimeError> {
+        let (_, registers, _) = self.buffers.buffers_mut();
+        super::calls::take_result_copy(runtime, registers, destination, block)
+    }
+
+    /// Make this activation the callee of `call`: the inputs `call` bound as places are copied into
+    /// the frame the activation placed and initialized, as a stack child's are (C1-19c4), and a
+    /// result that lies in the frame's bytes is left there for the caller to copy (C1-20). When the
+    /// copy is refused the caller aborts the activation, as a refused start leaves none.
+    pub(in crate::vm) fn enter_call(
+        &mut self,
+        runtime: &mut impl ExecutionContext,
+        call: &mut PreparedCall,
+    ) -> Result<(), RuntimeError> {
+        self.defer_return = true;
+        let frame = self
+            .buffers
+            .frames
+            .current()
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        call.copy_inputs(runtime, frame)
     }
 }
 
@@ -180,6 +213,7 @@ pub(crate) fn start_register_activation(
         profile_enabled,
         capture_return,
         capture_result_locals,
+        defer_return: false,
     }))
 }
 
@@ -315,6 +349,7 @@ pub(crate) fn step_register_activation(
                     finished,
                     activation.capture_return,
                     activation.capture_result_locals,
+                    activation.defer_return,
                 )?;
                 if let Err(error) = runtime.check_execution_deadline() {
                     if activation.capture_result_locals {
@@ -351,6 +386,7 @@ pub(crate) fn step_register_activation(
                             finished,
                             activation.capture_return,
                             activation.capture_result_locals,
+                            activation.defer_return,
                         )?;
                         if let Err(error) = runtime.check_execution_deadline() {
                             if activation.capture_result_locals {

@@ -41,7 +41,7 @@ pub(super) use entry::execute_pou_stack_with_owned_locals;
 #[cfg(any(feature = "hir", all(feature = "register-ir", test)))]
 pub use entry::execute_pou_stack_with_parameter_presence;
 #[cfg(feature = "register-ir")]
-pub(in crate::vm) use leaf_call::{execute_leaf_call, leaf_call_ready};
+pub(in crate::vm) use leaf_call::{execute_leaf_call, leaf_call_ready, CallResult};
 use session::{PumpContinuation, StackCursor, StackProgress};
 
 /// Returned value and final local slots from one stack invocation.

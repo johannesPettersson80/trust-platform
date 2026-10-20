@@ -275,6 +275,9 @@ pub struct RegisterPouExecutionResult {
     /// The finished frame's bytes on the activation stack, which the caller's copy-back reads the
     /// slots that lie there from, when the frame lay on the flat store (C1-18).
     pub(crate) block: Option<crate::memory::regions::FrameBlock>,
+    /// Whether the result lies in `block`, a nested call's compound or text, for the caller to copy
+    /// as a stack child's (C1-19c4, C1-20); `return_value` is `None` then.
+    pub(crate) return_in_block: bool,
 }
 
 #[cfg(feature = "test-support")]
@@ -573,6 +576,7 @@ fn execute_register_program(
                     return_value: None,
                     locals: Vec::new(),
                     block: None,
+                    return_in_block: false,
                 });
             }
             let block_index = block_index_from_id(program, current_block)?;
@@ -660,6 +664,7 @@ fn execute_register_program(
                             finished,
                             capture_return,
                             capture_result_locals,
+                            false,
                         );
                     }
                     let _ = runtime.retire_frame(&finished);
@@ -686,6 +691,7 @@ fn execute_register_program(
                                 finished,
                                 capture_return,
                                 capture_result_locals,
+                                false,
                             );
                         }
                     }
@@ -869,27 +875,41 @@ fn finish_register_result(
     mut frame: super::VmFrame,
     capture_return: bool,
     capture_result_locals: bool,
+    defer_return: bool,
 ) -> Result<RegisterPouExecutionResult, RuntimeError> {
-    // A return slot on the activation stack is read from the frame's bytes, as the stack tier
-    // reads it (C1-11, C1-18), and the finished frame's bytes are kept for the caller's copy-back.
-    let read_return = if capture_return {
+    // A nested call's result that is a compound or a text in the frame's bytes stays there, checked
+    // and charged as reading it is, and the caller copies it, as a stack child's (C1-19c4, C1-20).
+    let in_block = if capture_return && defer_return {
+        runtime.check_return_place(&frame)
+    } else {
+        None
+    };
+    let return_in_block = in_block.is_some();
+    // Any other return slot on the activation stack is read from the frame's bytes, as the stack
+    // tier reads it (C1-11, C1-18), and the finished frame's bytes are kept for the caller's
+    // copy-back.
+    let read_return = if capture_return && !return_in_block {
         runtime.read_frame_slot(&frame, 0).transpose()
     } else {
         Ok(None)
     };
     let block = runtime.frame_block(&frame);
-    let checked = read_return.and_then(|from_block| {
-        if capture_return && let Some(value) = from_block.as_ref().or_else(|| frame.locals.first())
-        {
-            runtime.before_value_clone(value)?;
-            runtime.check_frame_return(&frame, value)?;
-        }
-        Ok(from_block)
-    });
+    let checked = match in_block {
+        Some(checked) => checked.map(|()| None),
+        None => read_return.and_then(|from_block| {
+            if capture_return
+                && let Some(value) = from_block.as_ref().or_else(|| frame.locals.first())
+            {
+                runtime.before_value_clone(value)?;
+                runtime.check_frame_return(&frame, value)?;
+            }
+            Ok(from_block)
+        }),
+    };
     let output = checked.map(|from_block| {
         // The return clone was admitted and lifetime-checked above. Clone only
         // after both checks, matching stack return error precedence.
-        let return_value = if capture_return {
+        let return_value = if capture_return && !return_in_block {
             from_block.or_else(|| frame.locals.first().cloned())
         } else {
             None
@@ -904,6 +924,7 @@ fn finish_register_result(
             return_value,
             locals,
             block,
+            return_in_block,
         }
     });
     let cleanup = runtime.retire_frame(&frame);

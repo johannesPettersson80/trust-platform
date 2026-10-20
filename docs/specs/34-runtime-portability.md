@@ -1509,8 +1509,10 @@ copy of them onto its operand stack's temporary area, charged and checked as rea
 the value is; a store writes the copy as it writes a copy of a place (C1-19c4). A function's input
 that names such a value of the parameter's type is copied into the callee's frame once the frame is
 placed and initialized, checked and charged when the call binds it as reading the value and
-normalizing it are; a callee whose frame keeps its variables as values, as the register tier's does,
-takes the value (C1-19c4).
+normalizing it are (C1-19c4). Both tiers do so for a call: the register tier's callee takes such
+inputs into its frame's bytes and leaves such a result there, and its caller, the register tier or
+the stack tier, takes the copy (checklist C1-20); only a callee whose frame keeps its variables as
+values takes the value.
 Before a call that leaves such an operand on the operand stack, below the arguments the call takes,
 the engine copies the operand's bytes into the stack's temporary area ("Texts"), and a store writes
 the copy where it would have copied the bytes, checked and charged alike, its texts' capacity checks
