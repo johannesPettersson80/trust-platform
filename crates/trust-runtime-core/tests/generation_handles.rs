@@ -199,7 +199,7 @@ mod hosted {
         let replacement =
             Arc::new(PreparedModule::from_bytes(GPIO, PreparationLimits::default()).unwrap());
         let (mut candidate, _) = state
-            .prepare_replacement(replacement, 0, LogicalExecutionServices, None)
+            .prepare_replacement(replacement, 0, LogicalExecutionServices)
             .unwrap();
         assert_eq!(candidate.storage().generation(), Generation(2));
         // Preparing a candidate changes nothing installed: the held handles still work.

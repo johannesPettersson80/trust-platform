@@ -45,8 +45,8 @@ use crate::runner::engine::{
 };
 use crate::runner::program::Program;
 use crate::runner::{
-    newest_checkpoint, EngineLiveValues, HoldHandle, Loaded, ProgramLoader, ResourceCycle,
-    RetainSource, Runner, TaskDescriptor,
+    EngineLiveValues, HoldHandle, Loaded, ProgramLoader, ResourceCycle, RetainSource, Runner,
+    TaskDescriptor,
 };
 use crate::status::IoDriverStatus;
 use crate::tests::program_store::{CheckpointProbe, PROGRAM};
@@ -333,18 +333,12 @@ impl ProgramLoader<TestPlatform, ChangeCycle> for ChangeLoader {
             .map_err(|error| budget.refusal(&error))?;
         // The candidate claims no line: its process I/O is a fresh one that drives nothing.
         let empty = TestIo::new(self.clock.clone());
-        // The saved snapshot of the retain store: the newest checkpoint when the record keeps
-        // retained values, and none otherwise.
-        let saved = if self.config.retain_mode == RetainMode::File {
-            newest_checkpoint(&mut self.checkpoints).map_err(|error| error.to_string())?
-        } else {
-            None
-        };
-        // The candidate is built from the running program's state, as a computer builds it.
+        // The candidate is built from the running program's state, as a computer builds it; no
+        // checkpoint is applied (decision OC-1).
         let settings = running.engine.settings().clone();
         let (engine, events) = running
             .engine
-            .replacement(module, self.services, empty, settings, saved.as_ref())
+            .replacement(module, self.services, empty, settings)
             .map_err(|error| budget.refusal(&error))?;
         // From here on the candidate is a cycle, so a check that refuses it drops it with its log.
         let mut cycle = self.cycle(format!("change {}", self.built + 1), engine);
@@ -354,6 +348,11 @@ impl ProgramLoader<TestPlatform, ChangeCycle> for ChangeLoader {
             .map_err(|error| error.to_string())?;
         live.set_generation(cycle.engine.generation());
         self.built += 1;
+        // The device's checkpoint is left alone at a change (decision OC-1).
+        note(
+            &self.log,
+            format!("checkpoint reads {}", self.checkpoints.reads()),
+        );
         Ok(Candidate {
             cycle,
             live,
@@ -593,8 +592,8 @@ fn a_chip_applies_an_online_change_at_the_next_boundary_and_replies_reloaded() {
             "scan running 0",
             "scan running 10",
             "prepare",
+            "checkpoint reads 0",
             "commit",
-            "timing change 1 20",
             "drop running",
             "scan change 1 20",
         ]),

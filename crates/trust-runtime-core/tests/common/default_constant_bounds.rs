@@ -178,7 +178,7 @@ fn rejected_owned_default_replacement_preserves_the_installed_controller() {
         )
         .unwrap(),
     );
-    let error = match installed.prepare_replacement(candidate, 0, LogicalExecutionServices, None) {
+    let error = match installed.prepare_replacement(candidate, 0, LogicalExecutionServices) {
         Err(error) => error,
         Ok(_) => panic!("replacement escaped its owned-default allowance"),
     };

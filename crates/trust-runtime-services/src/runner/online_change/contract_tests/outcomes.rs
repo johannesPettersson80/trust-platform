@@ -49,12 +49,14 @@ fn an_online_change_keeps_the_lines_and_their_output_levels() {
     // its first activation at 10 ms: its scans at 0, 10 and 20 ms read the input and write the output
     // image 0, 1 and 1. The change at 25 ms is committed at the boundary at 30 ms, and what reaches the
     // machine's lines in that pass is exactly the candidate's first scan: the inputs read and one
-    // output image written, 0 because the candidate's task, which counts from the commit, is not due
-    // before 40 ms (the engine's warm-restart initialization, as on a computer), with no safe-state
-    // write and no other output. At 40 ms the candidate drives 1. The lines have the same holders
-    // before and after, and were claimed once. Wrong behaviour caught: a candidate that claims the
-    // lines again (a second holder); a running program that releases them before the candidate has
-    // them; an output written at the commit, or the safe state applied for the program that is dropped.
+    // output image written, 1, because the candidate's task continues the running program's schedule
+    // (decision OC-2): it last ran at 20 ms and is due at 30 ms, so it computes `led` from `button`
+    // before the outputs are written; no safe-state write and no other output. At 40 ms the candidate
+    // drives 1 again. The lines have the same holders before and after, and were claimed once. Wrong
+    // behaviour caught: a candidate that claims the lines again (a second holder); a running program
+    // that releases them before the candidate has them; an output written at the commit, or the safe
+    // state applied for the program that is dropped; a schedule that starts again at the commit, so
+    // that the first scan runs no task and the output drops to its initial value 0 for a cycle.
     let rig = Rig::new();
     let mut runner = rig.runner(
         GPIO,
@@ -85,15 +87,15 @@ fn an_online_change_keeps_the_lines_and_their_output_levels() {
     assert_eq!(rig.replies(), [reloaded(3, 1)]);
     assert_eq!(
         rig.ports.io.take_steps(),
-        scan_steps(0),
-        "the lines see the candidate's first scan and nothing before it"
+        scan_steps(1),
+        "the lines see the candidate's first scan, which runs the due task, and nothing before it"
     );
     assert_eq!(Rc::strong_count(&rig.ports.io.state), holders);
     rig.pass_at(&mut runner, 40);
     assert_eq!(
         rig.ports.io.take_steps(),
         scan_steps(1),
-        "the candidate drives the lines from its first activation"
+        "the candidate drives the lines on its schedule"
     );
     assert_eq!(rig.claims.get(), 1, "no line was claimed again");
     assert!(
@@ -106,14 +108,15 @@ fn an_online_change_keeps_the_lines_and_their_output_levels() {
 
 #[test]
 fn an_online_change_preserves_logical_time_and_restarts_the_scan_counter() {
-    // Specification 11 §6.7.1: logical time is preserved and the scan counter restarts. The probe runs
-    // five scans, 0 to 40 ms; the change at 45 ms is committed at the boundary at 50 ms. The candidate
-    // starts its task timing at 50 ms and scans at 50 ms (not at 0), the program's time is 50 ms and its
-    // scan counter is 1 after the first scan, 2 after the next. The events of the program stay and the
-    // cycle events of the candidate count from 0 again: the event store holds the old program's cycle 4
-    // at 40 ms and the candidate's cycle 0 at 50 ms. Wrong behaviour caught: a change that starts the
-    // program's time at 0 as a restart does; a scan counter that goes on; an event store that is
-    // emptied.
+    // Specification 11 §6.7.1 and specification 34 §11.3 (decision OC-2): logical time is preserved,
+    // the task schedule continues and the scan counter restarts. The probe runs five scans, 0 to 40
+    // ms; the change at 45 ms is committed at the boundary at 50 ms. The candidate keeps the running
+    // program's task timing (no timing starts at the change) and scans at 50 ms (not at 0), the
+    // program's time is 50 ms and its scan counter is 1 after the first scan, 2 after the next. The
+    // events of the program stay and the cycle events of the candidate count from 0 again: the event
+    // store holds the old program's cycle 4 at 40 ms and the candidate's cycle 0 at 50 ms. Wrong
+    // behaviour caught: a change that starts the program's time at 0 as a restart does, or its task
+    // timing at the change; a scan counter that goes on; an event store that is emptied.
     let rig = Rig::new();
     let mut runner = rig.runner(
         GPIO,
@@ -131,12 +134,7 @@ fn an_online_change_preserves_logical_time_and_restarts_the_scan_counter() {
     assert_eq!(rig.replies(), [reloaded(4, 1)]);
     let log = entries(&rig.log);
     assert!(
-        log.ends_with(&texts(&[
-            "commit",
-            "timing change 1 50",
-            "drop running",
-            "scan change 1 50",
-        ])),
+        log.ends_with(&texts(&["commit", "drop running", "scan change 1 50",])),
         "{log:?}"
     );
     assert_eq!(runner.program_time, value::Duration::from_millis(50));
@@ -220,23 +218,20 @@ fn a_reload_the_program_does_not_take_within_five_seconds_is_withdrawn_with_relo
 }
 
 #[test]
-fn an_online_change_restores_the_retained_values_as_a_computer_does() {
-    // Specification 11 §6.7.1 and specification 34 §11.3: the candidate takes its retained values as a
-    // computer's does, in two steps: the running program's values, then the newest saved snapshot over
-    // them, by name. The A4 program runs 0 to 80 ms, with `activations` 3 and `result` 3; the change
-    // is committed at 90 ms.
-    //   a record without a retain store: the saved snapshot is empty, so the running program's value
-    //     carries over, 3, and the non-retained `result` is back at its declared initial value, 0
-    //     (warm-restart initialization of the rest);
-    //   a record that keeps retained values, whose newest checkpoint holds 2: the checkpoint is
-    //     applied over the running program's 3, so `activations` is 2, the value saved before the
-    //     program last changed it (a value that changed after the last save is lost, as on a
-    //     computer);
-    //   a checkpoint that names another variable only: the running program's 3 stays, since a name
-    //     that only the first step holds keeps its value.
+fn an_online_change_keeps_the_retained_values_and_applies_no_checkpoint() {
+    // Specification 11 §6.7.1 and specification 34 §11.3 (decision OC-1): the candidate takes the
+    // retained values the running program holds at the boundary, as a computer's does, and no saved
+    // snapshot is applied over them: a checkpoint holds older values, and stays the source of a
+    // restart after a stop or a power loss. The A4 program runs 0 to 80 ms, with `activations` 3 and
+    // `result` 3; the change is committed at 90 ms.
+    //   a record without a retain store: the running program's value carries over, 3, and the
+    //     non-retained `result` is back at its declared initial value, 0;
+    //   a record that keeps retained values, whose newest checkpoint holds 2: the running program's 3
+    //     stays (before decision OC-1 the checkpoint's 2 replaced it);
+    //   a checkpoint that names another variable only: the running program's 3 stays.
     // Wrong behaviour caught: retained values reset to their declared initial value; a checkpoint that
-    // is ignored, or that replaces the running program's values as a whole; non-retained variables that
-    // keep the old program's values.
+    // replaces the values the program holds; non-retained variables that keep the old program's values
+    // (until checklist C1-24 carries every matching variable).
     let cases = [
         (
             "without a store",
@@ -248,7 +243,7 @@ fn an_online_change_restores_the_retained_values_as_a_computer_does() {
             "with a checkpoint that names the variable",
             record(RetainMode::File, &[], &[]),
             checkpoint_of("@program/Plant/activations", Retained::DInt(2)),
-            Retained::DInt(2),
+            Retained::DInt(3),
         ),
         (
             "with a checkpoint that names another variable",
@@ -273,6 +268,10 @@ fn an_online_change_restores_the_retained_values_as_a_computer_does() {
         );
         rig.pass_at(&mut runner, 90);
         assert_eq!(rig.replies(), [reloaded(1, 1)], "{kind}");
+        assert!(
+            entries(&rig.log).contains(&String::from("checkpoint reads 0")),
+            "{kind}: the change reads no checkpoint"
+        );
         assert_eq!(plant(&runner, "activations"), expected, "{kind}");
         assert_eq!(plant(&runner, "result"), Retained::Int(0), "{kind}");
     }
@@ -470,12 +469,7 @@ fn an_online_change_recovers_a_faulted_program_as_it_does_on_a_computer() {
     assert_eq!(rig.replies(), [reloaded(1, 1)]);
     assert_eq!(runner.resource_state(), ResourceState::Running);
     assert_eq!(runner.last_error(), None);
-    assert!(entries(&rig.log).ends_with(&texts(&[
-        "commit",
-        "timing change 1 30",
-        "drop running",
-        "scan change 1 30",
-    ])));
+    assert!(entries(&rig.log).ends_with(&texts(&["commit", "drop running", "scan change 1 30",])));
 }
 
 #[test]
@@ -598,8 +592,8 @@ fn a_paused_program_takes_an_online_change_at_its_next_interval_and_stays_paused
     assert!(
         entries(&rig.log).ends_with(&texts(&[
             "prepare",
+            "checkpoint reads 0",
             "commit",
-            "timing change 1 30",
             "drop running",
         ])),
         "the change is applied and the paused candidate runs no scan: {:?}",
@@ -645,8 +639,8 @@ fn a_restart_that_waits_for_the_boundary_acts_on_the_program_the_change_gave() {
     assert!(
         entries(&rig.log).ends_with(&texts(&[
             "prepare",
+            "checkpoint reads 0",
             "commit",
-            "timing change 1 20",
             "drop running",
             "restart change 1 Cold",
             "timing change 1 20",

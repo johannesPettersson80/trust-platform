@@ -347,7 +347,7 @@ impl Model {
             }
             Op::OnlineChangeB => {
                 self.exe = Exe::B;
-                self.restart(Retained::Store);
+                self.restart(Retained::Live);
                 Step {
                     outcome: Outcome::Accepted,
                     installed_changed: true,
@@ -412,7 +412,8 @@ impl Model {
     }
 
     /// Warm and cold restart (spec 10 4.8, spec 11 6.7, 6.9.2). The online change of B is the
-    /// same transaction with the store as the retained source (spec 11 6.7.1).
+    /// same transaction with the live values as the retained source: it reads no retain store
+    /// (spec 11 6.7.1; spec 34 11.3, decision OC-1).
     fn restart(&mut self, retained: Retained) {
         // Pending writes and forces are cleared by every restart (spec 11 6.9.2), also those that
         // were accepted while the resource was faulted. The fault is cleared because the commit

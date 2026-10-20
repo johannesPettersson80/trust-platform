@@ -19,9 +19,7 @@ use std::cell::Cell;
 
 use smol_str::SmolStr;
 use support::{booted, configuration, Dog, Hardware, TestClock, PROGRAM};
-use trust_platform_esp32::loader::{
-    online_change_reserve, Esp32Loader, ONLINE_CHANGE_WORKING_MEMORY_BYTES,
-};
+use trust_platform_esp32::loader::{Esp32Loader, ONLINE_CHANGE_WORKING_MEMORY_BYTES};
 use trust_platform_esp32::profile::{runtime_id, HEAP_CAPACITY_BYTES};
 use trust_platform_esp32::Platform;
 use trust_runtime_core::bytecode::{BytecodeModule, ValidationLimits};
@@ -139,7 +137,7 @@ struct Chip {
 impl Chip {
     /// A chip whose checkpoint slots hold `checkpoint` as the newest checkpoint, when there is one.
     fn new(checkpoint: Option<&RetainSnapshot>) -> Self {
-        let (mut hardware, reader) = Hardware::with_reader();
+        let mut hardware = Hardware::erased();
         if let Some(snapshot) = checkpoint {
             hardware.save_checkpoint(snapshot);
         }
@@ -158,7 +156,7 @@ impl Chip {
             runtime_id([0x20, 0x6E, 0xF1, 0x17, 0x04, 0xC0]),
         );
         Self {
-            loader: Esp32Loader::new(hardware, TestClock, MEMORY, room, reader),
+            loader: Esp32Loader::new(hardware, TestClock, MEMORY, room),
             platform,
         }
     }
@@ -311,24 +309,22 @@ fn an_online_changes_heap_peak_is_the_two_programs_and_the_upload_within_the_roo
     // the running program and the candidate at once, with the upload until the candidate's module is
     // prepared. The working memory is what the change takes at its peak beyond the two programs: the
     // upload, the decoding and validation of the module and the retained steps. The loader keeps
-    // `ONLINE_CHANGE_WORKING_MEMORY_BYTES` free for it always: twice the largest working memory
-    // measured here, for the fragmentation of a first-fit heap that a host cannot measure, rounded up
-    // to 8 KiB; and, when the record keeps retained values, the payload of the newest checkpoint,
-    // which the retained steps read whole into the heap (the reserve is `online_change_reserve`).
-    // After the commit the running program is dropped and the heap holds one program again: the bytes
-    // live are those of the candidate loaded alone. The A4 program is changed to itself, which is
-    // congruent, and to three of the repository's other programs, which are not, and the
-    // `retained_blocks` program is changed to itself, a congruent change that copies a live
-    // function-block instance and reference. Each is measured with a record that keeps no retained
-    // values and with one that keeps them, whose newest checkpoint holds the running program's
-    // retained value: that adds the decoded checkpoint, and moves the checkpoint store to the
-    // candidate, so the store is held once.
+    // `ONLINE_CHANGE_WORKING_MEMORY_BYTES` free for it: twice the largest working memory measured
+    // here, for the fragmentation of a first-fit heap that a host cannot measure, rounded up to 8 KiB.
+    // A change reads no checkpoint (decision OC-1), so that is the whole reserve. After the commit
+    // the running program is dropped and the heap holds one program again: the bytes live are those
+    // of the candidate loaded alone. The A4 program is changed to itself, which is congruent, and to
+    // three of the repository's other programs, which are not, and the `retained_blocks` program is
+    // changed to itself, a congruent change that copies a live function-block instance and reference.
+    // Each is measured with a record that keeps no retained values and with one that keeps them,
+    // whose flash holds a checkpoint of the running program's retained value: the change leaves the
+    // checkpoint unread and moves the checkpoint store to the candidate, so the store is held once.
     // Wrong behaviour caught: a working-memory part below twice the working memory (the chip would
     // run out of heap in the middle of a change, which resets it and stops the machine); a change that
     // drops the running program before it builds the candidate (a negative working memory: the heap
     // would never hold both, and UPDATE-06's overlap would go untested); a running program that
     // outlives the commit (the heap would hold both after it); a checkpoint store that is built again
-    // for the candidate (16,332 bytes more at the peak and after the commit).
+    // for the candidate (16,418 bytes more at the peak and after the commit).
     type Checkpoint = fn() -> RetainSnapshot;
     let changes: [(&str, &[u8], &[u8], Checkpoint); 5] = [
         ("the A4 program", PROGRAM, PROGRAM, a4_checkpoint),
@@ -418,19 +414,6 @@ fn an_online_changes_heap_peak_is_the_two_programs_and_the_upload_within_the_roo
         doubled <= bytes(ONLINE_CHANGE_WORKING_MEMORY_BYTES),
         "the working-memory part of {ONLINE_CHANGE_WORKING_MEMORY_BYTES} bytes covers twice the largest \
          working memory ({worst} bytes), which is {doubled} bytes"
-    );
-    // A record that keeps no retained values reserves the working memory alone, and one that keeps
-    // them adds the payload of the newest checkpoint, at most the largest payload that a slot takes.
-    let (_, mut reader) = Hardware::with_reader();
-    let largest = usize::try_from(reader.geometry().max_payload_len()).expect("a short payload");
-    assert_eq!(
-        online_change_reserve(false, &mut *reader),
-        ONLINE_CHANGE_WORKING_MEMORY_BYTES
-    );
-    println!(
-        "online change heap: the reserve is {ONLINE_CHANGE_WORKING_MEMORY_BYTES} bytes, and at most {} \
-         bytes when the record keeps retained values",
-        ONLINE_CHANGE_WORKING_MEMORY_BYTES + largest
     );
 }
 

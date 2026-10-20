@@ -102,11 +102,6 @@ fn main() -> ! {
     let Ok(checkpoint_reader) = board.checkpoint_reader() else {
         emergency_halt("checkpoint-reader");
     };
-    // A second handle that only reads, for the loader: an online change takes the newest checkpoint
-    // through it while the running program holds the writer.
-    let Ok(change_reader) = board.checkpoint_reader() else {
-        emergency_halt("checkpoint-reader");
-    };
     let mut parts = board.into_parts();
     let mut store = ProgramStore {
         flash: program_flash,
@@ -140,14 +135,8 @@ fn main() -> ! {
         region_bytes: STBC_BYTES,
         heap_bytes: memory::HEAP.capacity(),
     };
-    let mut loader = Esp32Loader::new(
-        parts.hardware,
-        clock,
-        device_memory,
-        heap_room,
-        change_reader,
-    )
-    .with_allocator_operations(allocator_operations);
+    let mut loader = Esp32Loader::new(parts.hardware, clock, device_memory, heap_room)
+        .with_allocator_operations(allocator_operations);
     let largest_payload =
         usize::try_from(checkpoint_reader.geometry().max_payload_len()).unwrap_or(usize::MAX);
     let retained_check = install_check(checkpoint_reader, device_memory, heap_room);

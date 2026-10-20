@@ -15,10 +15,9 @@ use trust_runtime::debug::{DebugControl, ForcedVarTarget};
 use trust_runtime::error::{RuntimeError, StableErrorCode};
 use trust_runtime::execution_backend::ExecutionBackend;
 use trust_runtime::harness::{bytecode_bytes_from_source, CompileSession, TestHarness};
-use trust_runtime::retain::RetainStore;
 use trust_runtime::runtime_core::vm::{PreparationLimits, PreparedModule};
 use trust_runtime::value::Value;
-use trust_runtime::{RestartMode, RetainSnapshot, Runtime};
+use trust_runtime::{RestartMode, Runtime};
 
 const LIVE_SOURCE: &str = r#"
 VAR_GLOBAL count : INT := INT#0; hold : INT := INT#0; END_VAR
@@ -47,20 +46,6 @@ count := count + INT#10;
 published := count;
 END_PROGRAM
 "#;
-
-struct FailingLoadStore;
-
-impl RetainStore for FailingLoadStore {
-    fn load(&self) -> Result<RetainSnapshot, RuntimeError> {
-        Err(RuntimeError::RetainStore(
-            "injected retain load failure".into(),
-        ))
-    }
-
-    fn store(&self, _snapshot: &RetainSnapshot) -> Result<(), RuntimeError> {
-        Ok(())
-    }
-}
 
 /// A live VM controller after one cycle, with count forced to 99 and a queued write to hold.
 struct Live {
@@ -174,39 +159,6 @@ fn source_free_bytes(source: &str) -> Vec<u8> {
         .expect("accepted source")
         .encode()
         .unwrap()
-}
-
-#[test]
-fn retain_load_refusal_of_an_online_change_keeps_the_live_runtime() {
-    let mut live = live();
-    let before = observe(live.harness.runtime(), &live.debug);
-    assert_eq!(before.outputs, vec![1u8, 0u8]);
-    live.harness
-        .runtime_mut()
-        .set_retain_store(Some(Box::new(FailingLoadStore)), None);
-    let bytes = candidate_bytes();
-    let error = match live
-        .harness
-        .runtime_mut()
-        .apply_online_change_bytes(&bytes, None)
-    {
-        Ok(_) => panic!("a candidate behind a failing retain load must be refused"),
-        Err(error) => error,
-    };
-    assert!(
-        matches!(error, RuntimeError::RetainStore(_)),
-        "the retain load is the first step of an online change: {error:?}"
-    );
-    assert!(
-        error.to_string().contains("injected retain load failure"),
-        "the injected store failure must reach the caller: {error}"
-    );
-    assert_unchanged(
-        &before,
-        &observe(live.harness.runtime(), &live.debug),
-        "retain load refusal",
-    );
-    assert_live_runtime_still_runs(&mut live, "retain load refusal");
 }
 
 #[test]

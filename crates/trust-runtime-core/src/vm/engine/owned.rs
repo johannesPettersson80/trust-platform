@@ -349,8 +349,10 @@ impl<S: ExecutionServices> OwnedRuntimeState<S> {
 
     /// Prepare a distinct installation at a quiescent owner boundary. Live
     /// retained object graphs require congruent admitted identities; serializable
-    /// checkpoints migrate by name when the schema changes. The old owner is
-    /// unchanged if any preparation, initializer or checkpoint fails.
+    /// retained values migrate by name when the schema changes. The tasks continue
+    /// this installation's schedule, and no retain file or checkpoint is applied
+    /// (specification 34 §11.3, decisions OC-1 and OC-2). The old owner is
+    /// unchanged if any preparation, initializer or migration fails.
     ///
     /// The body is shared with `RuntimeState::prepare_replacement`, which a chip's
     /// borrowed state calls, so both replace their program by the same rules.
@@ -359,14 +361,10 @@ impl<S: ExecutionServices> OwnedRuntimeState<S> {
         prepared: Arc<PreparedModule>,
         resource_index: usize,
         services: S,
-        durable: Option<&crate::retain::RetainSnapshot>,
     ) -> Result<(Self, Vec<super::RetainApplyEvent>), RuntimeError> {
-        let (data, events) = self.engine().prepare_replacement_data(
-            &prepared,
-            resource_index,
-            &services,
-            durable,
-        )?;
+        let (data, events) =
+            self.engine()
+                .prepare_replacement_data(&prepared, resource_index, &services)?;
         Ok((
             Self {
                 data,
@@ -532,7 +530,6 @@ mod tests {
     use super::*;
     use crate::bytecode::{BytecodeModule, SectionData, SectionId};
     use crate::memory::Generation;
-    use crate::retain::RetainSnapshot;
     use crate::vm::{PreparationLimits, RetainApplyEvent};
     use smol_str::SmolStr;
 
@@ -660,16 +657,9 @@ mod tests {
     }
 
     /// Runs `old` on a borrowed and on an owned state, both given the first input byte `input` and the
-    /// scans at `scans` (milliseconds of logical time), then replaces each with `new`, with the saved
-    /// snapshot `durable`, and runs the candidate's scan at `next` milliseconds.
-    fn replace_through_both(
-        old: &[u8],
-        new: &[u8],
-        input: u8,
-        scans: &[i64],
-        durable: Option<&RetainSnapshot>,
-        next: i64,
-    ) -> Both {
+    /// scans at `scans` (milliseconds of logical time), then replaces each with `new` and runs the
+    /// candidate's scan at `next` milliseconds.
+    fn replace_through_both(old: &[u8], new: &[u8], input: u8, scans: &[i64], next: i64) -> Both {
         let old_module = prepared(old);
         let mut borrowed = old_module.instantiate(0).unwrap();
         let mut owned = Arc::new(prepared(old)).instantiate_owned(0).unwrap();
@@ -695,7 +685,6 @@ mod tests {
             &new_module,
             0,
             &super::super::services::LOGICAL_ONLY,
-            durable,
         ) {
             Ok((mut candidate, events)) => {
                 let built = observe!(candidate, events);
@@ -706,21 +695,17 @@ mod tests {
             }
             Err(error) => Err(error),
         };
-        let owned_result = match owned.prepare_replacement(
-            Arc::new(prepared(new)),
-            0,
-            LogicalExecutionServices,
-            durable,
-        ) {
-            Ok((mut candidate, events)) => {
-                let built = observe!(candidate, events);
-                candidate
-                    .execute_cycle(Duration::from_millis(next))
-                    .unwrap();
-                Ok((built, observe!(candidate, Vec::new())))
-            }
-            Err(error) => Err(error),
-        };
+        let owned_result =
+            match owned.prepare_replacement(Arc::new(prepared(new)), 0, LogicalExecutionServices) {
+                Ok((mut candidate, events)) => {
+                    let built = observe!(candidate, events);
+                    candidate
+                        .execute_cycle(Duration::from_millis(next))
+                        .unwrap();
+                    Ok((built, observe!(candidate, Vec::new())))
+                }
+                Err(error) => Err(error),
+            };
         let after = observe!(borrowed, Vec::new());
         assert_eq!(
             observe!(owned, Vec::new()),
@@ -753,7 +738,7 @@ mod tests {
         // still 3 (an instance built anew would count 0), and the reference reads that count. Its
         // scan at 40 ms runs the new body: count 3 + 2 = 5, total and runs 4, and `follow` reads 5.
         let congruent = blocks_that_count_by_two();
-        let one = replace_through_both(BLOCKS, &congruent, 0, &[10, 20, 30], None, 40);
+        let one = replace_through_both(BLOCKS, &congruent, 0, &[10, 20, 30], 40);
         assert_eq!(one.borrowed, one.owned, "congruent");
         let (built, next) = candidate_of(&one.borrowed);
         assert_eq!(built.generation, Generation::FIRST.next().unwrap());
@@ -770,25 +755,22 @@ mod tests {
         assert_eq!(one.after.generation, Generation::FIRST, "the source stays");
         assert_eq!(one.after, one.before);
 
-        // 2. The same, with a saved snapshot: it is applied over the live values, by name. `total`
-        // takes the saved 100, `count` and `runs` keep their live 3, and the name that the program
-        // does not declare is reported once as an orphan.
-        let mut saved = RetainSnapshot::default();
-        saved.insert("total", Value::DInt(100));
-        saved.insert("ghost", Value::DInt(1));
-        let two = replace_through_both(BLOCKS, &congruent, 0, &[10, 20, 30], Some(&saved), 40);
-        assert_eq!(two.borrowed, two.owned, "congruent with a saved snapshot");
+        // 2. The task schedule continues (decision OC-2). The A4 program's 25 ms task runs at 25 ms,
+        // when `activations` becomes 1; the scan at 30 ms runs no task. The candidate, the same
+        // program, is built at 30 ms and keeps the task's last activation, 25 ms, so its scan at 50 ms
+        // runs the task: `activations` 1 + 1 = 2. A task counted from the change (30 ms) would wait
+        // until 55 ms and leave it at 1.
+        let two = replace_through_both(A4, A4, 0, &[25, 30], 50);
+        assert_eq!(two.borrowed, two.owned, "the task schedule");
+        assert_eq!(two.before.members[1], Some(Value::DInt(1)));
         let (built, next) = candidate_of(&two.borrowed);
-        assert_eq!(built.total, Some(Value::DInt(100)), "the saved value wins");
-        assert_eq!(built.count, Some(Value::DInt(3)));
-        assert_eq!(built.members[0], Some(Value::DInt(3)));
+        assert_eq!(built.time, Duration::from_millis(30));
         assert_eq!(
-            built.events,
-            [RetainApplyEvent::Orphan {
-                name: "ghost".into()
-            }]
+            built.members[1],
+            Some(Value::DInt(1)),
+            "the retained value is kept"
         );
-        assert_eq!(next.total, Some(Value::DInt(101)));
+        assert_eq!(next.members[1], Some(Value::DInt(2)), "the due task runs");
 
         // 3. A candidate that is not congruent. The A4 program runs a 25 ms task; its scans at 25, 50
         // and 75 ms leave the retained `activations` at 3. The candidate names that variable
@@ -797,7 +779,7 @@ mod tests {
         // reported as an orphan, and `activations2` has its declared initial value, 0. The generation
         // is 2 and the time 75 ms.
         let renamed_a4 = renamed(A4, "activations", "activations2");
-        let three = replace_through_both(A4, &renamed_a4, 0, &[25, 50, 75], None, 100);
+        let three = replace_through_both(A4, &renamed_a4, 0, &[25, 50, 75], 100);
         assert_eq!(three.borrowed, three.owned, "not congruent");
         assert_eq!(three.before.members[1], Some(Value::DInt(3)));
         let (built, next) = candidate_of(&three.borrowed);
@@ -817,7 +799,7 @@ mod tests {
         // instance and a retained reference. Neither can be serialized into a snapshot, so both
         // states refuse the change with the same error, and the source is exactly as it was.
         let renamed_blocks = renamed(BLOCKS, "total", "sum");
-        let four = replace_through_both(BLOCKS, &renamed_blocks, 0, &[10, 20, 30], None, 40);
+        let four = replace_through_both(BLOCKS, &renamed_blocks, 0, &[10, 20, 30], 40);
         let refusal = RuntimeError::RetainMigration(
             "retained live-object graph requires congruent admitted schema".into(),
         );
@@ -829,7 +811,7 @@ mod tests {
         // 10 ms. With the input at 1, the scans at 10 and 20 ms leave the input and the output image
         // at 1. The same program, congruent, carries both images into the candidate, whose outputs
         // are still 1 (an image built anew is 0), at the generation 2 and the time 20 ms.
-        let five = replace_through_both(PROBE, PROBE, 1, &[10, 20], None, 30);
+        let five = replace_through_both(PROBE, PROBE, 1, &[10, 20], 30);
         assert_eq!(five.borrowed, five.owned, "images");
         assert_eq!(five.before.inputs, [1]);
         assert_eq!(five.before.outputs, [1]);

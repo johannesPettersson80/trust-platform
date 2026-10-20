@@ -79,9 +79,9 @@ fn the_c6_builds_a_candidate_within_the_heaps_room_and_hands_over_its_lines() {
     // caught: limits taken from the heap's capacity; a reserve that is not subtracted; a candidate that
     // claims a pin ("already claimed"); lines released with the running program, or never released; a
     // refusal that disturbs the running program.
-    let (hardware, reader) = Hardware::with_reader();
+    let hardware = Hardware::erased();
     let claims: PinClaims = hardware.claims.clone();
-    let mut loader = Esp32Loader::new(hardware, TestClock, MEMORY, room, reader);
+    let mut loader = Esp32Loader::new(hardware, TestClock, MEMORY, room);
     let mut platform = platform();
     let record = configuration(RetainMode::None, vec![gpio(&["GPIO9"], &["GPIO18"])]);
     let Loaded {

@@ -279,11 +279,11 @@ where
         self.record_program_memory();
         self.tasks = self.cycle.tasks();
         self.live = live;
-        // The program's time goes on from the clock, and its tasks count their next activation from
-        // here. The scan counter restarts, and the retained values that were dropped or migrated are
-        // recorded at this moment.
+        // The program's time goes on from the clock, and its tasks continue the running program's
+        // schedule, which the candidate took from it, so the first scan after the change runs the
+        // tasks that are due (specification 34 §11.3, decision OC-2). The scan counter restarts, and
+        // the retained values that were dropped or migrated are recorded at this moment.
         let now = self.logical(self.clock.now());
-        self.cycle.reset_task_timing(now);
         self.program_time = now;
         self.cycle_count = 0;
         self.record_retain_events(events);

@@ -4471,17 +4471,17 @@ owner = "trust-runtime"
 status = "mapped"
 invariants = ["RT_RELOAD_001"]
 oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction"
-expected_result = "A retain-store load failure rejects online change before replacing the live bytecode, scan counter, PLC storage, or active debug mutation state."
-expected_failure_mode = "The runtime reports reload failure only after installing the new executable or resetting live state, or the runner fails to emit the same-run case artifact."
+expected_result = "An online change reads no retain store: with a store whose load fails it commits, keeps the retained value the running program holds and restarts the scan counter (specification 34 section 11.3, decision OC-1)."
+expected_failure_mode = "The online change reads the retain store, so the failing load refuses it, or it replaces the retained value the running program holds, or the runner fails to emit the same-run case artifact."
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_RELOAD_TRANSACTION_001.json"
 suite_tiers = ["pr"]
 requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/runtime_safety/RT_RELOAD_001.toml"
-case_file_digest = "sha256:b09bbf3b482c1ca78865496ac9683c914caaf7550e8fead1f26223f218c3b79c"
+case_file_digest = "sha256:456ac1a73e40612bf2156a70fdd6fc52440fee66bf3513a0f6bcbf4cb7f429f3"
 mapping_behavior_refs = ["RT_RELOAD_001#behavior:0"]
-last_reviewed = "2026-07-14"
+last_reviewed = "2026-10-20"
 
 [[tests]]
 schema_version = 2

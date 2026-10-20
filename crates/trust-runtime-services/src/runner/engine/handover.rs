@@ -19,7 +19,6 @@ use alloc::vec::Vec;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::memory::{Generation, VariableStorage};
 use trust_runtime_core::ports::MonotonicClock;
-use trust_runtime_core::retain::RetainSnapshot;
 use trust_runtime_core::value::{Value, ValueRef};
 use trust_runtime_core::vm::{PreparationLimits, PreparedModule, RetainApplyEvent};
 
@@ -118,13 +117,13 @@ impl<C: MonotonicClock, I, M> EngineCycle<'_, C, I, M> {
     /// - the candidate continues this program's installation generation with the next one, so a
     ///   reference or an instance identity taken before the change is refused as stale after it
     ///   (UPDATE-04);
-    /// - it keeps the logical time of this program and carries its process images;
+    /// - it keeps the logical time of this program and carries its process images, and its tasks
+    ///   continue this program's schedule (decision OC-2);
     /// - a candidate that declares the same retained storage keeps the retained function-block
     ///   instances and references live, and a candidate that does not migrates a snapshot of this
     ///   program's retained values by name, and is refused when a retained live object cannot be
     ///   serialized into one;
-    /// - `durable`, the newest saved snapshot of the device's retain store, is applied over all of it
-    ///   by name.
+    /// - no checkpoint is applied: it holds older values than the program does (decision OC-1).
     ///
     /// The candidate holds the module and the services given here and no borrow of this program, so
     /// whatever memory this program lives in can be freed once it is dropped. It has no checkpoint
@@ -142,11 +141,10 @@ impl<C: MonotonicClock, I, M> EngineCycle<'_, C, I, M> {
         services: &'b DeviceServices<C>,
         io: J,
         settings: CycleSettings,
-        durable: Option<&RetainSnapshot>,
     ) -> Result<(EngineCycle<'b, C, J>, Vec<RetainApplyEvent>), RuntimeError> {
-        let (state, events) =
-            self.state
-                .prepare_replacement(prepared, RESOURCE_INDEX, services, durable)?;
+        let (state, events) = self
+            .state
+            .prepare_replacement(prepared, RESOURCE_INDEX, services)?;
         Ok((
             EngineCycle {
                 state,

@@ -406,9 +406,6 @@ impl Chip {
         let reader = owner
             .checkpoint_reader()
             .expect("the checkpoint slots have a geometry");
-        let change_reader = owner
-            .checkpoint_reader()
-            .expect("the checkpoint slots have a geometry");
         let store = ProgramStore {
             flash: Box::new(program_flash),
             program_budget: PROGRAM_STEP_BYTES,
@@ -417,7 +414,7 @@ impl Chip {
             owner,
             claims: claims.clone(),
         };
-        let loader = Esp32Loader::new(hardware, TestClock, MEMORY, room, Box::new(change_reader));
+        let loader = Esp32Loader::new(hardware, TestClock, MEMORY, room);
         let mut platform = Platform::new(
             dog.clone(),
             SmolStr::new_static("Controller"),
@@ -925,9 +922,6 @@ fn the_loop_takes_the_heap_its_type_gives_beside_any_program() {
     let reader = owner
         .checkpoint_reader()
         .expect("the checkpoint slots have a geometry");
-    let change_reader = owner
-        .checkpoint_reader()
-        .expect("the checkpoint slots have a geometry");
     let store = ProgramStore {
         flash: Box::new(program_flash),
         program_budget: PROGRAM_STEP_BYTES,
@@ -936,7 +930,7 @@ fn the_loop_takes_the_heap_its_type_gives_beside_any_program() {
         owner,
         claims: PinClaims::default(),
     };
-    let loader = Esp32Loader::new(hardware, TestClock, MEMORY, room, Box::new(change_reader));
+    let loader = Esp32Loader::new(hardware, TestClock, MEMORY, room);
     let check = install_check(Box::new(reader), MEMORY, room);
     let platform = Platform::new(
         dog,

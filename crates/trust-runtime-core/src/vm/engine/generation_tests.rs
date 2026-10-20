@@ -45,12 +45,8 @@ fn a_replacement_at_the_last_generation_is_refused_and_changes_nothing() {
     state.data.set_generation_for_test(Generation(u32::MAX));
     let held = state.storage().ref_for_global("probe_depth").unwrap();
     let globals = state.storage().globals().clone();
-    let result = state.prepare_replacement(
-        Arc::clone(&prepared),
-        0,
-        services::LogicalExecutionServices,
-        None,
-    );
+    let result =
+        state.prepare_replacement(Arc::clone(&prepared), 0, services::LogicalExecutionServices);
     assert!(matches!(result, Err(RuntimeError::Overflow)));
     assert_eq!(state.storage().generation(), Generation(u32::MAX));
     assert_eq!(state.storage().globals(), &globals);

@@ -89,16 +89,15 @@ pub trait ProgramLoader<P, Y> {
     ///    module is prepared;
     /// 2. checks the candidate's bindings against the lines of the running program's record
     ///    ([`unwired_binding`](crate::runner::unwired_binding));
-    /// 3. reads the newest checkpoint when the record keeps retained values: the saved snapshot of
-    ///    the device's retain store, which a computer loads from its own at an online change;
-    /// 4. builds the candidate from the running program's state with the engine's replacement
+    /// 3. builds the candidate from the running program's state with the engine's replacement
     ///    ([`replacement`](crate::runner::engine::EngineCycle::replacement)), over the running
     ///    program's settings and an empty process I/O, so that it claims no line and takes no
     ///    checkpoint store. The candidate continues the running program's installation generation,
-    ///    keeps its logical time and its process images, keeps the retained function-block instances
-    ///    and references live when it declares the same retained storage and migrates the retained
-    ///    values by name otherwise, and takes the saved snapshot over them;
-    /// 5. checks that the running program's safe state is valid in the candidate
+    ///    keeps its logical time, its process images and its tasks' schedule, and keeps the retained
+    ///    values the running program holds: the retained function-block instances and references
+    ///    stay live when it declares the same retained storage, and the retained values migrate by
+    ///    name otherwise. No checkpoint is read (decisions OC-1 and OC-2);
+    /// 4. checks that the running program's safe state is valid in the candidate
     ///    ([`check_safe_outputs`](crate::runner::engine::EngineCycle::check_safe_outputs)), and gives
     ///    the candidate's Live Values the candidate's generation
     ///    ([`set_generation`](crate::runner::EngineLiveValues::set_generation)).

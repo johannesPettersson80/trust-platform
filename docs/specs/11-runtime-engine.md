@@ -2203,8 +2203,9 @@ value reaches the image first:
   unqualified variable in a warm restart and for every variable in a cold
   restart, and the retained value for a `RETAIN` or `PERSISTENT` variable in a
   warm restart, a warm restart from the store and an online change. A retained
-  value is published after the checkpoint has been applied, so the checkpoint,
-  not the carried-over image, decides it;
+  value is published after it has been restored, from the checkpoint at a warm
+  restart from the store and from the running program at an online change, so
+  the restored value, not the carried-over image, decides it;
 - the publication writes exactly the bits and bytes that the variables are bound
   to. Every other bit and byte of the marker image keeps its carried-over value,
   and `%I` and `%Q` are not touched (above);
@@ -2233,11 +2234,10 @@ needed by the change before replacing live execution state:
 - decode and validate the complete bytecode container and materialize its VM
   module;
 - validate the selected resource, tasks, and process-image sizes; and
-- read, decode, canonicalize, and validate the retained snapshot required by
-  the warm-reload policy; and
 - construct the complete warm-restart variable and instance image in staged
-  storage, including retained program variables and all fallible function-block,
-  class, and program instance initialization.
+  storage, including the retained values the running program holds, retained
+  program variables and all fallible function-block, class, and program instance
+  initialization.
 
 When a caller names a bytecode resource, selection is case-insensitive but
 must resolve that exact resource; an unknown name is an error and must not
@@ -2269,22 +2269,30 @@ the typed `RuntimeError::Bytecode`; no stable message text is implied.
 
 After successful preparation, the commit replaces the executable and resource
 metadata as one cycle-boundary operation, restarts at the program entry point,
-applies the prepared retained snapshot, rebinds I/O, and returns the new runtime
-metadata. Retained variables follow section 6.7; non-retained variables and
+rebinds I/O, and returns the new runtime metadata. Retained variables keep the
+values the running program holds (below); non-retained variables and
 function-block instances follow warm-restart initialization. Logical time is
-preserved, the scan counter restarts, and queued writes and forces are cleared
-under section 6.9.2. A request must never report `reloaded` unless this complete
-commit succeeds.
+preserved, and the candidate's tasks continue the running program's schedule
+(specification 34 §11.3, decision OC-2): a task takes the last activation, the
+level of its event input and the overruns of the running program's task of the
+same name, compared without regard to case, so the first scan after the commit
+runs the tasks that are due; a task that the running program does not have
+counts its first activation from the commit. The scan counter restarts, and
+queued writes and forces are cleared under section 6.9.2. A request must never
+report `reloaded` unless this complete commit succeeds.
 
 The replacement installs the next generation of the running program's lineage, so
 a reference or an instance identity taken before it is refused as stale after it
 (specification 34 §11.3, UPDATE-04), and it carries the process images and the
 logical time.
 
-The retained variables of the candidate take their values by name, in two steps,
-on every runtime: first the retained values that the running program holds in
-memory at the boundary, then the runtime's saved snapshot, the newest content of
-its retain store, applied over them. A candidate that declares the same retained
+The retained variables of the candidate take, by name, the retained values that
+the running program holds in memory at the boundary, on every runtime. Nothing is
+applied over them (specification 34 §11.3, decision OC-1): the change reads no
+retain store, because the retain file or checkpoint holds older values, saved at
+the configured interval and when the program stops, and stays the source of a
+warm restart after a stop or a power loss (section 6.7). A retain store whose
+read would fail therefore cannot refuse a change. A candidate that declares the same retained
 storage as the running program (the same declarations, types and identities, with
 other executable bodies) keeps the retained function-block instances and
 references of its retained globals live, with the object graph they hold, and
@@ -2292,13 +2300,11 @@ copies the retained program variables that a snapshot can hold. Any other
 candidate migrates a snapshot of the running program's retained values. A
 retained function-block instance or reference is not part of a snapshot (section
 6.7), so the change is then refused with `retained live-object graph requires
-congruent admitted schema`, and the running program runs on. Each snapshot is
+congruent admitted schema`, and the running program runs on. The snapshot is
 applied atomically through the declared types, so a value that the candidate
-refuses fails the preparation (above). A name that only the first step has keeps
-the running program's value, and a name that both have takes the saved value, so a
-retained value that changed after the last save is replaced by the saved one. A
-runtime without a retain store has an empty second step, and the retained
-variables keep the values that the running program held.
+refuses fails the preparation (above): a running value `100` of a retained `INT`
+that the candidate declares as `INT(0..10)` is refused with `outside declared
+subrange 0..10`.
 
 ##### 6.7.2 Runtime agent command conformance
 

@@ -17,15 +17,17 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_RUNTIME_RELOAD_TRANSACTION_001";
 const CASE_FILE: &str = "verification/cases/runtime_safety/RT_RELOAD_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:b09bbf3b482c1ca78865496ac9683c914caaf7550e8fead1f26223f218c3b79c";
-const CASE_ID: &str = "RT_RELOAD_001_RETAIN_LOAD_FAILURE_PRESERVES_LIVE_RUNTIME";
+    "sha256:456ac1a73e40612bf2156a70fdd6fc52440fee66bf3513a0f6bcbf4cb7f429f3";
+const CASE_ID: &str = "RT_RELOAD_001_RETAIN_STORE_NOT_READ_BY_ONLINE_CHANGE";
 /// Trace `expected` fields this runner compares. Any other field fails the case.
 const RELOAD_EXPECTED_FIELDS: &[&str] =
     &["count", "cycle_counter", "reload_result", "error_contains"];
 
+/// The running program. `count` is retained, so an online change keeps the value the running
+/// program holds (specification 34 §11.3, decision OC-1).
 const SOURCE_V1: &str = r#"
 PROGRAM Main
-VAR
+VAR RETAIN
     count : DINT := DINT#0;
 END_VAR
 count := count + DINT#1;
@@ -34,13 +36,14 @@ END_PROGRAM
 
 const SOURCE_V2: &str = r#"
 PROGRAM Main
-VAR
+VAR RETAIN
     count : DINT := DINT#0;
 END_VAR
 count := count + DINT#10;
 END_PROGRAM
 "#;
 
+/// A retain store whose load fails: an online change that read it would be refused.
 struct FailingLoadStore;
 
 impl RetainStore for FailingLoadStore {
@@ -127,7 +130,7 @@ fn run_reload_case(
         .iter()
         .position(|step| {
             step.stimulus.get("action").and_then(toml::Value::as_str)
-                == Some("attempt_reload_with_retain_load_failure")
+                == Some("reload_with_failing_retain_store")
         })
         .ok_or_else(|| format!("{} has no reload step", case.id))?;
     if operation == 0 {
@@ -161,20 +164,20 @@ fn run_reload_case(
         Ok(CaseExecution {
             result: CaseResult::Passed,
             observed_error: None,
-            observed_status: Some("reload_rejected_without_state_change".to_string()),
+            observed_status: Some("reload_committed_without_reading_the_retain_store".to_string()),
         })
     } else {
         Ok(CaseExecution {
             result: CaseResult::Failed,
             observed_error: Some(mismatches.join("; ")),
-            observed_status: Some("reload_failure_partially_applied".to_string()),
+            observed_status: Some("reload_not_as_specified".to_string()),
         })
     }
 }
 
-/// The state one reload step observed. `count` is the target. The cycle counter
-/// is a sibling, so a refused reload must leave it unchanged. This runner does
-/// not observe retained values or outputs, so those components stay unset.
+/// The state one reload step observed. `count` is the target, and the cycle
+/// counter is a sibling, which a committed reload restarts. This runner does not
+/// observe the retain store's contents or outputs, so those components stay unset.
 fn reload_snapshot(observation: &BTreeMap<String, serde_json::Value>) -> StateSnapshot {
     StateSnapshot {
         process_image_hash: None,
@@ -223,17 +226,13 @@ fn execute_step(
     let action = trace_string(&step.stimulus, "action")?;
     let mut observation = BTreeMap::new();
     match action.as_str() {
-        "establish_old_runtime_and_force" => {
+        "establish_old_runtime" => {
             let cycle = harness.cycle();
             if !cycle.errors.is_empty() {
                 return Err(format!("initial cycle failed: {cycle:?}"));
             }
-            harness
-                .runtime_mut()
-                .enable_debug()
-                .force_global("count", Value::DInt(50));
         }
-        "attempt_reload_with_retain_load_failure" => {
+        "reload_with_failing_retain_store" => {
             harness
                 .runtime_mut()
                 .set_retain_store(Some(Box::new(FailingLoadStore)), None);
@@ -250,15 +249,10 @@ fn execute_step(
                 }
             }
         }
-        "release_force_and_run_old_program" => {
-            harness
-                .runtime()
-                .debug_control()
-                .ok_or_else(|| "debug control disappeared during failed reload".to_string())?
-                .release_global("count");
+        "run_new_program" => {
             let cycle = harness.cycle();
             if !cycle.errors.is_empty() {
-                return Err(format!("post-rejection cycle failed: {cycle:?}"));
+                return Err(format!("first cycle of the new program failed: {cycle:?}"));
             }
         }
         other => return Err(format!("unreviewed reload transaction action {other}")),

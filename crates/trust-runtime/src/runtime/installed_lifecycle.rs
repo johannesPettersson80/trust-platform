@@ -141,18 +141,17 @@ impl Runtime {
         module: &crate::bytecode::BytecodeModule,
         resource_name: Option<&str>,
     ) -> Result<(), RuntimeError> {
-        self.replace_module(module, resource_name, None, None)
+        self.replace_module(module, resource_name, None)
     }
 
-    /// Retain the existing online-change warm restart and durable-store policy.
+    /// An online change (specification 34 §11.3): the replacement keeps the values the running
+    /// program holds and its tasks' schedule, and reads no retain file (decisions OC-1 and OC-2).
     pub fn apply_online_change_bytes(
         &mut self,
         bytes: &[u8],
         resource_name: Option<&str>,
     ) -> Result<super::RuntimeMetadata, RuntimeError> {
-        let snapshot = self.retain.load()?;
-        let module = crate::bytecode::BytecodeModule::decode(bytes).map_err(RuntimeError::from)?;
-        self.replace_module(&module, resource_name, None, Some(&snapshot))?;
+        self.apply_bytecode_bytes(bytes, resource_name)?;
         Ok(self.metadata_snapshot())
     }
 
@@ -161,7 +160,6 @@ impl Runtime {
         module: &crate::bytecode::BytecodeModule,
         resource_name: Option<&str>,
         metadata: Option<std::sync::Arc<super::RuntimeMetadata>>,
-        durable: Option<&RetainSnapshot>,
     ) -> Result<(), RuntimeError> {
         use std::sync::Arc;
         use trust_runtime_core::vm::PreparedModule;
@@ -220,12 +218,9 @@ impl Runtime {
         );
         services.set_register_configuration(self.state.register_configuration());
         services.restore_execution_deadline(self.state.services().deadline_state());
-        let (state, events) = self.state.prepare_replacement(
-            prepared,
-            resource,
-            services,
-            durable.map(|snapshot| &snapshot.inner),
-        )?;
+        let (state, events) = self
+            .state
+            .prepare_replacement(prepared, resource, services)?;
         let mut candidate = Self::from_owned_with_metadata(
             state,
             metadata,

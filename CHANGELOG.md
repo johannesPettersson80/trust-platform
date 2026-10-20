@@ -6,6 +6,17 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Changed: an online change keeps the retained values the running program holds and applies no
+  retain file or checkpoint over them, on a computer and on a chip, as CODESYS and TwinCAT do: the
+  file holds older values and stays the source of a warm restart after a stop or a power loss.
+  Before, a retained value that changed after the last save went back to the saved value, and a
+  retain file that could not be read refused the change. A chip's change therefore keeps only its
+  working memory free (8,192 bytes on the ESP32-C6); the check of an install still keeps room for
+  the newest checkpoint.
+- Changed: the tasks of a program that an online change installs continue the running program's
+  schedule, so the first scan after the change runs the tasks that are due. Before, every task's
+  interval started again at the change, so the first scan after it ran no task and the outputs that
+  the program assigns showed their initial values for a cycle.
 - Added: every program has a memory figure, the bytes of memory it holds while it runs, which the
   runtime computes when it prepares the program: the prepared program, its persistent variables, the
   activation stack for its deepest call chain, the operand stack, the engine's own state and, when

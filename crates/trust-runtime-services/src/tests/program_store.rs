@@ -276,6 +276,8 @@ struct CheckpointState {
     bytes: Vec<u8>,
     /// The programs and erases that reached the flash.
     writes: usize,
+    /// The reads that reached the flash.
+    reads: usize,
 }
 
 /// The fake checkpoint flash, with the C6's units, shared with the handle a loop owns.
@@ -288,6 +290,7 @@ impl CheckpointProbe {
         Self(Rc::new(RefCell::new(CheckpointState {
             bytes: vec![0xff; 2 * CHECKPOINT_SLOT_BYTES as usize],
             writes: 0,
+            reads: 0,
         })))
     }
 
@@ -303,13 +306,21 @@ impl CheckpointProbe {
             .expect("the checkpoint log opens")
             .append(IDENTITY, &payload)
             .expect("the checkpoint is written");
-        probe.0.borrow_mut().writes = 0;
+        let mut state = probe.0.borrow_mut();
+        state.writes = 0;
+        state.reads = 0;
+        drop(state);
         probe
     }
 
     /// The programs and erases that reached the flash since the checkpoint was written.
     pub(crate) fn writes(&self) -> usize {
         self.0.borrow().writes
+    }
+
+    /// The reads that reached the flash since the checkpoint was written.
+    pub(crate) fn reads(&self) -> usize {
+        self.0.borrow().reads
     }
 
     /// Flips the lowest bit of the byte at `offset` of the first slot, as damage does.
@@ -332,7 +343,8 @@ impl CheckpointFlash for CheckpointProbe {
     }
 
     fn read(&mut self, slot: Slot, offset: u32, bytes: &mut [u8]) -> Result<(), FlashError> {
-        let state = self.0.borrow();
+        let mut state = self.0.borrow_mut();
+        state.reads += 1;
         let base = Self::slot_base(slot) + offset as usize;
         bytes.copy_from_slice(&state.bytes[base..base + bytes.len()]);
         Ok(())

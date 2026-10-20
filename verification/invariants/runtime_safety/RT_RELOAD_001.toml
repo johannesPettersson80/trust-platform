@@ -5,7 +5,7 @@ area = "runtime_safety"
 risk = "silent_corruption"
 status = "gap_open"
 owner = "trust-runtime"
-last_reviewed = "2026-07-28"
+last_reviewed = "2026-10-20"
 claim = "Online change and hot reload must not leave live runtime state partially applied or inconsistent with status."
 proof_level = "S0"
 contract_kind = "state_machine"
@@ -30,13 +30,13 @@ kind = "trust_contract"
 ref = "SPEC_RUNTIME_ENGINE_001"
 
 [[behavior]]
-partition = { equals = "RETAIN_LOAD_FAILURE_PRESERVES_LIVE_RUNTIME" }
+partition = { equals = "RETAIN_STORE_NOT_READ_BY_ONLINE_CHANGE" }
 case_family = "persistence_or_recovery"
 oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction"
-outcome = "reject"
+outcome = "accept_value"
 no_partial_apply = true
-delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
-rationale = "Retained-state preparation completes before the live bytecode, storage, scan counter, or debug mutation state can be replaced."
+delta = { target = "unchanged", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An online change keeps the retained values the running program holds and reads no retain store (specification 34 section 11.3, decision OC-1), so a store whose load fails neither refuses the change nor changes the retained value; the committed change restarts the scan counter."
 
 [[behavior]]
 partition = { equals = "COMPLETED_SCAN_BOUNDARY_COMMIT" }

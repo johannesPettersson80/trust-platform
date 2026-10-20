@@ -124,13 +124,17 @@ fn an_online_change_keeps_a_retained_function_block_instance_of_a_congruent_cand
     // `kept` with `delta := DINT#2`: the same declarations with another body, which is congruent.
     // The program has run three scans, so `count` is 3. The candidate shows the live instance, with
     // `count` 3 (an instance built anew counts 0) and the reference reading it, and `total` and `runs`
-    // 3. It continues the lineage (generation 2) and keeps the logical time. Its scan at 40 ms runs
-    // the new body after the old program is gone: `count` 3 + 2 = 5, `total` 4, and `follow` reads
-    // 5. Wrong behaviour caught: a retained instance or reference that starts from its declared
-    // initial value, as a snapshot would give it (count 0, follow null); a candidate that keeps the
-    // old body; a candidate that borrows the old program's memory, which is freed before the scan.
-    let (hardware, reader) = Hardware::with_reader();
-    let mut loader = Esp32Loader::new(hardware, TestClock, MEMORY, room, reader);
+    // 3. It continues the lineage (generation 2) and keeps the logical time, and it carries the task's
+    // schedule (decision OC-2): a scan at 35 ms ran nothing, since the task last ran at 30 ms, and the
+    // change at 35 ms leaves the task due at 40 ms. Its scan at 40 ms runs the new body after the old
+    // program is gone: `count` 3 + 2 = 5, `total` 4, and `follow` reads 5. Wrong behaviour caught: a
+    // retained instance or reference that starts from its declared initial value, as a snapshot would
+    // give it (count 0, follow null); a candidate that keeps the old body; a candidate that borrows the
+    // old program's memory, which is freed before the scan; a schedule that starts again at the
+    // change, which makes the task wait until 45 ms (`count` still 3 at 40 ms): the period of every
+    // output would stretch at each change.
+    let hardware = Hardware::erased();
+    let mut loader = Esp32Loader::new(hardware, TestClock, MEMORY, room);
     let mut platform = platform();
     let Loaded {
         cycle: mut running, ..
@@ -141,10 +145,14 @@ fn an_online_change_keeps_a_retained_function_block_instance_of_a_congruent_cand
             RestartMode::Cold,
         )
         .expect("the program loads");
-    for at in [10, 20, 30] {
+    for at in [10, 20, 30, 35] {
         scan(&mut running, at);
     }
-    assert_eq!(count(running.storage()), Some(Value::DInt(3)));
+    assert_eq!(
+        count(running.storage()),
+        Some(Value::DInt(3)),
+        "35 ms ran nothing"
+    );
     assert_eq!(followed(running.storage()), Some(Value::DInt(3)));
 
     let mut candidate = loader
@@ -154,7 +162,6 @@ fn an_online_change_keeps_a_retained_function_block_instance_of_a_congruent_cand
     drop(running);
 
     let mut cycle = candidate.cycle;
-    cycle.reset_task_timing(Duration::from_millis(30));
     assert!(candidate.events.is_empty());
     assert_eq!(cycle.generation(), Generation::FIRST.next().unwrap());
     assert_eq!(
@@ -169,7 +176,11 @@ fn an_online_change_keeps_a_retained_function_block_instance_of_a_congruent_cand
     );
     assert_eq!(cycle.storage().get_global("total"), Some(&Value::DInt(3)));
     scan(&mut cycle, 40);
-    assert_eq!(count(cycle.storage()), Some(Value::DInt(5)), "the new body");
+    assert_eq!(
+        count(cycle.storage()),
+        Some(Value::DInt(5)),
+        "the new body, on the carried schedule"
+    );
     assert_eq!(followed(cycle.storage()), Some(Value::DInt(5)));
     assert_eq!(cycle.storage().get_global("total"), Some(&Value::DInt(4)));
 }
@@ -184,8 +195,8 @@ fn an_identity_taken_before_an_online_change_is_stale_after_it() {
     // change is resolved in it. Wrong behaviour caught: a candidate that starts the first generation
     // again (the stale references would read the new state, and could name an unrelated instance), and
     // Live Values that stay in the first generation (every instance force would be refused).
-    let (hardware, reader) = Hardware::with_reader();
-    let mut loader = Esp32Loader::new(hardware, TestClock, MEMORY, room, reader);
+    let hardware = Hardware::erased();
+    let mut loader = Esp32Loader::new(hardware, TestClock, MEMORY, room);
     let mut platform = platform();
     let Loaded {
         cycle: mut running, ..
@@ -256,8 +267,8 @@ fn an_online_change_that_cannot_keep_a_retained_live_object_is_refused_as_on_a_c
     // was: generation 1, `count` 2 and the scan at 30 ms counting on to 3. Wrong behaviour caught: a
     // chip that resets the retained instance to its initial value instead of refusing, and a refusal
     // that disturbs the running program.
-    let (hardware, reader) = Hardware::with_reader();
-    let mut loader = Esp32Loader::new(hardware, TestClock, MEMORY, room, reader);
+    let hardware = Hardware::erased();
+    let mut loader = Esp32Loader::new(hardware, TestClock, MEMORY, room);
     let mut platform = platform();
     let Loaded {
         cycle: mut running, ..

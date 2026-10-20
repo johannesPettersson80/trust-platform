@@ -1,4 +1,6 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError};
+use std::sync::Arc;
 use std::time::{Duration as StdDuration, Instant};
 
 use trust_runtime::error::RuntimeError;
@@ -395,13 +397,15 @@ END_PROGRAM
     assert_numeric_output(&harness, "count", 10);
 }
 
-#[derive(Debug)]
-struct SnapshotRetainStore {
+/// A retain store that holds `snapshot` and counts the loads of it.
+struct CountingRetainStore {
     snapshot: RetainSnapshot,
+    loads: Arc<AtomicUsize>,
 }
 
-impl RetainStore for SnapshotRetainStore {
+impl RetainStore for CountingRetainStore {
     fn load(&self) -> Result<RetainSnapshot, RuntimeError> {
+        self.loads.fetch_add(1, Ordering::SeqCst);
         Ok(self.snapshot.clone())
     }
 
@@ -411,12 +415,65 @@ impl RetainStore for SnapshotRetainStore {
 }
 
 #[test]
+fn hot_reload_keeps_the_running_retained_values_and_reads_no_retain_store() {
+    // Specification 11 §6.7.1 and specification 34 §11.3 (decision OC-1): an online change keeps
+    // the retained values that the running program holds, and reads no retain store: the store
+    // holds older values, and stays the source of a restart after a stop or a power loss. The
+    // running program holds `g_ret` 30 and `p_ret` 50; the store holds 5 and 6 for them. After the
+    // change the candidate holds 30 and 50, and the store was never loaded. Wrong behaviour caught:
+    // a change that loads the store (one load, or a refusal when the load fails) and applies its
+    // older values over the running ones (5 and 6).
+    let source = r#"
+CONFIGURATION Conf
+VAR_GLOBAL RETAIN
+    g_ret : INT := 1;
+END_VAR
+PROGRAM P1 : Main;
+END_CONFIGURATION
+
+PROGRAM Main
+VAR RETAIN
+    p_ret : INT := 3;
+END_VAR
+END_PROGRAM
+"#;
+    let mut harness = vm_harness(source);
+    harness.set_input("g_ret", Value::Int(30));
+    harness.set_input("p_ret", Value::Int(50));
+    let mut stored = RetainSnapshot::default();
+    stored.insert("g_ret", Value::Int(5));
+    stored.insert("@program/P1/p_ret", Value::Int(6));
+    let loads = Arc::new(AtomicUsize::new(0));
+    harness.runtime_mut().set_retain_store(
+        Some(Box::new(CountingRetainStore {
+            snapshot: stored,
+            loads: Arc::clone(&loads),
+        })),
+        None,
+    );
+
+    let bytes = bytecode_bytes_from_source(source).expect("build bytecode");
+    harness
+        .runtime_mut()
+        .apply_online_change_bytes(&bytes, None)
+        .expect("apply online change");
+
+    assert_numeric_output(&harness, "g_ret", 30);
+    assert_numeric_output(&harness, "p_ret", 50);
+    assert_eq!(loads.load(Ordering::SeqCst), 0, "the store is not read");
+}
+
+#[test]
 fn hot_reload_retain_migration_failure_preserves_live_runtime() {
+    // Specification 11 §6.7.1: a candidate whose declaration of a retained variable cannot take
+    // the value that the running program holds refuses the change, and the running program runs
+    // on. The running program holds `limited` 100, which its `INT` takes; the candidate declares
+    // `limited : INT(0..10)`, so the value migrated by name is outside its subrange.
     let source_v1 = r#"
 CONFIGURATION Conf
 RESOURCE R ON CPU
 VAR_GLOBAL RETAIN
-    limited : INT(0..10) := INT#0;
+    limited : INT := INT#0;
 END_VAR
 TASK T (INTERVAL := T#1ms, PRIORITY := 0);
 PROGRAM P1 WITH T : Main;
@@ -460,14 +517,7 @@ END_PROGRAM
     assert_eq!(program_numeric_output(&harness, "P1", "marker"), 1);
     assert_eq!(harness.runtime().cycle_counter(), 1);
 
-    let mut invalid_snapshot = RetainSnapshot::default();
-    invalid_snapshot.insert("limited", Value::Int(100));
-    harness.runtime_mut().set_retain_store(
-        Some(Box::new(SnapshotRetainStore {
-            snapshot: invalid_snapshot,
-        })),
-        None,
-    );
+    harness.set_input("limited", Value::Int(100));
 
     let bytes_v2 = bytecode_bytes_from_source(source_v2).expect("build bytecode v2");
     let error = harness

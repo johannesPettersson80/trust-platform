@@ -22,7 +22,6 @@ use core::ptr::NonNull;
 
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::MonotonicClock;
-use trust_runtime_core::retain::RetainSnapshot;
 use trust_runtime_core::vm::{PreparedModule, RetainApplyEvent};
 use trust_runtime_services::runner::engine::{
     CycleSettings, DeviceServices, EngineCycle, ProcessIo,
@@ -69,10 +68,9 @@ impl<C: MonotonicClock + 'static> ProgramMemory<C> {
     /// Builds the program of `module` that replaces the running program `running`, built from the
     /// running program's own state by the engine's replacement
     /// ([`EngineCycle::replacement`](trust_runtime_services::runner::engine::EngineCycle::replacement)),
-    /// over the process I/O `io` and the settings `settings`, with the saved snapshot `durable` applied
-    /// over its retained values. The returned cycle owns the module and the services, has no checkpoint
-    /// store, and lets the debugger hold its scans as [`start`](Self::start) does. The running program
-    /// is unchanged and keeps its memory: the candidate holds no borrow of it.
+    /// over the process I/O `io` and the settings `settings`. The returned cycle owns the module and the
+    /// services, has no checkpoint store, and lets the debugger hold its scans as [`start`](Self::start)
+    /// does. The running program is unchanged and keeps its memory: the candidate holds no borrow of it.
     ///
     /// Returns the cycle with the retained values that its construction dropped or migrated.
     ///
@@ -85,10 +83,9 @@ impl<C: MonotonicClock + 'static> ProgramMemory<C> {
         services: DeviceServices<C>,
         io: I,
         settings: CycleSettings,
-        durable: Option<&RetainSnapshot>,
     ) -> Result<(ProgramCycle<C, I>, Vec<RetainApplyEvent>), RuntimeError> {
         Self::build(module, services, |module, services| {
-            running.replacement(module, services, io, settings, durable)
+            running.replacement(module, services, io, settings)
         })
     }
 

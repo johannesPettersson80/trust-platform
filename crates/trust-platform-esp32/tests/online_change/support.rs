@@ -180,18 +180,21 @@ pub struct Hardware {
 }
 
 impl Hardware {
-    /// Hardware over an erased flash, with a read-only handle on its checkpoint slots for the loader.
-    pub fn with_reader() -> (Self, Box<dyn CheckpointFlash>) {
-        let owner = FlashOwner::new(RamFlash::erased());
-        let reader = owner
-            .checkpoint_reader()
-            .expect("the checkpoint slots have a geometry");
-        (
-            Self {
-                owner,
-                claims: PinClaims::default(),
-            },
-            Box::new(reader),
+    /// Hardware over an erased flash.
+    pub fn erased() -> Self {
+        Self {
+            owner: FlashOwner::new(RamFlash::erased()),
+            claims: PinClaims::default(),
+        }
+    }
+
+    /// A handle on the checkpoint slots that only reads, as the firmware gives the check of an
+    /// install.
+    pub fn reader(&self) -> Box<dyn CheckpointFlash> {
+        Box::new(
+            self.owner
+                .checkpoint_reader()
+                .expect("the checkpoint slots have a geometry"),
         )
     }
 

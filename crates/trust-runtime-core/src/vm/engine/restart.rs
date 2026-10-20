@@ -70,8 +70,12 @@ impl EngineState<'_> {
     ///   snapshot can hold are copied by name. Any other replacement migrates a snapshot of this
     ///   installation's retained values by name, and refuses the change when a retained live object
     ///   or reference cannot be serialized into one.
-    /// - The process images and the logical time are carried over, and `durable`, the saved
-    ///   snapshot of the platform's retain store, is applied over all of it.
+    /// - The process images and the logical time are carried over, and the replacement's tasks
+    ///   continue this installation's schedule: a task of the same name keeps its last activation,
+    ///   the level of its event input and its overruns, so the first cycle after the change runs the
+    ///   tasks that are due (specification 34 §11.3, decision OC-2).
+    /// - No retain file or checkpoint is applied: it holds older values than the program does, and
+    ///   stays the source of a restart after a stop or a power loss (decision OC-1).
     ///
     /// Nothing of this installation changes, whether the replacement is built or refused. The
     /// replacement holds no borrow of this installation: it is built from copies.
@@ -86,7 +90,6 @@ impl EngineState<'_> {
         prepared: &'b PreparedModule,
         resource_index: usize,
         services: &'b dyn ExecutionServices,
-        durable: Option<&crate::retain::RetainSnapshot>,
     ) -> Result<(Box<EngineData>, Vec<super::RetainApplyEvent>), RuntimeError> {
         let generation = self.next_generation()?;
         let congruent = warm_graph_congruent(self.prepared, prepared);
@@ -114,7 +117,8 @@ impl EngineState<'_> {
             },
         )?;
         let mut candidate = EngineState::borrow(&mut data, prepared, services);
-        let mut events = if congruent {
+        candidate.carry_task_schedule(self);
+        let events = if congruent {
             candidate.restore_retained_program_values(self)?;
             Vec::new()
         } else {
@@ -124,21 +128,34 @@ impl EngineState<'_> {
                     .ok_or(RuntimeError::InvalidExecutionState)?,
             )?
         };
-        if let Some(snapshot) = durable {
-            let restored = candidate.apply_retained_snapshot(snapshot)?;
-            candidate.charge_allocation_bytes(
-                restored
-                    .len()
-                    .checked_mul(core::mem::size_of::<super::RetainApplyEvent>())
-                    .ok_or(RuntimeError::Overflow)?,
-            )?;
-            events
-                .try_reserve_exact(restored.len())
-                .map_err(|_| RuntimeError::Overflow)?;
-            events.extend(restored);
-        }
         candidate.check_entry_deadline()?;
         Ok((data, events))
+    }
+
+    /// Give each task of this replacement the scheduling state of `source`'s task of the same name,
+    /// IEC names compared without regard to ASCII case: its last activation, the level of its event
+    /// input and its overruns. A task that `source` does not have keeps the state construction gave
+    /// it, which counts its first activation from now (specification 34 §11.3, decision OC-2).
+    fn carry_task_schedule(&mut self, source: &EngineState<'_>) {
+        for (index, task) in self.data.resource.tasks.iter().enumerate() {
+            let Some(name) = self.prepared.vm.strings.get(task.name_idx as usize) else {
+                continue;
+            };
+            let running = source.data.resource.tasks.iter().position(|old| {
+                source
+                    .prepared
+                    .vm
+                    .strings
+                    .get(old.name_idx as usize)
+                    .is_some_and(|old| old.eq_ignore_ascii_case(name))
+            });
+            if let (Some(state), Some(old)) = (
+                self.data.tasks.get_mut(index),
+                running.and_then(|old| source.data.tasks.get(old)),
+            ) {
+                state.clone_from(old);
+            }
+        }
     }
 
     pub(super) fn restore_retained_program_values(

@@ -400,12 +400,12 @@ impl RuntimeState<'_> {
     /// lifetime and which need not outlive this state, and it holds no borrow of this installation.
     /// It continues this installation's lineage with the next generation, so a reference or an
     /// instance identity taken before it is refused as stale after it (MEM-07, UPDATE-04). The
-    /// logical time and the process images are carried over. A replacement that declares the same
-    /// retained storage keeps the retained function-block instances and references live; any other
-    /// migrates a snapshot of the retained values by name, and is refused when a retained live
-    /// object cannot be serialized into one. `durable`, the saved snapshot of the platform's retain
-    /// store, is applied over it. This installation is unchanged if any preparation, initializer or
-    /// snapshot fails.
+    /// logical time and the process images are carried over, and its tasks continue this
+    /// installation's schedule. A replacement that declares the same retained storage keeps the
+    /// retained function-block instances and references live; any other migrates a snapshot of the
+    /// retained values by name, and is refused when a retained live object cannot be serialized into
+    /// one. No retain file or checkpoint is applied (specification 34 §11.3, decisions OC-1 and
+    /// OC-2). This installation is unchanged if any preparation, initializer or snapshot fails.
     ///
     /// This is the body of `OwnedRuntimeState::prepare_replacement`: a computer's hosted state and
     /// a chip's borrowed state replace their program by the same rules (specification 34 §11.3).
@@ -418,11 +418,10 @@ impl RuntimeState<'_> {
         prepared: &'b PreparedModule,
         resource_index: usize,
         services: &'b dyn ExecutionServices,
-        durable: Option<&crate::retain::RetainSnapshot>,
     ) -> Result<(RuntimeState<'b>, Vec<super::RetainApplyEvent>), RuntimeError> {
         let (data, events) =
             self.engine()
-                .prepare_replacement_data(prepared, resource_index, services, durable)?;
+                .prepare_replacement_data(prepared, resource_index, services)?;
         Ok((
             RuntimeState {
                 data,

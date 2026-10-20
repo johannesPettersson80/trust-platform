@@ -292,8 +292,8 @@ fn a_write_by_identity_after_a_warm_restart_reaches_the_variable() {
     // Wrong behaviour caught: Live Values that keep the generation of the program's first start, which
     // tag the force with generation 0, so the scan refuses it as stale, withdraws it and leaves `count`
     // at its own value; a loop that gives the Live Values a generation that is not the program's.
-    let (hardware, reader) = Hardware::with_reader();
-    let mut loader = Esp32Loader::new(hardware, TestClock, MEMORY, room, reader);
+    let hardware = Hardware::erased();
+    let mut loader = Esp32Loader::new(hardware, TestClock, MEMORY, room);
     let mut platform = platform();
     let record = Configuration {
         cycle_interval_nanos: 10_000_000,
@@ -360,8 +360,8 @@ fn a_chip_that_boots_warm_gives_its_live_values_the_generation_of_its_program() 
     // program gives its Live Values the program's generation. Wrong behaviour caught: Live Values that
     // stay in generation 0 while the program is in generation 1, which refuse every force by instance
     // identity on a chip that booted warm, until the next restart in place.
-    let (hardware, reader) = Hardware::with_reader();
-    let mut loader = Esp32Loader::new(hardware, TestClock, MEMORY, room, reader);
+    let hardware = Hardware::erased();
+    let mut loader = Esp32Loader::new(hardware, TestClock, MEMORY, room);
     let mut platform = platform();
     let record = configuration(RetainMode::File, Vec::new());
     let Loaded { cycle, .. } = loader
