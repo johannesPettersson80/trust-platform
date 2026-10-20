@@ -5,7 +5,7 @@
 use crate::error::RuntimeError;
 use alloc::{collections::BTreeMap, vec::Vec};
 
-/// Read-only portable POU lookup, with ascending artifact-ID iteration.
+/// Portable POU lookup, with ascending artifact-ID iteration; only preparation changes a payload.
 #[derive(Debug)]
 pub struct PouMap<V> {
     index: BTreeMap<u32, usize>,
@@ -104,7 +104,8 @@ impl<V> PouMap<V> {
         self.index.iter().map(|(id, &at)| (id, &self.values[at]))
     }
 
-    #[cfg(test)]
+    /// Mutable lookup by a sparse artifact identity: preparation gives the overloaded timers'
+    /// parameters their native duration slot here (specification 34 §6.2).
     pub(crate) fn get_mut(&mut self, id: &u32) -> Option<&mut V> {
         let at = *self.index.get(id)?;
         self.values.get_mut(at)

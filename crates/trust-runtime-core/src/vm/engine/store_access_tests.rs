@@ -1,5 +1,5 @@
 //! Tests of the store-access seam's writes through a runtime state (specification 34 §6.2, MEM-10;
-//! C1-9c, R1). The state holds the cell arm in these tests: the engine builds that arm from C1-9d.
+//! C1-9c, R1). The state holds the cell arm in these tests, the engine's default store (C1-19d).
 
 use super::EngineStore;
 use crate::memory::cell_access::CellArm;
@@ -24,7 +24,12 @@ fn runtime_state_writes_reach_the_store_it_holds() {
     let mut state = prepared
         .instantiate(0)
         .expect("the GPIO fixture instantiates");
-    let values_before = state.storage().get_global("probe_depth").cloned();
+    let values_before = state
+        .engine_parts()
+        .0
+        .storage
+        .get_global("probe_depth")
+        .cloned();
     let cells = CellStorage::construct(&prepared, Generation::FIRST, |_| Ok(()))
         .expect("the persistent region reserves");
     let (data, _) = state.engine_parts_mut();
@@ -39,7 +44,12 @@ fn runtime_state_writes_reach_the_store_it_holds() {
         .map(|view| StoreAccess::materialize(&state, &view));
     assert!(matches!(read, Some(Ok(Value::Int(2)))));
     assert_eq!(
-        state.storage().get_global("probe_depth").cloned(),
+        state
+            .engine_parts()
+            .0
+            .storage
+            .get_global("probe_depth")
+            .cloned(),
         values_before
     );
 }

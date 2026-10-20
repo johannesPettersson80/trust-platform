@@ -1119,8 +1119,8 @@ and the work of computing them are charged once at preparation, under the admitt
 A region's cells are only recorded at preparation, not charged: construction charges them when it
 reserves the region, so no storage is counted twice and the refusal points of large programs do not
 move. A program whose layout tables and other preparation demand exceed those limits is refused at
-preparation, never at run time. Only a state built on the cell store reads the layouts at run time, and
-none is by default, so stored values, outputs and faults are unchanged.
+preparation, never at run time. Every state is built on the cell store, which reads the layouts at
+run time (checklist C1-19d); stored values, outputs and faults are those of the value store.
 
 **The flat store.** The bounded value store is MEM-12's flat blocks: a variable's bytes at its
 declared size and alignment, read and written as the type of its layout says, little-endian on every
@@ -1170,6 +1170,14 @@ characters are counted and read from its code units in place without building a 
 character outside the Basic Multilingual Plane, which a `WCHAR` cannot hold, reads as none, as it
 does for a `Value`.
 
+**The default store.** Every runtime keeps a program's variables in the flat store (checklist
+C1-19d). The storage a computer's tools read whole, the debugger's copy of the storage, its tests and
+the services that read variables by name, is the value store's form of the flat store: every global
+and every instance read from the blocks into one storage when it is first read after a change, and
+kept until the next change. On a computer, construction reads every value of the blocks back once
+and refuses a store it cannot read, so that the storage can always be shown (decision O3 (a)); a
+chip shows no such storage and does not read its values back.
+
 **Value conversion.** An engineering write converts a `Value` of a prepared type into its layout's
 bytes — checking the whole value before it writes a byte and allocating nothing, keeping every
 scalar's exact bits, every enumeration's value as its base type, and every structure member, array
@@ -1181,6 +1189,15 @@ materializes the same `Value` again and a member-and-index path resolves to its 
 the same layout (C1-10). `Value::Null` writes zero bytes, and zero bytes read as the type's zero
 value, except an instance leaf that names no instance and an unbound native counter slot, which read
 as `Value::Null`.
+
+**Overloaded timers.** STBC declares the `PT` and `ET` of an overloaded `TP`, `TON` or `TOF` as
+`TIME`, yet a call may give them `LTIME`, and `PT` determines the family of `ET` (specification 08
+§5). Preparation therefore gives these two variables of each such template the native duration slot
+(checklist C1-19d), as the generic counters have their slot on the wire (specification 12 §11.5.4):
+16 bytes at alignment 8, the duration's nanoseconds and a byte for the family it was written with,
+which holds a `TIME` or an `LTIME` value and reads as `TIME` 0, the default its template declares,
+until a call writes it. The explicit `*_TIME` and `*_LTIME` blocks keep their declared types, and a
+program's STBC is unchanged.
 
 **MEM-11.** Document scalar slots, compound regions, frame/local/temporary reuse, initialization scratch, and copy/drop ownership. Select one bounded representation for hosts and MCUs with application-sized capacities. Scope A/B may retain `SmolStr`/`IndexMap`/`Arc` values under a bounded bring-up heap on F401/C6, recording every remaining scan allocation and refcount/destruction cost; this cannot qualify ARCH-05. Implement measured narrow storage improvements before first hardware evidence where needed. Complete atomic-reference-count retirement and bounded compound copying in M3; only then require optional C3/IMC support. Avoid a throwaway value model solely to pass M1. Retain failed fit evidence and the mandatory fixture. [R24, R30, R31] The selected representation is MEM-12's flat blocks at declared sizes (owner, 19 October 2026).
 
@@ -1511,7 +1528,9 @@ inputs its call bound and a return value its caller supplied move into them, the
 initializers of its other variables are written there, every read and write of its variables reaches
 them through the store, its return value is read from them, and after it returns its outputs are
 copied back from them, before any other frame takes the bytes. A compiler scratch slot, which has no
-declared type, stays a value of the frame. A function block or class instance that a call creates
+declared type, stays a value of the frame. So does an `ARRAY[*]` parameter, which has no bytes of its
+own: each call gives it the shape of its actual argument (specification 12 §6.3; IEC 61131-3
+§6.5.3), so the frame holds that argument as its value (checklist C1-19d). A function block or class instance that a call creates
 for a variable of its frame lies on the stack too, above the frame (checklist C1-11c): each level of
 its inheritance chain in a range of that level's own variables, zeroed and then given their declared
 constants, and the instances those variables hold above it. It leaves the stack when the frame that
@@ -1519,7 +1538,8 @@ owns it ends, and construction reserves a record for each instance the stack can
 created while no call runs, such as the one an engineering entry runs, stays a value. A reference
 that a frame's variable or an instance on the stack holds lies in its leaf (checklist C1-19c4): a
 flat one in the leaf's 16 bytes, any other in the activation stack's reference table, which takes
-an entry for each reference leaf of a frame or an instance when it takes its bytes and drops them
+an entry for each reference leaf of a frame or an instance, each element of an array included
+(checklist C1-19d), when it takes its bytes and drops them
 when it leaves the stack, the paths of the references they held going back to the engine's buffers;
 construction reserves the table for the reference leaves of the largest frame and the instances its
 variables hold, on every call level. The

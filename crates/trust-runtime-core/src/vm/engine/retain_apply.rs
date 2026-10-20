@@ -477,6 +477,7 @@ fn scalar_compatible(primitive: u16, value: &Value) -> bool {
             | (25, Value::WString(_))
             | (26, Value::Char(_))
             | (27, Value::WChar(_))
+            | (0x0101, Value::Time(_) | Value::LTime(_))
     )
 }
 

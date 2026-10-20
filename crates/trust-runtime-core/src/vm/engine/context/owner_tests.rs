@@ -12,7 +12,8 @@ fn fixture() -> (
         crate::vm::PreparationLimits::default(),
     )
     .unwrap();
-    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    let mut data =
+        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     // A private three-node hierarchy makes every sorted identity search non-power-of-two.
     data.storage = VariableStorage::new();
     data.construction.instance_templates = Default::default();

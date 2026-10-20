@@ -451,9 +451,12 @@ mod tests {
             crate::vm::PreparationLimits::default(),
         )
         .unwrap();
-        let mut state_data =
-            EngineState::construct_data(&prepared, 0, &super::super::super::services::LOGICAL_ONLY)
-                .unwrap();
+        let mut state_data = EngineState::construct_values_data(
+            &prepared,
+            0,
+            &super::super::super::services::LOGICAL_ONLY,
+        )
+        .unwrap();
         let mut state = EngineState::borrow(
             &mut state_data,
             &prepared,
@@ -510,9 +513,12 @@ mod tests {
             crate::vm::PreparationLimits::default(),
         )
         .unwrap();
-        let mut data =
-            EngineState::construct_data(&prepared, 0, &super::super::super::services::LOGICAL_ONLY)
-                .unwrap();
+        let mut data = EngineState::construct_values_data(
+            &prepared,
+            0,
+            &super::super::super::services::LOGICAL_ONLY,
+        )
+        .unwrap();
         let Some(Value::Instance(program)) = data.storage.get_global("Plant") else {
             panic!("program")
         };

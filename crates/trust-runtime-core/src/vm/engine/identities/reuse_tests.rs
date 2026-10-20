@@ -138,7 +138,8 @@ fn assert_refused(state: &mut EngineState<'_>, stale: &ValueRef) {
 #[test]
 fn scans_run_past_the_activation_identity_limit_and_follow_the_a4_trace() {
     let prepared = prepared();
-    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    let mut data =
+        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let persistent = data.storage.instances().len();
     let installed_roots = roots(&data.storage);
     // One activation identity is left. Each task activation takes four: Main, the Counter
@@ -175,7 +176,8 @@ fn scans_run_past_the_activation_identity_limit_and_follow_the_a4_trace() {
 #[test]
 fn engineering_entries_reissue_the_identities_the_entry_before_them_released() {
     let prepared = prepared();
-    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    let mut data =
+        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let persistent = data.storage.instances().len();
     let installed_roots = roots(&data.storage);
     // No activation identity and one instance identity are left. Each entry reserves an
@@ -224,7 +226,7 @@ fn a_local_reference_from_a_finished_entry_never_resolves_after_its_identity_is_
         .get(&prepared.vm.strings, "COUNTER")
         .unwrap();
     let observer = Observer::default();
-    let mut data = EngineState::construct_data(&prepared, 0, &observer).unwrap();
+    let mut data = EngineState::construct_values_data(&prepared, 0, &observer).unwrap();
     let mut state = EngineState::borrow(&mut data, &prepared, &observer);
     // The first task activation (A4 trace, 30 ms) runs the Advance method below Main. A
     // debugger that inspected it holds a reference to the method's return slot.

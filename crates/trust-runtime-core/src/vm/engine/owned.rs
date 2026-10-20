@@ -43,6 +43,9 @@ pub struct OwnedRuntimeState<S: ExecutionServices> {
     pub(super) data: Box<EngineData>,
     pub(super) prepared: Arc<PreparedModule>,
     pub(super) services: S,
+    /// The storage projected from the flat store for [`OwnedRuntimeState::storage`], made on first
+    /// use and dropped by every mutation (C1-19d).
+    pub(super) projection: core::cell::OnceCell<Box<VariableStorage>>,
 }
 
 impl PreparedModule {
@@ -65,6 +68,7 @@ impl PreparedModule {
             data,
             prepared: self,
             services,
+            projection: core::cell::OnceCell::new(),
         })
     }
 }
@@ -139,6 +143,9 @@ impl<S: ExecutionServices> OwnedRuntimeState<S> {
     }
 
     fn engine(&mut self) -> EngineState<'_> {
+        // Every mutation reaches the state through here, so the projection of the storage is
+        // dropped (C1-19d).
+        self.projection.take();
         EngineState::borrow(&mut self.data, &self.prepared, &self.services)
     }
 
@@ -158,9 +165,10 @@ impl<S: ExecutionServices> OwnedRuntimeState<S> {
         self.data.resource_index
     }
 
-    /// Inspect variables without an unrestricted mutable storage escape.
+    /// Inspect variables without an unrestricted mutable storage escape: the storage as the value
+    /// store holds it, projected from the flat store and kept until the next mutation (C1-19d).
     pub fn storage(&self) -> &VariableStorage {
-        &self.data.storage
+        EngineState::projected_storage(&self.data, &self.prepared, &self.projection)
     }
     /// Inspect the installed date/time profile without mutating the type/schema.
     pub fn profile(&self) -> &crate::value::DateTimeProfile {
@@ -356,6 +364,7 @@ impl<S: ExecutionServices> OwnedRuntimeState<S> {
                 data,
                 prepared,
                 services,
+                projection: core::cell::OnceCell::new(),
             },
             events,
         ))

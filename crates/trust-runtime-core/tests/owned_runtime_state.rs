@@ -406,13 +406,13 @@ fn instruction_observer_receives_read_only_current_state_during_the_common_dispa
             assert!(matches!(now.as_millis(), 30 | 60));
             assert!(storage.get_global("Plant").is_some());
             assert_eq!(frame.pou_id(), Some(pou));
+            // On the flat store a typed local lies on the activation stack, so each is read
+            // where it lies (`StatementFrame::local`); the frame's own entry for it is `Null`.
             if pou == self.method
                 && frame.activation().is_some()
-                && frame.locals().get(self.delta_slot) == Some(&Value::Int(1))
-                && frame
-                    .locals()
-                    .iter()
-                    .any(|value| matches!(value, Value::Reference(Some(_))))
+                && frame.local(self.delta_slot) == Ok(Value::Int(1))
+                && (0..frame.locals().len())
+                    .any(|slot| matches!(frame.local(slot), Ok(Value::Reference(Some(_)))))
             {
                 assert!(frame.runtime_instance().is_some());
                 self.locals_seen.fetch_add(1, Ordering::SeqCst);

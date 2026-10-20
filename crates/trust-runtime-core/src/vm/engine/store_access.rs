@@ -940,4 +940,25 @@ impl EngineData {
             EngineStore::Cells(arm) => Routed::Cells(CellReader::new(prepared, arm, &self.storage)),
         }
     }
+
+    /// Move the next instance identity of the store this record holds, so that a test reaches the
+    /// identity limit without issuing 2^32 identities: the flat store issues the identities of its
+    /// instances, the `Value` half those of the instances it keeps.
+    #[cfg(any(test, feature = "test-support"))]
+    pub(super) fn set_next_instance_id_for_test(&mut self, next: u32) {
+        self.storage.set_next_instance_id_for_test(next);
+        if let EngineStore::Cells(arm) = &mut self.store {
+            arm.cells_mut().set_next_instance_id_for_test(next);
+        }
+    }
+
+    /// Move the installation generation of the store this record holds, so that a test reaches the
+    /// last generation without 2^32 installations.
+    #[cfg(test)]
+    pub(super) fn set_generation_for_test(&mut self, generation: crate::memory::Generation) {
+        self.storage.set_generation(generation);
+        if let EngineStore::Cells(arm) = &mut self.store {
+            arm.cells_mut().set_generation_for_test(generation);
+        }
+    }
 }

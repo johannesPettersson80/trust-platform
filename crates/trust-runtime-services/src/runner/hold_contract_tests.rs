@@ -102,12 +102,13 @@ fn depth_result(runner: &TestRunner<'_>) -> PlcValue {
         .expect("the program instance has depth_result")
 }
 
-/// The address of the storage of the loop's installed program.
+/// The address of the storage the loop's installed program lends its statement hooks, which a hold
+/// lends on rather than a copy.
 fn storage_address(runner: &TestRunner<'_>) -> usize {
     let Program::Installed(cycle) = &runner.cycle else {
         panic!("the board probe is installed");
     };
-    core::ptr::from_ref(cycle.engine().state().storage()).addr()
+    core::ptr::from_ref(cycle.engine().state().hook_storage()).addr()
 }
 
 /// Checks that the pass that ran the first scan waited for the second, as the tests assume.
@@ -153,10 +154,17 @@ fn a_held_scan_answers_status_and_variables_without_a_copy() {
     {
         let seen = Rc::clone(&seen);
         runner.shell().set_probe(move |view| {
+            // The hold lends the halted state: the storage the engine lent its hook and the frame,
+            // whose view of the flat store holds the globals and the program's instance. The
+            // debugger reads them at the stop (specification 11 §6.13.1, `storage_copy`).
+            let halted = view
+                .frame
+                .storage_copy(view.storage)
+                .expect("the halted state reads");
             seen.borrow_mut().push(Halted {
                 storage_address: core::ptr::from_ref(view.storage).addr(),
-                probe_depth: view.storage.get_global("probe_depth").cloned(),
-                depth_result: plant_var(view.storage, "depth_result"),
+                probe_depth: halted.get_global("probe_depth").cloned(),
+                depth_result: plant_var(&halted, "depth_result"),
                 pou_id: view.frame.pou_id(),
                 logical_nanos: view.logical_time.as_nanos(),
             });

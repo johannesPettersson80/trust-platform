@@ -2059,6 +2059,11 @@ The source producer uses it only for existing generic native-counter declaration
 ordinary unsupported generic source declarations remain rejected. Execution still
 requires A4's matching native import admission contract.
 
+The overloaded timers have no such slot on the wire: STBC declares the `PT` and
+`ET` of `TP`, `TON` and `TOF` as `TIME`, and preparation gives them the native
+duration slot, the internal primitive `0x0101`, which holds either duration
+family (specification 34 §6.2). `0x0101` is never valid in a TYPE_TABLE.
+
 #### 11.5.5 Native function-block state reservation
 
 Storage role 8 reserves an internal native FB state slot with a concrete declared

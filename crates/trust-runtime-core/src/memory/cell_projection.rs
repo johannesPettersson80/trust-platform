@@ -75,6 +75,31 @@ impl<'a> CellReader<'a> {
         Ok(storage)
     }
 
+    /// Read every global and every persistent instance into a value once, dropping each, so that a
+    /// store some value cannot be read from is refused at construction and
+    /// [`CellReader::project_storage`] cannot fail afterwards (C1-19d; decision O3 (a)).
+    ///
+    /// # Errors
+    ///
+    /// The error of a value that does not materialize, and
+    /// [`RuntimeError::InvalidExecutionState`] when the blocks and the module disagree.
+    #[cfg(feature = "std")]
+    pub(crate) fn check_materializes(self) -> Result<(), RuntimeError> {
+        let declared = self.prepared.declarations(StorageOwner::Global, None).len();
+        for ordinal in 0..declared {
+            if let Some((range, type_id, presence)) = self.global(ordinal) {
+                drop(self.view(range, type_id, presence).materialize()?);
+            }
+        }
+        for id in self.arm.cells.regions().instance_ids() {
+            drop(
+                self.snapshot_instance(id)
+                    .ok_or(RuntimeError::InvalidExecutionState)?,
+            );
+        }
+        Ok(())
+    }
+
     /// The view of slot `slot` of the frame of activation `id`, a frame of `pou`, when the frame lies
     /// on the activation stack and holds the slot there; `None` when the frame keeps the slot as a
     /// value (a compiler scratch slot, or a variable whose value holds a reference).

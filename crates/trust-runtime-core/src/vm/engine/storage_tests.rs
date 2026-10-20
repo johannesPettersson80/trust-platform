@@ -9,7 +9,8 @@ fn dynamic_string_index_charges_the_text_scan_before_extending_the_reference() {
         crate::vm::PreparationLimits::default(),
     )
     .unwrap();
-    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    let mut data =
+        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     data.storage
         .set_global("probe_depth", Value::String("abcdefgh".into()));
     let reference = data.storage.ref_for_global("probe_depth").unwrap();
@@ -47,7 +48,8 @@ fn dynamic_multidimensional_reference_growth_is_charged_before_allocation() {
         crate::vm::PreparationLimits::default(),
     )
     .unwrap();
-    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    let mut data =
+        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     // Isolate owned reference growth; full admitted dynamic execution is covered
     // separately by portable_register_parity and the source-free fixture.
     data.storage.set_global(
@@ -112,7 +114,8 @@ fn equal_length_reference_paths_charge_the_same_whatever_their_capacity() {
         crate::vm::PreparationLimits::default(),
     )
     .unwrap();
-    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    let mut data =
+        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     data.storage.set_global(
         "probe_depth",
         Value::Array(alloc::boxed::Box::new(
@@ -164,7 +167,8 @@ fn borrowed_dynamic_field_materialization_charges_the_new_owned_path() {
         crate::vm::PreparationLimits::default(),
     )
     .unwrap();
-    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    let mut data =
+        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     data.storage.set_global(
         "probe_depth",
         Value::Struct(alloc::sync::Arc::new(
@@ -230,10 +234,9 @@ fn reference_address_clones_are_charged_before_copying_a_static_path() {
         crate::value::RefSegment::Index(vec![1]),
     ];
     let index = module.refs.len() as u32;
-    module.refs.push(crate::vm::module::VmRef::Global {
-        offset: 0,
-        path: path.clone(),
-    });
+    module
+        .refs
+        .push(crate::vm::module::VmRef::Global { offset: 0, path });
     module.ref_types.push(None);
     let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
@@ -246,7 +249,14 @@ fn reference_address_clones_are_charged_before_copying_a_static_path() {
         index,
     )
     .unwrap();
-    assert_eq!(reference.path, path);
+    // On the flat store the static address of a variable that lies in the cells is a flat
+    // reference to it (specification 34 §6.3; C1-11d): its copied path is given back, and the copy
+    // is charged all the same, as the value store charges it (TIME-08).
+    assert!(matches!(
+        reference.location,
+        crate::memory::MemoryLocation::Flat { .. }
+    ));
+    assert!(reference.path.is_empty());
     // TIME-08 COPY: 3 path segments and 1 subscript, one 16-byte cell each: 4 x 16 = 64 bytes.
     assert_eq!(state.data.resources.construction_bytes.get(), 64);
     // TIME-08 COPY: materializing the static address copies 3 path segments and
@@ -354,7 +364,7 @@ fn four_deep_gpio_call_with_primitive_defaults_fits_admitted_storage() {
     )
     .unwrap();
     let mut state_data =
-        EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let mut state = EngineState::borrow(&mut state_data, &prepared, &services::LOGICAL_ONLY);
     let activation_capacity = state.data.storage.execution_frame_capacity();
     assert!(activation_capacity >= 8);
@@ -522,7 +532,7 @@ fn journal_growth_budget_failure_does_not_publish_snapshot_entries_or_writes() {
     )
     .unwrap();
     let mut state_data =
-        EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let state = EngineState::borrow(&mut state_data, &prepared, &services::LOGICAL_ONLY);
     let reference = state.data.storage.ref_for_global("probe_depth").unwrap();
     state.data.resources.output_journal = Some(destinations::SavedDestinations::new());
@@ -561,7 +571,7 @@ fn io_staging_capacity_failure_preserves_existing_bound_values_and_outputs() {
     )
     .unwrap();
     let mut state_data =
-        EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let mut state = EngineState::borrow(&mut state_data, &prepared, &services::LOGICAL_ONLY);
     let Some(Value::Instance(plant)) = state.data.storage.get_global("Plant") else {
         panic!("root");

@@ -15,6 +15,7 @@ use crate::memory::layout::{
     align_up, compute_type_layouts, ByteRange, ByteShape, InstanceTemplateLayout, LayoutRegion,
     TypeLayout, INSTANCE_ALIGN,
 };
+use crate::vm::type_policy::is_wildcard_dim;
 
 /// The layouts of one prepared module: one per TYPE_TABLE entry, plus the byte ranges of its
 /// globals, instance templates, POU locals and initializer results, and each declaration's byte
@@ -41,10 +42,16 @@ pub(crate) struct PreparedLayouts {
 
 impl PreparedLayouts {
     /// Compute every layout once, charged through the preparation budget.
+    ///
+    /// An instance variable lies in the template of the POU whose instances hold it: a method's
+    /// statics in the template of the POU that owns the method (`methods`), as the declaration
+    /// index groups them, so each receiver keeps its own (specification 12 §11.5: an instance
+    /// template includes the hidden method statics, whose ownership follows the method's owner).
     pub(crate) fn build(
         vm: &VmModule,
         layout: &StorageLayout,
         initializers: &InitializerIndex,
+        methods: &BTreeMap<u32, u32>,
         budget: &mut PreparationBudget,
     ) -> Result<Self, RuntimeError> {
         let charged_before = budget.usage();
@@ -99,6 +106,7 @@ impl PreparedLayouts {
             let (Some(pou), Some(type_id)) = (declaration.owner_pou_id, declaration.type_id) else {
                 continue;
             };
+            let pou = methods.get(&pou).copied().unwrap_or(pou);
             let shape = shape_of(&types, type_id)?;
             let cursor = own.entry(pou).or_insert(0);
             let start = align_up(*cursor, shape.align)?;
@@ -160,6 +168,10 @@ impl PreparedLayouts {
             };
             let (Some(pou), Some(type_id)) = (declaration.owner_pou_id, declaration.type_id) else {
                 continue;
+            };
+            let pou = match declaration.owner {
+                StorageOwner::Instance => methods.get(&pou).copied().unwrap_or(pou),
+                _ => pou,
             };
             let Some(type_layout) = types.get(type_id as usize).filter(|type_layout| {
                 declaration.owns_storage() && !type_layout.reference_leaves.is_empty()
@@ -661,13 +673,23 @@ impl PreparedModule {
     /// (specification 34 MEM-12; C1-11): its offset from the frame's first byte and its type. A
     /// variable whose value holds a reference lies there too, its references in the activation
     /// stack's reference table (C1-19c4); a compiler scratch slot, which has no type, stays a value
-    /// of the frame, so it has none.
+    /// of the frame, so it has none. So does an `ARRAY[*]` parameter: it has no bytes of its own,
+    /// and each call gives it the shape of its actual argument (specification 12 §6.3; IEC
+    /// 61131-3 §6.5.3), so the frame holds the argument's value (C1-19d).
     pub(crate) fn frame_slot(&self, pou: u32, slot: usize) -> Option<(u32, u32)> {
         let (id, declaration) = self.declaration(StorageOwner::Frame, Some(pou), slot)?;
         if !declaration.owns_storage() || declaration.owner_pou_id != Some(pou) {
             return None;
         }
         let type_id = declaration.type_id?;
+        let variable_length = self
+            .type_layout(type_id)?
+            .array
+            .as_ref()
+            .is_some_and(|array| array.dims.iter().copied().any(is_wildcard_dim));
+        if variable_length {
+            return None;
+        }
         Some((self.declaration_offset(id)?, type_id))
     }
 

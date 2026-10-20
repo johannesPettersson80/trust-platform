@@ -44,7 +44,8 @@ fn frame(slot: usize, initial: Value) -> VmFrame {
 }
 
 fn state_data(prepared: &PreparedModule) -> alloc::boxed::Box<super::super::super::EngineData> {
-    EngineState::construct_data(prepared, 0, &super::super::super::services::LOGICAL_ONLY).unwrap()
+    EngineState::construct_values_data(prepared, 0, &super::super::super::services::LOGICAL_ONLY)
+        .unwrap()
 }
 
 #[test]

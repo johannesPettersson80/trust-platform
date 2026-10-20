@@ -194,3 +194,24 @@ fn a_native_counter_slot_is_unbound_until_its_first_call() {
         Cell::UInt(40_000)
     );
 }
+
+/// Specification 34 §6.2 and specification 08 §5 (`PT` determines the output family): the native
+/// duration slot of an overloaded timer keeps the family a duration was written with. Worked by
+/// hand: 16 bytes; `LTIME` 5 ns is `05 00 00 00 00 00 00 00` and the family byte `01` at byte 8;
+/// `TIME` 7 ns is `07 00 .. 00` and `00`; the zeroed slot reads as `TIME` 0, the default its
+/// template declares. Catches a slot that drops the family, which made an overloaded `TON` given
+/// `LTIME` publish a `TIME` `ET`, and one that a `TIME` leaf's 8 bytes could not hold at all.
+#[test]
+fn a_native_duration_slot_keeps_the_family_it_was_written_with() {
+    let kind = LeafKind::Primitive(0x0101);
+    let mut slot = [0u8; 16];
+    assert_eq!(width(0x0101), 16);
+    assert_eq!(decode(kind, &slot).expect("decodes"), Cell::Time(0));
+    encode(kind, Cell::LTime(5), &mut slot).expect("encodes");
+    assert_eq!(&slot[..9], &[5, 0, 0, 0, 0, 0, 0, 0, 1]);
+    assert_eq!(decode(kind, &slot).expect("decodes"), Cell::LTime(5));
+    encode(kind, Cell::Time(7), &mut slot).expect("encodes");
+    assert_eq!(&slot[..9], &[7, 0, 0, 0, 0, 0, 0, 0, 0]);
+    assert_eq!(decode(kind, &slot).expect("decodes"), Cell::Time(7));
+    assert!(encode(kind, Cell::DInt(7), &mut slot).is_err());
+}

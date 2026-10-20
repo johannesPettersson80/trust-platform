@@ -37,6 +37,9 @@ pub struct RuntimeState<'a> {
     data: Box<EngineData>,
     prepared: &'a PreparedModule,
     services: &'a dyn ExecutionServices,
+    /// The storage projected from the flat store for [`RuntimeState::storage`], made on first use
+    /// and dropped by every mutation (C1-19d).
+    projection: core::cell::OnceCell<Box<VariableStorage>>,
 }
 
 impl PreparedModule {
@@ -55,17 +58,12 @@ impl PreparedModule {
             data: EngineState::construct_data(self, resource_index, services)?,
             prepared: self,
             services,
+            projection: core::cell::OnceCell::new(),
         })
     }
 
-    /// Construct as [`PreparedModule::instantiate_with_services`], holding the globals and the persistent
-    /// instances in the bounded cell store (specification 34 §6.2) instead of the `Value` tree.
-    ///
-    /// The cell store is not the default yet (C1-9d3 switches it). A program scans on it exactly as it
-    /// does on the `Value` store (C1-9d3a), but [`RuntimeState::storage`] shows only the `Value` half,
-    /// which holds neither the globals nor the persistent instances, until the compatibility cache of
-    /// C1-9d3b. This entry exists so that the tests of the store's own behaviour, such as the
-    /// retained-image capture and its allocation counts, can run on it from outside the crate.
+    /// Construct as [`PreparedModule::instantiate_with_services`]: on the flat store, which every
+    /// state holds its globals and persistent instances in since C1-19d.
     #[doc(hidden)]
     pub fn instantiate_on_cells_with_services<'a>(
         &'a self,
@@ -84,6 +82,7 @@ impl PreparedModule {
             )?,
             prepared: self,
             services,
+            projection: core::cell::OnceCell::new(),
         })
     }
 }
@@ -113,8 +112,9 @@ impl RuntimeState<'_> {
     /// identity limits without issuing 2^32 identities (specification 34 §4.3.1).
     #[cfg(feature = "test-support")]
     pub fn set_next_identities_for_test(&mut self, frame: u32, instance: u32) {
+        self.projection.take();
         self.data.storage.set_next_frame_id_for_test(frame);
-        self.data.storage.set_next_instance_id_for_test(instance);
+        self.data.set_next_instance_id_for_test(instance);
     }
 
     /// Enable execution telemetry using keys already reserved during installation.
@@ -167,6 +167,9 @@ impl RuntimeState<'_> {
     }
 
     fn engine(&mut self) -> EngineState<'_> {
+        // Every mutation reaches the state through here, or through `engine_parts_mut`, so the
+        // projection of the storage is dropped (C1-19d).
+        self.projection.take();
         EngineState::borrow(&mut self.data, self.prepared, self.services)
     }
 
@@ -183,10 +186,20 @@ impl RuntimeState<'_> {
     }
     /// The engine data and the prepared module the store-access seam writes through (C1-9c).
     pub(super) fn engine_parts_mut(&mut self) -> (&mut EngineData, &PreparedModule) {
+        self.projection.take();
         (&mut *self.data, self.prepared)
     }
-    /// Inspect variables without exposing an untyped mutation path.
+    /// Inspect variables without exposing an untyped mutation path: the storage as the value store
+    /// holds it, projected from the flat store and kept until the next mutation (C1-19d).
     pub fn storage(&self) -> &VariableStorage {
+        EngineState::projected_storage(&self.data, self.prepared, &self.projection)
+    }
+    /// The storage the engine lends its statement hooks with each frame: the value store, or on the
+    /// flat store its `Value` half, beside the frame's view of the blocks (C1-19d). A debugger hold
+    /// lends it rather than a copy (specification 11 §6.13.1), which the device tests check by its
+    /// address.
+    #[doc(hidden)]
+    pub fn hook_storage(&self) -> &VariableStorage {
         &self.data.storage
     }
     /// Read a declared resource-global scalar by value. `Ok(None)` when the program declares no
@@ -432,6 +445,7 @@ impl RuntimeState<'_> {
                 data,
                 prepared,
                 services,
+                projection: core::cell::OnceCell::new(),
             },
             events,
         ))

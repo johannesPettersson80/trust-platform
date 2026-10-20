@@ -92,7 +92,8 @@ pub enum FbParameterType {
     /// A counter's PV and CV: the width the variant's name gives, or the generic `ANY_INT`
     /// counter state of `CTU`, `CTD` and `CTUD` (specification 12 §11.5.4).
     Count,
-    /// A timer's PT and ET: TIME, or LTIME for the `_LTIME` variants.
+    /// A timer's PT and ET: TIME for the `_TIME` variants, LTIME for the `_LTIME` variants, and the
+    /// native duration slot of the overloaded `TP`, `TON` and `TOF` (specification 34 §6.2).
     Duration,
 }
 
@@ -198,12 +199,20 @@ pub fn function_block(name: &str) -> Option<FunctionBlockImport> {
         state: fbs::state::builtin_state_layout(kind),
         contract,
         count: count_primitive(name),
-        duration: if name.ends_with("_LTIME") {
-            LTIME
-        } else {
-            TIME
-        },
+        duration: duration_primitive(name),
     })
+}
+
+/// Duration family a timer variant's name gives; the overloaded timers hold either family in the
+/// native duration slot that preparation gives their `PT` and `ET` (specification 34 §6.2).
+fn duration_primitive(name: &str) -> u16 {
+    if name.ends_with("_LTIME") {
+        LTIME
+    } else if name.ends_with("_TIME") {
+        TIME
+    } else {
+        ANY_DURATION_STATE
+    }
 }
 
 /// Counter width a variant's name gives; the generic counters use the `ANY_INT` state.
@@ -233,6 +242,10 @@ const ULINT: u16 = 13;
 const TIME: u16 = 16;
 const LTIME: u16 = 17;
 const ANY_INT_STATE: u16 = 0x0100;
+/// The internal primitive of the native duration slot, which preparation gives the `PT` and `ET` of
+/// an overloaded `TP`, `TON` and `TOF`: a `TIME` or an `LTIME` value with its family (specification
+/// 34 §6.2). It is never valid in a `TYPE_TABLE` (specification 12 §11.5.4).
+pub(crate) const ANY_DURATION_STATE: u16 = 0x0101;
 
 const fn version_1(
     work: ImportWork,

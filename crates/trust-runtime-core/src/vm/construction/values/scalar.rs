@@ -36,6 +36,8 @@ pub(crate) fn default(primitive: u16, profile: DateTimeProfile) -> Result<Value,
         26 => Value::Char(0),
         27 => Value::WChar(0),
         0x0100 => Value::Null,
+        // An overloaded timer's duration starts as the `TIME` its template declares (spec 34 §6.2).
+        0x0101 => Value::Time(Duration::ZERO),
         _ => return Err(RuntimeError::TypeMismatch),
     })
 }
@@ -54,11 +56,7 @@ pub(in crate::vm) fn integer(value: &Value) -> Option<i128> {
     })
 }
 
-pub(in crate::vm) fn coerce(
-    primitive: u16,
-    max_length: u16,
-    value: Value,
-) -> Result<Value, RuntimeError> {
+pub(crate) fn coerce(primitive: u16, max_length: u16, value: Value) -> Result<Value, RuntimeError> {
     macro_rules! narrow {
         ($number:expr,$ty:ty,$variant:ident) => {
             <$ty>::try_from($number)
@@ -188,6 +186,7 @@ pub(in crate::vm) fn coerce(
             }
         }
         0x0100 if matches!(value, Value::Null) || integer(&value).is_some() => Ok(value),
+        0x0101 if matches!(value, Value::Time(_) | Value::LTime(_)) => Ok(value),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }

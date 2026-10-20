@@ -15,7 +15,8 @@ fn fixture() -> (
         crate::vm::PreparationLimits::default(),
     )
     .unwrap();
-    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    let mut data =
+        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     data.storage.set_global("journal_probe", Value::DInt(7));
     let reference = data.storage.ref_for_global("journal_probe").unwrap();
     data.resources.construction_bytes.set(0);

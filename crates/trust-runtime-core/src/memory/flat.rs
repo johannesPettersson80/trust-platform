@@ -39,6 +39,11 @@ pub enum LeafKind {
 /// The kind byte of a native counter slot (primitive `0x0100`) that no call has bound yet.
 const UNBOUND: u8 = 0;
 
+/// The family byte of a native duration slot (primitive `0x0101`, specification 34 §6.2): the
+/// duration was written as a `TIME`, as the zeroed default reads, or as an `LTIME`.
+const TIME_FAMILY: u8 = 0;
+const LTIME_FAMILY: u8 = 1;
+
 /// The first byte of a reference leaf (MEM-12): no reference, a reference its region's table holds,
 /// or a flat reference, whose block, offset and generation follow it in the leaf (C1-11d).
 const NULL_REFERENCE: u8 = 0;
@@ -294,6 +299,14 @@ fn decode_primitive(prim_id: u16, bytes: &[u8]) -> Result<Cell, RuntimeError> {
         }
         26 => Cell::Char(take::<1>(bytes, 0)?[0]),
         27 => Cell::WChar(u16::from_le_bytes(take(bytes, 0)?)),
+        0x0101 => {
+            let ticks = i64::from_le_bytes(take(bytes, 0)?);
+            if take::<1>(bytes, 8)?[0] == LTIME_FAMILY {
+                Cell::LTime(ticks)
+            } else {
+                Cell::Time(ticks)
+            }
+        }
         0x0100 => {
             if native_counter_bound(bytes) {
                 decode_native_counter(bytes)?
@@ -335,6 +348,14 @@ fn encode_primitive(prim_id: u16, cell: Cell, bytes: &mut [u8]) -> Result<(), Ru
         | (21, Cell::LTod(v))
         | (22, Cell::Dt(v))
         | (23, Cell::Ldt(v)) => put(bytes, 0, &v.to_le_bytes()),
+        (0x0101, Cell::Time(v)) => {
+            put(bytes, 0, &v.to_le_bytes())?;
+            put(bytes, 8, &[TIME_FAMILY])
+        }
+        (0x0101, Cell::LTime(v)) => {
+            put(bytes, 0, &v.to_le_bytes())?;
+            put(bytes, 8, &[LTIME_FAMILY])
+        }
         (0x0100, Cell::Null) => put(bytes, 0, &[0; 9]),
         (0x0100, cell) => {
             let kind = integer_kind(cell).ok_or(RuntimeError::TypeMismatch)?;

@@ -14,7 +14,8 @@ fn prepared() -> PreparedModule {
 #[test]
 fn a_restart_at_the_last_generation_is_refused_and_changes_nothing() {
     let prepared = prepared();
-    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    let mut data =
+        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     // Reaching the limit otherwise takes 2^32 - 1 restarts of one installation.
     data.storage.set_generation(Generation(u32::MAX - 1));
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
@@ -44,7 +45,7 @@ fn a_replacement_at_the_last_generation_is_refused_and_changes_nothing() {
     use alloc::sync::Arc;
     let prepared = Arc::new(prepared());
     let mut state = Arc::clone(&prepared).instantiate_owned(0).unwrap();
-    state.data.storage.set_generation(Generation(u32::MAX));
+    state.data.set_generation_for_test(Generation(u32::MAX));
     let held = state.storage().ref_for_global("probe_depth").unwrap();
     let globals = state.storage().globals().clone();
     let result = state.prepare_replacement(

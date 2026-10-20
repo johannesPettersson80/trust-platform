@@ -297,6 +297,7 @@ pub(super) fn primitive(id: u16) -> Result<TypeId, RuntimeError> {
         26 => TypeId::CHAR,
         27 => TypeId::WCHAR,
         0x0100 => TypeId::ANY_INT,
+        0x0101 => TypeId::ANY_DURATION,
         _ => return Err(RuntimeError::InvalidExecutionState),
     })
 }

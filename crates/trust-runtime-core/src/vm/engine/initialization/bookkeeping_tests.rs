@@ -71,7 +71,8 @@ fn a_trap_inside_an_initializer_returns_its_scratch() {
     )
     .unwrap();
     let mut data =
-        EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
+        EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            .unwrap();
     let Some(Value::Instance(program)) = data.storage.get_global("Plant") else {
         panic!("fixture program root");
     };

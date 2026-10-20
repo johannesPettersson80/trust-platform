@@ -167,18 +167,19 @@ impl EngineStore {
 }
 
 /// Which store [`EngineState::build`] constructs (specification 34 §6.2; C1-9d2b-1). The default is
-/// `Values`, today's store, until the cell store becomes the engine's default (C1-9d3).
+/// the cell store, the flat store (C1-19d); the `Value` store remains for the tests that compare the
+/// two until it is deleted (C1-19e).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 enum StoreKind {
-    /// Today's `Value` storage.
-    #[default]
+    /// The `Value` storage the engine kept before the flat store.
     Values,
     /// The cell store: charged, reserved once and filled by the construction steps.
+    #[default]
     Cells,
 }
 
 /// How [`EngineState::build`] constructs an application: the store it builds on and the date/time
-/// profile its defaults use (C1-9d2b-1). The default is the `Value` store with the default profile.
+/// profile its defaults use (C1-9d2b-1). The default is the cell store with the default profile.
 #[derive(Clone, Copy, Debug, Default)]
 struct Construction {
     store: StoreKind,
@@ -242,6 +243,26 @@ impl<'a> EngineState<'a> {
         services: &'a dyn ExecutionServices,
     ) -> Result<Box<EngineData>, RuntimeError> {
         Self::construct_data_with(prepared, resource_index, services, Construction::default())
+    }
+
+    /// The data of a state built on the `Value` store, for the unit tests of that store's own
+    /// behaviour, which seed and read its `Value` half directly, until the store is deleted
+    /// (C1-19d, C1-19e).
+    #[cfg(test)]
+    fn construct_values_data(
+        prepared: &'a PreparedModule,
+        resource_index: usize,
+        services: &'a dyn ExecutionServices,
+    ) -> Result<Box<EngineData>, RuntimeError> {
+        Self::construct_data_with(
+            prepared,
+            resource_index,
+            services,
+            Construction {
+                store: StoreKind::Values,
+                ..Construction::default()
+            },
+        )
     }
 
     /// [`Self::construct_data`] on the store and with the profile `construction` names (C1-9d2b-1).
@@ -452,8 +473,35 @@ impl<'a> EngineState<'a> {
         // that follows construction publishes again (IEC 61131-3 Ed.3 6.5.6; specification 11 6.7).
         state.publish_marker_image()?;
         state.check_entry_deadline()?;
+        // A computer's tools read the storage as a projection of the flat store, which must then
+        // never fail: construction reads every value back once and refuses a store it cannot read
+        // (C1-19d; decision O3 (a)). A chip shows no such projection.
+        #[cfg(feature = "std")]
+        if let store_access::Routed::Cells(reader) = state.data.routed(prepared) {
+            reader.check_materializes()?;
+        }
         state.data.construction_complete = true;
         Ok(data)
+    }
+
+    /// The storage as the value store holds it: the `Value` storage itself, or, on the flat store,
+    /// the projection of its blocks, made on first use and kept in `cache` until the next mutation
+    /// (C1-19d; the C1-9 note §5). Construction checked that every value reads back (O3 (a)).
+    fn projected_storage<'s>(
+        data: &'s EngineData,
+        prepared: &'s PreparedModule,
+        cache: &'s core::cell::OnceCell<Box<VariableStorage>>,
+    ) -> &'s VariableStorage {
+        match data.routed(prepared) {
+            store_access::Routed::Values(storage) => storage,
+            store_access::Routed::Cells(reader) => cache.get_or_init(|| {
+                Box::new(
+                    reader
+                        .project_storage()
+                        .expect("construction reads every value of the flat store back (O3)"),
+                )
+            }),
+        }
     }
 
     /// Charge the cell store's bytes, reserve it once, write the declared defaults of its leaves and make

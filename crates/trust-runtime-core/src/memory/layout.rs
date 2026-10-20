@@ -42,6 +42,10 @@ pub const INSTANCE_BYTES: u32 = 8;
 /// kind, since the slot keeps the caller's width and signedness.
 const ANY_INT_SLOT_BYTES: u32 = 16;
 
+/// Bytes of a native duration slot (primitive `0x0101`, specification 34 §6.2): the duration's
+/// nanoseconds and the family it was written with, `TIME` or `LTIME`.
+const ANY_DURATION_SLOT_BYTES: u32 = 16;
+
 /// The declared size and alignment of one value in a flat block (specification 34 MEM-12): the
 /// bytes it occupies and the power of two its offset is a multiple of.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -104,6 +108,10 @@ pub fn primitive_shape(prim_id: u16, length: u32) -> Result<ByteShape, RuntimeEr
         }
         0x0100 => ByteShape {
             bytes: ANY_INT_SLOT_BYTES,
+            align: 8,
+        },
+        0x0101 => ByteShape {
+            bytes: ANY_DURATION_SLOT_BYTES,
             align: 8,
         },
         _ => return Err(RuntimeError::TypeMismatch),
@@ -208,8 +216,9 @@ pub struct ArrayLayout {
 
 /// One type's prepared layout in a flat block (MEM-12).
 ///
-/// For an array, the text, reference and instance leaf offsets are within the first element and
-/// [`ArrayLayout::byte_stride`] locates later elements.
+/// For an array, the text and instance leaf offsets are within the first element and
+/// [`ArrayLayout::byte_stride`] locates later elements; its reference leaves list every element's,
+/// so that a block's table keeps an entry for each reference the value holds.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct TypeLayout {
     /// The declared size and alignment of one value of this type in a flat block (MEM-12).
@@ -220,7 +229,8 @@ pub struct TypeLayout {
     pub array: Option<ArrayLayout>,
     /// Text leaves, each with its byte capacity (D-C1-2).
     pub text_leaves: Vec<TextLeaf>,
-    /// Reference leaves.
+    /// Reference leaves: one for each reference a value of the type holds, every element of an
+    /// array included (none for an `ARRAY[*]`, which has no elements of its own).
     pub reference_leaves: Vec<ReferenceLeaf>,
     /// Instance leaves.
     pub instance_leaves: Vec<InstanceLeaf>,
@@ -388,7 +398,11 @@ impl Computation<'_> {
             }
             TypeData::Array { elem_type_id, dims } => {
                 let child = self.compute_child(*elem_type_id, depth)?;
+                // An `ARRAY[*]` lists no reference leaf, yet the argument it stands for may hold
+                // references, as its element type may.
+                layout.holds_reference_or_instance = child.holds_reference_or_instance;
                 array_from(&mut layout, child, dims)?;
+                (self.charge)(0, layout.reference_leaves.len())?;
             }
             TypeData::Struct { fields } => {
                 if let Some(backing_bytes) = (self.physical_backing)(id)? {
@@ -457,7 +471,7 @@ impl Computation<'_> {
                 };
             }
         }
-        layout.holds_reference_or_instance =
+        layout.holds_reference_or_instance |=
             !layout.reference_leaves.is_empty() || !layout.instance_leaves.is_empty();
         Ok(layout)
     }
@@ -655,8 +669,33 @@ fn array_from(
         byte_stride,
         dims: dims.to_vec(),
     });
+    // Each element's reference leaves, at the element's offset: the block's table keeps an entry
+    // for every reference the array holds (C1-19d).
+    let mut reference_leaves = Vec::new();
+    reference_leaves
+        .try_reserve_exact(
+            usize::try_from(count)
+                .ok()
+                .and_then(|count| count.checked_mul(child.reference_leaves.len()))
+                .ok_or(RuntimeError::Overflow)?,
+        )
+        .map_err(|_| RuntimeError::PreparationLimit)?;
+    for element in 0..count {
+        let start = u32::try_from(element)
+            .ok()
+            .and_then(|element| element.checked_mul(byte_stride))
+            .ok_or(RuntimeError::Overflow)?;
+        for leaf in &child.reference_leaves {
+            reference_leaves.push(ReferenceLeaf {
+                byte_offset: start
+                    .checked_add(leaf.byte_offset)
+                    .ok_or(RuntimeError::Overflow)?,
+                target_type_id: leaf.target_type_id,
+            });
+        }
+    }
     layout.text_leaves = child.text_leaves;
-    layout.reference_leaves = child.reference_leaves;
+    layout.reference_leaves = reference_leaves;
     layout.instance_leaves = child.instance_leaves;
     Ok(())
 }
@@ -772,3 +811,7 @@ fn array_count(dims: &[(i64, i64)]) -> Result<u64, RuntimeError> {
     }
     Ok(count)
 }
+
+#[cfg(test)]
+#[path = "layout/tests.rs"]
+mod tests;

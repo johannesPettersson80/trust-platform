@@ -463,7 +463,7 @@ mod tests {
         )
         .unwrap();
         let services = &super::super::services::LOGICAL_ONLY;
-        let mut data = EngineState::construct_data(&prepared, 0, services).unwrap();
+        let mut data = EngineState::construct_values_data(&prepared, 0, services).unwrap();
         // An explicit low-level storage fixture isolates the reader's accounting;
         // the hosted native test supplies real admitted STRING/WSTRING declarations.
         data.storage
@@ -512,7 +512,7 @@ mod tests {
         )
         .unwrap();
         let mut data =
-            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
         let state =
             EngineState::borrow(&mut data, &prepared, &super::super::services::LOGICAL_ONLY);

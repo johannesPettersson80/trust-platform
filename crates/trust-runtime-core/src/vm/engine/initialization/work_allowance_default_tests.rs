@@ -17,7 +17,8 @@ fn fixture() -> PreparedModule {
 #[test]
 fn instance_node_and_first_member_preflight_each_take_one_unit() {
     let prepared = fixture();
-    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    let mut data =
+        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let pou = prepared
         .layout
         .entries

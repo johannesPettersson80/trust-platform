@@ -13,7 +13,8 @@ fn call_path_aliased_output_writes_keep_one_snapshot_and_restore_after_a_later_f
     )
     .unwrap();
     let mut state_data =
-        EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
+        EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            .unwrap();
     let mut state = EngineState::borrow(
         &mut state_data,
         &prepared,

@@ -21,7 +21,7 @@ fn with_probe<T>(
     )
     .unwrap();
     let services = &super::super::services::LOGICAL_ONLY;
-    let mut data = EngineState::construct_data(&prepared, 0, services).unwrap();
+    let mut data = EngineState::construct_values_data(&prepared, 0, services).unwrap();
     data.storage.set_global("probe_depth", text);
     let reference = data.storage.ref_for_global("probe_depth").unwrap();
     data.resources.construction_bytes.set(0);
@@ -195,7 +195,7 @@ fn program_wstring_parent_copy_charges_its_bytes_with_its_unit() {
     )
     .unwrap();
     let services = &super::super::services::LOGICAL_ONLY;
-    let mut data = EngineState::construct_data(&prepared, 0, services).unwrap();
+    let mut data = EngineState::construct_values_data(&prepared, 0, services).unwrap();
     data.storage
         .set_global("probe_depth", Value::WString("αβγ".into()));
     let reference = data.storage.ref_for_global("probe_depth").unwrap();

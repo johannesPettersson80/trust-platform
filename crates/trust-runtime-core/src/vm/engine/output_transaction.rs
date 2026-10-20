@@ -385,7 +385,7 @@ mod tests {
         )
         .unwrap();
         let mut state_data =
-            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
         let mut state = EngineState::borrow(
             &mut state_data,
@@ -457,7 +457,7 @@ mod tests {
         )
         .unwrap();
         let mut state_data =
-            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
         let state = EngineState::borrow(
             &mut state_data,
@@ -501,7 +501,7 @@ mod tests {
         )
         .unwrap();
         let mut state_data =
-            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
         let mut state = EngineState::borrow(
             &mut state_data,
@@ -622,7 +622,7 @@ mod tests {
         )
         .unwrap();
         let mut state_data =
-            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
         let mut state = EngineState::borrow(
             &mut state_data,
@@ -700,7 +700,7 @@ mod tests {
         )
         .unwrap();
         let mut state_data =
-            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
         let mut state = EngineState::borrow(
             &mut state_data,

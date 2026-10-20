@@ -12,6 +12,7 @@ mod admission;
 mod budget;
 pub(crate) mod byte_types;
 pub(crate) mod call_plans;
+mod duration_slots;
 #[cfg(feature = "footprint")]
 mod footprint;
 mod indexes;
@@ -300,7 +301,7 @@ impl PreparedModule {
             }
         }
         vm.instruction_budget = limits.max_work;
-        let layout = match token.take_layout() {
+        let mut layout = match token.take_layout() {
             Some(value) => value,
             _ => {
                 return Err(invalid_bytecode(smol_str::SmolStr::new_static(
@@ -324,8 +325,31 @@ impl PreparedModule {
                 )))
             }
         };
-        let layouts =
-            layouts::PreparedLayouts::build(&vm, &layout, &initializers, &mut preparation)?;
+        // The overloaded timers' durations take the native duration slot before anything is laid
+        // out or admitted (specification 34 §6.2).
+        duration_slots::bind_duration_slots(&mut vm, &mut layout, &mut preparation)?;
+        // A method's instance variables belong to the POU that owns the method (its statics live in
+        // each receiver), so the layouts and the indexes read the same owners.
+        let mut method_owners = BTreeMap::new();
+        if let Some(SectionData::PouIndex(index)) = token.section(SectionId::PouIndex) {
+            for entry in &index.entries {
+                preparation.charge(0, 1)?;
+                if entry.kind == crate::bytecode::PouKind::Method
+                    && let Some(owner) = entry.owner_pou_id
+                {
+                    preparation
+                        .charge(0, 12 * (method_owners.len().max(1).ilog2() as usize + 1))?;
+                    method_owners.insert(entry.id, owner);
+                }
+            }
+        }
+        let layouts = layouts::PreparedLayouts::build(
+            &vm,
+            &layout,
+            &initializers,
+            &method_owners,
+            &mut preparation,
+        )?;
         let access = token.take_access().unwrap_or_default();
         let resources = token.take_resources().unwrap_or_default();
         let io = match token.section(SectionId::IoMap) {
@@ -361,19 +385,6 @@ impl PreparedModule {
         // Every built-in import must match its contract (spec 34 §5.2.1).
         let requires_wall_clock =
             admission::check_imports(&vm, &initializers, &layout, &mut preparation)?;
-        let mut method_owners = BTreeMap::new();
-        if let Some(SectionData::PouIndex(index)) = token.section(SectionId::PouIndex) {
-            for entry in &index.entries {
-                preparation.charge(0, 1)?;
-                if entry.kind == crate::bytecode::PouKind::Method
-                    && let Some(owner) = entry.owner_pou_id
-                {
-                    preparation
-                        .charge(0, 12 * (method_owners.len().max(1).ilog2() as usize + 1))?;
-                    method_owners.insert(entry.id, owner);
-                }
-            }
-        }
         let mut recipes = Vec::new();
         for (id, entry) in initializers.entries.iter().enumerate() {
             if let Some(type_id) = entry.recipe_type_id {

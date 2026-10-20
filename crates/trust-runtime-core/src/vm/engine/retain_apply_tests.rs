@@ -65,7 +65,7 @@ fn retained_snapshot() -> RetainSnapshot {
 }
 
 fn fresh(prepared: &PreparedModule) -> Box<EngineData> {
-    EngineState::construct_data(prepared, 0, &services::LOGICAL_ONLY).unwrap()
+    EngineState::construct_values_data(prepared, 0, &services::LOGICAL_ONLY).unwrap()
 }
 
 /// A constructed owner whose engineering counters start as `engineering_operation`

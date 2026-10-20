@@ -265,7 +265,7 @@ END_CONFIGURATION
             // Automatic-local initialization temporarily adds a private result
             // frame. Observe the ordinary body after its return store commits,
             // while all four actual POU invocations are still live.
-            if frame.call_stack().count() == 4 && frame.locals().first() == Some(&Value::Int(1)) {
+            if frame.call_stack().count() == 4 && matches!(frame.local(0), Ok(Value::Int(1))) {
                 let live_locals = frame.locals().to_vec();
                 let snapshot =
                     DebugSnapshot::from_execution(storage, now, &self.prepared, frame).unwrap();

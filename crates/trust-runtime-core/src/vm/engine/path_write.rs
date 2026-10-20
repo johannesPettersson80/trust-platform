@@ -251,7 +251,7 @@ mod tests {
         )
         .unwrap();
         let mut state_data =
-            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
         let mut state = EngineState::borrow(
             &mut state_data,
@@ -328,7 +328,7 @@ mod tests {
         )
         .unwrap();
         let mut state_data =
-            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
         let mut state = EngineState::borrow(
             &mut state_data,
@@ -421,7 +421,7 @@ mod tests {
             .initialize_physical_layout(layouts[1].clone())
             .unwrap();
         let mut data =
-            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
         let mut state =
             EngineState::borrow(&mut data, &prepared, &super::super::services::LOGICAL_ONLY);
@@ -544,7 +544,7 @@ mod tests {
             .initialize_physical_layout(layouts[1].clone())
             .unwrap();
         let mut data =
-            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
         data.storage
             .set_global("physical_probe", Value::Struct(Arc::new(physical)));
@@ -667,7 +667,7 @@ mod tests {
             .initialize_physical_layout(layouts[2].clone())
             .unwrap();
         let mut data =
-            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
         data.storage
             .set_global("probe", Value::Struct(Arc::new(physical)));

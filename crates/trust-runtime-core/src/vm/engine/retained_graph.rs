@@ -632,7 +632,8 @@ mod tests {
         // allocation point that is charged below it is outside this test.
         let live_bytes = {
             let prepared = retained_fixture();
-            let data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+            let data =
+                EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
             data.resources.construction_bytes.get()
         };
         // Raise the admitted construction limit one byte at a time until the warm
@@ -644,7 +645,7 @@ mod tests {
             let mut prepared = retained_fixture();
             prepared.limits.max_construction_bytes = limit;
             let mut data =
-                EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+                EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
             data.storage.set_global("probe_depth", Value::Int(99));
             let before = observe(&data);
             let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
@@ -894,7 +895,7 @@ mod tests {
         )
         .unwrap();
         let mut source_data =
-            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
         let source = EngineState::borrow(
             &mut source_data,
@@ -902,7 +903,7 @@ mod tests {
             &super::super::services::LOGICAL_ONLY,
         );
         let mut target_data =
-            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
         let mut target = EngineState::borrow(
             &mut target_data,
@@ -996,11 +997,11 @@ mod tests {
         prepared.layout.entries[declaration].type_id = Some(wstring_type);
         let imported_bytes = |value: Value| -> usize {
             let mut source_data =
-                EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+                EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
             source_data.storage.set_global(name.clone(), value);
             let source = EngineState::borrow(&mut source_data, &prepared, &services::LOGICAL_ONLY);
             let mut target_data =
-                EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+                EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
             target_data.construction.initialized_declarations = Default::default();
             target_data.resources.construction_bytes.set(0);
             target_data

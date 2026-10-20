@@ -55,7 +55,7 @@ fn struct_visit_costs_one_unit_for_the_node_and_one_for_each_field() {
 fn instance_visit_costs_one_unit_for_the_node_and_one_for_each_variable() {
     let prepared = prepared();
     let services = &super::super::services::LOGICAL_ONLY;
-    let mut data = EngineState::construct_data(&prepared, 0, services).unwrap();
+    let mut data = EngineState::construct_values_data(&prepared, 0, services).unwrap();
     let instance = data.storage.create_instance("Probe");
     assert!(data
         .storage
@@ -90,7 +90,7 @@ fn instance_visit_costs_one_unit_for_the_node_and_one_for_each_variable() {
 fn writability_check_of_a_scalar_global_draws_no_work() {
     let prepared = prepared();
     let services = &super::super::services::LOGICAL_ONLY;
-    let mut data = EngineState::construct_data(&prepared, 0, services).unwrap();
+    let mut data = EngineState::construct_values_data(&prepared, 0, services).unwrap();
     let reference = data.storage.ref_for_global("probe_depth").unwrap();
     let state = EngineState::borrow(&mut data, &prepared, services);
 
@@ -108,7 +108,7 @@ fn writability_check_of_a_scalar_global_draws_no_work() {
 fn staging_refusal_of_a_global_write_draws_no_work() {
     let prepared = prepared();
     let services = &super::super::services::LOGICAL_ONLY;
-    let mut data = EngineState::construct_data(&prepared, 0, services).unwrap();
+    let mut data = EngineState::construct_values_data(&prepared, 0, services).unwrap();
     let reference = data.storage.ref_for_global("probe_depth").unwrap();
     let before = data.storage.get_global("probe_depth").cloned();
     let (initializer_id, entry) = prepared

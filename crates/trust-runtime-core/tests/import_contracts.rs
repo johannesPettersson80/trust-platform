@@ -90,7 +90,9 @@ const FAMILIES: [(&str, &str, ImportWork, ImportAllocation); 8] = [
 ];
 
 /// IEC Tables 43 to 46: every standard function-block name, its implementation, and the
-/// STBC primitive ids of its counter value and its duration.
+/// STBC primitive ids of its counter value and its duration: the overloaded timers' duration is the
+/// native duration slot `0x0101` that preparation gives their `PT` and `ET` (specification 34
+/// §6.2), which holds either family as specification 08 §5 requires.
 const FUNCTION_BLOCKS: [(&str, BuiltinFbKind, u16, u16); 33] = [
     ("RS", BuiltinFbKind::Rs, 0x0100, 16),
     ("SR", BuiltinFbKind::Sr, 0x0100, 16),
@@ -116,9 +118,9 @@ const FUNCTION_BLOCKS: [(&str, BuiltinFbKind, u16, u16); 33] = [
     ("CTUD_LINT", BuiltinFbKind::Ctud, 9, 16),
     ("CTUD_UDINT", BuiltinFbKind::Ctud, 12, 16),
     ("CTUD_ULINT", BuiltinFbKind::Ctud, 13, 16),
-    ("TP", BuiltinFbKind::Tp, 0x0100, 16),
-    ("TON", BuiltinFbKind::Ton, 0x0100, 16),
-    ("TOF", BuiltinFbKind::Tof, 0x0100, 16),
+    ("TP", BuiltinFbKind::Tp, 0x0100, 0x0101),
+    ("TON", BuiltinFbKind::Ton, 0x0100, 0x0101),
+    ("TOF", BuiltinFbKind::Tof, 0x0100, 0x0101),
     ("TP_TIME", BuiltinFbKind::Tp, 0x0100, 16),
     ("TON_TIME", BuiltinFbKind::Ton, 0x0100, 16),
     ("TOF_TIME", BuiltinFbKind::Tof, 0x0100, 16),

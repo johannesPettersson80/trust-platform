@@ -461,7 +461,7 @@ mod tests {
         let prepared =
             PreparedModule::from_bytes(artifact, crate::vm::PreparationLimits::default()).unwrap();
         let mut data =
-            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
                 .unwrap();
         let reference = data.storage.ref_for_global("probe_depth").unwrap();
         data.resources.work_budget.reset(512);

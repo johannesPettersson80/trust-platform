@@ -253,6 +253,11 @@ pub(crate) fn primitive_value_matches(prim_id: u16, value: &Value) -> bool {
     if prim_id == 0x0100 {
         return matches!(value, Value::Null) || integer_value(value).is_some();
     }
+    // The native duration slot of an overloaded timer holds a duration of either family
+    // (specification 34 §6.2).
+    if prim_id == 0x0101 {
+        return matches!(value, Value::Time(_) | Value::LTime(_));
+    }
     matches!(
         (prim_id, value),
         (1, Value::Bool(_))

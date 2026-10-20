@@ -662,7 +662,7 @@ impl CellArm {
     }
 
     /// The cell store the arm reads and writes, mutably, for the tests.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn cells_mut(&mut self) -> &mut CellStorage {
         &mut self.cells
     }
@@ -1549,7 +1549,7 @@ impl<'a> CellReader<'a> {
                 Some((range, type_id, presence)) => self.walk(range, type_id, presence, path),
                 None => {
                     let index = self.values_global(offset).ok_or(VmTrap::NullReference)?;
-                    Ok(Target::Values(MemoryLocation::Global, index, path))
+                    self.values_target(MemoryLocation::Global, index, path)
                 }
             },
             MemoryLocation::Instance(instance) if self.arm.is_persistent(instance) => {
@@ -1560,7 +1560,7 @@ impl<'a> CellReader<'a> {
             }
             MemoryLocation::Local(id) => match self.frame_slot(id, offset) {
                 Some((range, type_id)) => self.walk(range, type_id, None, path),
-                None => Ok(Target::Values(location, offset, path)),
+                None => self.values_target(location, offset, path),
             },
             // A flat reference names its target's bytes and type (C1-11d).
             MemoryLocation::Flat {
@@ -1578,8 +1578,37 @@ impl<'a> CellReader<'a> {
                 };
                 self.walk(range, type_id, None, path)
             }
-            _ => Ok(Target::Values(location, offset, path)),
+            _ => self.values_target(location, offset, path),
         }
+    }
+
+    /// Where `path` leads from the slot `offset` of `location` in the `Value` half: a place of the
+    /// `Value` half, unless the path goes on into an instance the cells hold, whose members it is
+    /// then walked through (C1-19d). The `Value` half names such an instance in a program root,
+    /// which has no cells of its own, and in an initializer's staged result.
+    fn values_target<'p>(
+        self,
+        location: MemoryLocation,
+        offset: usize,
+        path: &'p [RefSegment],
+    ) -> Result<Target<'p>, VmTrap> {
+        let mut value = self.values.read_direct_slot_by_location(location, offset);
+        for (index, segment) in path.iter().enumerate() {
+            value = match (value, segment) {
+                (Some(Value::Instance(instance)), RefSegment::Field(name))
+                    if self.arm.instance(*instance).is_some() =>
+                {
+                    return self.field(*instance, name.as_str(), &path[index + 1..]);
+                }
+                (Some(Value::Struct(structure)), RefSegment::Field(name)) => structure.field(name),
+                (Some(Value::Array(array)), RefSegment::Index(indices)) => {
+                    array_offset_i64(array.dimensions(), indices)
+                        .and_then(|element| array.elements().get(element))
+                }
+                _ => break,
+            };
+        }
+        Ok(Target::Values(location, offset, path))
     }
 
     /// Walk `path` from the value of `type_id` at `range`, a declaration whose presence byte is at

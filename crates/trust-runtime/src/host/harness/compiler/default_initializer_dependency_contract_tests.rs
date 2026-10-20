@@ -554,3 +554,26 @@ END_PROGRAM
         &Value::Int(5)
     );
 }
+
+/// IEC 61131-3 §6.4.4.4.2: a subrange without an initializer starts at its first (lower) limit,
+/// held in its base type. A store that wrote the bound as a `LINT` refused the build; one that
+/// wrote zero would give `Signed` a value outside its range.
+#[test]
+fn default_initializer_subrange_starts_at_its_lower_limit_in_its_base_type() {
+    let runtime = runtime(&[(
+        "main.st",
+        r#"
+TYPE SignedWindow : INT(-5..12);
+END_TYPE
+VAR_GLOBAL
+    Signed : SignedWindow;
+    Level : UINT(3..9);
+END_VAR
+PROGRAM Main
+END_PROGRAM
+"#,
+    )]);
+
+    assert_eq!(int_global(&runtime, "Signed"), -5);
+    assert_eq!(global(&runtime, "Level"), &Value::UInt(3));
+}

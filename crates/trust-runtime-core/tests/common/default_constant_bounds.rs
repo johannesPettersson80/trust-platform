@@ -9,6 +9,11 @@ use trust_runtime_core::error::StableErrorCode;
 use trust_runtime_core::value::Value;
 use trust_runtime_core::vm::{PreparationLimits, PreparedModule};
 
+/// A construction allowance that admits the module of [`owned_default`] on the flat store, whose
+/// construction takes 42,959 bytes before the default is written (see
+/// `admitted_owned_constant_default_cannot_bypass_runtime_construction_bytes`).
+const SUFFICIENT_CONSTRUCTION_BYTES: usize = 65_536;
+
 pub(super) fn owned_default() -> BytecodeModule {
     let mut module = value_default_module();
     let SectionData::TypeTable(types) = module.section_mut(SectionId::TypeTable).unwrap() else {
@@ -128,7 +133,12 @@ fn admitted_owned_constant_default_cannot_bypass_runtime_construction_bytes() {
         error.stable_code(),
         StableErrorCode::RuntimeExecutionTimeout
     );
-    limits.max_construction_bytes = 32768;
+    // The flat store charges its block (16,434 bytes: the WSTRING[8192] leaf, 4 + 16,384 bytes,
+    // and its tables) and reserves the text a character write edits, the largest text the module
+    // declares at up to three UTF-8 bytes per code unit (24,580 bytes, specification 34 §6.3),
+    // above the 1,945 bytes of the rest of the execution scratch: 42,959 bytes before the default
+    // is written. 64 KiB admits the construction.
+    limits.max_construction_bytes = SUFFICIENT_CONSTRUCTION_BYTES;
     let prepared = PreparedModule::from_bytes(&bytes, limits).unwrap();
     let state = prepared
         .instantiate(0)
@@ -147,7 +157,7 @@ fn rejected_owned_default_replacement_preserves_the_installed_controller() {
     let bytes = owned_default().encode().unwrap();
     let limits = PreparationLimits {
         max_call_depth: 4,
-        max_construction_bytes: 32768,
+        max_construction_bytes: SUFFICIENT_CONSTRUCTION_BYTES,
         ..PreparationLimits::default()
     };
     let prepared = Arc::new(PreparedModule::from_bytes(&bytes, limits).unwrap());

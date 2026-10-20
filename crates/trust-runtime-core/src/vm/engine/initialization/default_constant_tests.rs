@@ -258,7 +258,8 @@ fn constant_default_charges_exact_clone_demand_and_cleans_rejected_staging() {
 #[test]
 fn member_default_preflight_cannot_strand_an_instance_or_lifetime_metadata() {
     let mut prepared = fixture();
-    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    let mut data =
+        EngineState::construct_values_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let declaration = prepared
         .layout
         .entries

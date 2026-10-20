@@ -198,7 +198,8 @@ fn initialized_marker_lookup_consumes_no_allowance_before_visibility_read() {
 
     let prepared = prepared();
     let mut data =
-        EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
+        EngineState::construct_values_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+            .unwrap();
     let (declaration, instance) = prepared
         .layout
         .entries

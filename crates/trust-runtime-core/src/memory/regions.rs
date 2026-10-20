@@ -23,7 +23,7 @@ use crate::memory::{
 };
 use crate::value::{DateTimeProfile, EnumValue, Value, ValueRef};
 use crate::vm::construction::values::scalar;
-use crate::vm::type_policy::{normalize_primitive_value, resolved_primitive_shape};
+use crate::vm::type_policy::resolved_primitive_shape;
 use crate::vm::PreparedModule;
 
 /// One frame on the activation stack (C1-11): its activation identity, its bytes and its POU,
@@ -694,9 +694,16 @@ impl CellStorage {
 
     /// Move the next instance identity, so that a test reaches the identity limit without issuing
     /// 2^32 identities.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn set_next_instance_id_for_test(&mut self, next: u32) {
         self.identities.next_instance_id = next;
+    }
+
+    /// Move the installation generation, so that a test reaches the last generation without 2^32
+    /// installations.
+    #[cfg(test)]
+    pub(crate) fn set_generation_for_test(&mut self, generation: Generation) {
+        self.identities.generation = generation;
     }
 }
 
@@ -1078,14 +1085,12 @@ fn default_leaf(
             lower,
             ..
         } => {
+            // The lower bound is a number; its base type is the primitive it lies as, so it is
+            // narrowed into that primitive as the value store's construction does.
             let (prim_id, max_length) =
                 resolved_primitive_shape(prepared.type_table(), *base_type_id, 0)
                     .ok_or(RuntimeError::TypeMismatch)?;
-            Some(normalize_primitive_value(
-                prim_id,
-                max_length,
-                Value::LInt(*lower),
-            )?)
+            Some(scalar::coerce(prim_id, max_length, Value::LInt(*lower))?)
         }
         TypeData::Enum { variants, .. } => {
             let variant = variants.first().ok_or(RuntimeError::TypeMismatch)?;
