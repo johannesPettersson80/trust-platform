@@ -348,6 +348,21 @@ pub(crate) fn checked_read_operand_with_counts(
 ) -> Result<Operand, RuntimeError> {
     if reads.get(register.index() as usize).copied() != Some(1) {
         charge_register_copy(runtime, registers, register)?;
+        // A reference a later read still needs is copied into path buffers the engine keeps, so
+        // its copy allocates nothing once the engine is warm (C1-10).
+        if let Operand::Value(Value::Reference(Some(reference))) = registers
+            .register(register.index() as usize)
+            .map_err(VmTrap::into_runtime_error)?
+            && !reference.path.is_empty()
+        {
+            let copy = crate::vm::dispatch_refs::owned_reference(&*runtime, reference.as_view())
+                .map_err(VmTrap::into_runtime_error)?;
+            count_read(reads, register)?;
+            runtime
+                .register_profile_mut()
+                .record_value_op(RegisterValueOpKind::RegisterReadClone);
+            return Ok(Operand::Value(Value::Reference(Some(copy))));
+        }
     }
     read_operand_with_counts(runtime.register_profile_mut(), registers, reads, register)
 }

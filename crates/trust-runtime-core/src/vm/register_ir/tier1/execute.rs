@@ -3,8 +3,11 @@ use super::super::operands::{
     compare_registers, compares_operands, load_constant_value, load_reference, move_register,
     settle_register_places, store_register,
 };
+use super::super::references::{load_through, store_dynamic, store_through};
+use super::super::registers::write_operand;
 use super::*;
 use crate::memory::view::StoreAccess;
+use crate::vm::dispatch_refs::dynamic_load_operand;
 
 #[allow(clippy::too_many_arguments)]
 pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
@@ -83,12 +86,10 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                     .register_profile_mut()
                     .record_ref_op(RegisterRefOpKind::LoadDynamic);
                 super::super::charge_instruction_cost_step(runtime, instruction_cost_steps, 2)?;
-                let value = dynamic_load_ref(runtime, frames, &reference)
-                    .map_err(VmTrap::into_runtime_error)?;
-                write_register(registers, *dest, value)?;
+                load_through(runtime, frames, registers, reference, *dest)?;
             }
             Tier1CompiledInstr::StoreSelfFieldDynamic { field, value } => {
-                settle_register_places(runtime, registers, None)?;
+                settle_register_places(runtime, registers, Some(*value))?;
                 super::super::charge_instruction_cost_step(runtime, instruction_cost_steps, 0)?;
                 let self_instance = current_self_instance(frames)?;
                 super::super::charge_instruction_cost_step(runtime, instruction_cost_steps, 1)?;
@@ -103,14 +104,15 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                     .register_profile_mut()
                     .record_ref_op(RegisterRefOpKind::StoreDynamic);
                 super::super::charge_instruction_cost_step(runtime, instruction_cost_steps, 2)?;
-                let value = checked_read_register_with_counts(
+                store_through(
                     runtime,
+                    module,
+                    frames,
                     registers,
                     remaining_register_reads,
+                    reference,
                     *value,
                 )?;
-                dynamic_store_ref(runtime, module, frames, &reference, value)
-                    .map_err(VmTrap::into_runtime_error)?;
             }
             Tier1CompiledInstr::Move { src, dest } => {
                 move_register(runtime, registers, remaining_register_reads, *src, *dest)?;
@@ -145,7 +147,9 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                     });
                 }
             }
-            Tier1CompiledInstr::Drop { register } => drop_register(registers, *register)?,
+            Tier1CompiledInstr::Drop { register } => {
+                drop_register(&*runtime, registers, *register)?
+            }
             Tier1CompiledInstr::LoadRef { dest, ref_idx } => {
                 runtime
                     .register_profile_mut()
@@ -225,31 +229,21 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                 runtime
                     .register_profile_mut()
                     .record_ref_op(RegisterRefOpKind::LoadDynamic);
+                // Tier-1 reads the reference where it lies; the load gives the stack's operand.
                 let reference = read_reference_register_ref(registers, *reference)?;
-                let value = dynamic_load_ref(runtime, frames, reference)
+                let operand = dynamic_load_operand(&*runtime, frames, reference)
                     .map_err(VmTrap::into_runtime_error)?;
-                write_register(registers, *dest, value)?;
+                write_operand(registers, *dest, operand)?;
             }
-            Tier1CompiledInstr::StoreDynamic { reference, value } => {
-                settle_register_places(runtime, registers, None)?;
-                runtime
-                    .register_profile_mut()
-                    .record_ref_op(RegisterRefOpKind::StoreDynamic);
-                let reference = checked_read_reference_register_with_counts(
-                    runtime,
-                    registers,
-                    remaining_register_reads,
-                    *reference,
-                )?;
-                let value = checked_read_register_with_counts(
-                    runtime,
-                    registers,
-                    remaining_register_reads,
-                    *value,
-                )?;
-                dynamic_store_ref(runtime, module, frames, &reference, value)
-                    .map_err(VmTrap::into_runtime_error)?;
-            }
+            Tier1CompiledInstr::StoreDynamic { reference, value } => store_dynamic(
+                runtime,
+                module,
+                frames,
+                registers,
+                remaining_register_reads,
+                *reference,
+                *value,
+            )?,
             Tier1CompiledInstr::Unary { op, src, dest } => {
                 let source = checked_read_register_with_counts(
                     runtime,

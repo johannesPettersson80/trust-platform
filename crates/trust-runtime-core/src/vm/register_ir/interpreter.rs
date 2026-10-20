@@ -3,6 +3,7 @@ use super::operands::{
     compare_registers, compares_operands, load_constant, load_reference, move_register,
     settle_register_places, store_register,
 };
+use super::references::{load_through, store_dynamic, store_through};
 use super::*;
 use crate::memory::view::StoreAccess;
 
@@ -132,12 +133,10 @@ pub(super) fn execute_register_block_interpreted_slice(
                 runtime
                     .register_profile_mut()
                     .record_ref_op(RegisterRefOpKind::LoadDynamic);
-                let value = dynamic_load_ref(runtime, frames, &reference)
-                    .map_err(VmTrap::into_runtime_error)?;
-                write_register(registers, *dest, value)?;
+                load_through(runtime, frames, registers, reference, *dest)?;
             }
             RegisterInstr::StoreSelfFieldDynamic { field_idx, value } => {
-                settle_register_places(runtime, registers, None)?;
+                settle_register_places(runtime, registers, Some(*value))?;
                 charge_instruction_cost_step(runtime, instruction_cost_steps, 0)?;
                 let self_instance = current_self_instance(frames)?;
                 charge_instruction_cost_step(runtime, instruction_cost_steps, 1)?;
@@ -153,14 +152,15 @@ pub(super) fn execute_register_block_interpreted_slice(
                 runtime
                     .register_profile_mut()
                     .record_ref_op(RegisterRefOpKind::StoreDynamic);
-                let value = checked_read_register_with_counts(
+                store_through(
                     runtime,
+                    module,
+                    frames,
                     registers,
                     remaining_register_reads,
+                    reference,
                     *value,
                 )?;
-                dynamic_store_ref(runtime, module, frames, &reference, value)
-                    .map_err(VmTrap::into_runtime_error)?;
             }
             RegisterInstr::Move { src, dest } => {
                 move_register(runtime, registers, remaining_register_reads, *src, *dest)?;
@@ -223,7 +223,7 @@ pub(super) fn execute_register_block_interpreted_slice(
                     });
                 }
             }
-            RegisterInstr::Drop { register } => drop_register(registers, *register)?,
+            RegisterInstr::Drop { register } => drop_register(&*runtime, registers, *register)?,
             RegisterInstr::SizeOfType { type_idx, dest } => {
                 let size = crate::vm::sizeof_type_from_table_with_abi(
                     module.types(),
@@ -323,30 +323,17 @@ pub(super) fn execute_register_block_interpreted_slice(
                     remaining_register_reads,
                     *reference,
                 )?;
-                let value = dynamic_load_ref(runtime, frames, &reference)
-                    .map_err(VmTrap::into_runtime_error)?;
-                write_register(registers, *dest, value)?;
+                load_through(runtime, frames, registers, reference, *dest)?;
             }
-            RegisterInstr::StoreDynamic { reference, value } => {
-                settle_register_places(runtime, registers, None)?;
-                runtime
-                    .register_profile_mut()
-                    .record_ref_op(RegisterRefOpKind::StoreDynamic);
-                let reference = checked_read_reference_register_with_counts(
-                    runtime,
-                    registers,
-                    remaining_register_reads,
-                    *reference,
-                )?;
-                let value = checked_read_register_with_counts(
-                    runtime,
-                    registers,
-                    remaining_register_reads,
-                    *value,
-                )?;
-                dynamic_store_ref(runtime, module, frames, &reference, value)
-                    .map_err(VmTrap::into_runtime_error)?;
-            }
+            RegisterInstr::StoreDynamic { reference, value } => store_dynamic(
+                runtime,
+                module,
+                frames,
+                registers,
+                remaining_register_reads,
+                *reference,
+                *value,
+            )?,
             RegisterInstr::Unary { op, src, dest } => {
                 let source = checked_read_register_with_counts(
                     runtime,

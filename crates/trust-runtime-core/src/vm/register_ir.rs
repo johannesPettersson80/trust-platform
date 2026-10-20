@@ -293,6 +293,7 @@ mod interpreter;
 mod lower;
 mod operands;
 mod profile;
+mod references;
 pub use configuration::RegisterExecutionConfiguration;
 mod registers;
 

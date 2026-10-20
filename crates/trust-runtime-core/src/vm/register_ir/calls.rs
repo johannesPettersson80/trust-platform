@@ -14,6 +14,7 @@ use crate::vm::call::prepare_native_call_planned;
 use crate::vm::dispatch::CallResult;
 use crate::vm::dispatch_refs::materialize_place;
 use crate::vm::dispatch_text::{run_text_call, text_call_at};
+use crate::vm::stack::Operand;
 
 /// What a native call leaves to the activation that runs it.
 pub(crate) enum CallStep {
@@ -151,14 +152,18 @@ fn read_call_operands(
 }
 
 /// Drop register `register`'s operand, as the stack's `POP` drops its top operand: a text's or a
-/// copy's room is given back (C1-20).
+/// copy's room is given back, and a reference's path goes back to the engine (C1-10, C1-20).
 pub(crate) fn drop_register(
+    runtime: &impl RegisterContext,
     registers: &mut OperandStack,
     register: RegisterId,
 ) -> Result<(), RuntimeError> {
-    registers
+    let operand = registers
         .take_register(register.index() as usize)
         .map_err(VmTrap::into_runtime_error)?;
+    if let Operand::Value(Value::Reference(Some(reference))) = operand {
+        runtime.recycle_reference_path(reference.path);
+    }
     registers.release_temps();
     Ok(())
 }
