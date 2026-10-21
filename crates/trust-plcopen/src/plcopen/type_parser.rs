@@ -404,7 +404,7 @@ fn normalize_derived_type_name(name: &str) -> Option<String> {
         }
     }
     let base = rest.trim();
-    if !is_valid_qualified_identifier(base) {
+    if !is_valid_qualified_identifier(base) && !is_sized_string_base(base) {
         return None;
     }
     if prefixes.is_empty() {
@@ -417,6 +417,32 @@ fn normalize_derived_type_name(name: &str) -> Option<String> {
     }
     out.push_str(base);
     Some(out)
+}
+
+/// Sized-string spelling fused into a derived name: `STRING(<expr>)` or
+/// `STRING[<expr>]` (WSTRING likewise). The grammar accepts both spellings
+/// with a full constant expression inside — including qualified names such
+/// as `STRING(GVLMqtt.uiLenMsgState)` — so the base passes through verbatim.
+/// A `;` never occurs in a real length expression: that is the fused
+/// multi-declaration export artifact, which stays rejected.
+fn is_sized_string_base(base: &str) -> bool {
+    let Some(open) = base.find(['(', '[']) else {
+        return false;
+    };
+    if !matches!(
+        base[..open].trim_end().to_ascii_uppercase().as_str(),
+        "STRING" | "WSTRING"
+    ) {
+        return false;
+    }
+    let close = if base[open..].starts_with('[') { ']' } else { ')' };
+    let Some(expr_end) = base[open + 1..].rfind(close) else {
+        return false;
+    };
+    let expr = base[open + 1..open + 1 + expr_end].trim();
+    !expr.is_empty()
+        && !expr.contains(';')
+        && base[open + 1 + expr_end + close.len_utf8()..].trim().is_empty()
 }
 
 fn is_valid_string_length(value: &str) -> bool {

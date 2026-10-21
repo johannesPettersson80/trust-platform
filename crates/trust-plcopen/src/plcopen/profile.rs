@@ -16,7 +16,7 @@ pub fn supported_profile() -> PlcopenProfile {
             "CODESYS addData/pouinheritance: FB EXTENDS/IMPLEMENTS clauses (import)",
             "CODESYS addData/datatypeinheritance: DUT TYPE x EXTENDS y (import)",
             "CODESYS project-level <Interface> objects (import)",
-            "CODESYS/e!COCKPIT derived names with REFERENCE TO / POINTER TO prefixes (import)",
+            "CODESYS/e!COCKPIT derived names with REFERENCE TO / POINTER TO prefixes, including sized-STRING bases (import)",
             "CODESYS addData/projectstructure folder mapping (import/export)",
             "pou/body/ST plain-text bodies (multi-worksheet import order preserved)",
             "addData/data[name=trust.sourceMap|trust.vendorExtensions|trust.exportAdapter]",

@@ -317,8 +317,11 @@ The supported XML type projection is exact and fail-closed:
   lengths are unsupported.
 - A derived type requires a nonblank identity. `REFERENCE TO x` and
   `POINTER TO x` prefixes fused into the derived name (stacking allowed)
-  project to the native pointer/reference declaration, with the base
-  validated as an identifier; any other non-identifier derived identity is
+  project to the native pointer/reference declaration; the base is either an
+  identifier or a sized-string spelling — `STRING(<expr>)` / `STRING[<expr>]`
+  (WSTRING likewise) passes through verbatim with its full constant
+  expression, so `REFERENCE TO STRING(GVLMqtt.uiLenMsgState)` imports as
+  written. Any other non-identifier derived identity is
   unsupported. An array requires at least one
   complete lower/upper dimension and a complete base type; dimensions retain
   source order and pass through verbatim as constant expressions (numeric

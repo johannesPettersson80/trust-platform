@@ -31,9 +31,31 @@ fn pointer_and_reference_derived_names_import_verbatim() {
         parse_type_fixture(r#"<type><derived name="REFERENCE TO POINTER TO WORD" /></type>"#),
         Some("REFERENCE TO POINTER TO WORD".to_string())
     );
+    // Sized-string bases pass through verbatim: the grammar accepts
+    // STRING(<expr>) and STRING[<expr>] with a full constant expression
+    // inside (s4 fbMqttPayload* shape).
+    assert_eq!(
+        parse_type_fixture(
+            r#"<type><derived name="REFERENCE TO STRING(GVLMqtt.uiLenMsgState)" /></type>"#
+        ),
+        Some("REFERENCE TO STRING(GVLMqtt.uiLenMsgState)".to_string())
+    );
+    assert_eq!(
+        parse_type_fixture(r#"<type><derived name="POINTER TO STRING(240)" /></type>"#),
+        Some("POINTER TO STRING(240)".to_string())
+    );
+    assert_eq!(
+        parse_type_fixture(r#"<type><derived name="POINTER TO WSTRING[cuiLen]" /></type>"#),
+        Some("POINTER TO WSTRING[cuiLen]".to_string())
+    );
     // A derived name that is not a projectable identifier still fails closed.
     assert_eq!(
         parse_type_fixture(r#"<type><derived name="REFERENCE TO" /></type>"#),
+        None
+    );
+    // The fused multi-declaration export artifact stays rejected.
+    assert_eq!(
+        parse_type_fixture(r#"<type><derived name="REFERENCE TO STRING(80); N2 : T2" /></type>"#),
         None
     );
 
@@ -86,6 +108,32 @@ fn pointer_and_reference_derived_names_import_verbatim() {
     assert!(
         gvl_source.contains("pLastEvent : REFERENCE TO stClickEvent;"),
         "GVL reference declarations must be carried verbatim:\n{gvl_source}"
+    );
+
+    // s4 fbMqttPayload* shape: pointer to a sized string whose length is a
+    // qualified constant expression — the construct that previously failed
+    // the FB closed (5 missing POUs).
+    let payload_fixture = dialect_fixture(
+        "pointer-sized-string",
+        r#"<pous>
+  <pou name="fbMqttPayloadLight" pouType="functionBlock">
+    <interface>
+      <localVars>
+        <variable name="pPayload">
+          <type><derived name="REFERENCE TO STRING(GVLMqtt.uiLenMsgState)" /></type>
+        </variable>
+      </localVars>
+    </interface>
+  </pou>
+</pous>"#,
+    );
+    let payload_report = payload_fixture.import().expect("import succeeds");
+    assert_eq!(payload_report.imported_pous, 1, "{:?}", payload_report.warnings);
+    let payload_source = payload_fixture.source("fbMqttPayloadLight.st");
+    assert!(
+        payload_source
+            .contains("pPayload : REFERENCE TO STRING(GVLMqtt.uiLenMsgState);"),
+        "sized-string reference must be carried verbatim:\n{payload_source}"
     );
 }
 

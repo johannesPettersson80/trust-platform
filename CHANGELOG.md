@@ -8,7 +8,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 - PLCopen import carries the CODESYS/e!COCKPIT dialect constructs that vendor
   projects rely on: `REFERENCE TO`/`POINTER TO` derived names import as native
-  pointer/reference declarations, `datatypeinheritance` emits `TYPE x EXTENDS y`,
+  pointer/reference declarations (including sized-string bases such as
+  `REFERENCE TO STRING(GVLMqtt.uiLenMsgState)`),
+  `datatypeinheritance` emits `TYPE x EXTENDS y`,
   `pouinheritance` puts `EXTENDS`/`IMPLEMENTS` on FUNCTION_BLOCK declarations,
   project-level `<Interface>` objects import as declaration-only `INTERFACE`
   blocks, `globalVars` container qualifiers (`retain`/`persistent`/`constant`)
@@ -33,6 +35,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   — OSCAT pins `TIMER_EXT.ON` / `FF_DRE.SET` and the `eChar.Null` member no
   longer need to be dropped. `NULL` stays the reference literal in value
   position and `ON` stays the `RESOURCE ... ON` separator.
+- The runtime harness compiler now honors the `RETAIN PERSISTENT` variable
+  section combination recorded in IEC_DECISIONS 2026-10-11 (persistent
+  storage implies retention, either spelling order). Duplicates,
+  `NON_RETAIN` combinations, and qualifiers beyond that pair stay rejected.
 
 - Share compact, lossless floating-point text codecs across runtime platforms,
   preserving both conversion directions and existing diagnostic spelling.
