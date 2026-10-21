@@ -45,10 +45,42 @@ impl SymbolCollector<'_> {
         scopes: &[Option<SmolStr>],
     ) -> Result<Option<i64>, ConstEvalError> {
         let mut guard = FxHashSet::default();
-        match self.try_eval_int_expr(node, scopes, &mut guard) {
+        match self.try_eval_int_expr(node, scopes, &mut guard, false) {
             Ok(value) => Ok(Some(value)),
             Err(ConstEvalError::NotConstant) => Ok(None),
             Err(err) => Err(err),
+        }
+    }
+
+    /// Declaration-size evaluation (string lengths, array dimension bounds):
+    /// the CODESYS vendor leniency lets the expression name a plain
+    /// initializer-backed variable, not only true constants
+    /// (IEC_DEVIATIONS 2026-10-21). Other const contexts must not use this.
+    pub(super) fn try_eval_declared_size_expr_in_scope(
+        &mut self,
+        node: &SyntaxNode,
+        scopes: &[Option<SmolStr>],
+    ) -> Result<Option<i64>, ConstEvalError> {
+        let mut guard = FxHashSet::default();
+        match self.try_eval_int_expr(node, scopes, &mut guard, true) {
+            Ok(value) => Ok(Some(value)),
+            Err(ConstEvalError::NotConstant) => Ok(None),
+            Err(err) => Err(err),
+        }
+    }
+
+    /// Reporting variant of `try_eval_declared_size_expr_in_scope`.
+    pub(super) fn eval_declared_size_expr_in_scope(
+        &mut self,
+        node: &SyntaxNode,
+        scopes: &[Option<SmolStr>],
+    ) -> Option<i64> {
+        match self.try_eval_declared_size_expr_in_scope(node, scopes) {
+            Ok(value) => value,
+            Err(err) => {
+                self.report_const_eval_error(err, node.text_range());
+                None
+            }
         }
     }
 
@@ -57,6 +89,7 @@ impl SymbolCollector<'_> {
         node: &SyntaxNode,
         scopes: &[Option<SmolStr>],
         guard: &mut FxHashSet<(Option<SmolStr>, SmolStr)>,
+        declared: bool,
     ) -> Result<i64, ConstEvalError> {
         match node.kind() {
             SyntaxKind::Literal => {
@@ -70,6 +103,20 @@ impl SymbolCollector<'_> {
                     let scope = Some(qualified_name_string(&parts[..parts.len() - 1]));
                     let resolved =
                         self.try_resolve_const_value_for_scope(name.as_str(), &scope, guard);
+                    if declared
+                        && matches!(
+                            resolved,
+                            Err(ConstEvalError::UndefinedName(_))
+                                | Err(ConstEvalError::NotConstant)
+                        )
+                        && let Ok(value) = self.try_resolve_declared_value_for_scope(
+                            name.as_str(),
+                            &scope,
+                            guard,
+                        )
+                    {
+                        return Ok(value);
+                    }
                     if matches!(resolved, Err(ConstEvalError::UndefinedName(_)))
                         && let Some(symbol_id) = self.table.resolve_qualified(&parts)
                         && self
@@ -84,6 +131,12 @@ impl SymbolCollector<'_> {
                 match self.try_resolve_const_value(&name, scopes, guard) {
                     Ok(value) => Ok(value),
                     Err(ConstEvalError::UndefinedName(_)) => {
+                        if declared
+                            && let Some(value) =
+                                self.lookup_declared_value_in_scopes(name.as_str(), scopes, guard)
+                        {
+                            return Ok(value);
+                        }
                         let mut imported = None;
                         for scope in using_scopes_for_node(node) {
                             match self.try_resolve_const_value_for_scope(
@@ -118,11 +171,11 @@ impl SymbolCollector<'_> {
                 .children()
                 .next()
                 .ok_or(ConstEvalError::NotConstant)
-                .and_then(|child| self.try_eval_int_expr(&child, scopes, guard)),
+                .and_then(|child| self.try_eval_int_expr(&child, scopes, guard, declared)),
             SyntaxKind::UnaryExpr => {
                 let op = unary_op_from_node(node).ok_or(ConstEvalError::NotConstant)?;
                 let expr = node.children().next().ok_or(ConstEvalError::NotConstant)?;
-                let value = self.try_eval_int_expr(&expr, scopes, guard)?;
+                let value = self.try_eval_int_expr(&expr, scopes, guard, declared)?;
                 match op {
                     IntUnaryOp::Plus => Ok(value),
                     IntUnaryOp::Minus => value.checked_neg().ok_or(ConstEvalError::IntegerOverflow),
@@ -133,8 +186,9 @@ impl SymbolCollector<'_> {
                 if children.len() < 2 {
                     return Err(ConstEvalError::NotConstant);
                 }
-                let lhs = self.try_eval_int_expr(&children[0], scopes, guard)?;
-                let rhs = self.try_eval_int_expr(&children[children.len() - 1], scopes, guard)?;
+                let lhs = self.try_eval_int_expr(&children[0], scopes, guard, declared)?;
+                let rhs =
+                    self.try_eval_int_expr(&children[children.len() - 1], scopes, guard, declared)?;
                 match binary_op_from_node(node).ok_or(ConstEvalError::NotConstant)? {
                     IntBinaryOp::Add => lhs.checked_add(rhs).ok_or(ConstEvalError::IntegerOverflow),
                     IntBinaryOp::Sub => lhs.checked_sub(rhs).ok_or(ConstEvalError::IntegerOverflow),
@@ -376,11 +430,55 @@ impl SymbolCollector<'_> {
             return Err(ConstEvalError::CyclicDependency(key.1));
         }
         let scopes = scope_chain_for_node(&expr);
-        let value = self.try_eval_int_expr(&expr, &scopes, guard);
+        let value = self.try_eval_int_expr(&expr, &scopes, guard, false);
         guard.remove(&key);
         let value = value?;
         self.const_values.insert(key, value);
         Ok(value)
+    }
+
+    /// Resolves a plain variable's declared initial value for
+    /// declaration-size evaluation. The initializer itself is evaluated
+    /// strictly: it may depend on literals and true constants, never on
+    /// other mutable declarations.
+    fn try_resolve_declared_value_for_scope(
+        &mut self,
+        name: &str,
+        scope: &Option<SmolStr>,
+        guard: &mut FxHashSet<(Option<SmolStr>, SmolStr)>,
+    ) -> Result<i64, ConstEvalError> {
+        let key = const_key(scope, name);
+        if let Some(value) = self.declared_values.get(&key) {
+            return Ok(*value);
+        }
+        let expr = self
+            .declared_exprs
+            .get(&key)
+            .cloned()
+            .ok_or_else(|| ConstEvalError::UndefinedName(SmolStr::new(name)))?;
+        if !guard.insert(key.clone()) {
+            return Err(ConstEvalError::CyclicDependency(key.1));
+        }
+        let scopes = scope_chain_for_node(&expr);
+        let value = self.try_eval_int_expr(&expr, &scopes, guard, false);
+        guard.remove(&key);
+        let value = value?;
+        self.declared_values.insert(key, value);
+        Ok(value)
+    }
+
+    fn lookup_declared_value_in_scopes(
+        &mut self,
+        name: &str,
+        scopes: &[Option<SmolStr>],
+        guard: &mut FxHashSet<(Option<SmolStr>, SmolStr)>,
+    ) -> Option<i64> {
+        for scope in scopes {
+            if let Ok(value) = self.try_resolve_declared_value_for_scope(name, scope, guard) {
+                return Some(value);
+            }
+        }
+        None
     }
 
     pub(super) fn report_const_eval_error(

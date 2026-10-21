@@ -798,3 +798,176 @@ END_PROGRAM
         DiagnosticCode::InvalidArrayIndex,
     );
 }
+
+// CODESYS vendor parity (IEC_DEVIATIONS 2026-10-21): declaration sizes may
+// name plain initializer-backed variables, not only true constants.
+#[test]
+fn test_string_length_from_initialized_global_variable() {
+    let mut db = Database::new();
+    let file = FileId(0);
+    db.set_source_text(
+        file,
+        r#"
+NAMESPACE GVLMqtt
+    VAR_GLOBAL
+        uiLenMsgState : UINT := 968;
+    END_VAR
+END_NAMESPACE
+FUNCTION_BLOCK fbPayload
+    VAR
+        pTemplate : STRING(GVLMqtt.uiLenMsgState);
+    END_VAR
+END_FUNCTION_BLOCK
+"#
+        .to_string(),
+    );
+
+    let symbols = db.file_symbols(file);
+    let name = symbols.iter().find(|s| s.name == "pTemplate").unwrap();
+    let type_id = symbols.resolve_alias_type(name.type_id);
+    let Type::String { max_len } = symbols.type_by_id(type_id).unwrap() else {
+        panic!("expected string type");
+    };
+    assert_eq!(*max_len, Some(968));
+}
+
+#[test]
+fn test_string_length_from_initialized_local_variable() {
+    let mut db = Database::new();
+    let file = FileId(0);
+    db.set_source_text(
+        file,
+        r#"
+FUNCTION_BLOCK FB_Test
+    VAR
+        uiLen : UINT := 240;
+        name : STRING(uiLen);
+    END_VAR
+END_FUNCTION_BLOCK
+"#
+        .to_string(),
+    );
+
+    let symbols = db.file_symbols(file);
+    let name = symbols.iter().find(|s| s.name == "name").unwrap();
+    let type_id = symbols.resolve_alias_type(name.type_id);
+    let Type::String { max_len } = symbols.type_by_id(type_id).unwrap() else {
+        panic!("expected string type");
+    };
+    assert_eq!(*max_len, Some(240));
+}
+
+#[test]
+fn test_string_length_unresolvable_variable_chain_still_diagnoses() {
+    // The leniency covers strictly-valued initializers only: a chain
+    // through another mutable variable stays undecidable and keeps the
+    // standing diagnostic.
+    check_has_error(
+        r#"
+FUNCTION_BLOCK FB_Test
+    VAR
+        uiOuter : UINT := 12;
+        uiInner : UINT := uiOuter;
+        name : STRING(uiInner);
+    END_VAR
+END_FUNCTION_BLOCK
+"#,
+        DiagnosticCode::UndefinedVariable,
+    );
+}
+
+#[test]
+fn reference_binds_lvalue_string_of_any_declared_size() {
+    check_no_errors(
+        r#"
+PROGRAM P
+VAR
+    buffer : STRING[255];
+    sizedRef : REFERENCE TO STRING[968];
+    openRef : REFERENCE TO STRING;
+END_VAR
+sizedRef REF= buffer;
+openRef REF= buffer;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn reference_binds_lvalue_derived_struct_behind_base_reference() {
+    check_no_errors(
+        r#"
+TYPE stBase : STRUCT
+    a : INT;
+END_STRUCT
+END_TYPE
+TYPE stDerived EXTENDS stBase : STRUCT
+    b : INT;
+END_STRUCT
+END_TYPE
+PROGRAM P
+VAR
+    d : stDerived;
+    r : REFERENCE TO stBase;
+END_VAR
+r REF= d;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn reference_still_rejects_lvalue_of_unrelated_type() {
+    check_has_error(
+        r#"
+PROGRAM P
+VAR
+    flag : BOOL;
+    r : REFERENCE TO INT;
+END_VAR
+r REF= flag;
+END_PROGRAM
+"#,
+        DiagnosticCode::TypeMismatch,
+    );
+}
+
+#[test]
+fn equality_comparison_auto_dereferences_references() {
+    check_no_errors(
+        r#"
+PROGRAM P
+VAR
+    buffer : STRING[255];
+    textRef : REFERENCE TO STRING;
+    value : INT;
+    intRef : REFERENCE TO INT;
+END_VAR
+IF textRef = buffer THEN
+    value := 1;
+END_IF
+IF intRef = value THEN
+    value := 2;
+END_IF
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn ordering_comparison_still_requires_explicit_dereference() {
+    check_has_error(
+        r#"
+PROGRAM P
+VAR
+    value : INT;
+    intRef : REFERENCE TO INT;
+END_VAR
+IF intRef < value THEN
+    value := 1;
+END_IF
+END_PROGRAM
+"#,
+        DiagnosticCode::TypeMismatch,
+    );
+}

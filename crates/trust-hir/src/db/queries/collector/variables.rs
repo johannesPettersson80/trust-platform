@@ -221,7 +221,7 @@ impl SymbolCollector<'_> {
             None => {
                 let scopes = scope_chain_for_node(expr);
                 let mut guard = FxHashSet::default();
-                let Ok(value) = self.try_eval_int_expr(expr, &scopes, &mut guard) else {
+                let Ok(value) = self.try_eval_int_expr(expr, &scopes, &mut guard, false) else {
                     return;
                 };
                 i128::from(value)
@@ -583,7 +583,7 @@ impl SymbolCollector<'_> {
                 }
                 let scopes = scope_chain_for_node(expr);
                 let mut guard = FxHashSet::default();
-                match self.try_eval_int_expr(expr, &scopes, &mut guard) {
+                match self.try_eval_int_expr(expr, &scopes, &mut guard, false) {
                     Ok(value) => {
                         self.check_integer_default_range(type_id, i128::from(value), expr);
                     }

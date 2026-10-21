@@ -148,7 +148,7 @@ impl SymbolCollector<'_> {
 
         let scopes = scope_chain_for_node(expr);
         let mut guard = FxHashSet::default();
-        match self.try_eval_int_expr(expr, &scopes, &mut guard) {
+        match self.try_eval_int_expr(expr, &scopes, &mut guard, false) {
             Ok(_) => {}
             Err(ConstEvalError::UndefinedName(name))
                 if self.table.resolve(name.as_str(), scope).is_some() =>

@@ -758,7 +758,9 @@ impl SymbolCollector<'_> {
         let mut values = Vec::new();
         let scopes = scope_chain_for_node(node);
         for child in node.children().filter(|n| is_expression_kind(n.kind())) {
-            let value = self.eval_int_expr_in_scope(&child, &scopes)?;
+            // Declaration-size context: bounds may name plain
+            // initializer-backed variables (IEC_DEVIATIONS 2026-10-21).
+            let value = self.eval_declared_size_expr_in_scope(&child, &scopes)?;
             values.push(value);
         }
         if values.len() >= 2 {
@@ -833,7 +835,9 @@ impl SymbolCollector<'_> {
         // Look for length specification
         if let Some(expr) = node.children().find(|n| is_expression_kind(n.kind())) {
             let scopes = scope_chain_for_node(node);
-            match self.try_eval_optional_int_expr_in_scope(&expr, &scopes) {
+            // Declaration-size context: the length may name a plain
+            // initializer-backed variable (IEC_DEVIATIONS 2026-10-21).
+            match self.try_eval_declared_size_expr_in_scope(&expr, &scopes) {
                 Ok(Some(value)) => {
                     if value <= 0 {
                         self.diagnostics.error(

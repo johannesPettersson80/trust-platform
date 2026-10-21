@@ -320,6 +320,12 @@ ARRAY[0..5] OF INT := [2(1, 2, 3)]  // Results in: 1, 2, 3, 1, 2, 3
   array limits may be constant expressions (IEC 61131-3 Ed.3 §6.4.4.5.1), and
   enumerated values are operands of constant expressions (IEC 61131-3 Ed.3
   §6.6.1.2.4).
+- Vendor extension (IEC_DEVIATIONS 2026-10-21): a limit may also name a plain
+  (non-`CONSTANT`) initializer-backed variable, including qualified names and
+  bound expressions (`ARRAY[0..(GVLMqtt.udiLenMsgBuffer - 1)]`); the declared
+  initial value fixes the bound at compile time. TEMP and interface-direction
+  sections are excluded, and chains through other mutable variables stay
+  rejected.
 - Every dimension uses the same declaration-site constant graph and namespace
   rules as subranges. Multidimensional bounds retain source dimension order,
   and project-source reordering cannot alter any resolved lower or upper bound.
@@ -724,6 +730,14 @@ END_VAR
 - The capacity expression uses the declaration site's complete constant graph
   and namespace/`USING` context. Forward and cross-file constants are valid
   when visible; source order does not change the capacity.
+- Vendor extension (IEC_DEVIATIONS 2026-10-21): the capacity expression may
+  also name a plain (non-`CONSTANT`) variable whose own initializer is a
+  literal or constant expression, including qualified names
+  (`STRING(GVLMqtt.uiLenMsgState)`). The declared initial value fixes the
+  capacity at compile time; runtime writes never resize anything. TEMP and
+  interface-direction sections are excluded, and a chain through another
+  mutable variable stays undecidable and is rejected as before. The same
+  leniency applies to array dimension bounds.
 - A zero, negative, non-integer, undefined, mutable, ambiguous, cyclic, or
   overflowing capacity is rejected before the bounded type is registered.
 - `STRING(n)`/`WSTRING(n)` are truST vendor-compatible aliases of the bracketed

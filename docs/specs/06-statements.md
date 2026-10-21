@@ -107,7 +107,11 @@ pointed-to value and never performs the `?=` checked-copy fallback.
   to a value or to a `POINTER TO` target is a compile-time error.
 - `ref REF= variable` rebinds `ref` to the storage of `variable`; the source
   must be a valid assignment lvalue and must not be `CONSTANT`-qualified.
-  Pointer notation: `ref := REF(variable)`.
+  The source's type must match the reference target exactly, or bind under
+  the vendor rules: strings of any declared size are mutually bindable, and
+  a derived `STRUCT` variable binds behind a base-`STRUCT` reference.
+  Numeric widening never aliases — a `WORD` variable cannot bind behind an
+  `INT` reference. Pointer notation: `ref := REF(variable)`.
 - `ref1 REF= ref2` rebinds `ref1` to the same storage as `ref2`; the two
   reference target types must be compatible in either direction.
 - `ref REF= NULL` (or the integer literal `0`) clears the reference; the

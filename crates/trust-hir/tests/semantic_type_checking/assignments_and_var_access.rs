@@ -1320,3 +1320,63 @@ END_CONFIGURATION
         "duplicate PROGRAM instance names must not silently choose one instance and report a wrong-reason cascade, got {errors:?}"
     );
 }
+
+// CODESYS vendor parity (IEC_DEVIATIONS 2026-10-21): symbolic array bounds
+// may name plain initializer-backed variables, including qualified names
+// and bound expressions.
+#[test]
+fn test_array_bounds_from_initialized_variables() {
+    let mut db = Database::new();
+    let file = FileId(0);
+    db.set_source_text(
+        file,
+        r#"
+FUNCTION_BLOCK FB_Test
+    VAR
+        Low : INT := 1;
+        High : INT := 8;
+        arr : ARRAY[Low..High] OF INT;
+    END_VAR
+END_FUNCTION_BLOCK
+"#
+        .to_string(),
+    );
+
+    let symbols = db.file_symbols(file);
+    let arr = symbols.iter().find(|s| s.name == "arr").unwrap();
+    let type_id = symbols.resolve_alias_type(arr.type_id);
+    let Type::Array { dimensions, .. } = symbols.type_by_id(type_id).unwrap() else {
+        panic!("expected array type");
+    };
+    assert_eq!(dimensions, &vec![(1, 8)]);
+}
+
+#[test]
+fn test_array_bounds_from_qualified_initialized_variable_expression() {
+    let mut db = Database::new();
+    let file = FileId(0);
+    db.set_source_text(
+        file,
+        r#"
+NAMESPACE GVLMqtt
+    VAR_GLOBAL
+        udiLenMsgBuffer : UDINT := 32;
+    END_VAR
+END_NAMESPACE
+FUNCTION_BLOCK FB_Test
+    VAR
+        arr : ARRAY[0..(GVLMqtt.udiLenMsgBuffer - 1)] OF INT;
+    END_VAR
+END_FUNCTION_BLOCK
+"#
+        .to_string(),
+    );
+
+    let symbols = db.file_symbols(file);
+    let arr = symbols.iter().find(|s| s.name == "arr").unwrap();
+    let type_id = symbols.resolve_alias_type(arr.type_id);
+    let Type::Array { dimensions, .. } = symbols.type_by_id(type_id).unwrap() else {
+        panic!("expected array type");
+    };
+    assert_eq!(dimensions, &vec![(0, 31)]);
+}

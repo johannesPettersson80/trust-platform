@@ -466,6 +466,17 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
         op: BinaryOp,
         range: TextRange,
     ) {
+        self.check_comparable_with_deref_retry(lhs, rhs, op, range, true);
+    }
+
+    fn check_comparable_with_deref_retry(
+        &mut self,
+        lhs: TypeId,
+        rhs: TypeId,
+        op: BinaryOp,
+        range: TextRange,
+        allow_deref_retry: bool,
+    ) {
         let lhs = self.checker.resolve_subrange_base(lhs);
         let rhs = self.checker.resolve_subrange_base(rhs);
         if matches!(
@@ -534,6 +545,19 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
         // Unknown types are allowed (might be resolved later)
         if lhs == TypeId::UNKNOWN || rhs == TypeId::UNKNOWN {
             return;
+        }
+
+        // CODESYS reference auto-deref extends to equality comparisons: a
+        // REFERENCE operand takes part as the value it denotes. Retry once
+        // with the references replaced by their targets; ordering
+        // comparisons never retry (an explicit `^` stays required, spec 05).
+        if allow_deref_retry && matches!(op, BinaryOp::Eq | BinaryOp::Neq) {
+            let derefed_lhs = self.checker.deref_reference_type(lhs);
+            let derefed_rhs = self.checker.deref_reference_type(rhs);
+            if derefed_lhs != lhs || derefed_rhs != rhs {
+                self.check_comparable_with_deref_retry(derefed_lhs, derefed_rhs, op, range, false);
+                return;
+            }
         }
 
         self.checker.diagnostics.error(

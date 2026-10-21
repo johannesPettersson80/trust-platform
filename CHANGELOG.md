@@ -6,6 +6,21 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Declaration sizes gain the CODESYS vendor leniency recorded in
+  IEC_DEVIATIONS 2026-10-21: a `STRING`/`WSTRING` capacity or an array
+  dimension bound may name a plain initializer-backed variable, including
+  qualified names (`STRING(GVLMqtt.uiLenMsgState)`,
+  `ARRAY[0..(GVLMqtt.udiLenMsgBuffer - 1)]`); the declared initial value
+  fixes the size at compile time. TEMP and interface-direction sections are
+  excluded, chains through other mutable variables stay rejected, and no
+  other constant-expression context changes.
+- `REF=` binds an lvalue of a compatible vendor shape: strings of any
+  declared size are mutually bindable, and a derived `STRUCT` variable binds
+  behind a base-`STRUCT` reference. Numeric widening still never aliases.
+  Equality comparisons (`=`, `<>`) auto-dereference their reference
+  operands, comparing the denoted values; ordering comparisons still require
+  an explicit `^`.
+
 - PLCopen import carries the CODESYS/e!COCKPIT dialect constructs that vendor
   projects rely on: `REFERENCE TO`/`POINTER TO` derived names import as native
   pointer/reference declarations (including sized-string bases such as

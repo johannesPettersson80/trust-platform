@@ -313,6 +313,35 @@ impl<'a> TypeChecker<'a> {
             .is_same_or_derived(source_symbol, target_symbol)
     }
 
+    /// REF= lvalue binding parity (vendor extension): CODESYS binds a
+    /// reference to a string variable of any declared size and to a
+    /// derived-STRUCT variable behind a base-STRUCT reference. Deliberately
+    /// narrower than `types_compatible`: numeric widening must not alias —
+    /// a WORD variable behind an INT reference would corrupt stores.
+    pub(super) fn reference_target_binds_lvalue(&self, target: TypeId, value: TypeId) -> bool {
+        let resolved_target = self.resolve_alias_type(target);
+        let resolved_value = self.resolve_alias_type(value);
+        if resolved_target == resolved_value {
+            return true;
+        }
+        match (
+            self.symbols.type_by_id(resolved_target),
+            self.symbols.type_by_id(resolved_value),
+        ) {
+            (Some(Type::String { .. }), Some(Type::String { .. }))
+            | (Some(Type::WString { .. }), Some(Type::WString { .. })) => true,
+            (
+                Some(Type::Struct {
+                    name: target_name, ..
+                }),
+                Some(Type::Struct {
+                    name: source_name, ..
+                }),
+            ) => self.struct_inherits_from(source_name, target_name),
+            _ => false,
+        }
+    }
+
     pub(super) fn type_owner_symbol(&self, type_id: TypeId) -> Option<SymbolId> {
         let resolved = self.resolve_alias_type(type_id);
         let name = match self.symbols.type_by_id(resolved)? {

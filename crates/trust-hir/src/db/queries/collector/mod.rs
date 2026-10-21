@@ -20,6 +20,13 @@ pub(super) struct SymbolCollector<'a> {
     parent_stack: Vec<SymbolId>,
     const_exprs: FxHashMap<(Option<SmolStr>, SmolStr), (FileId, SyntaxNode)>,
     const_values: FxHashMap<(Option<SmolStr>, SmolStr), i64>,
+    /// Initializer expressions of plain (non-constant) variables, keyed like
+    /// `const_exprs`. Consulted only by declaration-size evaluation
+    /// (string lengths, array dimension bounds) as the CODESYS vendor
+    /// leniency recorded in IEC_DEVIATIONS 2026-10-21; other const contexts
+    /// never see these values.
+    declared_exprs: FxHashMap<(Option<SmolStr>, SmolStr), SyntaxNode>,
+    declared_values: FxHashMap<(Option<SmolStr>, SmolStr), i64>,
     /// When set (project analysis), constant-eval errors are only reported
     /// for entries collected from this file — a stub's failures must not
     /// surface under another file's path.
@@ -50,6 +57,8 @@ impl<'a> SymbolCollector<'a> {
             parent_stack: Vec::new(),
             const_exprs: FxHashMap::default(),
             const_values: FxHashMap::default(),
+            declared_exprs: FxHashMap::default(),
+            declared_values: FxHashMap::default(),
             const_origin_filter: None,
             program_instances: FxHashMap::default(),
             project_types,
