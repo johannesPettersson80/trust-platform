@@ -1890,7 +1890,7 @@ Use static composition where convenient. Borrowed trait objects are also accepta
 - **Transfer completion.** When the last byte arrives, the SHA-256 of the whole upload is compared with the one `transfer.begin` gave. If they differ, the upload is dropped with `transfer sha256 does not match begin's`, and the client begins again. A complete upload stays open until an operation that uses it, or `transfer.abort`, ends it.
 - **Transfer status and abort.** `transfer.status {transfer}` replies `{state, next_offset, bytes}`, where `state` is `receiving` or `complete`. `transfer.abort {transfer}` frees the buffer and the id of an open upload or of a held reply. A new host session keeps an open upload at its next offset. A reset ends every transfer, and a later use of its id is refused with `unknown transfer`.
 - **Reply head and get.** A reply longer than the frame is held whole by the runtime's transfer session, in a reply buffer of the capacity the runtime gives it. The request is answered with `{reply_transfer, bytes, sha256, part_bytes: 4096}` as its result, with the request's id and audit record id. The client reads the reply with `transfer.get {transfer, offset, len}` (`len` at most 4,096, and `offset` anywhere up to the reply's length, so that a range across two parts of the reply is answered like any other), which replies `{offset, data, crc32}`, and checks the SHA-256 of the whole reply. A chip holds a reply longer than the frame as a computer does: the next three bullets hold on every runtime that keeps a session, a chip's included.
-- **Reply capacity and parts.** A session's reply capacity is the most bytes it holds in one reply. A computer's is 64 MiB, the engine's container limit. A chip's is the capacity of its heap, which is the only memory a chip has for a reply: 114,688 bytes on the ESP32-C6, its two heap regions of 48 KiB and 64 KiB (Appendix D.2). A reply is written in parts of 4,096 bytes. Each part is taken from the heap when the writing reaches it and is never reserved ahead, so no part of a reply's text is one heap block longer than 4,096 bytes, and a reply longer than the frame is held in its parts and never joined into one block, because a chip's heap is first-fit and its free space lies in many small blocks (Appendix D.2). A reply that fits the frame is still one line, byte for byte the reply trust-runtime writes; its line, joined from its parts when it has more than one, is the only block of its text longer than a part, and is no longer than the frame.
+- **Reply capacity and parts.** A session's reply capacity is the most bytes it holds in one reply. A computer's is 64 MiB, the engine's container limit. A chip's is the capacity of its heap, which is the only memory a chip has for a reply: 114,688 bytes on the ESP32-C6, its three heap regions of 32,832 bytes, 64 KiB and 16,320 bytes (Appendix D.2). A reply is written in parts of 4,096 bytes. Each part is taken from the heap when the writing reaches it and is never reserved ahead, so no part of a reply's text is one heap block longer than 4,096 bytes, and a reply longer than the frame is held in its parts and never joined into one block, because a chip's heap is first-fit and its free space lies in many small blocks (Appendix D.2). A reply that fits the frame is still one line, byte for byte the reply trust-runtime writes; its line, joined from its parts when it has more than one, is the only block of its text longer than a part, and is no longer than the frame.
 - **Reply refusals.** A reply above the capacity is refused with `reply longer than <capacity> bytes`. A reply for which the heap has no room is refused with `no room for a reply longer than <n> bytes`, where `<n>` is the number of bytes written when the heap had no room. A reply is never cut, and a lack of room is never an abort. Both refusals carry the request's id and audit record id. In both, the request was served and is audited as served, and the work after the reply, such as the stop after `shutdown`, still takes place. A runtime that keeps no session cannot hold a reply, and it refuses a reply longer than the frame with `reply longer than <frame> bytes` in the same way.
 - **Held reply freed.** A newer held reply replaces the older one. The parts of a held reply are freed when a `transfer.get` has read the reply's last byte, when `transfer.abort` names the reply, when a newer held reply replaces it, and at a reset. Its id is then `unknown transfer`, and a client that wants the reply again sends the request again. The heap is not held for a client that has its reply. A `transfer.get` that reads a range before the end of the reply, once or again, leaves the reply held. The older reply keeps its parts until the newer one is held, so a chip whose heap lacks room for both refuses the newer reply with `no room for a reply longer than <n> bytes` while the older one is held, and `transfer.abort` of the older reply makes the room.
 - **Transfer audit.** Each transfer operation is audited like any request, and its reply carries the audit id.
@@ -2922,7 +2922,10 @@ program reads or writes:
   only at those instructions, and the allocator's operations are counted only around those calls
   (checklist P1-10); a module without a `LINE_TABLE` offers it every instruction.
 - An output or marker binding whose static reference names a scalar variable without a path is
-  published from the variable's leaf.
+  published from the variable's leaf. When every binding a publication selects is such a leaf
+  copied at its own width, at a flat address, the publication stages no bytes: it makes the staged
+  publication's charges and checks in the same order, journals the output windows for the output
+  hooks, and then writes each leaf's bytes into its window, so a refusal still changes no image.
 - A standard function block of a persistent instance reads and writes its inputs, outputs and state
   at their places among its POU's declarations, which preparation finds by their names, and a call
   binds the block's formals at the same places. Preparation also finds where each of them lies in an
@@ -2939,6 +2942,17 @@ program reads or writes:
   a reference, finds an operand that is no scalar, or would hold a seventeenth operand, the operands
   go onto the operand stack as values, in their order, and the body's remaining operations run as
   above on them.
+- When every operation of such a body takes and leaves operands whose kinds follow from the body's
+  variables, constants and operations alone, every path to an operation that a jump goes to brings
+  operands of the same kinds there (a BOOL's short-circuit AND or OR keeps its left operand across
+  its jump), and no operand is left when the body ends, preparation fixes each operand's kind
+  (checklist P1-9): an
+  integer, a BOOL, any other scalar, a function block instance, or the value a standard block call
+  leaves. The body then runs on its operands' bits, an integer as its 64-bit value and a BOOL as 0
+  or 1: a load reads the leaf's bytes, a store of the variable's primitive writes them, and the
+  arithmetic, comparison and logic chosen at preparation run by specification 10 §6.4. Each
+  operation keeps the order, charges, deadline checks, refusals and hand-overs of the operation
+  above, so the body ends with the same result, charges, fault record and values.
 - A program's body that compact code covers, and that keeps no variable in a frame and initializes
   nothing in one, starts without the frame the dispatcher pushes: its entry makes the entry's
   checks and charges, checks the deadline when the body ends, as the dispatcher does at a frame's
@@ -3461,7 +3475,7 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 
 | Version | Date | Change |
 |---|---|---|
-| 0.50 | 21 October 2026 | PERF-05, a small, fast runtime (owner, 21 October 2026; checklist P1): own and global scalars read and written in their leaves, compact code for the bodies it covers on a loop of its own, whose scalar operands it holds as their leaves' values and whose program bodies start without a frame (checklist P1-9), the statement hook called only while services observe statements, scalar output bindings published from their leaves, a standard function block's variables and formals reached at the places preparation found for them; TIME-08 names the compact loop among the executors that charge 1 unit per instruction; §10, the device runner captures the retained values only at a scan whose save is due. PERF-05's targets (the owner, 21 October 2026, "The target numbers are good as a start"): on the ESP32-C6 in production mode, the OC-1 bench program `v1p` scans in under 0.1 ms, the cycle's own work takes under 0.1 ms, and a prepared program holds at most its container's bytes. Appendix D.2: the C6's main heap is 48 KiB and the other 24 KiB of its 72 KiB arena hold RAM-resident code (owner, 21 October 2026, "Give code about 24 KiB of the 136 KiB program heap, leaving programs 112 KiB"), so its heap, and its reply capacity (PORT-05), is 114,688 bytes. |
+| 0.50 | 21 October 2026 | PERF-05, a small, fast runtime (owner, 21 October 2026; checklist P1): own and global scalars read and written in their leaves, compact code for the bodies it covers on a loop of its own, whose scalar operands it holds as their leaves' values and whose program bodies start without a frame (checklist P1-9), the statement hook called only while services observe statements, scalar output bindings published from their leaves, a standard function block's variables and formals reached at the places preparation found for them; TIME-08 names the compact loop among the executors that charge 1 unit per instruction; §10, the device runner captures the retained values only at a scan whose save is due. PERF-05's targets (the owner, 21 October 2026, "The target numbers are good as a start"): on the ESP32-C6 in production mode, the OC-1 bench program `v1p` scans in under 0.1 ms, the cycle's own work takes under 0.1 ms, and a prepared program holds at most its container's bytes. Appendix D.2: the C6's main heap is 32,832 bytes: 24 KiB of its 72 KiB arena hold RAM-resident code (owner, 21 October 2026, "Give code about 24 KiB of the 136 KiB program heap, leaving programs 112 KiB"), and so do 16,320 bytes more, which the heap takes from the LP SRAM as its third region, tried last (owner, 21 October 2026, "Use LP SRAM"), so its heap, and its reply capacity (PORT-05), stays 114,688 bytes. |
 | 0.49 | 21 October 2026 | §11.3 and specification 11 §6.7.1: a task that the running program does not have counts its first activation from the program's logical time at the commit, the time of the last cycle that started before it (the program's time advances when a cycle starts), as both runtimes build the candidate; "from the commit" did not say which time. The C6 bench of OC-1 and OC-2 measured it: a 1 s task added by a change committed 135 ms after the last cycle's start first ran 0.903 s after the commit. |
 | 0.48 | 21 October 2026 | MEM-03, "Call levels on a chip": the main stack decides a chip's call levels (owner, "Stack decides"): (window − 2,048 − base) / level, at most 1,024; a program whose static depth is more is refused at its install, its load and its online change with `insufficient stack`, and a recursive program's deep call by the depth check; a chip's constructed values, construction bytes and process image are trust-runtime's, and only its preparation bytes and validation scratch scale with its heap (owner, "Let memory decide"); the descriptor's maxima stay trust-runtime's. §11.3: the memory check's limits and refusals restated. Appendix D.2: the C6's window is 78 KiB, measured base 34,008 B and level 6,144 B, 7 levels; the linker guard and the build check require 82 KiB. Appendix D.5: the U5A9's main stack is 78 KiB, with the C6's figures until its bench. |
 | 0.47 | 20 October 2026 | An online change carries every variable's value (checklist C1-24; decision OC-1, owner 20 October 2026 "keep what fits"). §11.3 and specification 11 §6.7.1: every variable of the candidate that the running program declares at the same place and by the same name takes its value, retained or not, the members of function-block instances included; a changed declaration keeps what fits (an elementary value converted when the new type holds it, structure and instance members by name, array elements by index) and the rest takes its initial value; a reference names the same variable in the candidate or is NULL; the retained live-object and subrange refusals of a change are gone, so no value fails a change; each variable that did not keep its value as it was is recorded as an `online_change_value` event, at most 32 per change and then their count. |
@@ -3795,13 +3809,22 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   GPIO18, a plain pin with no board load, read back through its own pad input; the probe read back
   1, 0, 1, 0 as commanded. The RGB LED on GPIO8 is a WS2812, not a plain LED, so optical output
   stays unverified, as on F401.
-- **Memory.** The main heap is 48 KiB: F401's 72 KiB allocator arena less the 24 KiB that
+- **Memory.** The main heap is 32,832 bytes: F401's 72 KiB allocator arena less the 24 KiB that
   RAM-resident code takes, so that the scan's code runs from RAM (the owner, 21 October 2026, "Give
-  code about 24 KiB of the 136 KiB program heap, leaving programs 112 KiB"; checklist P1). The heap
-  is 112 KiB in all, with the 64 KiB reclaimed region, and the memory the chip measures for programs
-  at boot (`program_memory_bytes`, §5.1.1) is 56,016 bytes, against 80,652 with the 72 KiB main
-  heap (measured 21 October 2026, firmware p1j), so an online change of a program the size of A4's
-  (a host peak of 64,812 bytes) no longer fits. The
+  code about 24 KiB of the 136 KiB program heap, leaving programs 112 KiB"; checklist P1), and less
+  16,320 bytes more for RAM-resident code, which the heap takes from the LP SRAM instead (the owner,
+  21 October 2026, "Use LP SRAM"). The LP SRAM is the C6's 16 KiB at 0x50000000, less the 64 bytes
+  that hold the reset record and the boot counter (`.rtc_fast.persistent`) with their alignment. It
+  is the heap's third region, after the main heap and the 64 KiB reclaimed region, and an
+  allocation is taken from it only when neither of the others has a block for it, because the HP
+  CPU's loads and stores take 2.0 cycles there against 1.25 in HP SRAM (measured on the bench, 21
+  October 2026). The C6's manual gives atomic access only to HP SRAM (ESP32-C6 TRM v1.2, §3.7.1);
+  on the bench, the HP CPU's `amoadd.w`, `amoswap.w` and `lr.w`/`sc.w` on an LP SRAM word gave the
+  results they give on HP SRAM, without a trap, and truST runs no other CPU, so any heap block,
+  atomics included, may lie there. The heap is 112 KiB in all, and the memory the chip measures for
+  programs at boot (`program_memory_bytes`, §5.1.1) is 56,016 bytes, against 80,652 with the 72 KiB
+  main heap (measured 21 October 2026, firmware p1j), so an online change of a program the size of
+  A4's (a host peak of 64,812 bytes) no longer fits. The
   esp-hal stack region spans the HP SRAM left after static data and RAM-resident code. The C6's main-stack window is 78 KiB at its
   top, below esp-hal 1.2.2's `_stack_start` (0x4086E610, a constant that inspection pins). The
   window was 16 KiB, as on F401, then 24 KiB after the S1b-5b2 bench measured a 15,740 B high-water
@@ -3831,8 +3854,8 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   of a reference of a variable access, and the deadline check; the builders of the bindings and the
   rest of the call machinery run from flash, where the code of the flat store, which every scan
   runs, took their room (checklist P1-7, 21 October 2026). Interrupts use the same stack on
-  RISC-V, so the window includes them. The allocator serves two heap regions on the C6: the 48 KiB
-  arena and the boot loader's reclaimed RAM. A program's prepared module and its execution services
+  RISC-V, so the window includes them. The allocator serves three heap regions on the C6, tried in
+  this order: the main heap, the boot loader's reclaimed RAM and the LP SRAM. A program's prepared module and its execution services
   are allocated on the heap when the program starts, and the program's cycle owns them: they are
   freed when the cycle is dropped, after the engine state, the I/O lines and the handle on the
   checkpoint flash (two registered unsafe sites, in `ProgramMemory` in `crates/trust-platform-esp32`).
@@ -3852,8 +3875,8 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   bench of checklist C1-21d compared, for the bench programs, the figure each reports in `status` with
   the heap the C6 holds (see that checklist entry).
 - **Long replies.** The C6's transfer session holds a reply of up to the capacity of its heap,
-  114,688 bytes: the 48 KiB main heap and the 64 KiB of the boot loader's reclaimed RAM that the
-  firmware's `memory.rs` gives the allocator. `profile::transfer_session` names the figure
+  114,688 bytes: the 32,832-byte main heap, the 64 KiB of the boot loader's reclaimed RAM and the
+  16,320 bytes of LP SRAM that the firmware's `memory.rs` gives the allocator. `profile::transfer_session` names the figure
   `HEAP_CAPACITY_BYTES`, so a chip answers a read of its event store as a computer does (PORT-05):
   an `events.tail` of its full store of 200 events, at least 43 bytes each, is a reply of more than
   8,800 bytes, longer than the 8,192-byte frame, which the session holds and the client reads with

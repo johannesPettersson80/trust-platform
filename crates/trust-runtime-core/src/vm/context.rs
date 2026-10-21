@@ -215,6 +215,21 @@ pub trait ReferenceContext {
     ) -> bool {
         false
     }
+    /// The bytes of the leaf at `range` of the flat store, read where they lie (checklist P1-9).
+    /// `None` for a composition that holds no flat store, or a range outside its blocks.
+    fn leaf_bytes(&self, _range: crate::memory::layout::ByteRange) -> Option<&[u8]> {
+        None
+    }
+    /// Write `bytes` into the leaf at `range` of the flat store, as a store of a scalar of the
+    /// leaf's primitive writes its encoding there (checklist P1-9). `false`, having written nothing,
+    /// for a composition that holds no flat store, a range outside its blocks or another length.
+    fn write_leaf_bytes(
+        &mut self,
+        _range: crate::memory::layout::ByteRange,
+        _bytes: &[u8],
+    ) -> bool {
+        false
+    }
     /// Admit the work and allocation of one copy of a scalar or an instance identity, as
     /// [`ReferenceContext::before_value_clone`] admits such a value (checklist P1-9).
     fn before_scalar_clone(&self) -> Result<(), crate::error::RuntimeError> {

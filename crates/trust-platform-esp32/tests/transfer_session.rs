@@ -83,7 +83,8 @@ fn the_c6_session_takes_an_upload_of_one_slot_at_most() {
     );
 }
 
-/// The bytes of the constant `name` in the firmware's `memory.rs`, a product such as `72 * 1024`.
+/// The bytes of the constant `name` in the firmware's `memory.rs`, a sum or a difference of
+/// products such as `16 * 1024 - 64`.
 fn memory_rs_bytes(name: &str) -> usize {
     let source = include_str!("../../../firmware/trust-esp32c6/src/memory.rs");
     let prefix = format!("const {name}: usize = ");
@@ -91,10 +92,22 @@ fn memory_rs_bytes(name: &str) -> usize {
         .lines()
         .find_map(|line| line.strip_prefix(prefix.as_str()))
         .unwrap_or_else(|| panic!("memory.rs declares {name}"));
-    line.trim_end_matches(';')
-        .split('*')
-        .map(|factor| factor.trim().parse::<usize>().expect("a whole number"))
-        .product()
+    let bytes: i64 = line
+        .trim_end_matches(';')
+        .replace('-', "+-")
+        .split('+')
+        .map(|term| {
+            let (sign, product) = term
+                .trim()
+                .strip_prefix('-')
+                .map_or((1, term), |product| (-1, product));
+            sign * product
+                .split('*')
+                .map(|factor| factor.trim().parse::<i64>().expect("a whole number"))
+                .product::<i64>()
+        })
+        .sum();
+    usize::try_from(bytes).expect("a number of bytes")
 }
 
 /// A reply of `len` bytes in the parts of 4,096 bytes that a heap with room gives.
@@ -107,22 +120,26 @@ fn reply_of(len: usize) -> ReplyParts {
 }
 
 /// Specification 34, PORT-05 (reply capacity and parts) and Appendix D.2 (long replies): the C6's
-/// session holds a reply of up to the capacity of its heap, the 48 KiB main heap and the 64 KiB of
-/// reclaimed RAM that the firmware's `memory.rs` gives the allocator: 48 x 1,024 + 64 x 1,024 =
-/// 49,152 + 65,536 = 114,688 bytes, which is 28 parts of 4,096. The test reads the two figures out of
-/// `memory.rs`, so a change of the regions fails here until the profile follows. A reply of 114,688
+/// session holds a reply of up to the capacity of its heap, the three regions that the firmware's
+/// `memory.rs` gives the allocator: the main heap of 32 x 1,024 + 64 = 32,832 bytes, the 64 x 1,024 =
+/// 65,536 bytes of reclaimed RAM and the 16 x 1,024 - 64 = 16,320 bytes of LP SRAM, 114,688 bytes in
+/// all, which is 28 parts of 4,096. The test reads the three figures out of `memory.rs`, so a change
+/// of the regions fails here until the profile follows. A reply of 114,688
 /// bytes is held whole, one byte more is refused with `reply longer than 114688 bytes`, and a reply
 /// of 16,261 bytes, the 200 events of the C6's store, which is longer than the 8,192-byte frame, is
 /// held, where the interim rule refused everything above the frame. Catches a session still held to
-/// the frame, a capacity that is only the main heap's 48 KiB, a figure that drifts from `memory.rs`,
-/// and an off-by-one at the capacity.
+/// the frame, a capacity that leaves out a region, a figure that drifts from `memory.rs`, and an
+/// off-by-one at the capacity.
 #[test]
 fn the_c6_session_holds_replies_up_to_its_heap() {
-    assert_eq!(memory_rs_bytes("HEAP_BYTES"), 49_152);
+    assert_eq!(memory_rs_bytes("HEAP_BYTES"), 32_832);
     assert_eq!(memory_rs_bytes("RECLAIMED_BYTES"), 65_536);
+    assert_eq!(memory_rs_bytes("LOW_POWER_BYTES"), 16_320);
     assert_eq!(
         HEAP_CAPACITY_BYTES,
-        memory_rs_bytes("HEAP_BYTES") + memory_rs_bytes("RECLAIMED_BYTES")
+        memory_rs_bytes("HEAP_BYTES")
+            + memory_rs_bytes("RECLAIMED_BYTES")
+            + memory_rs_bytes("LOW_POWER_BYTES")
     );
     assert_eq!(HEAP_CAPACITY_BYTES, 114_688);
     assert_ne!(HEAP_CAPACITY_BYTES, DEVICE_FRAME_LEN, "not the frame");

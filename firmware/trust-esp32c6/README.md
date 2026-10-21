@@ -9,7 +9,7 @@ USB-Serial/JTAG port. A `restart` of the stopped program loads a newly installed
 without a reset, so the USB connection stays up.
 
 The shared loop, the container admission and the engine cycle live in `crates/trust-runtime-services`
-and `crates/trust-runtime-core`; the two-region measured heap and the reset record live in
+and `crates/trust-runtime-core`; the measured heap and the reset record live in
 `crates/trust-platform-memory`; the C6 hardware adapter lives in `crates/trust-platform-esp32`: the
 peripherals, clock, USB link, wait, GPIO claim and the chip's watchdog rule, and the three parts that
 make a program replaceable, the program loader (`loader.rs`), the memory a program lives in
@@ -22,14 +22,14 @@ composition (design §1.1):
   into the heap and admits it with `installation::admit_sequenced` against the C6's
   `DeviceDescriptor`. A refusal gives the reason and the install sequence of the newest committed
   container.
-- `src/memory.rs`: the 48 KiB main heap, the boot loader's 64 KiB reclaimed region and the 78 KiB
-  main-stack window.
+- `src/memory.rs`: the heap's three regions (the 32,832-byte main heap, the boot loader's 64 KiB
+  reclaimed region and the LP SRAM's 16,320 bytes) and the 78 KiB main-stack window.
 
 ## Boot sequence
 
 The boot order is design §1.1:
 
-1. **Hardware first.** `memory::initialize` gives the allocator its two regions and paints the stack
+1. **Hardware first.** `memory::initialize` gives the allocator its three regions and paints the stack
    window; the adapter takes the peripherals and brings the clock up, driving no output. The reset
    reason and the reset record kept in RTC fast memory are read once, and this boot is counted in the
    flash (the boot counter, below). The board is then split: the loop gets the clock, the wait and
@@ -211,8 +211,9 @@ any step, even at a power loss, leaves the previous program selected (DEPLOY-03)
 
 | Region | Size | Purpose |
 |---|---|---|
-| Main heap (`HEAP_MEMORY`) | 48 KiB static | the first measured-allocator region; it gave 24 KiB of the M2E 72 KiB to scan-time code (owner, 21 October 2026), so programs have 112 KiB of heap |
+| Main heap (`HEAP_MEMORY`) | 32,832 B static | the first measured-allocator region; it gave 24 KiB of the M2E 72 KiB to scan-time code, and 16,320 bytes more that the LP SRAM region holds instead (owner, 21 October 2026), so the heap stays 112 KiB |
 | Reclaimed region (`RECLAIMED`) | 64 KiB | the boot loader's RAM, `#[esp_hal::ram(reclaimed)]` in `.dram2_uninit`, the second heap region |
+| LP SRAM region (`LOW_POWER`) | 16,320 B at `0x50000000` | the third heap region, tried last: the LP SRAM less the 64 bytes of the reset record and the boot counter, `#[esp_hal::ram(unstable(rtc_fast, persistent))]` in `.rtc_fast.persistent`; a load or store there takes 2.0 cycles against 1.25 in HP SRAM |
 | Main-stack window | 78 KiB below the fixed stack top `0x4086E610` | measured, 2 KiB minimum headroom; the linker refuses a stack region under 82 KiB |
 | Scan-time code (`.rwtext`) | about 300 KB | the interpreter and the engine's scan path, executed from RAM |
 

@@ -24,6 +24,6 @@ pub fn initialize() {
             core::ptr::addr_of_mut!(HEAP_MEMORY) as *mut u8,
             HEAP_BYTES,
         );
-        HEAP.init(region, None);
+        HEAP.init(region, None, None);
     }
 }

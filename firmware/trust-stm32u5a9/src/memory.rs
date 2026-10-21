@@ -24,7 +24,7 @@ pub fn initialize() {
     // the slice covers exactly memory the allocator owns for the whole boot.
     unsafe {
         let region = core::slice::from_raw_parts_mut(HEAP_A.start as usize as *mut u8, bytes);
-        HEAP.init(region, None);
+        HEAP.init(region, None, None);
     }
     TargetMemory::new(&HEAP, CHIP_STACK_WINDOW).paint_inactive_stack();
 }

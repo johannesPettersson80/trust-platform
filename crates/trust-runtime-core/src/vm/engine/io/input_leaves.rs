@@ -30,7 +30,7 @@ impl EngineState<'_> {
         self.charge_allocation_bytes(
             count
                 .checked_mul(size_of::<(ValueRef, Value)>())
-                .ok_or(RuntimeError::Overflow)?,
+                .ok_or_else(|| RuntimeError::Overflow)?,
         )?;
         for (index, binding) in prepared.io_bindings.iter().enumerate() {
             match self.input_leaf(index, binding) {
@@ -53,7 +53,7 @@ impl EngineState<'_> {
             self.charge_allocation_bytes(
                 count
                     .checked_mul(size_of::<Key>())
-                    .ok_or(RuntimeError::Overflow)?,
+                    .ok_or_else(|| RuntimeError::Overflow)?,
             )?;
             SavedDestinations::allocation_bytes(count)?
         };
@@ -112,12 +112,14 @@ impl EngineState<'_> {
         leaf: IoLeaf,
     ) -> Result<ByteRange, RuntimeError> {
         self.check_entry_deadline()?;
-        let range = self.leaf_range(leaf).ok_or(RuntimeError::NullReference)?;
+        let range = self
+            .leaf_range(leaf)
+            .ok_or_else(|| RuntimeError::NullReference)?;
         let held = self
             .data
             .store
             .bytes(range)
-            .ok_or(RuntimeError::NullReference)?;
+            .ok_or_else(|| RuntimeError::NullReference)?;
         staging.saved.keep(held)?;
         Ok(range)
     }

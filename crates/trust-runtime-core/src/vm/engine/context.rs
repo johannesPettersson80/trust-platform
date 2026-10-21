@@ -282,6 +282,14 @@ impl<'e> ReferenceContext for EngineState<'e> {
     ) -> bool {
         self.write_scalar_cell(range, prim, cell)
     }
+    #[inline]
+    fn leaf_bytes(&self, range: crate::memory::layout::ByteRange) -> Option<&[u8]> {
+        self.data.store.bytes(range)
+    }
+    #[inline]
+    fn write_leaf_bytes(&mut self, range: crate::memory::layout::ByteRange, bytes: &[u8]) -> bool {
+        self.data.store.write_bytes(range, bytes)
+    }
     fn before_scalar_clone(&self) -> Result<(), RuntimeError> {
         // A scalar's copy charges no work and allocates nothing (TIME-08 COPY), so it is admitted
         // while the allocation allowance holds, as `before_value_clone` admits a scalar value.

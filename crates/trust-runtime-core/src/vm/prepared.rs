@@ -559,6 +559,18 @@ impl PreparedModule {
             .count()
     }
 
+    /// How many bodies with compact code run on their operands' bits, their kinds fixed at
+    /// preparation (checklist P1-9), for the tests that run them.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn kinded_bodies(&self) -> usize {
+        self.vm
+            .compact
+            .iter()
+            .filter(|(_, code)| code.kinded.is_some())
+            .count()
+    }
+
     /// How many members of standard function blocks preparation placed in their instances' bytes
     /// (checklist P1-4), summed over the module's standard blocks, for the tests that run them.
     #[doc(hidden)]

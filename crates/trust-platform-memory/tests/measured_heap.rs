@@ -1,4 +1,5 @@
-//! The two-region measured heap: the host tests of R1 (design S1b §1.1 and §4.3).
+//! The measured heap and its regions: the host tests of R1 (design S1b §1.1 and §4.3) and of the
+//! C6's third region (specification 34, Appendix D.2).
 
 use core::alloc::{GlobalAlloc, Layout};
 use trust_platform_memory::memory::MeasuredHeap;
@@ -26,7 +27,7 @@ fn allocations_spill_into_the_second_region() {
     let heap = MeasuredHeap::empty();
     // SAFETY: both slices outlive the test, are used by nothing else, and `init` runs once before
     // the first allocation.
-    unsafe { heap.init(main, Some(second)) };
+    unsafe { heap.init(main, Some(second), None) };
     assert_eq!(heap.capacity(), 64 + 256);
 
     let small = layout(16, 8);
@@ -57,6 +58,80 @@ fn allocations_spill_into_the_second_region() {
 }
 
 #[test]
+fn a_third_region_serves_only_what_the_first_two_cannot() {
+    // Specification 34, Appendix D.2 (the C6's LP SRAM, the owner, 21 October 2026, "Use LP SRAM"):
+    // an allocation is taken from the first region that has a block for it, so the third region
+    // serves only a request the first two cannot take, and a block freed there goes back to it.
+    // Worked by hand with regions of 64, 128 and 256 bytes, 448 bytes in all: 16 bytes fit the
+    // first region; 100 bytes do not fit the at most 48 bytes the first has left and are taken
+    // from the second; 200 bytes fit neither, which have less than 50 bytes left each, and are
+    // taken from the third; freed, they leave the bytes in use as before them, and 200 bytes are
+    // taken from the third again; 16 bytes are still taken from the first, though the third has
+    // room; 300 bytes fit no region and are refused. The wrong behaviour: a third region tried
+    // before the first two or never tried, a free routed to another region's allocator, and a
+    // capacity or a byte count of two regions only.
+    let (main, second_region, third_region) = (region(64), region(128), region(256));
+    let bounds: Vec<core::ops::Range<usize>> = [&main, &second_region, &third_region]
+        .iter()
+        .map(|slice| {
+            let start = slice.as_ptr() as usize;
+            start..start + slice.len()
+        })
+        .collect();
+    let region_of = |pointer: *mut u8| {
+        assert!(!pointer.is_null(), "the allocation is taken");
+        bounds
+            .iter()
+            .position(|range| range.contains(&(pointer as usize)))
+            .expect("the block lies in a region")
+    };
+    let heap = MeasuredHeap::empty();
+    // SAFETY: the three slices outlive the test, are used by nothing else, and `init` runs once
+    // before the first allocation.
+    unsafe { heap.init(main, Some(second_region), Some(third_region)) };
+    assert_eq!(heap.capacity(), 64 + 128 + 256);
+
+    let (small, middle, large) = (layout(16, 8), layout(100, 8), layout(200, 8));
+    // SAFETY: the layouts are valid; every block is freed below with its own layout.
+    let first = unsafe { heap.alloc(small) };
+    assert_eq!(region_of(first), 0);
+    // SAFETY: as above.
+    let second = unsafe { heap.alloc(middle) };
+    assert_eq!(region_of(second), 1);
+    let before = heap.used();
+    // SAFETY: as above.
+    let third = unsafe { heap.alloc(large) };
+    assert_eq!(region_of(third), 2);
+    assert!(
+        heap.used() >= before + 200,
+        "the third region's bytes are counted"
+    );
+
+    // SAFETY: `third` came from this heap with this layout.
+    unsafe { heap.dealloc(third, large) };
+    assert_eq!(heap.used(), before);
+    // SAFETY: as above.
+    let again = unsafe { heap.alloc(large) };
+    assert_eq!(region_of(again), 2);
+    // SAFETY: as above.
+    let fourth = unsafe { heap.alloc(small) };
+    assert_eq!(region_of(fourth), 0, "the first region is tried first");
+    // SAFETY: the layout is valid.
+    assert!(unsafe { heap.alloc(layout(300, 8)) }.is_null());
+    assert_eq!(heap.emergency_metrics().2, 6);
+    assert_eq!(heap.emergency_metrics().3, 1);
+
+    // SAFETY: each pointer came from this heap with the layout it is freed with.
+    unsafe {
+        heap.dealloc(again, large);
+        heap.dealloc(fourth, small);
+        heap.dealloc(second, middle);
+        heap.dealloc(first, small);
+    }
+    assert_eq!(heap.used(), 0);
+}
+
+#[test]
 fn a_full_heap_refuses_and_counts_the_failure() {
     // R1: an allocation neither region can take is refused and counted, and the bytes it asked for
     // are kept as the last failure (0 before the first). The wrong behaviour: a null result that no
@@ -65,7 +140,7 @@ fn a_full_heap_refuses_and_counts_the_failure() {
     let heap = MeasuredHeap::empty();
     // SAFETY: the slice outlives the test, is used by nothing else, and `init` runs once before the
     // first allocation.
-    unsafe { heap.init(region(64), None) };
+    unsafe { heap.init(region(64), None, None) };
     assert_eq!(heap.last_failure(), 0);
 
     // SAFETY: the layout is valid.
@@ -99,7 +174,7 @@ fn every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes() {
     let heap = MeasuredHeap::empty();
     // SAFETY: the slice outlives the test, is used by nothing else, and `init` runs once before the
     // first allocation.
-    unsafe { heap.init(region(256), None) };
+    unsafe { heap.init(region(256), None, None) };
     assert_eq!(heap.operations(), 0);
 
     let small = layout(8, 8);

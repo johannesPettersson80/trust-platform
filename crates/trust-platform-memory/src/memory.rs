@@ -9,32 +9,33 @@ use core::{
 };
 use embedded_alloc::LlffHeap;
 
-/// Regions a [`MeasuredHeap`] serves: the main heap and one optional second region.
-const REGIONS: usize = 2;
+/// The most regions a [`MeasuredHeap`] serves.
+const REGIONS: usize = 3;
 
-/// Allocator wrapper that serves up to two regions and counts live bytes, phase peak, allocation
-/// calls, failures and every allocator operation over both. A composition hands in the regions at
-/// [`MeasuredHeap::init`]; the wrapper knows no address of its own.
+/// Allocator wrapper that serves one to three regions, tried in the order a composition hands them
+/// in, and counts live bytes, phase peak, allocation calls, failures and every allocator operation
+/// over all of them. A composition hands in the regions at [`MeasuredHeap::init`]; the wrapper knows
+/// no address of its own.
 pub struct MeasuredHeap {
-    /// One first-fit allocator per region; region 0 first, then region 1.
+    /// One first-fit allocator per region, in the order an allocation tries them.
     inner: [LlffHeap; REGIONS],
     /// Start and size of each region as handed in, for deallocation routing and capacity.
     bounds: [AtomicUsize; REGIONS * 2],
     /// Sum of the region sizes, in bytes.
     capacity: AtomicUsize,
-    /// Allocator bytes in use over both regions.
+    /// Allocator bytes in use over every region.
     used: AtomicUsize,
-    /// Allocator bytes in use at the peak, over both regions.
+    /// Allocator bytes in use at the peak, over every region.
     peak: AtomicUsize,
-    /// Allocation calls over both regions.
+    /// Allocation calls over every region.
     allocations: AtomicUsize,
-    /// Failed allocation calls over both regions.
+    /// Failed allocation calls over every region.
     failures: AtomicUsize,
     /// The bytes the last failed allocation call asked for, 0 before the first failure: where a
     /// first-fit heap with enough free bytes in all has no single block left for a request, this
     /// names the request, which the bench reads beside the failure count.
     last_failure: AtomicUsize,
-    /// Every allocator operation over both regions, each allocation, reallocation and free once,
+    /// Every allocator operation over every region, each allocation, reallocation and free once,
     /// never reset: the count a runtime reads around its scans (specification 34, "The allocation
     /// count"). Kept under a critical section in 64 bits, so it does not wrap on a 32-bit chip.
     operations: critical_section::Mutex<Cell<u64>>,
@@ -44,7 +45,7 @@ impl MeasuredHeap {
     /// An allocator without a region; [`MeasuredHeap::init`] must run before any allocation.
     pub const fn empty() -> Self {
         Self {
-            inner: [LlffHeap::empty(), LlffHeap::empty()],
+            inner: [const { LlffHeap::empty() }; REGIONS],
             bounds: [const { AtomicUsize::new(0) }; REGIONS * 2],
             capacity: AtomicUsize::new(0),
             used: AtomicUsize::new(0),
@@ -56,14 +57,20 @@ impl MeasuredHeap {
         }
     }
 
-    /// Give the allocator its regions: the main heap and, when present, the second region an
-    /// allocation the first cannot take is tried in.
+    /// Give the allocator its regions: the main heap and, when present, a second and a third
+    /// region. An allocation is tried in them in this order and taken from the first that has a
+    /// block for it, so a later region serves only what the earlier ones cannot take.
     ///
     /// # Safety
     /// Call exactly once, before any allocation. Each region must be non-empty, valid for reads and
     /// writes, aligned for the allocator, and used by nothing else for the program's lifetime.
-    pub unsafe fn init(&self, main: &'static mut [u8], second: Option<&'static mut [u8]>) {
-        for (index, region) in [Some(main), second].into_iter().enumerate() {
+    pub unsafe fn init(
+        &self,
+        main: &'static mut [u8],
+        second: Option<&'static mut [u8]>,
+        third: Option<&'static mut [u8]>,
+    ) {
+        for (index, region) in [Some(main), second, third].into_iter().enumerate() {
             if let Some(region) = region {
                 let start = region.as_mut_ptr() as usize;
                 let size = region.len();
@@ -82,12 +89,12 @@ impl MeasuredHeap {
         self.capacity.load(Ordering::Relaxed)
     }
 
-    /// Allocator bytes in use over both regions.
+    /// Allocator bytes in use over every region.
     pub fn used(&self) -> usize {
         self.used.load(Ordering::Relaxed)
     }
 
-    /// Bytes of the regions not in use now, over both.
+    /// Bytes of the regions not in use now, over all of them.
     pub fn remaining(&self) -> usize {
         self.capacity().saturating_sub(self.used())
     }
@@ -161,7 +168,7 @@ impl MeasuredHeap {
         )
     }
 
-    /// Allocator bytes in use, summed fresh over both regions.
+    /// Allocator bytes in use, summed fresh over every region.
     fn used_of_regions(&self) -> usize {
         self.inner.iter().map(LlffHeap::used).sum()
     }

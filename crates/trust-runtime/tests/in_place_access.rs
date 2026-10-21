@@ -20,6 +20,9 @@ use trust_runtime_core::fault::FaultRecord;
 use trust_runtime_core::value::{DateTimeValue, Duration, Value};
 use trust_runtime_core::vm::{ExecutionServices, PreparationLimits, PreparedModule};
 
+#[path = "in_place_access/kinded.rs"]
+mod kinded;
+
 /// Own variables of every scalar kind the program reads and writes, in arithmetic, a comparison and
 /// a branch.
 const SOURCE: &str = "
@@ -413,6 +416,12 @@ fn compact_block_calls(source: &str) -> usize {
     PreparedModule::from_bytes(&artifact(source), PreparationLimits::default())
         .expect("the program is admitted")
         .compact_block_calls()
+}
+
+fn kinded_bodies(source: &str) -> usize {
+    PreparedModule::from_bytes(&artifact(source), PreparationLimits::default())
+        .expect("the program is admitted")
+        .kinded_bodies()
 }
 
 fn block_member_places(source: &str) -> usize {

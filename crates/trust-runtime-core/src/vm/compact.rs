@@ -35,6 +35,7 @@ use super::type_policy::resolved_alias_type;
 use super::PreparedModule;
 
 mod blocks;
+pub(crate) mod kinded;
 pub(crate) use blocks::BlockCall;
 #[cfg(all(test, feature = "std"))]
 mod probe_tests;
@@ -50,6 +51,8 @@ pub(crate) struct CompactCode {
     pub(crate) slots: Vec<Slot>,
     pub(crate) blocks: Vec<BlockCall>,
     pub(crate) frameless: bool,
+    /// The kinded code of the body, when its operands' kinds are fixed (checklist P1-9).
+    pub(crate) kinded: Option<kinded::KindedCode>,
 }
 
 /// One operation. `at` is the code offset of the first instruction it covers; `arg` is a constant's
@@ -146,6 +149,9 @@ impl crate::memory::figure::HeapBytes for CompactCode {
         count.of(&self.ops);
         count.of(&self.slots);
         count.of(&self.blocks);
+        if let Some(kinded) = &self.kinded {
+            crate::memory::figure::HeapBytes::add_heap(kinded, count);
+        }
     }
 }
 
@@ -202,13 +208,16 @@ impl CompactCode {
             && prepared
                 .local_range(pou)
                 .is_none_or(|range| range.bytes == 0);
-        Some(Self {
+        let mut code = Self {
             start: entry.code_start,
             ops: core::mem::take(&mut scratch.ops),
             slots: core::mem::take(&mut scratch.slots),
             blocks: core::mem::take(&mut scratch.blocks),
             frameless,
-        })
+            kinded: None,
+        };
+        code.kinded = kinded::KindedCode::of(&code, vm);
+        Some(code)
     }
 }
 

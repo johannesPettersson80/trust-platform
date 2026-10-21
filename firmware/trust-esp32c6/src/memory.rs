@@ -1,15 +1,20 @@
-//! ESP32-C6 memory map: the measured allocator's two regions (the 48 KiB main heap and the boot
-//! loader's 64 KiB reclaimed RAM) and the 78 KiB main-stack window at the top of the esp-hal
-//! stack region (design §1.1, R3 and specification 34, §4.3).
+//! ESP32-C6 memory map: the measured allocator's three regions (the main heap, the boot loader's
+//! 64 KiB reclaimed RAM and the LP SRAM, tried in that order) and the 78 KiB main-stack window at
+//! the top of the esp-hal stack region (design §1.1, R3 and specification 34, §4.3 and D.2).
 use core::mem::MaybeUninit;
 use trust_platform_esp32::profile::MAIN_STACK;
 use trust_platform_memory::memory::{MeasuredHeap, StackWindow, TargetMemory};
 
-/// Bytes of the main heap: the M2E 72 KiB arena less the 24 KiB given to RAM code (P1-9).
-const HEAP_BYTES: usize = 48 * 1024;
+/// Bytes of the main heap: the M2E 72 KiB arena less the 24 KiB given to RAM code (P1-9) and the
+/// 16,320 bytes the LP SRAM region takes over (the owner, 21 October 2026, "Use LP SRAM"), so the
+/// three regions hold the 112 KiB that the main heap and the reclaimed RAM held.
+const HEAP_BYTES: usize = 32 * 1024 + 64;
 /// Bytes the boot loader leaves free after boot, reclaimed as the second heap region: esp-hal
 /// 1.2.2's `dram2_seg` at 0x4086E610 to 0x4087E610, 64 KiB.
 const RECLAIMED_BYTES: usize = 64 * 1024;
+/// Bytes of the LP SRAM region: the C6's 16 KiB of LP SRAM less 64 bytes, which hold the reset
+/// record and the boot counter (`.rtc_fast.persistent`, 52 bytes) with their alignment.
+const LOW_POWER_BYTES: usize = 16 * 1024 - 64;
 
 /// Top of the esp-hal stack region (`_stack_start`): the end of HP SRAM below the second-stage
 /// bootloader in esp-hal 1.2.2's ESP32-C6 memory map. The stack grows down from it. A fixed window,
@@ -34,12 +39,21 @@ static mut HEAP_MEMORY: HeapMemory = HeapMemory([MaybeUninit::uninit(); HEAP_BYT
 #[esp_hal::ram(reclaimed)]
 static mut RECLAIMED: [MaybeUninit<u8>; RECLAIMED_BYTES] = [MaybeUninit::uninit(); RECLAIMED_BYTES];
 
+/// The LP SRAM, the allocator's last region, in 8-byte words for the allocator's alignment.
+/// `#[ram(unstable(rtc_fast, persistent))]` places it in `.rtc_fast.persistent`, which the startup
+/// zeroes only after power-on; the allocator takes it as it finds it, as it takes the reclaimed RAM.
+/// The HP CPU's atomic instructions work on it, and a load or store takes 2.0 cycles there against
+/// 1.25 in HP SRAM (both measured on the bench, 21 October 2026), so it is used last.
+#[esp_hal::ram(unstable(rtc_fast, persistent))]
+static mut LOW_POWER: [u64; LOW_POWER_BYTES / 8] = [0; LOW_POWER_BYTES / 8];
+
 #[global_allocator]
 pub static HEAP: MeasuredHeap = MeasuredHeap::empty();
 
-/// Give the allocator its two regions and paint the stack window. Call once, first in `main`:
+/// Give the allocator its three regions and paint the stack window. Call once, first in `main`:
 /// esp-riscv-rt does not paint the stack at reset, so the paint must precede the first
-/// measurement. The first region is the 48 KiB main heap, the second the boot loader's 64 KiB.
+/// measurement. An allocation is tried in the 32,832-byte main heap, then in the boot loader's
+/// 64 KiB, then in the LP SRAM's 16,320 bytes.
 pub fn initialize() {
     // SAFETY: called exactly once before any allocation, on a single core. Each private static is
     // exclusively owned by the allocator for the whole boot; these slices cover exactly those
@@ -49,11 +63,15 @@ pub fn initialize() {
             core::ptr::addr_of_mut!(HEAP_MEMORY) as *mut u8,
             HEAP_BYTES,
         );
-        let second = core::slice::from_raw_parts_mut(
+        let reclaimed = core::slice::from_raw_parts_mut(
             core::ptr::addr_of_mut!(RECLAIMED) as *mut u8,
             RECLAIMED_BYTES,
         );
-        HEAP.init(main, Some(second));
+        let low_power = core::slice::from_raw_parts_mut(
+            core::ptr::addr_of_mut!(LOW_POWER) as *mut u8,
+            LOW_POWER_BYTES,
+        );
+        HEAP.init(main, Some(reclaimed), Some(low_power));
     }
     TargetMemory::new(&HEAP, STACK_WINDOW).paint_inactive_stack();
 }

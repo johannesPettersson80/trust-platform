@@ -40,8 +40,14 @@ pub(in crate::vm::engine) fn apply_output_patch(images: &mut ProcessImages, patc
     }
 }
 
+/// Keep `outputs`, the output image a publication begins with, in `copy`, its reserved storage.
+pub(super) fn keep_outputs(copy: &mut Vec<u8>, outputs: &[u8]) {
+    copy.clear();
+    copy.extend_from_slice(outputs);
+}
+
 /// Write one checked flat window, or only its bit, into the output or marker image.
-fn write_window(
+pub(super) fn write_window(
     images: &mut ProcessImages,
     area: IoArea,
     start: usize,
@@ -139,7 +145,7 @@ pub(in crate::vm::engine) struct ImageStaging {
     /// of its image entry, built at construction and moved into the entry when the binding first
     /// publishes, so that no scan builds one (C1-19c).
     published_keys: Vec<Option<IoAddressKey>>,
-    outputs_before: Vec<u8>,
+    pub(super) outputs_before: Vec<u8>,
 }
 
 /// The staging that the bindings of a prepared module use in one scan.
@@ -260,13 +266,7 @@ impl ImageStaging {
 
     /// Keep the output image a publication begins with, in the reserved copy.
     fn keep_outputs(&mut self, outputs: &[u8]) {
-        self.outputs_before.clear();
-        self.outputs_before.extend_from_slice(outputs);
-    }
-
-    /// Put back the output image the publication began with.
-    fn restore_outputs(&self, outputs: &mut [u8]) {
-        outputs.copy_from_slice(&self.outputs_before);
+        keep_outputs(&mut self.outputs_before, outputs);
     }
 
     /// Reserve room for `bytes` bytes of input destinations saved as their cells (C1-16).
@@ -497,6 +497,10 @@ impl EngineState<'_> {
         hooks: &mut dyn CycleHooks,
         markers_only: bool,
     ) -> Result<(), RuntimeError> {
+        // Copied leaves are published from where they lie, without staging (checklist P1-6).
+        if let Some(result) = self.publish_copied(hooks, markers_only) {
+            return result;
+        }
         // The reserved staging is taken out for the publication and returned empty.
         let mut staging = core::mem::take(&mut self.data.resources.staging);
         let result = self.publish_staged(&mut staging, hooks, markers_only);
@@ -505,7 +509,7 @@ impl EngineState<'_> {
         result
     }
 
-    fn publish_staged(
+    pub(super) fn publish_staged(
         &mut self,
         staging: &mut ImageStaging,
         hooks: &mut dyn CycleHooks,
@@ -555,6 +559,18 @@ impl EngineState<'_> {
         }
         // All fallible conversion/allocation/policy work precedes publication.
         staging.apply(&mut self.data.images, &self.prepared.io_bindings);
+        self.submit_outputs(hooks, journal, &staging.outputs_before)
+    }
+
+    /// What follows a publication's writes into the images: with output hooks, which `journal`
+    /// then is for, the hooks of `AfterOutputSample` and the submission of the outputs; a refusal
+    /// puts back `outputs_before`, the output image the publication began with.
+    pub(super) fn submit_outputs(
+        &mut self,
+        hooks: &mut dyn CycleHooks,
+        journal: Option<OutputJournal>,
+        outputs_before: &[u8],
+    ) -> Result<(), RuntimeError> {
         if let Some(mut journal) = journal {
             // Provisional output views are callback-scoped. Preserve the hosted
             // rollback domain: flat Q only, not M/hierarchical state effects.
@@ -582,7 +598,7 @@ impl EngineState<'_> {
                     published
                 });
             if let Err(error) = result {
-                staging.restore_outputs(&mut self.data.images.outputs);
+                self.data.images.outputs.copy_from_slice(outputs_before);
                 return Err(error);
             }
             // Successful submission commits Q. A late deadline/observation
@@ -868,7 +884,7 @@ impl EngineState<'_> {
     /// bytes are charged as a new allocation (spec 34 TIME-08).
     /// The leaf of copied output or marker binding `index` (`IoLeaf::copy`) and its bytes, read
     /// where the value path reads them (`binding_leaf_value`); `None` takes the value path.
-    fn copied_output(&self, index: usize) -> Option<(IoLeaf, [u8; 8])> {
+    pub(super) fn copied_output(&self, index: usize) -> Option<(IoLeaf, [u8; 8])> {
         if !self.data.construction.initializers.is_empty() {
             return None;
         }

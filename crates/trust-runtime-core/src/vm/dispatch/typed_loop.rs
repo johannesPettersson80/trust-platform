@@ -96,6 +96,10 @@ pub(super) fn run(
         body.ensure_frame()?;
         return body.hand_over(operand_stack, pc, end, 0);
     }
+    // A body whose operands' kinds preparation fixed runs on their bits (checklist P1-9).
+    if let Some(kinded_code) = code.kinded.as_ref() {
+        return kinded::run(body, kinded_code, operand_stack, pc, end);
+    }
     let mut operands = Operands {
         cells: [Cell::Null; DEPTH],
         len: 0,
@@ -570,7 +574,7 @@ fn value_of(cell: Cell) -> Result<Value, RuntimeError> {
     match cell {
         Cell::Null => Ok(Value::Null),
         Cell::Instance(instance) => Ok(Value::Instance(instance)),
-        _ => cell_slot(cell).ok_or(RuntimeError::InvalidExecutionState),
+        _ => cell_slot(cell).ok_or_else(|| RuntimeError::InvalidExecutionState),
     }
 }
 
@@ -634,7 +638,8 @@ fn integers(op: BinaryOp, left: Integer, right: Integer) -> Result<Cell, Runtime
     ) {
         return Err(RuntimeError::TypeMismatch);
     }
-    let target = wider_numeric(left.kind(), right.kind()).ok_or(RuntimeError::TypeMismatch)?;
+    let target =
+        wider_numeric(left.kind(), right.kind()).ok_or_else(|| RuntimeError::TypeMismatch)?;
     let arithmetic = matches!(
         op,
         BinaryOp::Add
@@ -694,5 +699,6 @@ fn unsigned_cell(target: NumericKind, value: u64) -> Result<Cell, RuntimeError> 
     })
 }
 
+mod kinded;
 #[cfg(test)]
 mod tests;

@@ -83,7 +83,7 @@ package "Shared execution choices" as executionPkg #LightCyan {
     component "EngineState::execute_pou\nprepared POU and parameter-presence bindings" as entry
     component "Core register executor\nexecute_register_program\nprepared lowering / tier-1 selection" as register
     component "Core stack dispatcher\nexecute_pou_stack_with_locals\none opcode loop; no-register calls stay in-loop" as stack
-    component "Typed and compact loops\nprepared compact code of eligible bodies\nscalar operands as cells, scalar leaves,\nstandard blocks and conversions where they lie" as compact
+    component "Kinded, typed and compact loops\nprepared compact code of eligible bodies\noperand kinds fixed at preparation or cells,\nscalar leaves, standard blocks and conversions where they lie" as compact
     component "VM activation pump\nregister-ir mixed stack/register continuations\nsaved caller cursor + leased register scratch" as pump
     component "call preparation/completion\nframes, parameters, edges, OUT/IN_OUT journal" as calls
     component "Reference operations\nborrowed checks; materialized character fallback\ndynamic field/index and reference-attempt policy" as references
@@ -158,10 +158,12 @@ package "Shared execution choices" as executionPkg #LightCyan {
     note bottom of compact
         A program or final function block body whose instructions all have an
         operation, and that keeps no frame variables, runs from compact code
-        (spec 34 PERF-05). The typed loop holds its scalar operands as cells and
-        computes integers and BOOLs on them; any other operand hands the body to
-        the compact loop. A program body that initializes nothing in a frame
-        enters without one, and its frame is pushed when an operation needs it.
+        (spec 34 PERF-05). A body whose operand kinds preparation fixes runs on
+        their bits in the kinded loop; otherwise the typed loop holds its scalar
+        operands as cells and computes integers and BOOLs on them; any other
+        operand hands the body to the compact loop. A program body that
+        initializes nothing in a frame enters without one, and its frame is
+        pushed when an operation needs it.
         Each covered instruction is recorded as the fault site and charged its
         unit before its work, an operation's units at once when none samples the
         deadline, so results, charges and faults equal the opcode loop's.

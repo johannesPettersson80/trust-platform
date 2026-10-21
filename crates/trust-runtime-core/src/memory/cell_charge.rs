@@ -453,7 +453,7 @@ impl<'a> CellsView<'a> {
                     .regions
                     .block(range.region)
                     .bytes(range)
-                    .ok_or(RuntimeError::InvalidExecutionState)?;
+                    .ok_or_else(|| RuntimeError::InvalidExecutionState)?;
                 crate::memory::cells::read_scalar(type_id, prim_id, bytes, self.prepared).map(Some)
             }
         }

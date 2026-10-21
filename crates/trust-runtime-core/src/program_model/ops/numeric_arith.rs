@@ -51,14 +51,14 @@ fn numeric_arith(op: BinaryOp, left: Value, right: Value) -> Result<Value, Runti
 /// (checklist P1-9).
 pub(crate) fn signed_arith(op: BinaryOp, a: i64, b: i64) -> Result<i64, RuntimeError> {
     Ok(match op {
-        BinaryOp::Add => a.checked_add(b).ok_or(RuntimeError::Overflow)?,
-        BinaryOp::Sub => a.checked_sub(b).ok_or(RuntimeError::Overflow)?,
-        BinaryOp::Mul => a.checked_mul(b).ok_or(RuntimeError::Overflow)?,
+        BinaryOp::Add => a.checked_add(b).ok_or_else(|| RuntimeError::Overflow)?,
+        BinaryOp::Sub => a.checked_sub(b).ok_or_else(|| RuntimeError::Overflow)?,
+        BinaryOp::Mul => a.checked_mul(b).ok_or_else(|| RuntimeError::Overflow)?,
         BinaryOp::Div => {
             if b == 0 {
                 return Err(RuntimeError::DivisionByZero);
             }
-            a.checked_div(b).ok_or(RuntimeError::Overflow)?
+            a.checked_div(b).ok_or_else(|| RuntimeError::Overflow)?
         }
         BinaryOp::Mod => checked_signed_remainder(a, b)?,
         BinaryOp::Pow => {
@@ -66,7 +66,7 @@ pub(crate) fn signed_arith(op: BinaryOp, a: i64, b: i64) -> Result<i64, RuntimeE
                 return Err(RuntimeError::TypeMismatch);
             }
             let exp = u32::try_from(b).map_err(|_| RuntimeError::Overflow)?;
-            a.checked_pow(exp).ok_or(RuntimeError::Overflow)?
+            a.checked_pow(exp).ok_or_else(|| RuntimeError::Overflow)?
         }
         _ => return Err(RuntimeError::TypeMismatch),
     })
@@ -77,9 +77,9 @@ pub(crate) fn signed_arith(op: BinaryOp, a: i64, b: i64) -> Result<i64, RuntimeE
 /// (checklist P1-9).
 pub(crate) fn unsigned_arith(op: BinaryOp, a: u64, b: u64) -> Result<u64, RuntimeError> {
     Ok(match op {
-        BinaryOp::Add => a.checked_add(b).ok_or(RuntimeError::Overflow)?,
-        BinaryOp::Sub => a.checked_sub(b).ok_or(RuntimeError::Overflow)?,
-        BinaryOp::Mul => a.checked_mul(b).ok_or(RuntimeError::Overflow)?,
+        BinaryOp::Add => a.checked_add(b).ok_or_else(|| RuntimeError::Overflow)?,
+        BinaryOp::Sub => a.checked_sub(b).ok_or_else(|| RuntimeError::Overflow)?,
+        BinaryOp::Mul => a.checked_mul(b).ok_or_else(|| RuntimeError::Overflow)?,
         BinaryOp::Div => {
             if b == 0 {
                 return Err(RuntimeError::DivisionByZero);
@@ -94,7 +94,7 @@ pub(crate) fn unsigned_arith(op: BinaryOp, a: u64, b: u64) -> Result<u64, Runtim
         }
         BinaryOp::Pow => {
             let exp = u32::try_from(b).map_err(|_| RuntimeError::Overflow)?;
-            a.checked_pow(exp).ok_or(RuntimeError::Overflow)?
+            a.checked_pow(exp).ok_or_else(|| RuntimeError::Overflow)?
         }
         _ => return Err(RuntimeError::TypeMismatch),
     })

@@ -23,6 +23,11 @@
  * next name has seven characters and begins with `s`, which is `session` alone. */
 *(.text.*18trust_runtime_core2vm8dispatch[!7]*)
 *(.text.*18trust_runtime_core2vm8dispatch7[!s]*)
+/* The kinded loop's leaf widths and its operands' bits and cells (`vm::compact::kinded`); the pass
+ * that writes the kinded code runs at preparation, from flash. */
+*(.text.*7compact6kinded5width*)
+*(.text.*7compact6kinded7bits_of*)
+*(.text.*7compact6kinded11cell_of_bits*)
 *(.text.*18trust_runtime_core2vm13dispatch_refs*)
 *(.text.*18trust_runtime_core2vm12dispatch_ops*)
 *(.text.*18trust_runtime_core2vm11type_policy*)
@@ -156,14 +161,16 @@
  * binding (`vm::call::stdlib`, about 2 KB), which every block call and conversion of compact code
  * runs (checklist P1-5; `profile-p1c`: 31 samples from flash). The conversions themselves (about
  * 19 KB) run from flash. The three patterns take every `stdlib::fbs` item but those of `members`
- * and `registry`, whose tables and names preparation reads (a block's place lookup inlines into
- * its reads and writes). The
+ * and `registry`, whose tables and names preparation reads; a block's place lookup
+ * (`BlockPlaces::member`, 100 bytes) did not inline into its reads and writes and ran from flash
+ * (`profile-p1n-v1p`: 10 samples), so it has a pattern of its own. The
  * places of a block's members, and the module's POU and native symbol lookups that a block call
  * and a conversion make (checklist P1-4; `profile-p1k-v1p`: 9 samples from flash with the engine
  * view a cycle takes, `RuntimeState::engine`). */
 *(.text.*18trust_runtime_core6stdlib3fbs[!78]*)
 *(.text.*18trust_runtime_core6stdlib3fbs7[!m]*)
 *(.text.*18trust_runtime_core6stdlib3fbs8[!r]*)
+*(.text.*11BlockPlaces6member*)
 *(.text.*18trust_runtime_core2vm4call6stdlib*)
 *(.text.*2vm8prepared15builtin_members*14PreparedModule13builtin_table*)
 *(.text.*2vm8prepared15builtin_members*14PreparedModule14builtin_places*)

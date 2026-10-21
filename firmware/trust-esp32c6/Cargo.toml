@@ -11,7 +11,7 @@ resolver = "3"
 
 [dependencies]
 # The chip's hardware adapter (the USB link, wait, clock, GPIO claim, platform and watchdog
-# rule), the two-region measured heap and the persistent reset record, and the shared single-thread
+# rule), the measured heap and the persistent reset record, and the shared single-thread
 # resource loop, container admission and engine cycle.
 trust-platform-esp32 = { path = "../../crates/trust-platform-esp32" }
 trust-platform-memory = { path = "../../crates/trust-platform-memory" }
