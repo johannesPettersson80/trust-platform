@@ -46,6 +46,30 @@ fn convert_with_mode(
     convert_value(&value, dst, mode)
 }
 
+/// [`apply_conversion`] of `spec` for `value`, an integer, when `spec` converts it to an integer type
+/// (checklist P1-9): the same checks and result, through the integer branch that
+/// [`convert_with_mode`] takes for them, without the general binding of a conversion call. `None`
+/// for any other conversion, a source type that is not the value's, and any other value.
+pub(crate) fn convert_integer(
+    spec: ConversionSpec,
+    value: &Value,
+) -> Option<Result<Value, RuntimeError>> {
+    let ConversionSpec::Convert { src, dst } = spec else {
+        return None;
+    };
+    let actual = value_type_id(value)?;
+    if !is_integer_type(actual) || !is_integer_type(dst) || src.is_some_and(|src| src != actual) {
+        return None;
+    }
+    Some(if !is_conversion_allowed(actual, dst) {
+        Err(RuntimeError::TypeMismatch)
+    } else if actual == dst {
+        Ok(value.clone())
+    } else {
+        convert_to_int(value, dst, ConversionMode::Round)
+    })
+}
+
 fn trunc_convert(
     value: &Value,
     src: Option<ConversionType>,
@@ -227,5 +251,147 @@ fn converted_into(
             convert_to_string_into(&value, dst, out).map(|wide| TextResult::Text { wide })
         }
         _ => convert_value(&value, dst, ConversionMode::Round).map(TextResult::Value),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::stdlib::conversions::call_conversion_spec;
+    use crate::stdlib::conversions::ConversionType::{
+        DInt, Int, LInt, SInt, UDInt, UInt, ULInt, USInt,
+    };
+    use alloc::vec;
+    use alloc::vec::Vec;
+
+    const INTEGERS: [ConversionType; 8] = [SInt, Int, DInt, LInt, USInt, UInt, UDInt, ULInt];
+
+    /// Integers of every type at its bounds and between them.
+    fn samples() -> Vec<Value> {
+        vec![
+            Value::SInt(i8::MIN),
+            Value::SInt(-1),
+            Value::SInt(i8::MAX),
+            Value::Int(i16::MIN),
+            Value::Int(300),
+            Value::Int(i16::MAX),
+            Value::DInt(i32::MIN),
+            Value::DInt(70_000),
+            Value::DInt(i32::MAX),
+            Value::LInt(i64::MIN),
+            Value::LInt(-1),
+            Value::LInt(i64::MAX),
+            Value::USInt(0),
+            Value::USInt(u8::MAX),
+            Value::UInt(40_000),
+            Value::UInt(u16::MAX),
+            Value::UDInt(0),
+            Value::UDInt(u32::MAX),
+            Value::ULInt(1 << 63),
+            Value::ULInt(u64::MAX),
+        ]
+    }
+
+    /// Specification 34 PERF-05: compact code converts an integer to an integer type with the
+    /// general conversion's result. Every sample converted to every integer type, with the
+    /// conversion's source type named and left out, gives what `call_conversion_spec` gives.
+    /// Catches a range check of the wrong width, a sign lost on the way and a result of the wrong
+    /// type.
+    #[test]
+    fn an_integer_converts_as_the_general_conversion_converts_it() {
+        for value in samples() {
+            let actual = value_type_id(&value).expect("an integer");
+            for dst in INTEGERS {
+                for src in [None, Some(actual)] {
+                    let spec = ConversionSpec::Convert { src, dst };
+                    assert_eq!(
+                        convert_integer(spec, &value),
+                        Some(call_conversion_spec(spec, core::slice::from_ref(&value))),
+                        "{value:?} to {dst:?} (source {src:?})"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Worked cases of specification 07 §2.1: a representable integer keeps its value exactly, and
+    /// a value outside the target's range is `RuntimeError::Overflow`, never wrapped or saturated:
+    /// UDINT_TO_DINT(70000) is 70000, INT_TO_DINT(-1234) is -1234, UDINT_TO_DINT(4294967295),
+    /// DINT_TO_SINT(128) and LINT_TO_USINT(-1) overflow. Catches wrapping, saturation and a sign
+    /// extended or dropped.
+    #[test]
+    fn worked_integer_conversions_of_specification_07() {
+        let convert = |value: Value, src, dst| {
+            convert_integer(
+                ConversionSpec::Convert {
+                    src: Some(src),
+                    dst,
+                },
+                &value,
+            )
+        };
+        assert_eq!(
+            convert(Value::UDInt(70_000), UDInt, DInt),
+            Some(Ok(Value::DInt(70_000)))
+        );
+        assert_eq!(
+            convert(Value::Int(-1234), Int, DInt),
+            Some(Ok(Value::DInt(-1234)))
+        );
+        assert_eq!(
+            convert(Value::UDInt(u32::MAX), UDInt, DInt),
+            Some(Err(RuntimeError::Overflow))
+        );
+        assert_eq!(
+            convert(Value::DInt(128), DInt, SInt),
+            Some(Err(RuntimeError::Overflow))
+        );
+        assert_eq!(
+            convert(Value::LInt(-1), LInt, USInt),
+            Some(Err(RuntimeError::Overflow))
+        );
+    }
+
+    /// Any other conversion or value is left to the general conversion: a source type that is not
+    /// the value's, a target that is not an integer, a value that is not an integer, a truncation
+    /// and a BCD conversion. Catches the integer branch taking a conversion it does not cover.
+    #[test]
+    fn only_an_integer_to_an_integer_type_takes_the_integer_branch() {
+        let five = Value::Int(5);
+        let convert = |src, dst| ConversionSpec::Convert { src, dst };
+        assert_eq!(convert_integer(convert(Some(DInt), Int), &five), None);
+        assert_eq!(
+            convert_integer(convert(None, ConversionType::Real), &five),
+            None
+        );
+        assert_eq!(
+            convert_integer(convert(None, ConversionType::DWord), &five),
+            None
+        );
+        assert_eq!(convert_integer(convert(None, Int), &Value::Real(5.0)), None);
+        assert_eq!(
+            convert_integer(convert(None, Int), &Value::Bool(true)),
+            None
+        );
+        assert_eq!(
+            convert_integer(
+                ConversionSpec::Trunc {
+                    src: None,
+                    dst: Int
+                },
+                &five
+            ),
+            None
+        );
+        assert_eq!(
+            convert_integer(
+                ConversionSpec::ToBcd {
+                    src: None,
+                    dst: ConversionType::Word
+                },
+                &five
+            ),
+            None
+        );
     }
 }

@@ -2949,7 +2949,11 @@ program reads or writes:
   binds and charges the argument and converts it as the call does, without the call's lookups of
   its symbol and names. An argument that the call reads through a reference, as the compiler
   passes a variable that the POU declares, or a variable of a function block instance it declares,
-  is read from the variable's leaf. A text argument goes through the call.
+  is read from the variable's leaf. A text argument goes through the call. An integer converted to
+  an integer type, by a conversion that names the integer's own type or none, is converted by the
+  conversion's integer branch once the copy that the argument's binding makes is admitted, which is
+  all that binding charges for an integer (specification 07 §2.1 gives the result: the value kept
+  exactly, or `RuntimeError::Overflow` outside the target's range).
 - In a body that compact code covers, a call of a standard function block that the POU declares
   itself, which binds values to inputs only, writes each bound input's value into its member where
   it lies and runs the block, with the call's checks of the deadline before and after it, its
@@ -3793,7 +3797,11 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   stays unverified, as on F401.
 - **Memory.** The main heap is 48 KiB: F401's 72 KiB allocator arena less the 24 KiB that
   RAM-resident code takes, so that the scan's code runs from RAM (the owner, 21 October 2026, "Give
-  code about 24 KiB of the 136 KiB program heap, leaving programs 112 KiB"; checklist P1). The
+  code about 24 KiB of the 136 KiB program heap, leaving programs 112 KiB"; checklist P1). The heap
+  is 112 KiB in all, with the 64 KiB reclaimed region, and the memory the chip measures for programs
+  at boot (`program_memory_bytes`, §5.1.1) is 56,016 bytes, against 80,652 with the 72 KiB main
+  heap (measured 21 October 2026, firmware p1j), so an online change of a program the size of A4's
+  (a host peak of 64,812 bytes) no longer fits. The
   esp-hal stack region spans the HP SRAM left after static data and RAM-resident code. The C6's main-stack window is 78 KiB at its
   top, below esp-hal 1.2.2's `_stack_start` (0x4086E610, a constant that inspection pins). The
   window was 16 KiB, as on F401, then 24 KiB after the S1b-5b2 bench measured a 15,740 B high-water

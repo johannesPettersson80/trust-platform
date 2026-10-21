@@ -204,9 +204,44 @@
 *(.text.*18trust_runtime_core2vm8prepared7indexes*14PreparedModule11edge_inputs*)
 
 /* The statement-start lookup that the statement hook's check makes at every instruction while
- * debugging is enabled (checklist P1-10; `profile-p1j-perf`: 434 samples from flash). */
+ * debugging is enabled (checklist P1-10; `profile-p1j-perf`: 434 samples from flash, and
+ * `profile-p1l-perf`: 354 more in `statement_start` itself). */
 *(.text.*11collections*9SortedMap*15statement_index13PouStatements*8position*)
 *(.text.*4core5sliceSm13binary_search*18trust_runtime_core)
+*(.text.*14PreparedModule15statement_start*)
+
+/* The small functions of every cycle that `profile-p1k-v1p` sampled from flash (checklist P1-6 and
+ * P1-7; 2 to 14 samples each, about 2.5 KB together): the runner's events, metrics and observer,
+ * the device services' watchdog arming, the clock and the allocation count, the vectors and copies
+ * the cycle's staging makes, the critical section, a smol_str's text, an integer conversion's
+ * integer branch and a bound copy's admission. */
+*(.text.*22trust_runtime_services6runner5state*7Records*10push_event*)
+*(.text.*22trust_runtime_services7metrics6millis*)
+*(.text.*22trust_runtime_services7metrics*9TaskStats6record*)
+*(.text.*22trust_runtime_services6runner4span*)
+*(.text.*22trust_runtime_services6runner8observer*12ScanObserver*4task*)
+*(.text.*22trust_runtime_services6runner8observer*12ScanObserver*5since*)
+*(.text.*22trust_runtime_services6runner13online_change*11ChangeState6expiry*)
+*(.text.*22trust_runtime_services6runner6engine8services*14DeviceServices*3arm*)
+*(.text.*22trust_runtime_services4chip10process_io8read_bit*)
+*(.text.*13trust_esp32c620allocator_operations*)
+*(.text.*20trust_platform_esp328hardware4wait11now_instant*)
+*(.text.*5alloc7raw_vec*11RawVecInner17try_reserve_exact*)
+*(.text.*5alloc7raw_vec*11RawVecInner10deallocate*8smol_str)
+*(.text.*5alloc3vec*3VechE17try_reserve_exact*)
+*(.text.*5alloc3vec*3VechE15append_elements*18trust_runtime_core)
+*(.text.*4core5slice20copy_from_slice_implhE*)
+*(.text.*4core4time*8Duration14saturating_sub*)
+*(.text.*8smol_str*4Repr6as_str*)
+*(.text._critical_section_1_0_acquire .text._critical_section_1_0_release)
+*(.text.*6stdlib11conversions8dispatch15convert_integer*)
+*(.text.*6stdlib11conversions7numeric14convert_to_int*)
+*(.text.*6stdlib11conversions7numeric19signed_int_from_i64*)
+*(.text.*6stdlib11conversions7numeric21unsigned_int_from_u64*)
+*(.text.*6stdlib11conversions4util13value_type_id*)
+*(.text.*2vm7helpers24borrowed_value_is_cloned*)
+*(.text.*2vm7helpers26materialize_borrowed_value*)
+*(.text.*2vm4call8bindings24clone_value_with_profile*)
 
 /* The allocator and the critical section the link and the wait share. The transcendental math of
  * `libm` (SIN, EXP, SQRT and their kin, about 18 KB) runs from flash for the same margin; the

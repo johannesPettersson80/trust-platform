@@ -196,6 +196,31 @@ CONFIGURATION Conf RESOURCE Controller ON PLC TASK Periodic (INTERVAL := T#10ms,
 PROGRAM Plant WITH Periodic : Main; END_RESOURCE END_CONFIGURATION
 ";
 
+/// Integer conversions of own variables across widths and signedness, each naming its source type,
+/// which compact code converts by the conversion's integer branch (checklist P1-9).
+const CONVERTING_SOURCE: &str = "
+PROGRAM Main
+VAR
+    count : DINT := 70000;
+    double : UDINT := 4000000000;
+    high : BOOL;
+    level : LINT;
+    small : SINT := -100;
+    ticks : USINT := 200;
+END_VAR
+level := DINT_TO_LINT(count) + UDINT_TO_LINT(double);
+count := SINT_TO_DINT(small) * 2;
+ticks := DINT_TO_USINT(count + 255);
+high := UDINT_TO_ULINT(double) > ULINT#3000000000;
+small := USINT_TO_SINT(ticks) - 1;
+double := LINT_TO_UDINT(level - LINT#4000000000) + DINT_TO_UDINT(count + 300);
+level := level - SINT_TO_LINT(small) - USINT_TO_LINT(ticks);
+count := count - USINT_TO_DINT(ticks) + SINT_TO_DINT(small);
+END_PROGRAM
+CONFIGURATION Conf RESOURCE Controller ON PLC TASK Periodic (INTERVAL := T#10ms, PRIORITY := 0);
+PROGRAM Plant WITH Periodic : Main; END_RESOURCE END_CONFIGURATION
+";
+
 /// A structure's field read in the middle of an expression: the typed loop holds `count` when it
 /// meets the reference to `pair`, and the compact loop runs the rest of the body (checklist P1-9).
 const STRUCT_SOURCE: &str = "
@@ -534,6 +559,38 @@ fn integer_and_bool_operands_are_computed_on_their_cells() {
     );
 }
 
+/// Worked by hand from the initial values (count 70000, double 4000000000, small −100, ticks 200)
+/// with specification 07 §2.1, by which a representable integer keeps its value exactly: `level`
+/// 70000 + 4000000000 = 4000070000, `count` −100 × 2 = −200, `ticks` −200 + 255 = 55, `high`
+/// 4000000000 > 3000000000 = TRUE, `small` 55 − 1 = 54, `double` 70000 + 100 = 70100, `level`
+/// 4000070000 − 54 − 55 = 4000069891 and `count` −200 − 55 + 54 = −201.
+/// Catches: an integer conversion of compact code that wraps, loses the sign or converts to
+/// another width, or charges or records otherwise than the general path under any work allowance.
+#[test]
+fn integer_conversions_convert_as_on_the_general_path() {
+    assert_eq!(
+        compact_bodies(CONVERTING_SOURCE),
+        1,
+        "Main's body has compact code"
+    );
+    every_work_allowance_ends_alike(CONVERTING_SOURCE);
+    let (result, record, variables) = first_scan(&artifact(CONVERTING_SOURCE), 600, false);
+    assert_eq!(result, Ok(()));
+    assert_eq!(record, None);
+    assert_eq!(
+        variables,
+        [
+            Value::DInt(-201),
+            Value::UDInt(70_100),
+            Value::Bool(true),
+            Value::LInt(4_000_069_891),
+            Value::SInt(54),
+            Value::USInt(55),
+        ]
+        .map(Some)
+    );
+}
+
 /// Worked by hand: `double` is 1 + 5 × 2 = 11, then `count` 2, `small` 10, `high` 11 > 2 = TRUE,
 /// `ticks` 8 and `level` 0 + 1 + 2 × 3 = 7. The typed loop hands the body over at the reference to
 /// `pair` with `count` held, and the compact loop computes the rest.
@@ -606,14 +663,15 @@ fn a_stack_deeper_than_the_typed_loops_room_hands_the_body_over() {
 
 /// Specification 10 §6.4, worked by hand from the initial values (count 1, level 9, small 120,
 /// ticks 0): SINT 120 + 10 = 130 is above 127; `count` 2 / (2 − 2) divides by zero; LINT 10 MOD
-/// (10 − 10) takes a remainder by zero; USINT 2 − 3 is below 0. Each fault ends the scan before the
-/// faulting assignment stores, so the statements before it have run and the rest have not.
+/// (10 − 10) takes a remainder by zero; USINT 2 − 3 is below 0; DINT_TO_SINT(300) is above 127
+/// (specification 07 §2.1). Each fault ends the scan before the faulting assignment stores, so the
+/// statements before it have run and the rest have not.
 /// Catches: a typed operation that wraps or saturates instead of refusing, refuses with another
 /// error, stores the faulting result, or records another fault site or charges otherwise than the
 /// general path under any work allowance.
 #[test]
 fn integer_faults_end_the_scan_as_on_the_general_path() {
-    let cases: [(&str, RuntimeError, [Value; 6]); 4] = [
+    let cases: [(&str, RuntimeError, [Value; 6]); 5] = [
         (
             "count := count + 1; small := small + 10; count := count + 100;",
             RuntimeError::Overflow,
@@ -662,6 +720,18 @@ fn integer_faults_end_the_scan_as_on_the_general_path() {
                 Value::USInt(2),
             ],
         ),
+        (
+            "count := count + 299; small := DINT_TO_SINT(count); high := TRUE;",
+            RuntimeError::Overflow,
+            [
+                Value::DInt(300),
+                Value::DInt(0),
+                Value::Bool(false),
+                Value::LInt(9),
+                Value::SInt(120),
+                Value::USInt(0),
+            ],
+        ),
     ];
     for (body, error, expected) in cases {
         let source = faulting_source(body);
@@ -692,6 +762,7 @@ fn every_deadline_sample_ends_a_compact_first_scan_as_with_an_observing_hook() {
         MEMBER_SOURCE,
         TIMER_SOURCE,
         TYPED_SOURCE,
+        CONVERTING_SOURCE,
         STRUCT_SOURCE,
         deep.as_str(),
     ] {

@@ -27,6 +27,7 @@ use crate::fault::FaultSite;
 use crate::memory::layout::{ByteRange, LayoutRegion};
 use crate::memory::view::StoreAccess;
 use crate::memory::MemoryLocation;
+use crate::stdlib::conversions::convert_integer;
 use crate::value::{RefPath, Value, ValueRef};
 
 /// Run `code`, the compact code of the current frame's body, from operation `first` to the body's
@@ -309,7 +310,9 @@ fn convert(
 
 /// The conversion of `argument`, a scalar, by standard call `symbol`, as the general call runs it
 /// (checklist P1-5): the deadline is checked, the argument is bound and converted with the call's
-/// charges, and the deadline is checked again once the call has its value.
+/// charges, and the deadline is checked again once the call has its value. An integer converted to
+/// an integer type is converted by the conversion's integer branch once the copy that its binding
+/// makes is admitted, which is all its binding charges (checklist P1-9).
 pub(super) fn converted(
     runtime: &mut impl ExecutionContext,
     module: &VmModule,
@@ -326,7 +329,13 @@ pub(super) fn converted(
     else {
         return Err(RuntimeError::InvalidExecutionState);
     };
-    let value = convert_argument(runtime, *spec, argument).map_err(VmTrap::into_runtime_error)?;
+    let value = match convert_integer(*spec, argument) {
+        Some(converted) => {
+            runtime.before_scalar_clone()?;
+            converted?
+        }
+        None => convert_argument(runtime, *spec, argument).map_err(VmTrap::into_runtime_error)?,
+    };
     runtime.check_execution_deadline()?;
     Ok(value)
 }

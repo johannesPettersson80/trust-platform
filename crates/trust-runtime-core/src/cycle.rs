@@ -30,6 +30,10 @@ pub(crate) fn try_sort_ready_tasks_by_priority<E>(
     mut priority_for_index: impl FnMut(usize) -> u32,
     mut charge: impl FnMut() -> Result<(), E>,
 ) -> Result<(), E> {
+    // Fewer than two tasks are in order: the sort would compare, swap and charge nothing.
+    if ready.len() < 2 {
+        return Ok(());
+    }
     crate::sort::heap_sort(ready.len(), &mut |operation| {
         use crate::sort::Operation;
         match operation {
@@ -130,5 +134,22 @@ mod tests {
         let error = super::try_sort_ready_tasks_by_priority(&mut ready, |_| 0, || Err("exhausted"));
         assert_eq!(error, Err("exhausted"));
         assert_eq!(ready, before);
+    }
+
+    /// One ready task, or none, is in order: the sort compares, swaps and charges nothing, so an
+    /// exhausted allowance does not refuse it, as the heap sort makes no operation for fewer than
+    /// two entries. Catches a charge made for a sort with nothing to order.
+    #[test]
+    fn a_single_ready_task_is_in_order_without_a_charge() {
+        let mut one = [ReadyTask {
+            index: 3,
+            due_at: Duration::ZERO,
+        }];
+        let sorted = super::try_sort_ready_tasks_by_priority(&mut one, |_| 0, || Err("exhausted"));
+        assert_eq!(sorted, Ok(()));
+        assert_eq!(one.map(|entry| entry.index), [3]);
+        let mut none: [ReadyTask; 0] = [];
+        let sorted = super::try_sort_ready_tasks_by_priority(&mut none, |_| 0, || Err("exhausted"));
+        assert_eq!(sorted, Ok(()));
     }
 }
