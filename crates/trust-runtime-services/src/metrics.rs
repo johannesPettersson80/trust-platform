@@ -20,12 +20,75 @@ use trust_runtime_core::vm::MemoryFigure;
 
 const CYCLE_LATENCY_WINDOW_SIZE: usize = 512;
 
-/// Milliseconds of a duration.
-fn millis(duration: Duration) -> f64 {
-    duration.as_secs_f64() * 1000.0
+/// The whole nanoseconds of `duration`, saturated at `u64::MAX` (about 584 years).
+fn whole_nanos(duration: Duration) -> u64 {
+    duration
+        .as_secs()
+        .saturating_mul(1_000_000_000)
+        .saturating_add(u64::from(duration.subsec_nanos()))
 }
 
-/// Minimum, maximum, mean and last scan cycle duration, in milliseconds.
+/// Milliseconds of `nanos` nanoseconds.
+#[allow(clippy::cast_precision_loss)] // a reported duration, not an exact count
+fn millis(nanos: u64) -> f64 {
+    nanos as f64 / 1_000_000.0
+}
+
+/// Recorded durations as whole nanoseconds: the shortest, the longest, the last, their sum and their
+/// count. A record compares and adds integers, and the milliseconds are computed when a snapshot
+/// reads them, so that a chip records a scan without software floating point (checklist P1-6).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct Durations {
+    min: u64,
+    max: u64,
+    last: u64,
+    total: u64,
+    count: u64,
+}
+
+impl Durations {
+    fn record(&mut self, duration: Duration) {
+        let nanos = whole_nanos(duration);
+        self.last = nanos;
+        if self.count == 0 {
+            self.min = nanos;
+            self.max = nanos;
+        } else {
+            self.min = self.min.min(nanos);
+            self.max = self.max.max(nanos);
+        }
+        self.total = self.total.saturating_add(nanos);
+        self.count = self.count.saturating_add(1);
+    }
+
+    fn min_ms(&self) -> f64 {
+        millis(self.min)
+    }
+
+    fn max_ms(&self) -> f64 {
+        millis(self.max)
+    }
+
+    fn last_ms(&self) -> f64 {
+        millis(self.last)
+    }
+
+    fn total_ms(&self) -> f64 {
+        millis(self.total)
+    }
+
+    /// The mean, 0 before the first record.
+    #[allow(clippy::cast_precision_loss)] // the mean divides by the count
+    fn avg_ms(&self) -> f64 {
+        if self.count == 0 {
+            0.0
+        } else {
+            self.total_ms() / self.count as f64
+        }
+    }
+}
+
+/// Minimum, maximum, mean and last scan cycle duration, in milliseconds, as a snapshot reports them.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct CycleStats {
     /// Shortest recorded cycle.
@@ -40,26 +103,15 @@ pub struct CycleStats {
 }
 
 impl CycleStats {
-    /// Records one cycle that took `duration`.
-    #[allow(clippy::cast_precision_loss)] // the running mean weighs by the sample count
-    pub fn record(&mut self, duration: Duration) {
-        let ms = millis(duration);
-        self.last_ms = ms;
-        if self.samples == 0 {
-            self.min_ms = ms;
-            self.max_ms = ms;
-            self.avg_ms = ms;
-        } else {
-            if ms < self.min_ms {
-                self.min_ms = ms;
-            }
-            if ms > self.max_ms {
-                self.max_ms = ms;
-            }
-            let total = self.avg_ms * self.samples as f64 + ms;
-            self.avg_ms = total / (self.samples as f64 + 1.0);
+    /// The statistics of `durations`.
+    fn of(durations: &Durations) -> Self {
+        Self {
+            min_ms: durations.min_ms(),
+            max_ms: durations.max_ms(),
+            avg_ms: durations.avg_ms(),
+            last_ms: durations.last_ms(),
+            samples: durations.count,
         }
-        self.samples = self.samples.saturating_add(1);
     }
 
     /// Recorded cycles.
@@ -69,16 +121,17 @@ impl CycleStats {
     }
 }
 
+/// The durations of the most recent cycles, as whole nanoseconds.
 #[derive(Debug, Clone)]
 struct CycleLatencyWindow {
-    values: [f64; CYCLE_LATENCY_WINDOW_SIZE],
+    values: [u64; CYCLE_LATENCY_WINDOW_SIZE],
     len: usize,
     next: usize,
 }
 
 impl CycleLatencyWindow {
-    fn record_ms(&mut self, value_ms: f64) {
-        self.values[self.next] = value_ms;
+    fn record(&mut self, duration: Duration) {
+        self.values[self.next] = whole_nanos(duration);
         self.next = (self.next + 1) % CYCLE_LATENCY_WINDOW_SIZE;
         if self.len < CYCLE_LATENCY_WINDOW_SIZE {
             self.len += 1;
@@ -90,12 +143,12 @@ impl CycleLatencyWindow {
             return CyclePercentilesSnapshot::default();
         }
         let mut values = self.values[..self.len].to_vec();
-        values.sort_by(f64::total_cmp);
+        values.sort_unstable();
         CyclePercentilesSnapshot {
-            p50_ms: percentile(&values, 0.50),
-            p95_ms: percentile(&values, 0.95),
-            p99_ms: percentile(&values, 0.99),
-            max_ms: *values.last().unwrap_or(&0.0),
+            p50_ms: millis(percentile(&values, 0.50)),
+            p95_ms: millis(percentile(&values, 0.95)),
+            p99_ms: millis(percentile(&values, 0.99)),
+            max_ms: millis(values.last().copied().unwrap_or(0)),
             window_samples: u64::try_from(self.len).unwrap_or(u64::MAX),
         }
     }
@@ -109,96 +162,103 @@ impl CycleLatencyWindow {
 impl Default for CycleLatencyWindow {
     fn default() -> Self {
         Self {
-            values: [0.0; CYCLE_LATENCY_WINDOW_SIZE],
+            values: [0; CYCLE_LATENCY_WINDOW_SIZE],
             len: 0,
             next: 0,
         }
     }
 }
 
-/// Duration statistics and missed activations of one task, in milliseconds.
+/// Duration statistics and missed activations of one task.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TaskStats {
-    /// Shortest recorded execution.
-    pub min_ms: f64,
-    /// Longest recorded execution.
-    pub max_ms: f64,
-    /// Mean of the recorded executions.
-    pub avg_ms: f64,
-    /// Most recent execution.
-    pub last_ms: f64,
+    durations: Durations,
     /// Missed periodic activations.
     pub overruns: u64,
-    samples: u64,
 }
 
 impl TaskStats {
     /// Records one execution that took `duration`.
-    #[allow(clippy::cast_precision_loss)] // the running mean weighs by the sample count
     pub fn record(&mut self, duration: Duration) {
-        let ms = millis(duration);
-        self.last_ms = ms;
-        if self.samples == 0 {
-            self.min_ms = ms;
-            self.max_ms = ms;
-            self.avg_ms = ms;
-        } else {
-            if ms < self.min_ms {
-                self.min_ms = ms;
-            }
-            if ms > self.max_ms {
-                self.max_ms = ms;
-            }
-            let total = self.avg_ms * self.samples as f64 + ms;
-            self.avg_ms = total / (self.samples as f64 + 1.0);
-        }
-        self.samples = self.samples.saturating_add(1);
+        self.durations.record(duration);
     }
 
     /// Counts `missed` periodic activations.
     pub fn record_overrun(&mut self, missed: u64) {
         self.overruns = self.overruns.saturating_add(missed);
     }
+
+    /// Shortest recorded execution, in milliseconds.
+    #[must_use]
+    pub fn min_ms(&self) -> f64 {
+        self.durations.min_ms()
+    }
+
+    /// Longest recorded execution, in milliseconds.
+    #[must_use]
+    pub fn max_ms(&self) -> f64 {
+        self.durations.max_ms()
+    }
+
+    /// Mean of the recorded executions, in milliseconds.
+    #[must_use]
+    pub fn avg_ms(&self) -> f64 {
+        self.durations.avg_ms()
+    }
+
+    /// Most recent execution, in milliseconds.
+    #[must_use]
+    pub fn last_ms(&self) -> f64 {
+        self.durations.last_ms()
+    }
 }
 
-/// Duration statistics of one profiled call, in milliseconds.
+/// Duration statistics of one profiled call.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct CallStats {
-    /// Shortest recorded call.
-    pub min_ms: f64,
-    /// Longest recorded call.
-    pub max_ms: f64,
-    /// Mean of the recorded calls.
-    pub avg_ms: f64,
-    /// Most recent call.
-    pub last_ms: f64,
-    /// Recorded calls.
-    pub calls: u64,
-    total_ms: f64,
+    durations: Durations,
 }
 
 impl CallStats {
     /// Records one call that took `duration`.
-    #[allow(clippy::cast_precision_loss)] // the running mean weighs by the call count
     pub fn record(&mut self, duration: Duration) {
-        let ms = millis(duration);
-        self.last_ms = ms;
-        self.total_ms += ms;
-        if self.calls == 0 {
-            self.min_ms = ms;
-            self.max_ms = ms;
-            self.avg_ms = ms;
-        } else {
-            if ms < self.min_ms {
-                self.min_ms = ms;
-            }
-            if ms > self.max_ms {
-                self.max_ms = ms;
-            }
-            let total = self.avg_ms * self.calls as f64 + ms;
-            self.avg_ms = total / (self.calls as f64 + 1.0);
-        }
-        self.calls = self.calls.saturating_add(1);
+        self.durations.record(duration);
+    }
+
+    /// Recorded calls.
+    #[must_use]
+    pub fn calls(&self) -> u64 {
+        self.durations.count
+    }
+
+    /// Shortest recorded call, in milliseconds.
+    #[must_use]
+    pub fn min_ms(&self) -> f64 {
+        self.durations.min_ms()
+    }
+
+    /// Longest recorded call, in milliseconds.
+    #[must_use]
+    pub fn max_ms(&self) -> f64 {
+        self.durations.max_ms()
+    }
+
+    /// Mean of the recorded calls, in milliseconds.
+    #[must_use]
+    pub fn avg_ms(&self) -> f64 {
+        self.durations.avg_ms()
+    }
+
+    /// Most recent call, in milliseconds.
+    #[must_use]
+    pub fn last_ms(&self) -> f64 {
+        self.durations.last_ms()
+    }
+
+    /// Sum of the recorded calls, in milliseconds.
+    #[must_use]
+    pub fn total_ms(&self) -> f64 {
+        self.durations.total_ms()
     }
 }
 
@@ -272,8 +332,8 @@ impl ProgramMemory {
 pub struct RuntimeMetrics<C> {
     clock: C,
     execution_backend: ExecutionBackend,
-    /// Scan cycle statistics.
-    pub cycle: CycleStats,
+    /// Scan cycle durations.
+    cycle: Durations,
     cycle_window: CycleLatencyWindow,
     /// Statistics of each task, by task name.
     pub tasks: BTreeMap<SmolStr, TaskStats>,
@@ -299,7 +359,7 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
         Self {
             clock,
             execution_backend: ExecutionBackend::BytecodeVm,
-            cycle: CycleStats::default(),
+            cycle: Durations::default(),
             cycle_window: CycleLatencyWindow::default(),
             tasks: BTreeMap::new(),
             profiling_enabled: true,
@@ -316,7 +376,7 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
     pub fn restart(&mut self, clock: C) {
         self.clock = clock;
         self.execution_backend = ExecutionBackend::BytecodeVm;
-        self.cycle = CycleStats::default();
+        self.cycle = Durations::default();
         self.cycle_window.clear();
         self.tasks.clear();
         self.profiling_enabled = true;
@@ -336,7 +396,13 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
     /// Records one scan cycle that took `duration`.
     pub fn record_cycle(&mut self, duration: Duration) {
         self.cycle.record(duration);
-        self.cycle_window.record_ms(millis(duration));
+        self.cycle_window.record(duration);
+    }
+
+    /// Scan cycle statistics.
+    #[must_use]
+    pub fn cycle(&self) -> CycleStats {
+        CycleStats::of(&self.cycle)
     }
 
     /// Records one execution of task `name` that took `duration`. A task already recorded is found
@@ -423,9 +489,10 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
     #[must_use]
     #[allow(clippy::cast_precision_loss)] // per-cycle means divide by the cycle count
     pub fn snapshot(&self) -> RuntimeMetricsSnapshot {
-        let cycle_avg = self.cycle.avg_ms;
-        let cycle_last = self.cycle.last_ms;
-        let cycle_samples = self.cycle.samples.max(1) as f64;
+        let cycle = self.cycle();
+        let cycle_avg = cycle.avg_ms;
+        let cycle_last = cycle.last_ms;
+        let cycle_samples = cycle.samples.max(1) as f64;
         let mut calls = self
             .profile_calls
             .iter()
@@ -433,12 +500,12 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
                 key: entry.key.clone(),
                 kind: entry.kind.clone(),
                 name: entry.name.clone(),
-                min_ms: entry.stats.min_ms,
-                max_ms: entry.stats.max_ms,
-                avg_ms: entry.stats.avg_ms,
-                last_ms: entry.stats.last_ms,
-                calls: entry.stats.calls,
-                avg_cycle_ms: entry.stats.total_ms / cycle_samples,
+                min_ms: entry.stats.min_ms(),
+                max_ms: entry.stats.max_ms(),
+                avg_ms: entry.stats.avg_ms(),
+                last_ms: entry.stats.last_ms(),
+                calls: entry.stats.calls(),
+                avg_cycle_ms: entry.stats.total_ms() / cycle_samples,
             })
             .collect::<Vec<_>>();
         calls.sort_by(|left, right| {
@@ -473,10 +540,10 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
             .iter()
             .map(|(name, stats)| TaskStatsSnapshot {
                 name: name.clone(),
-                min_ms: stats.min_ms,
-                max_ms: stats.max_ms,
-                avg_ms: stats.avg_ms,
-                last_ms: stats.last_ms,
+                min_ms: stats.min_ms(),
+                max_ms: stats.max_ms(),
+                avg_ms: stats.avg_ms(),
+                last_ms: stats.last_ms(),
                 overruns: stats.overruns,
             })
             .collect::<Vec<_>>();
@@ -484,7 +551,7 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
         RuntimeMetricsSnapshot {
             uptime_ms: self.uptime_ms(),
             execution_backend: self.execution_backend,
-            cycle: self.cycle,
+            cycle,
             cycle_percentiles: self.cycle_window.snapshot(),
             faults: self.faults,
             overruns: self.overruns,
@@ -630,9 +697,9 @@ pub struct ProfilingSnapshot {
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss
 )] // the index is rounded from a clamped, non-negative position
-fn percentile(sorted_values: &[f64], quantile: f64) -> f64 {
+fn percentile(sorted_values: &[u64], quantile: f64) -> u64 {
     if sorted_values.is_empty() {
-        return 0.0;
+        return 0;
     }
     let clamped = quantile.clamp(0.0, 1.0);
     let position = (sorted_values.len().saturating_sub(1) as f64) * clamped;
@@ -640,7 +707,7 @@ fn percentile(sorted_values: &[f64], quantile: f64) -> f64 {
     sorted_values
         .get(index)
         .copied()
-        .unwrap_or_else(|| *sorted_values.last().unwrap_or(&0.0))
+        .unwrap_or_else(|| sorted_values.last().copied().unwrap_or(0))
 }
 
 #[cfg(test)]

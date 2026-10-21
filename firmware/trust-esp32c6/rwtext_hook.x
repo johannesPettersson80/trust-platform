@@ -36,7 +36,15 @@
 *(.text.*18trust_runtime_core5value5types*)
 *(.text.*18trust_runtime_core5value11storage_abi*)
 *(.text.*18trust_runtime_core13program_model*)
-*(.text.*18trust_runtime_core8io_image*)
+/* The process image's reads, writes, checks and codecs; the codecs' construction from the
+ * bindings' types and the collection of the prepared bindings, which preparation runs (about
+ * 2.8 KB), run from flash (21 October 2026, for the kinded loop's room). */
+*(.text.*18trust_runtime_core8io_image[!8]*)
+*(.text.*18trust_runtime_core8io_image8coercion*)
+*(.text.*18trust_runtime_core8io_image8prepared*12IoValueCodec6decode*)
+*(.text.*18trust_runtime_core8io_image8prepared*12IoValueCodec6encode*)
+*(.text.*18trust_runtime_core8io_image8prepared*12IoValueCodec7address*)
+*(.text.*9enumerate*8io_image8prepared17PreparedIoBinding*)
 *(.text.*18trust_runtime_core10io_address*13flat_byte_end*)
 
 /* The identities of the variable store and its execution frames, whose activation and release
@@ -147,13 +155,15 @@
 /* The standard function blocks' native code (`stdlib::fbs`, about 4 KB) and a conversion call's
  * binding (`vm::call::stdlib`, about 2 KB), which every block call and conversion of compact code
  * runs (checklist P1-5; `profile-p1c`: 31 samples from flash). The conversions themselves (about
- * 19 KB) run from flash. The two patterns take every `stdlib::fbs` item but those of `members`,
- * whose tables preparation builds (a block's place lookup inlines into its reads and writes). The
+ * 19 KB) run from flash. The three patterns take every `stdlib::fbs` item but those of `members`
+ * and `registry`, whose tables and names preparation reads (a block's place lookup inlines into
+ * its reads and writes). The
  * places of a block's members, and the module's POU and native symbol lookups that a block call
  * and a conversion make (checklist P1-4; `profile-p1k-v1p`: 9 samples from flash with the engine
  * view a cycle takes, `RuntimeState::engine`). */
-*(.text.*18trust_runtime_core6stdlib3fbs[!7]*)
+*(.text.*18trust_runtime_core6stdlib3fbs[!78]*)
 *(.text.*18trust_runtime_core6stdlib3fbs7[!m]*)
+*(.text.*18trust_runtime_core6stdlib3fbs8[!r]*)
 *(.text.*18trust_runtime_core2vm4call6stdlib*)
 *(.text.*2vm8prepared15builtin_members*14PreparedModule13builtin_table*)
 *(.text.*2vm8prepared15builtin_members*14PreparedModule14builtin_places*)
@@ -162,13 +172,13 @@
 *(.text.*2vm6engine3api*12RuntimeState6engine*)
 
 /* The frame stack's push and pop, and the prepared declarations a call and a native block look up
- * (`profile-3`: 14 and 37 samples from flash). */
+ * (`profile-3`: 14 and 37 samples from flash); the declaration groups' lookups, not their building. */
 *(.text.*18trust_runtime_core2vm6frames*10FrameStack3pop*)
 *(.text.*18trust_runtime_core2vm6frames*10FrameStack4push*)
 *(.text.*18trust_runtime_core2vm8prepared*14PreparedModule11declaration*)
 *(.text.*18trust_runtime_core2vm8prepared*14PreparedModule12declarations*)
 *(.text.*18trust_runtime_core2vm8prepared*14PreparedModule15presence_offset*)
-*(.text.*18trust_runtime_core2vm8prepared7indexes6groups*)
+*(.text.*18trust_runtime_core2vm8prepared7indexes6groups*3get*)
 
 /* The call code that every standard call of the general path runs, back in RAM with the 24 KiB the
  * main heap gave to code (the owner, 21 October 2026, "Nothing else gets slower"; spec 34 D.2: a
@@ -211,13 +221,17 @@
 *(.text.*14PreparedModule15statement_start*)
 
 /* The small functions of every cycle that `profile-p1k-v1p` sampled from flash (checklist P1-6 and
- * P1-7; 2 to 14 samples each, about 2.5 KB together): the runner's events, metrics and observer,
+ * P1-7; 2 to 14 samples each, about 2.5 KB together): the runner's events, metrics' records (in
+ * whole nanoseconds since p1x) and observer,
  * the device services' watchdog arming, the clock and the allocation count, the vectors and copies
  * the cycle's staging makes, the critical section, a smol_str's text, an integer conversion's
  * integer branch and a bound copy's admission. */
 *(.text.*22trust_runtime_services6runner5state*7Records*10push_event*)
-*(.text.*22trust_runtime_services7metrics6millis*)
-*(.text.*22trust_runtime_services7metrics*9TaskStats6record*)
+*(.text.*22trust_runtime_services7metrics*6record*)
+*(.text.*22trust_runtime_services7metrics*12record_cycle*)
+*(.text.*22trust_runtime_services7metrics*11record_task*)
+*(.text.*22trust_runtime_services7metrics*11record_call*)
+*(.text.*22trust_runtime_services7metrics*23record_scan_allocations*)
 *(.text.*22trust_runtime_services6runner4span*)
 *(.text.*22trust_runtime_services6runner8observer*12ScanObserver*4task*)
 *(.text.*22trust_runtime_services6runner8observer*12ScanObserver*5since*)

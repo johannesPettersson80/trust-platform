@@ -83,20 +83,31 @@ impl InstanceTable {
 
     /// The persistent instance `id`, or `None` for an identity that is not one.
     pub(crate) fn get(&self, id: InstanceId) -> Option<&PersistentInstance> {
-        let index = self
-            .entries
-            .binary_search_by_key(&id, |(key, _)| *key)
-            .ok()?;
+        let index = self.position(id)?;
         self.entries.get(index).map(|(_, instance)| instance)
     }
 
     /// The persistent instance `id`, mutably.
     pub(crate) fn get_mut(&mut self, id: InstanceId) -> Option<&mut PersistentInstance> {
-        let index = self
-            .entries
-            .binary_search_by_key(&id, |(key, _)| *key)
-            .ok()?;
+        let index = self.position(id)?;
         self.entries.get_mut(index).map(|(_, instance)| instance)
+    }
+
+    /// The position of `id` in the table. Construction issues a module's persistent identities one
+    /// after the other, so an identity is usually as far from the first entry's as its entry is from
+    /// the first (checklist P1-1): that entry is compared first, and any other identity is found by
+    /// its order.
+    fn position(&self, id: InstanceId) -> Option<usize> {
+        let (first, _) = self.entries.first()?;
+        let distance = usize::try_from(id.0.checked_sub(first.0)?).ok()?;
+        if self
+            .entries
+            .get(distance)
+            .is_some_and(|(key, _)| *key == id)
+        {
+            return Some(distance);
+        }
+        self.entries.binary_search_by_key(&id, |(key, _)| *key).ok()
     }
 
     /// The persistent instance whose own members' bytes hold the byte at `offset`, read at the
@@ -126,5 +137,48 @@ impl InstanceTable {
     #[cfg(test)]
     pub(crate) fn capacity(&self) -> usize {
         self.entries.capacity()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::memory::layout::LayoutRegion;
+
+    fn instance(pou: u32) -> PersistentInstance {
+        PersistentInstance {
+            pou,
+            range: ByteRange {
+                region: LayoutRegion::Persistent,
+                start: pou * 8,
+                bytes: 8,
+            },
+            parent: None,
+        }
+    }
+
+    /// An identity is found whether it lies at its distance from the first entry's, as construction
+    /// issues them, or past a gap, as when identities are issued between persistent ones; an
+    /// identity below the first, past the last or in a gap is none. Catches the distance taken as
+    /// the position without comparing the identity there, and a lookup that stops at the guess.
+    #[test]
+    fn an_identity_is_found_at_its_distance_or_by_its_order() {
+        let mut table = InstanceTable::reserve(4).expect("reserves");
+        for (id, pou) in [(5, 1), (6, 2), (9, 3), (10, 4)] {
+            table.insert(InstanceId(id), instance(pou)).expect("fits");
+        }
+        assert_eq!(table.get(InstanceId(5)), Some(&instance(1)));
+        assert_eq!(table.get(InstanceId(6)), Some(&instance(2)));
+        assert_eq!(table.get(InstanceId(9)), Some(&instance(3)));
+        assert_eq!(table.get(InstanceId(10)), Some(&instance(4)));
+        for missing in [0, 4, 7, 8, 11, u32::MAX] {
+            assert_eq!(table.get(InstanceId(missing)), None, "{missing}");
+        }
+        table.get_mut(InstanceId(9)).expect("present").parent = Some(InstanceId(5));
+        assert_eq!(
+            table.get(InstanceId(9)).and_then(|entry| entry.parent),
+            Some(InstanceId(5))
+        );
+        assert_eq!(InstanceTable::default().get(InstanceId(0)), None);
     }
 }

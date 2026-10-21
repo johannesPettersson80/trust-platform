@@ -72,9 +72,10 @@ fn cycle_stats_default_is_an_empty_finite_identity() {
 
 #[test]
 fn cycle_stats_first_sample_sets_every_projection() {
-    let mut stats = CycleStats::default();
+    let mut durations = Durations::default();
 
-    stats.record(duration_ms(7));
+    durations.record(duration_ms(7));
+    let stats = CycleStats::of(&durations);
 
     assert_eq!(stats.samples, 1);
     assert_eq!(stats.min_ms, 7.0);
@@ -85,10 +86,11 @@ fn cycle_stats_first_sample_sets_every_projection() {
 
 #[test]
 fn cycle_stats_tracks_min_max_mean_and_last_across_zero_sample() {
-    let mut stats = CycleStats::default();
+    let mut durations = Durations::default();
     for value in [10, 0, 30, 20] {
-        stats.record(duration_ms(value));
+        durations.record(duration_ms(value));
     }
+    let stats = CycleStats::of(&durations);
 
     assert_eq!(stats.samples, 4);
     assert_eq!(stats.min_ms, 0.0);
@@ -104,12 +106,12 @@ fn task_stats_duration_and_overrun_accounting_are_independent() {
     stats.record(duration_ms(4));
     stats.record(duration_ms(8));
 
-    assert_eq!(stats.samples, 2);
+    assert_eq!(stats.durations.count, 2);
     assert_eq!(stats.overruns, 3);
-    assert_eq!(stats.min_ms, 4.0);
-    assert_eq!(stats.max_ms, 8.0);
-    assert_close(stats.avg_ms, 6.0);
-    assert_eq!(stats.last_ms, 8.0);
+    assert_eq!(stats.min_ms(), 4.0);
+    assert_eq!(stats.max_ms(), 8.0);
+    assert_close(stats.avg_ms(), 6.0);
+    assert_eq!(stats.last_ms(), 8.0);
 }
 
 #[test]
@@ -119,12 +121,12 @@ fn call_stats_tracks_total_mean_count_and_last() {
         stats.record(duration_ms(value));
     }
 
-    assert_eq!(stats.calls, 3);
-    assert_eq!(stats.total_ms, 15.0);
-    assert_eq!(stats.min_ms, 2.0);
-    assert_eq!(stats.max_ms, 9.0);
-    assert_close(stats.avg_ms, 5.0);
-    assert_eq!(stats.last_ms, 9.0);
+    assert_eq!(stats.calls(), 3);
+    assert_eq!(stats.total_ms(), 15.0);
+    assert_eq!(stats.min_ms(), 2.0);
+    assert_eq!(stats.max_ms(), 9.0);
+    assert_close(stats.avg_ms(), 5.0);
+    assert_eq!(stats.last_ms(), 9.0);
 }
 
 #[test]
@@ -178,34 +180,34 @@ fn empty_cycle_window_has_zero_finite_percentiles() {
 
 #[test]
 fn percentile_uses_documented_rounded_index_for_small_populations() {
-    let one = [7.0];
-    assert_eq!(percentile(&one, 0.50), 7.0);
-    assert_eq!(percentile(&one, 0.99), 7.0);
+    let one = [7];
+    assert_eq!(percentile(&one, 0.50), 7);
+    assert_eq!(percentile(&one, 0.99), 7);
 
-    let two = [1.0, 9.0];
-    assert_eq!(percentile(&two, 0.50), 9.0);
-    assert_eq!(percentile(&two, 0.95), 9.0);
+    let two = [1, 9];
+    assert_eq!(percentile(&two, 0.50), 9);
+    assert_eq!(percentile(&two, 0.95), 9);
 
-    let four = [1.0, 2.0, 3.0, 4.0];
-    assert_eq!(percentile(&four, 0.50), 3.0);
-    assert_eq!(percentile(&four, 0.95), 4.0);
-    assert_eq!(percentile(&four, 0.99), 4.0);
+    let four = [1, 2, 3, 4];
+    assert_eq!(percentile(&four, 0.50), 3);
+    assert_eq!(percentile(&four, 0.95), 4);
+    assert_eq!(percentile(&four, 0.99), 4);
 }
 
 #[test]
 fn percentile_clamps_quantile_bounds() {
-    let values = [2.0, 4.0, 8.0];
+    let values = [2, 4, 8];
 
-    assert_eq!(percentile(&values, -10.0), 2.0);
-    assert_eq!(percentile(&values, 10.0), 8.0);
+    assert_eq!(percentile(&values, -10.0), 2);
+    assert_eq!(percentile(&values, 10.0), 8);
 }
 
 #[test]
 fn cycle_window_retains_exactly_the_most_recent_512_samples() {
     let mut window = CycleLatencyWindow::default();
-    window.record_ms(10_000.0);
+    window.record(duration_ms(10_000));
     for _ in 0..CYCLE_LATENCY_WINDOW_SIZE {
-        window.record_ms(1.0);
+        window.record(duration_ms(1));
     }
 
     let snapshot = window.snapshot();
@@ -221,14 +223,14 @@ fn cycle_window_retains_exactly_the_most_recent_512_samples() {
 fn cycle_window_snapshot_does_not_change_future_rollover() {
     let mut observed = CycleLatencyWindow::default();
     let mut control = CycleLatencyWindow::default();
-    for value in 1..=CYCLE_LATENCY_WINDOW_SIZE {
-        observed.record_ms(value as f64);
-        control.record_ms(value as f64);
+    for value in 1..=CYCLE_LATENCY_WINDOW_SIZE as u64 {
+        observed.record(duration_ms(value));
+        control.record(duration_ms(value));
     }
 
     let _ = observed.snapshot();
-    observed.record_ms(999.0);
-    control.record_ms(999.0);
+    observed.record(duration_ms(999));
+    control.record(duration_ms(999));
 
     let observed_snapshot = observed.snapshot();
     let control_snapshot = control.snapshot();

@@ -297,7 +297,7 @@ impl HostComposition {
             }
             if self.scan_events.is_empty() {
                 let metrics = self.live_metrics.lock().expect("live metrics").clone();
-                let recorded = metrics.cycle.samples();
+                let recorded = metrics.cycle().samples();
                 match self.runtime_events.try_recv() {
                     Err(TryRecvError::Empty) if recorded == self.completed => {
                         *self.state.metrics.lock().expect("published metrics") = metrics;
