@@ -2,9 +2,9 @@
 //! composition owns the static arenas and the addresses; this module owns the logic.
 #[cfg(target_os = "none")]
 use crate::board::{Measurement, Memory};
+use crate::count::Count64;
 use core::{
     alloc::{GlobalAlloc, Layout},
-    cell::Cell,
     sync::atomic::{AtomicUsize, Ordering},
 };
 use embedded_alloc::LlffHeap;
@@ -37,8 +37,8 @@ pub struct MeasuredHeap {
     last_failure: AtomicUsize,
     /// Every allocator operation over every region, each allocation, reallocation and free once,
     /// never reset: the count a runtime reads around its scans (specification 34, "The allocation
-    /// count"). Kept under a critical section in 64 bits, so it does not wrap on a 32-bit chip.
-    operations: critical_section::Mutex<Cell<u64>>,
+    /// count"). In 64 bits, so it does not wrap on a 32-bit chip, read without a critical section.
+    operations: Count64,
 }
 
 impl MeasuredHeap {
@@ -53,7 +53,7 @@ impl MeasuredHeap {
             allocations: AtomicUsize::new(0),
             failures: AtomicUsize::new(0),
             last_failure: AtomicUsize::new(0),
-            operations: critical_section::Mutex::new(Cell::new(0)),
+            operations: Count64::new(),
         }
     }
 
@@ -100,16 +100,16 @@ impl MeasuredHeap {
     }
 
     /// Every allocator operation since the allocator began, each allocation, reallocation and
-    /// free once. Reading it allocates nothing.
+    /// free once. Reading it allocates nothing and takes no critical section.
     pub fn operations(&self) -> u64 {
-        critical_section::with(|token| self.operations.borrow(token).get())
+        self.operations.read()
     }
 
-    /// Count one allocator operation.
+    /// Count one allocator operation, in a critical section, so that no other count interleaves
+    /// with its two words.
     fn count_operation(&self) {
-        critical_section::with(|token| {
-            let operations = self.operations.borrow(token);
-            operations.set(operations.get().wrapping_add(1));
+        critical_section::with(|_| {
+            self.operations.increment();
         });
     }
 

@@ -572,3 +572,92 @@ fn successful_physical_submission_commits_q_before_a_late_deadline_fault() {
         assert_eq!(state.fault(), Some(&error));
     }
 }
+
+#[test]
+fn hooks_are_called_only_at_the_phases_they_observe() {
+    // Specification 34 PERF-05 and "The allocation count": the engine calls the cycle hooks at a
+    // phase only when they observe it, every phase but AfterOutputSample, which the output hooks
+    // decide, and reads the allocation count around each call it makes and no other. The gpio
+    // program's cycle passes CycleStart, BeforeInputSample, AfterInputSample, TaskStart(0),
+    // TaskEnd(0), BeforeOutputSample, AfterOutputSample and CycleEnd (the phase order test above).
+    // A hook that observes every phase is called at all eight; one that observes BeforeInputSample
+    // and TaskEnd(0) is called at those and at AfterOutputSample, as an output hook, and its cycle
+    // reads the count 2 x 5 = 10 times fewer, two readings around each of the five calls not made.
+    // Catches: a hook called at a phase it does not observe, a phase skipped that it observes, an
+    // output hook left out at AfterOutputSample, and a count read around a call not made.
+    struct Counting(Cell<u32>);
+    impl ExecutionServices for Counting {
+        fn deadline_exceeded(&self) -> bool {
+            false
+        }
+        fn has_wall_clock(&self) -> bool {
+            false
+        }
+        fn current_dt(&self) -> Result<DateTimeValue, RuntimeError> {
+            Err(RuntimeError::UndefinedFunction("CURRENT_DT".into()))
+        }
+        fn allocator_operations(&self) -> Option<u64> {
+            self.0.set(self.0.get() + 1);
+            Some(0)
+        }
+    }
+    struct Hooks {
+        observed: Option<[CyclePhase; 2]>,
+        calls: Vec<CyclePhase>,
+    }
+    impl CycleHooks for Hooks {
+        fn observes(&self, phase: CyclePhase) -> bool {
+            self.observed
+                .is_none_or(|observed| observed.contains(&phase))
+        }
+        fn on_phase(
+            &mut self,
+            phase: CyclePhase,
+            _access: &mut CycleAccess<'_, '_>,
+        ) -> Result<(), RuntimeError> {
+            self.calls.push(phase);
+            Ok(())
+        }
+    }
+    let prepared = PreparedModule::from_bytes(GPIO, PreparationLimits::default()).unwrap();
+    let cycle = |observed| {
+        let services = Counting(Cell::new(0));
+        let mut state = prepared.instantiate_with_services(0, &services).unwrap();
+        let mut hooks = Hooks {
+            observed,
+            calls: Vec::new(),
+        };
+        state
+            .execute_cycle_with_hooks(Duration::from_millis(10), &mut hooks)
+            .unwrap();
+        drop(state);
+        (hooks.calls, services.0.get())
+    };
+    let (every, every_reads) = cycle(None);
+    assert_eq!(
+        every,
+        [
+            CyclePhase::CycleStart,
+            CyclePhase::BeforeInputSample,
+            CyclePhase::AfterInputSample,
+            CyclePhase::TaskStart(0),
+            CyclePhase::TaskEnd(0),
+            CyclePhase::BeforeOutputSample,
+            CyclePhase::AfterOutputSample,
+            CyclePhase::CycleEnd,
+        ]
+    );
+    let (some, some_reads) = cycle(Some([
+        CyclePhase::BeforeInputSample,
+        CyclePhase::TaskEnd(0),
+    ]));
+    assert_eq!(
+        some,
+        [
+            CyclePhase::BeforeInputSample,
+            CyclePhase::TaskEnd(0),
+            CyclePhase::AfterOutputSample,
+        ]
+    );
+    assert_eq!(every_reads - some_reads, 10);
+}

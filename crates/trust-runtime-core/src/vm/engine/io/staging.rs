@@ -358,18 +358,28 @@ impl<'a> EngineState<'a> {
         if let Some(leaves) = self.prepared.input_leaves
             && self.data.construction.initializers.is_empty()
         {
-            let mut saved = core::mem::take(&mut self.data.resources.staging.saved);
-            let result = self.sample_input_leaves(&mut saved, leaves);
-            saved.clear();
-            self.data.resources.staging.saved = saved;
+            let mut staging = self.take_staging()?;
+            let result = self.sample_input_leaves(&mut staging.saved, leaves);
+            staging.saved.clear();
+            self.data.resources.staging = Some(staging);
             return result;
         }
         // The reserved staging is taken out for the scan and returned empty.
-        let mut staging = core::mem::take(&mut self.data.resources.staging);
+        let mut staging = self.take_staging()?;
         let result = self.sample_inputs(&mut staging);
         staging.clear();
-        self.data.resources.staging = staging;
+        self.data.resources.staging = Some(staging);
         result
+    }
+
+    /// The reserved staging, taken out of the engine by its pointer for a scan or a change, which
+    /// puts it back empty (checklist P1-6). Refused when it is out already.
+    fn take_staging(&mut self) -> Result<Box<ImageStaging>, RuntimeError> {
+        self.data
+            .resources
+            .staging
+            .take()
+            .ok_or(RuntimeError::InvalidExecutionState)
     }
 
     fn sample_inputs(&mut self, staging: &mut ImageStaging) -> Result<(), RuntimeError> {
@@ -504,10 +514,10 @@ impl<'a> EngineState<'a> {
         markers_only: bool,
     ) -> Result<(), RuntimeError> {
         // The reserved staging is taken out for the publication and returned empty.
-        let mut staging = core::mem::take(&mut self.data.resources.staging);
+        let mut staging = self.take_staging()?;
         let result = self.publish_staged(&mut staging, hooks, markers_only);
         staging.clear();
-        self.data.resources.staging = staging;
+        self.data.resources.staging = Some(staging);
         result
     }
 
@@ -744,13 +754,13 @@ impl<'a> EngineState<'a> {
             binding.address.area == IoArea::Memory
                 && !previous.iter().any(|before| same_binding(before, binding))
         };
-        let mut staging = core::mem::take(&mut self.data.resources.staging);
+        let mut staging = self.take_staging()?;
         let result = self
             .stage_patches(&mut staging, &added_or_changed, [0, memory_window])
             .and_then(|()| self.check_entry_deadline())
             .map(|()| staging.take_patches(&self.prepared.io_bindings));
         staging.clear();
-        self.data.resources.staging = staging;
+        self.data.resources.staging = Some(staging);
         result
     }
 

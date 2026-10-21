@@ -105,7 +105,7 @@ fn reserved_scratch_changes_no_result_or_charge_of_any_scan() {
             .collect();
         resources.frame_locals = FrameLocals::default();
         resources.spare_journal = SavedDestinations::new();
-        resources.staging = Default::default();
+        resources.staging = Some(Box::default());
         for scan in 0..101 {
             let now = Duration::from_millis(10 * scan);
             let expected = EngineState::borrow(&mut grown, &prepared, services).execute_cycle(now);
@@ -217,7 +217,7 @@ fn grown_on_demand(data: &mut EngineData) {
     resources.edge_restores = alloc::vec::Vec::new();
     resources.call_scratch = crate::vm::call::scratch::CallScratch::default();
     resources.spare_journal = SavedDestinations::new();
-    resources.staging = Default::default();
+    resources.staging = Some(Box::default());
 }
 
 /// Spec 34 MEM-03, MEM-09 and TIME-08 (census A3, A4, A5 and C5): the call fixtures run

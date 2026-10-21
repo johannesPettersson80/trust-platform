@@ -411,6 +411,16 @@ impl<I: ProcessIo> CycleHooks for ScanHooks<'_, '_, I> {
         self.observer.program_finished(name);
     }
 
+    /// The phases [`Self::on_phase`] acts at: the reading of the inputs, the capture of the retained
+    /// values when the program keeps them, and the observer's.
+    fn observes(&self, phase: CyclePhase) -> bool {
+        match phase {
+            CyclePhase::BeforeInputSample => true,
+            CyclePhase::BeforeOutputSample if self.retain.is_some() => true,
+            _ => self.observer.observes(phase),
+        }
+    }
+
     /// The inputs are read at `BeforeInputSample`, where trust-runtime's drivers fill the input
     /// image, after the observer has seen the phase; the retained values are captured and offered
     /// at `BeforeOutputSample`, where trust-runtime saves them (specification 11 §6.7). A retain
@@ -757,6 +767,18 @@ impl<C: MonotonicClock> CycleHooks for LiveValuesHooks<'_, '_, C> {
 
     fn has_output_hooks(&self) -> bool {
         self.observer.has_output_hooks()
+    }
+
+    /// The phases [`Self::on_phase`] acts at: `CycleStart` and `BeforeInputSample` while writes or
+    /// forces are queued, `AfterOutputSample`, and the observer's.
+    fn observes(&self, phase: CyclePhase) -> bool {
+        match phase {
+            CyclePhase::CycleStart | CyclePhase::BeforeInputSample => {
+                !self.live.inner.queues.borrow().is_idle() || self.observer.observes(phase)
+            }
+            CyclePhase::AfterOutputSample => true,
+            _ => self.observer.observes(phase),
+        }
     }
 
     /// The queued writes are applied at `CycleStart`, the queued I/O writes and then the forces at

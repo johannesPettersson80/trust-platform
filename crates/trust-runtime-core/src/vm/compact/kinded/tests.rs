@@ -195,3 +195,42 @@ fn an_integer_converted_on_its_bits_is_what_the_integer_branch_gives() {
         }
     }
 }
+
+#[test]
+fn a_time_converts_to_a_dword_of_its_whole_milliseconds() {
+    // Specification 07 §2.8 (TIME_TO_DWORD), worked by hand: a TIME's whole milliseconds, truncated.
+    // 0 ns and 999,999 ns are 0 ms, 1,000,000 ns and 1,999,999 ns 1 ms, 4,294,967,295 ms, the most a
+    // DWORD holds, is kept, and 4,294,967,296 ms, the longest TIME and every negative TIME, even
+    // T#-1ns, which truncation would make 0 ms, are refused as an overflow. The bits give what the
+    // general conversion gives for each. Catches: milliseconds rounded instead of truncated, a
+    // negative time taken as 0 ms, and a count past a DWORD wrapped instead of refused.
+    use crate::value::{Duration, Value};
+    let cases: [(i64, Option<u64>); 8] = [
+        (0, Some(0)),
+        (999_999, Some(0)),
+        (1_000_000, Some(1)),
+        (1_999_999, Some(1)),
+        (4_294_967_295_000_000, Some(4_294_967_295)),
+        (4_294_967_296_000_000, None),
+        (i64::MAX, None),
+        (-1, None),
+    ];
+    let spec = ConversionSpec::Convert {
+        src: Some(ConversionType::Time),
+        dst: ConversionType::DWord,
+    };
+    for (nanos, expected) in cases {
+        let bits = u64::from_ne_bytes(nanos.to_ne_bytes());
+        assert_eq!(time_to_dword_bits(bits), expected, "{nanos} ns");
+        let general = crate::stdlib::conversions::call_conversion_spec(
+            spec,
+            &[Value::Time(Duration::from_nanos(nanos))],
+        );
+        let general = match general {
+            Ok(Value::DWord(millis)) => Some(u64::from(millis)),
+            Err(crate::error::RuntimeError::Overflow) => None,
+            other => panic!("{nanos} ns: {other:?}"),
+        };
+        assert_eq!(general, expected, "{nanos} ns by the general conversion");
+    }
+}

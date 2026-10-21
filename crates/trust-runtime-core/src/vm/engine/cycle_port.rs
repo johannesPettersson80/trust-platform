@@ -61,6 +61,14 @@ pub trait CycleHooks {
     /// cannot replace the program's original execution result.
     fn program_finished(&mut self, _name: &str) {}
 
+    /// Whether [`Self::on_phase`] acts at `phase`. The engine calls the hooks at a phase of its
+    /// cycle, every phase but `AfterOutputSample`, which [`Self::has_output_hooks`] decides, only when
+    /// they observe it, and reads no allocator count around a call it does not make (specification
+    /// 34 PERF-05). Every phase by default.
+    fn observes(&self, _phase: CyclePhase) -> bool {
+        true
+    }
+
     /// Run one existing boundary against the authoritative owner-local state.
     fn on_phase(
         &mut self,
@@ -417,6 +425,10 @@ impl EngineState<'_> {
         hooks: &mut dyn CycleHooks,
         phase: CyclePhase,
     ) -> Result<(), RuntimeError> {
+        // A phase the hooks do not observe costs no call and no reading of the allocator count.
+        if !hooks.observes(phase) {
+            return Ok(());
+        }
         let before = self.services.allocator_operations();
         let result = hooks.on_phase(
             phase,

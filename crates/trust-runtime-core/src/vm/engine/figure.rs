@@ -99,6 +99,8 @@ pub(crate) fn engine_parts(prepared: &PreparedModule) -> Result<EngineParts, Run
         engine: add(&[
             core::mem::size_of::<EngineData>(),
             core::mem::size_of::<CellArm>(),
+            // The image staging, in a box of its own (checklist P1-6).
+            core::mem::size_of::<io::staging::ImageStaging>(),
             images,
             prepared.roots.entries.len() * core::mem::size_of::<Option<InstanceId>>(),
             tasks * core::mem::size_of::<TaskState>(),

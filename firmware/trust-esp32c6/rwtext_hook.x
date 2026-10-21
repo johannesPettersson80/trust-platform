@@ -99,8 +99,11 @@
 *(.text.*18trust_runtime_core4task*)
 *(.text.*18trust_runtime_core7numeric*)
 /* The clock a scan reads at each deadline check: the reading, the instants it gives and the held
- * time the device's deadline subtracts (checklist P1-6; `profile-p1e`: 14 samples from flash). */
+ * time the device's deadline subtracts (checklist P1-6; `profile-p1e`: 14 samples from flash), with
+ * the base a reading extends and the allocation count, each read without a critical section. */
 *(.text.*20trust_platform_esp328hardware5clock*)
+*(.text.*20trust_platform_esp3211cycle_clock*)
+*(.text.*21trust_platform_memory5count*)
 *(.text.*18trust_runtime_core5ports*16MonotonicInstant*)
 *(.text.*22trust_runtime_services6runner6engine9held_time*)
 *(.text.*4core4time*8Duration3new*)
@@ -269,6 +272,21 @@
 *(.text.*2vm7helpers24borrowed_value_is_cloned*)
 *(.text.*2vm7helpers26materialize_borrowed_value*)
 *(.text.*2vm4call8bindings24clone_value_with_profile*)
+
+/* More small functions of every cycle that `profile-p2l-t2q` and `profile-p2l-v1q` sampled from
+ * flash, where a build that moves their addresses moved the cycle by several µs (checklist P1-6,
+ * 22 October 2026; about 620 bytes together): the link's line end, the hold port of the scan's
+ * start, the Live Values' idle check, the byte vector reservations, the I/O address list's clear,
+ * the retained capture's due check, the wait alarm's interrupt clear and the byte slices' compare. */
+*(.text.*13LineAssembler*8line_end*)
+*(.text.*14DeviceServices*9hold_port*)
+*(.text.*15LiveValueQueues*7is_idle*)
+*(.text.*11RawVecInner11try_reserve*)
+*(.text.*3VechE11try_reserve*)
+*(.text.*9IoAddressE5clear*)
+*(.text.*13RetainCapture16interval_elapsed*)
+*(.text.*8systimer*5Alarm*15clear_interrupt*)
+*(.text.*14SlicePartialEqhE17equal_same_length*)
 
 /* The runner's loop around each cycle (checklist P1-7, 21 October 2026): the boundary, into which
  * the scan's timed window inlines (its hooks' setup, the scan's allocation count, the cycle's end

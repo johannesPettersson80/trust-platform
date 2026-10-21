@@ -12,8 +12,8 @@ use super::BuiltinExecContext;
 
 /// The primitives of a `TIME` and an `LTIME` leaf, eight little-endian bytes of nanoseconds, and of
 /// a native duration slot, the same eight bytes and a family byte, 0 for a `TIME` and 1 for an
-/// `LTIME` (`memory::flat`): a timer's `PT` and `ET`, which take either, are such slots, as is the
-/// time of its last call.
+/// `LTIME` (`memory::flat`): a timer's `PT` and `ET`, which take either, are such slots. The time of
+/// its last call is an `LTIME` (`fbs::state`).
 const TIME: u16 = 16;
 const LTIME: u16 = 17;
 const DURATION_SLOT: u16 = 0x0101;
@@ -394,7 +394,8 @@ fn get_or_init_duration<S: StoreAccess + StoreMutate>(
     member: Member,
     default: Duration,
 ) -> Result<Duration, RuntimeError> {
-    match leaf_bytes(ctx, member, DURATION_SLOT) {
+    // The time of a timer's last call is an `LTIME` leaf where it lies (checklist P1-4).
+    match leaf_bytes(ctx, member, LTIME).or_else(|| leaf_bytes(ctx, member, DURATION_SLOT)) {
         Some(Some(bytes)) => {
             if let Some(value) = leaf_duration(bytes) {
                 return Ok(value);
@@ -422,11 +423,14 @@ fn set_internal_duration<S: StoreMutate>(
     member: Member,
     value: Duration,
 ) {
-    // The slot holds the duration's eight bytes and the `LTIME` family byte, as the store writes an
-    // `LTIME` into it.
-    let [b0, b1, b2, b3, b4, b5, b6, b7] = value.as_nanos().to_le_bytes();
+    // An `LTIME` leaf holds the duration's eight bytes, and a slot those and the `LTIME` family byte,
+    // as the store writes an `LTIME` into either.
+    let nanos = value.as_nanos().to_le_bytes();
+    let [b0, b1, b2, b3, b4, b5, b6, b7] = nanos;
     let slot = [b0, b1, b2, b3, b4, b5, b6, b7, LTIME_FAMILY];
-    if !write_leaf_bytes(ctx, member, DURATION_SLOT, &slot) {
+    if !write_leaf_bytes(ctx, member, LTIME, &nanos)
+        && !write_leaf_bytes(ctx, member, DURATION_SLOT, &slot)
+    {
         set_instance_value(ctx, instance_id, member, Value::LTime(value));
     }
 }

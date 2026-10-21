@@ -185,7 +185,12 @@ impl EngineState<'_> {
     pub(super) fn reserve_input_snapshot(&mut self) -> Result<(), RuntimeError> {
         let bytes = self.prepared.input_snapshot_bytes()?;
         self.charge_allocation_bytes(bytes)?;
-        self.data.resources.staging.reserve_snapshot_bytes(bytes)
+        self.data
+            .resources
+            .staging
+            .as_deref_mut()
+            .ok_or(RuntimeError::InvalidExecutionState)?
+            .reserve_snapshot_bytes(bytes)
     }
 
     /// Resolve input destinations in their original order, then copy each root once into

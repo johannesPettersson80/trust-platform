@@ -881,10 +881,12 @@ impl EngineState<'_> {
         resources
             .call_scratch
             .reserve(plan.levels, plan.call_scratch)?;
-        resources
+        let staging = resources
             .staging
-            .reserve(plan.staging, &self.prepared.io_bindings)?;
-        resources.staging.reserve_output_copy(output_copy)?;
+            .as_deref_mut()
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        staging.reserve(plan.staging, &self.prepared.io_bindings)?;
+        staging.reserve_output_copy(output_copy)?;
         let construction = &mut self.data.construction;
         construction
             .initializers

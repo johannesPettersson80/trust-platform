@@ -8,6 +8,11 @@
 //! microseconds of the cycles counted since. A wait stops the CPU, and the counter with it, so the
 //! reading after a wait, and one a second or more after the last SYSTIMER reading, reads SYSTIMER
 //! again. A reading is never less than the one before it.
+//!
+//! The base the readings extend lies in plain words ([`SharedBase`]) that one context reads and
+//! writes, so that a reading takes no critical section.
+
+use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 use crate::profile::CPU_HZ;
 
@@ -87,6 +92,76 @@ impl CycleBase {
     }
 }
 
+/// A [`CycleBase`] in plain words, which one context reads and writes, so that a reading takes no
+/// critical section (checklist P1-6). A context that read it while another wrote it could take the
+/// words of two bases; on the C6 the main context is its one reader and writer, since no interrupt
+/// handler reads the clock.
+pub(crate) struct SharedBase {
+    micros: [AtomicU32; 2],
+    cycles: AtomicU32,
+    running: AtomicBool,
+    last: [AtomicU32; 2],
+}
+
+impl SharedBase {
+    /// Words that hold `base`, such as [`CycleBase::STALE`] before the first SYSTIMER reading.
+    pub(crate) const fn new(base: CycleBase) -> Self {
+        Self {
+            micros: words(base.micros),
+            cycles: AtomicU32::new(base.cycles),
+            running: AtomicBool::new(base.running),
+            last: words(base.last),
+        }
+    }
+
+    /// The base last stored.
+    pub(crate) fn load(&self) -> CycleBase {
+        CycleBase {
+            micros: join(&self.micros),
+            cycles: self.cycles.load(Ordering::Relaxed),
+            running: self.running.load(Ordering::Relaxed),
+            last: join(&self.last),
+        }
+    }
+
+    /// Keeps `base` for the readings after it.
+    pub(crate) fn store(&self, base: CycleBase) {
+        split(&self.micros, base.micros);
+        self.cycles.store(base.cycles, Ordering::Relaxed);
+        self.running.store(base.running, Ordering::Relaxed);
+        split(&self.last, base.last);
+    }
+
+    /// Marks a wait that stopped the CPU, as [`CycleBase::stopped`] does: the next reading reads
+    /// SYSTIMER.
+    pub(crate) fn stop(&self) {
+        self.store(self.load().stopped());
+    }
+}
+
+/// Two words that hold `value`, the low one first.
+const fn words(value: u64) -> [AtomicU32; 2] {
+    let [b0, b1, b2, b3, b4, b5, b6, b7] = value.to_le_bytes();
+    [
+        AtomicU32::new(u32::from_le_bytes([b0, b1, b2, b3])),
+        AtomicU32::new(u32::from_le_bytes([b4, b5, b6, b7])),
+    ]
+}
+
+/// The value of two words, the low one first.
+fn join(words: &[AtomicU32; 2]) -> u64 {
+    u64::from(words[0].load(Ordering::Relaxed))
+        | (u64::from(words[1].load(Ordering::Relaxed)) << 32)
+}
+
+/// Stores `value` in two words, the low one first.
+fn split(words: &[AtomicU32; 2], value: u64) {
+    let [low, high] = [value & u64::from(u32::MAX), value >> 32]
+        .map(|word| u32::try_from(word).unwrap_or(u32::MAX));
+    words[0].store(low, Ordering::Relaxed);
+    words[1].store(high, Ordering::Relaxed);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -155,5 +230,25 @@ mod tests {
         assert_eq!(second, 1_010);
         let (third, _) = base.give(1_011);
         assert_eq!(third, 1_011);
+    }
+
+    /// A base kept in words is the base stored, its microseconds and last reading in two words each:
+    /// SYSTIMER read 0x1_0000_0002 µs (about 4,295 s after boot) at cycle 7 and 0x1_0000_0005 µs
+    /// was given; a wait then stops the counter, so the next reading reads SYSTIMER.
+    /// Catches: words joined in the wrong order or a high word dropped (a reading 4,295 s off), and
+    /// a stop that leaves the counter counting (a reading after a wait that misses the wait).
+    #[test]
+    fn a_base_kept_in_words_is_the_base_stored() {
+        let shared = SharedBase::new(CycleBase::STALE);
+        assert_eq!(shared.load(), CycleBase::STALE);
+        let (_, base) = CycleBase::STALE
+            .rebased(0x1_0000_0002, 7)
+            .give(0x1_0000_0005);
+        shared.store(base);
+        assert_eq!(shared.load(), base);
+        assert_eq!(shared.load().extend(7 + 160, REBASE), Some(0x1_0000_0003));
+        shared.stop();
+        assert_eq!(shared.load(), base.stopped());
+        assert_eq!(shared.load().extend(7 + 160, REBASE), None);
     }
 }

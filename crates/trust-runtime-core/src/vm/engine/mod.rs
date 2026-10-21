@@ -148,8 +148,9 @@ struct ExecutionResources {
     output_journal: Option<output_transaction::SavedDestinations>,
     /// The output copy-back journal kept between transactions.
     spare_journal: output_transaction::SavedDestinations,
-    /// Process-image staging, empty between scans.
-    staging: io::staging::ImageStaging,
+    /// Process-image staging, empty between scans, in a box of its own, which a scan takes out and
+    /// puts back by its pointer (checklist P1-6).
+    staging: Option<Box<io::staging::ImageStaging>>,
     /// The allocation count of the scan that runs and of the last one (C1-19f).
     scan_allocations: allocation_count::ScanAllocations,
     #[cfg(feature = "register-ir")]
@@ -294,7 +295,7 @@ impl<'a> EngineState<'a> {
                 construction_bytes: core::cell::Cell::new(0),
                 output_journal: None,
                 spare_journal: output_transaction::SavedDestinations::new(),
-                staging: io::staging::ImageStaging::default(),
+                staging: Some(Box::default()),
                 scan_allocations: allocation_count::ScanAllocations::default(),
                 #[cfg(feature = "register-ir")]
                 register: register::RegisterExecutionState::new(services.register_configuration()),

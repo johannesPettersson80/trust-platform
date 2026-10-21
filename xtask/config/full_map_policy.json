@@ -3302,7 +3302,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/clock.rs",
-        "line": 163,
+        "line": 160,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the C6 machine performance-cycle counter CSR 0x7E2 only; no memory is accessed. The counter runs from boot (M0 probe).",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -4084,10 +4084,46 @@
         "path_prefix": "crates/trust-platform-esp32/src/hardware/clock.rs",
         "primitive": "Mutex",
         "owner": "runtime portability M2E board/firmware",
-        "shared_state": "periodic tick timer handle; the cycle counter's SYSTIMER base",
-        "invariant": "A critical_section::Mutex serializes the handler's interrupt clear with enable/disable from main on the single core; interrupts are masked inside. BASE (Mutex<Cell<CycleBase>>) is read and replaced whole inside a critical section by each reading and by the wait after its WFI, all on the main context.",
+        "shared_state": "periodic tick timer handle",
+        "invariant": "A critical_section::Mutex serializes the handler's interrupt clear with enable/disable from main on the single core; interrupts are masked inside. The cycle counter's SYSTIMER base is a cycle_clock::SharedBase, read and written by the main context alone.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
         "review_date": "2026-10-21"
+      },
+      {
+        "path_prefix": "crates/trust-platform-esp32/src/cycle_clock.rs",
+        "primitive": "Atomic",
+        "owner": "runtime portability M2E board/firmware",
+        "shared_state": "the clock's SYSTIMER base",
+        "invariant": "SharedBase keeps the clock's SYSTIMER base, its cycle count, whether the counter runs and the last reading in relaxed AtomicU32/AtomicBool words that only the C6's main context reads and writes (no interrupt handler reads the clock); they publish no other memory, and a reading takes no critical section.",
+        "test_evidence": "cycle_clock unit tests (a_base_kept_in_words_is_the_base_stored and the rebase tests) and the C6 bench of batch p2m.",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path_prefix": "crates/trust-platform-esp32/src/cycle_clock.rs",
+        "primitive": "Ordering::",
+        "owner": "runtime portability M2E board/firmware",
+        "shared_state": "the clock's SYSTIMER base",
+        "invariant": "SharedBase keeps the clock's SYSTIMER base, its cycle count, whether the counter runs and the last reading in relaxed AtomicU32/AtomicBool words that only the C6's main context reads and writes (no interrupt handler reads the clock); they publish no other memory, and a reading takes no critical section.",
+        "test_evidence": "cycle_clock unit tests (a_base_kept_in_words_is_the_base_stored and the rebase tests) and the C6 bench of batch p2m.",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path_prefix": "crates/trust-platform-memory/src/count.rs",
+        "primitive": "Atomic",
+        "owner": "runtime portability M2E board/firmware",
+        "shared_state": "the allocator operation count",
+        "invariant": "Count64 keeps the allocator's 64-bit operation count as two AtomicU32 words and a mark: the writer, inside the allocator's critical section, makes the mark odd (Release fence), writes the words and makes it even (Release store); a reader rereads until it finds the same even mark before (Acquire) and after (Acquire fence) the words, so it takes no critical section and never mixes two counts.",
+        "test_evidence": "count unit tests (a_count_carries_into_its_high_word, a_reader_never_takes_the_words_of_two_counts) and trust-platform-memory's measured_heap tests.",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path_prefix": "crates/trust-platform-memory/src/count.rs",
+        "primitive": "Ordering::",
+        "owner": "runtime portability M2E board/firmware",
+        "shared_state": "the allocator operation count",
+        "invariant": "Count64 keeps the allocator's 64-bit operation count as two AtomicU32 words and a mark: the writer, inside the allocator's critical section, makes the mark odd (Release fence), writes the words and makes it even (Release store); a reader rereads until it finds the same even mark before (Acquire) and after (Acquire fence) the words, so it takes no critical section and never mixes two counts.",
+        "test_evidence": "count unit tests (a_count_carries_into_its_high_word, a_reader_never_takes_the_words_of_two_counts) and trust-platform-memory's measured_heap tests.",
+        "review_date": "2026-10-22"
       },
       {
         "path_prefix": "crates/trust-platform-esp32/src/hardware/wait.rs",

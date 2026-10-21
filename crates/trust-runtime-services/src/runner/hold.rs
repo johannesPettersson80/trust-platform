@@ -173,9 +173,14 @@ where
     P: RunnerPlatform,
     C: MonotonicClock,
 {
+    /// The ordinary stops of the last scan are forgotten when the scan can take stops, as no scan
+    /// with debugging disabled takes one, so such a scan touches no debugger state (checklist P1-6).
     fn scan_begins(&self) -> bool {
-        self.debug.begin_cycle();
-        self.debug_enabled()
+        let enabled = self.debug_enabled();
+        if enabled {
+            self.debug.begin_cycle();
+        }
+        enabled
     }
 
     fn at_statement(&self, at: &StatementStart) -> Result<Boundary, RuntimeError> {

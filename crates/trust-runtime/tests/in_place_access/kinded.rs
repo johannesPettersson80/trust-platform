@@ -51,18 +51,10 @@ PROGRAM Plant WITH Periodic : Main; END_RESOURCE END_CONFIGURATION
 /// The integer bodies run on their operands' bits too: `TYPED_SOURCE`'s BOOL AND and OR, which the
 /// compiler makes short-circuit, keep their left operand on the stack across their jump, and every
 /// path to the jump's target brings a BOOL there.
-/// Six of the program's statements are assignments of a constant, a variable or a chain of integer
-/// operations on them, which kinded code runs as one operation each (spec 34 PERF-05): `runs :=
-/// runs + 1`, `high := TRUE`, `small := 1234`, `double := 70000`, `count := count + 1` in the IF,
-/// and `level := count * 1000 + runs`; the calls, the IF's condition and the conversions are not.
-/// Every work allowance then refuses the run inside each of them at every instruction, so such a
-/// statement must leave its charges, site and values exactly as its operations one by one leave
-/// them.
 /// Catches: kinded code that reads or writes a leaf with another width or sign, binds a block's
 /// inputs or reads its outputs otherwise than the typed loop, or charges, records or faults
-/// otherwise than the general path under any work allowance, a statement run at once that charges
-/// another count of instructions, leaves another fault site or skips its refusal, and a
-/// short-circuit AND or OR that keeps its body on the typed loop.
+/// otherwise than the general path under any work allowance, and a short-circuit AND or OR that
+/// keeps its body on the typed loop.
 #[test]
 fn the_bench_program_runs_on_its_operands_bits_as_on_the_general_path() {
     assert_eq!(
@@ -74,11 +66,6 @@ fn the_bench_program_runs_on_its_operands_bits_as_on_the_general_path() {
         kinded_bodies(BENCH_SOURCE),
         1,
         "every operand of Main's body has a kind fixed at preparation"
-    );
-    assert_eq!(
-        fused_statements(BENCH_SOURCE),
-        6,
-        "six statements of Main run as one operation each"
     );
     assert_eq!(
         kinded_bodies(TYPED_SOURCE) + kinded_bodies(CONVERTING_SOURCE),

@@ -1409,13 +1409,16 @@ Every runtime counts the allocator operations of the thread that runs its scans,
 reallocation and free once: a chip with the measured heap it allocates from, a computer with the
 counting allocator that the trust-runtime program installs. The engine reads the count when a scan
 begins and when it ends, a scan that is refused included, and around every call it makes into a
-service during the scan: the cycle hooks at each phase, the publication of the outputs, the program
-observers and, while a debugger is attached, the statement hook. The operations made inside those
-calls are the services'; the rest of the scan's are the engine's. The runtime adds the operations
+service during the scan: the cycle hooks at each phase they observe, the publication of the
+outputs, the program observers and, while a debugger is attached, the statement hook. The
+operations made inside those calls are the services'; the rest of the scan's are the engine's. The runtime adds the operations
 of its own cycle work around the scan to the services' and reports both totals since the program
 started in `status` (specification 11 §6.8.1): `engine` proves ARCH-05 on the device, and `services`
 is this requirement's separate attribution. A runtime that does not count reports `null`, never
-zero. Reading the count allocates nothing.
+zero. Reading the count allocates nothing. A chip keeps its count in 64 bits, two words and a mark
+that its writer, in the allocator's critical section, makes odd while it writes the words: a read
+takes the words again until it finds the same even mark before and after them, so it takes no
+critical section and never mixes the words of two counts (checklist P1-6).
 
 **Execution scratch reserved at construction.** Construction reserves the storage that a scan's
 stack execution and process-image staging use, and charges all of it against the construction
@@ -2928,9 +2931,9 @@ program reads or writes:
   binds the block's formals at the same places. Preparation also finds where each of them lies in an
   instance's bytes, its declared type and its presence byte, so a call finds the instance once and
   reads and writes each variable where it lies. The call takes a persistent instance's POU from the
-  instance table, not from its type's name. A BOOL, `TIME` or `LTIME` variable, and the native
-  duration slots of an overloaded timer's `PT` and `ET` and of the time of a timer's last call, are
-  read and written as their leaves' bytes, as the flat store's codec reads and writes them
+  instance table, not from its type's name. A BOOL, `TIME` or `LTIME` variable, among them the time
+  of a timer's last call, an `LTIME`, and the native duration slots of an overloaded timer's `PT` and
+  `ET`, are read and written as their leaves' bytes, as the flat store's codec reads and writes them
   (`memory::flat`): a byte other than zero is TRUE, a duration is eight little-endian bytes of
   nanoseconds and a slot's family byte follows them, 1 for an `LTIME`, a variable whose presence
   byte is clear holds no value, and a write marks it. A block reaches the
@@ -2955,12 +2958,10 @@ program reads or writes:
   arithmetic, comparison and logic chosen at preparation run by specification 10 §6.4, and an
   integer converted to an integer type, by a conversion that names the integer's own type or none,
   keeps its bits when the target type holds its value and is refused as an overflow when it does
-  not (specification 07 §2.1). An assignment to a scalar variable of a constant, a variable or a
-  chain of up to three integer operations on such operands, the left one first, runs as one
-  operation when no jump enters it past its first instruction: its value is computed first, and
-  when every operation leaves the value it would, the store can write the leaf and the allowance
-  takes every instruction's unit at once without a deadline sample, the leaf is written and the
-  store's last instruction is the fault site; otherwise its operations run one by one. Each
+  not (specification 07 §2.1), and a `TIME` converted to a `DWORD` by `TIME_TO_DWORD`, a conversion
+  that names `TIME` or no source type, gives the bits of its whole milliseconds, truncated, and is
+  refused as an overflow when it is negative or a `DWORD` does not hold them (specification 07
+  §2.8). Each
   operation keeps the order, charges, deadline checks, refusals and hand-overs of the operation
   above, so the body ends with the same result, charges, fault record and values.
 - A program's body that compact code covers, and that keeps no variable in a frame and initializes
@@ -2977,7 +2978,9 @@ program reads or writes:
   an integer type, by a conversion that names the integer's own type or none, is converted by the
   conversion's integer branch once the copy that the argument's binding makes is admitted, which is
   all that binding charges for an integer (specification 07 §2.1 gives the result: the value kept
-  exactly, or `RuntimeError::Overflow` outside the target's range).
+  exactly, or `RuntimeError::Overflow` outside the target's range). A `TIME` converted to a `DWORD` is
+  converted on its bits likewise, once the same copy is admitted, which is all a `TIME` argument's
+  binding charges too.
 - In a body that compact code covers, a call of a standard function block that the POU declares
   itself, which binds values to inputs only, writes each bound input's value into its member where
   it lies and runs the block, with the call's checks of the deadline before and after it, its
@@ -2994,6 +2997,12 @@ program reads or writes:
   block.
 - A cycle reaches each program it calls, a task's or a background one, and the program's instance
   at the places preparation found for the program's name, without comparing names.
+- The engine calls the cycle hooks at a phase only when they observe it, each hook saying which
+  phases it acts at (every phase but `AfterOutputSample`, which the output hooks decide), so a
+  phase that no service acts at costs no call and no reading of the allocation count. A device's
+  hooks act at the reading of the inputs, the capture of the retained values of a program that
+  keeps them, the Live Values' writes and forces while any are queued, and the phases whose
+  events and metrics the loop records.
 - The retained values are captured only at a scan whose save is due (§10).
 - When every input and marker binding names, without a path, a writable scalar variable of the
   primitive the binding declares, through a flat address of a scalar, and no two name one
@@ -3788,7 +3797,10 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   instruction and counts the same crystal. The reading after a wait, which stops the CPU, and one a
   second or more after the last SYSTIMER reading read SYSTIMER again, and a reading is never less
   than the one before it. At boot the firmware checks that the counter counts, at least half the
-  cycles of 20 µs of SYSTIMER, and otherwise every reading reads SYSTIMER. A reading and a span of
+  cycles of 20 µs of SYSTIMER, and otherwise every reading reads SYSTIMER. The base a reading
+  extends, the last SYSTIMER reading with its cycle count and the last reading given, lies in plain
+  words that the main context alone reads and writes, since no interrupt handler reads the clock,
+  so a reading takes no critical section (checklist P1-6). A reading and a span of
   the monotonic clock are whole nanoseconds, up to about 584 years (`ports::MonotonicInstant` and
   `ports::TimeSpan`), so a reading of microseconds becomes an instant by one multiplication; as a
   `Duration` of seconds and nanoseconds it took two 64-bit divisions, which the C6 makes in
@@ -3840,8 +3852,9 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   on the bench, the HP CPU's `amoadd.w`, `amoswap.w` and `lr.w`/`sc.w` on an LP SRAM word gave the
   results they give on HP SRAM, without a trap, and truST runs no other CPU, so any heap block,
   atomics included, may lie there. The heap is 112 KiB in all, and the memory the chip measures for
-  programs at boot (`program_memory_bytes`, §5.1.1) is 56,016 bytes, against 80,652 with the 72 KiB
-  main heap (measured 21 October 2026, firmware p1j), so an online change of a program the size of
+  programs at boot (`program_memory_bytes`, §5.1.1), with the control loop built (checklist P1-11), is
+  56,076 bytes (firmware p2o, 22 October 2026), against 80,652 with the 72 KiB main heap (firmware
+  p1j, 21 October 2026), so an online change of a program the size of
   A4's (a host peak of 64,812 bytes) no longer fits. The
   esp-hal stack region spans the HP SRAM left after static data and RAM-resident code. The C6's main-stack window is 78 KiB at its
   top, below esp-hal 1.2.2's `_stack_start` (0x4086E610, a constant that inspection pins). The
@@ -3888,7 +3901,11 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   (`src/memcpy.rs`, `--defsym=memcpy=trust_memcpy`; checklist P1-7): a copy of at most 128 bytes
   whose two addresses lie at the same offset within a word copies its whole words through a table
   of word loads and stores and its other bytes one by one, a copy of at most 16 bytes at different
-  offsets copies bytes, and any other copy goes on to the ROM's. Interrupts
+  offsets copies bytes, a copy of 17 to 128 bytes at different offsets makes each whole word of its
+  destination from the two source words it straddles, read whole and shifted together, and a copy
+  of more than 128 bytes goes on to the ROM's. Copies of 17 to 128 bytes at different offsets,
+  mostly a program call's result of 59 to 79 bytes, took about 9.5% of the busy samples of `t2q`'s
+  cycle on the ROM's (firmware p2l, 22 October 2026). Interrupts
   use the same stack on RISC-V, so the window includes them. The allocator serves three heap regions on the C6, tried in
   this order: the main heap, the boot loader's reclaimed RAM and the LP SRAM. A program's prepared module and its execution services
   are allocated on the heap when the program starts, and the program's cycle owns them: they are

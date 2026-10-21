@@ -36,6 +36,7 @@ pub mod board {
     }
 }
 
+mod count;
 pub mod memory;
 pub mod reset;
 pub mod stack;

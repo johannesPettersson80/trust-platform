@@ -14,7 +14,17 @@
 //!   bytes each (`norvc`), so the entry of `n` bytes of whole words lies `2 * n` bytes before the
 //!   table's end.
 //! - A copy of at most 16 bytes whose addresses lie at different offsets copies byte by byte.
-//! - Any other copy is the ROM's, reached by a tail call with the arguments as they came.
+//! - A copy of 17 to 128 bytes whose addresses lie at different offsets copies the bytes before the
+//!   destination's first whole word one by one, then makes each whole word of the destination from
+//!   the two source words it straddles: it reads the source word by word from the word that holds
+//!   its next byte, and shifts the last two words read together. It copies the bytes after the last
+//!   whole word one by one. A whole-word read can take up to three bytes before or after the source
+//!   range, from a word that holds bytes of the range, so it reads no memory the copy could not.
+//!   Such copies went on to the ROM's before, and in the bench program `t2q`, where most of them
+//!   move a program call's result of 59 to 79 bytes, they took about 9.5% of the busy samples
+//!   (firmware p2l, 22 October 2026).
+//! - A copy of more than 128 bytes is the ROM's, reached by a tail call with the arguments as they
+//!   came.
 //!
 //! Like any `memcpy` it returns the destination, keeps no state, and expects the two ranges not to
 //! overlap, or to be the same range.
@@ -32,7 +42,34 @@ core::arch::global_asm!(
     "    andi t0, t0, 3",
     "    beqz t0, 1f",
     "    li   t1, 16",
-    "    bltu t1, a2, 9f",
+    "    bgeu t1, a2, 5f",
+    "10: andi t0, a3, 3",
+    "    beqz t0, 11f",
+    "    lbu  t1, 0(a1)",
+    "    sb   t1, 0(a3)",
+    "    addi a1, a1, 1",
+    "    addi a3, a3, 1",
+    "    addi a2, a2, -1",
+    "    j    10b",
+    "11: andi t0, a1, 3",
+    "    slli t3, t0, 3",
+    "    li   t4, 32",
+    "    sub  t4, t4, t3",
+    "    sub  a1, a1, t0",
+    "    lw   t5, 0(a1)",
+    "    li   t6, 4",
+    "12: bltu a2, t6, 13f",
+    "    lw   t1, 4(a1)",
+    "    srl  t5, t5, t3",
+    "    sll  t2, t1, t4",
+    "    or   t5, t5, t2",
+    "    sw   t5, 0(a3)",
+    "    mv   t5, t1",
+    "    addi a1, a1, 4",
+    "    addi a3, a3, 4",
+    "    addi a2, a2, -4",
+    "    j    12b",
+    "13: add  a1, a1, t0",
     "    j    5f",
     "1:  andi t0, a3, 3",
     "    beqz t0, 2f",

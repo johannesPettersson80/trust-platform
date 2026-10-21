@@ -1,9 +1,9 @@
 //! SYSTIMER time, the 1 kHz tick instrumentation and the CPU cycle counter.
 use super::BoardError;
-use crate::cycle_clock::CycleBase;
+use crate::cycle_clock::{CycleBase, SharedBase};
 use crate::profile::CPU_HZ;
 use core::{
-    cell::{Cell, RefCell},
+    cell::RefCell,
     hint,
     sync::atomic::{AtomicBool, AtomicU32, Ordering},
 };
@@ -96,8 +96,11 @@ impl Monotonic {
 /// it does not, every reading reads SYSTIMER.
 static CYCLES_COUNT: AtomicBool = AtomicBool::new(false);
 
-/// What the last SYSTIMER reading gives the readings after it (`crate::cycle_clock`).
-static BASE: Mutex<Cell<CycleBase>> = Mutex::new(Cell::new(CycleBase::STALE));
+/// What the last SYSTIMER reading gives the readings after it (`crate::cycle_clock`). The main
+/// context is its one reader and writer: no interrupt handler reads the clock (the tick and the
+/// alarm handlers count and clear, the USB handler services the FIFOs), so a reading takes no
+/// critical section.
+static BASE: SharedBase = SharedBase::new(CycleBase::STALE);
 
 /// CPU cycles in a microsecond.
 const CYCLES_PER_MICROSECOND: u32 = CPU_HZ / 1_000_000;
@@ -113,29 +116,23 @@ pub(super) fn now_us() -> u64 {
         return systimer_us();
     }
     let cycles = cycles_now();
-    critical_section::with(|cs| {
-        let cell = BASE.borrow(cs);
-        let base = cell.get();
-        let (base, reading) = match base.extend(cycles, REBASE_CYCLES) {
-            Some(reading) => (base, reading),
-            None => {
-                let micros = systimer_us();
-                (base.rebased(micros, cycles), micros)
-            }
-        };
-        let (reading, base) = base.give(reading);
-        cell.set(base);
-        reading
-    })
+    let base = BASE.load();
+    let (base, reading) = match base.extend(cycles, REBASE_CYCLES) {
+        Some(reading) => (base, reading),
+        None => {
+            let micros = systimer_us();
+            (base.rebased(micros, cycles), micros)
+        }
+    };
+    let (reading, base) = base.give(reading);
+    BASE.store(base);
+    reading
 }
 
 /// A wait stopped the CPU, whose cycle counter need not count then: the next reading reads
 /// SYSTIMER.
 pub(super) fn cpu_stopped() {
-    critical_section::with(|cs| {
-        let cell = BASE.borrow(cs);
-        cell.set(cell.get().stopped());
-    });
+    BASE.stop();
 }
 
 /// SYSTIMER microseconds since boot, read from the timer.

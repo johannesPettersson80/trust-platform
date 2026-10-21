@@ -11,8 +11,8 @@
 //! loop: with the same result, the same charges, the same fault record and the same values.
 
 use super::super::super::compact::kinded::{
-    bits_of, cell_of_bits, integer_bits, width, Kind, KindedCode, KindedOp, BOOL, DEPTH,
-    DURATION_SLOT, INSTANCE, LOAD_OWN, NULL, ONE, OWN_VALUE, STORE_OWN, TIME,
+    bits_of, cell_of_bits, integer_bits, time_to_dword_bits, width, Kind, KindedCode, KindedOp,
+    BOOL, DEPTH, DURATION_SLOT, DWORD, INSTANCE, NULL, TIME,
 };
 use super::super::super::compact::{Op, OpKind, Slot};
 use super::super::super::context::ExecutionContext;
@@ -97,19 +97,6 @@ pub(super) fn run<R: ExecutionContext>(
     let mut aside = None;
     let mut next = 0;
     while let (Some(&op), Some(&kind)) = (code.ops.get(next), kinded.ops.get(next)) {
-        // A statement run as one goes past its operations. One that does not run so runs its first
-        // operation here, and the others follow one by one, so that `step` has this one caller.
-        let kind = if let KindedOp::Fused(index) = kind {
-            match fused::statement(&mut body, &operands, kinded, index)? {
-                fused::Statement::Ran(count) => {
-                    next += count;
-                    continue;
-                }
-                fused::Statement::First(first) => first,
-            }
-        } else {
-            kind
-        };
         let (first, result) = match step(&mut body, &mut operands, &mut aside, kinded, op, kind)? {
             Step::Next => {
                 next += 1;
@@ -138,8 +125,7 @@ pub(super) fn run<R: ExecutionContext>(
     Ok(body.pushed)
 }
 
-/// Run `op`, whose kinded operation is `kinded_op`, on `operands`. A statement run as one is
-/// resolved by the loop before it steps (`run`).
+/// Run `op`, whose kinded operation is `kinded_op`, on `operands`.
 fn step<R: ExecutionContext>(
     body: &mut Body<'_, R>,
     operands: &mut Bits,
@@ -163,8 +149,10 @@ fn step<R: ExecutionContext>(
         }
         KindedOp::Block => call_block(body, operands, op.at, op.arg),
         KindedOp::Convert { to } => convert(body, operands, aside, op, to),
-        KindedOp::ConvertInteger { from, to } => convert_integer(body, operands, op, from, to),
-        KindedOp::Fused(_) => Err(RuntimeError::InvalidExecutionState),
+        KindedOp::ConvertInteger { from, to } => {
+            convert_bits(body, operands, op, to, |bits| integer_bits(from, to, bits))
+        }
+        KindedOp::ConvertTimeToDword => convert_bits(body, operands, op, DWORD, time_to_dword_bits),
     }
 }
 
@@ -184,7 +172,7 @@ fn load<R: ExecutionContext>(
                 .consts
                 .get(usize::from(index))
                 .map(|&bits| (kind, bits));
-            push_read(body, operands, bits, at, ONE, true)
+            push_read(body, operands, bits, at, [0], true)
         }
         KindedOp::Load(kind) => {
             let base = match op.kind {
@@ -196,9 +184,9 @@ fn load<R: ExecutionContext>(
                 .and_then(|slot| read(body, base, slot, kind))
                 .map(|bits| (kind, bits));
             match op.kind {
-                OpKind::LoadOwn => push_read(body, operands, bits, at, LOAD_OWN, true),
-                OpKind::LoadGlobal => push_read(body, operands, bits, at, ONE, true),
-                _ => push_read(body, operands, bits, at, OWN_VALUE, false),
+                OpKind::LoadOwn => push_read(body, operands, bits, at, [0, 1, 6], true),
+                OpKind::LoadGlobal => push_read(body, operands, bits, at, [0], true),
+                _ => push_read(body, operands, bits, at, [0, 1], false),
             }
         }
         KindedOp::LoadMember(kind) => {
@@ -357,17 +345,18 @@ fn convert<R: ExecutionContext>(
     Ok(push_result(operands, aside, value, to))
 }
 
-/// The conversion of `op`, the call's symbol, of the integer on top, of kind `from`, to the integer
-/// kind `to`, as [`convert`] runs it through the conversion's integer branch
-/// (`compact_loop::converted`), on the operand's bits: the deadline is checked, the copy that the
-/// argument's binding makes is admitted, the value is kept or refused as an overflow
-/// ([`integer_bits`]), and the deadline is checked again (checklist P1-9).
-fn convert_integer<R: ExecutionContext>(
+/// The conversion of `op`, the call's symbol, of the scalar on top to kind `to` by `convert` on its
+/// bits, as [`convert`] runs it through the general call (`compact_loop::converted`): the deadline
+/// is checked, the copy that the argument's binding makes is admitted, which is all that binding
+/// charges for a scalar, the value is converted or refused as an overflow, and the deadline is
+/// checked again (checklist P1-9). An integer to an integer kind takes the conversion's integer
+/// branch ([`integer_bits`]), and a `TIME` to a `DWORD` its milliseconds ([`time_to_dword_bits`]).
+fn convert_bits<R: ExecutionContext>(
     body: &mut Body<'_, R>,
     operands: &mut Bits,
     op: Op,
-    from: Kind,
     to: Kind,
+    convert: impl FnOnce(u64) -> Option<u64>,
 ) -> Result<Step, RuntimeError> {
     let Some(bits) = operands.last() else {
         return Ok(Step::Before);
@@ -378,7 +367,7 @@ fn convert_integer<R: ExecutionContext>(
         return Err(VmTrap::DeadlineExceeded.into_runtime_error());
     }
     body.runtime.before_scalar_clone()?;
-    let bits = integer_bits(from, to, bits).ok_or_else(|| RuntimeError::Overflow)?;
+    let bits = convert(bits).ok_or_else(|| RuntimeError::Overflow)?;
     body.runtime.check_execution_deadline()?;
     operands.push(to, bits);
     Ok(Step::Next)
@@ -506,10 +495,16 @@ fn store<R: ExecutionContext>(
     };
     let (kind, bits) = (operands.kinds[index], operands.bits[index]);
     let base = if matches!(op.kind, OpKind::StoreOwn) {
-        begin_each(&*body.runtime, body.fault_site, body.pou, op.at, STORE_OWN)?;
+        begin_each(
+            &*body.runtime,
+            body.fault_site,
+            body.pou,
+            op.at,
+            [0, 1, 6, 7],
+        )?;
         body.own
     } else {
-        begin_each(&*body.runtime, body.fault_site, body.pou, op.at, ONE)?;
+        begin_each(&*body.runtime, body.fault_site, body.pou, op.at, [0])?;
         globals()
     };
     operands.discard(1);
@@ -656,8 +651,6 @@ fn call_block<R: ExecutionContext>(
     operands.push(NULL, 0);
     Ok(Step::Next)
 }
-
-mod fused;
 
 #[cfg(test)]
 mod tests {

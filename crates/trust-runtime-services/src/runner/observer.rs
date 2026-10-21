@@ -72,6 +72,17 @@ impl<C: MonotonicClock> CycleHooks for ScanObserver<'_, C> {
         }
     }
 
+    /// The phases whose events and metrics it records.
+    fn observes(&self, phase: CyclePhase) -> bool {
+        matches!(
+            phase,
+            CyclePhase::CycleStart
+                | CyclePhase::TaskOverrun { .. }
+                | CyclePhase::TaskStart(_)
+                | CyclePhase::TaskEnd(_)
+        )
+    }
+
     fn on_phase(
         &mut self,
         phase: CyclePhase,
