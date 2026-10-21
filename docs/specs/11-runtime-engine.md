@@ -2272,7 +2272,12 @@ preserved, and the candidate's tasks continue the running program's schedule
 level of its event input and the overruns of the running program's task of the
 same name, compared without regard to case, so the first scan after the commit
 runs the tasks that are due; a task that the running program does not have
-counts its first activation from the commit. The scan counter restarts, and
+counts its first activation from the program's logical time at the commit,
+which is the time of the last cycle that started before it, since the
+program's time advances when a cycle starts: it first runs in the first cycle
+that starts one interval or more after that time (a 1 s task added by a change
+committed 135 ms after the last cycle's start first runs about 0.9 s after the
+commit). The scan counter restarts, and
 queued writes and forces are cleared under section 6.9.2. A request must never
 report `reloaded` unless this complete commit succeeds.
 

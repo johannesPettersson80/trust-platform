@@ -115,7 +115,9 @@ impl EngineState<'_> {
     /// Give each task of this replacement the scheduling state of `source`'s task of the same name,
     /// IEC names compared without regard to ASCII case: its last activation, the level of its event
     /// input and its overruns. A task that `source` does not have keeps the state construction gave
-    /// it, which counts its first activation from now (specification 34 §11.3, decision OC-2).
+    /// it, which counts its first activation from the replacement's logical time, `source`'s time:
+    /// the start of its last cycle, since the program's time advances when a cycle starts
+    /// (specification 34 §11.3, decision OC-2).
     fn carry_task_schedule(&mut self, source: &EngineState<'_>) {
         for (index, task) in self.data.resource.tasks.iter().enumerate() {
             let Some(name) = self.prepared.vm.strings.get(task.name_idx as usize) else {

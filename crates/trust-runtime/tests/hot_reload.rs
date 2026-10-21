@@ -608,3 +608,86 @@ END_PROGRAM
     handle.stop();
     handle.join().expect("join resource thread");
 }
+
+#[test]
+fn hot_reload_new_task_counts_its_first_activation_from_the_last_cycle_before_the_change() {
+    // Specification 11 §6.7.1 and specification 34 §11.3 (decision OC-2): a task that the running
+    // program does not have counts its first activation from the program's logical time at the
+    // commit, the time of the last cycle that started before it, since the program's time advances
+    // when a cycle starts. The running program's 10 ms task `Fast` runs at 10, 20 and 30 ms. The
+    // change follows the cycle at 30 ms, as a computer's scan thread takes it before the cycle at
+    // 40 ms, and adds the 25 ms task `Slow` with the program `P2`. `Slow` counts from 30 ms,
+    // so it is due at 55 ms: it has not run after the cycles at 40 and 50 ms, runs at 60 ms, and
+    // runs again at 80 ms, its next activation being due at 80 ms; `Fast` keeps its schedule and
+    // runs in every cycle. Wrong behaviour caught: a new task counted from the program's start (due
+    // at 25 ms, so it runs at 40 ms) or run at the first cycle after the change, and one counted
+    // from that cycle (due at 65 ms, so it has not run at 60 ms).
+    let source_v1 = r#"
+CONFIGURATION Conf
+RESOURCE Res ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM P1 WITH Fast : Counter;
+END_RESOURCE
+END_CONFIGURATION
+
+PROGRAM Counter
+VAR
+    runs : DINT := 0;
+END_VAR
+runs := runs + 1;
+END_PROGRAM
+"#;
+    let source_v2 = r#"
+CONFIGURATION Conf
+RESOURCE Res ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    TASK Slow (INTERVAL := T#25ms, PRIORITY := 2);
+    PROGRAM P1 WITH Fast : Counter;
+    PROGRAM P2 WITH Slow : Late;
+END_RESOURCE
+END_CONFIGURATION
+
+PROGRAM Counter
+VAR
+    runs : DINT := 0;
+END_VAR
+runs := runs + 1;
+END_PROGRAM
+
+PROGRAM Late
+VAR
+    runs : DINT := 0;
+END_VAR
+runs := runs + 1;
+END_PROGRAM
+"#;
+    let mut harness = vm_harness(source_v1);
+    for _ in 0..3 {
+        harness.advance_time(Duration::from_millis(10));
+        let cycle = harness.cycle();
+        assert!(cycle.errors.is_empty(), "the scan runs: {cycle:?}");
+    }
+    assert_eq!(program_numeric_output(&harness, "P1", "runs"), 3);
+    assert_eq!(harness.runtime().current_time(), Duration::from_millis(30));
+
+    let bytes_v2 = bytecode_bytes_from_source(source_v2).expect("build bytecode v2");
+    harness
+        .runtime_mut()
+        .apply_online_change_bytes(&bytes_v2, None)
+        .expect("apply online change");
+
+    // The cycles at 40, 50, 60, 70 and 80 ms.
+    let mut slow_runs = Vec::new();
+    for _ in 0..5 {
+        harness.advance_time(Duration::from_millis(10));
+        let cycle = harness.cycle();
+        assert!(cycle.errors.is_empty(), "the scan runs: {cycle:?}");
+        slow_runs.push(program_numeric_output(&harness, "P2", "runs"));
+    }
+    assert_eq!(slow_runs, [0, 0, 1, 1, 2], "Slow's runs after each cycle");
+    assert_eq!(
+        program_numeric_output(&harness, "P1", "runs"),
+        8,
+        "Fast runs in every cycle"
+    );
+}
