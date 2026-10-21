@@ -77,8 +77,6 @@ enum Step {
     Before,
     /// Hand the body over after the operation, whose result, held aside, goes on top.
     After,
-    /// Go past this many operations, a statement run as one (`fused`).
-    Over(usize),
 }
 
 /// Run `kinded`, the kinded code of `body`'s compact code, from its first operation to the body's
@@ -99,6 +97,19 @@ pub(super) fn run<R: ExecutionContext>(
     let mut aside = None;
     let mut next = 0;
     while let (Some(&op), Some(&kind)) = (code.ops.get(next), kinded.ops.get(next)) {
+        // A statement run as one goes past its operations. One that does not run so runs its first
+        // operation here, and the others follow one by one, so that `step` has this one caller.
+        let kind = if let KindedOp::Fused(index) = kind {
+            match fused::statement(&mut body, &operands, kinded, index)? {
+                fused::Statement::Ran(count) => {
+                    next += count;
+                    continue;
+                }
+                fused::Statement::First(first) => first,
+            }
+        } else {
+            kind
+        };
         let (first, result) = match step(&mut body, &mut operands, &mut aside, kinded, op, kind)? {
             Step::Next => {
                 next += 1;
@@ -106,10 +117,6 @@ pub(super) fn run<R: ExecutionContext>(
             }
             Step::Jump(to) => {
                 next = to;
-                continue;
-            }
-            Step::Over(count) => {
-                next += count;
                 continue;
             }
             Step::Before => (next, None),
@@ -131,7 +138,8 @@ pub(super) fn run<R: ExecutionContext>(
     Ok(body.pushed)
 }
 
-/// Run `op`, whose kinded operation is `kinded_op`, on `operands`.
+/// Run `op`, whose kinded operation is `kinded_op`, on `operands`. A statement run as one is
+/// resolved by the loop before it steps (`run`).
 fn step<R: ExecutionContext>(
     body: &mut Body<'_, R>,
     operands: &mut Bits,
@@ -156,7 +164,7 @@ fn step<R: ExecutionContext>(
         KindedOp::Block => call_block(body, operands, op.at, op.arg),
         KindedOp::Convert { to } => convert(body, operands, aside, op, to),
         KindedOp::ConvertInteger { from, to } => convert_integer(body, operands, op, from, to),
-        KindedOp::Fused(index) => fused::statement(body, operands, aside, kinded, op, index),
+        KindedOp::Fused(_) => Err(RuntimeError::InvalidExecutionState),
     }
 }
 

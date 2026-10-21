@@ -17,11 +17,6 @@ make a program replaceable, the program loader (`loader.rs`), the memory a progr
 composition (design §1.1):
 
 - `src/main.rs`: the boot sequence, the panic path and the runner composition.
-- `src/application.rs`: the boot selection over the two program slots. It reads the header of each
-  slot, takes the committed `TRSTA002` container with the highest install sequence, copies it once
-  into the heap and admits it with `installation::admit_sequenced` against the C6's
-  `DeviceDescriptor`. A refusal gives the reason and the install sequence of the newest committed
-  container.
 - `src/memory.rs`: the heap's three regions (the 32,832-byte main heap, the boot loader's 64 KiB
   reclaimed region and the LP SRAM's 16,320 bytes) and the 78 KiB main-stack window.
 
@@ -36,14 +31,22 @@ The boot order is design §1.1:
    the watchdog, and the loader keeps the GPIO bank and the flash owner for the life of the boot, so
    that every program it loads claims the pins and the checkpoint flash that the program before it
    released.
-2. **The installed application.** The firmware reads the header of each of the two program slots in
+2. **The loop.** The firmware builds the resource loop Stopped, `Runner::stopped(link, wait,
+   platform, clock, reason, 200)`, with the transfer session of the boot, the program store and the
+   loader, before any program: its receive buffer, its event store of 200 events (the C6's default
+   and maximum from `chips/esp32c6.toml`) and its boxes are taken from the heap first, so that a
+   program's blocks never leave it without one (specification 34 STATE-08, Appendix D.2). It then
+   measures the memory the C6 has for programs: the heap's free bytes, less the working memory of an
+   online change and the largest checkpoint payload (`loader::program_memory_bytes`).
+3. **The installed application.** `Runner::boot` loads it as a `restart` that finds a newer
+   container does. It reads the header of each of the two program slots in
    the `stbc` partition and selects the committed `TRSTA002` container with the highest install
    sequence. It copies only that container's declared total length into the heap (refusing a length
    above the heap's room with its numbers) and admits it with `installation::admit_sequenced`
    against the C6's descriptor before any state exists. A slot that holds a `TRSTA001` container is
    not committed, and a damaged newest container refuses the boot: the other slot never starts in
    its place (specification 34 §5.1).
-3. **The program.** The C6's loader (`Esp32Loader`) builds the program, at boot and at every later
+4. **The program.** The C6's loader (`Esp32Loader`) builds the program, at boot and at every later
    load in place, in this order. It prepares the module (`PreparedModule::from_bytes`, with limits
    derived from the application region and the heap) and frees the container's bytes at once; binds
    the program's Live Values; and sets the hardware watchdog's interval from the record's cycle
@@ -55,15 +58,12 @@ The boot order is design §1.1:
    (specification 34 §10). The lines are claimed last, so a program that cannot be prepared leaves
    the outputs as the stop of the program before it left them. The loader feeds the hardware
    watchdog between these steps; the firmware starts the watchdog after the first program is built.
-4. **Run.** `Runner::new(link, wait, cycle, platform, clock, event_capacity)`, or `Runner::stopped`
-   when there is no program, is given the transfer session of the boot, the program store and the
-   loader, and `run()` serves the control link and runs the scans. The event store keeps the
-   record's `[runtime.events] capacity`, or the C6's default of 200 from `chips/esp32c6.toml` when
-   the project sets none.
+5. **Run.** `run()` serves the control link and runs the scans. The event store keeps the record's
+   `[runtime.events] capacity`, or the C6's default of 200 when the project sets none, in the room
+   the loop reserved for 200.
 
-With no valid installed application, or one the device refuses, the firmware still runs the same
-loop in the Stopped state and serves the link, so `status` says why and a program can be installed
-over the link. `restart` is refused with `no installed program: <reason>` until the store holds a
+With no valid installed application, or one that cannot start, the loop stays in the Stopped state
+and serves the link, so `status` says why and a program can be installed over the link. `restart` is refused with `no installed program: <reason>` until the store holds a
 container newer than the one the boot refused; it then loads that container in place.
 
 ## Loading a newer program in place
@@ -79,7 +79,7 @@ up (specification 34 STATE-08):
    container has been read yet, so the heap holds one program at a time.
 2. It reads the newest committed container within the room the heap has, checks its payloads and
    admits it, as the boot does.
-3. The loader builds and starts it as the boot does (step 3 above) in the mode the request gave:
+3. The loader builds and starts it as the boot does (step 4 above) in the mode the request gave:
    `cold` gives every variable its declared initial value, and `warm` restores the retained values
    of the newest checkpoint.
 

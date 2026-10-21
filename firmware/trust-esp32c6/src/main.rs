@@ -2,22 +2,24 @@
 //! application, on the C6 adapter (design §1.1 and §1.2, specification 34).
 //!
 //! Boot order (design §1.1, R1): the hardware first (peripherals, clock, the reset reason and the
-//! reset record read once, this boot counted in the flash); then the program store and the installed
-//! application (the header of each of the two program slots read, the committed container with the
-//! highest install sequence read once, and admitted against the C6's descriptor); then the program
-//! built by the C6's loader, which a `restart` uses again to load a newer container in place: the
-//! program prepared, the record's GPIO lines claimed by pin name, each output driven to its initial
-//! value before it becomes an output, and the program constructed and started (with `mode = "file"`,
-//! warm from the newest committed checkpoint); then the runner serves the control link over USB. The
-//! same loader builds the candidate of an online change (`bytecode.reload`, specification 34 §11.3):
-//! it is prepared within the heap's room less a reserve while the running program stays installed,
-//! and the commit hands it the running program's lines.
+//! reset record read once, this boot counted in the flash); then the resource loop, built Stopped with
+//! the transfer session of the boot, the program store and the C6's loader before any program, so that
+//! its own blocks (the receive buffer, the event store, the boxes) are taken from the heap first
+//! (specification 34 STATE-08, Appendix D.2); then the memory the C6 has for programs, measured with
+//! the loop built; then the installed application, which the loop loads as a `restart` that finds a
+//! newer container does: the header of each of the two program slots read, the committed container
+//! with the highest install sequence read once and admitted against the C6's descriptor, the program
+//! prepared, the record's GPIO lines claimed by pin name, each output driven to its initial value
+//! before it becomes an output, and the program constructed and started (with `mode = "file"`, warm
+//! from the newest committed checkpoint); then the runner serves the control link over USB. The same
+//! loader builds the candidate of an online change (`bytecode.reload`, specification 34 §11.3): it is
+//! prepared within the heap's room less a reserve while the running program stays installed, and the
+//! commit hands it the running program's lines.
 //!
-//! With no valid application, or one the device refuses, the same loop runs Stopped and serves the
-//! link with the refusal's text (design §1.1, R2). The loop is given the transfer session of the boot,
-//! the program store and the loader in either case, so that a program can be installed over the link:
-//! the install commits in steps in the Stopped state, and a `restart` loads it in place (specification
-//! 34 §11.2, STATE-08); the next boot selects it too. A panic drives every configured output to its
+//! With no valid application, or one that cannot start, the same loop stays Stopped and serves the
+//! link with the reason (design §1.1, R2), so that a program can be installed over the link: the
+//! install commits in steps in the Stopped state, and a `restart` loads it in place (specification 34
+//! §11.2, STATE-08); the next boot selects it too. A panic drives every configured output to its
 //! safe level, writes the cause and location into the reset record, and resets the chip; it never
 //! writes to the link (R4).
 #![no_std]
@@ -25,7 +27,6 @@
 
 extern crate alloc;
 
-mod application;
 mod memcpy;
 mod memory;
 
@@ -37,19 +38,17 @@ use trust_platform_esp32::loader::{
     default_event_capacity, install_check, program_memory_bytes, Esp32Loader,
 };
 use trust_platform_esp32::process_io::GpioIo;
-use trust_platform_esp32::profile::{runtime_id, transfer_session, PROGRAM_STEP_BYTES, STBC_BYTES};
-use trust_platform_esp32::profile::{DEVICE_DESCRIPTOR, MAIN_STACK};
+use trust_platform_esp32::profile::{
+    runtime_id, transfer_session, MAIN_STACK, PROGRAM_STEP_BYTES, STBC_BYTES,
+};
 use trust_platform_esp32::program_memory::ProgramCycle;
 use trust_platform_esp32::{emergency_halt, Board, Monotonic, Platform, UsbLink, Wait, Watchdog};
 use trust_runtime_core::deployment::ControlMode;
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, ProgramStore};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_services::chip::platform::status_settings;
-use trust_runtime_services::link::DeviceLineLink;
 use trust_runtime_services::runner::engine::DeviceMemory;
-use trust_runtime_services::runner::{EngineLiveValues, Loaded, ProgramLoader, Runner};
-
-use application::Refused;
+use trust_runtime_services::runner::{EngineLiveValues, Runner};
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -102,7 +101,7 @@ fn main() -> ! {
         emergency_halt("checkpoint-reader");
     };
     let mut parts = board.into_parts();
-    let mut store = ProgramStore {
+    let store = ProgramStore {
         flash: program_flash,
         program_budget: PROGRAM_STEP_BYTES,
     };
@@ -111,13 +110,9 @@ fn main() -> ! {
         emergency_halt("wait-alarm");
     };
 
-    // The installed application: the committed container with the highest install sequence,
-    // admitted before any state exists.
-    let installed = application::boot(&mut store);
-
     // The platform starts with the values of a chip that has no application: it reports `production`,
     // the record's default (specification 11 §6.9). The loader sets those of the installed record.
-    let mut platform = Platform::new(
+    let platform = Platform::new(
         parts.watchdog,
         SmolStr::new_static("Controller"),
         status_settings(),
@@ -127,80 +122,51 @@ fn main() -> ! {
         last_reset,
         runtime_id(parts.identity.mac),
     );
-    // The loader builds the program of the installed container here and again at every `restart` that
-    // finds a newer one (specification 34 STATE-08): the same steps in the same order. It also builds
-    // the candidate of an online change (specification 34 §11.3).
+    // The loader builds the program of the installed container at the boot and again at every
+    // `restart` that finds a newer one (specification 34 STATE-08): the same steps in the same order.
+    // It also builds the candidate of an online change (specification 34 §11.3).
     let device_memory = DeviceMemory {
         region_bytes: STBC_BYTES,
         heap_bytes: memory::HEAP.capacity(),
         call_depth: MAIN_STACK.call_depth(),
     };
-    let mut loader = Esp32Loader::new(parts.hardware, clock, device_memory, heap_room)
+    let loader = Esp32Loader::new(parts.hardware, clock, device_memory, heap_room)
         .with_allocator_operations(allocator_operations);
     let largest_payload =
         usize::try_from(checkpoint_reader.geometry().max_payload_len()).unwrap_or(usize::MAX);
     let retained_check = install_check(checkpoint_reader, device_memory, heap_room);
-    // The memory the C6 has for a program (specification 34 MEM-12, Appendix D.2): the heap's free bytes
-    // before any program is loaded, with the installed program's, which the load frees once the program
-    // is prepared, less what the chip keeps beside any program: its resource loop, with the event store
-    // at its maximum and the loader and the retained-value check it is given, the working memory of an
-    // online change and the checkpoint store. The descriptor reports it, and a program whose memory
-    // figure is more is refused at its install and at its load.
-    let container = installed.as_ref().map_or(0, |booted| booted.program.len());
-    let events = usize::try_from(DEVICE_DESCRIPTOR.event_store_max).unwrap_or(usize::MAX);
-    let loop_bytes = ChipRunner::heap_bytes(DeviceLineLink::MAX_FRAME_LEN, events)
-        .saturating_add(core::mem::size_of_val(&loader))
-        .saturating_add(core::mem::size_of_val(&retained_check));
-    platform.set_program_memory(program_memory_bytes(
-        heap_room(),
-        container,
-        largest_payload,
-        loop_bytes,
-    ));
-    let (program, loaded) = match installed {
-        Ok(booted) => {
-            let sequence = booted.sequence;
-            (
-                loader.load(&mut platform, booted, RestartMode::Warm),
-                Some(sequence),
-            )
-        }
-        Err(Refused { reason, sequence }) => (Err(reason), sequence),
-    };
 
-    // The watchdog runs from here: building the program took far more time than any pass of the loop,
-    // and the loop feeds it in every pass.
-    platform.watchdog_mut().start();
+    // The loop is built before any program (specification 34 STATE-08, Appendix D.2): its receive
+    // buffer, its event store and its boxes are taken from the heap first, so that no program's blocks
+    // leave it without one. The reason it is built with is replaced when it loads the program.
     let link = UsbLink::bind();
     let wait = Wait::new(alarm);
-    let runner: ChipRunner = match program {
-        Ok(Loaded {
-            cycle,
-            events,
-            event_capacity,
-        }) => {
-            let runner = Runner::new(link, wait, cycle, platform, clock, event_capacity);
-            // The boot's warm start dropped or migrated retained values: the runner records them as a
-            // restart's events are recorded, at the program's time zero.
-            runner.record_boot_retain_events(events);
-            runner
-        }
-        // A Stopped loop holds no cycle, so its type is named: the loop a program would run in.
-        Err(reason) => ChipRunner::stopped(
+    let mut runner: Box<ChipRunner> = Box::new(
+        ChipRunner::stopped(
             link,
             wait,
             platform,
             clock,
-            SmolStr::from(reason),
+            SmolStr::new_static("the installed program is being loaded"),
             default_event_capacity(),
-        ),
-    };
-    let mut runner = Box::new(
-        runner
-            .with_transfers(transfer_session(boot_count))
-            .with_program_store(store, retained_check)
-            .with_program_loader(loader, loaded),
+        )
+        .with_transfers(transfer_session(boot_count))
+        .with_program_store(store, retained_check)
+        .with_program_loader(loader, None),
     );
+    // The memory the C6 has for a program (specification 34 MEM-12, Appendix D.2): the heap's free bytes
+    // with the loop built and before any container is read, less the working memory of an online change
+    // and the checkpoint store's buffer. The descriptor reports it, and a program whose memory figure is
+    // more is refused at its install and at its load.
+    let program_memory = program_memory_bytes(heap_room(), largest_payload);
+    let _ = runner.with_platform(|platform| platform.set_program_memory(program_memory));
+    // The installed application: the committed container with the highest install sequence, admitted,
+    // prepared and started warm. One that cannot start leaves the loop Stopped with the reason.
+    runner.boot(RestartMode::Warm);
+
+    // The watchdog runs from here: building the program took far more time than any pass of the loop,
+    // and the loop feeds it in every pass.
+    let _ = runner.with_platform(|platform| platform.watchdog_mut().start());
     let _ = runner.run();
     emergency_halt("runner")
 }

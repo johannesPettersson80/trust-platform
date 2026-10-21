@@ -5,33 +5,37 @@
 //! admit are admitted and every instruction's unit charge is admitted at once without a deadline
 //! sample, the leaf is written and the store's last instruction is left as the fault site: the
 //! allowance, the site and the values are those the operations one by one leave. Otherwise the
-//! statement's first operation runs as it would, and the others follow one by one, so a refusal, a
-//! fault, a hand-over and a deadline sample fall where they fall without the statement.
+//! loop runs the statement's first operation as it would, and the others follow one by one, so a
+//! refusal, a fault, a hand-over and a deadline sample fall where they fall without the statement.
 
 use super::super::super::compact_loop::{globals, leaf};
-use super::{integers, read, step, width, Bits, Body, ExecutionContext, Kind, Op, Step, DEPTH};
+use super::{integers, read, width, Bits, Body, ExecutionContext, Kind, DEPTH};
 use crate::error::RuntimeError;
 use crate::fault::FaultSite;
-use crate::value::Value;
-use crate::vm::compact::kinded::{FusedOperand, Fusion, KindedCode};
+use crate::vm::compact::kinded::{FusedOperand, Fusion, KindedCode, KindedOp};
 
-/// The statement `kinded.fusions[index]`, which starts at `op`, run as one operation when it can
-/// be, else its first operation.
+/// What became of a statement run as one.
+pub(super) enum Statement {
+    /// It ran: the loop goes past this many operations.
+    Ran(usize),
+    /// It did not run so, having changed nothing: the loop runs its first operation, this one.
+    First(KindedOp),
+}
+
+/// The statement `kinded.fusions[index]` run as one operation when it can be.
 pub(super) fn statement<R: ExecutionContext>(
     body: &mut Body<'_, R>,
-    operands: &mut Bits,
-    aside: &mut Option<Value>,
+    operands: &Bits,
     kinded: &KindedCode,
-    op: Op,
     index: u16,
-) -> Result<Step, RuntimeError> {
+) -> Result<Statement, RuntimeError> {
     let Some(fusion) = kinded.fusions.get(usize::from(index)) else {
         return Err(RuntimeError::InvalidExecutionState);
     };
     if run(body, operands, kinded, fusion)? {
-        return Ok(Step::Over(usize::from(fusion.len)));
+        return Ok(Statement::Ran(usize::from(fusion.len)));
     }
-    step(body, operands, aside, kinded, op, fusion.first)
+    Ok(Statement::First(fusion.first))
 }
 
 /// Run `fusion` at once; `false`, having changed nothing, when it does not run so.

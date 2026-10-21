@@ -169,6 +169,19 @@ impl InstallState {
         let _ = self.with(|parts| parts.reload = Some(Reload { loaded }));
     }
 
+    /// The install sequence of the store's newest committed container, which a boot that could not
+    /// start its program counts as the container that it refused (specification 34 STATE-08). `None`
+    /// when the loop keeps no store, the store holds no committed container, or its containers cannot
+    /// be ordered.
+    pub(super) fn newest_sequence(&self) -> Option<u64> {
+        self.with(|parts| {
+            let store = parts.store.as_mut()?;
+            let newest = select::order(store).ok()?.newest?;
+            Some(newest.header.sequence)
+        })
+        .flatten()
+    }
+
     /// Whether the store holds a committed container newer than the one the loop's program came from,
     /// which a `restart` of the Stopped resource then loads. False for a loop that cannot load in place
     /// or keeps no store (specification 34 STATE-08).

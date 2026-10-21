@@ -185,32 +185,38 @@ where
     /// cannot start stays ended and faulted with the reason, and the next restart tries again.
     pub(super) fn start(&mut self, mode: RestartMode) {
         match self.load_or_restart(mode) {
-            Ok(events) => {
-                self.live.clear();
-                // A restart in place installed the next generation. A program loaded in place has
-                // Live Values of its own, in the first generation, over a state that its warm start
-                // may have restarted.
-                self.follow_generation();
-                let start = self.clock.now();
-                self.program_start = start;
-                self.shell.records.restart(self.clock.clone(), start);
-                self.record_program_memory();
-                // A program that starts again is a new resource thread: the debugger may hold it,
-                // though a stop ended the holds of the last one (specification 11 §6.9).
-                self.shell.debug.rearm();
-                self.cycle.reset_task_timing(value::Duration::ZERO);
-                self.program_time = value::Duration::ZERO;
-                self.record_retain_events(events);
-                self.cycle_count = 0;
-                self.restarts.reset();
-                self.shell.resource.begin();
-                self.next_boundary = Some(start);
-            }
+            Ok(events) => self.begin_program(events),
             Err(error) => {
                 self.shell.resource.set_last_error(Some(error));
                 self.shell.resource.set_state(ResourceState::Faulted);
             }
         }
+    }
+
+    /// Runs the program that a restart or a boot started, as a new trust-runtime process: the
+    /// resource is Running, its logical time and uptime start now, its events, metrics and task
+    /// statistics start empty with `events`, the retained values the start dropped or migrated,
+    /// recorded at time zero, and its first scan is due at once.
+    pub(super) fn begin_program(&mut self, events: Vec<RetainApplyEvent>) {
+        self.live.clear();
+        // A restart in place installed the next generation. A program loaded in place has Live
+        // Values of its own, in the first generation, over a state that its warm start may have
+        // restarted.
+        self.follow_generation();
+        let start = self.clock.now();
+        self.program_start = start;
+        self.shell.records.restart(self.clock.clone(), start);
+        self.record_program_memory();
+        // A program that starts again is a new resource thread: the debugger may hold it, though a
+        // stop ended the holds of the last one (specification 11 §6.9).
+        self.shell.debug.rearm();
+        self.cycle.reset_task_timing(value::Duration::ZERO);
+        self.program_time = value::Duration::ZERO;
+        self.record_retain_events(events);
+        self.cycle_count = 0;
+        self.restarts.reset();
+        self.shell.resource.begin();
+        self.next_boundary = Some(start);
     }
 
     /// Runs one scan that started at `started` on the monotonic clock, and follows the shared

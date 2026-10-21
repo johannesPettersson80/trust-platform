@@ -54,6 +54,8 @@ use crate::transfer::{TransferSession, PART_BYTES};
 const ERASED: &str = "no TRSTA002 container in either slot";
 /// Why a chip whose newest container failed its payload check has no program, as its boot says.
 const DAMAGED: &str = "the CRC-32 of entry kind 1 does not match";
+/// The reason a booting chip's loop is built with, which its load of the program replaces.
+const BOOTING: &str = "the installed program is being loaded";
 /// The boot number of the transfer session.
 const BOOT: u32 = 3;
 /// The event capacity that the record of a loaded program asks for (the C6's default).
@@ -762,6 +764,136 @@ fn a_boot_refusal_stays_until_a_newer_container_is_installed() {
     assert_eq!(started["result"], json!({"status": "restart queued"}));
     assert_eq!(runner.resource_state(), ResourceState::Running);
     assert_eq!(rig.log.borrow()[0].sequence, 4);
+}
+
+/// A slot of the fake program flash that holds `image` and is erased after it.
+fn slot_with(image: &[u8]) -> Vec<u8> {
+    let mut bytes = vec![0xff_u8; SLOT_BYTES as usize];
+    bytes[..image.len()].copy_from_slice(image);
+    bytes
+}
+
+#[test]
+fn a_boot_starts_the_newest_committed_program_through_the_loop() {
+    // Specification 34 STATE-08 and Appendix D.2: a chip builds its loop Stopped before any program
+    // and then boots the newest committed container through it, by the steps of a `restart` that
+    // finds a newer container, in the warm start of a power-on. The store holds sequence 2 in slot A;
+    // the boot builds it once, warm, and the resource runs it from time zero: its task timing starts
+    // at 0 ms and the first pass scans at 0 ms. A stop and a `restart` then restart that program in
+    // place, because it came from the newest container. Wrong behaviour caught: a boot that leaves
+    // the resource Stopped with a program committed; a boot that builds another container, or builds
+    // twice; a program counted as coming from no container, which the next `restart` would load again.
+    let flash = FlashProbe::from_slots([
+        slot_with(&committed_image(2, RetainMode::None)),
+        vec![0xff_u8; SLOT_BYTES as usize],
+    ]);
+    let rig = Rig::new(flash, CheckpointProbe::erased());
+    let mut runner = rig.stopped_runner(BOOTING, None);
+
+    runner.boot(RestartMode::Warm);
+    assert_eq!(runner.resource_state(), ResourceState::Running);
+    assert_eq!(runner.last_error(), None);
+    assert_eq!(
+        *rig.log.borrow(),
+        [Load {
+            sequence: 2,
+            mode: RestartMode::Warm,
+            program_bytes: PROGRAM.len(),
+        }],
+        "the boot built the newest container's program once, warm"
+    );
+    assert_eq!(rig.ports.take_calls(), [CycleCall::TaskTiming(ms(0))]);
+    rig.ports.pass_at(&mut runner, 0);
+    assert_eq!(rig.ports.take_calls(), [first_scan()]);
+    let status = rig.ports.call(&mut runner, &request(1, "status"));
+    assert_eq!(status["result"]["state"], json!("running"));
+    assert_eq!(status["result"]["event_capacity"], json!(CAPACITY));
+
+    rig.stop(&mut runner);
+    let reply = rig.ports.call(&mut runner, &restart(50, "cold"));
+    assert_eq!(reply["result"], json!({"status": "restart queued"}));
+    assert_eq!(runner.resource_state(), ResourceState::Running);
+    assert_eq!(
+        rig.log.borrow().len(),
+        1,
+        "the program came from sequence 2, so it restarts in place"
+    );
+}
+
+#[test]
+fn a_boot_whose_program_cannot_start_leaves_the_chip_stopped_with_the_reason() {
+    // Specification 34 STATE-08 and design §1.1 (R2): a program that cannot start at the boot leaves
+    // the resource Stopped, not Faulted, with the reason, and the loop counts its container
+    // (sequence 2) as the one the boot refused: `restart` is refused with `resource_not_running` and
+    // `no installed program: <reason>` and builds nothing, until an install commits sequence 3 in
+    // the other slot, which `restart` then loads. Wrong behaviour caught: a boot that faults the
+    // resource, which would refuse the install that repairs the chip (§11.2); a `restart` that
+    // builds the refused container again on every request; a refusal that no install can lift.
+    let flash = FlashProbe::from_slots([
+        slot_with(&committed_image(2, RetainMode::None)),
+        vec![0xff_u8; SLOT_BYTES as usize],
+    ]);
+    let rig = Rig::new(flash, CheckpointProbe::erased());
+    rig.failures
+        .borrow_mut()
+        .push_back("the installed application cannot be prepared: not enough memory".to_string());
+    let mut runner = rig.stopped_runner(BOOTING, None);
+
+    runner.boot(RestartMode::Warm);
+    assert_eq!(runner.resource_state(), ResourceState::Stopped);
+    assert_eq!(runner.last_error(), None);
+    let status = rig.ports.call(&mut runner, &request(1, "status"));
+    assert_eq!(status["result"]["state"], json!("stopped"));
+    assert_eq!(status["result"]["fault"], Value::Null);
+    let refused = rig.ports.call(&mut runner, &restart(2, "warm"));
+    assert_eq!(refused["error_code"], json!("resource_not_running"));
+    assert_eq!(
+        refused["error"],
+        json!(
+            "no installed program: the installed application cannot be prepared: not enough memory"
+        )
+    );
+    assert_eq!(
+        rig.log.borrow().len(),
+        1,
+        "the refused container is not built again"
+    );
+
+    let installed = rig.install(&mut runner, &transfer_of(RetainMode::None), 40);
+    assert_eq!(installed["result"]["sequence"], json!(3));
+    let started = rig.ports.call(&mut runner, &restart(3, "warm"));
+    assert_eq!(started["result"], json!({"status": "restart queued"}));
+    assert_eq!(runner.resource_state(), ResourceState::Running);
+    assert_eq!(rig.log.borrow().len(), 2);
+    assert_eq!(rig.log.borrow()[1].sequence, 3);
+}
+
+#[test]
+fn a_boot_with_no_committed_container_stays_stopped_with_the_stores_reason() {
+    // Specification 34 §5.1 and STATE-08: a boot over an erased store builds nothing and leaves the
+    // resource Stopped with the reason the store's selection gives, `no TRSTA002 container in either
+    // slot`, which `restart` names; an install then commits sequence 1, which `restart` loads. Wrong
+    // behaviour caught: a boot that replaces the store's reason with its own; a loader called with
+    // nothing to build; a chip that an install cannot start without a reset.
+    let rig = Rig::new(FlashProbe::erased(), CheckpointProbe::erased());
+    let mut runner = rig.stopped_runner(BOOTING, None);
+
+    runner.boot(RestartMode::Warm);
+    assert_eq!(runner.resource_state(), ResourceState::Stopped);
+    let refused = rig.ports.call(&mut runner, &restart(1, "cold"));
+    assert_eq!(refused["error_code"], json!("resource_not_running"));
+    assert_eq!(
+        refused["error"],
+        json!("no installed program: no TRSTA002 container in either slot")
+    );
+    assert_eq!(*rig.log.borrow(), [], "nothing was built");
+
+    let installed = rig.install(&mut runner, &transfer_of(RetainMode::None), 40);
+    assert_eq!(installed["result"]["sequence"], json!(1));
+    let started = rig.ports.call(&mut runner, &restart(2, "cold"));
+    assert_eq!(started["result"], json!({"status": "restart queued"}));
+    assert_eq!(runner.resource_state(), ResourceState::Running);
+    assert_eq!(rig.log.borrow()[0].sequence, 1);
 }
 
 #[test]

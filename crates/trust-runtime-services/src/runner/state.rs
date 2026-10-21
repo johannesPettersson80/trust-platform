@@ -193,11 +193,12 @@ impl<C: MonotonicClock> Records<C> {
         self.capacity.get()
     }
 
-    /// Gives the event store room for the newest `capacity` events and empties it, for a program
-    /// loaded in place whose record asks for another capacity (specification 34 STATE-08). The old
-    /// store is freed before the new one is reserved, so the heap never holds both, and a capacity
-    /// that is the store's own keeps its memory. The store takes its whole bound at once, so a heap
-    /// too small for it refuses here, never in the middle of a scan (specification 34, ARCH-05).
+    /// Gives the event store the capacity of a program loaded in place, the newest `capacity` events,
+    /// and empties it (specification 34 STATE-08). The store keeps the room it holds when that room
+    /// takes `capacity` events, so a program loaded after the loop was built never leaves the store
+    /// looking for a block among the program's; only a larger capacity frees the old room and then
+    /// reserves anew, so the heap never holds both. The store takes its whole bound at once, so a
+    /// heap too small for it refuses here, never in the middle of a scan (specification 34, ARCH-05).
     ///
     /// Returns whether the store has room for `capacity` events now. When it has not, the store is
     /// empty and holds no room, and the program that asked for it does not start.
@@ -205,13 +206,13 @@ impl<C: MonotonicClock> Records<C> {
         let Ok(mut events) = self.events.try_borrow_mut() else {
             return false;
         };
-        if capacity == self.capacity.get() {
-            events.clear();
+        events.clear();
+        self.capacity.set(capacity);
+        // One spare slot, so appending the event that displaces the oldest does not reallocate.
+        if events.capacity() > capacity {
             return true;
         }
         *events = VecDeque::new();
-        self.capacity.set(capacity);
-        // One spare slot, so appending the event that displaces the oldest does not reallocate.
         events.try_reserve_exact(capacity + 1).is_ok()
     }
 
@@ -283,5 +284,46 @@ mod tests {
             event_store_bytes(200),
             slots * core::mem::size_of::<RuntimeEvent>()
         );
+    }
+
+    #[test]
+    fn the_event_store_keeps_its_room_for_a_program_that_keeps_fewer_events() {
+        // Specification 34 STATE-08 and Appendix D.2: a program loaded in place takes the capacity
+        // of its record in the room the store holds, and only a capacity that does not fit that room
+        // reserves anew. Worked by hand: a store built for 200 events holds 201 slots; a program
+        // that keeps 10 events leaves the 201 slots and keeps the newest 10 of 11 events (cycles 1
+        // to 10); a program that keeps 200 again needs no new block; one that keeps 300 needs 301
+        // slots, more than 201, so the store reserves exactly 301. The wrong behaviour caught: a
+        // store that frees its room for the smaller capacity, so that the next program with the
+        // default capacity must find a block of 201 slots among the blocks of a program that is
+        // already loaded, which the C6 bench of 22 October 2026 found with no such block left.
+        let records = Records::new(Still, Still.now(), 200);
+        assert!(records.resize(10));
+        assert_eq!(records.event_capacity(), 10);
+        assert_eq!(records.events.borrow().capacity(), 201);
+        for cycle in 0..11 {
+            records.push_event(RuntimeEvent::CycleEnd {
+                cycle,
+                time: trust_runtime_core::value::Duration::ZERO,
+            });
+        }
+        let kept: alloc::vec::Vec<u64> = records
+            .events
+            .borrow()
+            .iter()
+            .map(|event| match event {
+                RuntimeEvent::CycleEnd { cycle, .. } => *cycle,
+                other => panic!("only cycle ends were stored: {other:?}"),
+            })
+            .collect();
+        assert_eq!(kept, (1..11).collect::<alloc::vec::Vec<u64>>());
+
+        assert!(records.resize(200));
+        assert_eq!(records.events.borrow().capacity(), 201);
+        assert!(records.events.borrow().is_empty());
+
+        assert!(records.resize(300));
+        assert_eq!(records.event_capacity(), 300);
+        assert_eq!(records.events.borrow().capacity(), 301);
     }
 }

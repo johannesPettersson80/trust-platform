@@ -166,6 +166,21 @@ where
         self.cycle.restart(mode, RetainSource::Checkpoint)
     }
 
+    /// Starts the installed program at the device's boot (specification 34 STATE-08): the loop, built
+    /// Stopped with its program store and its loader before any program, so that its own blocks were
+    /// taken from the heap first (Appendix D.2), loads the newest committed container as a `restart`
+    /// that finds a newer one does and starts it in `mode`. A program that cannot start leaves the
+    /// resource Stopped with the reason, which `restart` names, and the loop counts the newest
+    /// committed container as the one its boot refused, so that a `restart` loads only a newer one.
+    pub fn boot(&mut self, mode: RestartMode) {
+        if let Ok(events) = self.reload(mode) {
+            self.begin_program(events);
+        } else {
+            let refused = self.shell.install.newest_sequence();
+            self.shell.install.set_loaded(refused);
+        }
+    }
+
     /// Drops the program that ended, loads the newest committed container in its place and starts it
     /// in `mode`. A program that cannot start leaves the loop without one, with the reason.
     fn reload(&mut self, mode: RestartMode) -> Result<Vec<RetainApplyEvent>, RuntimeError> {

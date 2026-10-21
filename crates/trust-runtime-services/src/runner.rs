@@ -297,6 +297,15 @@ where
             request_grant: false,
         }
     }
+
+    /// Runs `operation` on the loop's platform, for the steps of a device's boot that follow the
+    /// building of its loop (specification 34 STATE-08): the firmware sets the memory the device
+    /// has for programs, which it measures once the loop holds its own, and starts the hardware
+    /// watchdog after the boot's load ([`Self::boot`]). `None` when the platform is in use, which
+    /// it never is between the loop's passes.
+    pub fn with_platform<R>(&self, operation: impl FnOnce(&mut P) -> R) -> Option<R> {
+        self.shell.with_platform(operation)
+    }
 }
 
 impl<L, W, Y, P, C> Runner<L, W, Y, P, C> {
