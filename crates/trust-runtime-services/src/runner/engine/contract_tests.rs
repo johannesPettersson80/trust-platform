@@ -22,7 +22,7 @@ use trust_runtime_core::vm::{
 };
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
-use super::{device_limits, CycleSettings, DeviceMemory, DeviceServices, EngineCycle};
+use super::{device_limits, CycleSettings, DeviceMemory, DeviceServices, DeviceStack, EngineCycle};
 use crate::runner::program::Program;
 use crate::runner::{ResourceCycle, RetainSource, TaskDescriptor};
 use crate::status::{IoDriverHealth, IoDriverStatus};
@@ -593,8 +593,14 @@ fn a_program_that_calls_current_dt_is_refused_when_the_device_constructs_it() {
     );
 }
 
+/// Decision "Let memory decide" (owner, 20 October 2026) and "Stack decides" (21 October 2026;
+/// specification 34 MEM-02, MEM-03): a device's preparation bytes and validation scratch scale with
+/// its heap (512 KiB and 48 KiB per 72 KiB), its constructed values, construction bytes and process
+/// images are trust-runtime's, and its call depth is the one its main stack holds. Catches counts
+/// that still scale with the heap (4,096 values at 72 KiB, 8,192 at 144 KiB), a call depth that
+/// still comes from the heap (4 at 72 KiB, 8 at 144 KiB), and a depth above trust-runtime's 1,024.
 #[test]
-fn the_device_memory_limits_follow_the_application_region_and_the_heap() {
+fn the_device_limits_follow_the_region_the_heap_and_the_stack() {
     let host = PreparationLimits::default();
     let bring_up = device_limits(CHIP_MEMORY);
     assert_eq!(
@@ -606,19 +612,17 @@ fn the_device_memory_limits_follow_the_application_region_and_the_heap() {
                 max_scratch_bytes: 48 * 1024,
                 ..host.validation
             },
-            max_construction_values: 4096,
-            max_construction_bytes: 128 * 1024,
-            max_process_image_bytes: 64,
-            max_call_depth: 4,
+            max_call_depth: 7,
             ..host
         },
-        "at the 72 KiB heap of the bring-up runs, the memory limits both chips ran the A4 \
-         programs with"
+        "at the 72 KiB heap of the bring-up runs: the preparation limits both chips ran the A4 \
+         programs with, trust-runtime's counts and the C6 stack's 7 call levels"
     );
     assert_eq!(
         device_limits(DeviceMemory {
             region_bytes: 32 * 1024,
             heap_bytes: 144 * 1024,
+            call_depth: 7,
         }),
         PreparationLimits {
             max_artifact_bytes: 32 * 1024,
@@ -627,17 +631,14 @@ fn the_device_memory_limits_follow_the_application_region_and_the_heap() {
                 max_scratch_bytes: 96 * 1024,
                 ..bring_up.validation
             },
-            max_construction_values: 8192,
-            max_construction_bytes: 256 * 1024,
-            max_process_image_bytes: 128,
-            max_call_depth: 8,
             ..bring_up
         },
-        "the memory limits and the call depth grow with the heap"
+        "the preparation limits grow with the heap; the counts and the call depth do not"
     );
     let large = device_limits(DeviceMemory {
         region_bytes: 1024 * 1024,
         heap_bytes: 64 * 1024 * 1024,
+        call_depth: 5_000,
     });
     assert_eq!(
         large.max_call_depth, VM_MAX_CALL_DEPTH,
@@ -660,6 +661,79 @@ fn the_device_memory_limits_follow_the_application_region_and_the_heap() {
     );
 }
 
+/// Specification 34 MEM-03 and Appendix D.2: a main stack holds `(window − 2,048 − base) / level`
+/// call levels, at most 1,024. Worked by hand: the C6's 79,872-byte window with its measured 34,008
+/// base and 6,144 per level holds 43,816 / 6,144 = 7 levels; a window of 2,048 + 34,008 + 8 × 6,144
+/// = 85,208 bytes holds 8, and one byte less 7; 36,056 + 6,144 = 42,200 bytes hold one level and one
+/// byte less none; a window that does not hold the headroom and the base holds none. Catches a formula that forgets the headroom (79,872 would give 7 too, but
+/// 85,207 would give 8), that rounds up, or that divides by a zero level.
+#[test]
+fn a_main_stack_holds_its_window_less_headroom_and_base_in_levels() {
+    let c6 = DeviceStack {
+        window_bytes: 78 * 1024,
+        base_bytes: 34_008,
+        level_bytes: 6_144,
+    };
+    assert_eq!(c6.call_depth(), 7);
+    assert_eq!(
+        DeviceStack {
+            window_bytes: 85_208,
+            ..c6
+        }
+        .call_depth(),
+        8
+    );
+    assert_eq!(
+        DeviceStack {
+            window_bytes: 85_207,
+            ..c6
+        }
+        .call_depth(),
+        7
+    );
+    assert_eq!(
+        DeviceStack {
+            window_bytes: 42_199,
+            ..c6
+        }
+        .call_depth(),
+        0,
+        "42,199 bytes hold the headroom and the base, 36,056 bytes, but not one level more"
+    );
+    assert_eq!(
+        DeviceStack {
+            window_bytes: 42_200,
+            ..c6
+        }
+        .call_depth(),
+        1
+    );
+    assert_eq!(
+        DeviceStack {
+            window_bytes: 16 * 1024,
+            ..c6
+        }
+        .call_depth(),
+        0
+    );
+    assert_eq!(
+        DeviceStack {
+            level_bytes: 0,
+            ..c6
+        }
+        .call_depth(),
+        0
+    );
+    assert_eq!(
+        DeviceStack {
+            window_bytes: 64 * 1024 * 1024,
+            ..c6
+        }
+        .call_depth(),
+        VM_MAX_CALL_DEPTH
+    );
+}
+
 #[test]
 fn a_devices_work_limits_are_trust_runtimes() {
     let host = PreparationLimits::default();
@@ -668,6 +742,7 @@ fn a_devices_work_limits_are_trust_runtimes() {
         DeviceMemory {
             region_bytes: 256 * 1024,
             heap_bytes: 145 * 1024,
+            call_depth: 7,
         },
     ] {
         let device = device_limits(memory);

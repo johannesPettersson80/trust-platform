@@ -1,7 +1,8 @@
 //! ESP32-C6 memory map: the measured allocator's two regions (the 72 KiB main heap and the boot
-//! loader's 64 KiB reclaimed RAM) and the 24 KiB main-stack window at the top of the esp-hal
+//! loader's 64 KiB reclaimed RAM) and the 78 KiB main-stack window at the top of the esp-hal
 //! stack region (design §1.1, R3 and specification 34, §4.3).
 use core::mem::MaybeUninit;
+use trust_platform_esp32::profile::MAIN_STACK;
 use trust_platform_memory::memory::{MeasuredHeap, StackWindow, TargetMemory};
 
 /// Bytes of the main heap: the M2E 72 KiB arena.
@@ -15,11 +16,12 @@ const RECLAIMED_BYTES: usize = 64 * 1024;
 /// as on the STM32F407, keeps linker symbols out of the composition; `xtask portability inspect`
 /// fails if the linked image's `_stack_start` differs.
 const STACK_TOP: usize = 0x4086_E610;
-/// Bytes of the main-stack window. The C6 measured a 15.7 KiB high-water in a 16 KiB window (the
-/// S1b-5b2 bench, 18 October 2026), which left less than the 2 KiB headroom, so the window is
-/// 24 KiB (specification 34, D.2). The STM32F407 keeps 16 KiB (D.4).
-const STACK_WINDOW_BYTES: usize = 24 * 1024;
-/// The main-stack window: the top 24 KiB of the esp-hal stack region, measured from the bottom up.
+/// Bytes of the main-stack window: the 78 KiB of the C6's main stack, whose call levels are the C6's
+/// call depth (`MAIN_STACK`; specification 34 MEM-03, D.2). The window was 24 KiB until the C1-25
+/// bench found that installing any program fills it (21 October 2026). The STM32F407 keeps 16 KiB
+/// (D.4).
+const STACK_WINDOW_BYTES: usize = MAIN_STACK.window_bytes;
+/// The main-stack window: the top 78 KiB of the esp-hal stack region, measured from the bottom up.
 pub const STACK_WINDOW: StackWindow = StackWindow::new(STACK_TOP - STACK_WINDOW_BYTES, STACK_TOP);
 
 /// The main heap arena, aligned for the allocator.

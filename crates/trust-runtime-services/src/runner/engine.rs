@@ -7,7 +7,7 @@
 //!   outputs of a stop or a fault, and reports the drivers' health in `status`.
 //! - [`DeviceServices`]: the engine's execution services, with the scan deadline on the
 //!   platform's monotonic clock and no wall clock until slice T6.
-//! - [`device_limits`]: the admission limits of the device's application region and heap.
+//! - [`device_limits`]: the admission limits of the device's application region, heap and main stack.
 //!
 //! trust-runtime on a computer runs the same engine through its own hosted cycle
 //! (`runtime/installed_cycle.rs`); this cycle acts at the same phases and keeps the same output
@@ -52,7 +52,7 @@ use trust_runtime_core::vm::{
 };
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
-pub use limits::{device_limits, DeviceMemory};
+pub use limits::{device_limits, DeviceMemory, DeviceStack};
 pub use process_io::ProcessIo;
 pub use services::DeviceServices;
 

@@ -3,9 +3,10 @@
 //! working memory, `ONLINE_CHANGE_WORKING_MEMORY_BYTES` (8,192 bytes), free and reads no checkpoint
 //! (decision OC-1). The check of an install keeps the working memory too and, when the new program's
 //! record keeps retained values, the payload of the newest committed checkpoint, which the check's
-//! warm start reads whole into the heap. The heap has 20,000 bytes free in these tests, which allow
-//! no call level once the reserve is taken (a call level needs 18,432 bytes of the heap that
-//! remains), so the board probe (3,388 bytes) is refused with the numbers of the change or of the
+//! warm start reads whole into the heap. The heap has 11,000 bytes free in these tests, which leave
+//! at most 11,000 - 8,192 = 2,808 bytes once the reserve is taken, fewer than the board probe's
+//! 3,388, and an artifact longer than the heap that remains cannot be prepared in it (§11.3), so the
+//! board probe is refused with the numbers of the change or of the
 //! install, and the text names the reserve that was kept: `<r> bytes are free, <k> are kept in
 //! reserve`.
 
@@ -19,7 +20,7 @@ use support::{booted, configuration, Dog, Hardware, TestClock, PROBE, PROGRAM};
 use trust_platform_esp32::loader::{
     install_check, program_memory_bytes, Esp32Loader, ONLINE_CHANGE_WORKING_MEMORY_BYTES,
 };
-use trust_platform_esp32::profile::runtime_id;
+use trust_platform_esp32::profile::{runtime_id, MAIN_STACK};
 use trust_platform_esp32::Platform;
 use trust_runtime_core::bytecode::{BytecodeModule, ValidationLimits};
 use trust_runtime_core::deployment::{Configuration, ControlMode};
@@ -47,10 +48,11 @@ fn room() -> usize {
 const MEMORY: DeviceMemory = DeviceMemory {
     region_bytes: 64 * 1024,
     heap_bytes: 136 * 1024,
+    call_depth: MAIN_STACK.call_depth(),
 };
 
 /// The bytes of heap that are free when a change is taken in these tests.
-const FREE: usize = 20_000;
+const FREE: usize = 11_000;
 
 /// The largest payload that a checkpoint slot of the C6 takes (specification 34 §10.1).
 const LARGEST_PAYLOAD: usize = 16_300;
@@ -113,7 +115,7 @@ fn names(count: usize) -> Vec<String> {
         .collect()
 }
 
-/// The refusal that the board probe meets as a change of the A4 program, with 20,000 bytes of heap
+/// The refusal that the board probe meets as a change of the A4 program, with 11,000 bytes of heap
 /// free, from a chip whose flash holds `checkpoints`, written in this order, whose running program has
 /// the record `config`.
 fn change_refusal(config: Configuration, checkpoints: &[&RetainSnapshot]) -> String {
@@ -133,11 +135,11 @@ fn change_refusal(config: Configuration, checkpoints: &[&RetainSnapshot]) -> Str
     loader
         .prepare_change(&mut platform, &mut running, PROBE.to_vec())
         .err()
-        .expect("20,000 bytes of heap leave nothing for a candidate")
+        .expect("11,000 bytes of heap leave too little for a candidate")
 }
 
 /// The refusal that the board probe meets at the check of its install with the record `config`, with
-/// 20,000 bytes of heap free, on a chip whose flash holds `checkpoints`, written in this order.
+/// 11,000 bytes of heap free, on a chip whose flash holds `checkpoints`, written in this order.
 /// `reader` replaces the check's handle on the checkpoint slots when it is given.
 fn install_refusal(
     config: Configuration,
@@ -162,12 +164,12 @@ fn install_refusal(
         limits,
     }) {
         Err(RuntimeError::ControlError(text)) => text.to_string(),
-        other => panic!("20,000 bytes of heap leave nothing for the program: {other:?}"),
+        other => panic!("11,000 bytes of heap leave too little for the program: {other:?}"),
     }
 }
 
 /// The text of the refusal of the board probe, as `subject` (`a change` or `a program`), when
-/// `reserve` bytes of the 20,000 free are kept.
+/// `reserve` bytes of the 11,000 free are kept.
 fn probe_refused_with(subject: &str, reserve: usize) -> String {
     format!(
         "insufficient memory: {subject} of 3388 bytes needs more than the {} bytes of heap that \
@@ -284,7 +286,7 @@ fn an_install_keeps_room_for_the_newest_checkpoints_payload_not_the_largest() {
 fn an_install_keeps_room_for_the_largest_payload_when_the_checkpoint_header_cannot_say() {
     // Specification 34 §11.2: when the record header of the newest checkpoint cannot be read, the
     // check of an install cannot know how many bytes it will read, so the reserve holds the largest
-    // payload that a slot takes: 8,192 + 16,300 = 24,492 bytes, more than the 20,000 that are free, so
+    // payload that a slot takes: 8,192 + 16,300 = 24,492 bytes, more than the 11,000 that are free, so
     // nothing remains. A record that keeps no retained values reads nothing, and its reserve is the
     // same 8,192 bytes though the flash cannot be read. Wrong behaviour caught: a header that cannot
     // be read counted as an empty log (a check that then reads the largest payload into a heap that

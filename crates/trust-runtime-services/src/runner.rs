@@ -92,7 +92,8 @@ pub use install::{
     check_install, check_retained_values, newest_checkpoint, newest_checkpoint_payload_len,
 };
 pub use online_change::{
-    address_text, is_memory_limit, prepare_candidate, unwired_binding, Candidate, ChangeMemory,
+    address_text, is_call_depth_limit, is_memory_limit, prepare_candidate, stack_shortage,
+    too_deep, unwired_binding, Candidate, ChangeMemory,
 };
 pub use reload::{Loaded, ProgramLoader};
 pub use retain::RetainConfig;

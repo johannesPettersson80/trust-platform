@@ -23,6 +23,7 @@ use crate::tests::program_store::{committed_image, device, CheckpointProbe};
 const MEMORY: DeviceMemory = DeviceMemory {
     region_bytes: 16 * 1024,
     heap_bytes: 144 * 1024,
+    call_depth: 7,
 };
 /// Room for any program of these tests.
 const ROOM: usize = 1 << 20;
@@ -39,9 +40,10 @@ fn checkpoint_of(value: Value) -> CheckpointProbe {
 fn an_install_the_heap_cannot_hold_is_refused_as_insufficient_memory_with_its_numbers() {
     // Specification 34 §11.2 and §11.3: the check prepares the program with the limits of the heap's
     // room less the reserve, so a program that cannot fit is refused cleanly, before the shared dry
-    // run that prepares it with the limits of its record. With 30,000 bytes free and 20,000 kept in
-    // reserve, 10,000 remain, which allow no call level, so the program of 6,412 bytes is refused with
-    // the numbers. With the heap's room the same program passes. Wrong behaviour caught: a check that
+    // run that prepares it with the limits of its record. With 26,000 bytes free and 20,000 kept in
+    // reserve, 6,000 remain, fewer than the program's 6,412 bytes, and an artifact longer than the
+    // heap that remains cannot be prepared in it, so the program is refused with the numbers. With
+    // the heap's room the same program passes. Wrong behaviour caught: a check that
     // prepares the program with the hosted limits of its record, which on a chip's heap resets the chip
     // instead of refusing; numbers that are left out of the refusal.
     let container = committed_image(1, RetainMode::None);
@@ -54,14 +56,14 @@ fn an_install_the_heap_cannot_hold_is_refused_as_insufficient_memory_with_its_nu
         &mut CheckpointProbe::erased(),
         &admitted,
         MEMORY,
-        30_000,
+        26_000,
         RESERVE,
     );
     assert_eq!(
         refused,
         Err(RuntimeError::ControlError(SmolStr::new(
-            "insufficient memory: a program of 6412 bytes needs more than the 10000 bytes of heap \
-             that remain for it (30000 bytes are free, 20000 are kept in reserve)"
+            "insufficient memory: a program of 6412 bytes needs more than the 6000 bytes of heap \
+             that remain for it (26000 bytes are free, 20000 are kept in reserve)"
         )))
     );
 
@@ -143,8 +145,10 @@ fn an_install_check_refuses_a_validation_limit_as_insufficient_memory_with_its_n
         .expect("the A4 program validates")
         .stats()
         .peak_scratch_bytes;
+    // The premise: the heap that remains holds the artifact, so the check meets the validator's
+    // limit and not the artifact's.
     assert!(
-        peak > 12_288,
+        3 * (peak - 1) / 2 >= 6_412,
         "the analysis of the A4 program peaks at {peak}"
     );
     let remains = 3 * (peak - 1) / 2;

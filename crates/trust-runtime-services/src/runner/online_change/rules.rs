@@ -10,8 +10,10 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::fmt::Write as _;
 
+use trust_runtime_core::bytecode::CallDepth;
 use trust_runtime_core::deployment::{GpioInput, GpioOutput};
 use trust_runtime_core::error::{ExecutionLimitKind, RuntimeError};
+use trust_runtime_core::error_code::StableErrorCode;
 use trust_runtime_core::io_address::{IoAddress, IoSize};
 use trust_runtime_core::io_image::PreparedIoBinding;
 use trust_runtime_core::memory::IoArea;
@@ -35,6 +37,9 @@ pub struct ChangeMemory {
     room: usize,
     /// The bytes of the room that stay free for the machine.
     reserve: usize,
+    /// The call levels the device's main stack holds, which the refusal of a program that calls
+    /// deeper names ([`with_call_depth`](Self::with_call_depth)).
+    call_depth: usize,
 }
 
 impl ChangeMemory {
@@ -47,6 +52,7 @@ impl ChangeMemory {
             bytes,
             room,
             reserve,
+            call_depth: 0,
         }
     }
 
@@ -59,7 +65,16 @@ impl ChangeMemory {
             bytes,
             room,
             reserve,
+            call_depth: 0,
         }
+    }
+
+    /// This memory with the `call_depth` levels that the device's main stack holds
+    /// ([`DeviceMemory::call_depth`]), which the refusal of a program that calls deeper names.
+    #[must_use]
+    pub const fn with_call_depth(mut self, call_depth: usize) -> Self {
+        self.call_depth = call_depth;
+        self
     }
 
     /// The bytes of heap the program may use: the room less the reserve.
@@ -74,15 +89,16 @@ impl ChangeMemory {
     ///
     /// # Errors
     ///
-    /// The `insufficient memory` refusal when so little heap is available that the device's limits for
-    /// it allow no call level or no constructed value: no program can be prepared in it.
+    /// The `insufficient memory` refusal when no heap is available, so that the device's limits for
+    /// it give the preparation no byte: no program can be prepared in it.
     pub fn limits(self, memory: DeviceMemory) -> Result<PreparationLimits, String> {
         let available = self.available();
         let limits = device_limits(DeviceMemory {
             region_bytes: memory.region_bytes.min(available),
             heap_bytes: available,
+            ..memory
         });
-        if limits.max_call_depth == 0 || limits.max_construction_values == 0 {
+        if limits.max_preparation_bytes == 0 {
             return Err(self.needs_more());
         }
         Ok(limits)
@@ -96,10 +112,18 @@ impl ChangeMemory {
     /// the work of the decoder, the cumulative preparation budget, or the storage or the work of the
     /// validator ([`RuntimeError::is_preparation_limit`]). The limits are the device's limits for the
     /// heap that remains, so a program that needs more than they allow needs more memory than it has.
+    ///
+    /// A construction that calls deeper than the call levels the device's main stack holds is the
+    /// `insufficient stack` refusal with that number ([`is_call_depth_limit`]; MEM-03).
     #[must_use]
     pub fn refusal(self, error: &RuntimeError) -> String {
         match error {
             error if error.is_preparation_limit() => self.needs_more(),
+            error if is_call_depth_limit(error) => format!(
+                "insufficient stack: {} of {} bytes calls deeper than the {} call levels that \
+                 the device's main stack holds",
+                self.subject, self.bytes, self.call_depth,
+            ),
             RuntimeError::ExecutionLimit {
                 kind:
                     kind @ (ExecutionLimitKind::AllocationBytes | ExecutionLimitKind::ConstructedValues),
@@ -136,6 +160,15 @@ impl ChangeMemory {
         })
     }
 
+    /// The `insufficient stack` refusal of `prepared` when its static call depth is more than the call
+    /// levels the device's main stack holds ([`too_deep`]; specification 34 MEM-03). `None` when the
+    /// program fits.
+    #[must_use]
+    pub fn stack_refusal(self, prepared: &PreparedModule) -> Option<String> {
+        too_deep(prepared, self.call_depth)
+            .map(|depth| stack_shortage(self.subject, self.bytes, depth, self.call_depth))
+    }
+
     /// The `insufficient memory` refusal of a program that needs more than the heap that remains
     /// for it.
     #[must_use]
@@ -150,6 +183,37 @@ impl ChangeMemory {
             self.reserve,
         )
     }
+}
+
+/// The static call depth of `prepared` when it is more than the `call_depth` levels that a device's
+/// main stack holds (specification 34 MEM-03; owner, 21 October 2026, "Stack decides"): a device
+/// refuses such a program before it constructs it. A program whose call graph is recursive has no
+/// static depth: the depth check refuses its call when the call is made, as on a computer.
+#[must_use]
+pub fn too_deep(prepared: &PreparedModule, call_depth: usize) -> Option<usize> {
+    match prepared.static_call_depth() {
+        CallDepth::Static(depth) if depth > call_depth => Some(depth),
+        _ => None,
+    }
+}
+
+/// The `insufficient stack` refusal of `subject` (`a change`, `a program`) of `bytes` bytes, which
+/// calls `depth` levels deep, more than the `call_depth` levels the device's main stack holds
+/// ([`too_deep`]).
+#[must_use]
+pub fn stack_shortage(subject: &str, bytes: usize, depth: usize, call_depth: usize) -> String {
+    format!(
+        "insufficient stack: {subject} of {bytes} bytes needs {depth} call levels, more than the \
+         {call_depth} that the device's main stack holds"
+    )
+}
+
+/// Whether `error` is a call deeper than the admitted call depth (`max_call_depth`), which on a device
+/// is the call levels its main stack holds and [`ChangeMemory::refusal`] words as `insufficient stack`
+/// (specification 34 MEM-03). The answer comes from the error's stable code, not from its text.
+#[must_use]
+pub fn is_call_depth_limit(error: &RuntimeError) -> bool {
+    error.stable_code() == StableErrorCode::VmCallStackOverflow
 }
 
 /// Whether `error` is the memory limits refusing a program, which [`ChangeMemory::refusal`] words as
@@ -175,7 +239,8 @@ pub fn is_memory_limit(error: &RuntimeError) -> bool {
 /// # Errors
 ///
 /// The `insufficient memory` refusal when the heap allows no limits or the program needs more than
-/// they allow, and the error of the preparation otherwise (a program that is not valid bytecode, for
+/// they allow, the `insufficient stack` refusal when it calls deeper than the device's main stack
+/// holds, and the error of the preparation otherwise (a program that is not valid bytecode, for
 /// example).
 pub fn prepare_candidate(
     program: Vec<u8>,
@@ -183,11 +248,15 @@ pub fn prepare_candidate(
     room: usize,
     reserve: usize,
 ) -> Result<(PreparedModule, ChangeMemory), String> {
-    let budget = ChangeMemory::for_change(program.len(), room, reserve);
+    let budget =
+        ChangeMemory::for_change(program.len(), room, reserve).with_call_depth(memory.call_depth);
     let limits = budget.limits(memory)?;
     let prepared =
         PreparedModule::from_bytes(&program, limits).map_err(|error| budget.refusal(&error))?;
     drop(program);
+    if let Some(refusal) = budget.stack_refusal(&prepared) {
+        return Err(refusal);
+    }
     Ok((prepared, budget))
 }
 

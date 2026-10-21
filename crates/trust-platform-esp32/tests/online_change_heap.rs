@@ -20,7 +20,7 @@ use std::cell::Cell;
 use smol_str::SmolStr;
 use support::{booted, configuration, Dog, Hardware, TestClock, PROGRAM};
 use trust_platform_esp32::loader::{Esp32Loader, ONLINE_CHANGE_WORKING_MEMORY_BYTES};
-use trust_platform_esp32::profile::{runtime_id, HEAP_CAPACITY_BYTES};
+use trust_platform_esp32::profile::{runtime_id, HEAP_CAPACITY_BYTES, MAIN_STACK};
 use trust_platform_esp32::Platform;
 use trust_runtime_core::bytecode::{BytecodeModule, ValidationLimits};
 use trust_runtime_core::deployment::ControlMode;
@@ -126,6 +126,7 @@ fn room() -> usize {
 const MEMORY: DeviceMemory = DeviceMemory {
     region_bytes: 64 * 1024,
     heap_bytes: 136 * 1024,
+    call_depth: MAIN_STACK.call_depth(),
 };
 
 /// One chip, built outside the measurement: its hardware, loader and platform.

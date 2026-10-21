@@ -12,7 +12,7 @@ mod support;
 use smol_str::SmolStr;
 use support::{booted, configuration, Dog, Hardware, TestClock};
 use trust_platform_esp32::loader::Esp32Loader;
-use trust_platform_esp32::profile::runtime_id;
+use trust_platform_esp32::profile::{runtime_id, MAIN_STACK};
 use trust_platform_esp32::Platform;
 use trust_runtime_core::bytecode::{BytecodeModule, SectionData, SectionId};
 use trust_runtime_core::deployment::ControlMode;
@@ -34,6 +34,7 @@ const BLOCKS: &[u8] =
 const MEMORY: DeviceMemory = DeviceMemory {
     region_bytes: 64 * 1024,
     heap_bytes: 136 * 1024,
+    call_depth: MAIN_STACK.call_depth(),
 };
 
 /// A heap with room for any change of these tests.

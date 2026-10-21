@@ -27,16 +27,18 @@ pub const STATICS: Region = Region {
     end: 0x201A_0000,
 };
 
-/// Heap region B: SRAM5 below the main stack, 800 KiB, for the later components (design §4.3).
+/// Heap region B: SRAM5 below the main stack, 754 KiB, for the later components (design §4.3).
 pub const HEAP_B: Region = Region {
     start: 0x201A_0000,
-    end: 0x2026_8000,
+    end: 0x2025_C800,
 };
 
-/// The main stack: the top 32 KiB of SRAM5 (D.5; raised from 16 KiB on 18 October 2026, because the C6
-/// measured a 15,740-byte high-water in a 16 KiB window).
+/// The main stack: the top 78 KiB of SRAM5 (D.5). The main stack decides a chip's call levels
+/// (specification 34 MEM-03; owner, 21 October 2026, "Stack decides"), and until this chip's bench
+/// measures its own it holds what the ESP32-C6's 78 KiB window holds: the C6's measured base and
+/// level give 7 call levels (D.2). It was 16 KiB until 18 October 2026 and 32 KiB until 21 October.
 pub const MAIN_STACK: Region = Region {
-    start: 0x2026_8000,
+    start: 0x2025_C800,
     end: 0x2027_0000,
 };
 

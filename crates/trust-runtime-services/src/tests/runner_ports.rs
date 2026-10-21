@@ -42,10 +42,12 @@ pub(crate) const GPIO: &[u8] =
     include_bytes!("../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc");
 
 /// The application region and heap of today's chips (16 KiB and 72 KiB), whose admission limits
-/// the board fixture's runs proved on both.
+/// the board fixture's runs proved on both, and the 7 call levels the ESP32-C6's main stack holds
+/// (specification 34 D.2).
 pub(crate) const CHIP_MEMORY: DeviceMemory = DeviceMemory {
     region_bytes: 16 * 1024,
     heap_bytes: 72 * 1024,
+    call_depth: 7,
 };
 
 /// A span of `value` milliseconds.

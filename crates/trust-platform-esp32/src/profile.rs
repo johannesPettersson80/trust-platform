@@ -6,6 +6,7 @@ use trust_runtime_core::deployment::{
     Capabilities, DeviceDescriptor, NumericContract, RequestedLimits, SchedulingProfile,
     TimingEvidence,
 };
+use trust_runtime_services::runner::engine::DeviceStack;
 use trust_runtime_services::transfer::TransferSession;
 
 /// CPU clock from `CpuClock::max()` on ESP32-C6 (160 MHz); the PCCR rate matches it.
@@ -111,6 +112,23 @@ pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
     application_slot_bytes: Some(SLOT_BYTES as u64),
     // Measured at boot, before the first program loads (`Platform::set_program_memory`).
     program_memory_bytes: None,
+};
+
+/// The C6's main stack (specification 34 MEM-03 and Appendix D.2; owner, 21 October 2026, "Stack
+/// decides"): the call levels it holds are the C6's call depth.
+///
+/// - The window is 78 KiB of the 85,980-byte esp-hal stack region below 0x4086_E610, so that the
+///   region keeps the 4 KiB margin above the window that the linker guard and the build require.
+/// - The C1-25 bench measured, with the window over the whole region, the high-water of installing
+///   programs whose chains of nested function blocks need 2, 3, 4 and 6 call levels: 46,296,
+///   52,440, 58,584 and 70,872 bytes, so each call level adds 6,144 bytes and the path takes
+///   46,296 − 2 × 6,144 = 34,008 bytes before its first level. The install is the deepest path: the
+///   boot and the online change of the same programs stayed 6,752 and 3,376 bytes below it.
+/// - The window holds (79,872 − 2,048 − 34,008) / 6,144 = 7 call levels.
+pub const MAIN_STACK: DeviceStack = DeviceStack {
+    window_bytes: 78 * 1024,
+    base_bytes: 34_008,
+    level_bytes: 6_144,
 };
 
 /// The capacity of the C6's heap, in bytes: its two regions, the 72 KiB main heap and the 64 KiB of

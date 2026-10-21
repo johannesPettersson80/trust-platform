@@ -180,8 +180,8 @@ impl PreparedModule {
         }
     }
 
-    /// The module's static call depth, or that it is recursive (spec 34 MEM-09; test support).
-    #[cfg(feature = "test-support")]
+    /// The module's static call depth, or that it is recursive (spec 34 MEM-03, MEM-09): a device
+    /// refuses a program whose static depth is more than the call levels its main stack holds.
     pub fn static_call_depth(&self) -> CallDepth {
         self.call_depth
     }

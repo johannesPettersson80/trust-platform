@@ -3430,7 +3430,7 @@
       },
       {
         "path": "firmware/trust-esp32c6/src/memory.rs",
-        "line": 45,
+        "line": 47,
         "owner": "runtime portability S1b-5 (C6 firmware)",
         "invariant": "Called exactly once before any allocation on a single core; the private 72 KiB HEAP_MEMORY static and the 64 KiB reclaimed static are exclusively owned by the allocator, and the slices cover exactly those statics.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: heap accounting and stack-window headroom; the two-region allocator is proven by cargo test -p trust-platform-memory.",
@@ -3486,7 +3486,7 @@
       },
       {
         "path": "firmware/trust-stm32u5a9/src/main.rs",
-        "line": 344,
+        "line": 359,
         "owner": "runtime portability STM32U5A9 (S1b-9u)",
         "invariant": "The Cortex-M exception ABI is required by cortex-m-rt. HardFault never returns: it runs the terminal fault path, which masks interrupts and resets the chip.",
         "test_evidence": "The fault path is proved on the bench (S1b-9u); no host test raises an exception.",

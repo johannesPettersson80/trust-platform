@@ -11,9 +11,9 @@ pub static HEAP: MeasuredHeap = MeasuredHeap::empty();
 
 /// Region A is no section's memory (`memory.x`), so the allocator owns it for the whole boot.
 const _: () = assert!(HEAP_A.end - HEAP_A.start == 1024 * 1024);
-/// The stack window is the top 32 KiB of SRAM5: the window plus the 4 KiB margin the C6 guard keeps,
-/// and the linker script asserts the same 32 KiB (profile.x).
-const _: () = assert!(MAIN_STACK.end - MAIN_STACK.start == 32 * 1024);
+/// The stack window is the top 78 KiB of SRAM5, the main stack whose call levels the profile's
+/// `MAIN_STACK` figures give, and the linker script asserts the same 78 KiB (profile.x).
+const _: () = assert!(MAIN_STACK.end - MAIN_STACK.start == 78 * 1024);
 
 /// Gives the allocator region A and paints the inactive part of the stack window, so that the first
 /// measurement counts from a painted stack. Call once, first in `main`, before any allocation.

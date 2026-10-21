@@ -65,6 +65,7 @@ const ROOM: usize = 1 << 20;
 const MEMORY: DeviceMemory = DeviceMemory {
     region_bytes: 64 * 1024,
     heap_bytes: 72 * 1024,
+    call_depth: 7,
 };
 /// The event capacity of a loaded program (the C6's default).
 const CAPACITY: usize = 200;
@@ -744,9 +745,9 @@ fn a_failed_preparation_leaves_the_running_program_unchanged() {
 #[test]
 fn an_online_change_that_needs_more_memory_than_the_heap_has_is_refused_and_the_program_runs_on() {
     // Specification 34 §11.3 (UPDATE-06): the candidate's limits are what the heap's room allows less the
-    // reserve (20,000 bytes here). With 30,000 bytes free, 10,000 remain, less than the 18,432 bytes
-    // (72 KiB / 4) that give one call level, so the A4 program (6,412 bytes) is refused with
-    // `insufficient memory` and its numbers, and the program runs on. With the room back, the same
+    // reserve (20,000 bytes here). With 26,000 bytes free, 6,000 remain, fewer than the A4 program's
+    // 6,412 bytes, and an artifact longer than the heap that remains cannot be prepared in it, so the
+    // change is refused with `insufficient memory` and its numbers, and the program runs on. With the room back, the same
     // change is applied. Wrong behaviour caught: a candidate prepared with the limits of the whole heap,
     // which the running program and the upload already use; a refusal that breaks the program; a
     // refusal that sticks.
@@ -759,7 +760,7 @@ fn an_online_change_that_needs_more_memory_than_the_heap_has_is_refused_and_the_
     for at in [0, 10, 20] {
         rig.pass_at(&mut runner, at);
     }
-    rig.room.set(30_000);
+    rig.room.set(26_000);
     assert_eq!(
         rig.call_at(&mut runner, 25, &reload(1, PROGRAM)),
         no_replies()
@@ -771,8 +772,8 @@ fn an_online_change_that_needs_more_memory_than_the_heap_has_is_refused_and_the_
     assert_eq!(
         refused[0]["error"],
         json!(
-            "insufficient memory: a change of 6412 bytes needs more than the 10000 bytes of heap \
-             that remain for it (30000 bytes are free, 20000 are kept in reserve)"
+            "insufficient memory: a change of 6412 bytes needs more than the 6000 bytes of heap \
+             that remain for it (26000 bytes are free, 20000 are kept in reserve)"
         )
     );
     assert!(!entries(&rig.log).contains(&String::from("commit")));

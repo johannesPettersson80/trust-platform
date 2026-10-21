@@ -38,9 +38,10 @@ const C6_FLASH: std::ops::Range<u64> = 0x4200_0000..0x4280_0000;
 const C6_HP_SRAM: std::ops::Range<u64> = 0x4080_0000..0x4088_0000;
 /// `_stack_start` in esp-hal 1.2.2's C6 memory map; the composition's fixed stack window ends here.
 const C6_STACK_TOP: u64 = 0x4086_E610;
-/// The C6's main-stack window: the 24 KiB the composition budgets at the top of the esp-hal stack
-/// region (specification 34, D.2); `firmware/trust-esp32c6/src/memory.rs` pins the same.
-pub(super) const C6_STACK_WINDOW_BYTES: u64 = 24 * 1024;
+/// The C6's main-stack window: the 78 KiB the composition budgets at the top of the esp-hal stack
+/// region (specification 34, D.2); `trust_platform_esp32::profile::MAIN_STACK` gives the firmware the
+/// same.
+pub(super) const C6_STACK_WINDOW_BYTES: u64 = 78 * 1024;
 /// The margin above the window the C6 build requires. Below it the boot-time stack paint reaches
 /// static data, as the S1b-5c firmware did (specification 34, D.2, the S1b-5d guard).
 pub(super) const C6_STACK_MARGIN_MINIMUM_BYTES: u64 = 4 * 1024;
@@ -105,7 +106,7 @@ pub(super) fn allocated_sections(bytes: &[u8]) -> Result<Vec<(String, u64, u64)>
 /// The ESP32-C6 stack region from a linked image's section table, and its margin above the window.
 ///
 /// The region is `.stack`, which runs from `_bss_end` to the composition's fixed stack top. The
-/// build requires it to hold the 24 KiB window plus at least 4 KiB of margin, the same rule the
+/// build requires it to hold the 78 KiB window plus at least 4 KiB of margin, the same rule the
 /// linker guard asserts (specification 34, D.2); a smaller region lets the boot-time stack paint
 /// reach static data, as the S1b-5c firmware did. `cargo xtask portability build-firmware esp32c6`
 /// refuses the image here, so the check catches a regression even if the linker script is bypassed.
@@ -437,12 +438,12 @@ mod tests {
     #[test]
     fn c6_requires_the_stack_region_to_hold_the_window_and_headroom() {
         let board = BoardProfile::esp32c6_devkitc_1().unwrap();
-        // The 24 KiB window plus the 2 KiB headroom of the board profile: 26 KiB.
+        // The 78 KiB window plus the 2 KiB headroom of the board profile: 80 KiB.
         let mut short = c6_image();
-        short.stack_end = Some(0x4086_e610 - (26 * 1024 - 1));
+        short.stack_end = Some(0x4086_e610 - (80 * 1024 - 1));
         assert!(check_esp32c6(&board, &short).is_err());
         let mut exact = c6_image();
-        exact.stack_end = Some(0x4086_e610 - 26 * 1024);
+        exact.stack_end = Some(0x4086_e610 - 80 * 1024);
         assert!(check_esp32c6(&board, &exact).is_ok());
         let mut missing = c6_image();
         missing.stack_start = None;
@@ -451,34 +452,34 @@ mod tests {
 
     #[test]
     fn c6_build_reports_the_stack_margin_and_refuses_a_region_below_the_window_and_margin() {
-        // Specification 34 D.2: the region holds the 24 KiB window plus at least a 4 KiB margin.
+        // Specification 34 D.2: the region holds the 78 KiB window plus at least a 4 KiB margin.
         let table = |start: u64, bytes: u64| vec![(".stack".to_owned(), start, bytes)];
         // S1b-5c's measured region, 0x3F20 = 16,160 bytes: below the window, so outside the margin.
         let error = c6_stack_region(&table(C6_STACK_TOP - 0x3F20, 0x3F20))
             .unwrap_err()
             .to_string();
         assert!(
-            error.contains("16160") && error.contains("24576") && error.contains("4096"),
+            error.contains("16160") && error.contains("79872") && error.contains("4096"),
             "{error}"
         );
-        // A 27 KiB region, the 24 KiB window with 3 KiB above it, is refused. A build that still
-        // budgets the 16 KiB window with its 4 KiB margin, or 24 KiB with the 2 KiB headroom, would
-        // pass it.
-        assert!(c6_stack_region(&table(C6_STACK_TOP - 27 * 1024, 27 * 1024)).is_err());
-        // The window plus exactly the minimum margin, 28 KiB, passes and reports its margin.
-        let report = c6_stack_region(&table(C6_STACK_TOP - 28 * 1024, 28 * 1024)).unwrap();
-        assert_eq!(report["region_bytes"], 28_672);
-        assert_eq!(report["window_bytes"], 24_576);
+        // An 81 KiB region, the 78 KiB window with 3 KiB above it, is refused. A build that still
+        // budgets the 24 KiB window, or 78 KiB with the 2 KiB headroom, would pass it.
+        assert!(c6_stack_region(&table(C6_STACK_TOP - 81 * 1024, 81 * 1024)).is_err());
+        // The window plus exactly the minimum margin, 82 KiB, passes and reports its margin.
+        let report = c6_stack_region(&table(C6_STACK_TOP - 82 * 1024, 82 * 1024)).unwrap();
+        assert_eq!(report["region_bytes"], 83_968);
+        assert_eq!(report["window_bytes"], 79_872);
         assert_eq!(report["margin_bytes"], 4_096);
         assert_eq!(report["margin_minimum_bytes"], 4_096);
         // One byte under the minimum margin is refused.
-        assert!(c6_stack_region(&table(C6_STACK_TOP - (28 * 1024 - 1), 28 * 1024 - 1)).is_err());
-        // The 42,064-byte region of the current C6 build leaves 17,488 bytes above the window.
-        let report = c6_stack_region(&table(C6_STACK_TOP - 42_064, 42_064)).unwrap();
-        assert_eq!(report["margin_bytes"], 17_488);
+        assert!(c6_stack_region(&table(C6_STACK_TOP - (82 * 1024 - 1), 82 * 1024 - 1)).is_err());
+        // The 85,980-byte region of the C1-24 build (0x4085_9634 to 0x4086_E610) leaves 6,108
+        // bytes above the window.
+        let report = c6_stack_region(&table(C6_STACK_TOP - 85_980, 85_980)).unwrap();
+        assert_eq!(report["margin_bytes"], 6_108);
         // A missing region and one that does not end at the fixed stack top are refused.
         assert!(c6_stack_region(&[]).is_err());
-        assert!(c6_stack_region(&table(C6_STACK_TOP - 28 * 1024 - 4, 28 * 1024)).is_err());
+        assert!(c6_stack_region(&table(C6_STACK_TOP - 82 * 1024 - 4, 82 * 1024)).is_err());
     }
 
     #[test]

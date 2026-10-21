@@ -128,9 +128,9 @@ impl BoardProfile {
             flash_kib: 8192,
             scan_cycle_bound: cycles_per_scan(cpu_hz),
             heap_bytes: 72 * 1024,
-            // Specification 34, D.2: 24 KiB, because the measured 15.7 KiB high-water left less
-            // than the 2 KiB headroom in the 16 KiB window of S1b-5b2.
-            stack_window_bytes: 24 * 1024,
+            // Specification 34, D.2: 78 KiB of the 85,980-byte stack region, the main stack whose
+            // call levels the C6's profile gives (MEM-03; the C1-25 bench, 21 October 2026).
+            stack_window_bytes: 78 * 1024,
             stack_headroom_bytes: 2 * 1024,
             boot_banner_lines: 64,
             button_pressed_high: false,
@@ -156,9 +156,10 @@ impl BoardProfile {
             // Heap region A of the U5 map (design section 4.3): 1 MiB from SRAM1, SRAM2 and part
             // of SRAM3.
             heap_bytes: 1024 * 1024,
-            // The 32 KiB main stack at the top of SRAM5, with the 2 KiB headroom of the stack rule
-            // (design section 4.3, spec 34 D.5; raised from 16 KiB on 18 October 2026).
-            stack_window_bytes: 32 * 1024,
+            // The 78 KiB main stack at the top of SRAM5, with the 2 KiB headroom of the stack rule
+            // (design section 4.3, spec 34 D.5; the C6's window until this chip's bench, 21 October
+            // 2026).
+            stack_window_bytes: 78 * 1024,
             stack_headroom_bytes: 2 * 1024,
             boot_banner_lines: 0,
             button_pressed_high: false,
@@ -222,9 +223,9 @@ mod tests {
         assert_eq!(riverdi.application_bytes, 2016 * 1024);
         assert!(!riverdi.button_pressed_high);
         assert_eq!(riverdi.boot_banner_lines, 0);
-        // The 32 KiB window less its 2 KiB headroom.
-        assert_eq!(riverdi.stack_window_bytes, 32 * 1024);
-        assert_eq!(riverdi.stack_peak_bound(), 30 * 1024);
+        // The 78 KiB window less its 2 KiB headroom.
+        assert_eq!(riverdi.stack_window_bytes, 78 * 1024);
+        assert_eq!(riverdi.stack_peak_bound(), 76 * 1024);
         // The profile's chip values are the chip file's.
         let u5 = chip_of(Board::RiverdiRvt50hqsnwc00B).unwrap();
         assert_eq!(riverdi.cpu_hz, u64::from(u5.clock.firmware_hz));
@@ -322,9 +323,9 @@ mod tests {
         assert_eq!(c6.flash_kib, 8192);
         assert_eq!(c6.scan_cycle_bound, 1_600_000);
         assert_eq!(c6.heap_bytes, 72 * 1024);
-        // Specification 34 D.2: a 24 KiB window less its 2 KiB headroom, 22 KiB.
-        assert_eq!(c6.stack_window_bytes, 24 * 1024);
-        assert_eq!(c6.stack_peak_bound(), 22 * 1024);
+        // Specification 34 D.2: a 78 KiB window less its 2 KiB headroom, 76 KiB.
+        assert_eq!(c6.stack_window_bytes, 78 * 1024);
+        assert_eq!(c6.stack_peak_bound(), 76 * 1024);
         assert_eq!(c6.boot_banner_lines, 64);
         assert_eq!(c6.image_capacity_bytes, 0x1F0000);
         assert_eq!(c6.application_bytes, 6112 * 1024);

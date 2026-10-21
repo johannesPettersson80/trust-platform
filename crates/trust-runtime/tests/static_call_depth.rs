@@ -6,14 +6,21 @@ use trust_runtime::bytecode::BytecodeVersion;
 use trust_runtime::harness::CompileSession;
 use trust_runtime_core::bytecode::CallDepth;
 use trust_runtime_core::vm::{PreparationLimits, PreparedModule};
+use trust_runtime_services::runner::engine::DeviceMemory;
+use trust_runtime_services::runner::{prepare_candidate, stack_shortage, too_deep};
 
-/// Compile a source-free artifact and prepare it under the given call-depth ceiling.
-fn prepared(source: &str, max_call_depth: usize) -> PreparedModule {
-    let bytes = CompileSession::from_source(source)
+/// Compile a source-free artifact.
+fn artifact(source: &str) -> Vec<u8> {
+    CompileSession::from_source(source)
         .build_bytecode_module_for_version(BytecodeVersion::SOURCE_FREE)
         .unwrap()
         .encode()
-        .unwrap();
+        .unwrap()
+}
+
+/// Compile a source-free artifact and prepare it under the given call-depth ceiling.
+fn prepared(source: &str, max_call_depth: usize) -> PreparedModule {
+    let bytes = artifact(source);
     PreparedModule::from_bytes(
         &bytes,
         PreparationLimits {
@@ -167,4 +174,40 @@ fn a_recursive_function_falls_back_to_the_ceiling() {
 fn reservations_follow_the_static_depth_not_the_ceiling() {
     let prepared = prepared(FIVE_LEVEL_CHAIN, 1_024);
     assert_eq!(prepared.reserved_call_levels_for_test(), 5);
+}
+
+/// Spec 34 MEM-03 (owner, 21 October 2026, "Stack decides"): a device refuses a program whose static
+/// depth is more than the call levels its main stack holds, before it constructs it, with both
+/// numbers, and admits one whose depth it holds. A recursive program has no static depth: it is
+/// admitted, and its deep call is refused when the call is made, as on a computer. The five-level
+/// chain needs 5 levels, so a stack of 5 holds it and one of 4 refuses it, also as the candidate of
+/// an online change. Wrong behaviour caught: a check on the wrong side of the limit (refusing 5 of
+/// 5), a refusal of every recursive program, and a refusal that names no number.
+#[test]
+fn a_device_refuses_a_program_deeper_than_its_stack_holds() {
+    let chain = prepared(FIVE_LEVEL_CHAIN, 8);
+    assert_eq!(too_deep(&chain, 5), None);
+    assert_eq!(too_deep(&chain, 4), Some(5));
+    assert_eq!(too_deep(&prepared(recursion_source(), 8), 1), None);
+    assert_eq!(
+        stack_shortage("a program", 9_000, 5, 4),
+        "insufficient stack: a program of 9000 bytes needs 5 call levels, more than the 4 that \
+         the device's main stack holds"
+    );
+
+    let bytes = artifact(FIVE_LEVEL_CHAIN);
+    let length = bytes.len();
+    let memory = |call_depth| DeviceMemory {
+        region_bytes: 1024 * 1024,
+        heap_bytes: 144 * 1024,
+        call_depth,
+    };
+    assert!(prepare_candidate(bytes.clone(), memory(5), 200_000, 8_192).is_ok());
+    assert_eq!(
+        prepare_candidate(bytes, memory(4), 200_000, 8_192).err(),
+        Some(format!(
+            "insufficient stack: a change of {length} bytes needs 5 call levels, more than the 4 \
+             that the device's main stack holds"
+        ))
+    );
 }

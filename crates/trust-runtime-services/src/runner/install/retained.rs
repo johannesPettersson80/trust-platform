@@ -34,7 +34,7 @@ use trust_runtime_core::watchdog::RetainMode;
 
 use crate::installation::Admitted;
 use crate::runner::engine::{DeviceMemory, RESOURCE_INDEX};
-use crate::runner::online_change::{is_memory_limit, ChangeMemory};
+use crate::runner::online_change::{is_call_depth_limit, is_memory_limit, ChangeMemory};
 
 /// A checkpoint flash that is read and never written: its program and erase fail.
 struct ReadOnly<'a, F: ?Sized>(&'a mut F);
@@ -87,8 +87,10 @@ pub fn check_retained_values<F: CheckpointFlash + ?Sized>(
 /// The heap's room is `room` bytes, less `reserve` bytes kept for the machine, and `memory` is the
 /// device's memory, as for an online change's candidate (specification 34 §11.3): the limits are
 /// [`ChangeMemory::limits`]. A program that needs more than those limits is refused with
-/// `insufficient memory` and its numbers, as the error of this check (the shared install check puts
-/// `the retained-value check could not run: ` before it), and the shared dry run of the install, which
+/// `insufficient memory` and its numbers, and a program that calls deeper than the call levels the
+/// device's main stack holds with `insufficient stack` and its numbers, as the error of this check
+/// (the shared install check puts `the retained-value check could not run: ` before it; specification
+/// 34 MEM-03), and the shared dry run of the install, which
 /// prepares the program with the limits its record requested, does not run. A refusal changes
 /// nothing: the module and the candidate this check builds are dropped before it returns.
 ///
@@ -102,12 +104,16 @@ pub fn check_install<F: CheckpointFlash + ?Sized>(
     room: usize,
     reserve: usize,
 ) -> Result<(), RuntimeError> {
-    let budget = ChangeMemory::for_install(admitted.program.len(), room, reserve);
+    let budget = ChangeMemory::for_install(admitted.program.len(), room, reserve)
+        .with_call_depth(memory.call_depth);
     let limits = budget
         .limits(memory)
         .map_err(|text| RuntimeError::ControlError(SmolStr::new(text)))?;
     let prepared = PreparedModule::from_bytes(admitted.program, limits)
         .map_err(|error| shortage_or(budget, error))?;
+    if let Some(refusal) = budget.stack_refusal(&prepared) {
+        return Err(RuntimeError::ControlError(SmolStr::new(refusal)));
+    }
     if admitted.record.configuration.retain_mode == RetainMode::None {
         return Ok(());
     }
@@ -117,10 +123,11 @@ pub fn check_install<F: CheckpointFlash + ?Sized>(
     warm_start(&prepared, &snapshot).map_err(|error| shortage_or(budget, error))
 }
 
-/// `error` as the `insufficient memory` refusal when the memory limits refused it, and as it is
-/// otherwise.
+/// `error` as the `insufficient memory` refusal when the memory limits refused it, as the
+/// `insufficient stack` refusal when a call went deeper than the device's main stack holds, and as it
+/// is otherwise.
 fn shortage_or(budget: ChangeMemory, error: RuntimeError) -> RuntimeError {
-    if is_memory_limit(&error) {
+    if is_memory_limit(&error) || is_call_depth_limit(&error) {
         RuntimeError::ControlError(SmolStr::new(budget.refusal(&error)))
     } else {
         error

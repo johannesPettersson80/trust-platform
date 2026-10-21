@@ -37,13 +37,12 @@ use trust_platform_esp32::loader::{
     default_event_capacity, install_check, program_memory_bytes, Esp32Loader,
 };
 use trust_platform_esp32::process_io::GpioIo;
-use trust_platform_esp32::profile::DEVICE_DESCRIPTOR;
 use trust_platform_esp32::profile::{runtime_id, transfer_session, PROGRAM_STEP_BYTES, STBC_BYTES};
+use trust_platform_esp32::profile::{DEVICE_DESCRIPTOR, MAIN_STACK};
 use trust_platform_esp32::program_memory::ProgramCycle;
 use trust_platform_esp32::{emergency_halt, Board, Monotonic, Platform, UsbLink, Wait, Watchdog};
 use trust_runtime_core::deployment::ControlMode;
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, ProgramStore};
-use trust_runtime_core::retain::checkpoint::CheckpointFlash;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_services::chip::platform::status_settings;
 use trust_runtime_services::link::DeviceLineLink;
@@ -134,6 +133,7 @@ fn main() -> ! {
     let device_memory = DeviceMemory {
         region_bytes: STBC_BYTES,
         heap_bytes: memory::HEAP.capacity(),
+        call_depth: MAIN_STACK.call_depth(),
     };
     let mut loader = Esp32Loader::new(parts.hardware, clock, device_memory, heap_room)
         .with_allocator_operations(allocator_operations);

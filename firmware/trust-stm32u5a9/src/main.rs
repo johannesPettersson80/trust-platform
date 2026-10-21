@@ -48,11 +48,13 @@ use trust_runtime_services::link::DeviceLineLink;
 use trust_runtime_services::runner::engine::{
     device_limits, CycleSettings, DeviceMemory, DeviceServices, EngineCycle,
 };
-use trust_runtime_services::runner::{EngineLiveValues, Runner};
+use trust_runtime_services::runner::{stack_shortage, too_deep, EngineLiveValues, Runner};
 
 use crate::platform::Platform;
 use crate::process_io::{claim, GpioIo};
-use crate::profile::{APPLICATION_BYTES, DEVICE_DESCRIPTOR, PROGRAM_MEMORY_RESERVE_BYTES};
+use crate::profile::{
+    APPLICATION_BYTES, DEVICE_DESCRIPTOR, MAIN_STACK, PROGRAM_MEMORY_RESERVE_BYTES,
+};
 use crate::watchdog::{timeout_for, Watchdog, STOPPED_TIMEOUT_MS};
 
 /// The resource loop's clock: the chip's TIM2 microsecond counter through the adapter's [`Monotonic`].
@@ -176,9 +178,11 @@ fn main() -> ! {
         .saturating_sub(PROGRAM_MEMORY_RESERVE_BYTES);
 
     // Prepare the program with the limits its region and the heap allow (design §1.1).
+    let call_depth = MAIN_STACK.call_depth();
     let limits = device_limits(DeviceMemory {
         region_bytes: APPLICATION_BYTES,
         heap_bytes: memory::HEAP.capacity(),
+        call_depth,
     });
     let prepared = match PreparedModule::from_bytes(program, limits) {
         Ok(prepared) => prepared,
@@ -187,6 +191,17 @@ fn main() -> ! {
             format!("the installed application cannot be prepared: {error}"),
         ),
     };
+    // It calls no deeper than the main stack holds, before anything of it is constructed
+    // (specification 34 MEM-03).
+    if let Some(depth) = too_deep(&prepared, call_depth) {
+        serve_stopped(
+            parts,
+            format!(
+                "the installed application cannot be loaded: {}",
+                stack_shortage("a program", program.len(), depth, call_depth)
+            ),
+        );
+    }
     // Its memory figure fits the memory the chip has for programs, before anything of it is
     // constructed (specification 34 MEM-12). Retain mode `none` keeps no capture.
     let descriptor = DeviceDescriptor {

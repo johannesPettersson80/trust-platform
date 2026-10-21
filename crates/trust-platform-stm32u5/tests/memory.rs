@@ -28,8 +28,8 @@ fn block(file: &ChipFile, name: &str) -> Region {
 fn memory_regions_match_the_chip_and_do_not_overlap() {
     // Specification 34, D.5 (RAM) and design §4.3, worked out by hand: heap region A is 1 MiB from 0x2000_0000
     // (SRAM1, SRAM2 and 192 KiB of SRAM3); the statics are the other 640 KiB of SRAM3, to 0x201A_0000; heap
-    // region B is 800 KiB from 0x201A_0000 to 0x2026_8000; the main stack is the top 32 KiB of SRAM5, from
-    // 0x2026_8000 to 0x2027_0000. SRAM4 and the backup SRAM are reported and assigned to nothing.
+    // region B is 754 KiB from 0x201A_0000 to 0x2025_C800; the main stack is the top 78 KiB of SRAM5, from
+    // 0x2025_C800 to 0x2027_0000 (0x2027_0000 - 78 x 1,024 = 0x2025_C800). SRAM4 and the backup SRAM are reported and assigned to nothing.
     // Catches a region one block off, a stack at the bottom of SRAM5, a window of the wrong size, and two
     // regions that share an address.
     assert_eq!(
@@ -50,13 +50,13 @@ fn memory_regions_match_the_chip_and_do_not_overlap() {
         HEAP_B,
         Region {
             start: 0x201A_0000,
-            end: 0x2026_8000
+            end: 0x2025_C800
         }
     );
     assert_eq!(
         MAIN_STACK,
         Region {
-            start: 0x2026_8000,
+            start: 0x2025_C800,
             end: 0x2027_0000
         }
     );
@@ -75,11 +75,11 @@ fn memory_regions_match_the_chip_and_do_not_overlap() {
         }
     );
 
-    // The sizes: 1 MiB, 640 KiB, 800 KiB and 32 KiB.
+    // The sizes: 1 MiB, 640 KiB, 754 KiB and 78 KiB.
     assert_eq!(HEAP_A.end - HEAP_A.start, 1024 * 1024);
     assert_eq!(STATICS.end - STATICS.start, 640 * 1024);
-    assert_eq!(HEAP_B.end - HEAP_B.start, 800 * 1024);
-    assert_eq!(MAIN_STACK.end - MAIN_STACK.start, 32 * 1024);
+    assert_eq!(HEAP_B.end - HEAP_B.start, 754 * 1024);
+    assert_eq!(MAIN_STACK.end - MAIN_STACK.start, 78 * 1024);
 
     // Against the chip file: SRAM1 is 768 KiB from 0x2000_0000, SRAM2 is 64 KiB, SRAM3 is 832 KiB from
     // 0x200D_0000, SRAM5 is 832 KiB from 0x201A_0000, and the backup SRAM and SRAM4 are as above.
@@ -117,6 +117,6 @@ fn memory_regions_match_the_chip_and_do_not_overlap() {
     assert_eq!(MAIN_STACK.end, block(&file, "SRAM5").end);
 
     // The window the shared crate measures has the stack's bounds.
-    assert_eq!(STACK_WINDOW.bottom(), 0x2026_8000);
+    assert_eq!(STACK_WINDOW.bottom(), 0x2025_C800);
     assert_eq!(STACK_WINDOW.top(), 0x2027_0000);
 }

@@ -464,11 +464,13 @@ impl ControlLink for MemoryLink {
     }
 }
 
-/// The chips' application region and heap today, 16 KiB and 72 KiB, whose admission limits the
-/// device composition prepares the board probe with.
+/// The chips' application region and heap today, 16 KiB and 72 KiB, and the 7 call levels the
+/// ESP32-C6's main stack holds (specification 34 D.2), whose admission limits the device
+/// composition prepares the board probe with.
 const CHIP_MEMORY: DeviceMemory = DeviceMemory {
     region_bytes: 16 * 1024,
     heap_bytes: 72 * 1024,
+    call_depth: 7,
 };
 
 /// The board probe, admitted as the chips admit programs.

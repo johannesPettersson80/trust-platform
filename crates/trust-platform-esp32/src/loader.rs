@@ -57,8 +57,9 @@ use trust_runtime_services::runner::engine::{
     device_limits, CycleSettings, DeviceMemory, DeviceServices, ProcessIo,
 };
 use trust_runtime_services::runner::{
-    address_text, check_install, newest_checkpoint_payload_len, prepare_candidate, unwired_binding,
-    Candidate, EngineLiveValues, Loaded, ProgramLoader, ResourceCycle, RetainConfig, RetainSource,
+    address_text, check_install, newest_checkpoint_payload_len, prepare_candidate, stack_shortage,
+    too_deep, unwired_binding, Candidate, EngineLiveValues, Loaded, ProgramLoader, ResourceCycle,
+    RetainConfig, RetainSource,
 };
 
 use crate::platform::Platform;
@@ -271,8 +272,17 @@ where
         // The program is prepared first, and the container's bytes are freed as soon as it is.
         let prepared = PreparedModule::from_bytes(&program, device_limits(self.memory))
             .map_err(|error| format!("the installed application cannot be prepared: {error}"))?;
+        let bytes = program.len();
         drop(program);
         platform.feed();
+        // It calls no deeper than the C6's main stack holds, before anything of it is constructed
+        // (specification 34 MEM-03).
+        if let Some(depth) = too_deep(&prepared, self.memory.call_depth) {
+            return Err(format!(
+                "the installed application cannot be loaded: {}",
+                stack_shortage("a program", bytes, depth, self.memory.call_depth)
+            ));
+        }
         // Its memory figure fits the memory the C6 has for programs, before anything of it is
         // constructed (specification 34 MEM-12).
         let retains = config.retain_mode == RetainMode::File;

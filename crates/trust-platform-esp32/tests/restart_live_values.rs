@@ -19,7 +19,7 @@ use serde_json::{json, Value};
 use smol_str::SmolStr;
 use support::{booted, configuration, Dog, Hardware, Lines, TestClock, PROGRAM};
 use trust_platform_esp32::loader::Esp32Loader;
-use trust_platform_esp32::profile::runtime_id;
+use trust_platform_esp32::profile::{runtime_id, MAIN_STACK};
 use trust_platform_esp32::program_memory::ProgramCycle;
 use trust_platform_esp32::Platform;
 use trust_runtime_core::deployment::{Configuration, ControlMode};
@@ -49,6 +49,7 @@ const BLOCKS: &[u8] =
 const MEMORY: DeviceMemory = DeviceMemory {
     region_bytes: 64 * 1024,
     heap_bytes: 136 * 1024,
+    call_depth: MAIN_STACK.call_depth(),
 };
 
 /// A heap with room for the program of this test.

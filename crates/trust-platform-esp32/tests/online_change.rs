@@ -3,19 +3,22 @@
 //! pin checks, and the checkpoint slots are the real flash owner's. The loader is called as the
 //! resource loop calls it, `load` and then `prepare_change` and `commit_change`. Every expected value
 //! is worked out here from the specification and `device_limits` at its 72 KiB bring-up heap (512 KiB
-//! of preparation bytes, 48 KiB of validation scratch, 4,096 constructed values, 128 KiB of
-//! construction bytes, 64 bytes of process image and 4 call levels), which scales with the heap.
+//! of preparation bytes and 48 KiB of validation scratch, which scale with the heap), trust-runtime's
+//! counts of constructed values, construction bytes and process image, and the 7 call levels of the
+//! C6's main stack (`MAIN_STACK`), which do not.
 
 #[path = "online_change/support.rs"]
 mod support;
 
 use std::cell::Cell;
 
+use trust_runtime_core::vm::PreparationLimits;
+
 use smol_str::SmolStr;
 use support::{booted, configuration, gpio, Dog, Hardware, TestClock, PROBE, PROGRAM};
 use trust_platform_esp32::loader::{Esp32Loader, ONLINE_CHANGE_WORKING_MEMORY_BYTES};
 use trust_platform_esp32::process_io::{GpioPin, PinClaims};
-use trust_platform_esp32::profile::runtime_id;
+use trust_platform_esp32::profile::{runtime_id, MAIN_STACK};
 use trust_platform_esp32::Platform;
 use trust_runtime_core::deployment::ControlMode;
 use trust_runtime_core::retain::RestartMode;
@@ -39,6 +42,7 @@ fn room() -> usize {
 const MEMORY: DeviceMemory = DeviceMemory {
     region_bytes: 64 * 1024,
     heap_bytes: 288 * 1024,
+    call_depth: MAIN_STACK.call_depth(),
 };
 
 /// Whether a line holds `GPIO9`, `GPIO18` and `GPIO19` now.
@@ -72,11 +76,12 @@ fn the_c6_builds_a_candidate_within_the_heaps_room_and_hands_over_its_lines() {
     // running program's pins to it, so they are held all the time, by the running program, then by the
     // candidate, and are freed only when the candidate ends. The A4 program runs with GPIO9 as an input
     // and GPIO18 as an output. With the room at the reserve plus 72 KiB the board probe's candidate has
-    // the bring-up limits (512 KiB of preparation bytes, 128 KiB of construction bytes, 64 bytes of
-    // process image, 4 call levels, an artifact of 64 KiB, the region), although the device's heap is
-    // 288 KiB; with the room at the reserve plus 144 KiB it has twice the memory limits and 8 call
-    // levels. With a room below the reserve it is refused with the C6's numbers. Wrong behaviour
-    // caught: limits taken from the heap's capacity; a reserve that is not subtracted; a candidate that
+    // the bring-up limits (512 KiB of preparation bytes, 48 KiB of validation scratch, an artifact of
+    // 64 KiB, the region), although the device's heap is 288 KiB, with trust-runtime's counts and the
+    // stack's 7 call levels; with the room at the reserve plus 144 KiB it has twice the preparation
+    // limits and the same counts and call levels. With a room below the reserve it is refused with the
+    // C6's numbers. Wrong behaviour caught: limits taken from the heap's capacity; a reserve that is
+    // not subtracted; counts or call levels that scale with the heap; a candidate that
     // claims a pin ("already claimed"); lines released with the running program, or never released; a
     // refusal that disturbs the running program.
     let hardware = Hardware::erased();
@@ -103,10 +108,11 @@ fn the_c6_builds_a_candidate_within_the_heaps_room_and_hands_over_its_lines() {
     assert_eq!(limits.max_artifact_bytes, 64 * 1024);
     assert_eq!(limits.max_preparation_bytes, 512 * 1024);
     assert_eq!(limits.validation.max_scratch_bytes, 48 * 1024);
-    assert_eq!(limits.max_construction_values, 4096);
-    assert_eq!(limits.max_construction_bytes, 128 * 1024);
-    assert_eq!(limits.max_process_image_bytes, 64);
-    assert_eq!(limits.max_call_depth, 4);
+    let host = PreparationLimits::default();
+    assert_eq!(limits.max_construction_values, host.max_construction_values);
+    assert_eq!(limits.max_construction_bytes, host.max_construction_bytes);
+    assert_eq!(limits.max_process_image_bytes, host.max_process_image_bytes);
+    assert_eq!(limits.max_call_depth, 7);
     assert_eq!(
         pins(&claims),
         [true, true, false],
@@ -131,10 +137,10 @@ fn the_c6_builds_a_candidate_within_the_heaps_room_and_hands_over_its_lines() {
     );
     assert_eq!(limits.max_preparation_bytes, 1024 * 1024);
     assert_eq!(limits.validation.max_scratch_bytes, 96 * 1024);
-    assert_eq!(limits.max_construction_values, 8192);
-    assert_eq!(limits.max_construction_bytes, 256 * 1024);
-    assert_eq!(limits.max_process_image_bytes, 128);
-    assert_eq!(limits.max_call_depth, 8);
+    assert_eq!(limits.max_construction_values, host.max_construction_values);
+    assert_eq!(limits.max_construction_bytes, host.max_construction_bytes);
+    assert_eq!(limits.max_process_image_bytes, host.max_process_image_bytes);
+    assert_eq!(limits.max_call_depth, 7);
     drop(at_144);
 
     ROOM.with(|room| room.set(ONLINE_CHANGE_WORKING_MEMORY_BYTES - 1));

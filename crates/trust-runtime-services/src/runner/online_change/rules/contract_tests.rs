@@ -1,9 +1,10 @@
 //! The rules of an online change (specification 34 §11.3; UPDATE-06): the memory a candidate may use
 //! and the refusal when it needs more, and the match of the candidate's bindings with the lines of the
 //! running program's record. Every expected value is worked out here from the specification and
-//! `device_limits` at its 72 KiB bring-up heap (512 KiB of preparation bytes, 48 KiB of validation
-//! scratch, 4,096 constructed values, 128 KiB of construction bytes, 64 bytes of process image and 4
-//! call levels), which scales with the heap, not taken from the code under test.
+//! `device_limits` at its 72 KiB bring-up heap (512 KiB of preparation bytes and 48 KiB of validation
+//! scratch, which scale with the heap; trust-runtime's constructed values, construction bytes and
+//! process image; and the call levels of the device's main stack, 7 here), not taken from the code
+//! under test.
 
 use alloc::format;
 use alloc::string::ToString;
@@ -15,10 +16,11 @@ use trust_runtime_core::deployment::{GpioInput, GpioOutput};
 use trust_runtime_core::error::{ExecutionLimitKind, RuntimeError};
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::io_image::PreparedIoBinding;
-use trust_runtime_core::vm::PreparedModule;
+use trust_runtime_core::vm::{PreparationLimits, PreparedModule, VmTrap};
 
 use super::{
-    address_text, covers, is_memory_limit, prepare_candidate, unwired_binding, ChangeMemory,
+    address_text, covers, is_call_depth_limit, is_memory_limit, prepare_candidate, unwired_binding,
+    ChangeMemory,
 };
 use crate::runner::engine::{device_limits, DeviceMemory};
 use crate::tests::program_store::PROGRAM;
@@ -64,12 +66,15 @@ fn a_candidates_limits_are_the_devices_limits_for_the_room_less_the_reserve() {
     // room allows less the reserve. A room of 90,112 bytes (88 KiB) with a reserve of 16,384 (16 KiB)
     // leaves 73,728 bytes, 72 KiB, whose limits are the bring-up limits; a room of 53,248 (52 KiB)
     // with the same reserve leaves 36,864 (36 KiB), exactly half of them. The artifact is no longer
-    // than the application region (16 KiB here), or than the heap that remains. Wrong behaviour
-    // caught: limits taken from the heap's capacity instead of its room; a reserve that is not
-    // subtracted; a subtraction that leaves the limits unscaled.
+    // than the application region (16 KiB here), or than the heap that remains. The counts are
+    // trust-runtime's and the call levels the stack's at any heap (owner, 20 and 21 October 2026).
+    // Wrong behaviour caught: limits taken from the heap's capacity instead of its room; a reserve
+    // that is not subtracted; a subtraction that leaves the limits unscaled; counts or call levels
+    // that still scale with the heap (4,096 values and 4 levels at 72 KiB, half at 36 KiB).
     let memory = DeviceMemory {
         region_bytes: 16 * 1024,
         heap_bytes: 144 * 1024,
+        call_depth: 7,
     };
     let reserve = 16 * 1024;
     let at_72 = ChangeMemory::for_change(6_412, 88 * 1024, reserve)
@@ -78,10 +83,11 @@ fn a_candidates_limits_are_the_devices_limits_for_the_room_less_the_reserve() {
     assert_eq!(at_72.max_artifact_bytes, 16 * 1024);
     assert_eq!(at_72.max_preparation_bytes, 512 * 1024);
     assert_eq!(at_72.validation.max_scratch_bytes, 48 * 1024);
-    assert_eq!(at_72.max_construction_values, 4096);
-    assert_eq!(at_72.max_construction_bytes, 128 * 1024);
-    assert_eq!(at_72.max_process_image_bytes, 64);
-    assert_eq!(at_72.max_call_depth, 4);
+    let host = PreparationLimits::default();
+    assert_eq!(at_72.max_construction_values, host.max_construction_values);
+    assert_eq!(at_72.max_construction_bytes, host.max_construction_bytes);
+    assert_eq!(at_72.max_process_image_bytes, host.max_process_image_bytes);
+    assert_eq!(at_72.max_call_depth, 7);
 
     let at_36 = ChangeMemory::for_change(6_412, 52 * 1024, reserve)
         .limits(memory)
@@ -89,10 +95,10 @@ fn a_candidates_limits_are_the_devices_limits_for_the_room_less_the_reserve() {
     assert_eq!(at_36.max_artifact_bytes, 16 * 1024);
     assert_eq!(at_36.max_preparation_bytes, 256 * 1024);
     assert_eq!(at_36.validation.max_scratch_bytes, 24 * 1024);
-    assert_eq!(at_36.max_construction_values, 2048);
-    assert_eq!(at_36.max_construction_bytes, 64 * 1024);
-    assert_eq!(at_36.max_process_image_bytes, 32);
-    assert_eq!(at_36.max_call_depth, 2);
+    assert_eq!(at_36.max_construction_values, host.max_construction_values);
+    assert_eq!(at_36.max_construction_bytes, host.max_construction_bytes);
+    assert_eq!(at_36.max_process_image_bytes, host.max_process_image_bytes);
+    assert_eq!(at_36.max_call_depth, 7);
 }
 
 #[test]
@@ -104,6 +110,7 @@ fn an_artifact_longer_than_the_heap_that_remains_is_over_the_limit() {
     let memory = DeviceMemory {
         region_bytes: 1024 * 1024,
         heap_bytes: 144 * 1024,
+        call_depth: 7,
     };
     let limits = ChangeMemory::for_change(1, 60_000, 20_000)
         .limits(memory)
@@ -112,23 +119,27 @@ fn an_artifact_longer_than_the_heap_that_remains_is_over_the_limit() {
 }
 
 #[test]
-fn a_heap_that_allows_no_call_level_is_refused_as_insufficient_memory() {
-    // Specification 34 §11.3: the device's limits for a heap scale with it, 4 call levels at 72 KiB,
-    // so 18,432 bytes (72 KiB / 4) allow 1 call level and 18,431 allow none; no program can be
-    // prepared with none. The refusal names the numbers. A room below the reserve leaves nothing.
-    // Wrong behaviour caught: limits with no call level, which would fail with a profile error
-    // instead of the refusal; a room that is less than the reserve and underflows.
+fn a_heap_with_no_byte_left_is_refused_as_insufficient_memory() {
+    // Specification 34 §11.3: the preparation bytes scale with the heap that remains, 512 KiB per
+    // 72 KiB, so one byte gives 524,288 / 73,728 = 7 bytes and keeps the 7 call levels of the stack,
+    // and no byte gives none: no program can be prepared in it, and the refusal names the numbers. A
+    // room below the reserve leaves nothing. Wrong behaviour caught: call levels that still come from
+    // the heap (one byte would allow none); limits with no preparation byte, which would fail with a
+    // bare preparation error instead of the refusal; a room less than the reserve that underflows.
     let memory = CHIP_MEMORY;
     let reserve = 10_000;
-    let allows = ChangeMemory::for_change(6_412, 18_432 + reserve, reserve).limits(memory);
-    assert_eq!(allows.expect("one call level").max_call_depth, 1);
+    let allows = ChangeMemory::for_change(6_412, 1 + reserve, reserve)
+        .limits(memory)
+        .expect("one byte gives limits");
+    assert_eq!(allows.max_preparation_bytes, 7);
+    assert_eq!(allows.max_call_depth, 7);
 
-    let refused = ChangeMemory::for_change(6_412, 18_431 + reserve, reserve).limits(memory);
+    let refused = ChangeMemory::for_change(6_412, reserve, reserve).limits(memory);
     assert_eq!(
         refused.err().as_deref(),
         Some(
-            "insufficient memory: a change of 6412 bytes needs more than the 18431 bytes of heap \
-             that remain for it (28431 bytes are free, 10000 are kept in reserve)"
+            "insufficient memory: a change of 6412 bytes needs more than the 0 bytes of heap \
+             that remain for it (10000 bytes are free, 10000 are kept in reserve)"
         )
     );
 
@@ -228,6 +239,7 @@ fn a_validation_limit_is_refused_as_insufficient_memory_with_its_numbers() {
     let memory = DeviceMemory {
         region_bytes: 64 * 1024,
         heap_bytes: 144 * 1024,
+        call_depth: 7,
     };
     let reserve = 8_192;
     let peak = BytecodeModule::decode(PROGRAM)
@@ -236,10 +248,11 @@ fn a_validation_limit_is_refused_as_insufficient_memory_with_its_numbers() {
         .expect("the A4 program validates")
         .stats()
         .peak_scratch_bytes;
-    // One call level needs 18,432 bytes, and the scratch limit of such a heap is 12,288: the
-    // premise of the test is that the analysis needs more than that.
+    // Any heap that remains gives limits (the call levels come from the stack): the premise of the
+    // test is that the heap that remains holds the artifact, so that the validator's limit is met
+    // and not the artifact's.
     assert!(
-        peak > 12_288,
+        3 * (peak - 1) / 2 >= PROGRAM.len(),
         "the analysis of the A4 program peaks at {peak}"
     );
     let remains = 3 * (peak - 1) / 2;
@@ -284,6 +297,7 @@ fn a_change_longer_than_the_heap_that_remains_is_refused_before_it_is_decoded() 
     let memory = DeviceMemory {
         region_bytes: 1024 * 1024,
         heap_bytes: 144 * 1024,
+        call_depth: 7,
     };
     let refused = prepare_candidate(OSCAT.to_vec(), memory, 200_000, 100_000);
     assert_eq!(
@@ -297,7 +311,10 @@ fn a_change_longer_than_the_heap_that_remains_is_refused_before_it_is_decoded() 
     let (prepared, budget) = prepare_candidate(PROGRAM.to_vec(), memory, 200_000, 100_000)
         .expect("the A4 program fits the heap that remains");
     assert_eq!(prepared.limits().max_artifact_bytes, 100_000);
-    assert_eq!(budget, ChangeMemory::for_change(6_412, 200_000, 100_000));
+    assert_eq!(
+        budget,
+        ChangeMemory::for_change(6_412, 200_000, 100_000).with_call_depth(7)
+    );
 }
 
 #[test]
@@ -308,6 +325,7 @@ fn a_program_that_is_not_bytecode_is_refused_with_the_preparations_own_error() {
     let memory = DeviceMemory {
         region_bytes: 16 * 1024,
         heap_bytes: 72 * 1024,
+        call_depth: 7,
     };
     let refused = prepare_candidate(Vec::from([0, 1, 2, 3]), memory, 100_000, 20_000)
         .expect_err("four bytes are not a program");
@@ -373,4 +391,32 @@ fn an_address_is_named_as_the_standard_writes_it() {
     assert_eq!(address_text(&address("%IB1")), "%IB1");
     assert_eq!(address_text(&address("%QL8")), "%QL8");
     assert_eq!(address_text(&address("%IX0.1.2")), "%IX0.1.2");
+}
+
+#[test]
+fn a_call_deeper_than_the_stack_holds_is_refused_as_insufficient_stack() {
+    // Specification 34 MEM-03 (owner, 21 October 2026, "Stack decides"): a construction that calls
+    // deeper than the call levels the device's main stack holds is refused as `insufficient stack`
+    // with those levels, and the change's or the program's length. Wrong behaviour caught: the bench's
+    // reply `the retained-value check could not run: invalid bytecode 'vm call stack overflow'`,
+    // which reads as a damaged program; a call depth that the refusal does not name; a memory limit
+    // worded as a stack refusal.
+    let overflow = VmTrap::CallStackOverflow.into_runtime_error();
+    assert!(is_call_depth_limit(&overflow));
+    assert!(!is_memory_limit(&overflow));
+    assert_eq!(
+        ChangeMemory::for_change(9_008, 60_000, 8_192)
+            .with_call_depth(7)
+            .refusal(&overflow),
+        "insufficient stack: a change of 9008 bytes calls deeper than the 7 call levels that the \
+         device's main stack holds"
+    );
+    assert_eq!(
+        ChangeMemory::for_install(9_008, 60_000, 8_192)
+            .with_call_depth(7)
+            .refusal(&overflow),
+        "insufficient stack: a program of 9008 bytes calls deeper than the 7 call levels that the \
+         device's main stack holds"
+    );
+    assert!(!is_call_depth_limit(&RuntimeError::PreparationLimit));
 }

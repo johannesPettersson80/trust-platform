@@ -1,10 +1,12 @@
 //! The fixed STM32U5A9 profile: the installed application's region and the device descriptor that
 //! admission reads (specification 34, §5.1.1, COMPAT-02 and TARGET-03; design §4.4).
+use trust_platform_stm32u5::memory::MAIN_STACK as MAIN_STACK_REGION;
 use trust_runtime_core::bytecode::BytecodeVersion;
 use trust_runtime_core::deployment::{
     Capabilities, DeviceDescriptor, NumericContract, RequestedLimits, SchedulingProfile,
     TimingEvidence,
 };
+use trust_runtime_services::runner::engine::DeviceStack;
 
 /// First byte of the installed application: bank 2 (`[layout] application` of chips/stm32u5a9.toml).
 pub const APPLICATION_BASE: usize = 0x0820_0000;
@@ -13,6 +15,17 @@ pub const APPLICATION_BYTES: usize = 2016 * 1024;
 /// The first checkpoint slot, which the application region must end before (`checkpoint_a`).
 const CHECKPOINT_A: usize = 0x083F_8000;
 const _: () = assert!(APPLICATION_BASE + APPLICATION_BYTES <= CHECKPOINT_A);
+
+/// The STM32U5A9's main stack (specification 34 MEM-03 and Appendix D.5; owner, 21 October 2026,
+/// "Stack decides"): the 78 KiB at the top of SRAM5. Until this chip's bench measures its own, the
+/// base and the level are the ESP32-C6's measured 34,008 and 6,144 bytes (D.2), so the window holds
+/// the C6's (79,872 − 2,048 − 34,008) / 6,144 = 7 call levels.
+pub const MAIN_STACK: DeviceStack = DeviceStack {
+    window_bytes: (MAIN_STACK_REGION.end - MAIN_STACK_REGION.start) as usize,
+    base_bytes: 34_008,
+    level_bytes: 6_144,
+};
+const _: () = assert!(MAIN_STACK.call_depth() == 7);
 
 /// The bytes of the heap the STM32U5A9 keeps free beside a program and its event store: its replies
 /// and the Live Values and services of the program (specification 34 MEM-12, Appendix D.5).

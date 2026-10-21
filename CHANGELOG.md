@@ -6,6 +6,15 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Changed: a chip's main stack decides how many call levels it admits, and its heap no longer
+  does: the ESP32-C6 admits 7 (its 78 KiB stack window less 2 KiB of headroom and the 34,008 bytes
+  its install takes, at 6,144 bytes a level, measured on the bench), and the STM32U5A9 the same until
+  its own bench. A program that needs more call levels is refused at its install, its load and its
+  online change with `insufficient stack` and both numbers, instead of `invalid bytecode 'vm call
+  stack overflow'`. A chip now takes trust-runtime's limits of constructed values, construction
+  bytes and process image, which its memory figure checks; only its preparation bytes and validation
+  scratch still scale with its heap. The C6 measures its whole stack (the 24 KiB window was filled by
+  installing any program), and the U5A9's main stack is 78 KiB.
 - Changed: an online change keeps the value of every variable that the new program declares at the
   same place and by the same name, retained or not, function-block members, timers' state and edge
   memories included, as CODESYS and TwinCAT do. A variable whose declaration changed keeps what

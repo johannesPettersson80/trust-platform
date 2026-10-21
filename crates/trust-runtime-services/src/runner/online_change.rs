@@ -35,7 +35,10 @@ use trust_runtime_core::ports::{
 };
 use trust_runtime_core::vm::CarriedValueEvent;
 
-pub use rules::{address_text, is_memory_limit, prepare_candidate, unwired_binding, ChangeMemory};
+pub use rules::{
+    address_text, is_call_depth_limit, is_memory_limit, prepare_candidate, stack_shortage,
+    too_deep, unwired_binding, ChangeMemory,
+};
 
 use super::program::Program;
 use super::{EngineLiveValues, ResourceCycle, Runner, RunnerPlatform};

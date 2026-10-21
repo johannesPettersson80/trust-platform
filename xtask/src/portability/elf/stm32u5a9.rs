@@ -27,8 +27,8 @@ const CHECKPOINT_A: Range<u64> = 0x083F_8000..0x083F_C000;
 const CHECKPOINT_B: Range<u64> = 0x083F_C000..0x0840_0000;
 /// The statics: the rest of SRAM3, 640 KiB, for `.data`, `.bss` and the runner (`memory.x`, `RAM`).
 const STATICS: Range<u64> = 0x2010_0000..0x201A_0000;
-/// The main stack: the top 32 KiB of SRAM5 (`memory.x`, `STACK`).
-const MAIN_STACK: Range<u64> = 0x2026_8000..0x2027_0000;
+/// The main stack: the top 78 KiB of SRAM5 (`memory.x`, `STACK`).
+const MAIN_STACK: Range<u64> = 0x2025_C800..0x2027_0000;
 /// The initial stack pointer: the top of the main stack, which is `_stack_start`.
 const INITIAL_SP: u64 = MAIN_STACK.end;
 
@@ -308,7 +308,7 @@ mod tests {
                 load(0x0805_2000, 0x400, 0x5_2000, true),
             ],
             stack_start: Some(0x2027_0000),
-            stack_end: Some(0x2026_8000),
+            stack_end: Some(0x2025_C800),
             load_end: Some(0x0805_2400),
             file_bytes: 0x5_2400,
         }
@@ -383,7 +383,7 @@ mod tests {
         // pointer is its top, 0x2027_0000. A pointer one word above it, at the bottom of the stack, or
         // at the top of the statics is refused with the pointer's value. Catches a vector table that
         // starts the stack at the wrong place.
-        for initial_sp in [0x2027_0004, 0x2026_8000, 0x2010_0000] {
+        for initial_sp in [0x2027_0004, 0x2025_C800, 0x2010_0000] {
             let error =
                 rejected(|image| image.vector_table = vector_table(initial_sp, 0x0800_2101));
             let value = format!("{initial_sp:#x}");
@@ -495,7 +495,7 @@ mod tests {
         for expected in [
             format!("FLASH : ORIGIN = {FLASH_START:#010X}, LENGTH = 2048K"),
             format!("RAM : ORIGIN = {:#010X}, LENGTH = 640K", STATICS.start),
-            format!("STACK : ORIGIN = {:#010X}, LENGTH = 32K", MAIN_STACK.start),
+            format!("STACK : ORIGIN = {:#010X}, LENGTH = 78K", MAIN_STACK.start),
             format!("_stext = {:#010X};", FIRMWARE.start),
             format!("_stack_start = {INITIAL_SP:#010X};"),
             format!("_stack_end = {:#010X};", MAIN_STACK.start),
@@ -506,15 +506,15 @@ mod tests {
             "SIZEOF(.vector_table) <= 8K".to_owned(),
             format!("ADDR(.vector_table) == {FLASH_START:#010X}"),
             format!("ADDR(.text) >= {:#010X}", FIRMWARE.start),
-            "_stack_start - _stack_end == 32K".to_owned(),
+            "_stack_start - _stack_end == 78K".to_owned(),
             format!("__firmware_load_end <= {:#010X}", FIRMWARE.end),
         ] {
             assert!(profile.contains(&expected), "profile.x lacks {expected}");
         }
         assert_eq!(VECTORS.end - VECTORS.start, 8 * 1024);
         assert_eq!(STATICS.end - STATICS.start, 640 * 1024);
-        assert_eq!(MAIN_STACK.end - MAIN_STACK.start, 32 * 1024);
-        assert_eq!(board().stack_window_bytes, 32 * 1024);
+        assert_eq!(MAIN_STACK.end - MAIN_STACK.start, 78 * 1024);
+        assert_eq!(board().stack_window_bytes, 78 * 1024);
     }
 
     #[test]

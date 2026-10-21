@@ -22,7 +22,7 @@ use trust_platform_esp32::loader::{
 use trust_platform_esp32::process_io::{
     check_pin, GpioPin, PinClaim, PinClaims, CHIP_GPIO_PINS, CHIP_GPIO_RESERVED,
 };
-use trust_platform_esp32::profile::{runtime_id, transfer_session, PROGRAM_STEP_BYTES};
+use trust_platform_esp32::profile::{runtime_id, transfer_session, MAIN_STACK, PROGRAM_STEP_BYTES};
 use trust_platform_esp32::program_flash::FlashOwner;
 use trust_platform_esp32::program_memory::ProgramCycle;
 use trust_platform_esp32::watchdog_rule::watchdog_timeout_ms;
@@ -365,6 +365,7 @@ fn room() -> usize {
 const MEMORY: DeviceMemory = DeviceMemory {
     region_bytes: 64 * 1024,
     heap_bytes: 72 * 1024,
+    call_depth: MAIN_STACK.call_depth(),
 };
 
 type TestRunner =
