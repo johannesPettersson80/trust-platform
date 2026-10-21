@@ -80,6 +80,7 @@
 *(.text.*20trust_platform_esp328hardware5clock*)
 *(.text.*18trust_runtime_core5ports*16MonotonicInstant*)
 *(.text.*22trust_runtime_services6runner6engine9held_time*)
+*(.text.*4core4time*8Duration3new*)
 /* A refused option or result drops its error on the scan path. Cloning, formatting and coding an
  * error (about 9 KB, no samples) run only on a fault and run from flash. */
 *(.text.*9drop_glue*18trust_runtime_core5error12RuntimeError*)

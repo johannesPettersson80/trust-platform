@@ -2950,7 +2950,10 @@ program reads or writes:
   variable, the input synchronization decodes each binding from its image and writes the value
   into the variable's leaf. It charges what the general synchronization charges, in the same order,
   checks the deadline before each write, and writes back the leaves it wrote when it is refused, so
-  the variables are as they were.
+  the variables are as they were. A binding whose type is a BOOL, an integer, a bit string or a
+  character, bound at the width of its type, holds in the image the bits its variable holds: it is
+  sampled and published by copying its bytes, a BOOL's one bit as its 1 or 0, after the same
+  checks and with the same charges.
 - A device whose bindings are all flat scalars publishes its I/O snapshot at the end of a scan as
   a copy of the flat process images, with the scan's number and the addresses a force holds, and a
   request decodes the bindings from that copy when it reads the snapshot. Reading a flat scalar

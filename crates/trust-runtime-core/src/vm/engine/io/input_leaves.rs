@@ -12,6 +12,7 @@
 use super::super::destinations::{Key, SavedDestinations};
 use super::staging::ImageStaging;
 use super::*;
+use crate::io_address::IoSize;
 use crate::io_image::PreparedIoBinding;
 use crate::memory::layout::{ByteRange, LayoutRegion};
 use crate::vm::prepared::{InputLeaves, IoLeaf};
@@ -32,8 +33,16 @@ impl EngineState<'_> {
                 .ok_or(RuntimeError::Overflow)?,
         )?;
         for (index, binding) in prepared.io_bindings.iter().enumerate() {
-            if self.input_leaf(index, binding).is_some() {
-                self.input_value(binding)?;
+            match self.input_leaf(index, binding) {
+                // A copied binding decodes and normalizes to its own bits: only the checks of its
+                // image read can refuse it.
+                Some(leaf) if leaf.copy => {
+                    self.copied_input(binding, leaf)?;
+                }
+                Some(_) => {
+                    self.input_value(binding)?;
+                }
+                None => {}
             }
         }
         // The snapshot of the destinations charges a new snapshot's entries: room for four when one
@@ -55,21 +64,29 @@ impl EngineState<'_> {
             let Some(leaf) = self.input_leaf(index, binding) else {
                 continue;
             };
-            let result = self.input_value(binding).and_then(|value| {
-                self.check_entry_deadline()?;
-                let range = self.leaf_range(leaf).ok_or(RuntimeError::NullReference)?;
-                let held = self
-                    .data
-                    .store
-                    .bytes(range)
-                    .ok_or(RuntimeError::NullReference)?;
-                staging.saved.keep(held)?;
-                if self.write_scalar_leaf(range, leaf.prim, &value) {
-                    Ok(())
-                } else {
-                    Err(RuntimeError::NullReference)
-                }
-            });
+            let result = if leaf.copy {
+                self.copied_input(binding, leaf).and_then(|bytes| {
+                    let range = self.keep_input_leaf(staging, leaf)?;
+                    if self
+                        .data
+                        .store
+                        .write_bytes(range, &bytes[..usize::from(leaf.bytes)])
+                    {
+                        Ok(())
+                    } else {
+                        Err(RuntimeError::NullReference)
+                    }
+                })
+            } else {
+                self.input_value(binding).and_then(|value| {
+                    let range = self.keep_input_leaf(staging, leaf)?;
+                    if self.write_scalar_leaf(range, leaf.prim, &value) {
+                        Ok(())
+                    } else {
+                        Err(RuntimeError::NullReference)
+                    }
+                })
+            };
             if let Err(error) = result {
                 self.put_back_input_leaves(staging, written);
                 return Err(error);
@@ -85,6 +102,54 @@ impl EngineState<'_> {
             return None;
         }
         self.prepared.io_leaves.get(index).copied().flatten()
+    }
+
+    /// What precedes each input write: the deadline check, then the leaf's bytes kept in `staging`,
+    /// so a refusal can put them back. Answers the leaf's bytes.
+    fn keep_input_leaf(
+        &mut self,
+        staging: &mut ImageStaging,
+        leaf: IoLeaf,
+    ) -> Result<ByteRange, RuntimeError> {
+        self.check_entry_deadline()?;
+        let range = self.leaf_range(leaf).ok_or(RuntimeError::NullReference)?;
+        let held = self
+            .data
+            .store
+            .bytes(range)
+            .ok_or(RuntimeError::NullReference)?;
+        staging.saved.keep(held)?;
+        Ok(range)
+    }
+
+    /// The leaf bytes of copied binding `binding` (`IoLeaf::copy`), read from its image after the
+    /// checks of a read of its address: the image's little-endian bytes, or for a bit the BOOL
+    /// leaf's 1 or 0.
+    fn copied_input(
+        &self,
+        binding: &PreparedIoBinding,
+        leaf: IoLeaf,
+    ) -> Result<[u8; 8], RuntimeError> {
+        let address = &binding.address;
+        crate::io_image::validate_process_image_address(address)?;
+        let image = match address.area {
+            IoArea::Input => &self.data.images.inputs,
+            IoArea::Output => &self.data.images.outputs,
+            IoArea::Memory => &self.data.images.memory,
+        };
+        crate::io_image::check_image_window(address, image.len())?;
+        let start = address.byte as usize;
+        let len = usize::from(leaf.bytes);
+        let Some(window) = image.get(start..start + len) else {
+            return Err(RuntimeError::NullReference);
+        };
+        let mut bytes = [0u8; 8];
+        if address.size == IoSize::Bit {
+            bytes[0] = (window[0] >> address.bit) & 1;
+        } else {
+            bytes[..len].copy_from_slice(window);
+        }
+        Ok(bytes)
     }
 
     /// The value of `binding` in its image, decoded and normalized for its declared type, as the

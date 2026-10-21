@@ -307,6 +307,55 @@ fn a_refused_input_synchronization_leaves_no_input_written() {
     );
 }
 
+/// Scalar bindings whose image bytes are their variables' bytes are sampled and published by
+/// copying them (spec 34 PERF-05; checklist P1-6). Worked out from the process image's encoding
+/// (little-endian, two's complement, one bit for a BOOL; `io_image::read_flat_image`): the first
+/// scan's `%IB0` is 2#1111_0111, whose bit 3 is clear, so `flag` is FALSE; the second's is
+/// 2#0000_1000, so `flag` is TRUE and `%QB0` holds bit 5 alone, 16#20; 16#FE is SINT -2, 16#34 16#12
+/// WORD 16#1234, 16#FF 16#FF INT -1, 16#FE 16#FF 16#FF 16#FF DINT -2 and 16#FD and seven 16#FF LINT
+/// -3, and each comes back in the same bytes of `%Q`. Catches a byte order or sign error, a BOOL
+/// read from its whole byte or written over its neighbours, and a copy wider than its binding (the
+/// bytes between the bindings stay 0).
+#[test]
+fn scalar_bindings_are_sampled_and_published_in_their_bytes() {
+    let prepared = prepare(
+        "PROGRAM Main VAR
+            flag AT %IX0.3 : BOOL; small AT %IB1 : SINT; bits AT %IW2 : WORD;
+            signed AT %IW4 : INT; long AT %ID8 : DINT; wide AT %IL16 : LINT;
+            flagOut AT %QX0.5 : BOOL; smallOut AT %QB1 : SINT; bitsOut AT %QW2 : WORD;
+            signedOut AT %QW4 : INT; longOut AT %QD8 : DINT; wideOut AT %QL16 : LINT;
+         END_VAR
+         flagOut := flag; smallOut := small; bitsOut := bits;
+         signedOut := signed; longOut := long; wideOut := wide;
+         END_PROGRAM",
+    );
+    let mut state = prepared.instantiate(0).unwrap();
+    let image: [u8; 24] = [
+        0xF7, 0xFE, 0x34, 0x12, 0xFF, 0xFF, 0, 0, 0xFE, 0xFF, 0xFF, 0xFF, 0, 0, 0, 0, 0xFD, 0xFF,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    ];
+    state.inputs_mut()[..24].copy_from_slice(&image);
+    state.execute_cycle(Duration::from_millis(10)).unwrap();
+    let main = instance(state.storage().get_global("Main"));
+    let read = |state: &RuntimeState<'_>, name: &str| {
+        state.storage().get_instance_var(main, name).cloned()
+    };
+    assert_eq!(read(&state, "flag"), Some(Value::Bool(false)));
+    state.inputs_mut()[0] = 0x08;
+    state.execute_cycle(Duration::from_millis(20)).unwrap();
+    assert_eq!(read(&state, "flag"), Some(Value::Bool(true)));
+    assert_eq!(read(&state, "small"), Some(Value::SInt(-2)));
+    assert_eq!(read(&state, "bits"), Some(Value::Word(0x1234)));
+    assert_eq!(read(&state, "signed"), Some(Value::Int(-1)));
+    assert_eq!(read(&state, "long"), Some(Value::DInt(-2)));
+    assert_eq!(read(&state, "wide"), Some(Value::LInt(-3)));
+    let expected: [u8; 24] = [
+        0x20, 0xFE, 0x34, 0x12, 0xFF, 0xFF, 0, 0, 0xFE, 0xFF, 0xFF, 0xFF, 0, 0, 0, 0, 0xFD, 0xFF,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    ];
+    assert_eq!(&state.outputs()[..24], &expected);
+}
+
 #[test]
 fn physical_deadline_faults_mid_cycle_and_withholds_outputs() {
     let prepared = prepare(

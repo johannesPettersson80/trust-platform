@@ -12,8 +12,9 @@ use crate::memory::IoArea;
 use crate::vm::module::VmRef;
 
 /// The leaf of one binding's variable: its byte offset in the persistent block (`root` `None`) or
-/// in the instance of construction root `root`, its bytes and primitive, and whether the variable
-/// may be written (it is not `CONSTANT`).
+/// in the instance of construction root `root`, its bytes and primitive, whether the variable may
+/// be written (it is not `CONSTANT`), and whether the binding's image bytes are the leaf's bytes
+/// (`copy`, [`copies_bytes`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IoLeaf {
     pub(crate) root: Option<u32>,
@@ -21,6 +22,7 @@ pub(crate) struct IoLeaf {
     pub(crate) prim: u16,
     pub(crate) bytes: u8,
     pub(crate) writable: bool,
+    pub(crate) copy: bool,
 }
 
 crate::memory::figure::holds_no_heap!(IoLeaf);
@@ -40,7 +42,13 @@ impl PreparedModule {
     pub(crate) fn binding_leaves(&self) -> Vec<Option<IoLeaf>> {
         self.io_bindings
             .iter()
-            .map(|binding| self.binding_leaf(binding.ref_idx))
+            .map(|binding| {
+                let leaf = self.binding_leaf(binding.ref_idx)?;
+                Some(IoLeaf {
+                    copy: copies_bytes(binding, &leaf),
+                    ..leaf
+                })
+            })
             .collect()
     }
 
@@ -121,6 +129,43 @@ impl PreparedModule {
             prim: layout.scalar?,
             bytes: u8::try_from(layout.shape.bytes).ok()?,
             writable: !entry.is_constant(),
+            copy: false,
         })
     }
+}
+
+/// Whether `binding`'s image bytes are `leaf`'s bytes (checklist P1-6): a flat address of the width
+/// of the binding's wire type, which is the leaf's own primitive and a BOOL, an integer, a bit
+/// string or a character. Its codec then only reinterprets the bits and normalizing changes
+/// nothing, both images and leaves hold integers little-endian, and a BOOL's leaf byte is 1 or 0
+/// where its image holds one bit. A REAL is refused when it is not finite and a TIME is converted to
+/// milliseconds, so neither is a copy.
+fn copies_bytes(binding: &crate::io_image::PreparedIoBinding, leaf: &IoLeaf) -> bool {
+    use crate::stdlib::conversions::ConversionType as Wire;
+    let Some(wire) = binding.codec.wire_type else {
+        return false;
+    };
+    let prim = match wire {
+        Wire::Bool => 1,
+        Wire::Byte => 2,
+        Wire::Word => 3,
+        Wire::DWord => 4,
+        Wire::LWord => 5,
+        Wire::SInt => 6,
+        Wire::Int => 7,
+        Wire::DInt => 8,
+        Wire::LInt => 9,
+        Wire::USInt => 10,
+        Wire::UInt => 11,
+        Wire::UDInt => 12,
+        Wire::ULInt => 13,
+        Wire::Char => 26,
+        Wire::WChar => 27,
+        _ => return false,
+    };
+    leaf.prim == prim
+        && binding.address.path.len() <= 1
+        && crate::io_image::expected_size_for_type(wire) == Some(binding.address.size)
+        && binding.codec.enum_type.is_none()
+        && binding.codec.string_capacity.is_none()
 }

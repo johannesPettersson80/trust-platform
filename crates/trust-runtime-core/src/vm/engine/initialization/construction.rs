@@ -893,6 +893,7 @@ impl EngineState<'_> {
 
     /// Retirement is bookkeeping (TIME-08) and charges no work. Its retained-scan
     /// demand check stays, so an unrepresentable scan is still refused.
+    #[inline]
     pub(in crate::vm::engine) fn remove_owned_instances(
         &mut self,
         owner: FrameId,
@@ -903,6 +904,9 @@ impl EngineState<'_> {
 
     // Terminal cleanup must complete even after a refused check. Check at the
     // fallible boundary before calling this; preserve the original fault.
+    // Every call's frame retires here, and most own no instance: the check stays small enough to
+    // be inlined where the frame retires, and the release is out of line (checklist P1-6).
+    #[inline]
     pub(in crate::vm::engine) fn remove_owned_instances_unchecked(&mut self, owner: FrameId) {
         let owns_any = self
             .data
@@ -910,9 +914,15 @@ impl EngineState<'_> {
             .owned_instances
             .take(owner)
             .any(|id| self.data.lifetimes.instance_lifetimes.get(&id) == Some(Some(owner)));
-        if !owns_any {
-            return;
+        if owns_any {
+            self.release_owned_instances(owner);
         }
+    }
+
+    /// Release the instances that frame `owner` owns: from the store, the construction records and
+    /// the lifetimes.
+    #[inline(never)]
+    fn release_owned_instances(&mut self, owner: FrameId) {
         let lifetimes = &self.data.lifetimes.instance_lifetimes;
         // The release goes through the store's writer, so that the store records it in the one counter
         // that issued the identities (specification 34 §4.3.1; C1-9d2b-2, R4).
