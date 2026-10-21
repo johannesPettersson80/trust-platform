@@ -521,7 +521,7 @@ impl CellArm {
         let (block, _) = self.cells.regions_mut().block_mut(range.region);
         match block.bytes_mut(range) {
             Some(target) if target.len() == bytes.len() => {
-                target.copy_from_slice(bytes);
+                crate::memory::flat::copy_leaf_bytes(target, bytes);
                 true
             }
             _ => false,
@@ -2090,7 +2090,7 @@ fn write_over(
     else {
         return false;
     };
-    target.copy_from_slice(bytes);
+    crate::memory::flat::copy_leaf_bytes(target, bytes);
     if let Some(byte) = flag.and_then(|flag| block.bytes_mut(flag)) {
         byte[0] = 1;
     }

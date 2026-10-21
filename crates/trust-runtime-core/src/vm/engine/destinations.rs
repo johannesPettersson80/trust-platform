@@ -57,7 +57,7 @@ impl SavedDestinations {
         self.bytes
             .try_reserve(held.len())
             .map_err(|_| RuntimeError::Overflow)?;
-        self.bytes.extend_from_slice(held);
+        crate::memory::flat::extend_leaf_bytes(&mut self.bytes, held);
         Ok(())
     }
     /// The `len` bytes kept from `at`.
@@ -157,7 +157,7 @@ impl SavedDestinations {
         self.bytes
             .try_reserve(held.len())
             .map_err(|_| RuntimeError::Overflow)?;
-        self.bytes.extend_from_slice(held);
+        crate::memory::flat::extend_leaf_bytes(&mut self.bytes, held);
         self.insert_saved(key, Saved::Cells { range, at }).map(drop)
     }
     fn insert_saved(&mut self, key: Key, value: Saved) -> Result<Option<Saved>, RuntimeError> {

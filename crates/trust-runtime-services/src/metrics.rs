@@ -274,13 +274,17 @@ struct CallProfileEntry {
 }
 
 impl CallProfileEntry {
-    /// Whether the entry's text is `kind:name`, compared without building that text (checklist
-    /// P1-6).
+    /// Whether the entry's text is `kind:name`, compared in its three parts without building that
+    /// text (checklist P1-6) and without the generic string search, which runs from the C6's flash
+    /// at every call (checklist P1-7): two calls whose text is the same share one entry.
     fn is(&self, kind: &str, name: &str) -> bool {
-        self.key
-            .strip_prefix(kind)
-            .and_then(|rest| rest.strip_prefix(':'))
-            == Some(name)
+        let Some((head, rest)) = self.key.as_bytes().split_at_checked(kind.len()) else {
+            return false;
+        };
+        let Some((colon, tail)) = rest.split_first() else {
+            return false;
+        };
+        head == kind.as_bytes() && *colon == b':' && tail == name.as_bytes()
     }
 }
 

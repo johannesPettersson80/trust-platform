@@ -216,3 +216,22 @@ fn a_native_duration_slot_keeps_the_family_it_was_written_with() {
     assert_eq!(decode(kind, &slot).expect("decodes"), Cell::Time(7));
     assert!(encode(kind, Cell::DInt(7), &mut slot).is_err());
 }
+
+/// Checklist P1-7: a leaf's bytes are copied and appended whole, whatever their length. For every
+/// length from 0 to 16 bytes, `copy_leaf_bytes` leaves the bytes `copy_from_slice` leaves (1, 2, 3,
+/// … in place of a fill), and `extend_leaf_bytes` appends them in order after the byte the vector
+/// held. Catches an arm that copies part of a leaf, the two halves of an 8-byte leaf swapped or
+/// written twice, and a small leaf appended out of order or over what the vector held.
+#[test]
+fn leaf_bytes_are_copied_and_appended_whole() {
+    for len in 0u8..=16 {
+        let src: Vec<u8> = (1..=len).collect();
+        let mut dst = vec![0xEE; usize::from(len)];
+        copy_leaf_bytes(&mut dst, &src);
+        assert_eq!(dst, src, "{len} bytes copied");
+        let mut grown = vec![0xAA];
+        extend_leaf_bytes(&mut grown, &src);
+        assert_eq!(grown[0], 0xAA, "{len} bytes appended after the byte held");
+        assert_eq!(grown[1..], src[..], "{len} bytes appended");
+    }
+}

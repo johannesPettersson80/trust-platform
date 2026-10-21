@@ -222,8 +222,13 @@ about 1.77 M cycles for 188,838 instructions (11.07 ms, over the 10 ms period); 
 about 264,000 cycles (1.65 ms). `rwtext_hook.x` lists the selected modules and functions; `build.rs`
 puts it on the linker path and `.cargo/config.toml` enables esp-hal's hook. Only the scan's hot path
 is moved: load-time code (preparation, decoding, validation, construction, the engine's initializers
-and its restart and retain paths) and the control path (the runner, its requests, its services and
-JSON, and the platform glue) stay in flash. The USB-Serial/JTAG interrupt handler and the FIFO
+and its restart and retain paths) and the control path (the runner's requests, its services and JSON,
+and the platform glue) stay in flash. The runner's boundary, into which the timed scan inlines, its
+wait and frame polling, and esp-hal's alarm arming run from RAM (21 October 2026): from flash, a
+change elsewhere in the code that moved them in the flash cache added 23 µs to every cycle.
+`.cargo/config.toml` limits LLVM's machine outliner to sequences that save at least 16 bytes
+(`-outliner-benefit-threshold=16`), so the smallest repeated sequences stay in the RAM code that runs
+them instead of becoming calls into flash (spec 34 D.2). The USB-Serial/JTAG interrupt handler and the FIFO
 servicing it calls are in RAM through esp-hal's `#[ram]` attribute, because they run while the flash
 cache may be off. `xtask portability inspect` fails if the VM dispatch loop is not in HP SRAM.
 

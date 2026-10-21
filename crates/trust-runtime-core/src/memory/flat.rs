@@ -427,10 +427,58 @@ fn put(bytes: &mut [u8], at: usize, value: &[u8]) -> Result<(), RuntimeError> {
         .and_then(|end| bytes.get_mut(at..end))
     {
         Some(slice) => {
-            slice.copy_from_slice(value);
+            copy_leaf_bytes(slice, value);
             Ok(())
         }
         None => Err(RuntimeError::InvalidExecutionState),
+    }
+}
+
+/// Copy `src` into `dst`, which are as long, as `copy_from_slice` does. A leaf of 1, 2, 4 or 8
+/// bytes is copied byte by byte; any slice copy calls `memcpy` when the compiler builds for size,
+/// even one of a fixed 2 or 4 bytes, and on the ESP32-C6 that is the ROM's, about 60 cycles even
+/// for one byte (checklist P1-7: about 50 of the 214 `memcpy` calls of a `v1p` cycle copied a
+/// leaf, and copies of a fixed length still called it). Any other length, and two lengths, take
+/// `copy_from_slice`, which panics on the latter.
+#[inline]
+pub(crate) fn copy_leaf_bytes(dst: &mut [u8], src: &[u8]) {
+    match (dst, src) {
+        ([d0], [s0]) => *d0 = *s0,
+        ([d0, d1], [s0, s1]) => {
+            *d0 = *s0;
+            *d1 = *s1;
+        }
+        ([d0, d1, d2, d3], [s0, s1, s2, s3]) => {
+            *d0 = *s0;
+            *d1 = *s1;
+            *d2 = *s2;
+            *d3 = *s3;
+        }
+        ([d0, d1, d2, d3, d4, d5, d6, d7], [s0, s1, s2, s3, s4, s5, s6, s7]) => {
+            *d0 = *s0;
+            *d1 = *s1;
+            *d2 = *s2;
+            *d3 = *s3;
+            *d4 = *s4;
+            *d5 = *s5;
+            *d6 = *s6;
+            *d7 = *s7;
+        }
+        (dst, src) => dst.copy_from_slice(src),
+    }
+}
+
+/// Append `src` to `dst`, as `extend_from_slice` does: up to 4 bytes byte by byte, so that the
+/// bytes of a small leaf are appended without a `memcpy` call ([`copy_leaf_bytes`]), any more
+/// bytes by `extend_from_slice`.
+#[inline]
+pub(crate) fn extend_leaf_bytes(dst: &mut alloc::vec::Vec<u8>, src: &[u8]) {
+    if src.len() <= 4 {
+        for &byte in src {
+            dst.push(byte);
+        }
+    } else {
+        dst.extend_from_slice(src);
     }
 }
 

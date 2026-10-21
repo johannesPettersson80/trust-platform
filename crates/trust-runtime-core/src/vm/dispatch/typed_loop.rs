@@ -403,7 +403,7 @@ impl<R: ExecutionContext> Body<'_, R> {
         if !written {
             self.ensure_frame()?;
             let value = value_of(cell)?;
-            if op.kind == OpKind::StoreOwn {
+            if matches!(op.kind, OpKind::StoreOwn) {
                 compact_loop::store_own(
                     self.runtime,
                     self.module,

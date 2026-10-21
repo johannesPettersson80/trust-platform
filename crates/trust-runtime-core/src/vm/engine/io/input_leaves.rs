@@ -10,7 +10,6 @@
 //! bytes of the leaves written before it, as the snapshot does, so the variables are as they were.
 
 use super::super::destinations::{Key, SavedDestinations};
-use super::staging::ImageStaging;
 use super::*;
 use crate::io_address::IoSize;
 use crate::io_image::PreparedIoBinding;
@@ -19,10 +18,11 @@ use crate::vm::prepared::{InputLeaves, IoLeaf};
 
 impl EngineState<'_> {
     /// Sample every input and marker binding into its leaf, as the general synchronization samples
-    /// them (`staging::sample_inputs`).
+    /// them (`staging::sample_inputs`), keeping the leaves' bytes in `saved`, the reserved snapshot
+    /// of the destinations.
     pub(super) fn sample_input_leaves(
         &mut self,
-        staging: &mut ImageStaging,
+        saved: &mut SavedDestinations,
         leaves: InputLeaves,
     ) -> Result<(), RuntimeError> {
         let prepared = self.prepared;
@@ -58,7 +58,7 @@ impl EngineState<'_> {
             SavedDestinations::allocation_bytes(count)?
         };
         self.charge_allocation_bytes(entries)?;
-        staging.saved.clear();
+        saved.clear();
         let mut written = 0;
         for (index, binding) in prepared.io_bindings.iter().enumerate() {
             let Some(leaf) = self.input_leaf(index, binding) else {
@@ -66,7 +66,7 @@ impl EngineState<'_> {
             };
             let result = if leaf.copy {
                 self.copied_input(binding, leaf).and_then(|bytes| {
-                    let range = self.keep_input_leaf(staging, leaf)?;
+                    let range = self.keep_input_leaf(saved, leaf)?;
                     if self
                         .data
                         .store
@@ -79,7 +79,7 @@ impl EngineState<'_> {
                 })
             } else {
                 self.input_value(binding).and_then(|value| {
-                    let range = self.keep_input_leaf(staging, leaf)?;
+                    let range = self.keep_input_leaf(saved, leaf)?;
                     if self.write_scalar_leaf(range, leaf.prim, &value) {
                         Ok(())
                     } else {
@@ -88,7 +88,7 @@ impl EngineState<'_> {
                 })
             };
             if let Err(error) = result {
-                self.put_back_input_leaves(staging, written);
+                self.put_back_input_leaves(saved, written);
                 return Err(error);
             }
             written += 1;
@@ -104,11 +104,11 @@ impl EngineState<'_> {
         self.prepared.io_leaves.get(index).copied().flatten()
     }
 
-    /// What precedes each input write: the deadline check, then the leaf's bytes kept in `staging`,
+    /// What precedes each input write: the deadline check, then the leaf's bytes kept in `saved`,
     /// so a refusal can put them back. Answers the leaf's bytes.
     fn keep_input_leaf(
         &mut self,
-        staging: &mut ImageStaging,
+        saved: &mut SavedDestinations,
         leaf: IoLeaf,
     ) -> Result<ByteRange, RuntimeError> {
         self.check_entry_deadline()?;
@@ -120,7 +120,7 @@ impl EngineState<'_> {
             .store
             .bytes(range)
             .ok_or_else(|| RuntimeError::NullReference)?;
-        staging.saved.keep(held)?;
+        saved.keep(held)?;
         Ok(range)
     }
 
@@ -149,7 +149,7 @@ impl EngineState<'_> {
         if address.size == IoSize::Bit {
             bytes[0] = (window[0] >> address.bit) & 1;
         } else {
-            bytes[..len].copy_from_slice(window);
+            crate::memory::flat::copy_leaf_bytes(&mut bytes[..len], window);
         }
         Ok(bytes)
     }
@@ -166,9 +166,9 @@ impl EngineState<'_> {
         }
     }
 
-    /// Put back the bytes that `staging` kept for the first `written` input leaves. No two inputs
+    /// Put back the bytes that `saved` kept for the first `written` input leaves. No two inputs
     /// write one variable, so each leaf gets the bytes it held before the scan.
-    fn put_back_input_leaves(&mut self, staging: &ImageStaging, written: usize) {
+    fn put_back_input_leaves(&mut self, saved: &SavedDestinations, written: usize) {
         let prepared = self.prepared;
         let mut at = 0usize;
         let mut left = written;
@@ -181,8 +181,7 @@ impl EngineState<'_> {
             };
             left -= 1;
             let len = usize::from(leaf.bytes);
-            if let (Some(range), Some(held)) = (self.leaf_range(leaf), staging.saved.kept(at, len))
-            {
+            if let (Some(range), Some(held)) = (self.leaf_range(leaf), saved.kept(at, len)) {
                 self.data.store.write_bytes(range, held);
             }
             at += len;

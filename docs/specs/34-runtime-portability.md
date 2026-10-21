@@ -2922,10 +2922,7 @@ program reads or writes:
   only at those instructions, and the allocator's operations are counted only around those calls
   (checklist P1-10); a module without a `LINE_TABLE` offers it every instruction.
 - An output or marker binding whose static reference names a scalar variable without a path is
-  published from the variable's leaf. When every binding a publication selects is such a leaf
-  copied at its own width, at a flat address, the publication stages no bytes: it makes the staged
-  publication's charges and checks in the same order, journals the output windows for the output
-  hooks, and then writes each leaf's bytes into its window, so a refusal still changes no image.
+  published from the variable's leaf.
 - A standard function block of a persistent instance reads and writes its inputs, outputs and state
   at their places among its POU's declarations, which preparation finds by their names, and a call
   binds the block's formals at the same places. Preparation also finds where each of them lies in an
@@ -3853,8 +3850,18 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   preparation, its bindings' target reads, the text-call check, the frame slots and the flattening
   of a reference of a variable access, and the deadline check; the builders of the bindings and the
   rest of the call machinery run from flash, where the code of the flat store, which every scan
-  runs, took their room (checklist P1-7, 21 October 2026). Interrupts use the same stack on
-  RISC-V, so the window includes them. The allocator serves three heap regions on the C6, tried in
+  runs, took their room (checklist P1-7, 21 October 2026). The runner's boundary, into which the
+  scan's timed window inlines, its wait and frame polling, esp-hal's alarm arming and interrupt
+  dispatch, and the slice indexing and buffer drops the cycle calls run from RAM as well (7.1 KB):
+  from flash they took 18% of the busy samples of a 2 ms cycle, and a change elsewhere in the code
+  that moved them in the flash cache added 23 µs to each cycle (measured 21 October 2026). The
+  firmware is built for size (`opt-level = "z"`) with LLVM's machine outliner limited to sequences
+  that save at least 16 bytes (`-outliner-benefit-threshold=16`; checklist P1-7): the outliner moves
+  repeated instruction sequences into fragments in flash, which RAM code then calls, and the
+  fragments took about 10% of the busy samples of a scan. The threshold keeps the smallest
+  fragments in their callers for 4.4 KB more RAM code; with the outliner off the RAM code grew by
+  22.8 KB, more than the RAM left above the stack window (measured 21 October 2026). Interrupts
+  use the same stack on RISC-V, so the window includes them. The allocator serves three heap regions on the C6, tried in
   this order: the main heap, the boot loader's reclaimed RAM and the LP SRAM. A program's prepared module and its execution services
   are allocated on the heap when the program starts, and the program's cycle owns them: they are
   freed when the cycle is dropped, after the engine state, the I/O lines and the handle on the

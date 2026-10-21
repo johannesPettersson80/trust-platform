@@ -187,7 +187,7 @@ fn load<R: ExecutionContext>(
         }
         KindedOp::LoadMember(kind) => {
             let bits = member(body, op.arg, kind).map(|bits| (kind, bits));
-            if op.kind == OpKind::LoadMember {
+            if matches!(op.kind, OpKind::LoadMember) {
                 push_read(body, operands, bits, at, [0, 1, 6, 11], true)
             } else {
                 push_read(body, operands, bits, at, [0, 1, 6], false)
@@ -462,7 +462,7 @@ fn store<R: ExecutionContext>(
         return Ok(Step::Before);
     };
     let (kind, bits) = (operands.kinds[index], operands.bits[index]);
-    let base = if op.kind == OpKind::StoreOwn {
+    let base = if matches!(op.kind, OpKind::StoreOwn) {
         begin_each(
             &*body.runtime,
             body.fault_site,
@@ -476,7 +476,7 @@ fn store<R: ExecutionContext>(
         globals()
     };
     operands.discard(1);
-    let written = kinded_op == KindedOp::Store
+    let written = matches!(kinded_op, KindedOp::Store)
         && width(kind).is_some_and(|width| {
             base.and_then(|base| leaf(base, slot)).is_some_and(|range| {
                 let bytes = bits.to_le_bytes();
@@ -487,7 +487,7 @@ fn store<R: ExecutionContext>(
         body.ensure_frame()?;
         let cell = cell_of_bits(kind, bits).ok_or_else(|| RuntimeError::InvalidExecutionState)?;
         let value = value_of(cell)?;
-        if op.kind == OpKind::StoreOwn {
+        if matches!(op.kind, OpKind::StoreOwn) {
             compact_loop::store_own(
                 body.runtime,
                 body.module,

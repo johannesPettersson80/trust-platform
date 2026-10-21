@@ -27,7 +27,7 @@
  * that writes the kinded code runs at preparation, from flash. */
 *(.text.*7compact6kinded5width*)
 *(.text.*7compact6kinded7bits_of*)
-*(.text.*7compact6kinded11cell_of_bits*)
+*(.text.*7compact6kinded12cell_of_bits*)
 *(.text.*18trust_runtime_core2vm13dispatch_refs*)
 *(.text.*18trust_runtime_core2vm12dispatch_ops*)
 *(.text.*18trust_runtime_core2vm11type_policy*)
@@ -251,6 +251,8 @@
 *(.text.*5alloc7raw_vec*11RawVecInner10deallocate*8smol_str)
 *(.text.*5alloc3vec*3VechE17try_reserve_exact*)
 *(.text.*5alloc3vec*3VechE15append_elements*18trust_runtime_core)
+*(.text.*5alloc3vec*3VechE4push*18trust_runtime_core)
+*(.text.*2vm6frames*10FrameStack16reserve_for_push*)
 *(.text.*4core5slice20copy_from_slice_implhE*)
 *(.text.*4core4time*8Duration14saturating_sub*)
 *(.text.*8smol_str*4Repr6as_str*)
@@ -263,6 +265,26 @@
 *(.text.*2vm7helpers24borrowed_value_is_cloned*)
 *(.text.*2vm7helpers26materialize_borrowed_value*)
 *(.text.*2vm4call8bindings24clone_value_with_profile*)
+
+/* The runner's loop around each cycle (checklist P1-7, 21 October 2026): the boundary, into which
+ * the scan's timed window inlines (its hooks' setup, the scan's allocation count, the cycle's end
+ * event and its metric), the shell's wait and frame polling, esp-hal's alarm arming and interrupt
+ * dispatch, the slice range indexing and the vector buffer drops the cycle calls, 7.1 KB. From
+ * flash they took 18% of the busy samples of `t2q` (t2p with a 2 ms task, firmware `xnocopy`),
+ * and a code change that moved them in the flash cache added 23 µs to every cycle against p1x.
+ * `Runner::run` (5.8 KB, 2% of the samples) stays in flash. */
+*(.text.*22trust_runtime_services6runner*13take_boundary*)
+*(.text.*22trust_runtime_services6runner5shell*10wait_until*)
+*(.text.*22trust_runtime_services6runner5shell*10next_frame*)
+*(.text.*22trust_runtime_services6runner5shell*13expire_change*)
+*(.text.*22trust_runtime_services6runner5shell*12link_sending*)
+*(.text.*22trust_runtime_services6runner5shell*10wake_token*)
+*(.text.*7esp_hal5timer*8AnyTimer*16enable_interrupt*)
+*(.text.*7esp_hal5timer8systimer*5Alarm10set_enable*)
+*(.text.*7esp_hal9interrupt5riscv2rt17handle_interrupts*)
+*(.text.*__esp_hal_internal_wait_alarm*)
+*(.text.*5range7RangeToj*9index_mut*)
+*(.text.*5alloc7raw_vec*6RawVec*4Drop4drop*)
 
 /* The allocator and the critical section the link and the wait share. The transcendental math of
  * `libm` (SIN, EXP, SQRT and their kin, about 18 KB) runs from flash for the same margin; the
