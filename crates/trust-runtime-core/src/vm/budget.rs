@@ -81,6 +81,21 @@ impl ExecutionBudget {
             Ok(true)
         }
     }
+
+    /// Charge `units` instructions of one unit each at once, when none of their charges would be
+    /// refused or request a deadline sample: the allowance is then left as `units` calls of
+    /// [`Self::charge`] with 1 leave it. `false`, with nothing charged, when one of them would be
+    /// refused or sample, so the caller charges them one by one (checklist P1-9).
+    pub fn charge_run(&self, units: usize) -> bool {
+        let remaining = self.remaining.get();
+        let until = self.until_deadline.get();
+        if units > remaining || units >= until {
+            return false;
+        }
+        self.remaining.set(remaining - units);
+        self.until_deadline.set(until - units);
+        true
+    }
 }
 
 #[cfg(test)]
@@ -103,6 +118,58 @@ mod shared_tests {
         assert!(!budget.charge(2).unwrap());
         assert_eq!(budget.remaining(), 0);
         assert!(budget.charge(1).is_err());
+    }
+
+    /// A run charged at once leaves the allowance as its unit charges one by one leave it, and is
+    /// refused, charging nothing, exactly when one of them would be refused or sample the deadline.
+    /// Worked by hand for a fresh allowance of 100 with the stride of 32: a run of 31 leaves 69 and
+    /// one unit before the next sample, so a run of 1 there would sample and is refused; after that
+    /// sample a run of 31 fits again. Catches a run that skips a deadline sample, overdraws the
+    /// allowance, or charges part of itself when refused.
+    #[test]
+    fn a_run_charges_as_its_units_one_by_one() {
+        let budget = ExecutionBudget::new(100);
+        assert!(budget.charge_run(31));
+        assert_eq!(budget.remaining(), 69);
+        assert!(!budget.charge_run(1), "the next unit samples the deadline");
+        assert_eq!(budget.remaining(), 69, "a refused run charges nothing");
+        assert!(budget.charge(1).unwrap(), "charged alone, the unit samples");
+        assert!(budget.charge_run(31));
+        assert_eq!(budget.remaining(), 37);
+        budget.reset(3);
+        assert!(!budget.charge_run(4), "4 units overdraw an allowance of 3");
+        assert!(budget.charge_run(3));
+        assert_eq!(budget.remaining(), 0);
+
+        // Every allowance, every point of the stride and every run up to 40 units against the run's
+        // unit charges one by one.
+        for limit in 0..70 {
+            for before in 0..40 {
+                for units in 0..40 {
+                    let at_once = ExecutionBudget::new(limit);
+                    let one_by_one = ExecutionBudget::new(limit);
+                    for _ in 0..before {
+                        let _ = at_once.charge(1);
+                        let _ = one_by_one.charge(1);
+                    }
+                    let start = (at_once.remaining(), at_once.until_deadline.get());
+                    let charged = at_once.charge_run(units);
+                    let quiet = (0..units).all(|_| one_by_one.charge(1) == Ok(false));
+                    assert_eq!(
+                        charged, quiet,
+                        "limit {limit}, {before} before, run of {units}"
+                    );
+                    if charged {
+                        assert_eq!(
+                            (at_once.remaining(), at_once.until_deadline.get()),
+                            (one_by_one.remaining(), one_by_one.until_deadline.get())
+                        );
+                    } else {
+                        assert_eq!((at_once.remaining(), at_once.until_deadline.get()), start);
+                    }
+                }
+            }
+        }
     }
 
     #[test]

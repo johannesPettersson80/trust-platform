@@ -50,7 +50,7 @@ pub struct ReplyParts {
 }
 
 impl fmt::Debug for ReplyParts {
-    /// The length and the number of parts only, not the reply, which can be 139,264 bytes long.
+    /// The length and the number of parts only, not the reply, which can be 114,688 bytes long.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("ReplyParts")

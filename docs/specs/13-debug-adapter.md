@@ -543,7 +543,10 @@ expression evaluation. (IEC 61131-3 Ed.3, §7.3.3.1, Table 72)
 
 A runtime holds only at a statement's first instruction and at no instruction inside it, so a
 statement's code span in the `LINE_TABLE` is the boundary the runtime may hold at and the unit a
-step returns to.
+step returns to. The engine calls the statement hook only at those first instructions when the
+module has a `LINE_TABLE` and the services declare that their hook acts nowhere else, as the hosted
+and the device runtime do (specification 34 PERF-05, checklist P1-10); otherwise it calls the hook
+at every instruction and the hook finds the statement starts itself.
 
 ### Reload / Hot Reload
 

@@ -6,7 +6,7 @@
 //! builds one value of each array: those are the only two such allocations there. The wrong
 //! behaviour caught: a default built as a value and then stored, which on a 32-bit chip needs
 //! 5,000 x 32 = 160,000 bytes at once for an array of 20,000 bytes, more than the ESP32-C6's heap of
-//! 139,264 bytes holds.
+//! 114,688 bytes holds.
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;

@@ -477,6 +477,11 @@ impl OperandStack {
         active.get(active.len().checked_sub(count)?..)
     }
 
+    /// The number of the active frame's operands, which its limit counts (checklist P1-9).
+    pub(crate) fn depth(&self) -> usize {
+        self.values.len() - self.floor
+    }
+
     /// Pop the active frame's top `count` operands and give back the room of their texts (C1-12).
     pub(crate) fn discard_top(&mut self, count: usize) -> Result<(), VmTrap> {
         let available = self.values.len() - self.floor;

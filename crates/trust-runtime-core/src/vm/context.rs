@@ -195,6 +195,31 @@ pub trait ReferenceContext {
     ) -> bool {
         false
     }
+    /// The cell of the scalar leaf of primitive `prim` at `range`, read as
+    /// [`ReferenceContext::scalar_at`] reads its value (checklist P1-9).
+    fn cell_at(
+        &self,
+        _range: crate::memory::layout::ByteRange,
+        _prim: u16,
+    ) -> Option<crate::memory::cells::Cell> {
+        None
+    }
+    /// Write `cell`, a scalar, into the scalar leaf of primitive `prim` at `range` as
+    /// [`ReferenceContext::store_scalar_at`] writes the value the cell holds (checklist P1-9).
+    /// `false` when there is no such leaf.
+    fn store_cell_at(
+        &mut self,
+        _range: crate::memory::layout::ByteRange,
+        _prim: u16,
+        _cell: crate::memory::cells::Cell,
+    ) -> bool {
+        false
+    }
+    /// Admit the work and allocation of one copy of a scalar or an instance identity, as
+    /// [`ReferenceContext::before_value_clone`] admits such a value (checklist P1-9).
+    fn before_scalar_clone(&self) -> Result<(), crate::error::RuntimeError> {
+        Ok(())
+    }
     /// The place of `view` (C1-10c), when a store may copy the value it shows as bytes: an array or
     /// a structure in a flat block whose type holds no text, reference, instance or overlap. A
     /// composition that holds no flat block has none.
@@ -614,6 +639,16 @@ pub trait ExecutionContext: super::call::context::CallContext {
         frame: &mut super::VmFrame,
         depth: u32,
     ) -> Result<(), crate::error::RuntimeError>;
+    /// Begin the invocation of a program whose body compact code runs without its frame (checklist
+    /// P1-9; `dispatch::compact_entry`) at call depth `depth`: the checks and the start of the
+    /// execution entry that [`ExecutionContext::initialize_frame`] makes before it reserves the
+    /// frame's identity. A composition that runs compact code implements it; the default refuses.
+    fn begin_frameless_invocation(
+        &mut self,
+        _depth: u32,
+    ) -> Result<(), crate::error::RuntimeError> {
+        Err(crate::error::RuntimeError::InvalidExecutionState)
+    }
     /// Maximum admitted logical call depth, including the enclosing invocation.
     fn call_depth_limit(&self) -> usize {
         super::VM_MAX_CALL_DEPTH

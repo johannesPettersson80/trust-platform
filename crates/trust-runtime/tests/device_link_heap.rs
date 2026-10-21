@@ -524,9 +524,9 @@ fn a_chips_line_link_works_in_its_fixed_storage_without_allocating() {
 }
 
 /// The ESP32-C6's transfer session (specification 34, Appendix D.2): an upload of one program slot,
-/// 3,056 KiB, and a reply of the capacity of its heap, 72 KiB + 64 KiB = 139,264 bytes.
+/// 3,056 KiB, and a reply of the capacity of its heap, 48 KiB + 64 KiB = 114,688 bytes.
 fn c6_session() -> RefCell<TransferSession> {
-    RefCell::new(TransferSession::new(1, 3_129_344, 139_264))
+    RefCell::new(TransferSession::new(1, 3_129_344, 114_688))
 }
 
 #[test]

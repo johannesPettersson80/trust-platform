@@ -9,8 +9,8 @@
  * (design §2.2), not through a pattern here. The ROM supplies soft-float and memory routines.
  *
  * Wi-Fi (checklist L3, spec 34 ARCH-10 and D.2) needs about 200 KiB of the C6's RAM, so only the
- * interpreter loop and the per-scan path stay here (the call machinery runs from flash since
- * 21 October 2026, below). The standard functions (`stdlib`, about 40 KB; the function blocks' native
+ * interpreter loop, the per-scan path and the per-call path of a standard call stay here (the rest of
+ * the call machinery runs from flash since 21 October 2026, below). The standard functions (`stdlib`, about 40 KB; the function blocks' native
  * code runs from RAM, below), and REAL to text, string
  * semantics, value display, date and time and sorting (about 12 KB) run from flash, where each
  * instruction costs about 50 ns more (`~/projects/.artifacts/l3/wifi-budget.md` §3.2; measured on
@@ -59,9 +59,19 @@
  * of the call machinery (`vm::call`, about 51 KB, 1.4% of the samples) and of value reference, size
  * and partial-access code, `SIZEOF` and reference attempts (about 14 KB, no samples), and of the
  * frame records, the edge inputs and the dispatcher's helpers (about 3 KB, under 1% of the samples),
- * which run from flash instead; the RAM code keeps the size the stack window leaves it. */
-*(.text.*18trust_runtime_core6memory11cell_access*)
-*(.text.*18trust_runtime_core6memory5cells*)
+ * which run from flash instead; the RAM code keeps the size the stack window leaves it. The
+ * physical view of overlapping structures in the flat store (`memory::cell_access::cell_overlay`
+ * and `memory::cells::convert::overlay`, about 8.5 KB) runs from flash as `value::overlap` does:
+ * only a program with a STRUCT OVERLAP uses it, and no cycle of the bench programs runs it
+ * (21 October 2026, checklist P1-7). The patterns take `memory::cell_access` and `memory::cells`
+ * but the names that begin `12cell_overlay` and `7convert7overlay`. */
+*(.text.*18trust_runtime_core6memory11cell_access[!1]*)
+*(.text.*18trust_runtime_core6memory11cell_access1[!2]*)
+*(.text.*18trust_runtime_core6memory11cell_access12[!c]*)
+*(.text.*18trust_runtime_core6memory5cells[!7]*)
+*(.text.*18trust_runtime_core6memory5cells7[!c]*)
+*(.text.*18trust_runtime_core6memory5cells7convert[!7]*)
+*(.text.*18trust_runtime_core6memory5cells7convert7[!o]*)
 *(.text.*18trust_runtime_core6memory4flat*)
 /* The regions' scan functions: the free functions and `CellRegions`. The builders of the store's
  * shape and its initial values (`PersistentExtent`, `StoreShape`, `Leaves`, `DefaultWriter`, about
@@ -87,8 +97,9 @@
 
 /* The engine's scan modules: the resource cycle and its hooks, the process image, the variable
  * access policy and the assignment and path-write paths a scan runs. `initialization` (the
- * initializer walk), `restart`, `retain_apply`, `retained_graph` and the `std`-gated `owned` and
- * `reconfiguration` are load-time or control-path and stay in flash. So, since 21 October 2026
+ * initializer walk), `restart`, `retain_apply`, `retained_graph`, `retain_capture` (the capture of
+ * the retained values at a due save) and the `std`-gated `owned` and `reconfiguration` are
+ * load-time or control-path and stay in flash. So, since 21 October 2026
  * (checklist P1-7), do the lifecycle marks (`keys`), the admission of a queued write's literal
  * (`literal_admission`) and the types of general-path references (`reference_types`), about
  * 5.2 KB that no cycle of the bench programs runs (the host's instruction counts per cycle,
@@ -136,9 +147,19 @@
 /* The standard function blocks' native code (`stdlib::fbs`, about 4 KB) and a conversion call's
  * binding (`vm::call::stdlib`, about 2 KB), which every block call and conversion of compact code
  * runs (checklist P1-5; `profile-p1c`: 31 samples from flash). The conversions themselves (about
- * 19 KB) run from flash. */
-*(.text.*18trust_runtime_core6stdlib3fbs*)
+ * 19 KB) run from flash. The two patterns take every `stdlib::fbs` item but those of `members`,
+ * whose tables preparation builds (a block's place lookup inlines into its reads and writes). The
+ * places of a block's members, and the module's POU and native symbol lookups that a block call
+ * and a conversion make (checklist P1-4; `profile-p1k-v1p`: 9 samples from flash with the engine
+ * view a cycle takes, `RuntimeState::engine`). */
+*(.text.*18trust_runtime_core6stdlib3fbs[!7]*)
+*(.text.*18trust_runtime_core6stdlib3fbs7[!m]*)
 *(.text.*18trust_runtime_core2vm4call6stdlib*)
+*(.text.*2vm8prepared15builtin_members*14PreparedModule13builtin_table*)
+*(.text.*2vm8prepared15builtin_members*14PreparedModule14builtin_places*)
+*(.text.*11collections*9SortedMap*10VmPouEntry*8position*)
+*(.text.*2vm7symbols*13NativeSymbols3get*)
+*(.text.*2vm6engine3api*12RuntimeState6engine*)
 
 /* The frame stack's push and pop, and the prepared declarations a call and a native block look up
  * (`profile-3`: 14 and 37 samples from flash). */
@@ -148,6 +169,44 @@
 *(.text.*18trust_runtime_core2vm8prepared*14PreparedModule12declarations*)
 *(.text.*18trust_runtime_core2vm8prepared*14PreparedModule15presence_offset*)
 *(.text.*18trust_runtime_core2vm8prepared7indexes6groups*)
+
+/* The call code that every standard call of the general path runs, back in RAM with the 24 KiB the
+ * main heap gave to code (the owner, 21 October 2026, "Nothing else gets slower"; spec 34 D.2: a
+ * call-heavy program from flash was a third slower on 19 October). Chosen by the host's instruction
+ * counts per cycle of the perf bench (`scan-profile-14`): the native call's preparation (about
+ * 19 KB, 55,000 instructions a cycle), the bindings' target reads and the text-call check, the frame
+ * slots and the flattening of a general-path reference, the conversion checks and the deadline
+ * check, each of them from flash before. The bindings' builders and the rest of the call machinery,
+ * the conversions themselves and an array element's offset (`array_offset_i64`, 1.5 KB) stay in
+ * flash, for the room of the stack window (p1s2, 21 October 2026). */
+*(.text.*18trust_runtime_core2vm4call29prepare_native_call_with_args*)
+*(.text.*18trust_runtime_core2vm4call8bindings20resolve_vm_arg_value*)
+*(.text.*18trust_runtime_core2vm4call8bindings19is_current_location*)
+*(.text.*18trust_runtime_core2vm4call8bindings20read_vm_target_value*)
+*(.text.*18trust_runtime_core2vm4call8bindings7targets*13VmWriteTarget17caller_block_slot*)
+*(.text.*18trust_runtime_core2vm4call8bindings7targets*13VmWriteTarget14reference_view*)
+*(.text.*18trust_runtime_core2vm4call8bindings7targets*13VmWriteTarget4peek*)
+*(.text.*18trust_runtime_core2vm4call8bindings7targets*13VmWriteTarget4read*)
+*(.text.*18trust_runtime_core2vm13dispatch_text12text_call_of*)
+*(.text.*18trust_runtime_core2vm13dispatch_text12text_call_at*)
+*(.text.*18trust_runtime_core2vm6engine12frame_blocks*)
+*(.text.*18trust_runtime_core2vm6engine15flat_references*17flatten_reference*)
+*(.text.*12store_access*27recycle_displaced_reference*)
+*(.text.*16ExecutionContext24check_execution_deadline*)
+*(.text.*18trust_runtime_core6stdlib4time13is_split_name*)
+*(.text.*18trust_runtime_core6stdlib4time21is_runtime_clock_name*)
+*(.text.*18trust_runtime_core6stdlib11conversions4util21is_conversion_allowed*)
+*(.text.*18trust_runtime_core6stdlib11conversions9bitstring22integer_to_bit_string*)
+
+/* An operation's run of charges and a program call's edge inputs, which every compact operation and
+ * every program call reach (`profile-p1j-v1p`: 9 and 5 samples from flash). */
+*(.text.*18trust_runtime_core2vm6budget*15ExecutionBudget10charge_run*)
+*(.text.*18trust_runtime_core2vm8prepared7indexes*14PreparedModule11edge_inputs*)
+
+/* The statement-start lookup that the statement hook's check makes at every instruction while
+ * debugging is enabled (checklist P1-10; `profile-p1j-perf`: 434 samples from flash). */
+*(.text.*11collections*9SortedMap*15statement_index13PouStatements*8position*)
+*(.text.*4core5sliceSm13binary_search*18trust_runtime_core)
 
 /* The allocator and the critical section the link and the wait share. The transcendental math of
  * `libm` (SIN, EXP, SQRT and their kin, about 18 KB) runs from flash for the same margin; the

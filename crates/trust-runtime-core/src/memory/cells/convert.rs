@@ -28,7 +28,8 @@ mod overlay;
 mod read;
 pub(crate) use leaf::{leaf_in, max_encoded_len, structure_member_name, CellLeaf};
 pub(crate) use read::{
-    enumeration_number, enumeration_value, read_scalar, read_scalar_leaf, read_value_in,
+    cell_slot, enumeration_number, enumeration_value, read_scalar, read_scalar_cell,
+    read_scalar_leaf, read_value_in,
 };
 
 use super::{Cell, ReferenceTable};
@@ -130,6 +131,27 @@ pub(crate) fn write_scalar_in(
     value: &Value,
 ) -> Result<(), RuntimeError> {
     let cell = scalar_slot(value).ok_or(RuntimeError::InvalidExecutionState)?;
+    flat::encode(LeafKind::Primitive(prim_id), cell, bytes)
+}
+
+/// Write `cell` into the scalar leaf `bytes` of primitive `prim_id`, as [`write_scalar_in`] writes
+/// the value the cell holds (checklist P1-9): a cell that holds no scalar is refused.
+pub(crate) fn write_scalar_cell_in(
+    bytes: &mut [u8],
+    prim_id: u16,
+    cell: Cell,
+) -> Result<(), RuntimeError> {
+    if matches!(
+        cell,
+        Cell::Enum { .. }
+            | Cell::Instance(_)
+            | Cell::Ref(_)
+            | Cell::Flat { .. }
+            | Cell::Null
+            | Cell::NullRef
+    ) {
+        return Err(RuntimeError::InvalidExecutionState);
+    }
     flat::encode(LeafKind::Primitive(prim_id), cell, bytes)
 }
 
@@ -969,7 +991,7 @@ fn unknown_type(type_id: u32) -> RuntimeError {
 }
 
 /// The decoded leaf of a scalar value, or `None` for a value that is not a scalar.
-fn scalar_slot(value: &Value) -> Option<Cell> {
+pub(crate) fn scalar_slot(value: &Value) -> Option<Cell> {
     Some(match value {
         Value::Bool(value) => Cell::Bool(*value),
         Value::Byte(value) => Cell::Byte(*value),

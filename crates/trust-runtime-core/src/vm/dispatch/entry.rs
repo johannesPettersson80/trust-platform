@@ -247,6 +247,25 @@ fn execute_stack_root(
     owned_initial_locals: Option<&mut Option<Vec<Value>>>,
     capture_result_locals: bool,
 ) -> Result<VmPouStackResult, RuntimeError> {
+    // A program whose body compact code runs without its frame, entered with no inputs and no
+    // result to keep, starts without the frame (checklist P1-9).
+    if initial_locals.is_none()
+        && parameter_values_present.is_none()
+        && owned_initial_locals.is_none()
+        && !capture_return
+        && !capture_result_locals
+        && let Some(result) = super::compact_entry::run(
+            runtime,
+            module,
+            pou_id,
+            entry_instance,
+            depth_offset,
+            entry,
+            buffers,
+        )
+    {
+        return result;
+    }
     let progress = execute_with_buffers(
         runtime,
         module,

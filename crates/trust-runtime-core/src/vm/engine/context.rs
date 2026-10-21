@@ -267,6 +267,26 @@ impl<'e> ReferenceContext for EngineState<'e> {
     ) -> bool {
         self.write_scalar_leaf(range, prim, value)
     }
+    fn cell_at(
+        &self,
+        range: crate::memory::layout::ByteRange,
+        prim: u16,
+    ) -> Option<crate::memory::cells::Cell> {
+        self.data.reader(self.prepared).cell_at(range, prim)
+    }
+    fn store_cell_at(
+        &mut self,
+        range: crate::memory::layout::ByteRange,
+        prim: u16,
+        cell: crate::memory::cells::Cell,
+    ) -> bool {
+        self.write_scalar_cell(range, prim, cell)
+    }
+    fn before_scalar_clone(&self) -> Result<(), RuntimeError> {
+        // A scalar's copy charges no work and allocates nothing (TIME-08 COPY), so it is admitted
+        // while the allocation allowance holds, as `before_value_clone` admits a scalar value.
+        self.charge_allocation_bytes(0)
+    }
     fn own_scalar(
         &self,
         instance: crate::memory::InstanceId,
@@ -847,15 +867,19 @@ impl CallContext for EngineState<'_> {
         kind: crate::stdlib::fbs::BuiltinFbKind,
     ) -> Result<(), RuntimeError> {
         // The block runs on the store the engine holds: a persistent instance's members are in the cells
-        // of the cell arm, not in the `Value` half (C1-9d3a, R1), at the positions preparation fixed
-        // for its POU (checklist P1-4).
+        // of the cell arm, not in the `Value` half (C1-9d3a, R1), at the places preparation fixed
+        // for its POU, in the instance's bytes found once for the call (checklist P1-4).
         let prepared = self.prepared;
-        let ordinals = self
+        let places = self
             .data
             .reader(prepared)
-            .instance_pou(instance_id)
-            .and_then(|pou| prepared.builtin_members(pou));
-        crate::stdlib::fbs::execute_builtin_in_store(self, now, instance_id, kind, ordinals)
+            .instance_pou_and_range(instance_id)
+            .and_then(|(pou, bytes)| {
+                prepared
+                    .builtin_places(pou)
+                    .map(|members| crate::stdlib::fbs::members::BlockPlaces { bytes, members })
+            });
+        crate::stdlib::fbs::execute_builtin_in_store(self, now, instance_id, kind, places)
     }
 }
 
@@ -890,9 +914,7 @@ impl ExecutionContext for EngineState<'_> {
         let _timing = crate::vm::diagnostic_timing::begin(
             crate::vm::diagnostic_timing::Phase::FrameInitialize,
         );
-        if depth as usize >= self.prepared.limits.max_call_depth {
-            return Err(VmTrap::CallStackOverflow.into_runtime_error());
-        }
+        self.check_frame_depth(depth)?;
         let id = self.reserve_activation_identity()?;
         frame.activation = Some(id);
         self.data.storage.activate_execution_frame(id)?;
@@ -913,6 +935,10 @@ impl ExecutionContext for EngineState<'_> {
             .is_some_and(|value| !matches!(value, Value::Null));
         self.place_frame(frame, id)?;
         self.initialize_frame_declarations(module, frame, depth, return_supplied)
+    }
+    fn begin_frameless_invocation(&mut self, depth: u32) -> Result<(), RuntimeError> {
+        self.check_frame_depth(depth)?;
+        self.begin_entry_before_first_frame()
     }
     fn retire_frame(&mut self, frame: &VmFrame) -> Result<(), RuntimeError> {
         #[cfg(all(feature = "std", feature = "test-support"))]
@@ -1014,6 +1040,15 @@ impl ExecutionContext for EngineState<'_> {
         // Neither initial installation nor an isolated restart candidate may
         // publish frame snapshots into the installed controller's service state.
         if self.data.construction_complete {
+            // A hook that acts only at statement starts is not called at the other instructions of
+            // a module with a statement index, and nothing is counted for them (checklist P1-10).
+            if self.services.hook_acts_at_statement_starts()
+                && self.prepared.has_statement_index()
+                && let Ok(offset) = u32::try_from(pc)
+                && self.prepared.statement_start(pou, offset).is_none()
+            {
+                return Ok(());
+            }
             let frame = frame.with_call_stack(&self.data.storage);
             // On the flat store the frames' typed locals, the globals and the instances are read
             // from the blocks (C1-17).

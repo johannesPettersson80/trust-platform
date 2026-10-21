@@ -139,6 +139,20 @@ pub(crate) fn read_scalar_leaf(prim_id: u16, bytes: &[u8]) -> Option<Value> {
     cell_slot(cell).filter(|value| primitive_value_matches(prim_id, value))
 }
 
+/// The cell of a scalar leaf of primitive `prim_id`, read from its `bytes` as [`read_scalar_leaf`]
+/// reads its value, or `None` where that refuses the leaf (checklist P1-9). Only a native counter
+/// slot decodes to a cell of another primitive than its own, so only its cell is checked.
+pub(crate) fn read_scalar_cell(prim_id: u16, bytes: &[u8]) -> Option<Cell> {
+    let cell = flat::decode(LeafKind::Primitive(prim_id), bytes).ok()?;
+    if prim_id == 0x0100
+        && cell != Cell::Null
+        && !cell_slot(cell).is_some_and(|value| primitive_value_matches(prim_id, &value))
+    {
+        return None;
+    }
+    Some(cell)
+}
+
 /// Materialize one enumeration leaf as the variant the type declares for its value.
 fn read_enumeration(
     type_id: u32,
@@ -267,7 +281,7 @@ fn read_array(
 }
 
 /// The scalar value of a decoded scalar leaf, or `None` for a leaf that holds no scalar.
-fn cell_slot(cell: Cell) -> Option<Value> {
+pub(crate) fn cell_slot(cell: Cell) -> Option<Value> {
     Some(match cell {
         Cell::Bool(value) => Value::Bool(value),
         Cell::Byte(value) => Value::Byte(value),

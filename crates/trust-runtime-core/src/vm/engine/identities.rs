@@ -343,10 +343,25 @@ impl super::EngineState<'_> {
     /// identity cannot name anything of an earlier entry. Construction keeps a single
     /// increasing sequence.
     pub(super) fn reserve_activation_identity(&mut self) -> Result<FrameId, RuntimeError> {
+        self.begin_entry_before_first_frame()?;
+        self.data.storage.reserve_execution_frame()
+    }
+
+    /// Start a top-level execution entry when no frame of one is active, as its first frame's
+    /// identity is reserved, and as a program that runs without its frame begins (checklist P1-9).
+    pub(super) fn begin_entry_before_first_frame(&mut self) -> Result<(), RuntimeError> {
         if self.data.construction_complete && self.data.storage.execution_frame_count() == 0 {
             self.begin_execution_entry()?;
         }
-        self.data.storage.reserve_execution_frame()
+        Ok(())
+    }
+
+    /// Refuse a frame at call depth `depth` that the program's call levels do not hold.
+    pub(super) fn check_frame_depth(&self, depth: u32) -> Result<(), RuntimeError> {
+        if depth as usize >= self.prepared.limits.max_call_depth {
+            return Err(crate::vm::VmTrap::CallStackOverflow.into_runtime_error());
+        }
+        Ok(())
     }
 }
 

@@ -207,6 +207,12 @@ impl<C: MonotonicClock> ExecutionServices for DeviceServices<C> {
         self.debugging.get()
     }
 
+    /// The statement hook acts only where the module's statement index names a statement start
+    /// (`at_statement`).
+    fn hook_acts_at_statement_starts(&self) -> bool {
+        true
+    }
+
     /// The platform's count, read through the function the device gave.
     fn allocator_operations(&self) -> Option<u64> {
         self.allocator_operations.map(|operations| operations())
@@ -220,9 +226,10 @@ impl<C: MonotonicClock> ExecutionServices for DeviceServices<C> {
     ///
     /// No borrow of the loop outlives a call of the pass, and none is held while the hook waits.
     ///
-    /// The engine calls the hook at every instruction. With the debugger off it is one check,
-    /// inlined into the engine's dispatch loop, which a chip runs from RAM, so a scan without a
-    /// debugger makes no call into this code (specification 11 §6.9).
+    /// The engine calls the hook at every statement start that the module's statement index names
+    /// (`hook_acts_at_statement_starts`). With the debugger off it is one check, inlined into the
+    /// engine's dispatch loop, which a chip runs from RAM, so a scan without a debugger makes no
+    /// call into this code (specification 11 §6.9).
     #[allow(clippy::inline_always)]
     #[inline(always)]
     fn on_statement_with_frame_checked(

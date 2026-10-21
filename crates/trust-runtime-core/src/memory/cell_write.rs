@@ -16,8 +16,8 @@ use super::{CellArm, CellReader, Target};
 use crate::error::RuntimeError;
 use crate::memory::cell_access::LeafPatch;
 use crate::memory::cells::{
-    check_value, flat_cell, is_reference_type, text_geometry, write_scalar_in, write_value_in,
-    Cell, FlatBlock, ReferenceTable,
+    check_value, flat_cell, is_reference_type, text_geometry, write_scalar_cell_in,
+    write_scalar_in, write_value_in, Cell, FlatBlock, ReferenceTable,
 };
 use crate::memory::flat::{self, LeafKind, TextBytes};
 use crate::memory::layout::ByteRange;
@@ -230,6 +230,15 @@ impl<'a> CellWriter<'a> {
             .bytes_mut(range)
             .is_some_and(|bytes| write_scalar_in(bytes, prim_id, value).is_ok());
         mark_presence(block, range, presence.filter(|_| written), true).unwrap_or(written)
+    }
+
+    /// Write `cell` into the scalar leaf of primitive `prim_id` at `range`, which has no presence
+    /// byte, as [`Self::store_scalar`] writes the value the cell holds (checklist P1-9).
+    pub(crate) fn store_cell(&mut self, range: ByteRange, prim_id: u16, cell: Cell) -> bool {
+        let (block, _) = self.arm.cells.regions_mut().block_mut(range.region);
+        block
+            .bytes_mut(range)
+            .is_some_and(|bytes| write_scalar_cell_in(bytes, prim_id, cell).is_ok())
     }
 
     /// Write `value` into the declared variable at `range`, of `type_id`, whose presence byte is at
@@ -622,25 +631,13 @@ impl StoreMutate for CellWriter<'_> {
         self.store_member(range, type_id, presence, value)
     }
 
-    fn write_instance_member(
+    fn write_place(
         &mut self,
-        instance: InstanceId,
-        ordinal: u16,
-        name: &'static str,
+        range: ByteRange,
+        type_id: u32,
+        presence: Option<u32>,
         value: Value,
     ) -> bool {
-        if !self.arm.is_persistent(instance) {
-            return self
-                .values
-                .set_instance_var(instance, SmolStr::new_static(name), value);
-        }
-        let target = self
-            .reader()
-            .own_member_at(instance, usize::from(ordinal))
-            .map(|member| (member.range, member.type_id, member.presence));
-        let Some((range, type_id, presence)) = target else {
-            return false;
-        };
         self.store_member(range, type_id, presence, value)
     }
 

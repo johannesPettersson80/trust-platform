@@ -29,8 +29,9 @@ use crate::memory::view::StoreAccess;
 use crate::memory::MemoryLocation;
 use crate::value::{RefPath, Value, ValueRef};
 
-/// Run `code`, the compact code of the current frame's body, from its first operation to the
-/// body's end, which `end` is; `pc` is then `end`. `pou` is the frame's POU.
+/// Run `code`, the compact code of the current frame's body, from operation `first` to the body's
+/// end, which `end` is; `pc` is then `end`. `pou` is the frame's POU. The typed loop starts it at
+/// the operation it hands over (checklist P1-9).
 #[allow(clippy::too_many_arguments)]
 pub(super) fn run(
     runtime: &mut impl ExecutionContext,
@@ -42,10 +43,11 @@ pub(super) fn run(
     pou: u32,
     pc: &mut usize,
     end: usize,
+    first: usize,
 ) -> Result<(), RuntimeError> {
     let instance = frames.current().and_then(|frame| frame.runtime_instance);
     let own = instance.and_then(|instance| runtime.instance_bytes(instance));
-    let mut next = 0;
+    let mut next = first;
     while let Some(op) = code.ops.get(next) {
         next += 1;
         let at = op.at;
@@ -73,10 +75,7 @@ pub(super) fn run(
                 let slot = slot(code, op.arg)?;
                 let value = operand_stack.pop().map_err(VmTrap::into_runtime_error)?;
                 if !write(runtime, own, slot, &value) {
-                    let reference = own_ref(runtime, instance, slot)?;
-                    dynamic_store_ref(runtime, module, frames, &reference, value)
-                        .map_err(VmTrap::into_runtime_error)?;
-                    runtime.recycle_reference_path(reference.path);
+                    store_own(runtime, module, frames, instance, slot, value)?;
                 }
             }
             OpKind::OwnRef => {
@@ -261,7 +260,7 @@ fn native_call(
 
 /// The `CALL_NATIVE` at `at`, which finishes at once, as the dispatcher runs it: its value is
 /// pushed.
-fn call(
+pub(super) fn call(
     runtime: &mut impl ExecutionContext,
     module: &VmModule,
     frames: &mut FrameStack,
@@ -296,14 +295,27 @@ fn call(
 }
 
 /// The conversion call of `symbol` on the scalar on top, as the general call runs it (checklist
-/// P1-5): the deadline is checked, the argument is bound and converted with the call's charges, the
-/// deadline is checked again once the call has its value, and the value is pushed.
+/// P1-5): the argument is converted ([`converted`]) and the value is pushed.
 fn convert(
     runtime: &mut impl ExecutionContext,
     module: &VmModule,
     operand_stack: &mut OperandStack,
     symbol: u32,
 ) -> Result<(), RuntimeError> {
+    let argument = operand_stack.pop().map_err(VmTrap::into_runtime_error)?;
+    let value = converted(runtime, module, symbol, &argument)?;
+    push(operand_stack, value)
+}
+
+/// The conversion of `argument`, a scalar, by standard call `symbol`, as the general call runs it
+/// (checklist P1-5): the deadline is checked, the argument is bound and converted with the call's
+/// charges, and the deadline is checked again once the call has its value.
+pub(super) fn converted(
+    runtime: &mut impl ExecutionContext,
+    module: &VmModule,
+    symbol: u32,
+    argument: &Value,
+) -> Result<Value, RuntimeError> {
     if runtime.deadline_exceeded() {
         return Err(VmTrap::DeadlineExceeded.into_runtime_error());
     }
@@ -314,15 +326,14 @@ fn convert(
     else {
         return Err(RuntimeError::InvalidExecutionState);
     };
-    let argument = operand_stack.pop().map_err(VmTrap::into_runtime_error)?;
-    let value = convert_argument(runtime, *spec, &argument).map_err(VmTrap::into_runtime_error)?;
+    let value = convert_argument(runtime, *spec, argument).map_err(VmTrap::into_runtime_error)?;
     runtime.check_execution_deadline()?;
-    push(operand_stack, value)
+    Ok(value)
 }
 
 /// What the dispatcher does before the instruction at `at`: it records the instruction as the
 /// fault site and charges its unit.
-fn begin(
+pub(super) fn begin(
     runtime: &impl ExecutionContext,
     fault_site: &mut Option<FaultSite>,
     pou: u32,
@@ -332,14 +343,23 @@ fn begin(
     runtime.charge_execution_work(1)
 }
 
-/// [`begin`] for each instruction an operation covers, in order, at `offsets` from `at`.
-fn begin_each<const N: usize>(
+/// [`begin`] for each instruction an operation covers, in order, at `offsets` from `at`. When none
+/// of their unit charges would be refused or sample the deadline, they are charged at once and the
+/// last instruction is recorded as the site, which is where the charges one by one leave it
+/// (checklist P1-9).
+pub(super) fn begin_each<const N: usize>(
     runtime: &impl ExecutionContext,
     fault_site: &mut Option<FaultSite>,
     pou: u32,
     at: u32,
     offsets: [u32; N],
 ) -> Result<(), RuntimeError> {
+    if let Some(last) = offsets.last()
+        && runtime.execution_budget().charge_run(N)
+    {
+        *fault_site = Some(FaultSite { pou, pc: at + last });
+        return Ok(());
+    }
     for offset in offsets {
         begin(runtime, fault_site, pou, at + offset)?;
     }
@@ -365,7 +385,7 @@ fn discard(
     Ok(())
 }
 
-fn push(operand_stack: &mut OperandStack, value: Value) -> Result<(), RuntimeError> {
+pub(super) fn push(operand_stack: &mut OperandStack, value: Value) -> Result<(), RuntimeError> {
     operand_stack
         .push(value)
         .map_err(VmTrap::into_runtime_error)
@@ -380,7 +400,7 @@ fn slot(code: &CompactCode, index: u32) -> Result<Slot, RuntimeError> {
 }
 
 /// The globals' bytes: the persistent block from its first byte.
-fn globals() -> Option<ByteRange> {
+pub(super) fn globals() -> Option<ByteRange> {
     Some(ByteRange {
         region: LayoutRegion::Persistent,
         start: 0,
@@ -389,7 +409,7 @@ fn globals() -> Option<ByteRange> {
 }
 
 /// The leaf of `slot` in the bytes that start at `base`.
-fn leaf(base: ByteRange, slot: Slot) -> Option<ByteRange> {
+pub(super) fn leaf(base: ByteRange, slot: Slot) -> Option<ByteRange> {
     Some(ByteRange {
         region: base.region,
         start: base.start.checked_add(slot.offset)?,
@@ -428,7 +448,7 @@ fn member_value(
 
 /// The persistent instance that the instance leaf of `holder` in the bytes at `own` names; `None`
 /// when it names none.
-fn own_instance(
+pub(super) fn own_instance(
     runtime: &impl ExecutionContext,
     own: Option<ByteRange>,
     holder: Slot,
@@ -454,6 +474,23 @@ fn own_reference(
 ) -> Result<(), RuntimeError> {
     let reference = own_ref(runtime, instance, slot)?;
     push(operand_stack, Value::Reference(Some(reference)))
+}
+
+/// The store of `value` into own variable `slot` of `instance` as the general path stores it,
+/// through the reference REF_FIELD gives: the store the compact code leaves to it.
+pub(super) fn store_own(
+    runtime: &mut impl ExecutionContext,
+    module: &VmModule,
+    frames: &mut FrameStack,
+    instance: Option<crate::memory::InstanceId>,
+    slot: Slot,
+    value: Value,
+) -> Result<(), RuntimeError> {
+    let reference = own_ref(runtime, instance, slot)?;
+    dynamic_store_ref(runtime, module, frames, &reference, value)
+        .map_err(VmTrap::into_runtime_error)?;
+    runtime.recycle_reference_path(reference.path);
+    Ok(())
 }
 
 /// The reference REF_FIELD gives to own variable `slot` of `instance`.

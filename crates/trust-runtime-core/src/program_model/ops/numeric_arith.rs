@@ -36,58 +36,68 @@ fn numeric_arith(op: BinaryOp, left: Value, right: Value) -> Result<Value, Runti
             })
         }
         NumericKind::SInt | NumericKind::Int | NumericKind::DInt | NumericKind::LInt => {
-            let a = to_i64(&left)?;
-            let b = to_i64(&right)?;
-            let result = match op {
-                BinaryOp::Add => a.checked_add(b).ok_or_else(|| RuntimeError::Overflow)?,
-                BinaryOp::Sub => a.checked_sub(b).ok_or_else(|| RuntimeError::Overflow)?,
-                BinaryOp::Mul => a.checked_mul(b).ok_or_else(|| RuntimeError::Overflow)?,
-                BinaryOp::Div => {
-                    if b == 0 {
-                        return Err(RuntimeError::DivisionByZero);
-                    }
-                    a.checked_div(b).ok_or_else(|| RuntimeError::Overflow)?
-                }
-                BinaryOp::Mod => checked_signed_remainder(a, b)?,
-                BinaryOp::Pow => {
-                    if b < 0 {
-                        return Err(RuntimeError::TypeMismatch);
-                    }
-                    let exp = u32::try_from(b).map_err(|_| RuntimeError::Overflow)?;
-                    a.checked_pow(exp).ok_or_else(|| RuntimeError::Overflow)?
-                }
-                _ => return Err(RuntimeError::TypeMismatch),
-            };
+            let result = signed_arith(op, to_i64(&left)?, to_i64(&right)?)?;
             signed_from_i128(target, i128::from(result))
         }
         NumericKind::USInt | NumericKind::UInt | NumericKind::UDInt | NumericKind::ULInt => {
-            let a = to_u64(&left)?;
-            let b = to_u64(&right)?;
-            let result = match op {
-                BinaryOp::Add => a.checked_add(b).ok_or_else(|| RuntimeError::Overflow)?,
-                BinaryOp::Sub => a.checked_sub(b).ok_or_else(|| RuntimeError::Overflow)?,
-                BinaryOp::Mul => a.checked_mul(b).ok_or_else(|| RuntimeError::Overflow)?,
-                BinaryOp::Div => {
-                    if b == 0 {
-                        return Err(RuntimeError::DivisionByZero);
-                    }
-                    a / b
-                }
-                BinaryOp::Mod => {
-                    if b == 0 {
-                        return Err(RuntimeError::ModuloByZero);
-                    }
-                    a % b
-                }
-                BinaryOp::Pow => {
-                    let exp = u32::try_from(b).map_err(|_| RuntimeError::Overflow)?;
-                    a.checked_pow(exp).ok_or_else(|| RuntimeError::Overflow)?
-                }
-                _ => return Err(RuntimeError::TypeMismatch),
-            };
+            let result = unsigned_arith(op, to_u64(&left)?, to_u64(&right)?)?;
             unsigned_from_u128(target, u128::from(result))
         }
     }
+}
+
+/// The arithmetic of two signed integers, widened to `i64`, before the result is narrowed to the
+/// operands' common type: the rule of `numeric_arith` and of compact code's integer operands
+/// (checklist P1-9).
+pub(crate) fn signed_arith(op: BinaryOp, a: i64, b: i64) -> Result<i64, RuntimeError> {
+    Ok(match op {
+        BinaryOp::Add => a.checked_add(b).ok_or(RuntimeError::Overflow)?,
+        BinaryOp::Sub => a.checked_sub(b).ok_or(RuntimeError::Overflow)?,
+        BinaryOp::Mul => a.checked_mul(b).ok_or(RuntimeError::Overflow)?,
+        BinaryOp::Div => {
+            if b == 0 {
+                return Err(RuntimeError::DivisionByZero);
+            }
+            a.checked_div(b).ok_or(RuntimeError::Overflow)?
+        }
+        BinaryOp::Mod => checked_signed_remainder(a, b)?,
+        BinaryOp::Pow => {
+            if b < 0 {
+                return Err(RuntimeError::TypeMismatch);
+            }
+            let exp = u32::try_from(b).map_err(|_| RuntimeError::Overflow)?;
+            a.checked_pow(exp).ok_or(RuntimeError::Overflow)?
+        }
+        _ => return Err(RuntimeError::TypeMismatch),
+    })
+}
+
+/// The arithmetic of two unsigned integers, widened to `u64`, before the result is narrowed to the
+/// operands' common type: the rule of `numeric_arith` and of compact code's integer operands
+/// (checklist P1-9).
+pub(crate) fn unsigned_arith(op: BinaryOp, a: u64, b: u64) -> Result<u64, RuntimeError> {
+    Ok(match op {
+        BinaryOp::Add => a.checked_add(b).ok_or(RuntimeError::Overflow)?,
+        BinaryOp::Sub => a.checked_sub(b).ok_or(RuntimeError::Overflow)?,
+        BinaryOp::Mul => a.checked_mul(b).ok_or(RuntimeError::Overflow)?,
+        BinaryOp::Div => {
+            if b == 0 {
+                return Err(RuntimeError::DivisionByZero);
+            }
+            a / b
+        }
+        BinaryOp::Mod => {
+            if b == 0 {
+                return Err(RuntimeError::ModuloByZero);
+            }
+            a % b
+        }
+        BinaryOp::Pow => {
+            let exp = u32::try_from(b).map_err(|_| RuntimeError::Overflow)?;
+            a.checked_pow(exp).ok_or(RuntimeError::Overflow)?
+        }
+        _ => return Err(RuntimeError::TypeMismatch),
+    })
 }
 
 /// Signed IEC remainder shared by the general arithmetic path and optimized
@@ -110,7 +120,8 @@ mod integer_width_tests {
     fn wide_numeric_arith(op: BinaryOp, left: Value, right: Value) -> Result<Value, RuntimeError> {
         let left_kind = numeric_kind(&left).ok_or_else(|| RuntimeError::TypeMismatch)?;
         let right_kind = numeric_kind(&right).ok_or_else(|| RuntimeError::TypeMismatch)?;
-        let target = wider_numeric(left_kind, right_kind).ok_or_else(|| RuntimeError::TypeMismatch)?;
+        let target =
+            wider_numeric(left_kind, right_kind).ok_or_else(|| RuntimeError::TypeMismatch)?;
         match target {
             NumericKind::Real | NumericKind::LReal => {
                 if matches!(op, BinaryOp::Mod) {

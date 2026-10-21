@@ -40,13 +40,16 @@ pub(crate) use blocks::BlockCall;
 mod probe_tests;
 
 /// The compact code of one body: the code offset of its first instruction, its operations, the
-/// variables they name, and its calls of standard function blocks.
+/// variables they name, and its calls of standard function blocks. `frameless` says that the body
+/// is a program's that keeps no variable in a frame and initializes nothing in one, so its entry
+/// pushes the frame only when an operation needs it (checklist P1-9; `dispatch::compact_entry`).
 #[derive(Debug, Clone, Default, PartialEq)]
 pub(crate) struct CompactCode {
     pub(crate) start: usize,
     pub(crate) ops: Vec<Op>,
     pub(crate) slots: Vec<Slot>,
     pub(crate) blocks: Vec<BlockCall>,
+    pub(crate) frameless: bool,
 }
 
 /// One operation. `at` is the code offset of the first instruction it covers; `arg` is a constant's
@@ -171,7 +174,7 @@ impl CompactCode {
             PouKind::Program => true,
             // A standard function block's calls run its native code, never its body.
             PouKind::FunctionBlock => {
-                !extended(prepared, pou) && prepared.builtin_members(pou).is_none()
+                !extended(prepared, pou) && prepared.builtin_formals(pou).is_none()
             }
             _ => false,
         };
@@ -194,11 +197,17 @@ impl CompactCode {
         scratch.jumps.clear();
         scratch.stack.clear();
         Translation::run(prepared, pou, scratch, true, code, entry.code_start)?;
+        let frameless = entry.kind == PouKind::Program
+            && prepared.frame_action_plan_index(pou).is_none()
+            && prepared
+                .local_range(pou)
+                .is_none_or(|range| range.bytes == 0);
         Some(Self {
             start: entry.code_start,
             ops: core::mem::take(&mut scratch.ops),
             slots: core::mem::take(&mut scratch.slots),
             blocks: core::mem::take(&mut scratch.blocks),
+            frameless,
         })
     }
 }

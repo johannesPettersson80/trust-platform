@@ -2,6 +2,7 @@
 use super::call::context::RegisterCallOpKind;
 use super::call::push_call_frame;
 mod compact_block;
+mod compact_entry;
 mod compact_loop;
 mod continuation;
 mod continuation_stack;
@@ -10,6 +11,7 @@ mod fused;
 #[cfg(feature = "register-ir")]
 mod leaf_call;
 mod session;
+mod typed_loop;
 use super::context::ExecutionContext;
 use super::dispatch_ops::{
     apply_jump, execute_binary, execute_unary, read_i32, read_u32, reference_equality,
@@ -421,20 +423,21 @@ fn execute_with_buffers(
             return Err(VmTrap::InvalidJumpTarget(cursor.pc as i64).into_runtime_error());
         }
 
-        // A body with compact code runs on the compact loop from its first instruction to its end
-        // while variables are read and written in place and no operand waits for the dispatcher to
-        // replace it with its value; the frame is then finished above, as any other (checklist
-        // P1-F).
+        // A body with compact code runs on the typed loop, which hands it to the compact loop where
+        // it holds no operand, from its first instruction to its end while variables are read and
+        // written in place and no operand waits for the dispatcher to replace it with its value; the
+        // frame is then finished above, as any other (checklist P1-F, P1-9). Its code is looked up
+        // only at a frame's first instruction.
         if let Some(pou) = frame_pou_id
+            && cursor.pc == frame_start
             && let Some(code) = module.compact_code(pou)
             && code.start == frame_start
-            && cursor.pc == frame_start
             && operand_stack.places() == 0
             && operand_stack.enums() == 0
             && operand_stack.copies() == 0
             && runtime.runs_compact()
         {
-            compact_loop::run(
+            typed_loop::run(
                 runtime,
                 module,
                 code,
@@ -444,6 +447,7 @@ fn execute_with_buffers(
                 pou,
                 &mut cursor.pc,
                 frame_end,
+                typed_loop::Frame::Pushed,
             )?;
             continue;
         }

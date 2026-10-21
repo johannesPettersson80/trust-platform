@@ -691,19 +691,19 @@ pub trait StoreAccess {
     /// `vm::engine::retain_apply`.
     fn read_instance_var<'a>(&'a self, instance: InstanceId, name: &str) -> Option<ValueView<'a>>;
 
-    /// The view of the variable that `instance` declares itself at position `ordinal` among the
-    /// declarations of its POU, whose name is `name`: the variable [`StoreAccess::read_instance_var`]
-    /// finds by that name (checklist P1-4). A store that keeps no declared positions finds it by the
-    /// name, as this default does; the flat store reaches a persistent instance's variable by its
-    /// position and compares no names.
-    fn read_instance_member<'a>(
+    /// The view of the variable of `type_id` whose bytes are `range` of this store's cells, with its
+    /// presence byte at `presence` when it keeps one: a persistent instance's variable at the place
+    /// preparation fixed for it, which [`StoreAccess::read_instance_var`] finds by its name
+    /// (checklist P1-4). A store that holds no cells holds no variable at a place, as this default
+    /// answers.
+    fn read_place<'a>(
         &'a self,
-        instance: InstanceId,
-        ordinal: u16,
-        name: &str,
+        range: ByteRange,
+        type_id: u32,
+        presence: Option<u32>,
     ) -> Option<ValueView<'a>> {
-        let _ = ordinal;
-        self.read_instance_var(instance, name)
+        let _ = (range, type_id, presence);
+        None
     }
 
     /// The view of one global variable selected by its declared name.
@@ -887,20 +887,19 @@ pub trait StoreMutate {
         value: Value,
     ) -> bool;
 
-    /// Replace the variable that `instance` declares itself at position `ordinal` among the
-    /// declarations of its POU, whose name is `name`, as [`StoreMutate::write_instance_var`] replaces
-    /// the variable of that name (checklist P1-4). A store that keeps no declared positions writes it
-    /// by the name, as this default does; the flat store reaches a persistent instance's variable by
-    /// its position and compares no names.
-    fn write_instance_member(
+    /// Replace the variable of `type_id` at `range` of this store's cells, whose presence byte is at
+    /// `presence`, as [`StoreAccess::read_place`] reads it and as
+    /// [`StoreMutate::write_instance_var`] replaces the variable of its name (checklist P1-4).
+    /// `false`, having written nothing, for a store that holds no cells, as this default answers.
+    fn write_place(
         &mut self,
-        instance: InstanceId,
-        ordinal: u16,
-        name: &'static str,
+        range: ByteRange,
+        type_id: u32,
+        presence: Option<u32>,
         value: Value,
     ) -> bool {
-        let _ = ordinal;
-        self.write_instance_var(instance, name, value)
+        let _ = (range, type_id, presence, value);
+        false
     }
 
     /// Replace one global variable selected by its declared name.

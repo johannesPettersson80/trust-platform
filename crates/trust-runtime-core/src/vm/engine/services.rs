@@ -23,6 +23,14 @@ pub trait ExecutionServices {
         true
     }
 
+    /// Whether the statement hooks below act only at the first instruction of a statement that the
+    /// module's `LINE_TABLE` names, so that the engine need not call them at any other instruction
+    /// of a module that has one (checklist P1-10; specification 13, "Safe Points"). The default,
+    /// `false`, calls them at every instruction they observe.
+    fn hook_acts_at_statement_starts(&self) -> bool {
+        false
+    }
+
     /// The allocator operations, each allocation, reallocation and free once, that the thread
     /// running the scan has made so far, when the platform counts them; `None` when it does not.
     /// The engine reads it when a scan begins and ends and around every call it makes into a

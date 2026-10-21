@@ -112,7 +112,7 @@ pub(crate) fn engine_parts(prepared: &PreparedModule) -> Result<EngineParts, Run
             instance_bookkeeping_bytes(&prepared.instance_bookkeeping()?).ok_or_else(overflow)?,
             register_telemetry,
         ])?,
-        retain_capture: cycle::retained_payload_bound(prepared)
+        retain_capture: retain_capture::retained_payload_bound(prepared)
             .and_then(|bytes| bytes.checked_mul(2))
             .ok_or_else(overflow)?,
     })

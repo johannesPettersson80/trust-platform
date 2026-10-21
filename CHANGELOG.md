@@ -19,7 +19,12 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   timer whose preset is a TIME or an LTIME also runs where it lies, and a scan with no queued writes
   or forces skips the Live Values queues. The ESP32-C6 reads its clock from the CPU's cycle counter
   between waits, and its RAM code list holds the code that every scan runs. A BOOL, integer, bit
-  string or character bound at its own width is sampled and published by copying its bytes. On the
+  string or character bound at its own width is sampled and published by copying its bytes. Compact
+  code computes the arithmetic, comparisons and logic of integers and BOOLs on their stored values,
+  without building general values, and a program body that keeps no variable in a call frame starts
+  without one. With debugging enabled, the debugger's statement hook is called only at statement
+  starts instead of at every instruction. The ESP32-C6 gives 24 KiB of its 136 KiB program heap to the
+  code that runs from RAM: programs have 112 KiB, and a reply can be up to 114,688 bytes. On the
   ESP32-C6 the scan of a 2-statement program went from 0.90 ms to 0.17 ms (its cycle from 2.9 ms to
   0.45 ms), and that of a 15-statement program with a timer, an edge trigger and three conversions
   from 6.8 ms to 1.04 ms (its cycle from 9.9 ms to 1.47 ms).
@@ -124,7 +129,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   gives its Live Values the program's generation after a `restart`, the recovery of a faulted
   resource, the automatic restart of the fault policy and the start of a stopped program, and when it
   takes a program that started warm, at boot or when it loads one in place.
-- Fixed: the ESP32-C6 holds a reply longer than its 8,192-byte frame, up to the 139,264 bytes of its
+- Fixed: the ESP32-C6 holds a reply longer than its 8,192-byte frame, up to the 114,688 bytes of its
   heap, as a computer does, so `trust-runtime ctl events --limit 200` over USB is no longer refused
   with `reply longer than 8192 bytes`. A reply the heap has no room for is refused with
   `no room for a reply longer than <n> bytes`, and never resets the chip.

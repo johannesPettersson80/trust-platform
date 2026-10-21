@@ -131,12 +131,12 @@ pub const MAIN_STACK: DeviceStack = DeviceStack {
     level_bytes: 6_144,
 };
 
-/// The capacity of the C6's heap, in bytes: its two regions, the 72 KiB main heap and the 64 KiB of
+/// The capacity of the C6's heap, in bytes: its two regions, the 48 KiB main heap and the 64 KiB of
 /// the boot loader's reclaimed RAM (`HEAP_BYTES` and `RECLAIMED_BYTES` of the firmware's
 /// `memory.rs`; specification 34, Appendix D.2). It is the reply capacity of the transfer session: a
 /// chip holds a reply as far as its heap reaches (PORT-05). The host test
 /// `the_c6_session_holds_replies_up_to_its_heap` keeps it equal to the two figures of `memory.rs`.
-pub const HEAP_CAPACITY_BYTES: usize = (72 + 64) * 1024;
+pub const HEAP_CAPACITY_BYTES: usize = (48 + 64) * 1024;
 
 /// The transfer session of boot number `boot` (specification 34, PORT-05). A transfer id carries the
 /// boot number in its high 32 bits, so an id of an earlier boot never names a transfer of this one. The

@@ -39,9 +39,9 @@ const PART: usize = 4_096;
 /// The upload limit of the ESP32-C6's session: one program slot, 3,056 KiB (specification 34,
 /// Appendix D.2).
 const C6_SLOT_BYTES: usize = 3_129_344;
-/// The reply capacity of the ESP32-C6's session: its heap, 72 KiB + 64 KiB = 139,264 bytes
+/// The reply capacity of the ESP32-C6's session: its heap, 48 KiB + 64 KiB = 114,688 bytes
 /// (specification 34, Appendix D.2).
-const C6_HEAP_BYTES: usize = 139_264;
+const C6_HEAP_BYTES: usize = 114_688;
 /// One event of the store [`fill_events`] fills, as `events.tail` writes it: `{"feature":"debug",
 /// "request_type":null,"time_ns":null,"type":"feature_disabled"}` is 80 bytes, whatever order the
 /// members come in.
@@ -374,7 +374,7 @@ fn a_reply_above_the_buffer_is_refused_not_cut() {
 #[test]
 fn a_chip_holds_two_hundred_events_in_parts_and_answers_them_whole() {
     // Specification 34 PORT-05, reply head and get, reply capacity and parts; Appendix D.2, long
-    // replies. A chip with the C6's session (a reply capacity of 139,264 bytes) holds a read of its
+    // replies. A chip with the C6's session (a reply capacity of 114,688 bytes) holds a read of its
     // store's maximum, 200 events, which the bench found refused at the 8,192-byte frame. By hand:
     // the reply is 38 bytes of start, 200 events of 80 bytes, 199 commas and 24 bytes of end,
     // 38 + 16,000 + 199 + 24 = 16,261 bytes, which is three parts of 4,096 and a fourth of

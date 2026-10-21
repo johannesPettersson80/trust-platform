@@ -3432,9 +3432,9 @@
         "path": "firmware/trust-esp32c6/src/memory.rs",
         "line": 47,
         "owner": "runtime portability S1b-5 (C6 firmware)",
-        "invariant": "Called exactly once before any allocation on a single core; the private 72 KiB HEAP_MEMORY static and the 64 KiB reclaimed static are exclusively owned by the allocator, and the slices cover exactly those statics.",
+        "invariant": "Called exactly once before any allocation on a single core; the private 48 KiB HEAP_MEMORY static and the 64 KiB reclaimed static are exclusively owned by the allocator, and the slices cover exactly those statics.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: heap accounting and stack-window headroom; the two-region allocator is proven by cargo test -p trust-platform-memory.",
-        "review_date": "2026-10-18"
+        "review_date": "2026-10-21"
       },
       {
         "path": "firmware/trust-stm32f407/src/application.rs",

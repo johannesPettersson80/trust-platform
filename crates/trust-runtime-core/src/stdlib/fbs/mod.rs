@@ -28,10 +28,10 @@ use crate::value::Duration;
 struct BuiltinExecContext<'a, S> {
     storage: &'a mut S,
     now: Duration,
-    /// The members' positions among the declarations of the instance's POU, which preparation
-    /// fixed, for a persistent instance of a prepared program (checklist P1-4); otherwise the
-    /// members are found by their names.
-    ordinals: Option<&'a members::MemberOrdinals>,
+    /// The instance's bytes and the places preparation fixed for its POU's members, for a
+    /// persistent instance of a prepared program (checklist P1-4); otherwise the members are found
+    /// by their names.
+    places: Option<members::BlockPlaces<'a>>,
 }
 
 /// Execute a native function block against its declared storage and supplied logical time.
@@ -45,20 +45,20 @@ pub fn execute_builtin_in_storage(
 }
 
 /// Execute a native function block on `storage`, the store that holds its instance, at the supplied
-/// logical time: the `Value` storage, or the engine's routed store (C1-9d3a, R1). `ordinals` are the
-/// positions of the members among the declarations of the instance's POU when the instance is a
-/// persistent one of a prepared program (checklist P1-4).
+/// logical time: the `Value` storage, or the engine's routed store (C1-9d3a, R1). `places` are the
+/// instance's bytes and its members' places in them when the instance is a persistent one of a
+/// prepared program (checklist P1-4).
 pub(crate) fn execute_builtin_in_store<S: StoreAccess + StoreMutate>(
     storage: &mut S,
     now: Duration,
     instance_id: InstanceId,
     kind: BuiltinFbKind,
-    ordinals: Option<&members::MemberOrdinals>,
+    places: Option<members::BlockPlaces<'_>>,
 ) -> Result<(), RuntimeError> {
     let mut ctx = BuiltinExecContext {
         storage,
         now,
-        ordinals,
+        places,
     };
     match kind {
         BuiltinFbKind::Rs => bistable::exec_rs(&mut ctx, instance_id),

@@ -873,22 +873,16 @@ impl<'a> CellReader<'a> {
             .map(ValueView::Value)
     }
 
-    /// The view of the variable that persistent `instance` declares itself at position `ordinal`
-    /// among its POU's declarations, or of a `Value`-half instance's variable named `name`: the
-    /// variable [`Self::read_instance_var`] finds by that name (checklist P1-4).
-    pub(crate) fn read_instance_member(
+    /// The view of the variable of `type_id` at `range`, whose presence byte is at `presence` when
+    /// it keeps one: a persistent instance's variable at the place preparation fixed for it, as
+    /// [`Self::read_instance_var`] views the variable of its name (checklist P1-4).
+    pub(crate) fn read_place(
         self,
-        instance: InstanceId,
-        ordinal: u16,
-        name: &str,
-    ) -> Option<ValueView<'a>> {
-        if self.arm.is_persistent(instance) {
-            let member = self.own_member_at(instance, usize::from(ordinal))?;
-            return Some(self.view(member.range, member.type_id, member.presence));
-        }
-        self.values
-            .get_instance_var(instance, name)
-            .map(ValueView::Value)
+        range: ByteRange,
+        type_id: u32,
+        presence: Option<u32>,
+    ) -> ValueView<'a> {
+        self.view(range, type_id, presence)
     }
 
     /// The view of the global named `name`. A program root owns no cells and is read as its
@@ -1320,6 +1314,14 @@ impl<'a> CellReader<'a> {
         self.own_member(persistent, ordinal, id)
     }
 
+    /// The POU of persistent `instance` and the bytes of its own variables, found at once
+    /// (checklist P1-4).
+    pub(crate) fn instance_pou_and_range(self, instance: InstanceId) -> Option<(u32, ByteRange)> {
+        self.arm
+            .instance(instance)
+            .map(|persistent| (persistent.pou, persistent.range))
+    }
+
     /// The POU of persistent `instance` (checklist P1-4).
     pub(crate) fn instance_pou(self, instance: InstanceId) -> Option<u32> {
         self.arm.instance(instance).map(|persistent| persistent.pou)
@@ -1337,6 +1339,13 @@ impl<'a> CellReader<'a> {
     pub(crate) fn scalar_at(self, range: ByteRange, prim: u16) -> Option<Value> {
         let bytes = self.arm.cells.regions().block(range.region).bytes(range)?;
         crate::memory::cells::read_scalar_leaf(prim, bytes)
+    }
+
+    /// The cell of the scalar leaf of primitive `prim` at `range`, read as [`Self::scalar_at`]
+    /// reads its value (checklist P1-9).
+    pub(crate) fn cell_at(self, range: ByteRange, prim: u16) -> Option<Cell> {
+        let bytes = self.arm.cells.regions().block(range.region).bytes(range)?;
+        crate::memory::cells::read_scalar_cell(prim, bytes)
     }
 
     /// The value of the scalar variable named `name`, string `name_idx`, that persistent `instance`

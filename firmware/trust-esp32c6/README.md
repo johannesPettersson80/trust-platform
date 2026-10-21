@@ -22,7 +22,7 @@ composition (design §1.1):
   into the heap and admits it with `installation::admit_sequenced` against the C6's
   `DeviceDescriptor`. A refusal gives the reason and the install sequence of the newest committed
   container.
-- `src/memory.rs`: the 72 KiB main heap, the boot loader's 64 KiB reclaimed region and the 24 KiB
+- `src/memory.rs`: the 48 KiB main heap, the boot loader's 64 KiB reclaimed region and the 78 KiB
   main-stack window.
 
 ## Boot sequence
@@ -211,9 +211,9 @@ any step, even at a power loss, leaves the previous program selected (DEPLOY-03)
 
 | Region | Size | Purpose |
 |---|---|---|
-| Main heap (`HEAP_MEMORY`) | 72 KiB static | the first measured-allocator region |
+| Main heap (`HEAP_MEMORY`) | 48 KiB static | the first measured-allocator region; it gave 24 KiB of the M2E 72 KiB to scan-time code (owner, 21 October 2026), so programs have 112 KiB of heap |
 | Reclaimed region (`RECLAIMED`) | 64 KiB | the boot loader's RAM, `#[esp_hal::ram(reclaimed)]` in `.dram2_uninit`, the second heap region |
-| Main-stack window | 24 KiB below the fixed stack top `0x4086E610` | measured, 2 KiB minimum headroom; the linker refuses a stack region under 28 KiB |
+| Main-stack window | 78 KiB below the fixed stack top `0x4086E610` | measured, 2 KiB minimum headroom; the linker refuses a stack region under 82 KiB |
 | Scan-time code (`.rwtext`) | about 300 KB | the interpreter and the engine's scan path, executed from RAM |
 
 Scan-time code runs from HP SRAM. From flash, through the 32 KB cache, one task activation took

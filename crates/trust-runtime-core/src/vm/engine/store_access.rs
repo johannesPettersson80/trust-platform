@@ -13,6 +13,7 @@
 use super::{EngineData, EngineState, RuntimeState};
 use crate::error::RuntimeError;
 use crate::memory::cell_access::{CellArm, CellReader, CellWriter};
+use crate::memory::layout::ByteRange;
 use crate::memory::view::{PreparedWrite, StoreAccess, StoreMutate, ValueView};
 use crate::memory::VariableStorage;
 use crate::memory::{Generation, InstanceData, InstanceId, MemoryLocation};
@@ -56,15 +57,17 @@ impl StoreAccess for EngineState<'_> {
     }
 
     #[inline]
-    fn read_instance_member<'a>(
+    fn read_place<'a>(
         &'a self,
-        instance: InstanceId,
-        ordinal: u16,
-        name: &str,
+        range: ByteRange,
+        type_id: u32,
+        presence: Option<u32>,
     ) -> Option<ValueView<'a>> {
-        self.data
-            .reader(self.prepared)
-            .read_instance_member(instance, ordinal, name)
+        Some(
+            self.data
+                .reader(self.prepared)
+                .read_place(range, type_id, presence),
+        )
     }
 
     #[inline]
@@ -239,18 +242,18 @@ impl StoreMutate for EngineState<'_> {
     }
 
     #[inline]
-    fn write_instance_member(
+    fn write_place(
         &mut self,
-        instance: InstanceId,
-        ordinal: u16,
-        name: &'static str,
+        range: ByteRange,
+        type_id: u32,
+        presence: Option<u32>,
         value: Value,
     ) -> bool {
-        StoreMutate::write_instance_member(
+        StoreMutate::write_place(
             &mut writer(&mut *self.data, self.prepared),
-            instance,
-            ordinal,
-            name,
+            range,
+            type_id,
+            presence,
             value,
         )
     }
@@ -535,6 +538,7 @@ impl StoreAccess for RuntimeState<'_> {
 
 impl EngineState<'_> {
     /// Write `value`, a value of primitive `prim`, into the scalar leaf at `range` (checklist P1-F).
+    #[inline]
     pub(super) fn write_scalar_leaf(
         &mut self,
         range: crate::memory::layout::ByteRange,
@@ -542,6 +546,18 @@ impl EngineState<'_> {
         value: &Value,
     ) -> bool {
         writer(&mut *self.data, self.prepared).store_scalar(range, prim, None, value)
+    }
+
+    /// Write `cell` into the scalar leaf of primitive `prim` at `range`, as
+    /// [`Self::write_scalar_leaf`] writes the value the cell holds (checklist P1-9).
+    #[inline]
+    pub(super) fn write_scalar_cell(
+        &mut self,
+        range: crate::memory::layout::ByteRange,
+        prim: u16,
+        cell: crate::memory::cells::Cell,
+    ) -> bool {
+        writer(&mut *self.data, self.prepared).store_cell(range, prim, cell)
     }
 }
 

@@ -1,14 +1,16 @@
 //! The variables a standard function block's native code reads and writes, and their places among
 //! its POU's own declarations (checklist P1-4; specification 34 PERF-05).
 //!
-//! Preparation finds each member by its name among the block's own declarations once, so a scan
-//! reaches a persistent instance's member by its position and compares no names. A position is the
-//! one the name lookup finds, so a block reads and writes the same variables either way.
+//! Preparation finds each member by its name among the block's own declarations once, and where its
+//! bytes lie in an instance, so a scan reaches a persistent instance's member at its place and
+//! compares no names. A place is the one the name lookup finds, so a block reads and writes the same
+//! variables either way.
 
 use super::state::{
     STATE_ACTIVE, STATE_LAST_TIME, STATE_PREV_CD, STATE_PREV_CU, STATE_PREV_IN, STATE_TIMING,
     STATE_TRIG_M,
 };
+use crate::memory::layout::ByteRange;
 
 /// A variable a standard block's native code reads or writes: an input, an output or a state slot.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -108,6 +110,90 @@ pub(crate) type MemberOrdinals = [u16; MEMBER_COUNT];
 
 /// The position of a member the block does not declare.
 pub(crate) const NO_MEMBER: u16 = u16::MAX;
+
+/// Where a member lies in its instance's own bytes (checklist P1-4): its declared type, its offset
+/// from the instance's first byte, its bytes, and whether a presence byte follows its value, as a
+/// native-state slot keeps one (specification 34 MEM-12).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct MemberPlace {
+    pub(crate) type_id: u32,
+    pub(crate) offset: u16,
+    pub(crate) bytes: u8,
+    pub(crate) presence: bool,
+}
+
+/// The place of each member at the member's index, or `None` for a member the block does not
+/// declare or whose declaration has no place.
+pub(crate) type MemberPlaces = [Option<MemberPlace>; MEMBER_COUNT];
+
+/// A declaration's place as preparation finds it: its offset among the instance's own bytes, its
+/// bytes, its type and whether it keeps a presence byte.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct DeclaredPlace {
+    pub(crate) offset: u32,
+    pub(crate) bytes: u32,
+    pub(crate) type_id: u32,
+    pub(crate) presence: bool,
+}
+
+/// The places of the members among `declared`, a block's own declarations in order, each with its
+/// name and its place, or none where preparation found none: each member at its first declaration,
+/// as [`member_ordinals`] finds it. `None` when a declared member's offset or bytes exceed a
+/// [`MemberPlace`]; the members are then found by their names.
+pub(crate) fn member_places<'n>(
+    declared: impl Iterator<Item = (Option<&'n str>, Option<DeclaredPlace>)> + Clone,
+) -> Option<MemberPlaces> {
+    let ordinals = member_ordinals(declared.clone().map(|(name, _)| name));
+    let mut places = [None; MEMBER_COUNT];
+    for (slot, ordinal) in places.iter_mut().zip(ordinals) {
+        if ordinal == NO_MEMBER {
+            continue;
+        }
+        if let Some((_, Some(place))) = declared.clone().nth(usize::from(ordinal)) {
+            *slot = Some(MemberPlace {
+                type_id: place.type_id,
+                offset: u16::try_from(place.offset).ok()?,
+                bytes: u8::try_from(place.bytes).ok()?,
+                presence: place.presence,
+            });
+        }
+    }
+    Some(places)
+}
+
+/// A persistent instance's own bytes and the places of its block's members in them (checklist
+/// P1-4): the instance is found once a call, and each member read or written where it lies.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct BlockPlaces<'a> {
+    pub(crate) bytes: ByteRange,
+    pub(crate) members: &'a MemberPlaces,
+}
+
+impl BlockPlaces<'_> {
+    /// The bytes of `member` in the instance, its declared type and the offset of its presence byte,
+    /// as the store finds the instance's variable of the member's name; `None` for a member the
+    /// block does not declare, or whose place lies past the store's offsets.
+    #[inline]
+    pub(crate) fn member(self, member: Member) -> Option<(ByteRange, u32, Option<u32>)> {
+        let place = self.members[member as usize]?;
+        let start = self.bytes.start.checked_add(u32::from(place.offset))?;
+        let bytes = u32::from(place.bytes);
+        let presence = if place.presence {
+            start.checked_add(bytes)
+        } else {
+            None
+        };
+        Some((
+            ByteRange {
+                region: self.bytes.region,
+                start,
+                bytes,
+            },
+            place.type_id,
+            presence,
+        ))
+    }
+}
 
 /// The most formals a standard block declares: CTUD's CU, CD, R, LD, PV, QU, QD and CV.
 pub(crate) const MAX_BUILTIN_FORMALS: usize = 8;
@@ -230,5 +316,85 @@ mod tests {
         let ordinals = member_ordinals(declared.into_iter());
         assert_eq!(ordinals[Member::Clk as usize], 1);
         assert_eq!(ordinals[Member::Q as usize], 2);
+    }
+
+    fn declared(offset: u32, bytes: u32, type_id: u32, presence: bool) -> Option<DeclaredPlace> {
+        Some(DeclaredPlace {
+            offset,
+            bytes,
+            type_id,
+            presence,
+        })
+    }
+
+    fn place(offset: u16, bytes: u8, type_id: u32, presence: bool) -> Option<MemberPlace> {
+        Some(MemberPlace {
+            type_id,
+            offset,
+            bytes,
+            presence,
+        })
+    }
+
+    /// Each member takes the place of its first declaration, a state slot keeps its presence byte,
+    /// and a member the block does not declare, or whose declaration has no place, has none; a
+    /// declaration that is no member may lie anywhere, but a member's place past a `MemberPlace`
+    /// leaves the block without places. Catches a place taken from a later declaration of the name,
+    /// a lost presence byte, a table refused for a declaration no member uses, and an offset or a
+    /// size cut to fit.
+    #[test]
+    fn members_take_the_places_of_their_first_declarations() {
+        let block = [
+            (Some("IN"), declared(0, 1, 1, false)),
+            (Some("PT"), declared(8, 8, 18, false)),
+            (Some("Q"), declared(16, 1, 1, false)),
+            (Some("ET"), None),
+            (Some("OTHER"), declared(70_000, 300, 3, false)),
+            (Some(STATE_LAST_TIME), declared(24, 8, 19, true)),
+            (Some("Q"), declared(40, 1, 1, false)),
+        ];
+        let places = member_places(block.iter().copied()).expect("every member's place fits");
+        assert_eq!(places[Member::In as usize], place(0, 1, 1, false));
+        assert_eq!(places[Member::Pt as usize], place(8, 8, 18, false));
+        assert_eq!(places[Member::Q as usize], place(16, 1, 1, false));
+        assert_eq!(places[Member::Et as usize], None);
+        assert_eq!(places[Member::LastTime as usize], place(24, 8, 19, true));
+        assert_eq!(places[Member::Clk as usize], None);
+        let far = [(Some("IN"), declared(65_536, 1, 1, false))];
+        assert_eq!(member_places(far.iter().copied()), None);
+        let wide = [(Some("CLK"), declared(0, 256, 1, false))];
+        assert_eq!(member_places(wide.iter().copied()), None);
+    }
+
+    /// A member's bytes lie at its offset from the instance's first byte, in the instance's region,
+    /// and a state slot's presence byte right after its value; a member the block does not declare,
+    /// or one past the store's offsets, has none. Catches an offset taken from the region's start,
+    /// a presence byte at the value's start, and an offset that wraps.
+    #[test]
+    fn a_member_lies_at_its_offset_from_the_instance() {
+        use crate::memory::layout::LayoutRegion;
+        let mut members = [None; MEMBER_COUNT];
+        members[Member::Q as usize] = place(16, 1, 1, false);
+        members[Member::LastTime as usize] = place(24, 8, 19, true);
+        let range = |start, bytes| ByteRange {
+            region: LayoutRegion::Persistent,
+            start,
+            bytes,
+        };
+        let places = BlockPlaces {
+            bytes: range(96, 48),
+            members: &members,
+        };
+        assert_eq!(places.member(Member::Q), Some((range(112, 1), 1, None)));
+        assert_eq!(
+            places.member(Member::LastTime),
+            Some((range(120, 8), 19, Some(128)))
+        );
+        assert_eq!(places.member(Member::In), None);
+        let far = BlockPlaces {
+            bytes: range(u32::MAX - 8, 48),
+            members: &members,
+        };
+        assert_eq!(far.member(Member::Q), None);
     }
 }

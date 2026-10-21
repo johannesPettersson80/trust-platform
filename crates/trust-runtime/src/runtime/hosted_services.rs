@@ -133,6 +133,14 @@ impl ExecutionServices for HostedExecutionServices {
         self.metadata.is_some() && self.debug.as_ref().is_some_and(|debug| debug.is_enabled())
     }
 
+    /// With a bound `LINE_TABLE` the hook acts only at the statement starts it names; without
+    /// one it looks every instruction up in the `DEBUG_MAP`.
+    fn hook_acts_at_statement_starts(&self) -> bool {
+        self.metadata
+            .as_ref()
+            .is_some_and(|metadata| metadata.line_table().is_some())
+    }
+
     fn allocator_operations(&self) -> Option<u64> {
         crate::allocation_count::operations()
     }

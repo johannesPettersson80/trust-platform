@@ -3,6 +3,7 @@
 use super::module::VmModule;
 use crate::bytecode::{TypeData, TypeTable, BYTECODE_MAX_TYPE_NESTING};
 use crate::error::RuntimeError;
+use crate::memory::cells::Cell;
 use crate::value::{normalize_assignment_for_target, RefSegment, Value};
 use alloc::string::String;
 
@@ -287,6 +288,43 @@ pub(crate) fn primitive_value_matches(prim_id: u16, value: &Value) -> bool {
             | (25, Value::WString(_))
             | (26, Value::Char(_))
             | (27, Value::WChar(_))
+    )
+}
+
+/// Whether `cell` holds a value of primitive `prim_id`, as [`primitive_value_matches`] decides it
+/// for that value (checklist P1-9). A native counter slot (0x0100), which compact code never names,
+/// matches no cell, which leaves its store to the general path.
+pub(crate) fn primitive_cell_matches(prim_id: u16, cell: &Cell) -> bool {
+    if prim_id == 0x0101 {
+        return matches!(cell, Cell::Time(_) | Cell::LTime(_));
+    }
+    matches!(
+        (prim_id, cell),
+        (1, Cell::Bool(_))
+            | (2, Cell::Byte(_))
+            | (3, Cell::Word(_))
+            | (4, Cell::DWord(_))
+            | (5, Cell::LWord(_))
+            | (6, Cell::SInt(_))
+            | (7, Cell::Int(_))
+            | (8, Cell::DInt(_))
+            | (9, Cell::LInt(_))
+            | (10, Cell::USInt(_))
+            | (11, Cell::UInt(_))
+            | (12, Cell::UDInt(_))
+            | (13, Cell::ULInt(_))
+            | (14, Cell::Real(_))
+            | (15, Cell::LReal(_))
+            | (16, Cell::Time(_))
+            | (17, Cell::LTime(_))
+            | (18, Cell::Date(_))
+            | (19, Cell::LDate(_))
+            | (20, Cell::Tod(_))
+            | (21, Cell::LTod(_))
+            | (22, Cell::Dt(_))
+            | (23, Cell::Ldt(_))
+            | (26, Cell::Char(_))
+            | (27, Cell::WChar(_))
     )
 }
 

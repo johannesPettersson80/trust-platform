@@ -516,9 +516,9 @@ impl PreparedModule {
                 });
             prepared.register_plans = plans;
         }
-        // The standard blocks' member positions, the compact code and the binding leaves read the
+        // The standard blocks' member places, the compact code and the binding leaves read the
         // layouts and the indexes above (checklist P1-4, P1-F, P1-6). The compact code also reads
-        // the member positions: a call of a standard block is compact only through them.
+        // the blocks' formal positions: a call of a standard block is compact only through them.
         prepared.builtin_members = prepared.builtin_member_tables();
         let compact = super::compact::CompactCode::of_module(&prepared);
         prepared.vm.compact = compact;
@@ -544,6 +544,30 @@ impl PreparedModule {
             .compact
             .iter()
             .map(|(_, code)| code.blocks.len())
+            .sum()
+    }
+
+    /// How many program bodies with compact code start without a frame (checklist P1-9), for the
+    /// tests that run them.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn frameless_bodies(&self) -> usize {
+        self.vm
+            .compact
+            .iter()
+            .filter(|(_, code)| code.frameless)
+            .count()
+    }
+
+    /// How many members of standard function blocks preparation placed in their instances' bytes
+    /// (checklist P1-4), summed over the module's standard blocks, for the tests that run them.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn block_member_places(&self) -> usize {
+        self.builtin_members
+            .iter()
+            .filter_map(|table| table.places.as_ref())
+            .map(|places| places.iter().flatten().count())
             .sum()
     }
 

@@ -497,9 +497,9 @@ mod tests {
     fn c6_reports_the_heap_arena_when_the_firmware_exports_one() {
         let board = BoardProfile::esp32c6_devkitc_1().unwrap();
         let mut image = c6_image();
-        image.heap_arena_bytes = Some(72 * 1024);
+        image.heap_arena_bytes = Some(48 * 1024);
         let report = check_esp32c6(&board, &image).unwrap();
-        assert_eq!(report["heap_arena_bytes"], 73_728);
+        assert_eq!(report["heap_arena_bytes"], 49_152);
     }
 
     #[test]
