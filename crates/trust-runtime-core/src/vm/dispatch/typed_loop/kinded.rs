@@ -11,8 +11,8 @@
 //! loop: with the same result, the same charges, the same fault record and the same values.
 
 use super::super::super::compact::kinded::{
-    bits_of, cell_of_bits, width, Kind, KindedCode, KindedOp, BOOL, DEPTH, DURATION_SLOT, INSTANCE,
-    NULL, TIME,
+    bits_of, cell_of_bits, integer_bits, width, Kind, KindedCode, KindedOp, BOOL, DEPTH,
+    DURATION_SLOT, INSTANCE, NULL, TIME,
 };
 use super::super::super::compact::{Op, OpKind, Slot};
 use super::super::super::context::ExecutionContext;
@@ -149,6 +149,7 @@ fn step<R: ExecutionContext>(
         }
         KindedOp::Block => call_block(body, operands, op.at, op.arg),
         KindedOp::Convert { to } => convert(body, operands, aside, op, to),
+        KindedOp::ConvertInteger { from, to } => convert_integer(body, operands, op, from, to),
     }
 }
 
@@ -339,6 +340,33 @@ fn convert<R: ExecutionContext>(
     operands.discard(1);
     let value = compact_loop::converted(body.runtime, body.module, op.arg, &argument)?;
     Ok(push_result(operands, aside, value, to))
+}
+
+/// The conversion of `op`, the call's symbol, of the integer on top, of kind `from`, to the integer
+/// kind `to`, as [`convert`] runs it through the conversion's integer branch
+/// (`compact_loop::converted`), on the operand's bits: the deadline is checked, the copy that the
+/// argument's binding makes is admitted, the value is kept or refused as an overflow
+/// ([`integer_bits`]), and the deadline is checked again (checklist P1-9).
+fn convert_integer<R: ExecutionContext>(
+    body: &mut Body<'_, R>,
+    operands: &mut Bits,
+    op: Op,
+    from: Kind,
+    to: Kind,
+) -> Result<Step, RuntimeError> {
+    let Some(bits) = operands.last() else {
+        return Ok(Step::Before);
+    };
+    body.begin(op.at)?;
+    operands.discard(1);
+    if body.runtime.deadline_exceeded() {
+        return Err(VmTrap::DeadlineExceeded.into_runtime_error());
+    }
+    body.runtime.before_scalar_clone()?;
+    let bits = integer_bits(from, to, bits).ok_or_else(|| RuntimeError::Overflow)?;
+    body.runtime.check_execution_deadline()?;
+    operands.push(to, bits);
+    Ok(Step::Next)
 }
 
 /// The cell of the operand on top.
@@ -615,7 +643,7 @@ fn call_block<R: ExecutionContext>(
     body.begin(at)?;
     compact_block::bind(body.runtime, inputs, arguments, base)?;
     operands.discard(count);
-    compact_block::run(body.runtime, block, instance)?;
+    compact_block::run(body.runtime, block, instance, base)?;
     operands.push(NULL, 0);
     Ok(Step::Next)
 }

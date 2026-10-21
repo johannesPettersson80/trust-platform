@@ -10,7 +10,6 @@
 use core::{
     cell::RefCell,
     sync::atomic::{AtomicU32, Ordering},
-    time::Duration,
 };
 
 use critical_section::Mutex;
@@ -74,7 +73,7 @@ fn wait_alarm() {
 
 impl MonotonicClock for Monotonic {
     fn now(&self) -> MonotonicInstant {
-        MonotonicInstant::from_origin(Duration::from_micros(self.micros()))
+        MonotonicInstant::from_micros(self.micros())
     }
 }
 
@@ -155,7 +154,7 @@ impl WakeSignal for Wait {
 /// The monotonic clock's current reading, the same SYSTIMER epoch as [`Monotonic::micros`] and the
 /// deadline the wait compares against.
 pub(super) fn now_instant() -> MonotonicInstant {
-    MonotonicInstant::from_origin(Duration::from_micros(now_us()))
+    MonotonicInstant::from_micros(now_us())
 }
 
 /// The `PortError` of a wait mechanism that failed.

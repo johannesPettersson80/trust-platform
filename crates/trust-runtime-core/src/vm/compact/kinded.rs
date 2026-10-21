@@ -87,6 +87,13 @@ pub(crate) enum KindedOp {
     Convert {
         to: Kind,
     },
+    /// The standard conversion the operation calls of an integer of kind `from` to the integer kind
+    /// `to` that names no other source type: the conversion's integer branch, run on the operand's
+    /// bits ([`integer_bits`]).
+    ConvertInteger {
+        from: Kind,
+        to: Kind,
+    },
 }
 
 /// The kinded code of one body: an operation for each compact operation, and the constants' bits.
@@ -376,7 +383,7 @@ impl Pass<'_> {
     /// The conversion of standard call `symbol` of the operand on top.
     fn convert(&mut self, symbol: u32) -> Option<KindedOp> {
         let Ok(VmNativeSymbolSpec::Parsed {
-            conversion_spec: Some(ConversionSpec::Convert { dst, .. }),
+            conversion_spec: Some(ConversionSpec::Convert { src, dst }),
             ..
         }) = self.module.native_symbol_spec(symbol)
         else {
@@ -389,6 +396,14 @@ impl Pass<'_> {
         // result is of the target's kind all the same.
         if !is_scalar(from) {
             return None;
+        }
+        // An integer converted to an integer type, by a conversion that names the integer's own type
+        // or none, is the conversion's integer branch (`stdlib::conversions::convert_integer`).
+        if integer(from).is_some()
+            && integer(to).is_some()
+            && src.is_none_or(|src| conversion_kind(src) == Some(from))
+        {
+            return Some(KindedOp::ConvertInteger { from, to });
         }
         Some(KindedOp::Convert { to })
     }
@@ -483,6 +498,34 @@ pub(crate) fn integer(kind: Kind) -> Option<(bool, NumericKind)> {
         13 => (false, NumericKind::ULInt),
         _ => return None,
     })
+}
+
+/// The bits of `bits`, an integer of kind `from`, converted to the integer kind `to` as the
+/// conversions' integer branch converts the value (`stdlib::conversions::convert_integer`;
+/// specification 07 §2.1): the same value, held as an operand of `to`, when `to` holds it; `None`
+/// when it does not, which the conversion refuses with `RuntimeError::Overflow`, and for a kind
+/// that is no integer. The value is the one the operand's cell holds: its bits cut to the width of
+/// `from` and extended with the sign of a signed kind.
+pub(crate) fn integer_bits(from: Kind, to: Kind, bits: u64) -> Option<u64> {
+    let (from_signed, _) = integer(from)?;
+    let (to_signed, _) = integer(to)?;
+    let value = extend(bits, from_signed, width(from)?);
+    // `to` holds the value when its own width gives the value back and, between a signed and an
+    // unsigned kind, the value is not negative.
+    let kept = extend(value, to_signed, width(to)?) == value
+        && (from_signed == to_signed || i64::from_ne_bytes(value.to_ne_bytes()) >= 0);
+    kept.then_some(value)
+}
+
+/// `bits` cut to `bytes` bytes and extended back to 64 bits, with the sign when `signed`.
+fn extend(bits: u64, signed: bool, bytes: usize) -> u64 {
+    let shift = 64 - 8 * u32::try_from(bytes).unwrap_or(8);
+    if signed {
+        let value = i64::from_ne_bytes((bits << shift).to_ne_bytes()) >> shift;
+        u64::from_ne_bytes(value.to_ne_bytes())
+    } else {
+        (bits << shift) >> shift
+    }
 }
 
 /// The kind of an integer numeric kind.

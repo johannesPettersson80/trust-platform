@@ -892,6 +892,31 @@ impl CallContext for EngineState<'_> {
 }
 
 impl ExecutionContext for EngineState<'_> {
+    fn instance_pou_and_bytes(
+        &self,
+        instance: InstanceId,
+    ) -> Option<(u32, crate::memory::layout::ByteRange)> {
+        self.data
+            .reader(self.prepared)
+            .instance_pou_and_range(instance)
+    }
+    fn execute_builtin_fb_at(
+        &mut self,
+        now: Duration,
+        instance: InstanceId,
+        kind: crate::stdlib::fbs::BuiltinFbKind,
+        pou: u32,
+        bytes: crate::memory::layout::ByteRange,
+    ) -> Result<(), RuntimeError> {
+        // The caller found the instance's POU and bytes (`instance_pou_and_bytes`), so the block
+        // reaches its members at the places preparation fixed for the POU without finding the
+        // instance again (checklist P1-5).
+        let prepared = self.prepared;
+        let places = prepared
+            .builtin_places(pou)
+            .map(|members| crate::stdlib::fbs::members::BlockPlaces { bytes, members });
+        crate::stdlib::fbs::execute_builtin_in_store(self, now, instance, kind, places)
+    }
     fn take_text_buffers(&mut self) -> Option<crate::vm::TextBuffers> {
         // Every text call takes the engine's kept buffers (C1-12).
         Some(core::mem::take(&mut self.data.resources.text_call))

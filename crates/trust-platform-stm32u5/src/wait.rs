@@ -45,7 +45,6 @@ pub use hardware::{advance_wake, Monotonic, Wait};
 mod hardware {
     use core::cell::Cell;
     use core::sync::atomic::{AtomicU32, Ordering};
-    use core::time::Duration;
 
     use cortex_m::peripheral::NVIC;
     use critical_section::Mutex;
@@ -97,7 +96,7 @@ mod hardware {
             cell.set(extension);
             micros
         });
-        MonotonicInstant::from_origin(Duration::from_micros(micros))
+        MonotonicInstant::from_micros(micros)
     }
 
     /// The chip's monotonic clock (specification 34, PORT-01): TIM2 at 1 MHz, extended to 64 bits.

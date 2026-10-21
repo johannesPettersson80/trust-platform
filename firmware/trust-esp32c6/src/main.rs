@@ -26,11 +26,11 @@
 extern crate alloc;
 
 mod application;
+mod memcpy;
 mod memory;
 
 use alloc::boxed::Box;
 use core::fmt::Write;
-use core::time::Duration as CoreDuration;
 
 use smol_str::SmolStr;
 use trust_platform_esp32::loader::{
@@ -212,7 +212,7 @@ struct ChipClock(&'static Monotonic);
 
 impl MonotonicClock for ChipClock {
     fn now(&self) -> MonotonicInstant {
-        MonotonicInstant::from_origin(CoreDuration::from_micros(self.0.micros()))
+        MonotonicInstant::from_micros(self.0.micros())
     }
 }
 

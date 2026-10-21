@@ -635,6 +635,29 @@ pub const VM_LOCAL_SENTINEL_FRAME_ID: u32 = u32::MAX;
 
 /// Host extensions around the single bytecode dispatcher.
 pub trait ExecutionContext: super::call::context::CallContext {
+    /// The POU of persistent `instance` and the bytes of its own variables, as
+    /// [`CallContext::instance_pou`](super::call::context::CallContext::instance_pou) and
+    /// [`ReferenceContext::instance_bytes`] give them, found at once (checklist P1-5).
+    fn instance_pou_and_bytes(
+        &self,
+        instance: InstanceId,
+    ) -> Option<(u32, crate::memory::layout::ByteRange)> {
+        Some((self.instance_pou(instance)?, self.instance_bytes(instance)?))
+    }
+    /// [`CallContext::execute_builtin_fb`](super::call::context::CallContext::execute_builtin_fb)
+    /// for persistent `instance` of POU `pou`, whose own variables are `bytes`, as the caller found
+    /// them with [`Self::instance_pou_and_bytes`] (checklist P1-5). The default finds them again.
+    fn execute_builtin_fb_at(
+        &mut self,
+        now: crate::value::Duration,
+        instance: InstanceId,
+        kind: crate::stdlib::fbs::BuiltinFbKind,
+        pou: u32,
+        bytes: crate::memory::layout::ByteRange,
+    ) -> Result<(), crate::error::RuntimeError> {
+        let _ = (pou, bytes);
+        self.execute_builtin_fb(now, instance, kind)
+    }
     /// The buffers of a call of a built-in text function, taken for the call (C1-12). `None`, the
     /// default, has every text function bind values.
     fn take_text_buffers(&mut self) -> Option<super::TextBuffers> {

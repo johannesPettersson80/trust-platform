@@ -492,7 +492,7 @@ impl<R: ExecutionContext> Body<'_, R> {
         begin(&*self.runtime, self.fault_site, self.pou, at)?;
         compact_block::bind(self.runtime, inputs, arguments, base)?;
         operands.discard(count);
-        compact_block::run(self.runtime, block, instance)?;
+        compact_block::run(self.runtime, block, instance, base)?;
         operands.push(Cell::Null);
         Ok(Flow::Next)
     }

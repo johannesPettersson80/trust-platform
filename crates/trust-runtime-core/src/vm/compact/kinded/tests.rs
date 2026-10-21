@@ -115,3 +115,83 @@ fn only_the_integers_have_a_signedness() {
         assert_eq!(integer(kind), None, "{kind}");
     }
 }
+
+/// An integer converted to an integer kind on its bits holds what the conversions' integer branch
+/// gives for its value (specification 07 §2.1: the value kept exactly, or `RuntimeError::Overflow`
+/// outside the target's range). Worked by hand: UDINT 70,000 is DINT 70,000; INT -32,768 is LINT
+/// -32,768, whose bits are 16#FFFF_FFFF_FFFF_8000; DINT 2,147,483,647 is no INT; SINT -1 is no
+/// USINT; ULINT 2^64 - 1 is no LINT; and the USINT bits 16#12C, which a cell cuts to 16#2C, are
+/// UINT 44. Then, for every pair of the eight integer kinds, each kind's ends, values just past the
+/// ends of the narrower kinds, and zero convert as `convert_integer` converts the cell's value.
+/// Catches a range check off by one at a bound, a negative value taken for a large unsigned one or
+/// the reverse, and bits not cut to the width of their kind.
+#[test]
+fn an_integer_converted_on_its_bits_is_what_the_integer_branch_gives() {
+    assert_eq!(integer_bits(12, 8, 70_000), Some(70_000));
+    assert_eq!(
+        integer_bits(7, 9, 0xFFFF_FFFF_FFFF_8000),
+        Some(0xFFFF_FFFF_FFFF_8000)
+    );
+    assert_eq!(integer_bits(8, 7, 2_147_483_647), None);
+    assert_eq!(integer_bits(6, 10, u64::MAX), None);
+    assert_eq!(integer_bits(13, 9, u64::MAX), None);
+    assert_eq!(integer_bits(10, 11, 0x12C), Some(0x2C));
+    let values = [
+        Cell::SInt(i8::MIN),
+        Cell::SInt(-1),
+        Cell::SInt(0),
+        Cell::SInt(i8::MAX),
+        Cell::Int(i16::MIN),
+        Cell::Int(i16::MIN + 1),
+        Cell::Int(-129),
+        Cell::Int(128),
+        Cell::Int(i16::MAX),
+        Cell::DInt(i32::MIN),
+        Cell::DInt(-32_769),
+        Cell::DInt(65_536),
+        Cell::DInt(i32::MAX),
+        Cell::LInt(i64::MIN),
+        Cell::LInt(-2_147_483_649),
+        Cell::LInt(4_294_967_296),
+        Cell::LInt(i64::MAX),
+        Cell::USInt(0),
+        Cell::USInt(u8::MAX),
+        Cell::UInt(256),
+        Cell::UInt(u16::MAX),
+        Cell::UDInt(65_536),
+        Cell::UDInt(u32::MAX),
+        Cell::ULInt(4_294_967_296),
+        Cell::ULInt(1 << 63),
+        Cell::ULInt(u64::MAX),
+    ];
+    let types = [
+        ConversionType::SInt,
+        ConversionType::Int,
+        ConversionType::DInt,
+        ConversionType::LInt,
+        ConversionType::USInt,
+        ConversionType::UInt,
+        ConversionType::UDInt,
+        ConversionType::ULInt,
+    ];
+    for cell in values {
+        let (from, bits) = bits_of(cell).expect("an integer has bits");
+        let value = crate::memory::cells::cell_slot(cell).expect("a scalar has a value");
+        for (to, dst) in (6..=13).zip(types) {
+            let spec = ConversionSpec::Convert { src: None, dst };
+            let expected = match crate::stdlib::conversions::convert_integer(spec, &value) {
+                Some(Ok(converted)) => {
+                    let slot = scalar_slot(&converted).expect("a scalar");
+                    Some(bits_of(slot).expect("an integer has bits").1)
+                }
+                Some(Err(crate::error::RuntimeError::Overflow)) => None,
+                other => panic!("{cell:?} to {dst:?}: {other:?}"),
+            };
+            assert_eq!(
+                integer_bits(from, to, bits),
+                expected,
+                "{cell:?} to {dst:?}"
+            );
+        }
+    }
+}

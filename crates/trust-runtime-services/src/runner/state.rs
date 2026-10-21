@@ -147,7 +147,8 @@ pub(super) struct ProgramClock<C> {
 
 impl<C: MonotonicClock> MonotonicClock for ProgramClock<C> {
     fn now(&self) -> MonotonicInstant {
-        MonotonicInstant::from_origin(self.clock.now().saturating_since(self.start).as_duration())
+        MonotonicInstant::from_origin(core::time::Duration::ZERO)
+            .saturating_add(self.clock.now().saturating_since(self.start))
     }
 }
 

@@ -273,18 +273,14 @@ where
             }
             return;
         }
-        let held = self
-            .cycle
-            .held_time()
-            .as_duration()
-            .saturating_sub(held_before.as_duration());
+        let held = self.cycle.held_time().saturating_sub(held_before);
         self.shell.records.push_event(RuntimeEvent::CycleEnd {
             cycle: self.cycle_count,
             time: now,
         });
         // The cycle metric and the overrun check see the active time: the wall time less the holds.
-        let wall = self.clock.now().saturating_since(started).as_duration();
-        let active = wall.saturating_sub(held);
+        let wall = self.clock.now().saturating_since(started);
+        let active = wall.saturating_sub(held).as_duration();
         self.shell
             .records
             .record(|metrics| metrics.record_cycle(active));

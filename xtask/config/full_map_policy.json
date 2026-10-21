@@ -3614,7 +3614,7 @@
       },
       {
         "path": "crates/trust-platform-stm32u5/src/wait.rs",
-        "line": 76,
+        "line": 75,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
         "invariant": "TIM2 is the chip's own timer block at its address (PAC 0.16.0). Only this module uses its registers: Monotonic::start writes them before a wait starts, and the wait and the TIM2 interrupt use them inside the critical section.",
         "test_evidence": "The compare arithmetic is host-tested (tests/wait.rs); the registers are proved on the bench (S1b-9u).",
@@ -3622,7 +3622,7 @@
       },
       {
         "path": "crates/trust-platform-stm32u5/src/wait.rs",
-        "line": 113,
+        "line": 112,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
         "invariant": "RCC is the chip's own register block (PAC 0.16.0), and the one write sets TIM2EN in RCC_APB1ENR1, the timer's clock.",
         "test_evidence": "The clock enable is proved on the bench (S1b-9u).",
@@ -3630,7 +3630,7 @@
       },
       {
         "path": "crates/trust-platform-stm32u5/src/wait.rs",
-        "line": 168,
+        "line": 167,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
         "invariant": "NVIC::unmask enables the TIM2 interrupt, whose handler (the TIM2 function of wait.rs) touches only the timer and the wake counter.",
         "test_evidence": "The sleep and the wake are proved on the bench (S1b-9u).",

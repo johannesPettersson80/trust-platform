@@ -13,8 +13,9 @@ use crate::vm::module::VmRef;
 
 /// The leaf of one binding's variable: its byte offset in the persistent block (`root` `None`) or
 /// in the instance of construction root `root`, its bytes and primitive, whether the variable may
-/// be written (it is not `CONSTANT`), and whether the binding's image bytes are the leaf's bytes
-/// (`copy`, [`copies_bytes`]).
+/// be written (it is not `CONSTANT`), whether the binding's image bytes are the leaf's bytes
+/// (`copy`, [`copies_bytes`]), and for such a binding the image window its address checks to
+/// ([`checked_window`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IoLeaf {
     pub(crate) root: Option<u32>,
@@ -23,6 +24,19 @@ pub(crate) struct IoLeaf {
     pub(crate) bytes: u8,
     pub(crate) writable: bool,
     pub(crate) copy: bool,
+    pub(crate) window: Option<IoWindow>,
+}
+
+/// The bytes `start..end` of its image that a copied binding covers, one byte for a bit and the
+/// leaf's bytes otherwise, found when its address passes every check of a process-image access
+/// that does not depend on the image's length: `io_image::validate_process_image_address` and
+/// `IoAddress::flat_byte_end` (checklist P1-6). A scan then checks only that the image holds `end`
+/// bytes; it checks a binding without a window, or one whose image is shorter, as before, and so
+/// refuses it as before.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IoWindow {
+    pub(crate) start: u32,
+    pub(crate) end: u32,
 }
 
 crate::memory::figure::holds_no_heap!(IoLeaf);
@@ -44,8 +58,14 @@ impl PreparedModule {
             .iter()
             .map(|binding| {
                 let leaf = self.binding_leaf(binding.ref_idx)?;
+                let copy = copies_bytes(binding, &leaf);
                 Some(IoLeaf {
-                    copy: copies_bytes(binding, &leaf),
+                    copy,
+                    window: if copy {
+                        checked_window(&binding.address, leaf.bytes)
+                    } else {
+                        None
+                    },
                     ..leaf
                 })
             })
@@ -130,8 +150,26 @@ impl PreparedModule {
             bytes: u8::try_from(layout.shape.bytes).ok()?,
             writable: !entry.is_constant(),
             copy: false,
+            window: None,
         })
     }
+}
+
+/// The window of a copied binding at `address` whose leaf has `bytes` bytes, when the address
+/// passes the checks of a process-image access that do not depend on the image's length and
+/// covers one byte for a bit, else the leaf's bytes; `None` otherwise ([`IoWindow`]).
+fn checked_window(address: &crate::io_address::IoAddress, bytes: u8) -> Option<IoWindow> {
+    crate::io_image::validate_process_image_address(address).ok()?;
+    let end = address.flat_byte_end().ok()??;
+    let width = if address.size == IoSize::Bit {
+        1
+    } else {
+        u32::from(bytes)
+    };
+    (end.checked_sub(address.byte)? == width).then_some(IoWindow {
+        start: address.byte,
+        end,
+    })
 }
 
 /// Whether `binding`'s image bytes are `leaf`'s bytes (checklist P1-6): a flat address of the width

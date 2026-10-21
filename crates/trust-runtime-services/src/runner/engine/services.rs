@@ -5,7 +5,6 @@
 
 use alloc::vec::Vec;
 use core::cell::Cell;
-use core::time::Duration;
 
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
@@ -41,7 +40,7 @@ pub struct DeviceServices<C> {
     deadline: Cell<Option<MonotonicInstant>>,
     holds: HeldTime,
     /// The holds that had run when the deadline was armed, so that only later holds move it.
-    holds_at_arm: Cell<Duration>,
+    holds_at_arm: Cell<TimeSpan>,
     /// Whether the statement hook is live for the scan that runs: the platform enables debugging
     /// and the debugger can find statement starts. With it off, the hook returns after this check
     /// (specification 11 §6.9: debug hooks are side-effect-free when disabled).
@@ -66,7 +65,7 @@ impl<C> DeviceServices<C> {
             clock,
             deadline: Cell::new(None),
             holds: HeldTime::new(),
-            holds_at_arm: Cell::new(Duration::ZERO),
+            holds_at_arm: Cell::new(TimeSpan::ZERO),
             debugging: Cell::new(false),
             statements: Cell::new(None),
             hold: Cell::new(None),
@@ -150,7 +149,7 @@ impl<C: MonotonicClock> DeviceServices<C> {
     /// The debugger holds that have run on the device's clock: the completed holds, and the hold in
     /// progress up to now (specification 11 §6.6).
     pub(super) fn held_time(&self) -> TimeSpan {
-        TimeSpan::new(self.holds.held_at(self.clock.now()))
+        self.holds.held_at(self.clock.now())
     }
 
     /// The statement hook while the debugger is live: the work of
@@ -259,7 +258,7 @@ impl<C: MonotonicClock> ExecutionServices for DeviceServices<C> {
             .holds
             .held_at(now)
             .saturating_sub(self.holds_at_arm.get());
-        now >= deadline.saturating_add(TimeSpan::new(held))
+        now >= deadline.saturating_add(held)
     }
 
     fn has_wall_clock(&self) -> bool {

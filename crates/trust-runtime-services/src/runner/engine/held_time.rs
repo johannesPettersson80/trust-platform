@@ -3,15 +3,16 @@
 //! deadline moves forward by each hold, and a hold in progress never counts as an overrun.
 
 use core::cell::Cell;
-use core::time::Duration;
 
-use trust_runtime_core::ports::MonotonicInstant;
+use trust_runtime_core::ports::{MonotonicInstant, TimeSpan};
 
 /// The holds of a device on its monotonic clock: the total length of the completed holds, and the
-/// reading at which the hold in progress started.
+/// reading at which the hold in progress started. Both are spans of the clock, so that the scan's
+/// deadline check, which asks for them at every sample, adds and compares integers (specification
+/// 34 PERF-05).
 #[derive(Debug)]
 pub(super) struct HeldTime {
-    completed: Cell<Duration>,
+    completed: Cell<TimeSpan>,
     started: Cell<Option<MonotonicInstant>>,
 }
 
@@ -19,7 +20,7 @@ impl HeldTime {
     /// No holds yet.
     pub(super) const fn new() -> Self {
         Self {
-            completed: Cell::new(Duration::ZERO),
+            completed: Cell::new(TimeSpan::ZERO),
             started: Cell::new(None),
         }
     }
@@ -35,17 +36,18 @@ impl HeldTime {
     /// hold in progress adds nothing.
     pub(super) fn end(&self, now: MonotonicInstant) {
         if let Some(started) = self.started.take() {
-            let held = now.saturating_since(started).as_duration();
+            let held = now.saturating_since(started);
             self.completed
                 .set(self.completed.get().saturating_add(held));
         }
     }
 
     /// The completed holds and the hold in progress up to `now`, which counts as held.
-    pub(super) fn held_at(&self, now: MonotonicInstant) -> Duration {
-        let in_progress = self.started.get().map_or(Duration::ZERO, |started| {
-            now.saturating_since(started).as_duration()
-        });
+    pub(super) fn held_at(&self, now: MonotonicInstant) -> TimeSpan {
+        let in_progress = self
+            .started
+            .get()
+            .map_or(TimeSpan::ZERO, |started| now.saturating_since(started));
         self.completed.get().saturating_add(in_progress)
     }
 }

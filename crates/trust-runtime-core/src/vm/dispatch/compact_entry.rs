@@ -144,9 +144,7 @@ fn enter(
     #[cfg(feature = "register-ir")]
     let mut result = super::session::drive_stack_progress(runtime, module, buffers, progress)?;
     #[cfg(not(feature = "register-ir"))]
-    let mut result = match progress {
-        super::StackProgress::Complete(result) => result,
-    };
+    let super::StackProgress::Complete(mut result) = progress;
     runtime.recycle_frame_locals(core::mem::take(&mut result.locals));
     Ok(result)
 }

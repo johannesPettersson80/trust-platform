@@ -116,7 +116,7 @@ pub(super) fn now_us() -> u64 {
     critical_section::with(|cs| {
         let cell = BASE.borrow(cs);
         let base = cell.get();
-        let (base, reading) = match base.extend(cycles, CYCLES_PER_MICROSECOND, REBASE_CYCLES) {
+        let (base, reading) = match base.extend(cycles, REBASE_CYCLES) {
             Some(reading) => (base, reading),
             None => {
                 let micros = systimer_us();

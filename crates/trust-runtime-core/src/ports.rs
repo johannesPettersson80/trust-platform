@@ -21,25 +21,38 @@ use core::time::Duration;
 use crate::retain::checkpoint::{CheckpointFlash, FlashError, FlashGeometry, Slot};
 use crate::value;
 
-/// A reading of a platform's monotonic clock: the time since the clock's origin (PORT-01).
+/// A reading of a platform's monotonic clock: the time since the clock's origin (PORT-01), in whole
+/// nanoseconds up to about 584 years.
 ///
 /// It is neither a logical (PLC) time nor a span. Readings of different clocks, or of one clock
-/// across a device reset, are not comparable.
+/// across a device reset, are not comparable. A reading and a span are whole nanoseconds, not a
+/// `Duration` of seconds and nanoseconds, so that a 32-bit chip compares and adds them as integers
+/// and builds a reading from its timer's microseconds by one multiplication, where a `Duration`
+/// takes two 64-bit divisions, which such a chip makes in software (specification 34 PERF-05).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct MonotonicInstant(Duration);
+pub struct MonotonicInstant(u64);
 
 impl MonotonicInstant {
-    /// The reading `since_origin` after the clock's origin; a clock implementation builds its
+    /// The reading `since_origin` after the clock's origin, or the latest representable instant,
+    /// about 584 years after the origin, for a longer time; a clock implementation builds its
     /// readings with it.
     #[must_use]
     pub const fn from_origin(since_origin: Duration) -> Self {
-        Self(since_origin)
+        Self(whole_nanos(since_origin))
+    }
+
+    /// The reading `micros` microseconds after the clock's origin, saturating as
+    /// [`Self::from_origin`] does: a clock whose timer counts microseconds builds its readings with
+    /// it without dividing.
+    #[must_use]
+    pub const fn from_micros(micros: u64) -> Self {
+        Self(micros.saturating_mul(1_000))
     }
 
     /// The time since the clock's origin.
     #[must_use]
     pub const fn since_origin(self) -> Duration {
-        self.0
+        Duration::from_nanos(self.0)
     }
 
     /// The instant `span` later, or the latest representable instant, about 584 years after the
@@ -58,32 +71,51 @@ impl MonotonicInstant {
 }
 
 /// A nonnegative length of time on the monotonic clock: a budget, an interval or a measured
-/// duration (PORT-01).
+/// duration (PORT-01), in whole nanoseconds up to about 584 years, as a [`MonotonicInstant`] is.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TimeSpan(Duration);
+pub struct TimeSpan(u64);
 
 impl TimeSpan {
     /// No time.
-    pub const ZERO: Self = Self(Duration::ZERO);
+    pub const ZERO: Self = Self(0);
 
-    /// The span `duration`.
+    /// The span `duration`, or the longest representable span, about 584 years, for a longer one.
     #[must_use]
     pub const fn new(duration: Duration) -> Self {
-        Self(duration)
+        Self(whole_nanos(duration))
     }
 
     /// The span of IEC `TIME` value `time`, or `None` for a negative time, which is no span.
     #[must_use]
     pub fn from_time(time: value::Duration) -> Option<Self> {
-        u64::try_from(time.as_nanos())
-            .ok()
-            .map(|nanos| Self(Duration::from_nanos(nanos)))
+        u64::try_from(time.as_nanos()).ok().map(Self)
     }
 
     /// The span as a `Duration`.
     #[must_use]
     pub const fn as_duration(self) -> Duration {
-        self.0
+        Duration::from_nanos(self.0)
+    }
+
+    /// This span and `other` together, or the longest representable span, about 584 years, where
+    /// that would overflow.
+    #[must_use]
+    pub fn saturating_add(self, other: Self) -> Self {
+        Self(self.0.saturating_add(other.0))
+    }
+
+    /// This span less `other`, or zero when `other` is longer: a span never goes negative.
+    #[must_use]
+    pub fn saturating_sub(self, other: Self) -> Self {
+        Self(self.0.saturating_sub(other.0))
+    }
+}
+
+/// The whole nanoseconds of `duration`, or `u64::MAX`, about 584 years, for a longer one.
+const fn whole_nanos(duration: Duration) -> u64 {
+    match duration.as_secs().checked_mul(1_000_000_000) {
+        Some(nanos) => nanos.saturating_add(duration.subsec_nanos() as u64),
+        None => u64::MAX,
     }
 }
 
@@ -91,9 +123,11 @@ impl TimeSpan {
 ///
 /// - Origin and epoch: the platform's, for example the clock's creation or the device's reset;
 ///   a reset starts a new epoch.
-/// - Resolution: the platform's timer resolution; a reading is truncated to it.
+/// - Resolution: the platform's timer resolution, at most a nanosecond; a reading is truncated to
+///   it.
 /// - Wrap: none. A platform extends its hardware counter to a 64-bit count, so a reading never
-///   wraps within the device's operating life.
+///   wraps within the device's operating life; a reading saturates about 584 years after the
+///   origin.
 /// - Discontinuity: a reading never decreases.
 pub trait MonotonicClock {
     /// The current reading.
@@ -389,6 +423,62 @@ mod tests {
         assert_eq!(latest.saturating_add(span(1)), latest);
         assert_eq!(at(3).since_origin(), Duration::from_millis(3));
         assert_eq!(span(4).as_duration(), Duration::from_millis(4));
+    }
+
+    /// A reading and a span are whole nanoseconds up to `u64::MAX`, 18,446,744,073.709551615 s,
+    /// about 584 years (specification 34 PERF-05): a reading of microseconds is a thousand times as
+    /// many nanoseconds, a `Duration` keeps its nanoseconds, and anything longer is the latest
+    /// instant or the longest span. Worked by hand: 1,500 µs is 1.5 ms; 18,446,744,073,709,551 µs
+    /// is 18,446,744,073.709551 s, and one microsecond more passes `u64::MAX` nanoseconds.
+    /// Catches: microseconds taken as milliseconds or nanoseconds, a `Duration`'s nanoseconds below
+    /// the second lost, and a long time that wraps to a short one instead of saturating.
+    #[test]
+    fn readings_and_spans_are_whole_nanoseconds_that_saturate() {
+        assert_eq!(
+            MonotonicInstant::from_micros(1_500),
+            MonotonicInstant::from_origin(Duration::from_micros(1_500))
+        );
+        assert_eq!(
+            MonotonicInstant::from_micros(1_500).since_origin(),
+            Duration::from_nanos(1_500_000)
+        );
+        let last_micro = 18_446_744_073_709_551;
+        assert_eq!(
+            MonotonicInstant::from_micros(last_micro).since_origin(),
+            Duration::new(18_446_744_073, 709_551_000)
+        );
+        let latest = MonotonicInstant::from_origin(Duration::MAX);
+        assert_eq!(MonotonicInstant::from_micros(last_micro + 1), latest);
+        assert_eq!(
+            latest.since_origin(),
+            Duration::new(18_446_744_073, 709_551_615)
+        );
+        assert_eq!(
+            TimeSpan::new(Duration::new(1, 999_999_999)).as_duration(),
+            Duration::new(1, 999_999_999)
+        );
+        assert_eq!(
+            TimeSpan::new(Duration::from_secs(18_446_744_074)),
+            TimeSpan::new(Duration::MAX)
+        );
+        assert_eq!(
+            TimeSpan::new(Duration::MAX).as_duration(),
+            Duration::new(18_446_744_073, 709_551_615)
+        );
+    }
+
+    /// Spans add and subtract without going past their range or below zero (PORT-01): 5 ms and
+    /// 2 ms are 7 ms, 5 ms less 2 ms is 3 ms, 2 ms less 5 ms is no time, and the longest span with
+    /// 1 ms more is still the longest. Catches a sum that wraps to a short span and a difference
+    /// that wraps to a huge one, which would move a scan's deadline by centuries.
+    #[test]
+    fn spans_add_and_subtract_within_their_range() {
+        let span = |ms| TimeSpan::new(Duration::from_millis(ms));
+        assert_eq!(span(5).saturating_add(span(2)), span(7));
+        assert_eq!(span(5).saturating_sub(span(2)), span(3));
+        assert_eq!(span(2).saturating_sub(span(5)), TimeSpan::ZERO);
+        let longest = TimeSpan::new(Duration::MAX);
+        assert_eq!(longest.saturating_add(span(1)), longest);
     }
 
     #[test]

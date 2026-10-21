@@ -51,3 +51,34 @@ fn image_write_validation_accepts_each_area_without_mutating_flat_or_hierarchica
     assert_eq!(engine.data.images.memory, memory);
     assert_eq!(engine.data.images.hierarchical, hierarchy);
 }
+
+/// A copied binding's window, which preparation checks against the image's limits, is still checked
+/// against the image's length at every scan (checklist P1-6): with images shorter than the
+/// fixture's `%IX0.0` and `%QX0.0`, the sample and the publication are refused as an access past the
+/// admitted image, as the checks of a process-image access refuse them, and the output image stays
+/// as it was. Catches a scan that trusts the window and reads or writes past the image, which would
+/// refuse with another error or panic.
+#[test]
+fn a_copied_binding_past_a_shorter_image_is_refused_as_before() {
+    let prepared = PreparedModule::from_bytes(
+        include_bytes!("../../../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc"),
+        crate::vm::PreparationLimits::default(),
+    )
+    .unwrap();
+    let leaves: Vec<_> = prepared.io_leaves.iter().flatten().collect();
+    assert_eq!(leaves.len(), 2, "the fixture binds button and led");
+    assert!(
+        leaves.iter().all(|leaf| leaf.copy && leaf.window.is_some()),
+        "both bindings are copied bits with a window: {leaves:?}"
+    );
+    let services = &super::super::super::services::LOGICAL_ONLY;
+    let mut data = EngineState::construct_data(&prepared, 0, services).unwrap();
+    data.images.inputs.clear();
+    data.images.outputs.clear();
+    let mut engine = EngineState::borrow(&mut data, &prepared, services);
+    assert!(engine.data.construction.initializers.is_empty());
+    let past = RuntimeError::InvalidIoAddress("address exceeds admitted process image".into());
+    assert_eq!(engine.sample_input_image(), Err(past.clone()));
+    assert_eq!(engine.publish_output_image(), Err(past));
+    assert!(engine.data.images.outputs.is_empty());
+}

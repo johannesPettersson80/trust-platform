@@ -87,20 +87,23 @@ END_PROGRAM
 }
 
 /// TON on the engine, whose block reaches IN, PT, Q, ET and its elapsed-time baseline at the places
-/// preparation found for them (spec 34 PERF-05, checklist P1-4 and P1-5). The expected values are
-/// spec 08 §5 and the timer decision of 12 July 2026 in `docs/IEC_DECISIONS.md` worked by hand: the
-/// first call adds no time, each later call adds the clock's advance while IN is TRUE, ET stops at
-/// PT, where Q turns TRUE, and IN FALSE clears Q and ET. Catches a member read or written at another
-/// member's place (ET taken from PT, Q written over IN), a baseline kept at a wrong place, and a
-/// call that binds IN or PT to another member.
+/// preparation found for them (spec 34 PERF-05, checklist P1-4 and P1-5), once with a `TIME` preset
+/// and once with an `LTIME` one, whose family PT and ET keep in their duration slots (spec 08 §5,
+/// spec 34 §6.2). The expected values are spec 08 §5 and the timer decision of 12 July 2026 in
+/// `docs/IEC_DECISIONS.md` worked by hand: the first call adds no time, each later call adds the
+/// clock's advance while IN is TRUE, ET stops at PT, where Q turns TRUE, and IN FALSE clears Q and
+/// ET. Catches a member read or written at another member's place (ET taken from PT, Q written over
+/// IN), a baseline kept at a wrong place, a call that binds IN or PT to another member, and a slot's
+/// family byte written or read as the other family.
 #[test]
 fn on_delay_executes_in_source_free_state() {
     let prepared = prepare(
         r#"
 VAR_GLOBAL signal : BOOL; END_VAR
 PROGRAM Main
-VAR on_delay : TON; END_VAR
+VAR on_delay : TON; long_delay : TON; END_VAR
 on_delay(IN := signal, PT := T#25ms);
+long_delay(IN := signal, PT := LTIME#25ms);
 END_PROGRAM
 "#,
     );
@@ -115,26 +118,31 @@ END_PROGRAM
     ] {
         state.write_global("signal", Value::Bool(signal)).unwrap();
         state.execute_cycle(Duration::from_millis(time)).unwrap();
-        assert_eq!(
-            member(&state, "on_delay", "Q"),
-            Value::Bool(q),
-            "Q at {time}"
-        );
-        assert_eq!(
-            member(&state, "on_delay", "ET"),
-            Value::Time(Duration::from_millis(et)),
-            "ET at {time}"
-        );
-        assert_eq!(
-            member(&state, "on_delay", "IN"),
-            Value::Bool(signal),
-            "IN at {time}"
-        );
-        assert_eq!(
-            member(&state, "on_delay", "PT"),
-            Value::Time(Duration::from_millis(25)),
-            "PT at {time}"
-        );
+        for (block, duration) in [
+            ("on_delay", Value::Time as fn(Duration) -> Value),
+            ("long_delay", Value::LTime),
+        ] {
+            assert_eq!(
+                member(&state, block, "Q"),
+                Value::Bool(q),
+                "{block} Q at {time}"
+            );
+            assert_eq!(
+                member(&state, block, "ET"),
+                duration(Duration::from_millis(et)),
+                "{block} ET at {time}"
+            );
+            assert_eq!(
+                member(&state, block, "IN"),
+                Value::Bool(signal),
+                "{block} IN at {time}"
+            );
+            assert_eq!(
+                member(&state, block, "PT"),
+                duration(Duration::from_millis(25)),
+                "{block} PT at {time}"
+            );
+        }
     }
 }
 
@@ -354,6 +362,51 @@ fn scalar_bindings_are_sampled_and_published_in_their_bytes() {
         0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
     ];
     assert_eq!(&state.outputs()[..24], &expected);
+}
+
+/// The copied bindings of two program instances, whose variables lie in two instances, are sampled
+/// and published in their own instance's bytes, whichever order `VAR_CONFIG` lists them in (spec 34
+/// PERF-05; checklist P1-6): a pass finds the instance of a binding's program once for the bindings
+/// that follow it of the same program, and again for another program's. Worked by hand: `A.first`
+/// copies `A.seen`, `%IB0`, and `B.first` copies `B.seen`, `%IB1`, so the first scan's `%QB0` and
+/// `%QB1` are 16#5A and 16#6B and the second's 16#11 and 16#22, and `%QB2` is `A.second`, 16#A2,
+/// both times. Catches a pass that reads or writes one program's binding in the other program's
+/// instance, which would put one program's byte, or a zero, where the other's belongs.
+#[test]
+fn copied_bindings_of_two_programs_reach_their_own_instances() {
+    let prepared = prepare(
+        "PROGRAM Main
+         VAR first : BYTE; second : BYTE; seen : BYTE; END_VAR
+         first := seen; second := BYTE#16#A2;
+         END_PROGRAM
+         PROGRAM Other
+         VAR pad : DWORD; first : BYTE; seen : BYTE; END_VAR
+         first := seen;
+         END_PROGRAM
+         CONFIGURATION Conf
+         RESOURCE Controller ON PLC
+         TASK Periodic (INTERVAL := T#10ms, PRIORITY := 0);
+         PROGRAM A WITH Periodic : Main;
+         PROGRAM B WITH Periodic : Other;
+         END_RESOURCE
+         VAR_CONFIG
+             A.first AT %QB0 : BYTE;
+             B.first AT %QB1 : BYTE;
+             A.second AT %QB2 : BYTE;
+             B.seen AT %IB1 : BYTE;
+             A.seen AT %IB0 : BYTE;
+         END_VAR
+         END_CONFIGURATION",
+    );
+    let mut state = prepared.instantiate(0).unwrap();
+    for (time, inputs, outputs) in [
+        (10, [0x5A, 0x6B], [0x5A, 0x6B, 0xA2]),
+        (20, [0x11, 0x22], [0x11, 0x22, 0xA2]),
+    ] {
+        state.inputs_mut()[..2].copy_from_slice(&inputs);
+        state.execute_cycle(Duration::from_millis(time)).unwrap();
+        assert_eq!(&state.outputs()[..3], &outputs, "outputs at {time}");
+    }
 }
 
 #[test]

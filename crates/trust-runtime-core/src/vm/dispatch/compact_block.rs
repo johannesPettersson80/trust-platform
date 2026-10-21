@@ -34,7 +34,7 @@ pub(super) fn call_block(
     operand_stack
         .discard_top(usize::from(block.operands))
         .map_err(VmTrap::into_runtime_error)?;
-    run(runtime, block, instance)?;
+    run(runtime, block, instance, base)?;
     operand_stack
         .push(Value::Null)
         .map_err(VmTrap::into_runtime_error)?;
@@ -51,7 +51,8 @@ pub(super) fn inputs(code: &CompactCode, block: BlockCall) -> Result<&[Slot], Ru
 
 /// The receiver of `block` among `operands` (the receiver, then the arguments) and its bytes, when
 /// it is a persistent instance of the block and each argument of `inputs` is a value of its
-/// member's primitive; `None` leaves the call to the general call. Nothing is charged.
+/// member's primitive; `None` leaves the call to the general call. Nothing is charged. The
+/// instance's POU and bytes are found at once, and [`run`] runs the block in those bytes.
 pub(super) fn receiver(
     runtime: &impl ExecutionContext,
     block: BlockCall,
@@ -60,10 +61,10 @@ pub(super) fn receiver(
 ) -> Option<(InstanceId, ByteRange)> {
     let (receiver, arguments) = operands.split_first()?;
     let instance = receiver.instance()?;
-    if runtime.instance_pou(instance) != Some(block.pou) {
+    let (pou, base) = runtime.instance_pou_and_bytes(instance)?;
+    if pou != block.pou {
         return None;
     }
-    let base = runtime.instance_bytes(instance)?;
     inputs
         .iter()
         .all(|member| {
@@ -107,16 +108,17 @@ pub(super) fn bind(
     Ok(())
 }
 
-/// Run the native code of `block` on `instance` at the logical time, once its inputs are bound,
-/// and check the deadline after it.
+/// Run the native code of `block` on `instance`, whose own variables are `base` ([`receiver`]),
+/// at the logical time, once its inputs are bound, and check the deadline after it.
 pub(super) fn run(
     runtime: &mut impl ExecutionContext,
     block: BlockCall,
     instance: InstanceId,
+    base: ByteRange,
 ) -> Result<(), RuntimeError> {
     runtime.check_builtin_call(instance)?;
     let now = runtime.current_time();
-    runtime.execute_builtin_fb(now, instance, block.kind)?;
+    runtime.execute_builtin_fb_at(now, instance, block.kind, block.pou, base)?;
     runtime.check_execution_deadline()
 }
 

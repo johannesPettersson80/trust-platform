@@ -11,11 +11,13 @@ use super::members::Member;
 use super::BuiltinExecContext;
 
 /// The primitives of a `TIME` and an `LTIME` leaf, eight little-endian bytes of nanoseconds, and of
-/// a native duration slot, the same eight bytes and a family byte, 1 for an `LTIME`
-/// (`memory::flat`).
+/// a native duration slot, the same eight bytes and a family byte, 0 for a `TIME` and 1 for an
+/// `LTIME` (`memory::flat`): a timer's `PT` and `ET`, which take either, are such slots, as is the
+/// time of its last call.
 const TIME: u16 = 16;
 const LTIME: u16 = 17;
 const DURATION_SLOT: u16 = 0x0101;
+const TIME_FAMILY: u8 = 0;
 const LTIME_FAMILY: u8 = 1;
 
 /// The duration of a leaf's eight little-endian bytes of nanoseconds, as its view reads it; `None`
@@ -30,16 +32,25 @@ fn leaf_duration(bytes: &[u8]) -> Option<Duration> {
     ])))
 }
 
-/// The duration `member` holds where it lies, a `TIME` or an `LTIME`, with whether it is an
-/// `LTIME`; `(ZERO, false)` when it holds no value, as a member that holds `Null` reads (checklist
-/// P1-4). `None` when the member is read through its view.
+/// The duration `member` holds where it lies, a `TIME`, an `LTIME` or a duration slot's, with
+/// whether it is an `LTIME`, which a slot's family byte says; `(ZERO, false)` when it holds no value,
+/// as a member that holds `Null` reads (checklist P1-4). `None` when the member is read through its
+/// view.
 fn duration_leaf<S: StoreAccess>(
     ctx: &BuiltinExecContext<'_, S>,
     member: Member,
 ) -> Option<(Duration, bool)> {
-    for (prim, is_ltime) in [(TIME, false), (LTIME, true)] {
+    for (prim, is_ltime) in [
+        (TIME, Some(false)),
+        (LTIME, Some(true)),
+        (DURATION_SLOT, None),
+    ] {
         match leaf_bytes(ctx, member, prim) {
-            Some(Some(bytes)) => return leaf_duration(bytes).map(|value| (value, is_ltime)),
+            Some(Some(bytes)) => {
+                let value = leaf_duration(bytes)?;
+                let is_ltime = is_ltime.unwrap_or(bytes.get(8) == Some(&LTIME_FAMILY));
+                return Some((value, is_ltime));
+            }
             Some(None) => return Some((Duration::ZERO, false)),
             None => {}
         }
@@ -334,9 +345,21 @@ fn write_time_value<S: StoreMutate>(
     value: Duration,
     is_ltime: bool,
 ) {
-    // A duration of the member's own primitive is its leaf's bytes, as the store writes it.
+    // A duration of the member's own primitive is its leaf's bytes, and a duration slot takes them
+    // and the duration's family byte, as the store writes a `TIME` or an `LTIME`.
     let prim = if is_ltime { LTIME } else { TIME };
-    if write_leaf_bytes(ctx, member, prim, &value.as_nanos().to_le_bytes()) {
+    let bytes = value.as_nanos().to_le_bytes();
+    if write_leaf_bytes(ctx, member, prim, &bytes) {
+        return;
+    }
+    let [b0, b1, b2, b3, b4, b5, b6, b7] = bytes;
+    let family = if is_ltime { LTIME_FAMILY } else { TIME_FAMILY };
+    if write_leaf_bytes(
+        ctx,
+        member,
+        DURATION_SLOT,
+        &[b0, b1, b2, b3, b4, b5, b6, b7, family],
+    ) {
         return;
     }
     let value = if is_ltime {

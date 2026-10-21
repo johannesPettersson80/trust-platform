@@ -2929,10 +2929,11 @@ program reads or writes:
   instance's bytes, its declared type and its presence byte, so a call finds the instance once and
   reads and writes each variable where it lies. The call takes a persistent instance's POU from the
   instance table, not from its type's name. A BOOL, `TIME` or `LTIME` variable, and the native
-  duration slot of the time of a timer's last call, are read and written as their leaves' bytes,
-  as the flat store's codec reads and writes them (`memory::flat`): a byte other than zero is TRUE,
-  a duration is eight little-endian bytes of nanoseconds and a slot's family byte follows them, a
-  variable whose presence byte is clear holds no value, and a write marks it. A block reaches the
+  duration slots of an overloaded timer's `PT` and `ET` and of the time of a timer's last call, are
+  read and written as their leaves' bytes, as the flat store's codec reads and writes them
+  (`memory::flat`): a byte other than zero is TRUE, a duration is eight little-endian bytes of
+  nanoseconds and a slot's family byte follows them, 1 for an `LTIME`, a variable whose presence
+  byte is clear holds no value, and a write marks it. A block reaches the
   same variables either way, so its results are unchanged.
 - In a body that compact code covers, the operands are held as the values of their leaves, a stack
   of at most 16 that the loop keeps itself, while each is a scalar or an instance (checklist P1-9):
@@ -2950,8 +2951,11 @@ program reads or writes:
   (checklist P1-9): an
   integer, a BOOL, any other scalar, a function block instance, or the value a standard block call
   leaves. The body then runs on its operands' bits, an integer as its 64-bit value and a BOOL as 0
-  or 1: a load reads the leaf's bytes, a store of the variable's primitive writes them, and the
-  arithmetic, comparison and logic chosen at preparation run by specification 10 §6.4. Each
+  or 1: a load reads the leaf's bytes, a store of the variable's primitive writes them, the
+  arithmetic, comparison and logic chosen at preparation run by specification 10 §6.4, and an
+  integer converted to an integer type, by a conversion that names the integer's own type or none,
+  keeps its bits when the target type holds its value and is refused as an overflow when it does
+  not (specification 07 §2.1). Each
   operation keeps the order, charges, deadline checks, refusals and hand-overs of the operation
   above, so the body ends with the same result, charges, fault record and values.
 - A program's body that compact code covers, and that keeps no variable in a frame and initializes
@@ -2994,7 +2998,11 @@ program reads or writes:
   the variables are as they were. A binding whose type is a BOOL, an integer, a bit string or a
   character, bound at the width of its type, holds in the image the bits its variable holds: it is
   sampled and published by copying its bytes, a BOOL's one bit as its 1 or 0, after the same
-  checks and with the same charges.
+  checks and with the same charges. Preparation checks such a binding's address against every
+  limit that does not depend on an image's length, so a scan checks only that the image holds the
+  binding's bytes and makes the other checks, with their refusals, when it does not; and a scan
+  finds the instance of a program whose variables the bindings name once for each run of that
+  program's bindings.
 - A device whose bindings are all flat scalars publishes its I/O snapshot at the end of a scan as
   a copy of the flat process images, with the scan's number and the addresses a force holds, and a
   request decodes the bindings from that copy when it reads the snapshot. Reading a flat scalar
@@ -3775,7 +3783,11 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   instruction and counts the same crystal. The reading after a wait, which stops the CPU, and one a
   second or more after the last SYSTIMER reading read SYSTIMER again, and a reading is never less
   than the one before it. At boot the firmware checks that the counter counts, at least half the
-  cycles of 20 µs of SYSTIMER, and otherwise every reading reads SYSTIMER.
+  cycles of 20 µs of SYSTIMER, and otherwise every reading reads SYSTIMER. A reading and a span of
+  the monotonic clock are whole nanoseconds, up to about 584 years (`ports::MonotonicInstant` and
+  `ports::TimeSpan`), so a reading of microseconds becomes an instant by one multiplication; as a
+  `Duration` of seconds and nanoseconds it took two 64-bit divisions, which the C6 makes in
+  software, and a scan reads the clock at each deadline check (PERF-05).
 - **Numeric environment.** `misa` reads 0x40903105: RV32 with I, M, A, C, N, U and X, and without
   F or D. REAL and LREAL therefore both use software floating point. IDENTITY reports `misa`, and
   the verifier requires the F and D bits clear.
@@ -3864,7 +3876,14 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   repeated instruction sequences into fragments in flash, which RAM code then calls, and the
   fragments took about 10% of the busy samples of a scan. The threshold keeps the smallest
   fragments in their callers for 4.4 KB more RAM code; with the outliner off the RAM code grew by
-  22.8 KB, more than the RAM left above the stack window (measured 21 October 2026). Interrupts
+  22.8 KB, more than the RAM left above the stack window (measured 21 October 2026). Built for size,
+  the firmware copies every value of more than a few bytes by calling `memcpy`, and the ROM's,
+  whose checks and loop take 60 to 100 cycles for a few words, took 17.6% of the busy samples of
+  `v1p`'s cycle (firmware p2c, 21 October 2026). So the firmware links `memcpy` to its own, in RAM
+  (`src/memcpy.rs`, `--defsym=memcpy=trust_memcpy`; checklist P1-7): a copy of at most 128 bytes
+  whose two addresses lie at the same offset within a word copies its whole words through a table
+  of word loads and stores and its other bytes one by one, a copy of at most 16 bytes at different
+  offsets copies bytes, and any other copy goes on to the ROM's. Interrupts
   use the same stack on RISC-V, so the window includes them. The allocator serves three heap regions on the C6, tried in
   this order: the main heap, the boot loader's reclaimed RAM and the LP SRAM. A program's prepared module and its execution services
   are allocated on the heap when the program starts, and the program's cycle owns them: they are

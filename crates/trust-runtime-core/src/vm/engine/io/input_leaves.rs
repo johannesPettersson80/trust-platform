@@ -60,13 +60,14 @@ impl EngineState<'_> {
         self.charge_allocation_bytes(entries)?;
         saved.clear();
         let mut written = 0;
+        let mut root = RootRange::default();
         for (index, binding) in prepared.io_bindings.iter().enumerate() {
             let Some(leaf) = self.input_leaf(index, binding) else {
                 continue;
             };
             let result = if leaf.copy {
                 self.copied_input(binding, leaf).and_then(|bytes| {
-                    let range = self.keep_input_leaf(saved, leaf)?;
+                    let range = self.keep_input_leaf(saved, leaf, &mut root)?;
                     if self
                         .data
                         .store
@@ -79,7 +80,7 @@ impl EngineState<'_> {
                 })
             } else {
                 self.input_value(binding).and_then(|value| {
-                    let range = self.keep_input_leaf(saved, leaf)?;
+                    let range = self.keep_input_leaf(saved, leaf, &mut root)?;
                     if self.write_scalar_leaf(range, leaf.prim, &value) {
                         Ok(())
                     } else {
@@ -110,10 +111,11 @@ impl EngineState<'_> {
         &mut self,
         saved: &mut SavedDestinations,
         leaf: IoLeaf,
+        root: &mut RootRange,
     ) -> Result<ByteRange, RuntimeError> {
         self.check_entry_deadline()?;
         let range = self
-            .leaf_range(leaf)
+            .leaf_range_in(leaf, root)
             .ok_or_else(|| RuntimeError::NullReference)?;
         let held = self
             .data
@@ -126,20 +128,26 @@ impl EngineState<'_> {
 
     /// The leaf bytes of copied binding `binding` (`IoLeaf::copy`), read from its image after the
     /// checks of a read of its address: the image's little-endian bytes, or for a bit the BOOL
-    /// leaf's 1 or 0.
+    /// leaf's 1 or 0. A window that preparation checked (`IoLeaf::window`) needs only the image's
+    /// length checked; the checks run when it is shorter and refuse the binding as before.
     fn copied_input(
         &self,
         binding: &PreparedIoBinding,
         leaf: IoLeaf,
     ) -> Result<[u8; 8], RuntimeError> {
         let address = &binding.address;
-        crate::io_image::validate_process_image_address(address)?;
         let image = match address.area {
             IoArea::Input => &self.data.images.inputs,
             IoArea::Output => &self.data.images.outputs,
             IoArea::Memory => &self.data.images.memory,
         };
-        crate::io_image::check_image_window(address, image.len())?;
+        if leaf
+            .window
+            .is_none_or(|window| window.end as usize > image.len())
+        {
+            crate::io_image::validate_process_image_address(address)?;
+            crate::io_image::check_image_window(address, image.len())?;
+        }
         let start = address.byte as usize;
         let len = usize::from(leaf.bytes);
         let Some(window) = image.get(start..start + len) else {
@@ -190,11 +198,24 @@ impl EngineState<'_> {
 
     /// The bytes of `leaf` in the persistent block, or in the instance of its construction root.
     pub(super) fn leaf_range(&self, leaf: IoLeaf) -> Option<ByteRange> {
+        self.leaf_range_in(leaf, &mut RootRange::default())
+    }
+
+    /// [`Self::leaf_range`], finding the instance of the leaf's construction root through `root`,
+    /// which keeps the range of the root it found last.
+    pub(super) fn leaf_range_in(&self, leaf: IoLeaf, root: &mut RootRange) -> Option<ByteRange> {
         let (region, start) = match leaf.root {
             None => (LayoutRegion::Persistent, 0),
-            Some(root) => {
-                let instance = (*self.data.construction.roots.get(root as usize)?)?;
-                let range = self.data.reader(self.prepared).instance_range(instance)?;
+            Some(index) => {
+                let range = match root.0 {
+                    Some((found, range)) if found == index => range,
+                    _ => {
+                        let instance = (*self.data.construction.roots.get(index as usize)?)?;
+                        let range = self.data.reader(self.prepared).instance_range(instance)?;
+                        root.0 = Some((index, range));
+                        range
+                    }
+                };
                 (range.region, range.start)
             }
         };
@@ -205,3 +226,9 @@ impl EngineState<'_> {
         })
     }
 }
+
+/// The range of the instance of the construction root whose leaf a pass over the bindings found
+/// last. The bindings of one program's variables name one root, so the pass finds its instance once
+/// (checklist P1-6). A root's instance is persistent and keeps its range while the pass runs.
+#[derive(Debug, Clone, Copy, Default)]
+pub(super) struct RootRange(Option<(u32, ByteRange)>);
