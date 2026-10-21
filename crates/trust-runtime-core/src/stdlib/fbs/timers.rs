@@ -4,10 +4,48 @@ use crate::memory::InstanceId;
 use crate::value::{Duration, Value};
 
 use super::instance::{
-    get_or_init_bool, read_bool, read_scalar_or_null, set_instance_value, write_bool,
+    get_or_init_bool, leaf_bytes, read_bool, read_scalar_or_null, set_instance_value, write_bool,
+    write_leaf_bytes,
 };
 use super::members::Member;
 use super::BuiltinExecContext;
+
+/// The primitives of a `TIME` and an `LTIME` leaf, eight little-endian bytes of nanoseconds, and of
+/// a native duration slot, the same eight bytes and a family byte, 1 for an `LTIME`
+/// (`memory::flat`).
+const TIME: u16 = 16;
+const LTIME: u16 = 17;
+const DURATION_SLOT: u16 = 0x0101;
+const LTIME_FAMILY: u8 = 1;
+
+/// The duration of a leaf's eight little-endian bytes of nanoseconds, as its view reads it; `None`
+/// for a leaf of fewer bytes. The bytes are taken one by one: a slice copy calls `memcpy` when the
+/// compiler builds for size (checklist P1-7).
+fn leaf_duration(bytes: &[u8]) -> Option<Duration> {
+    let &[b0, b1, b2, b3, b4, b5, b6, b7, ..] = bytes else {
+        return None;
+    };
+    Some(Duration::from_nanos(i64::from_le_bytes([
+        b0, b1, b2, b3, b4, b5, b6, b7,
+    ])))
+}
+
+/// The duration `member` holds where it lies, a `TIME` or an `LTIME`, with whether it is an
+/// `LTIME`; `(ZERO, false)` when it holds no value, as a member that holds `Null` reads (checklist
+/// P1-4). `None` when the member is read through its view.
+fn duration_leaf<S: StoreAccess>(
+    ctx: &BuiltinExecContext<'_, S>,
+    member: Member,
+) -> Option<(Duration, bool)> {
+    for (prim, is_ltime) in [(TIME, false), (LTIME, true)] {
+        match leaf_bytes(ctx, member, prim) {
+            Some(Some(bytes)) => return leaf_duration(bytes).map(|value| (value, is_ltime)),
+            Some(None) => return Some((Duration::ZERO, false)),
+            None => {}
+        }
+    }
+    None
+}
 
 /// Timer output and elapsed duration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -263,6 +301,9 @@ fn read_time_input<S: StoreAccess>(
     instance_id: InstanceId,
     member: Member,
 ) -> Result<(Duration, bool), RuntimeError> {
+    if let Some(input) = duration_leaf(ctx, member) {
+        return Ok(input);
+    }
     match read_scalar_or_null(ctx, instance_id, member)? {
         Value::Time(value) => Ok((value, false)),
         Value::LTime(value) => Ok((value, true)),
@@ -276,6 +317,9 @@ fn read_time_value<S: StoreAccess>(
     instance_id: InstanceId,
     member: Member,
 ) -> Result<Duration, RuntimeError> {
+    if let Some((value, _)) = duration_leaf(ctx, member) {
+        return Ok(value);
+    }
     match read_scalar_or_null(ctx, instance_id, member)? {
         Value::Time(value) | Value::LTime(value) => Ok(value),
         Value::Null => Ok(Duration::ZERO),
@@ -290,6 +334,11 @@ fn write_time_value<S: StoreMutate>(
     value: Duration,
     is_ltime: bool,
 ) {
+    // A duration of the member's own primitive is its leaf's bytes, as the store writes it.
+    let prim = if is_ltime { LTIME } else { TIME };
+    if write_leaf_bytes(ctx, member, prim, &value.as_nanos().to_le_bytes()) {
+        return;
+    }
     let value = if is_ltime {
         Value::LTime(value)
     } else {
@@ -322,6 +371,18 @@ fn get_or_init_duration<S: StoreAccess + StoreMutate>(
     member: Member,
     default: Duration,
 ) -> Result<Duration, RuntimeError> {
+    match leaf_bytes(ctx, member, DURATION_SLOT) {
+        Some(Some(bytes)) => {
+            if let Some(value) = leaf_duration(bytes) {
+                return Ok(value);
+            }
+        }
+        Some(None) => {
+            set_internal_duration(ctx, instance_id, member, default);
+            return Ok(default);
+        }
+        None => {}
+    }
     match read_scalar_or_null(ctx, instance_id, member)? {
         Value::Time(value) | Value::LTime(value) => Ok(value),
         Value::Null => {
@@ -338,5 +399,11 @@ fn set_internal_duration<S: StoreMutate>(
     member: Member,
     value: Duration,
 ) {
-    set_instance_value(ctx, instance_id, member, Value::LTime(value));
+    // The slot holds the duration's eight bytes and the `LTIME` family byte, as the store writes an
+    // `LTIME` into it.
+    let [b0, b1, b2, b3, b4, b5, b6, b7] = value.as_nanos().to_le_bytes();
+    let slot = [b0, b1, b2, b3, b4, b5, b6, b7, LTIME_FAMILY];
+    if !write_leaf_bytes(ctx, member, DURATION_SLOT, &slot) {
+        set_instance_value(ctx, instance_id, member, Value::LTime(value));
+    }
 }

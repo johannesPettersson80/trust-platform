@@ -2928,8 +2928,12 @@ program reads or writes:
   binds the block's formals at the same places. Preparation also finds where each of them lies in an
   instance's bytes, its declared type and its presence byte, so a call finds the instance once and
   reads and writes each variable where it lies. The call takes a persistent instance's POU from the
-  instance table, not from its type's name. A block reaches the same variables either way, so its
-  results are unchanged.
+  instance table, not from its type's name. A BOOL, `TIME` or `LTIME` variable, and the native
+  duration slot of the time of a timer's last call, are read and written as their leaves' bytes,
+  as the flat store's codec reads and writes them (`memory::flat`): a byte other than zero is TRUE,
+  a duration is eight little-endian bytes of nanoseconds and a slot's family byte follows them, a
+  variable whose presence byte is clear holds no value, and a write marks it. A block reaches the
+  same variables either way, so its results are unchanged.
 - In a body that compact code covers, the operands are held as the values of their leaves, a stack
   of at most 16 that the loop keeps itself, while each is a scalar or an instance (checklist P1-9):
   a load decodes the variable's leaf, a store whose value is of the variable's primitive encodes it

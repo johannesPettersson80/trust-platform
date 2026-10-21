@@ -88,16 +88,19 @@ impl PreparedModule {
     }
 
     /// Where storage declaration `id` lies among its instance's own bytes, as the store finds a
-    /// persistent instance's variable: its offset, its type's bytes, its type and whether it keeps a
-    /// presence byte (specification 34 MEM-12). `None` where the store finds no place.
+    /// persistent instance's variable: its offset, its type's bytes, its type, whether it keeps a
+    /// presence byte (specification 34 MEM-12) and its leaf's primitive when its type is a scalar.
+    /// `None` where the store finds no place.
     fn declared_place(&self, id: u32) -> Option<DeclaredPlace> {
         let entry = self.layout.entries.get(id as usize)?;
         let type_id = entry.type_id?;
+        let layout = self.type_layout(type_id)?;
         Some(DeclaredPlace {
             offset: self.declaration_offset(id)?,
-            bytes: self.type_layout(type_id)?.shape.bytes,
+            bytes: layout.shape.bytes,
             type_id,
             presence: holds_presence(entry.role),
+            scalar: layout.scalar,
         })
     }
 }

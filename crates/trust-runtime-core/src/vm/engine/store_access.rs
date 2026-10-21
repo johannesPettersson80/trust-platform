@@ -71,6 +71,21 @@ impl StoreAccess for EngineState<'_> {
     }
 
     #[inline]
+    fn read_place_bytes(&self, range: ByteRange, presence: Option<u32>) -> Option<Option<&[u8]>> {
+        if let Some(start) = presence {
+            let flag = self.data.store.bytes(ByteRange {
+                start,
+                bytes: 1,
+                ..range
+            })?;
+            if flag.first() == Some(&0) {
+                return Some(None);
+            }
+        }
+        self.data.store.bytes(range).map(Some)
+    }
+
+    #[inline]
     fn read_global<'a>(&'a self, name: &str) -> Option<ValueView<'a>> {
         self.data.reader(self.prepared).read_global(name)
     }
@@ -256,6 +271,33 @@ impl StoreMutate for EngineState<'_> {
             presence,
             value,
         )
+    }
+
+    #[inline]
+    fn write_place_bytes(&mut self, range: ByteRange, presence: Option<u32>, bytes: &[u8]) -> bool {
+        let Some(written) = u32::try_from(bytes.len())
+            .ok()
+            .filter(|&len| len <= range.bytes)
+            .map(|len| ByteRange {
+                bytes: len,
+                ..range
+            })
+        else {
+            return false;
+        };
+        let flag = presence.map(|start| ByteRange {
+            start,
+            bytes: 1,
+            ..range
+        });
+        // Nothing is written unless both the leaf and its presence byte lie in the store.
+        if self.data.store.bytes(written).is_none()
+            || flag.is_some_and(|flag| self.data.store.bytes(flag).is_none())
+        {
+            return false;
+        }
+        self.data.store.write_bytes(written, bytes)
+            && flag.is_none_or(|flag| self.data.store.write_bytes(flag, &[1]))
     }
 
     #[inline]

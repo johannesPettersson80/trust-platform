@@ -6,6 +6,41 @@ use crate::value::Value;
 use super::members::Member;
 use super::BuiltinExecContext;
 
+/// The primitive of a BOOL leaf: one byte, which reads as TRUE when it is not zero (`memory::flat`).
+const BOOL: u16 = 1;
+
+/// The bytes of `member` where they lie, when preparation fixed the block's places and found the
+/// member to be a scalar of primitive `prim` (checklist P1-4): `Some(None)` when the member holds
+/// no value. `None` otherwise, and the member is read through its view.
+pub(super) fn leaf_bytes<'a, S: StoreAccess>(
+    ctx: &'a BuiltinExecContext<'_, S>,
+    member: Member,
+    prim: u16,
+) -> Option<Option<&'a [u8]>> {
+    let (range, scalar, presence) = ctx.places?.leaf(member)?;
+    if scalar != prim {
+        return None;
+    }
+    ctx.storage.read_place_bytes(range, presence)
+}
+
+/// Write `bytes`, the leaf of a value of primitive `prim`, into `member` where it lies, when
+/// preparation fixed the block's places and found the member to be a scalar of `prim`, as a write
+/// of the value stores it (checklist P1-4). `false`, with nothing written, otherwise.
+pub(super) fn write_leaf_bytes<S: StoreMutate>(
+    ctx: &mut BuiltinExecContext<'_, S>,
+    member: Member,
+    prim: u16,
+    bytes: &[u8],
+) -> bool {
+    match ctx.places.and_then(|places| places.leaf(member)) {
+        Some((range, scalar, presence)) if scalar == prim => {
+            ctx.storage.write_place_bytes(range, presence, bytes)
+        }
+        _ => false,
+    }
+}
+
 /// The view of `member` of `instance_id`, the variable the instance declares itself under the
 /// member's name. With the places preparation fixed for the block's POU, the member is read where it
 /// lies in the instance's bytes, and a member the POU does not declare is none (checklist P1-4);
@@ -45,6 +80,11 @@ pub(super) fn read_bool<S: StoreAccess>(
     instance_id: InstanceId,
     member: Member,
 ) -> Result<bool, RuntimeError> {
+    // A BOOL member is its byte where it lies, and a member that holds no value reads FALSE, as
+    // its view reads them.
+    if let Some(bytes) = leaf_bytes(ctx, member, BOOL) {
+        return Ok(bytes.and_then(<[u8]>::first).is_some_and(|byte| *byte != 0));
+    }
     let Some(view) = member_view(ctx, instance_id, member)? else {
         return Ok(false);
     };
@@ -61,6 +101,14 @@ pub(super) fn get_or_init_bool<S: StoreAccess + StoreMutate>(
     member: Member,
     default: bool,
 ) -> Result<bool, RuntimeError> {
+    match leaf_bytes(ctx, member, BOOL) {
+        Some(Some(bytes)) => return Ok(bytes.first().is_some_and(|byte| *byte != 0)),
+        Some(None) => {
+            write_bool(ctx, instance_id, member, default);
+            return Ok(default);
+        }
+        None => {}
+    }
     let current = match member_view(ctx, instance_id, member)? {
         Some(view) => view.scalar()?,
         None => Some(Value::Null),
@@ -81,7 +129,9 @@ pub(super) fn write_bool<S: StoreMutate>(
     member: Member,
     value: bool,
 ) {
-    write_member(ctx, instance_id, member, Value::Bool(value));
+    if !write_leaf_bytes(ctx, member, BOOL, &[u8::from(value)]) {
+        write_member(ctx, instance_id, member, Value::Bool(value));
+    }
 }
 
 pub(super) fn read_value<S: StoreAccess>(

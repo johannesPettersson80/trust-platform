@@ -163,7 +163,8 @@
  * 19 KB) run from flash. The three patterns take every `stdlib::fbs` item but those of `members`
  * and `registry`, whose tables and names preparation reads; a block's place lookup
  * (`BlockPlaces::member`, 100 bytes) did not inline into its reads and writes and ran from flash
- * (`profile-p1n-v1p`: 10 samples), so it has a pattern of its own. The
+ * (`profile-p1n-v1p`: 10 samples), so it has a pattern of its own, as have the leaf lookup and the
+ * store's reads and writes of a member's leaf bytes, which a BOOL or TIME member takes (P1-4). The
  * places of a block's members, and the module's POU and native symbol lookups that a block call
  * and a conversion make (checklist P1-4; `profile-p1k-v1p`: 9 samples from flash with the engine
  * view a cycle takes, `RuntimeState::engine`). */
@@ -171,6 +172,9 @@
 *(.text.*18trust_runtime_core6stdlib3fbs7[!m]*)
 *(.text.*18trust_runtime_core6stdlib3fbs8[!r]*)
 *(.text.*11BlockPlaces6member*)
+*(.text.*11BlockPlaces4leaf*)
+*(.text.*12store_access*16read_place_bytes*)
+*(.text.*12store_access*17write_place_bytes*)
 *(.text.*18trust_runtime_core2vm4call6stdlib*)
 *(.text.*2vm8prepared15builtin_members*14PreparedModule13builtin_table*)
 *(.text.*2vm8prepared15builtin_members*14PreparedModule14builtin_places*)

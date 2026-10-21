@@ -32,9 +32,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   takes back from the chip's LP SRAM as a third region that an allocation reaches only when the
   other two are full: its heap is 112 KiB (114,688 bytes, also the longest reply), of which a
   program can use 56,016 bytes (80,652 before). On the ESP32-C6 the scan of a 2-statement program
-  went from 0.90 ms to 0.053 ms (its cycle from 2.9 ms to 0.23 ms), and that of a 15-statement
-  program with a timer, an edge trigger and three conversions from 6.8 ms to 0.47 ms (its cycle
-  from 9.9 ms to 0.74 ms).
+  went from 0.90 ms to 0.038 ms (its cycle from 2.9 ms to 0.18 ms), and that of a 15-statement
+  program with a timer, an edge trigger and three conversions from 6.8 ms to 0.35 ms (its cycle
+  from 9.9 ms to 0.55 ms).
 - Changed: a chip's main stack decides how many call levels it admits, and its heap no longer
   does: the ESP32-C6 admits 7 (its 78 KiB stack window less 2 KiB of headroom and the 34,008 bytes
   its install takes, at 6,144 bytes a level, measured on the bench), and the STM32U5A9 the same until

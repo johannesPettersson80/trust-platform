@@ -112,14 +112,16 @@ pub(crate) type MemberOrdinals = [u16; MEMBER_COUNT];
 pub(crate) const NO_MEMBER: u16 = u16::MAX;
 
 /// Where a member lies in its instance's own bytes (checklist P1-4): its declared type, its offset
-/// from the instance's first byte, its bytes, and whether a presence byte follows its value, as a
-/// native-state slot keeps one (specification 34 MEM-12).
+/// from the instance's first byte, its bytes, whether a presence byte follows its value, as a
+/// native-state slot keeps one (specification 34 MEM-12), and the primitive of its leaf when its
+/// type is a scalar.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct MemberPlace {
     pub(crate) type_id: u32,
     pub(crate) offset: u16,
     pub(crate) bytes: u8,
     pub(crate) presence: bool,
+    pub(crate) scalar: Option<u16>,
 }
 
 /// The place of each member at the member's index, or `None` for a member the block does not
@@ -127,13 +129,15 @@ pub(crate) struct MemberPlace {
 pub(crate) type MemberPlaces = [Option<MemberPlace>; MEMBER_COUNT];
 
 /// A declaration's place as preparation finds it: its offset among the instance's own bytes, its
-/// bytes, its type and whether it keeps a presence byte.
+/// bytes, its type, whether it keeps a presence byte, and its leaf's primitive when its type is a
+/// scalar.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct DeclaredPlace {
     pub(crate) offset: u32,
     pub(crate) bytes: u32,
     pub(crate) type_id: u32,
     pub(crate) presence: bool,
+    pub(crate) scalar: Option<u16>,
 }
 
 /// The places of the members among `declared`, a block's own declarations in order, each with its
@@ -155,6 +159,7 @@ pub(crate) fn member_places<'n>(
                 offset: u16::try_from(place.offset).ok()?,
                 bytes: u8::try_from(place.bytes).ok()?,
                 presence: place.presence,
+                scalar: place.scalar,
             });
         }
     }
@@ -192,6 +197,17 @@ impl BlockPlaces<'_> {
             place.type_id,
             presence,
         ))
+    }
+
+    /// The bytes of `member` in the instance, the primitive of its leaf and the offset of its
+    /// presence byte, as [`Self::member`] gives them, for a member whose type is a scalar: a block's
+    /// BOOL and TIME members are read and written as their leaves' bytes (checklist P1-4). `None`
+    /// for a member of another type, and where [`Self::member`] gives none.
+    #[inline]
+    pub(crate) fn leaf(self, member: Member) -> Option<(ByteRange, u16, Option<u32>)> {
+        let scalar = self.members[member as usize]?.scalar?;
+        let (range, _, presence) = self.member(member)?;
+        Some((range, scalar, presence))
     }
 }
 
@@ -324,6 +340,7 @@ mod tests {
             bytes,
             type_id,
             presence,
+            scalar: scalar_of(type_id),
         })
     }
 
@@ -333,7 +350,20 @@ mod tests {
             offset,
             bytes,
             presence,
+            scalar: scalar_of(type_id),
         })
+    }
+
+    /// The leaf primitive of the types these tests declare: BOOL (type 1) and TIME (type 18) are
+    /// scalars of primitives 1 and 16, the native duration slot (type 19) of 0x0101, and type 3
+    /// is no scalar.
+    fn scalar_of(type_id: u32) -> Option<u16> {
+        match type_id {
+            1 => Some(1),
+            18 => Some(16),
+            19 => Some(0x0101),
+            _ => None,
+        }
     }
 
     /// Each member takes the place of its first declaration, a state slot keeps its presence byte,
@@ -391,6 +421,19 @@ mod tests {
             Some((range(120, 8), 19, Some(128)))
         );
         assert_eq!(places.member(Member::In), None);
+        assert_eq!(places.leaf(Member::Q), Some((range(112, 1), 1, None)));
+        assert_eq!(
+            places.leaf(Member::LastTime),
+            Some((range(120, 8), 0x0101, Some(128)))
+        );
+        assert_eq!(places.leaf(Member::In), None);
+        members[Member::Pv as usize] = place(32, 2, 3, false);
+        let places = BlockPlaces {
+            bytes: range(96, 48),
+            members: &members,
+        };
+        assert_eq!(places.leaf(Member::Pv), None, "a member of no scalar type");
+        assert_eq!(places.member(Member::Pv), Some((range(128, 2), 3, None)));
         let far = BlockPlaces {
             bytes: range(u32::MAX - 8, 48),
             members: &members,

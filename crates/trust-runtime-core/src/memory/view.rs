@@ -706,6 +706,14 @@ pub trait StoreAccess {
         None
     }
 
+    /// The bytes of the scalar variable at `range`, whose presence byte is at `presence` when it
+    /// keeps one, read without its value (checklist P1-4): `Some(None)` when the variable holds no
+    /// value. `None` when this store keeps no such bytes, and [`Self::read_place`] reads it.
+    fn read_place_bytes(&self, range: ByteRange, presence: Option<u32>) -> Option<Option<&[u8]>> {
+        let _ = (range, presence);
+        None
+    }
+
     /// The view of one global variable selected by its declared name.
     ///
     /// A C1-8c forwarding method, the global counterpart of
@@ -899,6 +907,17 @@ pub trait StoreMutate {
         value: Value,
     ) -> bool {
         let _ = (range, type_id, presence, value);
+        false
+    }
+
+    /// Write `bytes`, a scalar as its leaf's codec writes it, over the first bytes of the variable
+    /// at `range` and mark its presence byte at `presence` as holding a value, as
+    /// [`Self::write_place`] stores a value of the variable's own primitive (checklist P1-4): the
+    /// codec of a native duration slot writes nine of its sixteen bytes. `false`, with nothing
+    /// written, when this store keeps no such bytes or `bytes` is longer than the leaf;
+    /// [`Self::write_place`] then writes the value.
+    fn write_place_bytes(&mut self, range: ByteRange, presence: Option<u32>, bytes: &[u8]) -> bool {
+        let _ = (range, presence, bytes);
         false
     }
 
