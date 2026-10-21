@@ -147,7 +147,7 @@ impl EngineState<'_> {
                 .root
                 .and_then(|root| self.data.construction.roots.get(root as usize).copied())
                 .flatten()
-                .ok_or(RuntimeError::NullReference)?;
+                .ok_or_else(|| RuntimeError::NullReference)?;
             self.execute_pou(pou, Some(instance))
         })();
         if observed {

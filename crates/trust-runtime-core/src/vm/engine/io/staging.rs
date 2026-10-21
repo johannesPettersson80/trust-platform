@@ -345,7 +345,7 @@ fn same_binding(a: &PreparedIoBinding, b: &PreparedIoBinding) -> bool {
     a.ref_idx == b.ref_idx && a.address == b.address && a.type_id == b.type_id
 }
 
-impl EngineState<'_> {
+impl<'a> EngineState<'a> {
     #[cfg(test)]
     pub(in crate::vm::engine) fn publish_output_image(&mut self) -> Result<(), RuntimeError> {
         self.publish_output_image_with_hooks(&mut super::super::cycle_port::NoopCycleHooks)
@@ -659,9 +659,10 @@ impl EngineState<'_> {
         if !self.data.construction.initializers.is_empty() {
             return None;
         }
-        let leaf = (*self.prepared.io_leaves.get(index)?)?;
+        let prepared = self.prepared;
+        let leaf = prepared.io_leaves.get(index)?.as_ref()?;
         let range = self.leaf_range_in(leaf, root)?;
-        self.data.reader(self.prepared).scalar_at(range, leaf.prim)
+        self.data.reader(prepared).scalar_at(range, leaf.prim)
     }
 
     /// The patch that publishes the current value of one binding's variable, encoded for the
@@ -679,7 +680,8 @@ impl EngineState<'_> {
     ) -> Result<StagedPatch, RuntimeError> {
         let address = &binding.address;
         let offset = staging.bytes.len();
-        if let Some((leaf, held)) = self.copied_output(index, root) {
+        let mut held = [0u8; 8];
+        if let Some(leaf) = self.copied_output(index, root, &mut held) {
             // A copied binding's leaf bytes are its image bytes (`IoLeaf::copy`): encoding them
             // changes no bit, so they go to the staged bytes as they are.
             if address.area == IoArea::Input {
@@ -872,20 +874,27 @@ impl EngineState<'_> {
         }
         Ok(())
     }
-    /// The leaf of copied output or marker binding `index` (`IoLeaf::copy`) and its bytes, read
-    /// where the value path reads them (`binding_leaf_value`); `None` takes the value path.
-    fn copied_output(&self, index: usize, root: &mut RootRange) -> Option<(IoLeaf, [u8; 8])> {
+    /// The leaf of copied output or marker binding `index` (`IoLeaf::copy`), whose bytes, read where
+    /// the value path reads them (`binding_leaf_value`), go to the start of `held`; `None` takes the
+    /// value path. The leaf is borrowed and its bytes written in place: a returned pair is a
+    /// `memcpy` call at `opt-level = "z"`.
+    fn copied_output(
+        &self,
+        index: usize,
+        root: &mut RootRange,
+        held: &mut [u8; 8],
+    ) -> Option<&'a IoLeaf> {
         if !self.data.construction.initializers.is_empty() {
             return None;
         }
-        let leaf = (*self.prepared.io_leaves.get(index)?)?;
+        let prepared = self.prepared;
+        let leaf = prepared.io_leaves.get(index)?.as_ref()?;
         if !leaf.copy {
             return None;
         }
-        let held = self.data.store.bytes(self.leaf_range_in(leaf, root)?)?;
-        let mut bytes = [0u8; 8];
-        crate::memory::flat::copy_leaf_bytes(bytes.get_mut(..held.len())?, held);
-        Some((leaf, bytes))
+        let bytes = self.data.store.bytes(self.leaf_range_in(leaf, root)?)?;
+        crate::memory::flat::copy_leaf_bytes(held.get_mut(..bytes.len())?, bytes);
+        Some(leaf)
     }
 
     /// [`Self::encode_flat_window`] for a copied binding whose leaf holds `held`, appending the
@@ -896,7 +905,7 @@ impl EngineState<'_> {
     fn copy_flat_window(
         &self,
         address: &IoAddress,
-        leaf: IoLeaf,
+        leaf: &IoLeaf,
         held: &[u8; 8],
         len: usize,
         bytes: &mut Vec<u8>,

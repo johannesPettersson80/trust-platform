@@ -23,6 +23,9 @@ use crate::program_model::{BinaryOp, UnaryOp};
 use crate::stdlib::conversions::{ConversionSpec, ConversionType};
 use crate::vm::module::{VmModule, VmNativeSymbolSpec};
 
+mod fusion;
+pub(crate) use fusion::{FusedOperand, Fusion, LOAD_OWN, ONE, OWN_VALUE, STORE_OWN};
+
 /// The kind of an operand: the primitive of a scalar as the layout numbers it (BOOL 1, BYTE to
 /// LWORD 2 to 5, SINT to ULINT 6 to 13, REAL 14, LREAL 15, TIME to LDT 16 to 23, CHAR 26, WCHAR
 /// 27), [`INSTANCE`] or [`NULL`].
@@ -94,6 +97,9 @@ pub(crate) enum KindedOp {
         from: Kind,
         to: Kind,
     },
+    /// The statement that starts here, run as one operation: [`KindedCode::fusions`] at this
+    /// index.
+    Fused(u16),
 }
 
 /// The kinded code of one body: an operation for each compact operation, and the constants' bits.
@@ -101,14 +107,18 @@ pub(crate) enum KindedOp {
 pub(crate) struct KindedCode {
     pub(crate) ops: Vec<KindedOp>,
     pub(crate) consts: Vec<u64>,
+    /// The statements run as one operation ([`fusion`]).
+    pub(crate) fusions: Vec<Fusion>,
 }
 
 crate::memory::figure::holds_no_heap!(KindedOp);
+crate::memory::figure::holds_no_heap!(Fusion);
 
 impl crate::memory::figure::HeapBytes for KindedCode {
     fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
         count.of(&self.ops);
         count.of(&self.consts);
+        count.of(&self.fusions);
     }
 }
 
@@ -167,7 +177,30 @@ impl KindedCode {
         if reachable && pass.depth != 0 {
             return None;
         }
-        Some(pass.kinded)
+        let mut kinded = pass.kinded;
+        kinded.fuse(code, &targets);
+        Some(kinded)
+    }
+
+    /// Record each statement the loop runs as one operation ([`fusion`]) and put it at the place
+    /// of its first operation. A statement that does not fit the record keeps its operations.
+    fn fuse(&mut self, code: &CompactCode, targets: &[bool]) {
+        let mut at = 0;
+        while at < code.ops.len() {
+            let Some(fusion) = fusion::fusion_at(&code.ops, &self.ops, targets, at) else {
+                at += 1;
+                continue;
+            };
+            let Ok(index) = u16::try_from(self.fusions.len()) else {
+                return;
+            };
+            if self.fusions.try_reserve(1).is_err() {
+                return;
+            }
+            self.fusions.push(fusion);
+            self.ops[at] = KindedOp::Fused(index);
+            at += usize::from(fusion.len);
+        }
     }
 }
 

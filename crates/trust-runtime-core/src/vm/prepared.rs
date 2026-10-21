@@ -571,6 +571,19 @@ impl PreparedModule {
             .count()
     }
 
+    /// How many statements kinded code runs as one operation (checklist P1-9), summed over the
+    /// bodies, for the tests that run them.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn fused_statements(&self) -> usize {
+        self.vm
+            .compact
+            .iter()
+            .filter_map(|(_, code)| code.kinded.as_ref())
+            .map(|kinded| kinded.fusions.len())
+            .sum()
+    }
+
     /// How many members of standard function blocks preparation placed in their instances' bytes
     /// (checklist P1-4), summed over the module's standard blocks, for the tests that run them.
     #[doc(hidden)]

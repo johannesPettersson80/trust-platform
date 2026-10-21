@@ -46,7 +46,7 @@ pub(super) fn inputs(code: &CompactCode, block: BlockCall) -> Result<&[Slot], Ru
     let first = block.first as usize;
     code.slots
         .get(first..first + usize::from(block.bound))
-        .ok_or(RuntimeError::InvalidExecutionState)
+        .ok_or_else(|| RuntimeError::InvalidExecutionState)
 }
 
 /// The receiver of `block` among `operands` (the receiver, then the arguments) and its bytes, when
@@ -98,7 +98,7 @@ pub(super) fn bind(
             start: base
                 .start
                 .checked_add(member.offset)
-                .ok_or(RuntimeError::Overflow)?,
+                .ok_or_else(|| RuntimeError::Overflow)?,
             bytes: u32::from(member.bytes),
         };
         if !argument.store(runtime, leaf, member.prim) {

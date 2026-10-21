@@ -12,7 +12,7 @@
 
 use super::super::super::compact::kinded::{
     bits_of, cell_of_bits, integer_bits, width, Kind, KindedCode, KindedOp, BOOL, DEPTH,
-    DURATION_SLOT, INSTANCE, NULL, TIME,
+    DURATION_SLOT, INSTANCE, LOAD_OWN, NULL, ONE, OWN_VALUE, STORE_OWN, TIME,
 };
 use super::super::super::compact::{Op, OpKind, Slot};
 use super::super::super::context::ExecutionContext;
@@ -77,6 +77,8 @@ enum Step {
     Before,
     /// Hand the body over after the operation, whose result, held aside, goes on top.
     After,
+    /// Go past this many operations, a statement run as one (`fused`).
+    Over(usize),
 }
 
 /// Run `kinded`, the kinded code of `body`'s compact code, from its first operation to the body's
@@ -104,6 +106,10 @@ pub(super) fn run<R: ExecutionContext>(
             }
             Step::Jump(to) => {
                 next = to;
+                continue;
+            }
+            Step::Over(count) => {
+                next += count;
                 continue;
             }
             Step::Before => (next, None),
@@ -150,6 +156,7 @@ fn step<R: ExecutionContext>(
         KindedOp::Block => call_block(body, operands, op.at, op.arg),
         KindedOp::Convert { to } => convert(body, operands, aside, op, to),
         KindedOp::ConvertInteger { from, to } => convert_integer(body, operands, op, from, to),
+        KindedOp::Fused(index) => fused::statement(body, operands, aside, kinded, op, index),
     }
 }
 
@@ -169,7 +176,7 @@ fn load<R: ExecutionContext>(
                 .consts
                 .get(usize::from(index))
                 .map(|&bits| (kind, bits));
-            push_read(body, operands, bits, at, [0], true)
+            push_read(body, operands, bits, at, ONE, true)
         }
         KindedOp::Load(kind) => {
             let base = match op.kind {
@@ -181,9 +188,9 @@ fn load<R: ExecutionContext>(
                 .and_then(|slot| read(body, base, slot, kind))
                 .map(|bits| (kind, bits));
             match op.kind {
-                OpKind::LoadOwn => push_read(body, operands, bits, at, [0, 1, 6], true),
-                OpKind::LoadGlobal => push_read(body, operands, bits, at, [0], true),
-                _ => push_read(body, operands, bits, at, [0, 1], false),
+                OpKind::LoadOwn => push_read(body, operands, bits, at, LOAD_OWN, true),
+                OpKind::LoadGlobal => push_read(body, operands, bits, at, ONE, true),
+                _ => push_read(body, operands, bits, at, OWN_VALUE, false),
             }
         }
         KindedOp::LoadMember(kind) => {
@@ -491,16 +498,10 @@ fn store<R: ExecutionContext>(
     };
     let (kind, bits) = (operands.kinds[index], operands.bits[index]);
     let base = if matches!(op.kind, OpKind::StoreOwn) {
-        begin_each(
-            &*body.runtime,
-            body.fault_site,
-            body.pou,
-            op.at,
-            [0, 1, 6, 7],
-        )?;
+        begin_each(&*body.runtime, body.fault_site, body.pou, op.at, STORE_OWN)?;
         body.own
     } else {
-        begin_each(&*body.runtime, body.fault_site, body.pou, op.at, [0])?;
+        begin_each(&*body.runtime, body.fault_site, body.pou, op.at, ONE)?;
         globals()
     };
     operands.discard(1);
@@ -647,6 +648,8 @@ fn call_block<R: ExecutionContext>(
     operands.push(NULL, 0);
     Ok(Step::Next)
 }
+
+mod fused;
 
 #[cfg(test)]
 mod tests {

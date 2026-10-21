@@ -424,6 +424,12 @@ fn kinded_bodies(source: &str) -> usize {
         .kinded_bodies()
 }
 
+fn fused_statements(source: &str) -> usize {
+    PreparedModule::from_bytes(&artifact(source), PreparationLimits::default())
+        .expect("the program is admitted")
+        .fused_statements()
+}
+
 fn block_member_places(source: &str) -> usize {
     PreparedModule::from_bytes(&artifact(source), PreparationLimits::default())
         .expect("the program is admitted")

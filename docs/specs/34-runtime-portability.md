@@ -2955,7 +2955,12 @@ program reads or writes:
   arithmetic, comparison and logic chosen at preparation run by specification 10 §6.4, and an
   integer converted to an integer type, by a conversion that names the integer's own type or none,
   keeps its bits when the target type holds its value and is refused as an overflow when it does
-  not (specification 07 §2.1). Each
+  not (specification 07 §2.1). An assignment to a scalar variable of a constant, a variable or a
+  chain of up to three integer operations on such operands, the left one first, runs as one
+  operation when no jump enters it past its first instruction: its value is computed first, and
+  when every operation leaves the value it would, the store can write the leaf and the allowance
+  takes every instruction's unit at once without a deadline sample, the leaf is written and the
+  store's last instruction is the fault site; otherwise its operations run one by one. Each
   operation keeps the order, charges, deadline checks, refusals and hand-overs of the operation
   above, so the body ends with the same result, charges, fault record and values.
 - A program's body that compact code covers, and that keeps no variable in a frame and initializes
