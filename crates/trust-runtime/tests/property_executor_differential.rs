@@ -6,7 +6,9 @@
 //!
 //! - `stack`: `debug_active`, which forces the shared stack path;
 //! - `register`: the register path with Tier-1 off;
-//! - `tier1`: Tier-1 on with a hot threshold of 1, so every block specializes at once.
+//! - `tier1`: Tier-1 on with a hot threshold of 1, so every block specializes at once;
+//! - `in_place`: the stack path with no statement hook observing, which reads and writes a POU's
+//!   own scalar variables in place, as a chip without a debugger does (checklist P1-3).
 //!
 //! Every cycle runs on all three arms. The `execute_cycle` result, the fault, the outputs and each
 //! `Main` variable must agree; reals compare by bit pattern, so NaN and -0.0 are exact. After the
@@ -33,7 +35,7 @@ mod st_program_gen;
 
 use differential_arms::{
     instantiate, main_value, main_variable_names, prepare, profiled, run_cycle, same_value,
-    tier1_arm, ConfiguredServices,
+    tier1_arm, ConfiguredServices, InPlaceServices,
 };
 use proptest::prelude::*;
 use proptest::test_runner::{FileFailurePersistence, RngSeed};
@@ -148,6 +150,8 @@ fn run_arms(case: &ProgramCase) -> Result<Vec<String>, String> {
     let mut stack = instantiate(&prepared, &stack_services)?;
     let mut register = instantiate(&prepared, &register_services)?;
     let mut tier1 = instantiate(&prepared, &tier1_services)?;
+    let in_place_services = InPlaceServices::new();
+    let mut in_place = instantiate(&prepared, &in_place_services)?;
     let names = main_variable_names(&register)?;
     // Cycles that returned `Ok` on an arm. A cycle that faults does not complete its blocks, so
     // the profile counters below are only required once some cycle has completed.
@@ -160,6 +164,7 @@ fn run_arms(case: &ProgramCase) -> Result<Vec<String>, String> {
         let stack_result = run_cycle(&mut stack, row, time)?;
         let register_result = run_cycle(&mut register, row, time)?;
         let tier1_result = run_cycle(&mut tier1, row, time)?;
+        let in_place_result = run_cycle(&mut in_place, row, time)?;
         register_completed += usize::from(register_result.is_ok());
         tier1_completed += usize::from(tier1_result.is_ok());
         if stack_result != register_result || stack_result != tier1_result {
@@ -195,8 +200,34 @@ fn run_arms(case: &ProgramCase) -> Result<Vec<String>, String> {
                 ),
             ));
         }
+        if stack_result != in_place_result
+            || stack.fault() != in_place.fault()
+            || stack.outputs() != in_place.outputs()
+        {
+            return Err(disagreement(
+                case,
+                cycle,
+                &format!(
+                    "in place: stack={stack_result:?} {:?} {:?} in_place={in_place_result:?} {:?} {:?}",
+                    stack.fault(),
+                    stack.outputs(),
+                    in_place.fault(),
+                    in_place.outputs()
+                ),
+            ));
+        }
         for name in &names {
             let stack_value = main_value(&stack, name)?;
+            let in_place_value = main_value(&in_place, name)?;
+            if !same_value(&stack_value, &in_place_value) {
+                return Err(disagreement(
+                    case,
+                    cycle,
+                    &format!(
+                        "variable `{name}`: stack={stack_value:?} in_place={in_place_value:?}"
+                    ),
+                ));
+            }
             let register_value = main_value(&register, name)?;
             let tier1_value = main_value(&tier1, name)?;
             if !same_value(&stack_value, &register_value) || !same_value(&stack_value, &tier1_value)
@@ -213,6 +244,13 @@ fn run_arms(case: &ProgramCase) -> Result<Vec<String>, String> {
     }
 
     // Executor checks after the cycles.
+    if in_place_services.statements.get() != 0 {
+        return Err(format!(
+            "in-place arm called the statement hook {} times\nprogram:\n{}",
+            in_place_services.statements.get(),
+            case.source
+        ));
+    }
     let stack_profile = stack.register_profile_snapshot();
     let debug_fallback = stack_profile
         .fallback_reasons

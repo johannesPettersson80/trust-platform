@@ -140,7 +140,14 @@ pub fn watchdog_overrun_action(
     if !watchdog.enabled {
         return None;
     }
-    let elapsed = i64::try_from(active_elapsed.as_nanos()).unwrap_or(i64::MAX);
+    // The nanoseconds in 64 bits, saturating beyond `i64` as the 128-bit count did: a chip
+    // multiplies 128 bits in software at every scan (checklist P1-6).
+    let elapsed = active_elapsed
+        .as_secs()
+        .checked_mul(1_000_000_000)
+        .and_then(|nanos| nanos.checked_add(u64::from(active_elapsed.subsec_nanos())))
+        .and_then(|nanos| i64::try_from(nanos).ok())
+        .unwrap_or(i64::MAX);
     if elapsed <= watchdog.timeout.as_nanos() {
         return None;
     }

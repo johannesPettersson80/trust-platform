@@ -562,3 +562,6 @@ mod stopped_contract_tests;
 
 #[cfg(test)]
 mod timing_contract_tests;
+
+#[cfg(test)]
+mod scan_cost_probe_tests;

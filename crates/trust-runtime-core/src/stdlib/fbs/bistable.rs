@@ -3,6 +3,7 @@ use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::memory::InstanceId;
 
 use super::instance::{read_bool, write_bool};
+use super::members::Member;
 use super::BuiltinExecContext;
 
 /// Set-dominant bistable state.
@@ -69,15 +70,15 @@ pub(super) fn exec_rs<S: StoreAccess + StoreMutate>(
     ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<(), RuntimeError> {
-    let set = read_bool(ctx, instance_id, "S")?;
-    let reset = read_bool(ctx, instance_id, "R1")?;
-    let mut q = read_bool(ctx, instance_id, "Q1")?;
+    let set = read_bool(ctx, instance_id, Member::S)?;
+    let reset = read_bool(ctx, instance_id, Member::R1)?;
+    let mut q = read_bool(ctx, instance_id, Member::Q1)?;
     if reset {
         q = false;
     } else if set {
         q = true;
     }
-    write_bool(ctx, instance_id, "Q1", q);
+    write_bool(ctx, instance_id, Member::Q1, q);
     Ok(())
 }
 
@@ -85,14 +86,14 @@ pub(super) fn exec_sr<S: StoreAccess + StoreMutate>(
     ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<(), RuntimeError> {
-    let set = read_bool(ctx, instance_id, "S1")?;
-    let reset = read_bool(ctx, instance_id, "R")?;
-    let mut q = read_bool(ctx, instance_id, "Q1")?;
+    let set = read_bool(ctx, instance_id, Member::S1)?;
+    let reset = read_bool(ctx, instance_id, Member::R)?;
+    let mut q = read_bool(ctx, instance_id, Member::Q1)?;
     if set {
         q = true;
     } else if reset {
         q = false;
     }
-    write_bool(ctx, instance_id, "Q1", q);
+    write_bool(ctx, instance_id, Member::Q1, q);
     Ok(())
 }

@@ -691,6 +691,21 @@ pub trait StoreAccess {
     /// `vm::engine::retain_apply`.
     fn read_instance_var<'a>(&'a self, instance: InstanceId, name: &str) -> Option<ValueView<'a>>;
 
+    /// The view of the variable that `instance` declares itself at position `ordinal` among the
+    /// declarations of its POU, whose name is `name`: the variable [`StoreAccess::read_instance_var`]
+    /// finds by that name (checklist P1-4). A store that keeps no declared positions finds it by the
+    /// name, as this default does; the flat store reaches a persistent instance's variable by its
+    /// position and compares no names.
+    fn read_instance_member<'a>(
+        &'a self,
+        instance: InstanceId,
+        ordinal: u16,
+        name: &str,
+    ) -> Option<ValueView<'a>> {
+        let _ = ordinal;
+        self.read_instance_var(instance, name)
+    }
+
     /// The view of one global variable selected by its declared name.
     ///
     /// A C1-8c forwarding method, the global counterpart of
@@ -871,6 +886,22 @@ pub trait StoreMutate {
         name: impl Into<SmolStr>,
         value: Value,
     ) -> bool;
+
+    /// Replace the variable that `instance` declares itself at position `ordinal` among the
+    /// declarations of its POU, whose name is `name`, as [`StoreMutate::write_instance_var`] replaces
+    /// the variable of that name (checklist P1-4). A store that keeps no declared positions writes it
+    /// by the name, as this default does; the flat store reaches a persistent instance's variable by
+    /// its position and compares no names.
+    fn write_instance_member(
+        &mut self,
+        instance: InstanceId,
+        ordinal: u16,
+        name: &'static str,
+        value: Value,
+    ) -> bool {
+        let _ = ordinal;
+        self.write_instance_var(instance, name, value)
+    }
 
     /// Replace one global variable selected by its declared name.
     ///

@@ -563,7 +563,13 @@ impl<'a> EngineState<'a> {
 
     fn execute_pou(&mut self, pou: u32, instance: Option<InstanceId>) -> Result<(), RuntimeError> {
         let module = &self.prepared.vm;
-        let edge = EdgeInputTransaction::begin(self, module, pou, instance)?;
+        // A POU without edge inputs has no edge transaction: the transaction would find none and
+        // change nothing, so the call does not open one (checklist P1-6).
+        let edge = if self.prepared.edge_inputs(pou).is_empty() {
+            None
+        } else {
+            EdgeInputTransaction::begin(self, module, pou, instance)?
+        };
         let result = self.execute_prepared_pou(module, pou, instance);
         if let Some(edge) = edge {
             edge.restore(self);

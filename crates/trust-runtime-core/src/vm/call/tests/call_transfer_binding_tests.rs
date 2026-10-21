@@ -51,6 +51,7 @@ fn function_module(params: Vec<VmParamMeta>, local_ref_count: u32) -> VmModule {
         #[cfg(feature = "hir")]
         debug_map: crate::vm::debug_map::VmDebugMap::default(),
         instruction_budget: crate::vm::VM_MAX_EXECUTED_INSTRUCTIONS,
+        compact: Vec::new(),
     }
 }
 

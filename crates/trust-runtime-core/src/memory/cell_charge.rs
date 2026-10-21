@@ -438,7 +438,14 @@ impl<'a> CellsView<'a> {
         range: ByteRange,
         type_id: u32,
     ) -> Result<Option<Value>, RuntimeError> {
-        match primitive_of(self.prepared, type_id) {
+        // A scalar's primitive is prepared with its type's layout (checklist P1-2); a native slot's
+        // is found by a walk of its type.
+        let prim_id = self
+            .prepared
+            .type_layout(type_id)
+            .and_then(|layout| layout.scalar)
+            .or_else(|| primitive_of(self.prepared, type_id));
+        match prim_id {
             None | Some(STRING_PRIMITIVE | WSTRING_PRIMITIVE) => Ok(None),
             // The leaf is read with the one walk of its type that found its primitive (C1-20).
             Some(prim_id) => {

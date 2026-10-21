@@ -120,9 +120,13 @@ impl RetainStore {
         let Some(persister) = self.persister.as_mut() else {
             return Ok(());
         };
-        access.capture_retain(&mut self.capture)?;
-        self.capture.mark_dirty();
         let now = access.logical_time();
+        // The values are captured only for a save the persister starts: a due save while no
+        // checkpoint is being written (specification 34 §10; checklist P1-6).
+        if persister.takes_capture(&self.capture, now) {
+            access.capture_retain(&mut self.capture)?;
+        }
+        self.capture.mark_dirty();
         let offer = persister.offer(&mut self.capture, now);
         if let Some(error) = persister.take_failure() {
             return Err(error);

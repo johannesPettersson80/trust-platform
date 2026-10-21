@@ -16,6 +16,13 @@ pub trait ExecutionServices {
         false
     }
 
+    /// Whether the statement hooks below observe instructions now. `false` promises that they
+    /// would do nothing, so the dispatcher need not call them and may run several instructions as
+    /// one (checklist P1-3). The default, `true`, calls them at every instruction.
+    fn observes_statements(&self) -> bool {
+        true
+    }
+
     /// The allocator operations, each allocation, reallocation and free once, that the thread
     /// running the scan has made so far, when the platform counts them; `None` when it does not.
     /// The engine reads it when a scan begins and ends and around every call it makes into a

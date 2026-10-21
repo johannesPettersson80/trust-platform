@@ -12,12 +12,14 @@ mod declarations;
 mod frame_plan;
 mod groups;
 mod keys;
+mod program_entries;
 mod references;
 pub(super) mod sort;
 use declaration_plan::DeclarationPlanIndex;
 use frame_plan::FrameActionPlan;
 use groups::Groups;
 use keys::{ActionKey, DeclarationKey};
+use program_entries::ProgramEntry;
 impl crate::memory::figure::HeapBytes for PreparedIndexes {
     fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
         count.of(&self.members);
@@ -43,6 +45,7 @@ impl crate::memory::figure::HeapBytes for PreparedIndexes {
         count.of(&self.edges);
         count.of(&self.reference_candidates);
         count.of(&self.background_programs);
+        count.of(&self.program_entries);
     }
 }
 
@@ -83,6 +86,7 @@ pub(super) struct PreparedIndexes {
     max_name_bytes: usize,
     reference_candidates: Groups<(u8, usize), u32>,
     background_programs: Vec<Vec<u32>>,
+    program_entries: Vec<(u32, ProgramEntry)>,
 }
 
 // Preparation budgets charge this bound for each build-time sorted search.
@@ -114,6 +118,7 @@ impl PreparedIndexes {
         result.prepare_frame_action_plans(budget)?;
         result.prepare_references(vm, budget)?;
         result.prepare_background(vm, layout, resources, budget)?;
+        result.prepare_program_entries(vm, layout, roots, resources, budget)?;
         Ok(result)
     }
 

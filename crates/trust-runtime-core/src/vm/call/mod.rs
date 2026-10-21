@@ -364,14 +364,23 @@ fn dispatch_native_vm_call(
                 return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
             };
             // A prepared plan dispatches by the instance's declared function-block POU and
-            // binds its arguments without a type-name key (spec 34 MEM-08, MEM-09).
+            // binds its arguments without a type-name key (spec 34 MEM-08, MEM-09). A persistent
+            // instance's POU is the instance table's, and a standard block binds its formals at
+            // the positions preparation fixed (checklist P1-5).
+            let persistent = runtime.instance_pou(instance_id);
             if let Some(planned) = plan
                 && let CallCallee::FunctionBlock { pou, builtin } = planned.callee
-                && instance_function_block_pou(runtime, module, instance_id) == Some(pou)
+                && match persistent {
+                    Some(own) => own == pou,
+                    None => instance_function_block_pou(runtime, module, instance_id) == Some(pou),
+                }
                 && let Some(params) = module.pou_params(pou)
             {
                 if let Some(builtin) = builtin {
                     runtime.record_call_op(RegisterCallOpKind::FunctionBlockCallEntry);
+                    let formals = persistent
+                        .and_then(|_| runtime.builtin_formals(pou))
+                        .copied();
                     let out_bindings = bind_builtin_function_block_arguments_planned(
                         runtime,
                         frame,
@@ -379,6 +388,7 @@ fn dispatch_native_vm_call(
                         instance_id,
                         args,
                         &planned.arguments,
+                        formals.as_ref(),
                     )?;
                     execute_native_builtin_function_block_call(
                         runtime,

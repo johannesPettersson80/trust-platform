@@ -19,6 +19,7 @@ use alloc::format;
 use core::mem::size_of;
 
 mod admission;
+mod input_leaves;
 pub(super) mod output_journal;
 pub(super) mod staging;
 mod texts;
@@ -240,15 +241,7 @@ impl EngineState<'_> {
         self.charge_allocation(bytes)
     }
     fn check_image_window(&self, address: &IoAddress, len: usize) -> Result<(), RuntimeError> {
-        if address
-            .flat_byte_end()?
-            .is_some_and(|end| end as usize > len)
-        {
-            return Err(RuntimeError::InvalidIoAddress(
-                "address exceeds admitted process image".into(),
-            ));
-        }
-        Ok(())
+        crate::io_image::check_image_window(address, len)
     }
 
     pub(in crate::vm::engine) fn commit_configuration_target(

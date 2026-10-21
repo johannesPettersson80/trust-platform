@@ -241,6 +241,59 @@ impl<'e> ReferenceContext for EngineState<'e> {
     ) -> Result<(), RuntimeError> {
         self.journal_output_destination(frame, reference)
     }
+    fn runs_compact(&self) -> bool {
+        self.accesses_in_place()
+    }
+    fn instance_bytes(
+        &self,
+        instance: crate::memory::InstanceId,
+    ) -> Option<crate::memory::layout::ByteRange> {
+        self.data.reader(self.prepared).instance_range(instance)
+    }
+    fn scalar_at(&self, range: crate::memory::layout::ByteRange, prim: u16) -> Option<Value> {
+        self.data.reader(self.prepared).scalar_at(range, prim)
+    }
+    fn instance_in_leaf(
+        &self,
+        range: crate::memory::layout::ByteRange,
+    ) -> Option<crate::memory::InstanceId> {
+        self.data.reader(self.prepared).instance_in_leaf(range)
+    }
+    fn store_scalar_at(
+        &mut self,
+        range: crate::memory::layout::ByteRange,
+        prim: u16,
+        value: &Value,
+    ) -> bool {
+        self.write_scalar_leaf(range, prim, value)
+    }
+    fn own_scalar(
+        &self,
+        instance: crate::memory::InstanceId,
+        field_idx: u32,
+        field: &str,
+    ) -> Option<Value> {
+        if !self.accesses_in_place() {
+            return None;
+        }
+        self.data
+            .reader(self.prepared)
+            .own_scalar(instance, field_idx, field)
+    }
+    fn own_scalar_slot(
+        &self,
+        instance: crate::memory::InstanceId,
+        field_idx: u32,
+        field: &str,
+        value: &Value,
+    ) -> Option<usize> {
+        if !self.accesses_in_place() {
+            return None;
+        }
+        self.data
+            .reader(self.prepared)
+            .own_scalar_slot(instance, field_idx, field, value)
+    }
     #[cfg_attr(all(feature = "std", feature = "test-support"), track_caller)]
     fn before_value_clone(&self, value: &Value) -> Result<(), RuntimeError> {
         #[cfg(all(feature = "std", feature = "test-support"))]
@@ -740,6 +793,14 @@ impl CallContext for EngineState<'_> {
         self.prepared.call_plan(code_offset)
     }
 
+    fn instance_pou(&self, instance: InstanceId) -> Option<u32> {
+        self.data.reader(self.prepared).instance_pou(instance)
+    }
+
+    fn builtin_formals(&self, pou: u32) -> Option<&crate::stdlib::fbs::members::FormalPositions> {
+        self.prepared.builtin_formals(pou)
+    }
+
     fn suspend_frame(&mut self, frame: &mut VmFrame) -> Result<(), RuntimeError> {
         let Some(activation) = frame.activation else {
             return Err(RuntimeError::InvalidExecutionState);
@@ -786,8 +847,15 @@ impl CallContext for EngineState<'_> {
         kind: crate::stdlib::fbs::BuiltinFbKind,
     ) -> Result<(), RuntimeError> {
         // The block runs on the store the engine holds: a persistent instance's members are in the cells
-        // of the cell arm, not in the `Value` half (C1-9d3a, R1).
-        crate::stdlib::fbs::execute_builtin_in_store(self, now, instance_id, kind)
+        // of the cell arm, not in the `Value` half (C1-9d3a, R1), at the positions preparation fixed
+        // for its POU (checklist P1-4).
+        let prepared = self.prepared;
+        let ordinals = self
+            .data
+            .reader(prepared)
+            .instance_pou(instance_id)
+            .and_then(|pou| prepared.builtin_members(pou));
+        crate::stdlib::fbs::execute_builtin_in_store(self, now, instance_id, kind, ordinals)
     }
 }
 
@@ -931,6 +999,10 @@ impl ExecutionContext for EngineState<'_> {
             self.count_service_operations(before);
         }
     }
+    fn observes_statements(&self) -> bool {
+        // Before construction completes the hook publishes nothing (below).
+        self.data.construction_complete && self.services.observes_statements()
+    }
     fn on_statement_with_frame_checked(
         &mut self,
         _module: &super::super::module::VmModule,
@@ -1046,3 +1118,14 @@ impl ExecutionContext for EngineState<'_> {
 
 #[cfg(test)]
 mod edge_input_tests;
+
+impl EngineState<'_> {
+    /// Whether a scan reads and writes a POU's own scalar variables where they lie (checklist P1-3):
+    /// after construction, while no initializer stages its result and no statement hook observes
+    /// the instructions that an access in place runs as one.
+    fn accesses_in_place(&self) -> bool {
+        self.data.construction_complete
+            && self.data.construction.initializers.is_empty()
+            && !self.services.observes_statements()
+    }
+}

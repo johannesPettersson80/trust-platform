@@ -50,6 +50,20 @@ impl SavedDestinations {
         self.bytes.clear();
         self.charged_capacity = 0;
     }
+    /// Keep `held`, the bytes of a leaf that an input is about to write, after the bytes kept so far
+    /// (checklist P1-6). Construction reserves room for the bytes of every variable the inputs
+    /// write, so a scan does not grow them.
+    pub(super) fn keep(&mut self, held: &[u8]) -> Result<(), RuntimeError> {
+        self.bytes
+            .try_reserve(held.len())
+            .map_err(|_| RuntimeError::Overflow)?;
+        self.bytes.extend_from_slice(held);
+        Ok(())
+    }
+    /// The `len` bytes kept from `at`.
+    pub(super) fn kept(&self, at: usize, len: usize) -> Option<&[u8]> {
+        self.bytes.get(at..at.checked_add(len)?)
+    }
     /// Reserve storage for `capacity` entries at construction without changing any charge.
     pub(super) fn reserve_storage(&mut self, capacity: usize) -> Result<(), RuntimeError> {
         self.entries

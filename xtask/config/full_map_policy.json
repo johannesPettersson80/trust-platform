@@ -3302,7 +3302,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/clock.rs",
-        "line": 101,
+        "line": 163,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the C6 machine performance-cycle counter CSR 0x7E2 only; no memory is accessed. The counter runs from boot (M0 probe).",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -4066,10 +4066,10 @@
         "path_prefix": "crates/trust-platform-esp32/src/hardware/clock.rs",
         "primitive": "Atomic",
         "owner": "runtime portability M2E board/firmware",
-        "shared_state": "1 kHz SYSTIMER tick count",
-        "invariant": "Only the tick interrupt increments the AtomicU32; main reads relaxed counts for instrumentation, never as a memory-publication or PLC scheduler fence.",
+        "shared_state": "1 kHz SYSTIMER tick count; whether the CPU cycle counter counts",
+        "invariant": "Only the tick interrupt increments the AtomicU32; main reads relaxed counts for instrumentation, never as a memory-publication or PLC scheduler fence. The AtomicBool CYCLES_COUNT is stored once by Monotonic::new at boot, before any reading, and read relaxed by each reading; it publishes no other memory.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
+        "review_date": "2026-10-21"
       },
       {
         "path_prefix": "crates/trust-platform-esp32/src/hardware/clock.rs",
@@ -4084,10 +4084,10 @@
         "path_prefix": "crates/trust-platform-esp32/src/hardware/clock.rs",
         "primitive": "Mutex",
         "owner": "runtime portability M2E board/firmware",
-        "shared_state": "periodic tick timer handle",
-        "invariant": "A critical_section::Mutex serializes the handler's interrupt clear with enable/disable from main on the single core; interrupts are masked inside.",
+        "shared_state": "periodic tick timer handle; the cycle counter's SYSTIMER base",
+        "invariant": "A critical_section::Mutex serializes the handler's interrupt clear with enable/disable from main on the single core; interrupts are masked inside. BASE (Mutex<Cell<CycleBase>>) is read and replaced whole inside a critical section by each reading and by the wait after its WFI, all on the main context.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
+        "review_date": "2026-10-21"
       },
       {
         "path_prefix": "crates/trust-platform-esp32/src/hardware/wait.rs",

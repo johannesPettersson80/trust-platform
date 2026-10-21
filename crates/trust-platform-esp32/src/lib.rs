@@ -14,6 +14,8 @@ mod console_budget;
 pub use console_budget::ConsoleError;
 mod cookie;
 pub use cookie::{ResetCookie, RUNNING_PHASE, WATCHDOG_PHASE};
+#[cfg(any(test, all(target_arch = "riscv32", target_os = "none")))]
+mod cycle_clock;
 // The fixed-size reset record the C6 keeps in RTC fast memory, shared with the F407 so both
 // chips report the same cause after a reset.
 pub use trust_platform_memory::reset::{ResetCause, ResetRecord};

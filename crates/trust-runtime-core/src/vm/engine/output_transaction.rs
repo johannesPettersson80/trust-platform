@@ -33,6 +33,9 @@ fn cells_of_root<'v>(
     }
 }
 
+/// The most input destinations that a scan sorts by insertion.
+const SMALL_SORT: usize = 16;
+
 /// Save the root `key`, whose view is `root`: as its bytes when [`cells_of_root`] gives its cells,
 /// so that the snapshot builds no value, and as its value otherwise.
 fn save_root(
@@ -215,17 +218,29 @@ impl EngineState<'_> {
             self.snapshot_root(None, key)?;
             keys.push(key);
         }
-        // Destination sorting and deduplication are journal bookkeeping (TIME-08).
-        crate::sort::heap_sort(keys.len(), &mut |operation| -> Result<bool, RuntimeError> {
-            match operation {
-                crate::sort::Operation::Charge => Ok(false),
-                crate::sort::Operation::Less(a, b) => Ok(keys[a] < keys[b]),
-                crate::sort::Operation::Swap(a, b) => {
-                    keys.swap(a, b);
-                    Ok(false)
+        // Destination sorting and deduplication are journal bookkeeping (TIME-08). A scan's few
+        // keys are sorted in place by insertion, which calls no comparator through a pointer
+        // (checklist P1-6); any number of them sorts to the same order.
+        if keys.len() <= SMALL_SORT {
+            for at in 1..keys.len() {
+                let mut to = at;
+                while to > 0 && keys[to] < keys[to - 1] {
+                    keys.swap(to, to - 1);
+                    to -= 1;
                 }
             }
-        })?;
+        } else {
+            crate::sort::heap_sort(keys.len(), &mut |operation| -> Result<bool, RuntimeError> {
+                match operation {
+                    crate::sort::Operation::Charge => Ok(false),
+                    crate::sort::Operation::Less(a, b) => Ok(keys[a] < keys[b]),
+                    crate::sort::Operation::Swap(a, b) => {
+                        keys.swap(a, b);
+                        Ok(false)
+                    }
+                }
+            })?;
+        }
         keys.dedup();
         self.charge_allocation_bytes(SavedDestinations::allocation_bytes(keys.len())?)?;
         saved.reuse(keys.len())?;

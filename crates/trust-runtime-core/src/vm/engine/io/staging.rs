@@ -128,7 +128,9 @@ enum StagedPatch {
 pub(in crate::vm::engine) struct ImageStaging {
     inputs: Vec<StagedInput>,
     keys: Vec<Key>,
-    saved: SavedDestinations,
+    /// The snapshot of the input destinations; the inputs sampled into their leaves keep the leaves'
+    /// bytes in it (`input_leaves`).
+    pub(super) saved: SavedDestinations,
     patches: Vec<StagedPatch>,
     window: Vec<u8>,
     bytes: Vec<u8>,
@@ -358,6 +360,13 @@ impl EngineState<'_> {
 
     fn sample_inputs(&mut self, staging: &mut ImageStaging) -> Result<(), RuntimeError> {
         let prepared = self.prepared;
+        // Every input and marker of a scalar variable is sampled into its leaf (checklist P1-6),
+        // except while an initializer stages its result, whose writes the visibility rules check.
+        if let Some(leaves) = prepared.input_leaves
+            && self.data.construction.initializers.is_empty()
+        {
+            return self.sample_input_leaves(staging, leaves);
+        }
         let count = prepared
             .io_bindings
             .iter()
@@ -633,6 +642,20 @@ impl EngineState<'_> {
         Ok(())
     }
 
+    /// The value of binding `index`'s scalar variable, read from its leaf (checklist P1-6), as the
+    /// read through its static reference reads it: the reference has no path, so it charges no
+    /// path bytes, and a scalar's copy charges nothing (TIME-08). `None` for a binding whose
+    /// variable has no leaf of its own, and while an initializer stages its result, whose reads the
+    /// visibility rules check; such a binding is read through its reference.
+    fn binding_leaf_value(&self, index: usize) -> Option<Value> {
+        if !self.data.construction.initializers.is_empty() {
+            return None;
+        }
+        let leaf = (*self.prepared.io_leaves.get(index)?)?;
+        let range = self.leaf_range(leaf)?;
+        self.data.reader(self.prepared).scalar_at(range, leaf.prim)
+    }
+
     /// The patch that publishes the current value of one binding's variable, encoded for the
     /// binding: it changes exactly the bytes, the bit or the hierarchical key that the binding
     /// covers. `window` is the length of the flat image of the binding's area that the patch will
@@ -644,15 +667,20 @@ impl EngineState<'_> {
         window: usize,
         staging: &mut ImageStaging,
     ) -> Result<StagedPatch, RuntimeError> {
-        let reference = self.persistent_io_view(binding.ref_idx)?;
-        self.check_read(reference)?;
-        let view = self
-            .read_path(reference.location, reference.offset, reference.path)
-            .map_err(|_| RuntimeError::NullReference)?;
-        self.charge_allocation_bytes(self.view_clone_charge(&view)?)?;
-        // The read above already resolved this path, so the view holds exactly the
-        // leaf the old whole-value materialize returned.
-        let value = self.materialize(&view)?;
+        let value = match self.binding_leaf_value(index) {
+            Some(value) => value,
+            None => {
+                let reference = self.persistent_io_view(binding.ref_idx)?;
+                self.check_read(reference)?;
+                let view = self
+                    .read_path(reference.location, reference.offset, reference.path)
+                    .map_err(|_| RuntimeError::NullReference)?;
+                self.charge_allocation_bytes(self.view_clone_charge(&view)?)?;
+                // The read above already resolved this path, so the view holds exactly the
+                // leaf the old whole-value materialize returned.
+                self.materialize(&view)?
+            }
+        };
         let value = binding.codec.encode(value, binding.address.size)?;
         if binding.address.path.len() > 1 {
             self.charge_hierarchical_entry(&binding.address)?;

@@ -139,6 +139,17 @@ impl<T> LiveValueQueues<T> {
         Self::default()
     }
 
+    /// Whether no write is queued and no force is active, so applying the queues changes nothing
+    /// (checklist P1-6).
+    #[must_use]
+    pub fn is_idle(&self) -> bool {
+        self.io_writes.is_empty()
+            && self.pending_var_writes.is_empty()
+            && self.pending_lvalue_writes.is_empty()
+            && self.forced_vars.is_empty()
+            && self.forced_io.is_empty()
+    }
+
     /// Queue a one-shot I/O write, in arrival order.
     ///
     /// # Errors

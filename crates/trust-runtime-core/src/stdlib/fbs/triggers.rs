@@ -3,7 +3,7 @@ use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::memory::InstanceId;
 
 use super::instance::{get_or_init_bool, read_bool, write_bool};
-use super::state::STATE_TRIG_M;
+use super::members::Member;
 use super::BuiltinExecContext;
 
 /// Rising-edge trigger state.
@@ -65,11 +65,11 @@ pub(super) fn exec_r_trig<S: StoreAccess + StoreMutate>(
     ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<(), RuntimeError> {
-    let clk = read_bool(ctx, instance_id, "CLK")?;
-    let prev = get_or_init_bool(ctx, instance_id, STATE_TRIG_M, false)?;
+    let clk = read_bool(ctx, instance_id, Member::Clk)?;
+    let prev = get_or_init_bool(ctx, instance_id, Member::TrigM, false)?;
     let q = clk && !prev;
-    write_bool(ctx, instance_id, "Q", q);
-    write_bool(ctx, instance_id, STATE_TRIG_M, clk);
+    write_bool(ctx, instance_id, Member::Q, q);
+    write_bool(ctx, instance_id, Member::TrigM, clk);
     Ok(())
 }
 
@@ -77,11 +77,11 @@ pub(super) fn exec_f_trig<S: StoreAccess + StoreMutate>(
     ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<(), RuntimeError> {
-    let clk = read_bool(ctx, instance_id, "CLK")?;
-    let prev_not_clk = get_or_init_bool(ctx, instance_id, STATE_TRIG_M, false)?;
+    let clk = read_bool(ctx, instance_id, Member::Clk)?;
+    let prev_not_clk = get_or_init_bool(ctx, instance_id, Member::TrigM, false)?;
     let not_clk = !clk;
     let q = not_clk && !prev_not_clk;
-    write_bool(ctx, instance_id, "Q", q);
-    write_bool(ctx, instance_id, STATE_TRIG_M, not_clk);
+    write_bool(ctx, instance_id, Member::Q, q);
+    write_bool(ctx, instance_id, Member::TrigM, not_clk);
     Ok(())
 }

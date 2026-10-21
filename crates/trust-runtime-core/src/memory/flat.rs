@@ -408,27 +408,30 @@ fn encode_integer(base: u16, value: i64, bytes: &mut [u8]) -> Result<(), Runtime
 
 /// The `N` bytes of `bytes` from `at`.
 fn take<const N: usize>(bytes: &[u8], at: usize) -> Result<[u8; N], RuntimeError> {
-    bytes
-        .get(
-            at..at
-                .checked_add(N)
-                .ok_or(RuntimeError::InvalidExecutionState)?,
-        )
+    // The error is built only on a refusal: every scalar read passes here (checklist P1-7).
+    match at
+        .checked_add(N)
+        .and_then(|end| bytes.get(at..end))
         .and_then(|slice| <[u8; N]>::try_from(slice).ok())
-        .ok_or(RuntimeError::InvalidExecutionState)
+    {
+        Some(array) => Ok(array),
+        None => Err(RuntimeError::InvalidExecutionState),
+    }
 }
 
 /// Write `value` into `bytes` from `at`.
 fn put(bytes: &mut [u8], at: usize, value: &[u8]) -> Result<(), RuntimeError> {
-    bytes
-        .get_mut(
-            at..at
-                .checked_add(value.len())
-                .ok_or(RuntimeError::InvalidExecutionState)?,
-        )
-        .ok_or(RuntimeError::InvalidExecutionState)?
-        .copy_from_slice(value);
-    Ok(())
+    // The error is built only on a refusal: every scalar write passes here (checklist P1-7).
+    match at
+        .checked_add(value.len())
+        .and_then(|end| bytes.get_mut(at..end))
+    {
+        Some(slice) => {
+            slice.copy_from_slice(value);
+            Ok(())
+        }
+        None => Err(RuntimeError::InvalidExecutionState),
+    }
 }
 
 #[cfg(test)]

@@ -129,6 +129,16 @@ pub(crate) fn read_scalar(
     Ok(value)
 }
 
+/// The value of a scalar leaf of primitive `prim_id`, read from its `bytes` as [`read_scalar`]
+/// reads it, or `None` where that refuses the leaf (checklist P1-F).
+pub(crate) fn read_scalar_leaf(prim_id: u16, bytes: &[u8]) -> Option<Value> {
+    let cell = flat::decode(LeafKind::Primitive(prim_id), bytes).ok()?;
+    if cell == Cell::Null {
+        return Some(Value::Null);
+    }
+    cell_slot(cell).filter(|value| primitive_value_matches(prim_id, value))
+}
+
 /// Materialize one enumeration leaf as the variant the type declares for its value.
 fn read_enumeration(
     type_id: u32,

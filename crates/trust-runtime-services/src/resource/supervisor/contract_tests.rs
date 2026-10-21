@@ -248,6 +248,15 @@ fn an_overrun_needs_an_enabled_watchdog_and_more_than_its_timeout() {
         Some(OverrunAction::Halt),
         "an elapsed time beyond the nanosecond range saturates"
     );
+    // 2^63 ns fits 64 unsigned bits but no `i64`: it saturates too.
+    assert_eq!(
+        watchdog_overrun_action(
+            watchdog(true, WatchdogAction::Halt),
+            core::time::Duration::new(9_223_372_036, 854_775_808)
+        ),
+        Some(OverrunAction::Halt),
+        "an elapsed time of 2^63 ns saturates"
+    );
 }
 
 #[test]

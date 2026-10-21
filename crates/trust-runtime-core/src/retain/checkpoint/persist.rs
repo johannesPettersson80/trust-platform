@@ -153,6 +153,15 @@ impl<F: CheckpointFlash> CheckpointPersister<F> {
         Ok(Some((record, decoded)))
     }
 
+    /// Whether [`offer`](Self::offer) at `now` would use a fresh capture of the retained values,
+    /// once the capture is marked dirty: a save is due and no checkpoint is being written or has
+    /// failed. On any other scan a capture would be discarded, so the caller need not make it
+    /// (checklist P1-6).
+    #[must_use]
+    pub fn takes_capture(&self, capture: &RetainCapture, now: Duration) -> bool {
+        !self.writing && self.failure.is_none() && capture.interval_elapsed(now)
+    }
+
     /// Start a checkpoint of the capture's staged image when the shared save rule says a save is due
     /// and that image differs from the one last written (specification 11 §6.7).
     ///

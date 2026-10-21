@@ -16,7 +16,8 @@ use super::{CellArm, CellReader, Target};
 use crate::error::RuntimeError;
 use crate::memory::cell_access::LeafPatch;
 use crate::memory::cells::{
-    check_value, flat_cell, is_reference_type, text_geometry, write_value_in, Cell, ReferenceTable,
+    check_value, flat_cell, is_reference_type, text_geometry, write_scalar_in, write_value_in,
+    Cell, FlatBlock, ReferenceTable,
 };
 use crate::memory::flat::{self, LeafKind, TextBytes};
 use crate::memory::layout::ByteRange;
@@ -26,7 +27,9 @@ use crate::value::{
     replace_text_element, string_element_count, string_element_position_in, text_element_char,
     RefSegment, Value, ValueRefView,
 };
-use crate::vm::type_policy::{normalize_primitive_value, resolved_primitive_shape};
+use crate::vm::type_policy::{
+    normalize_primitive_value, primitive_value_matches, resolved_primitive_shape,
+};
 use crate::vm::PreparedModule;
 
 /// A prepared write into the block: the range of the leaf, its declared type, the presence byte of
@@ -209,20 +212,43 @@ impl<'a> CellWriter<'a> {
                 write_value_in(bytes, type_id, &leaf, prepared, references, range.start).is_ok()
             }
         };
-        let Some(offset) = presence.filter(|_| written) else {
-            return written;
-        };
-        let flag = ByteRange {
-            start: offset,
-            bytes: 1,
-            ..range
-        };
-        match block.bytes_mut(flag) {
-            Some(byte) => {
-                byte[0] = u8::from(holds_value);
-                true
-            }
-            None => false,
+        mark_presence(block, range, presence.filter(|_| written), holds_value).unwrap_or(written)
+    }
+
+    /// Write `value`, a value of the primitive `prim_id` that is no text, into the leaf at `range`
+    /// and mark the declaration's presence byte, as [`Self::store`] writes a checked scalar of that
+    /// primitive (checklist P1-2).
+    pub(crate) fn store_scalar(
+        &mut self,
+        range: ByteRange,
+        prim_id: u16,
+        presence: Option<u32>,
+        value: &Value,
+    ) -> bool {
+        let (block, _) = self.arm.cells.regions_mut().block_mut(range.region);
+        let written = block
+            .bytes_mut(range)
+            .is_some_and(|bytes| write_scalar_in(bytes, prim_id, value).is_ok());
+        mark_presence(block, range, presence.filter(|_| written), true).unwrap_or(written)
+    }
+
+    /// Write `value` into the declared variable at `range`, of `type_id`, whose presence byte is at
+    /// `presence`: a scalar of the declared primitive into its leaf, any other value checked for the
+    /// declaration first, as a write of the variable by its name or by its position stores it
+    /// (checklist P1-4).
+    fn store_member(
+        &mut self,
+        range: ByteRange,
+        type_id: u32,
+        presence: Option<u32>,
+        value: Value,
+    ) -> bool {
+        if let Some(prim_id) = direct_scalar(self.prepared, type_id, &value) {
+            return self.store_scalar(range, prim_id, presence, &value);
+        }
+        match checked_leaf(self.prepared, type_id, value) {
+            Ok(leaf) => self.store(range, type_id, presence, leaf),
+            Err(_) => false,
         }
     }
 
@@ -306,8 +332,11 @@ impl CellReader<'_> {
     ) -> Result<Option<PreparedWrite>, RuntimeError> {
         match self.locate(location, offset, path) {
             Ok(Target::Cells(range, type_id, presence, beside)) => {
-                // A reference is checked by reference: cloning its path would allocate in a scan (R5).
-                let leaf = if is_reference_type(self.prepared, type_id) {
+                // A scalar of its leaf's primitive passes the checks unchanged (checklist P1-2). A
+                // reference is checked by reference: cloning its path would allocate in a scan (R5).
+                let leaf = if direct_scalar(self.prepared, type_id, value).is_some() {
+                    Some(value.clone())
+                } else if is_reference_type(self.prepared, type_id) {
                     check_value(type_id, value, self.prepared, true)?;
                     None
                 } else {
@@ -480,6 +509,38 @@ fn store_reference_leaf(
     flat::encode(LeafKind::Reference, cell, bytes).is_ok()
 }
 
+/// The primitive of `type_id` when `value` is a scalar of it that the flat store writes as its bytes
+/// at once: normalizing and checking such a value leaves it as it is (checklist P1-2).
+fn direct_scalar(prepared: &PreparedModule, type_id: u32, value: &Value) -> Option<u16> {
+    prepared
+        .type_layout(type_id)
+        .and_then(|layout| layout.scalar)
+        .filter(|&prim_id| primitive_value_matches(prim_id, value))
+}
+
+/// Set the presence byte at `presence`, which belongs to the declaration whose leaf is at `range`,
+/// to whether the declaration holds a value: `Some(true)` once set, `Some(false)` when the byte lies
+/// outside `block`, and `None` when the write marks no byte.
+fn mark_presence(
+    block: &mut FlatBlock,
+    range: ByteRange,
+    presence: Option<u32>,
+    holds_value: bool,
+) -> Option<bool> {
+    let flag = ByteRange {
+        start: presence?,
+        bytes: 1,
+        ..range
+    };
+    Some(match block.bytes_mut(flag) {
+        Some(byte) => {
+            byte[0] = u8::from(holds_value);
+            true
+        }
+        None => false,
+    })
+}
+
 /// The value a write leaves in a leaf of `type_id`: normalized by the declared type (O11) and checked
 /// against it. A non-null reference is accepted, since the arm's table holds it (O9).
 fn checked_leaf(
@@ -513,6 +574,9 @@ impl StoreMutate for CellWriter<'_> {
         let target = self.reader().locate(location, offset, &[]);
         match target {
             Ok(Target::Cells(range, type_id, presence, _)) => {
+                if let Some(prim_id) = direct_scalar(self.prepared, type_id, &value) {
+                    return self.store_scalar(range, prim_id, presence, &value);
+                }
                 match checked_leaf(self.prepared, type_id, value) {
                     Ok(leaf) => self.store(range, type_id, presence, leaf),
                     Err(_) => false,
@@ -550,15 +614,34 @@ impl StoreMutate for CellWriter<'_> {
         }
         let target = self
             .reader()
-            .member_by(instance, |_, member| member == name.as_str())
-            .map(|(_, _, range, type_id, presence)| (range, type_id, presence));
+            .own_member_named(instance, name.as_str())
+            .map(|member| (member.range, member.type_id, member.presence));
         let Some((range, type_id, presence)) = target else {
             return false;
         };
-        match checked_leaf(self.prepared, type_id, value) {
-            Ok(leaf) => self.store(range, type_id, presence, leaf),
-            Err(_) => false,
+        self.store_member(range, type_id, presence, value)
+    }
+
+    fn write_instance_member(
+        &mut self,
+        instance: InstanceId,
+        ordinal: u16,
+        name: &'static str,
+        value: Value,
+    ) -> bool {
+        if !self.arm.is_persistent(instance) {
+            return self
+                .values
+                .set_instance_var(instance, SmolStr::new_static(name), value);
         }
+        let target = self
+            .reader()
+            .own_member_at(instance, usize::from(ordinal))
+            .map(|member| (member.range, member.type_id, member.presence));
+        let Some((range, type_id, presence)) = target else {
+            return false;
+        };
+        self.store_member(range, type_id, presence, value)
     }
 
     fn set_global(&mut self, name: impl Into<SmolStr>, value: Value) -> bool {
@@ -628,8 +711,8 @@ impl StoreMutate for CellWriter<'_> {
         for (name, value) in data.variables.iter() {
             let target = self
                 .reader()
-                .member_by(instance, |_, member| member == name.as_str())
-                .map(|(_, _, range, type_id, presence)| (range, type_id, presence));
+                .own_member_named(instance, name.as_str())
+                .map(|member| (member.range, member.type_id, member.presence));
             let Some((range, type_id, presence)) = target else {
                 return;
             };
@@ -664,7 +747,10 @@ impl StoreMutate for CellWriter<'_> {
                 (Some(element), _) => {
                     self.write_text_element(patch.range, patch.type_id, patch.presence, element)
                 }
-                (None, Some(leaf)) => self.store(patch.range, patch.type_id, patch.presence, leaf),
+                (None, Some(leaf)) => match direct_scalar(self.prepared, patch.type_id, &leaf) {
+                    Some(prim_id) => self.store_scalar(patch.range, prim_id, patch.presence, &leaf),
+                    None => self.store(patch.range, patch.type_id, patch.presence, leaf),
+                },
                 (None, None) => self.store(patch.range, patch.type_id, patch.presence, value),
             },
             PreparedWriteKind::Bits(patch) => self.write_leaf(&patch),

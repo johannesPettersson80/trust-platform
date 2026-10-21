@@ -19,6 +19,8 @@ impl PreparedModule {
             access,
             resources,
             io_bindings,
+            io_leaves,
+            builtin_members,
             indexes,
             call_plans,
             stdlib,
@@ -31,6 +33,7 @@ impl PreparedModule {
         drop(statements);
         after("statement index (debugger)");
         drop(call_plans);
+        drop(builtin_members);
         after("call plans");
         drop(indexes);
         after("prepared indexes");
@@ -47,6 +50,7 @@ impl PreparedModule {
         drop(resources);
         after("resources");
         drop(io_bindings);
+        drop(io_leaves);
         after("I/O bindings");
         drop(stdlib);
         drop(method_owners);
@@ -63,6 +67,7 @@ impl PreparedModule {
 fn drop_module(vm: VmModule, after: &mut impl FnMut(&'static str)) {
     let VmModule {
         code,
+        compact,
         strings,
         types,
         physical_layouts,
@@ -86,6 +91,7 @@ fn drop_module(vm: VmModule, after: &mut impl FnMut(&'static str)) {
         ..
     } = vm;
     drop(code);
+    drop(compact);
     after("module: instructions");
     drop(strings);
     after("module: strings");

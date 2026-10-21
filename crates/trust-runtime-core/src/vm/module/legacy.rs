@@ -42,6 +42,7 @@ impl VmModule {
             method_table_by_owner: MethodIndex::default(),
             debug_map: debug_map::VmDebugMap::default(),
             instruction_budget: super::super::VM_MAX_EXECUTED_INSTRUCTIONS,
+            compact: Vec::new(),
         })
     }
 

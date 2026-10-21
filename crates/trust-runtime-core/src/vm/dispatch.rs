@@ -1,9 +1,12 @@
 //! Shared stack-bytecode dispatcher. Platform services enter through ExecutionContext.
 use super::call::context::RegisterCallOpKind;
 use super::call::push_call_frame;
+mod compact_block;
+mod compact_loop;
 mod continuation;
 mod continuation_stack;
 mod entry;
+mod fused;
 #[cfg(feature = "register-ir")]
 mod leaf_call;
 mod session;
@@ -418,6 +421,33 @@ fn execute_with_buffers(
             return Err(VmTrap::InvalidJumpTarget(cursor.pc as i64).into_runtime_error());
         }
 
+        // A body with compact code runs on the compact loop from its first instruction to its end
+        // while variables are read and written in place and no operand waits for the dispatcher to
+        // replace it with its value; the frame is then finished above, as any other (checklist
+        // P1-F).
+        if let Some(pou) = frame_pou_id
+            && let Some(code) = module.compact_code(pou)
+            && code.start == frame_start
+            && cursor.pc == frame_start
+            && operand_stack.places() == 0
+            && operand_stack.enums() == 0
+            && operand_stack.copies() == 0
+            && runtime.runs_compact()
+        {
+            compact_loop::run(
+                runtime,
+                module,
+                code,
+                operand_stack,
+                frames,
+                fault_site,
+                pou,
+                &mut cursor.pc,
+                frame_end,
+            )?;
+            continue;
+        }
+
         // The instruction this activation is about to handle. Recording its site here, before
         // any handler can fail, leaves the innermost failing instruction's site in place when
         // its error unwinds the activation (specification 34 MEM-05).
@@ -428,13 +458,16 @@ fn execute_with_buffers(
 
         runtime.charge_execution_work(1)?;
 
-        let call_depth = cursor.depth.saturating_add(
-            frames
-                .len()
-                .saturating_sub(cursor.base_frames)
-                .saturating_sub(1) as u32,
-        );
-        if let Some(pou_id) = frame_pou_id {
+        // The observer is called only while it observes (checklist P1-3).
+        if let Some(pou_id) = frame_pou_id
+            && runtime.observes_statements()
+        {
+            let call_depth = cursor.depth.saturating_add(
+                frames
+                    .len()
+                    .saturating_sub(cursor.base_frames)
+                    .saturating_sub(1) as u32,
+            );
             let frame = frames
                 .current()
                 .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
@@ -829,26 +862,58 @@ fn execute_with_buffers(
             0x30 => {
                 let field_idx =
                     read_u32(&module.code, &mut cursor.pc).map_err(VmTrap::into_runtime_error)?;
+                // The field is named where the string table holds it; a short string is made only
+                // for a reference's path or an error (checklist P1-1).
                 let field = module
                     .strings
-                    .name(field_idx as usize)
+                    .get(field_idx as usize)
                     .ok_or_else(|| super::errors::invalid_field_string_index(field_idx))?;
+                let field_name = || {
+                    module
+                        .strings
+                        .name(field_idx as usize)
+                        .ok_or_else(|| super::errors::invalid_field_string_index(field_idx))
+                };
                 let base = operand_stack.pop().map_err(VmTrap::into_runtime_error)?;
+                // A POU's own scalar variable is read or written where it lies (checklist P1-3).
+                if let Value::Instance(instance_id) = base
+                    && fused::own_scalar_access(
+                        runtime,
+                        &module.code,
+                        operand_stack,
+                        &mut cursor.pc,
+                        frame_end,
+                        fault_site,
+                        frame_pou_id,
+                        instance_id,
+                        field_idx,
+                        field,
+                    )?
+                {
+                    continue;
+                }
                 let next = match base {
                     Value::Reference(Some(reference)) => {
-                        dynamic_ref_field(runtime, frames, reference, field.clone())
+                        dynamic_ref_field(runtime, frames, reference, field_name()?)
                             .map_err(VmTrap::into_runtime_error)?
                     }
                     Value::Reference(None) => {
                         return Err(VmTrap::NullReference.into_runtime_error());
                     }
-                    Value::Instance(instance_id) => runtime
-                        .storage()
-                        .ref_for_instance_recursive(instance_id, field.as_str())
-                        .ok_or_else(|| {
-                            VmTrap::Runtime(RuntimeError::UndefinedField(field))
-                                .into_runtime_error()
-                        })?,
+                    Value::Instance(instance_id) => {
+                        match runtime
+                            .storage()
+                            .ref_for_instance_recursive(instance_id, field)
+                        {
+                            Some(next) => next,
+                            None => {
+                                return Err(VmTrap::Runtime(RuntimeError::UndefinedField(
+                                    field_name()?,
+                                ))
+                                .into_runtime_error());
+                            }
+                        }
+                    }
                     _ => {
                         return Err(VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error())
                     }

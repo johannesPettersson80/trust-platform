@@ -78,6 +78,8 @@ pub struct VmModule {
     #[cfg(feature = "hir")]
     pub(crate) debug_map: debug_map::VmDebugMap,
     pub(crate) instruction_budget: usize,
+    /// The compact code of each body that has one, by POU, built at preparation (checklist P1-F).
+    pub(crate) compact: Vec<(u32, super::compact::CompactCode)>,
 }
 
 /// One encoded native-call argument descriptor.
@@ -445,7 +447,17 @@ impl VmModule {
             #[cfg(feature = "hir")]
             debug_map,
             instruction_budget: super::VM_MAX_EXECUTED_INSTRUCTIONS,
+            compact: Vec::new(),
         })
+    }
+
+    /// The compact code of `pou`'s body, when it has one (checklist P1-F).
+    pub(crate) fn compact_code(&self, pou: u32) -> Option<&super::compact::CompactCode> {
+        let at = self
+            .compact
+            .binary_search_by_key(&pou, |(owner, _)| *owner)
+            .ok()?;
+        self.compact.get(at).map(|(_, code)| code)
     }
 
     /// Look up a POU by artifact identity.

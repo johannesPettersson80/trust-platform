@@ -10,7 +10,6 @@
 use alloc::collections::BTreeMap;
 use alloc::format;
 use alloc::vec::Vec;
-use core::cmp::Ordering;
 use core::time::Duration;
 
 use smol_str::SmolStr;
@@ -203,48 +202,26 @@ impl CallStats {
     }
 }
 
-/// The key of a profiled call. It orders and compares as its text `kind:name`, the key the
-/// snapshot reports, so a call is found without building that text.
-#[derive(Debug, Clone)]
-struct CallKey {
-    kind: SmolStr,
-    name: SmolStr,
-}
-
-impl CallKey {
-    fn text(&self) -> impl Iterator<Item = u8> + '_ {
-        self.kind
-            .bytes()
-            .chain(core::iter::once(b':'))
-            .chain(self.name.bytes())
-    }
-}
-
-impl Ord for CallKey {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.text().cmp(other.text())
-    }
-}
-
-impl PartialOrd for CallKey {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl PartialEq for CallKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.cmp(other).is_eq()
-    }
-}
-
-impl Eq for CallKey {}
-
+/// One profiled call: the kind and name it was first recorded with, its text `kind:name`, which the
+/// snapshot reports and which finds it again, and its statistics.
 #[derive(Debug, Clone)]
 struct CallProfileEntry {
+    kind: SmolStr,
+    name: SmolStr,
     /// The text `kind:name`, built once, when the call is first recorded.
     key: SmolStr,
     stats: CallStats,
+}
+
+impl CallProfileEntry {
+    /// Whether the entry's text is `kind:name`, compared without building that text (checklist
+    /// P1-6).
+    fn is(&self, kind: &str, name: &str) -> bool {
+        self.key
+            .strip_prefix(kind)
+            .and_then(|rest| rest.strip_prefix(':'))
+            == Some(name)
+    }
 }
 
 /// The allocator operations of the thread that runs the scans, each allocation, reallocation and
@@ -302,7 +279,8 @@ pub struct RuntimeMetrics<C> {
     pub tasks: BTreeMap<SmolStr, TaskStats>,
     /// Whether calls are profiled.
     pub profiling_enabled: bool,
-    profile_calls: BTreeMap<CallKey, CallProfileEntry>,
+    /// The profiled calls, in the order they were first recorded; the snapshot ranks them.
+    profile_calls: Vec<CallProfileEntry>,
     /// Recorded faults.
     pub faults: u64,
     /// Missed periodic activations of all tasks.
@@ -325,7 +303,7 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
             cycle_window: CycleLatencyWindow::default(),
             tasks: BTreeMap::new(),
             profiling_enabled: true,
-            profile_calls: BTreeMap::new(),
+            profile_calls: Vec::new(),
             faults: 0,
             overruns: 0,
             scan_allocations: None,
@@ -361,10 +339,14 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
         self.cycle_window.record_ms(millis(duration));
     }
 
-    /// Records one execution of task `name` that took `duration`.
+    /// Records one execution of task `name` that took `duration`. A task already recorded is found
+    /// by its name, without a copy of the name (checklist P1-6).
     pub fn record_task(&mut self, name: &SmolStr, duration: Duration) {
-        let entry = self.tasks.entry(name.clone()).or_default();
-        entry.record(duration);
+        if let Some(entry) = self.tasks.get_mut(name.as_str()) {
+            entry.record(duration);
+            return;
+        }
+        self.tasks.entry(name.clone()).or_default().record(duration);
     }
 
     /// Counts `missed` periodic activations of task `name`; zero records nothing.
@@ -410,24 +392,28 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
     }
 
     /// Records one call of `kind` `name` that took `duration`, while profiling is on. Calls whose
-    /// text `kind:name` is the same share one entry.
+    /// text `kind:name` is the same share one entry. A call already recorded is found by that text,
+    /// compared without building it (checklist P1-6).
     pub fn record_call(&mut self, kind: &str, name: &str, duration: Duration) {
         if !self.profiling_enabled {
             return;
         }
-        let key = CallKey {
-            kind: SmolStr::new(kind),
-            name: SmolStr::new(name),
-        };
-        if let Some(entry) = self.profile_calls.get_mut(&key) {
+        if let Some(entry) = self
+            .profile_calls
+            .iter_mut()
+            .find(|entry| entry.is(kind, name))
+        {
             entry.stats.record(duration);
             return;
         }
         let mut stats = CallStats::default();
         stats.record(duration);
-        let text = SmolStr::new(format!("{kind}:{name}"));
-        self.profile_calls
-            .insert(key, CallProfileEntry { key: text, stats });
+        self.profile_calls.push(CallProfileEntry {
+            kind: SmolStr::new(kind),
+            name: SmolStr::new(name),
+            key: SmolStr::new(format!("{kind}:{name}")),
+            stats,
+        });
     }
 
     /// A snapshot of every metric.
@@ -443,10 +429,10 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
         let mut calls = self
             .profile_calls
             .iter()
-            .map(|(key, entry)| CallStatsSnapshot {
+            .map(|entry| CallStatsSnapshot {
                 key: entry.key.clone(),
-                kind: key.kind.clone(),
-                name: key.name.clone(),
+                kind: entry.kind.clone(),
+                name: entry.name.clone(),
                 min_ms: entry.stats.min_ms,
                 max_ms: entry.stats.max_ms,
                 avg_ms: entry.stats.avg_ms,

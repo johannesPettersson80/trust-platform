@@ -128,6 +128,11 @@ impl ExecutionServices for HostedExecutionServices {
         self.debug.is_some() && self.metadata.is_some()
     }
 
+    /// The statement hook acts only while debugging is enabled, as its first check says.
+    fn observes_statements(&self) -> bool {
+        self.metadata.is_some() && self.debug.as_ref().is_some_and(|debug| debug.is_enabled())
+    }
+
     fn allocator_operations(&self) -> Option<u64> {
         crate::allocation_count::operations()
     }

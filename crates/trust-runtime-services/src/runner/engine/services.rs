@@ -202,6 +202,11 @@ impl<C: MonotonicClock> ExecutionServices for DeviceServices<C> {
         self.debugging.get()
     }
 
+    /// The statement hook acts only while the debugger is attached.
+    fn observes_statements(&self) -> bool {
+        self.debugging.get()
+    }
+
     /// The platform's count, read through the function the device gave.
     fn allocator_operations(&self) -> Option<u64> {
         self.allocator_operations.map(|operations| operations())

@@ -6,7 +6,7 @@ use crate::value::{Duration, Value};
 use super::instance::{
     get_or_init_bool, read_bool, read_scalar_or_null, set_instance_value, write_bool,
 };
-use super::state::{STATE_ACTIVE, STATE_LAST_TIME, STATE_PREV_IN, STATE_TIMING};
+use super::members::Member;
 use super::BuiltinExecContext;
 
 /// Timer output and elapsed duration.
@@ -182,15 +182,15 @@ pub(super) fn exec_ton<S: StoreAccess + StoreMutate>(
     ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<(), RuntimeError> {
-    let input = read_bool(ctx, instance_id, "IN")?;
-    let (pt, is_ltime) = read_time_input(ctx, instance_id, "PT")?;
-    let et = read_time_value(ctx, instance_id, "ET")?;
-    let q = read_bool(ctx, instance_id, "Q")?;
+    let input = read_bool(ctx, instance_id, Member::In)?;
+    let (pt, is_ltime) = read_time_input(ctx, instance_id, Member::Pt)?;
+    let et = read_time_value(ctx, instance_id, Member::Et)?;
+    let q = read_bool(ctx, instance_id, Member::Q)?;
     let delta = elapsed_since(ctx, instance_id)?;
     let mut ton = Ton { et, q };
     let out = ton.step(input, pt, delta);
-    write_bool(ctx, instance_id, "Q", out.q);
-    write_time_value(ctx, instance_id, "ET", out.et, is_ltime);
+    write_bool(ctx, instance_id, Member::Q, out.q);
+    write_time_value(ctx, instance_id, Member::Et, out.et, is_ltime);
     Ok(())
 }
 
@@ -198,12 +198,12 @@ pub(super) fn exec_tof<S: StoreAccess + StoreMutate>(
     ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<(), RuntimeError> {
-    let input = read_bool(ctx, instance_id, "IN")?;
-    let (pt, is_ltime) = read_time_input(ctx, instance_id, "PT")?;
-    let et = read_time_value(ctx, instance_id, "ET")?;
-    let q = read_bool(ctx, instance_id, "Q")?;
-    let prev_in = get_or_init_bool(ctx, instance_id, STATE_PREV_IN, false)?;
-    let timing = get_or_init_bool(ctx, instance_id, STATE_TIMING, false)?;
+    let input = read_bool(ctx, instance_id, Member::In)?;
+    let (pt, is_ltime) = read_time_input(ctx, instance_id, Member::Pt)?;
+    let et = read_time_value(ctx, instance_id, Member::Et)?;
+    let q = read_bool(ctx, instance_id, Member::Q)?;
+    let prev_in = get_or_init_bool(ctx, instance_id, Member::PrevIn, false)?;
+    let timing = get_or_init_bool(ctx, instance_id, Member::Timing, false)?;
     let delta = elapsed_since(ctx, instance_id)?;
     let mut tof = Tof {
         et,
@@ -212,10 +212,10 @@ pub(super) fn exec_tof<S: StoreAccess + StoreMutate>(
         timing,
     };
     let out = tof.step(input, pt, delta);
-    write_bool(ctx, instance_id, "Q", out.q);
-    write_time_value(ctx, instance_id, "ET", out.et, is_ltime);
-    write_bool(ctx, instance_id, STATE_PREV_IN, tof.prev_in);
-    write_bool(ctx, instance_id, STATE_TIMING, tof.timing);
+    write_bool(ctx, instance_id, Member::Q, out.q);
+    write_time_value(ctx, instance_id, Member::Et, out.et, is_ltime);
+    write_bool(ctx, instance_id, Member::PrevIn, tof.prev_in);
+    write_bool(ctx, instance_id, Member::Timing, tof.timing);
     Ok(())
 }
 
@@ -223,12 +223,12 @@ pub(super) fn exec_tp<S: StoreAccess + StoreMutate>(
     ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<(), RuntimeError> {
-    let input = read_bool(ctx, instance_id, "IN")?;
-    let (pt, is_ltime) = read_time_input(ctx, instance_id, "PT")?;
-    let et = read_time_value(ctx, instance_id, "ET")?;
-    let q = read_bool(ctx, instance_id, "Q")?;
-    let prev_in = get_or_init_bool(ctx, instance_id, STATE_PREV_IN, false)?;
-    let active = get_or_init_bool(ctx, instance_id, STATE_ACTIVE, false)?;
+    let input = read_bool(ctx, instance_id, Member::In)?;
+    let (pt, is_ltime) = read_time_input(ctx, instance_id, Member::Pt)?;
+    let et = read_time_value(ctx, instance_id, Member::Et)?;
+    let q = read_bool(ctx, instance_id, Member::Q)?;
+    let prev_in = get_or_init_bool(ctx, instance_id, Member::PrevIn, false)?;
+    let active = get_or_init_bool(ctx, instance_id, Member::Active, false)?;
     let delta = elapsed_since(ctx, instance_id)?;
     let mut tp = Tp {
         et,
@@ -237,10 +237,10 @@ pub(super) fn exec_tp<S: StoreAccess + StoreMutate>(
         active,
     };
     let out = tp.step(input, pt, delta);
-    write_bool(ctx, instance_id, "Q", out.q);
-    write_time_value(ctx, instance_id, "ET", out.et, is_ltime);
-    write_bool(ctx, instance_id, STATE_PREV_IN, tp.prev_in);
-    write_bool(ctx, instance_id, STATE_ACTIVE, tp.active);
+    write_bool(ctx, instance_id, Member::Q, out.q);
+    write_time_value(ctx, instance_id, Member::Et, out.et, is_ltime);
+    write_bool(ctx, instance_id, Member::PrevIn, tp.prev_in);
+    write_bool(ctx, instance_id, Member::Active, tp.active);
     Ok(())
 }
 
@@ -261,9 +261,9 @@ fn accumulate_elapsed(elapsed: Duration, delta: Duration, pt: Duration) -> Durat
 fn read_time_input<S: StoreAccess>(
     ctx: &BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
-    name: &str,
+    member: Member,
 ) -> Result<(Duration, bool), RuntimeError> {
-    match read_scalar_or_null(ctx, instance_id, name)? {
+    match read_scalar_or_null(ctx, instance_id, member)? {
         Value::Time(value) => Ok((value, false)),
         Value::LTime(value) => Ok((value, true)),
         Value::Null => Ok((Duration::ZERO, false)),
@@ -274,9 +274,9 @@ fn read_time_input<S: StoreAccess>(
 fn read_time_value<S: StoreAccess>(
     ctx: &BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
-    name: &str,
+    member: Member,
 ) -> Result<Duration, RuntimeError> {
-    match read_scalar_or_null(ctx, instance_id, name)? {
+    match read_scalar_or_null(ctx, instance_id, member)? {
         Value::Time(value) | Value::LTime(value) => Ok(value),
         Value::Null => Ok(Duration::ZERO),
         _ => Err(RuntimeError::TypeMismatch),
@@ -286,7 +286,7 @@ fn read_time_value<S: StoreAccess>(
 fn write_time_value<S: StoreMutate>(
     ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
-    name: &str,
+    member: Member,
     value: Duration,
     is_ltime: bool,
 ) {
@@ -295,14 +295,14 @@ fn write_time_value<S: StoreMutate>(
     } else {
         Value::Time(value)
     };
-    set_instance_value(ctx, instance_id, name, value);
+    set_instance_value(ctx, instance_id, member, value);
 }
 
 fn elapsed_since<S: StoreAccess + StoreMutate>(
     ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<Duration, RuntimeError> {
-    let last = get_or_init_duration(ctx, instance_id, STATE_LAST_TIME, ctx.now)?;
+    let last = get_or_init_duration(ctx, instance_id, Member::LastTime, ctx.now)?;
     // A span wider than the signed nanosecond range saturates at i64::MAX, which is never less
     // than a preset, so the accumulated ET completes the timer (spec 08 section 5). A negative
     // span still contributes nothing.
@@ -312,20 +312,20 @@ fn elapsed_since<S: StoreAccess + StoreMutate>(
     } else {
         Duration::from_nanos(delta_nanos)
     };
-    set_internal_duration(ctx, instance_id, STATE_LAST_TIME, ctx.now);
+    set_internal_duration(ctx, instance_id, Member::LastTime, ctx.now);
     Ok(delta)
 }
 
 fn get_or_init_duration<S: StoreAccess + StoreMutate>(
     ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
-    name: &str,
+    member: Member,
     default: Duration,
 ) -> Result<Duration, RuntimeError> {
-    match read_scalar_or_null(ctx, instance_id, name)? {
+    match read_scalar_or_null(ctx, instance_id, member)? {
         Value::Time(value) | Value::LTime(value) => Ok(value),
         Value::Null => {
-            set_internal_duration(ctx, instance_id, name, default);
+            set_internal_duration(ctx, instance_id, member, default);
             Ok(default)
         }
         _ => Err(RuntimeError::TypeMismatch),
@@ -335,8 +335,8 @@ fn get_or_init_duration<S: StoreAccess + StoreMutate>(
 fn set_internal_duration<S: StoreMutate>(
     ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
-    name: &str,
+    member: Member,
     value: Duration,
 ) {
-    set_instance_value(ctx, instance_id, name, Value::LTime(value));
+    set_instance_value(ctx, instance_id, member, Value::LTime(value));
 }

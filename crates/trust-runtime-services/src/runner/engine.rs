@@ -30,6 +30,7 @@
 mod handover;
 mod held_time;
 mod limits;
+mod live_snapshot;
 mod process_io;
 mod services;
 
@@ -468,8 +469,14 @@ struct LiveInner {
     bindings: Vec<PreparedIoBinding>,
     /// The declared name of each binding, parallel to `bindings`.
     binding_names: Vec<Option<SmolStr>>,
-    /// The published snapshot, once the first scan has published one.
+    /// The published snapshot, once the first scan has published one; with a copy of the images,
+    /// the snapshot that a request decoded from it last.
     published: RefCell<Option<IoSnapshot>>,
+    /// Whether a scan publishes a copy of the flat images instead of the decoded snapshot
+    /// (checklist P1-6).
+    copies: bool,
+    /// The copy that the last scan published, when it publishes one.
+    images: RefCell<live_snapshot::PublishedImages>,
 }
 
 impl EngineLiveValues {
@@ -485,6 +492,8 @@ impl EngineLiveValues {
                 bindings: Vec::new(),
                 binding_names: Vec::new(),
                 published: RefCell::new(None),
+                copies: true,
+                images: RefCell::default(),
             }),
         }
     }
@@ -510,6 +519,7 @@ impl EngineLiveValues {
         if binding_names.len() != bindings.len() {
             return Err(RuntimeError::InvalidExecutionState);
         }
+        let copies = live_snapshot::copies_images(&bindings);
         Ok(Self {
             inner: Rc::new(LiveInner {
                 queues: RefCell::new(LiveValueQueues::new()),
@@ -518,6 +528,8 @@ impl EngineLiveValues {
                 bindings,
                 binding_names,
                 published: RefCell::new(None),
+                copies,
+                images: RefCell::default(),
             }),
         })
     }
@@ -541,8 +553,18 @@ impl EngineLiveValues {
         self.inner.generation.set(generation);
     }
 
-    /// The published I/O snapshot of the last completed scan, updated in place.
+    /// The published I/O snapshot of the last completed scan, updated in place, or the copy of the
+    /// images that a request decodes it from (checklist P1-6).
     fn publish(&self, access: &mut CycleAccess<'_, '_>, scan: u64) -> Result<(), RuntimeError> {
+        if self.inner.copies {
+            let queues = self.inner.queues.borrow();
+            self.inner.images.borrow_mut().record(
+                access,
+                scan,
+                queues.forced_io.iter().map(|(address, _)| address),
+            );
+            return Ok(());
+        }
         let needs_build = self.inner.published.borrow().is_none();
         if needs_build {
             let snapshot = self.build_snapshot();
@@ -557,40 +579,9 @@ impl EngineLiveValues {
         for (address, _) in &self.inner.queues.borrow().forced_io {
             snapshot.forced.push(address.clone());
         }
-        // The entries were laid out in binding order, so the same order updates their values
-        // without changing the snapshot's shape or allocating.
-        let mut inputs = 0;
-        let mut outputs = 0;
-        let mut memory = 0;
-        for binding in &self.inner.bindings {
-            let value = match access.read_image(&binding.address) {
-                Ok(raw) => match binding.codec.decode(raw) {
-                    Ok(value) => IoSnapshotValue::Value(value),
-                    Err(error) => IoSnapshotValue::Error(error.to_string()),
-                },
-                Err(error) if apply::is_cycle_operational_error(&error) => return Err(error),
-                Err(error) => IoSnapshotValue::Error(error.to_string()),
-            };
-            let entry = match binding.address.area {
-                IoArea::Input => {
-                    let entry = snapshot.inputs.get_mut(inputs);
-                    inputs += 1;
-                    entry
-                }
-                IoArea::Output => {
-                    let entry = snapshot.outputs.get_mut(outputs);
-                    outputs += 1;
-                    entry
-                }
-                IoArea::Memory => {
-                    let entry = snapshot.memory.get_mut(memory);
-                    memory += 1;
-                    entry
-                }
-            };
-            entry.ok_or(RuntimeError::InvalidExecutionState)?.value = value;
-        }
-        Ok(())
+        live_snapshot::fill(&self.inner.bindings, snapshot, |address| {
+            access.read_image(address)
+        })
     }
 
     /// The snapshot of every admitted binding, with the value of each entry not sampled yet.
@@ -633,6 +624,19 @@ fn binding_type_name(binding: &PreparedIoBinding) -> Option<SmolStr> {
 
 impl IoQueuePort for EngineLiveValues {
     fn io_snapshot(&self) -> IoSnapshotRead {
+        if self.inner.copies {
+            // The bindings are decoded from the copy the last scan published (checklist P1-6).
+            let images = self.inner.images.borrow();
+            if !images.published() {
+                return IoSnapshotRead::Missing;
+            }
+            let mut published = self.inner.published.borrow_mut();
+            let snapshot = published.get_or_insert_with(|| self.build_snapshot());
+            return match images.decode_into(&self.inner.bindings, snapshot) {
+                Ok(()) => IoSnapshotRead::Published(snapshot.clone()),
+                Err(_) => IoSnapshotRead::Missing,
+            };
+        }
         match &*self.inner.published.borrow() {
             Some(snapshot) => IoSnapshotRead::Published(snapshot.clone()),
             None => IoSnapshotRead::Missing,
@@ -765,25 +769,33 @@ impl<C: MonotonicClock> CycleHooks for LiveValuesHooks<'_, '_, C> {
         access: &mut CycleAccess<'_, '_>,
     ) -> Result<(), RuntimeError> {
         let live = self.live;
+        // Idle queues change nothing, so a scan without queued writes or forces skips them
+        // (checklist P1-6).
         match phase {
             CyclePhase::CycleStart => {
                 let mut queues = live.inner.queues.borrow_mut();
-                apply::cycle_start(
-                    &mut *queues,
-                    &live.inner.names,
-                    access,
-                    self,
-                    |_access, _target, _value| Err(RuntimeError::ReferenceLifetime),
-                )?;
+                if !queues.is_idle() {
+                    apply::cycle_start(
+                        &mut *queues,
+                        &live.inner.names,
+                        access,
+                        self,
+                        |_access, _target, _value| Err(RuntimeError::ReferenceLifetime),
+                    )?;
+                }
             }
             CyclePhase::BeforeInputSample => {
                 let mut queues = live.inner.queues.borrow_mut();
-                apply::io_writes_and_forces(&mut *queues, &live.inner.names, access, self)?;
+                if !queues.is_idle() {
+                    apply::io_writes_and_forces(&mut *queues, &live.inner.names, access, self)?;
+                }
             }
             CyclePhase::AfterOutputSample => {
                 {
                     let mut queues = live.inner.queues.borrow_mut();
-                    apply::forces(&mut *queues, &live.inner.names, access, self)?;
+                    if !queues.is_idle() {
+                        apply::forces(&mut *queues, &live.inner.names, access, self)?;
+                    }
                 }
                 live.publish(access, self.scan)?;
             }

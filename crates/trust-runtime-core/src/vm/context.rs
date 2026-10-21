@@ -1,7 +1,7 @@
 //! Composition services used by the shared reference and execution paths.
 
 use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
-use crate::memory::{MemoryLocation, VariableStorage};
+use crate::memory::{InstanceId, MemoryLocation, VariableStorage};
 use crate::value::{RefSegment, Value};
 
 /// Storage access and assignment type information supplied by a runtime composition.
@@ -145,6 +145,55 @@ pub trait ReferenceContext {
                 Err(crate::error::RuntimeError::InvalidExecutionState)
             }
         }
+    }
+    /// The value of the scalar variable `field`, string `field_idx`, that `instance` declares itself,
+    /// read where it lies, when this composition reads it so (checklist P1-3). The value is the one
+    /// the general path reads; `None`, the default, leaves the read to it.
+    fn own_scalar(&self, _instance: InstanceId, _field_idx: u32, _field: &str) -> Option<Value> {
+        None
+    }
+    /// The slot of the scalar variable `field`, string `field_idx`, that `instance` declares
+    /// itself, when a store of `value` into it is a slot write whose every check passes (checklist
+    /// P1-3): the general path would neither convert the value nor refuse the store. `None`, the
+    /// default, leaves the store to it.
+    fn own_scalar_slot(
+        &self,
+        _instance: InstanceId,
+        _field_idx: u32,
+        _field: &str,
+        _value: &Value,
+    ) -> Option<usize> {
+        None
+    }
+    /// Whether the dispatcher runs a body that has compact code with the compact loop (checklist
+    /// P1-F): only while variables are read and written in place. The default, `false`, keeps every
+    /// body on the general path.
+    fn runs_compact(&self) -> bool {
+        false
+    }
+    /// The bytes of `instance`'s own variables, where a compact body finds them (checklist P1-F).
+    fn instance_bytes(&self, _instance: InstanceId) -> Option<crate::memory::layout::ByteRange> {
+        None
+    }
+    /// The instance that the instance leaf at `range` names (checklist P1-F). `None` when it names
+    /// none or there is no such leaf.
+    fn instance_in_leaf(&self, _range: crate::memory::layout::ByteRange) -> Option<InstanceId> {
+        None
+    }
+    /// The value of the scalar leaf of primitive `prim` at `range`, read as a read of its variable
+    /// reads it (checklist P1-F).
+    fn scalar_at(&self, _range: crate::memory::layout::ByteRange, _prim: u16) -> Option<Value> {
+        None
+    }
+    /// Write `value`, a value of primitive `prim`, into the scalar leaf at `range` as the general
+    /// store of such a value writes it (checklist P1-F). `false` when there is no such leaf.
+    fn store_scalar_at(
+        &mut self,
+        _range: crate::memory::layout::ByteRange,
+        _prim: u16,
+        _value: &Value,
+    ) -> bool {
+        false
     }
     /// The place of `view` (C1-10c), when a store may copy the value it shows as bytes: an array or
     /// a structure in a flat block whose type holds no text, reference, instance or overlap. A
@@ -738,6 +787,12 @@ pub trait ExecutionContext: super::call::context::CallContext {
         self.on_statement(module, pou_id, pc, depth);
     }
 
+    /// Whether the statement observer above sees instructions now. `false` promises that it would
+    /// do nothing, so the dispatcher skips it (checklist P1-3). The default, `true`, calls it at every
+    /// instruction.
+    fn observes_statements(&self) -> bool {
+        true
+    }
     /// Invoke the observer without hiding a composition invariant failure.
     /// The dispatcher owns cleanup if this callback fails.
     fn on_statement_with_frame_checked(

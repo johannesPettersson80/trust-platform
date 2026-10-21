@@ -86,6 +86,58 @@ END_PROGRAM
     }
 }
 
+/// TON on the engine, whose block reaches IN, PT, Q, ET and its elapsed-time baseline at the places
+/// preparation found for them (spec 34 PERF-05, checklist P1-4 and P1-5). The expected values are
+/// spec 08 §5 and the timer decision of 12 July 2026 in `docs/IEC_DECISIONS.md` worked by hand: the
+/// first call adds no time, each later call adds the clock's advance while IN is TRUE, ET stops at
+/// PT, where Q turns TRUE, and IN FALSE clears Q and ET. Catches a member read or written at another
+/// member's place (ET taken from PT, Q written over IN), a baseline kept at a wrong place, and a
+/// call that binds IN or PT to another member.
+#[test]
+fn on_delay_executes_in_source_free_state() {
+    let prepared = prepare(
+        r#"
+VAR_GLOBAL signal : BOOL; END_VAR
+PROGRAM Main
+VAR on_delay : TON; END_VAR
+on_delay(IN := signal, PT := T#25ms);
+END_PROGRAM
+"#,
+    );
+    let mut state = prepared.instantiate(0).unwrap();
+    for (time, signal, q, et) in [
+        (0, true, false, 0),
+        (10, true, false, 10),
+        (20, true, false, 20),
+        (30, true, true, 25),
+        (40, true, true, 25),
+        (50, false, false, 0),
+    ] {
+        state.write_global("signal", Value::Bool(signal)).unwrap();
+        state.execute_cycle(Duration::from_millis(time)).unwrap();
+        assert_eq!(
+            member(&state, "on_delay", "Q"),
+            Value::Bool(q),
+            "Q at {time}"
+        );
+        assert_eq!(
+            member(&state, "on_delay", "ET"),
+            Value::Time(Duration::from_millis(et)),
+            "ET at {time}"
+        );
+        assert_eq!(
+            member(&state, "on_delay", "IN"),
+            Value::Bool(signal),
+            "IN at {time}"
+        );
+        assert_eq!(
+            member(&state, "on_delay", "PT"),
+            Value::Time(Duration::from_millis(25)),
+            "PT at {time}"
+        );
+    }
+}
+
 #[test]
 fn counters_and_bistable_priority_execute_in_source_free_state() {
     let prepared = prepare(
@@ -181,6 +233,78 @@ impl ExecutionServices for Deadline {
     fn current_dt(&self) -> Result<DateTimeValue, RuntimeError> {
         Err(RuntimeError::UndefinedFunction("CURRENT_DT".into()))
     }
+}
+
+/// A deadline that passes at the `at`-th clock sample after it is armed.
+struct Expiring {
+    armed: Cell<bool>,
+    polls: Cell<usize>,
+    at: usize,
+}
+impl ExecutionServices for Expiring {
+    fn deadline_exceeded(&self) -> bool {
+        if !self.armed.get() {
+            return false;
+        }
+        self.polls.set(self.polls.get() + 1);
+        self.polls.get() >= self.at
+    }
+    fn has_wall_clock(&self) -> bool {
+        false
+    }
+    fn current_dt(&self) -> Result<DateTimeValue, RuntimeError> {
+        Err(RuntimeError::UndefinedFunction("CURRENT_DT".into()))
+    }
+}
+
+/// Inputs sampled into their variables' leaves (spec 34 PERF-05) are sampled all or none: a
+/// synchronization refused at its deadline writes back what it wrote (spec 34 §6.2, "Process
+/// images"). The image holds 5 and 7 and the variables start at 0. For a deadline that passes at
+/// each of the scan's clock samples in turn, a refused scan leaves both variables at 0 or both at 5
+/// and 7, and a completed one at 5 and 7. Every sample is the one that passes for one of the scans,
+/// so the check before the second write is among them. Catches a refusal that leaves the first
+/// input written, and a write that reaches another variable.
+#[test]
+fn a_refused_input_synchronization_leaves_no_input_written() {
+    let prepared = prepare(
+        "PROGRAM Main VAR first AT %ID0 : DINT; second AT %ID4 : DINT; seen : DINT; END_VAR
+         seen := first + second; END_PROGRAM",
+    );
+    let mut refused_before = false;
+    let mut refused_after = false;
+    for at in 1..=40 {
+        let clock = Expiring {
+            armed: Cell::new(false),
+            polls: Cell::new(0),
+            at,
+        };
+        let mut state = prepared.instantiate_with_services(0, &clock).unwrap();
+        state.inputs_mut()[0..4].copy_from_slice(&5i32.to_le_bytes());
+        state.inputs_mut()[4..8].copy_from_slice(&7i32.to_le_bytes());
+        clock.armed.set(true);
+        let result = state.execute_cycle(Duration::from_millis(10));
+        let main = instance(state.storage().get_global("Main"));
+        let pair = (
+            state.storage().get_instance_var(main, "first").cloned(),
+            state.storage().get_instance_var(main, "second").cloned(),
+        );
+        let written = (Some(Value::DInt(5)), Some(Value::DInt(7)));
+        let kept = (Some(Value::DInt(0)), Some(Value::DInt(0)));
+        match result {
+            Ok(()) => assert_eq!(pair, written, "a completed scan at sample {at}"),
+            Err(_) if pair == kept => refused_before = true,
+            Err(_) if pair == written => refused_after = true,
+            Err(error) => panic!("refused at sample {at} ({error}) with {pair:?}"),
+        }
+    }
+    assert!(
+        refused_before,
+        "some scan was refused before its inputs were kept"
+    );
+    assert!(
+        refused_after,
+        "some scan was refused after its inputs were kept"
+    );
 }
 
 #[test]

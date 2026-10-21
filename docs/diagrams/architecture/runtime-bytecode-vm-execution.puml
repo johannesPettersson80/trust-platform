@@ -83,6 +83,7 @@ package "Shared execution choices" as executionPkg #LightCyan {
     component "EngineState::execute_pou\nprepared POU and parameter-presence bindings" as entry
     component "Core register executor\nexecute_register_program\nprepared lowering / tier-1 selection" as register
     component "Core stack dispatcher\nexecute_pou_stack_with_locals\none opcode loop; no-register calls stay in-loop" as stack
+    component "Compact loop\nprepared compact code of eligible bodies\nscalar leaves, standard blocks and\nconversions where they lie" as compact
     component "VM activation pump\nregister-ir mixed stack/register continuations\nsaved caller cursor + leased register scratch" as pump
     component "call preparation/completion\nframes, parameters, edges, OUT/IN_OUT journal" as calls
     component "Reference operations\nborrowed checks; materialized character fallback\ndynamic field/index and reference-attempt policy" as references
@@ -99,6 +100,11 @@ package "Shared execution choices" as executionPkg #LightCyan {
     pump --> calls : common return validation and output copyback
     register --> calls : library call, or leaf POU call run in place
     stack --> calls : immediate library call
+    stack --> compact : body with compact code,\nno statement observer
+    prepared --> compact : compact code built at preparation
+    compact --> calls : other calls through the dispatcher's own
+    compact --> library : standard blocks and conversions
+    compact --> allowance
     register --> references
     stack --> references
     calls --> library
@@ -147,6 +153,13 @@ package "Shared execution choices" as executionPkg #LightCyan {
         a cursor continuation inside this same opcode loop. Return runs the
         shared PreparedCall completion path and restores the parent cursor.
         HIR optimized hooks retain their existing synchronous admission order.
+    end note
+    note bottom of compact
+        A program or final function block body whose instructions all have an
+        operation, and that keeps no frame variables, runs from compact code
+        (spec 34 PERF-05). Each covered instruction is recorded as the fault site
+        and charged its unit before its work, so results, charges and faults
+        equal the opcode loop's.
     end note
 }
 

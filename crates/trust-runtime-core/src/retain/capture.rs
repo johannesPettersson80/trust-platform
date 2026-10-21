@@ -116,12 +116,16 @@ impl RetainCapture {
     /// Whether the interval elapsed and the retained values are dirty.
     #[must_use]
     pub fn should_save(&self, now: Duration) -> bool {
+        self.dirty && self.interval_elapsed(now)
+    }
+
+    /// Whether a save interval is set and has elapsed since the last save at `now`, whatever the
+    /// dirty mark says.
+    #[must_use]
+    pub fn interval_elapsed(&self, now: Duration) -> bool {
         let Some(interval) = self.interval else {
             return false;
         };
-        if !self.dirty {
-            return false;
-        }
         if interval.as_nanos() <= 0 {
             return true;
         }

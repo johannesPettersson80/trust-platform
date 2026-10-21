@@ -333,6 +333,14 @@ impl CycleAccess<'_, '_> {
         }
         Ok(&mut self.engine.data.images.inputs)
     }
+    /// Copy the flat process images into `into`, keeping its storage (checklist P1-6). The copy
+    /// is bookkeeping: it reads no binding and charges nothing.
+    pub fn copy_flat_images(&self, into: &mut crate::io_image::FlatImages) {
+        let images = &self.engine.data.images;
+        into.inputs.clone_from(&images.inputs);
+        into.outputs.clone_from(&images.outputs);
+        into.memory.clone_from(&images.memory);
+    }
     /// Read a checked flat or declared hierarchical process-image address.
     pub fn read_image(&mut self, address: &IoAddress) -> Result<Value, RuntimeError> {
         self.engine.read_cycle_image(address)

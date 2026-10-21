@@ -10,6 +10,8 @@ use crate::error::RuntimeError;
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 mod admission;
 mod budget;
+/// The places of each standard function block's members and formals (checklist P1-4, P1-5).
+mod builtin_members;
 pub(crate) mod byte_types;
 pub(crate) mod call_plans;
 mod duration_slots;
@@ -20,6 +22,8 @@ mod footprint;
 mod indexes;
 /// What a program's instances take: on the activation stack, and in the engine's bookkeeping.
 mod instances;
+/// Where an I/O binding's scalar variable lies (checklist P1-6).
+mod io_leaves;
 /// The roots that the inputs of a program write, which a scan start saves.
 mod io_roots;
 mod layouts;
@@ -34,6 +38,7 @@ pub use budget::PreparationUsage;
 pub(crate) use call_plans::CallPlan;
 pub use figure::{MemoryFigure, ProgramPart, PROGRAM_PARTS};
 pub(crate) use instances::InstanceBookkeeping;
+pub(crate) use io_leaves::{InputLeaves, IoLeaf};
 pub(crate) use nesting::RawShellBounds;
 
 /// Explicit preparation limits for an allocator-backed execution profile.
@@ -125,6 +130,12 @@ pub struct PreparedModule {
     pub(crate) access: AccessBindings,
     pub(crate) resources: ResourceMeta,
     pub(crate) io_bindings: Vec<crate::io_image::PreparedIoBinding>,
+    /// The leaf of each binding's scalar variable, parallel to `io_bindings` (checklist P1-6).
+    pub(crate) io_leaves: Vec<Option<io_leaves::IoLeaf>>,
+    /// The input and marker bindings, when a scan samples them into their leaves (checklist P1-6).
+    pub(crate) input_leaves: Option<io_leaves::InputLeaves>,
+    /// The member positions of each standard function block POU, in POU order (checklist P1-4).
+    pub(crate) builtin_members: Vec<builtin_members::BuiltinMembers>,
     pub(crate) limits: PreparationLimits,
     pub(crate) requires_wall_clock: bool,
     /// The deepest operand stack of any POU body, and the most operands a body keeps below
@@ -475,6 +486,9 @@ impl PreparedModule {
             access,
             resources,
             io_bindings,
+            io_leaves: Vec::new(),
+            input_leaves: None,
+            builtin_members: Vec::new(),
             limits,
             requires_wall_clock,
             max_operand_depth: stats.max_operand_depth,
@@ -502,8 +516,35 @@ impl PreparedModule {
                 });
             prepared.register_plans = plans;
         }
+        // The standard blocks' member positions, the compact code and the binding leaves read the
+        // layouts and the indexes above (checklist P1-4, P1-F, P1-6). The compact code also reads
+        // the member positions: a call of a standard block is compact only through them.
+        prepared.builtin_members = prepared.builtin_member_tables();
+        let compact = super::compact::CompactCode::of_module(&prepared);
+        prepared.vm.compact = compact;
+        prepared.io_leaves = prepared.binding_leaves();
+        prepared.input_leaves = prepared.input_leaves();
         prepared.memory_figure = figure::MemoryFigure::of(&prepared)?;
         Ok(prepared)
+    }
+
+    /// How many bodies have compact code (checklist P1-F), for the tests that run it.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn compact_bodies(&self) -> usize {
+        self.vm.compact.len()
+    }
+
+    /// How many calls of standard function blocks compact code runs where it lies (checklist P1-5),
+    /// for the tests that run them.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn compact_block_calls(&self) -> usize {
+        self.vm
+            .compact
+            .iter()
+            .map(|(_, code)| code.blocks.len())
+            .sum()
     }
 
     /// Conservative cumulative logical demand observed during preparation.

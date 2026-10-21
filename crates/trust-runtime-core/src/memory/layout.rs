@@ -239,6 +239,12 @@ pub struct TypeLayout {
     pub overlay: Option<OverlayLayout>,
     /// Whether the type can hold a reference or an instance, so a later lifetime check visits it.
     pub holds_reference_or_instance: bool,
+    /// The primitive of a value that is one scalar leaf: a primitive that is no text and no native
+    /// counter slot, through aliases and subranges, which the flat store reads and writes as its
+    /// bytes at once (checklist P1-2). A timer's native duration slot is one: it always holds a
+    /// `TIME` or an `LTIME`, with its family (checklist P1-5). A counter slot holds no value until
+    /// a call binds it, and then the caller's integer. `None` for every other type.
+    pub scalar: Option<u16>,
 }
 
 /// How a structure with a physical layout lies in a flat block (specification 34 MEM-12; C1-15): its
@@ -386,11 +392,18 @@ impl Computation<'_> {
                     _ => {}
                 }
                 layout.shape = primitive_shape(*prim_id, length)?;
+                layout.scalar = (!matches!(*prim_id, 24 | 25 | 0x0100)).then_some(*prim_id);
             }
             // An enumeration or a subrange has its base type's declared size (MEM-12).
-            TypeData::Enum { base_type_id, .. } | TypeData::Subrange { base_type_id, .. } => {
+            TypeData::Enum { base_type_id, .. } => {
                 let base = self.compute_child(*base_type_id, depth)?;
                 layout.shape = base.shape;
+            }
+            // A subrange's leaf is its base primitive's; its bounds are the assignment's check.
+            TypeData::Subrange { base_type_id, .. } => {
+                let base = self.compute_child(*base_type_id, depth)?;
+                layout.shape = base.shape;
+                layout.scalar = base.scalar;
             }
             TypeData::Alias { target_type_id } => {
                 let child = self.compute_child(*target_type_id, depth)?;

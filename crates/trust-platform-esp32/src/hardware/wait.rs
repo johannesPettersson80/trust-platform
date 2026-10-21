@@ -25,7 +25,10 @@ use trust_runtime_core::ports::{
     MonotonicClock, MonotonicInstant, PortError, RunnerWait, WakeReason, WakeSignal, WakeToken,
 };
 
-use super::{clock::now_us, Monotonic};
+use super::{
+    clock::{cpu_stopped, now_us},
+    Monotonic,
+};
 
 /// `PortError` code of a wait whose deadline alarm is not configured.
 const WAIT_NO_ALARM: u16 = 1;
@@ -131,6 +134,8 @@ impl RunnerWait for Wait {
             }
             timer.listen();
             wait_for_interrupt();
+            // The CPU was stopped, and its cycle counter perhaps with it (checklist P1-6).
+            cpu_stopped();
             // The alarm or a wake ended the wait; the deadline tells which.
             if now_instant() >= deadline {
                 Ok(WakeReason::Deadline)

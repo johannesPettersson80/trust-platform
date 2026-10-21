@@ -27,7 +27,9 @@ mod leaf;
 mod overlay;
 mod read;
 pub(crate) use leaf::{leaf_in, max_encoded_len, structure_member_name, CellLeaf};
-pub(crate) use read::{enumeration_number, enumeration_value, read_scalar, read_value_in};
+pub(crate) use read::{
+    enumeration_number, enumeration_value, read_scalar, read_scalar_leaf, read_value_in,
+};
 
 use super::{Cell, ReferenceTable};
 use crate::bytecode::{Field, TypeData, TypeEntry, BYTECODE_MAX_TYPE_NESTING};
@@ -117,6 +119,18 @@ pub(crate) fn write_value_in(
     check_slice_length(bytes.len(), type_id, prepared)?;
     check_value(type_id, value, prepared, references.is_some())?;
     store_value(bytes, type_id, value, prepared, references, start)
+}
+
+/// Write `value`, a value of the primitive `prim_id` that is no text, into its leaf `bytes`: the
+/// bytes [`write_value_in`] writes for a checked scalar of a type with that primitive (checklist
+/// P1-2).
+pub(crate) fn write_scalar_in(
+    bytes: &mut [u8],
+    prim_id: u16,
+    value: &Value,
+) -> Result<(), RuntimeError> {
+    let cell = scalar_slot(value).ok_or(RuntimeError::InvalidExecutionState)?;
+    flat::encode(LeafKind::Primitive(prim_id), cell, bytes)
 }
 
 /// Write the value `numeric` of the enumeration type `type_id` into its leaf `bytes` (C1-13): the bytes

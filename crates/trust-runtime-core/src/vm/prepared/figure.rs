@@ -124,12 +124,14 @@ impl PreparedModule {
         count.of(&vm.strings);
         part("module: strings", &mut count);
         count.of(&vm.code);
+        count.of(&vm.compact);
         part("module: instructions", &mut count);
         count.of(&self.stdlib);
         count.of(&self.method_owners);
         count.of(&self.recipes);
         part("method owners and recipes", &mut count);
         count.of(&self.io_bindings);
+        count.of(&self.io_leaves);
         part("I/O bindings", &mut count);
         count.of(&self.resources);
         part("resources", &mut count);
@@ -146,6 +148,7 @@ impl PreparedModule {
         count.of(&self.indexes);
         part("prepared indexes", &mut count);
         count.of(&self.call_plans);
+        count.of(&self.builtin_members);
         part("call plans", &mut count);
         count.of(&self.statements);
         part("statement index (debugger)", &mut count);

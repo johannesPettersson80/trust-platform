@@ -84,6 +84,7 @@ fn function_module(
         #[cfg(feature = "hir")]
         debug_map: crate::vm::debug_map::VmDebugMap::default(),
         instruction_budget: crate::vm::VM_MAX_EXECUTED_INSTRUCTIONS,
+        compact: Vec::new(),
     }
 }
 

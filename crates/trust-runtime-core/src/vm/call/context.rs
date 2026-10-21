@@ -234,6 +234,17 @@ pub trait CallContext: ReferenceContext {
     ) -> Option<alloc::sync::Arc<crate::vm::prepared::CallPlan>> {
         None
     }
+    /// The POU of `instance` when it is a persistent instance, which the composition's instance
+    /// table keeps (checklist P1-5). Other instances, and contexts that keep no table, are found by
+    /// their type's name.
+    fn instance_pou(&self, _instance: InstanceId) -> Option<u32> {
+        None
+    }
+    /// The positions of standard function block POU `pou`'s formals among its own declarations, by
+    /// formal index, when the composition prepared them (checklist P1-5).
+    fn builtin_formals(&self, _pou: u32) -> Option<&crate::stdlib::fbs::members::FormalPositions> {
+        None
+    }
     /// Move caller locals into addressable suspended storage before a nested call.
     fn suspend_frame(&mut self, frame: &mut VmFrame) -> Result<(), RuntimeError>;
     /// Restore those same caller locals after the nested call.

@@ -131,13 +131,12 @@ impl EngineState<'_> {
         hooks: &mut dyn CycleHooks,
     ) -> Result<(), RuntimeError> {
         let prepared = self.prepared;
-        let name = &prepared.vm.strings[name_idx as usize];
-        let (_, declaration) = prepared
-            .global(name)
-            .filter(|(_, declaration)| declaration.role == StorageRole::ProgramRoot)
-            .ok_or_else(|| {
-                invalid_bytecode(smol_str::SmolStr::new_static("missing task program root"))
-            })?;
+        // Preparation found the program root of the name and its construction root (checklist
+        // P1-6).
+        let entry = prepared.program_entry(name_idx).ok_or_else(|| {
+            invalid_bytecode(smol_str::SmolStr::new_static("missing task program root"))
+        })?;
+        let declaration = &prepared.layout.entries[entry.declaration as usize];
         let pou = declaration.owner_pou_id.ok_or_else(|| {
             invalid_bytecode(smol_str::SmolStr::new_static("missing program template"))
         })?;
@@ -149,12 +148,12 @@ impl EngineState<'_> {
             self.count_service_operations(before);
         }
         let result = (|| {
-            // The program root is read by its declaration's slot, not by its name (C1-9d1, O22); it
-            // holds no bytes and names its program's instance (C1-19e).
-            let instance = self
-                .read_slot(MemoryLocation::Global, declaration.slot as usize)
-                .map_err(|_| RuntimeError::NullReference)?
-                .instance()?
+            // The program root holds no bytes and names its program's instance (C1-19e), which its
+            // construction root reserved.
+            let instance = entry
+                .root
+                .and_then(|root| self.data.construction.roots.get(root as usize).copied())
+                .flatten()
                 .ok_or(RuntimeError::NullReference)?;
             self.execute_pou(pou, Some(instance))
         })();

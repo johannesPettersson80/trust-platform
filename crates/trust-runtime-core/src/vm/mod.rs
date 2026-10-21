@@ -8,6 +8,7 @@ pub mod hosted;
 mod boundary_compile_fail;
 mod budget;
 mod call;
+mod compact;
 mod const_pool;
 pub(crate) mod construction;
 mod context;

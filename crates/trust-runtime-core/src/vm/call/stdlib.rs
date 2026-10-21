@@ -11,8 +11,10 @@ use crate::value::Value;
 use super::super::errors::VmTrap;
 use super::super::frames::VmFrame;
 use super::bindings::{
-    require_output_target, resolve_vm_arg_value, write_output_int, VmNativeArg, VmWriteTarget,
+    clone_value_with_profile, require_output_target, resolve_vm_arg_value, write_output_int,
+    VmNativeArg, VmWriteTarget,
 };
+use super::context::RegisterValueOpKind;
 
 /// Dispatch a standard function or recognized conversion with native output handling.
 pub fn dispatch_native_stdlib_call(
@@ -47,12 +49,7 @@ pub fn dispatch_native_stdlib_call(
     }
     if let Some(conversion_spec) = conversion_spec {
         let value = bind_conversion_value(runtime, frame, args)?;
-        charge_text_arguments(runtime, core::slice::from_ref(&value))?;
-        let result =
-            conversions::call_conversion_spec(conversion_spec, core::slice::from_ref(&value))
-                .map_err(VmTrap::Runtime)?;
-        charge_text_return(runtime, &result)?;
-        return Ok(result);
+        return convert_bound(runtime, conversion_spec, value);
     }
     if let Some(entry) = runtime.stdlib().get(normalized_target_name.as_str()) {
         let params = entry.params.clone();
@@ -74,6 +71,31 @@ pub fn dispatch_native_stdlib_call(
     Err(VmTrap::Runtime(RuntimeError::UndefinedFunction(
         target_name.clone(),
     )))
+}
+
+/// A conversion call's work on its one evaluated argument, as the call binds and converts it: the
+/// argument is bound as an expression, its text bytes and the result's are charged, and the
+/// conversion runs (checklist P1-5).
+pub(crate) fn convert_argument(
+    runtime: &mut impl CallContext,
+    spec: conversions::ConversionSpec,
+    argument: &Value,
+) -> Result<Value, VmTrap> {
+    let value = clone_value_with_profile(runtime, argument, RegisterValueOpKind::BindExpression)?;
+    convert_bound(runtime, spec, value)
+}
+
+/// The conversion of a bound argument with its text charges (TIME-02, TIME-08).
+fn convert_bound(
+    runtime: &mut impl CallContext,
+    spec: conversions::ConversionSpec,
+    value: Value,
+) -> Result<Value, VmTrap> {
+    charge_text_arguments(runtime, core::slice::from_ref(&value))?;
+    let result = conversions::call_conversion_spec(spec, core::slice::from_ref(&value))
+        .map_err(VmTrap::Runtime)?;
+    charge_text_return(runtime, &result)?;
+    Ok(result)
 }
 
 /// UTF-8 byte length of a STRING or WSTRING value, which TIME-08 charges per byte.

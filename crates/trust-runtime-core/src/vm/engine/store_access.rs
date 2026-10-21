@@ -56,6 +56,18 @@ impl StoreAccess for EngineState<'_> {
     }
 
     #[inline]
+    fn read_instance_member<'a>(
+        &'a self,
+        instance: InstanceId,
+        ordinal: u16,
+        name: &str,
+    ) -> Option<ValueView<'a>> {
+        self.data
+            .reader(self.prepared)
+            .read_instance_member(instance, ordinal, name)
+    }
+
+    #[inline]
     fn read_global<'a>(&'a self, name: &str) -> Option<ValueView<'a>> {
         self.data.reader(self.prepared).read_global(name)
     }
@@ -221,6 +233,23 @@ impl StoreMutate for EngineState<'_> {
         StoreMutate::write_instance_var(
             &mut writer(&mut *self.data, self.prepared),
             instance,
+            name,
+            value,
+        )
+    }
+
+    #[inline]
+    fn write_instance_member(
+        &mut self,
+        instance: InstanceId,
+        ordinal: u16,
+        name: &'static str,
+        value: Value,
+    ) -> bool {
+        StoreMutate::write_instance_member(
+            &mut writer(&mut *self.data, self.prepared),
+            instance,
+            ordinal,
             name,
             value,
         )
@@ -501,6 +530,18 @@ impl StoreAccess for RuntimeState<'_> {
     fn read_retain<'a>(&'a self, name: &str) -> Option<ValueView<'a>> {
         let (data, _) = self.engine_parts();
         data.storage.read_retain(name)
+    }
+}
+
+impl EngineState<'_> {
+    /// Write `value`, a value of primitive `prim`, into the scalar leaf at `range` (checklist P1-F).
+    pub(super) fn write_scalar_leaf(
+        &mut self,
+        range: crate::memory::layout::ByteRange,
+        prim: u16,
+        value: &Value,
+    ) -> bool {
+        writer(&mut *self.data, self.prepared).store_scalar(range, prim, None, value)
     }
 }
 

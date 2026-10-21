@@ -88,6 +88,21 @@ impl Names {
         Some(&self.text[start..end])
     }
 
+    /// Whether entry `index` is `name`: its length is compared first and then its bytes, so a scan
+    /// that looks for a member by name slices no text (checklist P1-1).
+    pub fn is(&self, index: usize, name: &str) -> bool {
+        let Some(&end) = self.ends.get(index) else {
+            return false;
+        };
+        let start = match index {
+            0 => 0,
+            _ => self.ends[index - 1],
+        };
+        end.checked_sub(start)
+            .is_some_and(|len| len as usize == name.len())
+            && self.text.as_bytes().get(start as usize..end as usize) == Some(name.as_bytes())
+    }
+
     /// Entry `index` as a short string, when the table holds it: a long entry's shared string,
     /// whose copy takes no heap, and a short entry held inline. A scan names a member with it.
     pub fn name(&self, index: usize) -> Option<SmolStr> {

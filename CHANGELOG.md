@@ -6,6 +6,22 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Changed: scans are faster on every runtime, most on the chips. A program reads and writes its own
+  and the global scalar variables, and the outputs of its timers and other standard function
+  blocks, where they lie, without looking them up by name. A program body without calls to user
+  POUs runs from compact code built when the program is loaded, which also calls the standard
+  function blocks and converts values directly. A standard function block reaches its variables at
+  places found when the program is loaded. Inputs and markers are sampled straight into their
+  variables and outputs published straight from them, a chip decodes its I/O snapshot only when a
+  request reads it, the debugger's statement hook runs only while a debugger is attached, and
+  retained values are encoded only when a save is due. Results, charged work and faults are
+  unchanged. A cycle reaches its programs at places found when the program is loaded, a call of a
+  timer whose preset is a TIME or an LTIME also runs where it lies, and a scan with no queued writes
+  or forces skips the Live Values queues. The ESP32-C6 reads its clock from the CPU's cycle counter
+  between waits, and its RAM code list holds the code that every scan runs. On the ESP32-C6 the
+  scan of a 2-statement program went from 0.90 ms to 0.19 ms, and that of a 15-statement program
+  with a timer, an edge trigger and three conversions from 6.8 ms to 1.08 ms (its cycle from 9.9 ms
+  to 1.7 ms).
 - Changed: a chip's main stack decides how many call levels it admits, and its heap no longer
   does: the ESP32-C6 admits 7 (its 78 KiB stack window less 2 KiB of headroom and the 34,008 bytes
   its install takes, at 6,144 bytes a level, measured on the bench), and the STM32U5A9 the same until

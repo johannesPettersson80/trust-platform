@@ -119,6 +119,50 @@ impl ExecutionServices for ConfiguredServices {
     }
 }
 
+/// Execution services under which no hook observes the statements: the stack path, as the `stack`
+/// arm runs it, then reads and writes a POU's own scalar variables in place, as a chip runs while no
+/// debugger is attached (checklist P1-3). `statements` counts the statement hook's calls, which stay
+/// none.
+pub struct InPlaceServices {
+    pub statements: std::cell::Cell<usize>,
+}
+
+impl InPlaceServices {
+    pub fn new() -> Self {
+        Self {
+            statements: std::cell::Cell::new(0),
+        }
+    }
+}
+
+impl ExecutionServices for InPlaceServices {
+    fn debug_active(&self) -> bool {
+        true
+    }
+    fn observes_statements(&self) -> bool {
+        false
+    }
+    fn on_statement(
+        &self,
+        _pou_id: u32,
+        _code_offset: usize,
+        _depth: u32,
+        _storage: &trust_runtime_core::memory::VariableStorage,
+        _logical_time: Duration,
+    ) {
+        self.statements.set(self.statements.get() + 1);
+    }
+    fn deadline_exceeded(&self) -> bool {
+        false
+    }
+    fn has_wall_clock(&self) -> bool {
+        false
+    }
+    fn current_dt(&self) -> Result<DateTimeValue, RuntimeError> {
+        Err(RuntimeError::UndefinedFunction("CURRENT_DT".into()))
+    }
+}
+
 /// Telemetry on, Tier-1 off: the register arm.
 pub fn profiled() -> RegisterExecutionConfiguration {
     RegisterExecutionConfiguration {

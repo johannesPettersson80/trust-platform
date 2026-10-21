@@ -32,6 +32,7 @@ use crate::memory::{
     FrameId, Generation, InstanceData, InstanceId, MemoryLocation, VariableStorage,
 };
 use crate::value::{array_offset_i64, RefPath, RefSegment, Value, ValueRef, ValueRefView};
+use crate::vm::type_policy::{primitive_value_matches, resolved_alias_type};
 use crate::vm::{PreparedModule, VmTrap};
 
 pub(crate) use cell_overlay::{LeafPatch, OverlayNode};
@@ -676,6 +677,12 @@ impl CellArm {
         self.cells.regions_mut().take_displaced()
     }
 
+    /// The bytes of `range` in the block that holds them, or `None` when the block refuses the range
+    /// (checklist P1-6).
+    pub(crate) fn bytes(&self, range: ByteRange) -> Option<&[u8]> {
+        self.cells.regions().block(range.region).bytes(range)
+    }
+
     /// The cell store the arm reads and writes, for the tests.
     #[cfg(test)]
     pub(crate) fn cells(&self) -> &CellStorage {
@@ -723,6 +730,22 @@ enum Target<'p> {
     /// The instance a program root names (C1-19e): the root holds no storage, so a read of it is its
     /// instance, and nothing is written to it.
     Instance(InstanceId),
+}
+
+/// The primitive ids of `STRING` and `WSTRING`, and the first id of the native slots (specification
+/// 34 §6.2): a store into one of them is converted or charged, so it is never a plain slot write.
+const TEXT_PRIMITIVES: [u16; 2] = [24, 25];
+const NATIVE_SLOT_PRIMITIVES: u16 = 0x0100;
+
+/// One variable a persistent instance declares itself (MEM-12): its position among the instance's
+/// storage declarations, its declaration, its bytes, its type and its presence byte.
+#[derive(Debug, Clone, Copy)]
+struct OwnMember {
+    ordinal: usize,
+    declaration: u32,
+    range: ByteRange,
+    type_id: u32,
+    presence: Option<u32>,
 }
 
 /// The reads of the cell arm (specification 34 §6.2, MEM-10; C1-9b): the reads of
@@ -842,9 +865,26 @@ impl<'a> CellReader<'a> {
         name: &str,
     ) -> Option<ValueView<'a>> {
         if self.arm.is_persistent(instance) {
-            let (_, _, range, type_id, presence) =
-                self.member_by(instance, |_, member| member == name)?;
-            return Some(self.view(range, type_id, presence));
+            let member = self.own_member_named(instance, name)?;
+            return Some(self.view(member.range, member.type_id, member.presence));
+        }
+        self.values
+            .get_instance_var(instance, name)
+            .map(ValueView::Value)
+    }
+
+    /// The view of the variable that persistent `instance` declares itself at position `ordinal`
+    /// among its POU's declarations, or of a `Value`-half instance's variable named `name`: the
+    /// variable [`Self::read_instance_var`] finds by that name (checklist P1-4).
+    pub(crate) fn read_instance_member(
+        self,
+        instance: InstanceId,
+        ordinal: u16,
+        name: &str,
+    ) -> Option<ValueView<'a>> {
+        if self.arm.is_persistent(instance) {
+            let member = self.own_member_at(instance, usize::from(ordinal))?;
+            return Some(self.view(member.range, member.type_id, member.presence));
         }
         self.values
             .get_instance_var(instance, name)
@@ -918,7 +958,7 @@ impl<'a> CellReader<'a> {
     /// The reference to the variable `name` of `instance`, in its own variables.
     pub(crate) fn ref_for_instance(self, instance: InstanceId, name: &str) -> Option<ValueRef> {
         if self.arm.is_persistent(instance) {
-            let (ordinal, _, _, _, _) = self.member_by(instance, |_, member| member == name)?;
+            let ordinal = self.own_member_named(instance, name)?.ordinal;
             return self.value_ref(MemoryLocation::Instance(instance), ordinal);
         }
         self.values.ref_for_instance(instance, name)
@@ -935,9 +975,8 @@ impl<'a> CellReader<'a> {
             if !self.arm.is_persistent(current) {
                 return self.values.ref_for_instance_recursive(current, name);
             }
-            if let Some((ordinal, _, _, _, _)) = self.member_by(current, |_, member| member == name)
-            {
-                return self.value_ref(MemoryLocation::Instance(current), ordinal);
+            if let Some(member) = self.own_member_named(current, name) {
+                return self.value_ref(MemoryLocation::Instance(current), member.ordinal);
             }
             current = self.arm.instance(current)?.parent?;
         }
@@ -962,8 +1001,8 @@ impl<'a> CellReader<'a> {
     ) -> Option<usize> {
         if self.arm.is_persistent(instance) {
             return self
-                .member_by(instance, |_, member| member == name)
-                .map(|(ordinal, _, _, _, _)| ordinal);
+                .own_member_named(instance, name)
+                .map(|member| member.ordinal);
         }
         self.values.declared_instance_field_offset(instance, name)
     }
@@ -975,10 +1014,14 @@ impl<'a> CellReader<'a> {
         };
         let mut variables = OrderedMap::default();
         let mut ordinal = 0usize;
-        while let Some((_, name, range, type_id, presence)) =
-            self.member_by(instance, |index, _| index == ordinal)
-        {
-            let value = self.view(range, type_id, presence).materialize().ok()?;
+        while let Some(member) = self.own_member_at(instance, ordinal) {
+            let Some(name) = self.declaration_name(member.declaration) else {
+                break;
+            };
+            let value = self
+                .view(member.range, member.type_id, member.presence)
+                .materialize()
+                .ok()?;
             variables.insert(SmolStr::new(name), value);
             ordinal += 1;
         }
@@ -1053,8 +1096,8 @@ impl<'a> CellReader<'a> {
         ordinal: usize,
     ) -> Option<&'a str> {
         if self.arm.is_persistent(instance) {
-            let (_, name, _, _, _) = self.member_by(instance, |index, _| index == ordinal)?;
-            return Some(name);
+            let member = self.own_member_at(instance, ordinal)?;
+            return self.declaration_name(member.declaration);
         }
         self.values
             .get_instance(instance)?
@@ -1071,9 +1114,8 @@ impl<'a> CellReader<'a> {
         ordinal: usize,
     ) -> Option<ValueView<'a>> {
         if self.arm.is_persistent(instance) {
-            let (_, _, range, type_id, presence) =
-                self.member_by(instance, |index, _| index == ordinal)?;
-            return Some(self.view(range, type_id, presence));
+            let member = self.own_member_at(instance, ordinal)?;
+            return Some(self.view(member.range, member.type_id, member.presence));
         }
         self.values
             .read_instance_field_by_offset(instance, ordinal)
@@ -1244,38 +1286,168 @@ impl<'a> CellReader<'a> {
         })
     }
 
-    /// The member of persistent `instance` that `select` accepts, as its ordinal among the members
-    /// that own storage, its name, its range and its type. Members lie in declaration order, each at
-    /// the offset preparation gave it within its template (specification 34 §6.2, MEM-12, O6).
-    fn member_by(
-        self,
-        instance: InstanceId,
-        select: impl Fn(usize, &str) -> bool,
-    ) -> Option<(usize, &'a str, ByteRange, u32, Option<u32>)> {
+    /// The member at position `ordinal` among the variables persistent `instance` declares itself,
+    /// found in constant time (checklist P1-1): its POU lists its storage declarations in
+    /// declaration order, and admission gives each of them a type, so a member's position is its
+    /// index in that list. Members lie in declaration order, each at the offset preparation gave it
+    /// within its template (specification 34 §6.2, MEM-12, O6).
+    fn own_member_at(self, instance: InstanceId, ordinal: usize) -> Option<OwnMember> {
+        let persistent = self.arm.instance(instance)?;
+        let id = *self
+            .prepared
+            .declarations(StorageOwner::Instance, Some(persistent.pou))
+            .get(ordinal)?;
+        self.own_member(persistent, ordinal, id)
+    }
+
+    /// The variable named `name` that persistent `instance` declares itself. Each name is compared
+    /// by its length and then its bytes, without slicing the string table (checklist P1-1).
+    fn own_member_named(self, instance: InstanceId, name: &str) -> Option<OwnMember> {
         let persistent = self.arm.instance(instance)?;
         let prepared = self.prepared;
-        let mut ordinal = 0usize;
-        for &id in prepared.declarations(StorageOwner::Instance, Some(persistent.pou)) {
-            let declaration = prepared.layout.entries.get(id as usize)?;
-            let Some(type_id) = declaration.type_id.filter(|_| declaration.owns_storage()) else {
-                continue;
-            };
-            let name = member_name(prepared, declaration.name_idx)?;
-            if select(ordinal, name) {
-                let range = ByteRange {
-                    region: persistent.range.region,
-                    start: persistent
-                        .range
-                        .start
-                        .checked_add(prepared.declaration_offset(id)?)?,
-                    bytes: prepared.type_layout(type_id)?.shape.bytes,
-                };
-                let presence = prepared.presence_offset(id, range.start);
-                return Some((ordinal, name, range, type_id, presence));
-            }
-            ordinal += 1;
+        let strings = prepared.strings();
+        let (ordinal, &id) = prepared
+            .declarations(StorageOwner::Instance, Some(persistent.pou))
+            .iter()
+            .enumerate()
+            .find(|&(_, &id)| {
+                prepared
+                    .layout
+                    .entries
+                    .get(id as usize)
+                    .is_some_and(|entry| strings.is(entry.name_idx as usize, name))
+            })?;
+        self.own_member(persistent, ordinal, id)
+    }
+
+    /// The POU of persistent `instance` (checklist P1-4).
+    pub(crate) fn instance_pou(self, instance: InstanceId) -> Option<u32> {
+        self.arm.instance(instance).map(|persistent| persistent.pou)
+    }
+
+    /// The bytes of persistent `instance`'s own variables (checklist P1-F).
+    pub(crate) fn instance_range(self, instance: InstanceId) -> Option<ByteRange> {
+        self.arm
+            .instance(instance)
+            .map(|persistent| persistent.range)
+    }
+
+    /// The value of the scalar leaf of primitive `prim` at `range`, read as a read of its variable
+    /// reads it (checklist P1-F).
+    pub(crate) fn scalar_at(self, range: ByteRange, prim: u16) -> Option<Value> {
+        let bytes = self.arm.cells.regions().block(range.region).bytes(range)?;
+        crate::memory::cells::read_scalar_leaf(prim, bytes)
+    }
+
+    /// The value of the scalar variable named `name`, string `name_idx`, that persistent `instance`
+    /// declares itself, read from its bytes as a read of its slot reads it (checklist P1-3). `None`
+    /// for a variable whose value is not a scalar, a read that fails, or an instance that is not
+    /// persistent: the general path reads those.
+    pub(crate) fn own_scalar(
+        self,
+        instance: InstanceId,
+        name_idx: u32,
+        name: &str,
+    ) -> Option<Value> {
+        let member = self.own_member_by_string(instance, name_idx, name)?;
+        self.view(member.range, member.type_id, member.presence)
+            .scalar()
+            .ok()
+            .flatten()
+    }
+
+    /// The slot of the scalar variable named `name`, string `name_idx`, that persistent `instance`
+    /// declares itself, when a store of `value` into it is a slot write that the general path neither
+    /// converts nor refuses (checklist P1-3): the declaration is not constant, its type is a
+    /// primitive that is no text and no native slot, and `value` is of that primitive.
+    pub(crate) fn own_scalar_slot(
+        self,
+        instance: InstanceId,
+        name_idx: u32,
+        name: &str,
+        value: &Value,
+    ) -> Option<usize> {
+        let member = self.own_member_by_string(instance, name_idx, name)?;
+        if self
+            .prepared
+            .layout
+            .entries
+            .get(member.declaration as usize)?
+            .is_constant()
+        {
+            return None;
         }
-        None
+        let types = &self.prepared.vm.types;
+        let resolved = resolved_alias_type(types, member.type_id, 0)?;
+        let TypeData::Primitive { prim_id, .. } = types.entries.get(resolved as usize)?.data else {
+            return None;
+        };
+        (!TEXT_PRIMITIVES.contains(&prim_id)
+            && prim_id < NATIVE_SLOT_PRIMITIVES
+            && primitive_value_matches(prim_id, value))
+        .then_some(member.ordinal)
+    }
+
+    /// The variable named `name`, string `name_idx`, that persistent `instance` declares itself:
+    /// found by the string's index, which the compiler gives a field and its declaration alike, and
+    /// otherwise by the name.
+    fn own_member_by_string(
+        self,
+        instance: InstanceId,
+        name_idx: u32,
+        name: &str,
+    ) -> Option<OwnMember> {
+        let persistent = self.arm.instance(instance)?;
+        let declarations = self
+            .prepared
+            .declarations(StorageOwner::Instance, Some(persistent.pou));
+        let entries = &self.prepared.layout.entries;
+        match declarations.iter().position(|&id| {
+            entries
+                .get(id as usize)
+                .is_some_and(|entry| entry.name_idx == name_idx)
+        }) {
+            Some(ordinal) => self.own_member(persistent, ordinal, declarations[ordinal]),
+            None => self.own_member_named(instance, name),
+        }
+    }
+
+    /// Member `ordinal` of `persistent`, whose storage declaration is `id`.
+    fn own_member(
+        self,
+        persistent: &PersistentInstance,
+        ordinal: usize,
+        id: u32,
+    ) -> Option<OwnMember> {
+        let prepared = self.prepared;
+        let type_id = prepared.layout.entries.get(id as usize)?.type_id?;
+        let range = ByteRange {
+            region: persistent.range.region,
+            start: persistent
+                .range
+                .start
+                .checked_add(prepared.declaration_offset(id)?)?,
+            bytes: prepared.type_layout(type_id)?.shape.bytes,
+        };
+        Some(OwnMember {
+            ordinal,
+            declaration: id,
+            range,
+            type_id,
+            presence: prepared.presence_offset(id, range.start),
+        })
+    }
+
+    /// The declared name of storage declaration `declaration`.
+    fn declaration_name(self, declaration: u32) -> Option<&'a str> {
+        member_name(
+            self.prepared,
+            self.prepared
+                .layout
+                .entries
+                .get(declaration as usize)?
+                .name_idx,
+        )
     }
 
     /// The root-and-path form of the flat reference `reference` (C1-11d): the global or persistent
@@ -1573,6 +1745,11 @@ impl<'a> CellReader<'a> {
         Some(self.view(range, type_id, None))
     }
 
+    /// The instance that the instance leaf at `range` names, or `None` (checklist P1-F).
+    pub(crate) fn instance_in_leaf(self, range: ByteRange) -> Option<InstanceId> {
+        self.instance_at(range).ok()
+    }
+
     /// The instance an instance leaf names.
     fn instance_at(self, range: ByteRange) -> Result<InstanceId, VmTrap> {
         let bytes = self
@@ -1612,10 +1789,10 @@ impl<'a> CellReader<'a> {
                 }
             },
             MemoryLocation::Instance(instance) if self.arm.is_persistent(instance) => {
-                let (_, _, range, type_id, presence) = self
-                    .member_by(instance, |ordinal, _| ordinal == offset)
+                let member = self
+                    .own_member_at(instance, offset)
                     .ok_or(VmTrap::NullReference)?;
-                self.walk(range, type_id, presence, path)
+                self.walk(member.range, member.type_id, member.presence, path)
             }
             MemoryLocation::Local(id) => match self.frame_slot(id, offset) {
                 Some((range, type_id)) => self.walk(range, type_id, None, path),
@@ -1770,10 +1947,8 @@ impl<'a> CellReader<'a> {
                     rest,
                 ));
             };
-            if let Some((_, _, range, type_id, presence)) =
-                self.member_by(current, |_, member| member == name)
-            {
-                return self.walk(range, type_id, presence, rest);
+            if let Some(member) = self.own_member_named(current, name) {
+                return self.walk(member.range, member.type_id, member.presence, rest);
             }
             current = persistent.parent.ok_or(VmTrap::NullReference)?;
         }

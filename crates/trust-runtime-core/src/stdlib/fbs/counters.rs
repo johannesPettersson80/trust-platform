@@ -6,7 +6,7 @@ use crate::value::Value;
 use super::instance::{
     get_or_init_bool, read_bool, read_value, read_value_or_null, set_instance_value, write_bool,
 };
-use super::state::{STATE_PREV_CD, STATE_PREV_CU};
+use super::members::Member;
 use super::BuiltinExecContext;
 
 /// Counter output and current count.
@@ -281,11 +281,11 @@ pub(super) fn exec_ctu<S: StoreAccess + StoreMutate>(
     ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<(), RuntimeError> {
-    let cu = read_bool(ctx, instance_id, "CU")?;
-    let reset = read_bool(ctx, instance_id, "R")?;
-    let pv = read_value(ctx, instance_id, "PV")?;
-    let cv = read_value_or_null(ctx, instance_id, "CV")?;
-    let prev_cu = get_or_init_bool(ctx, instance_id, STATE_PREV_CU, false)?;
+    let cu = read_bool(ctx, instance_id, Member::Cu)?;
+    let reset = read_bool(ctx, instance_id, Member::R)?;
+    let pv = read_value(ctx, instance_id, Member::Pv)?;
+    let cv = read_value_or_null(ctx, instance_id, Member::Cv)?;
+    let prev_cu = get_or_init_bool(ctx, instance_id, Member::PrevCu, false)?;
     let rising = cu && !prev_cu;
 
     let (new_cv, q) = match (&pv, &cv) {
@@ -330,9 +330,9 @@ pub(super) fn exec_ctu<S: StoreAccess + StoreMutate>(
         _ => return Err(RuntimeError::TypeMismatch),
     };
 
-    set_instance_value(ctx, instance_id, "CV", new_cv);
-    write_bool(ctx, instance_id, "Q", q);
-    write_bool(ctx, instance_id, STATE_PREV_CU, cu);
+    set_instance_value(ctx, instance_id, Member::Cv, new_cv);
+    write_bool(ctx, instance_id, Member::Q, q);
+    write_bool(ctx, instance_id, Member::PrevCu, cu);
     Ok(())
 }
 
@@ -340,11 +340,11 @@ pub(super) fn exec_ctd<S: StoreAccess + StoreMutate>(
     ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<(), RuntimeError> {
-    let cd = read_bool(ctx, instance_id, "CD")?;
-    let load = read_bool(ctx, instance_id, "LD")?;
-    let pv = read_value(ctx, instance_id, "PV")?;
-    let cv = read_value_or_null(ctx, instance_id, "CV")?;
-    let prev_cd = get_or_init_bool(ctx, instance_id, STATE_PREV_CD, false)?;
+    let cd = read_bool(ctx, instance_id, Member::Cd)?;
+    let load = read_bool(ctx, instance_id, Member::Ld)?;
+    let pv = read_value(ctx, instance_id, Member::Pv)?;
+    let cv = read_value_or_null(ctx, instance_id, Member::Cv)?;
+    let prev_cd = get_or_init_bool(ctx, instance_id, Member::PrevCd, false)?;
     let rising = cd && !prev_cd;
 
     let (new_cv, q) = match (&pv, &cv) {
@@ -389,9 +389,9 @@ pub(super) fn exec_ctd<S: StoreAccess + StoreMutate>(
         _ => return Err(RuntimeError::TypeMismatch),
     };
 
-    set_instance_value(ctx, instance_id, "CV", new_cv);
-    write_bool(ctx, instance_id, "Q", q);
-    write_bool(ctx, instance_id, STATE_PREV_CD, cd);
+    set_instance_value(ctx, instance_id, Member::Cv, new_cv);
+    write_bool(ctx, instance_id, Member::Q, q);
+    write_bool(ctx, instance_id, Member::PrevCd, cd);
     Ok(())
 }
 
@@ -399,14 +399,14 @@ pub(super) fn exec_ctud<S: StoreAccess + StoreMutate>(
     ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<(), RuntimeError> {
-    let cu = read_bool(ctx, instance_id, "CU")?;
-    let cd = read_bool(ctx, instance_id, "CD")?;
-    let reset = read_bool(ctx, instance_id, "R")?;
-    let load = read_bool(ctx, instance_id, "LD")?;
-    let pv = read_value(ctx, instance_id, "PV")?;
-    let cv = read_value_or_null(ctx, instance_id, "CV")?;
-    let prev_cu = get_or_init_bool(ctx, instance_id, STATE_PREV_CU, false)?;
-    let prev_cd = get_or_init_bool(ctx, instance_id, STATE_PREV_CD, false)?;
+    let cu = read_bool(ctx, instance_id, Member::Cu)?;
+    let cd = read_bool(ctx, instance_id, Member::Cd)?;
+    let reset = read_bool(ctx, instance_id, Member::R)?;
+    let load = read_bool(ctx, instance_id, Member::Ld)?;
+    let pv = read_value(ctx, instance_id, Member::Pv)?;
+    let cv = read_value_or_null(ctx, instance_id, Member::Cv)?;
+    let prev_cu = get_or_init_bool(ctx, instance_id, Member::PrevCu, false)?;
+    let prev_cd = get_or_init_bool(ctx, instance_id, Member::PrevCd, false)?;
     let rising_cu = cu && !prev_cu;
     let rising_cd = cd && !prev_cd;
 
@@ -462,10 +462,10 @@ pub(super) fn exec_ctud<S: StoreAccess + StoreMutate>(
         _ => return Err(RuntimeError::TypeMismatch),
     };
 
-    set_instance_value(ctx, instance_id, "CV", new_cv);
-    write_bool(ctx, instance_id, "QU", qu);
-    write_bool(ctx, instance_id, "QD", qd);
-    write_bool(ctx, instance_id, STATE_PREV_CU, cu);
-    write_bool(ctx, instance_id, STATE_PREV_CD, cd);
+    set_instance_value(ctx, instance_id, Member::Cv, new_cv);
+    write_bool(ctx, instance_id, Member::Qu, qu);
+    write_bool(ctx, instance_id, Member::Qd, qd);
+    write_bool(ctx, instance_id, Member::PrevCu, cu);
+    write_bool(ctx, instance_id, Member::PrevCd, cd);
     Ok(())
 }

@@ -21,6 +21,7 @@ use super::context::{
     BuiltinParam, BuiltinParamDirection, CallContext, RegisterCallOpKind, RegisterValueOpKind,
 };
 use super::VM_LOCAL_SENTINEL_FRAME_ID;
+use crate::stdlib::fbs::members::{FormalPositions, NO_MEMBER};
 use crate::vm::prepared::call_plans::CallArguments;
 
 mod indices;
@@ -360,6 +361,7 @@ fn bind_builtin_function_block_arguments_inner(
 /// Bind input and output arguments for a native function block from its prepared plan
 /// (spec 34 MEM-09). The plan resolved each formal once, so no argument names are compared.
 /// The output bindings come from the call's reserved scratch and are returned on refusal.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn bind_builtin_function_block_arguments_planned(
     runtime: &mut impl CallContext,
     caller_frame: &VmFrame,
@@ -367,6 +369,7 @@ pub(super) fn bind_builtin_function_block_arguments_planned(
     instance_id: InstanceId,
     args: &[VmNativeArg],
     arguments: &CallArguments,
+    formals: Option<&FormalPositions>,
 ) -> Result<Vec<VmFbOutBinding>, VmTrap> {
     let mut out_bindings = runtime.take_call_fb_outputs();
     let result = bind_builtin_function_block_arguments_planned_inner(
@@ -376,6 +379,7 @@ pub(super) fn bind_builtin_function_block_arguments_planned(
         instance_id,
         args,
         arguments,
+        formals,
         &mut out_bindings,
     );
     match result {
@@ -387,7 +391,10 @@ pub(super) fn bind_builtin_function_block_arguments_planned(
     }
 }
 
-/// The binding loop of [`bind_builtin_function_block_arguments_planned`].
+/// The binding loop of [`bind_builtin_function_block_arguments_planned`]. `formals` are the
+/// positions of the formals among a persistent instance's own declarations, which preparation fixed
+/// for its POU (checklist P1-5); a formal without one is found by its name.
+#[allow(clippy::too_many_arguments)]
 fn bind_builtin_function_block_arguments_planned_inner(
     runtime: &mut impl CallContext,
     caller_frame: &VmFrame,
@@ -395,6 +402,7 @@ fn bind_builtin_function_block_arguments_planned_inner(
     instance_id: InstanceId,
     args: &[VmNativeArg],
     arguments: &CallArguments,
+    formals: Option<&FormalPositions>,
     out_bindings: &mut Vec<VmFbOutBinding>,
 ) -> Result<(), VmTrap> {
     #[cfg(all(feature = "std", feature = "test-support"))]
@@ -415,7 +423,16 @@ fn bind_builtin_function_block_arguments_planned_inner(
         if matches!(param.direction, 1 | 2) && arg.is_none() {
             continue;
         }
-        let field_binding = VmFbFieldBinding::resolve(runtime, instance_id, &param.name)?;
+        let position = formals
+            .and_then(|formals| formals.get(index).copied())
+            .filter(|&position| position != NO_MEMBER);
+        let field_binding = match position {
+            Some(position) => VmFbFieldBinding::Direct {
+                instance_id,
+                offset: usize::from(position),
+            },
+            None => VmFbFieldBinding::resolve(runtime, instance_id, &param.name)?,
+        };
         match param.direction {
             0 => {
                 let value = match arg {
