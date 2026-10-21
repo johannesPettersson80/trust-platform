@@ -86,14 +86,18 @@ fn attribute_ci_any(node: &roxmltree::Node<'_, '_>, names: &[&str]) -> Option<St
     names.iter().find_map(|name| attribute_ci(*node, name))
 }
 
-fn format_data_type_declaration(name: &str, type_expr: &str) -> String {
+fn format_data_type_declaration(name: &str, extends_base: Option<&str>, type_expr: &str) -> String {
+    let header = match extends_base {
+        Some(base) => format!("  {name} EXTENDS {base} : "),
+        None => format!("  {name} : "),
+    };
     if !type_expr.contains('\n') {
-        return format!("  {name} : {type_expr};");
+        return format!("{header}{type_expr};");
     }
 
     let mut lines = type_expr.lines();
     let first = lines.next().unwrap_or_default();
-    let mut declaration = format!("  {name} : {first}\n");
+    let mut declaration = format!("{header}{first}\n");
     for line in lines {
         declaration.push_str("  ");
         declaration.push_str(line);
@@ -134,9 +138,7 @@ fn parse_type_expression_node(node: roxmltree::Node<'_, '_>) -> Option<String> {
     }
 
     match kind.as_str() {
-        "derived" => attribute_ci(node, "name")
-            .map(|name| name.trim().to_string())
-            .filter(|name| is_valid_qualified_identifier(name)),
+        "derived" => attribute_ci(node, "name").and_then(|name| normalize_derived_type_name(&name)),
         "string" | "wstring" => {
             let mut base = kind.to_ascii_uppercase();
             if let Some(length) = attribute_ci(node, "length")
@@ -378,6 +380,43 @@ fn is_valid_st_identifier(value: &str) -> bool {
 
 fn is_valid_qualified_identifier(value: &str) -> bool {
     !value.is_empty() && value.split('.').all(is_valid_st_identifier)
+}
+
+/// Projects a `<derived name="...">` attribute onto the ST type expression it
+/// denotes. Plain (optionally qualified) identifiers pass through. CODESYS and
+/// e!COCKPIT fuse pointer/reference indirection into the same attribute
+/// (`REFERENCE TO stCfg`, `POINTER TO WORD`); the analyzer models both
+/// declarations natively (auto-deref, `REF=` bindings), so stacked prefixes
+/// are kept verbatim instead of failing the projection closed.
+fn normalize_derived_type_name(name: &str) -> Option<String> {
+    let mut rest = name.trim();
+    let mut prefixes: Vec<&'static str> = Vec::new();
+    loop {
+        let lowered = rest.to_ascii_lowercase();
+        if lowered.starts_with("reference to ") {
+            prefixes.push("REFERENCE TO");
+            rest = rest["reference to ".len()..].trim_start();
+        } else if lowered.starts_with("pointer to ") {
+            prefixes.push("POINTER TO");
+            rest = rest["pointer to ".len()..].trim_start();
+        } else {
+            break;
+        }
+    }
+    let base = rest.trim();
+    if !is_valid_qualified_identifier(base) {
+        return None;
+    }
+    if prefixes.is_empty() {
+        return Some(base.to_string());
+    }
+    let mut out = String::new();
+    for prefix in &prefixes {
+        out.push_str(prefix);
+        out.push(' ');
+    }
+    out.push_str(base);
+    Some(out)
 }
 
 fn is_valid_string_length(value: &str) -> bool {

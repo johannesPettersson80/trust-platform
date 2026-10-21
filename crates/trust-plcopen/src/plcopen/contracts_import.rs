@@ -5,6 +5,7 @@ pub struct PlcopenImportReport {
     pub imported_pous: usize,
     pub discovered_pous: usize,
     pub imported_data_types: usize,
+    pub imported_interfaces: usize,
     pub discovered_configurations: usize,
     pub imported_configurations: usize,
     pub imported_resources: usize,

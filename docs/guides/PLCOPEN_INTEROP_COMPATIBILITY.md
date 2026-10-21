@@ -76,8 +76,13 @@ POUs, imports none, emits no ST source, and returns the reviewed
 | ST `types/dataTypes` import (`elementary`, `derived`, `array`, `struct`, `enum`, `subrange`) | supported | Imported into generated ST `TYPE` declarations under `src/`. |
 | ST `TYPE` export to `types/dataTypes` | partial | Supported ST declarations are emitted; unsupported forms are skipped with warnings. |
 | `instances/configurations/resources/tasks/program instances` import/export | supported | Deterministic ST mapping with name normalization and structured diagnostics. |
-| CODESYS `addData/globalVars` import/export | supported | Import prefers `interfaceasplaintext` for pragma fidelity and falls back to `<variable>` synthesis. Default import now materializes native truST vendor-parity globals (file-scope GVLs and namespaced GVLs for `qualified_only` lists) without mandatory `VAR_EXTERNAL` injection. Adapter callers can still request strict IEC reshaping through `PlcopenImportGlobalVarMode::StrictIecAdapter`, which restores the older wrapper + injected-`VAR_EXTERNAL` flow for external consumers that require it. Export emits deterministic CODESYS `globalVars` metadata. |
-| CODESYS `addData/method` on `FUNCTION_BLOCK` POUs | supported | Import reconstructs ST `METHOD` members from vendor metadata and export emits deterministic `Method` objects/object IDs on the owning POU and in `projectstructure`. Other vendor OOP objects such as properties remain out of scope. |
+| CODESYS `addData/globalVars` import/export | supported | Import prefers `interfaceasplaintext` for pragma fidelity and falls back to `<variable>` synthesis. Default import now materializes native truST vendor-parity globals (file-scope GVLs and namespaced GVLs for `qualified_only` lists) without mandatory `VAR_EXTERNAL` injection. Container qualifiers (`retain`/`persistent`/`constant`) carry into the `VAR_GLOBAL` header, and e!COCKPIT `MixedAttrsVarList` views plus identical whole-list duplicate copies merge into the primary list instead of emitting `_N.st` files. Adapter callers can still request strict IEC reshaping through `PlcopenImportGlobalVarMode::StrictIecAdapter`, which restores the older wrapper + injected-`VAR_EXTERNAL` flow for external consumers that require it. Export emits deterministic CODESYS `globalVars` metadata. |
+| CODESYS `addData/method` on `FUNCTION_BLOCK` POUs | supported | Import reconstructs ST `METHOD` members from vendor metadata and export emits deterministic `Method` objects/object IDs on the owning POU and in `projectstructure`. |
+| CODESYS `addData/property` on `FUNCTION_BLOCK` POUs | supported | Import synthesizes `METHOD PUBLIC` accessor stubs with neutral default assignments (`PLCO225`); accessor bodies are owner-owned and never invented. |
+| CODESYS `pouinheritance` (FB `EXTENDS`/`IMPLEMENTS`) | supported | Import carries both clauses onto the FUNCTION_BLOCK declaration (`PLCO221`), on synthesized headers and raw ST bodies alike. Unprojectable clause entries are reported and dropped. |
+| CODESYS `datatypeinheritance` (DUT `TYPE x EXTENDS y`) | supported | Import emits the native `EXTENDS` clause (`PLCO220`); an unprojectable marker rejects the dataType fail-closed (`PLCO404`). |
+| CODESYS project-level `<Interface>` objects | supported | Import emits declaration-only `INTERFACE` blocks (signature-only METHOD blocks, `EXTENDS` honored, properties as METHODs) and counts them in `imported_interfaces` (`PLCO222`). |
+| e!COCKPIT derived names with `REFERENCE TO`/`POINTER TO` | supported | Pointer/reference indirection fused into the derived name projects to the native declaration; array dimension bounds pass through verbatim as constant expressions. |
 | CODESYS `addData/projectstructure` folder mapping import/export | partial | Import/export mirrors deterministic folder placement for POUs/GVLs; library/device-tree semantics remain metadata-only. |
 | Source map metadata (`trust.sourceMap`) | supported | Embedded `addData` payload + sidecar `*.source-map.json`. |
 | Vendor extension preservation (`addData`) | partial | Preserved/re-injectable, but not semantically interpreted. |
@@ -310,9 +315,15 @@ The supported XML type projection is exact and fail-closed:
 - `string` and `wstring` retain a positive integer `length` or `maxLength`;
   an omitted length is unbounded. Zero, negative, nonnumeric, or expression
   lengths are unsupported.
-- A derived type requires a nonblank identity. An array requires at least one
+- A derived type requires a nonblank identity. `REFERENCE TO x` and
+  `POINTER TO x` prefixes fused into the derived name (stacking allowed)
+  project to the native pointer/reference declaration, with the base
+  validated as an identifier; any other non-identifier derived identity is
+  unsupported. An array requires at least one
   complete lower/upper dimension and a complete base type; dimensions retain
-  source order. A structure requires at least one complete, named, typed
+  source order and pass through verbatim as constant expressions (numeric
+  literals are not required; the analyzer resolves bounds project-wide). A
+  structure requires at least one complete, named, typed
   field; fields and simple initializers retain source order. An enumeration
   requires at least one uniquely named element under ASCII-case-insensitive
   comparison and retains explicit values. A subrange requires both bounds and
@@ -349,6 +360,29 @@ defaults to `METHOD PUBLIC` with `PLCO214`; method metadata on another POU
 kind is skipped with `PLCO213`; and a case-insensitively matching method
 already present in the ST body is not duplicated.
 
+CODESYS OOP declaration metadata imports as follows:
+
+- A `datatypeinheritance` addData on a dataType emits a native
+  `TYPE x EXTENDS y` declaration with `PLCO220`; a marker without a
+  projectable base rejects the dataType fail-closed with `PLCO404`.
+- A `pouinheritance` addData on a `FUNCTION_BLOCK` carries `EXTENDS` and
+  `IMPLEMENTS` onto the declaration line — synthesized headers and raw ST
+  bodies alike — with `PLCO221`. Clause entries that do not project to
+  identifiers are reported and dropped; clause metadata on a non-`FUNCTION_BLOCK`
+  POU is reported and dropped. A declaration line that already carries a
+  clause is not modified again.
+- `FUNCTION_BLOCK` property objects synthesize a `METHOD PUBLIC` stub with a
+  neutral default assignment (`PLCO225`) so interface completeness checks see
+  the accessor; accessor bodies are never invented. Property metadata on
+  another POU kind is skipped with `PLCO213`.
+- A project-level `<Interface>` object imports as a declaration-only
+  `INTERFACE` block (`PLCO222`): `EXTENDS` is honored, `METHOD` and
+  `PROPERTY` members render as signature-only `METHOD` blocks with one-line
+  `VAR_INPUT`/`VAR_IN_OUT` sections, and an untypeable member variable
+  defaults to `STRING` with a warning. The import report counts each
+  interface in `imported_interfaces`, and each writes its own `<Name>.st`
+  source named after the interface.
+
 ## Global-Variable Import and Projection Contract
 
 Each CODESYS `globalVars` list is one publication unit. A valid
@@ -358,6 +392,10 @@ suffix, and comma-separated declarations expand in source order with the
 same type and initializer. Structured declarations retain XML order, types,
 initial values, and attribute order. A child `name` is accepted when the
 attribute is absent; an unnamed list receives a stable fallback identity.
+Container modifiers — `retain`, `persistent`, `constant`, and their negative
+forms — merge into the rendered `VAR_GLOBAL` header when the declaration
+header lacks them (`PLCO224`), so e!COCKPIT containers keep retention and
+constancy in the mirror.
 
 A list with no declarations reports `PLCO601` and is not imported. An
 unparseable preferred plain-text payload reports `PLCO602` and does not fall
@@ -367,6 +405,14 @@ declaration rejects the entire list without writing a shortened source.
 List identities are normalized deterministically and reported as warnings;
 colliding list identities receive `_2`, `_3`, and later suffixes under
 ASCII-case-insensitive comparison.
+
+Two e!COCKPIT whole-list duplicate shapes never reach that suffixing: a
+`globalVars` nested under a `mixedattrsvarlist` addData block is skipped as
+the vendor per-variable attributes view (`PLCO223`), and a list whose name
+already imported in the same file re-declaring only identical entries (same
+name, type, and initializer per member) is merged into that primary list,
+also with `PLCO223`. Lists that are neither the attributes view nor an
+identical duplicate keep their distinct declarations.
 
 In the default `NativeVendorParity` mode, an ordinary list renders one
 `VAR_GLOBAL` source. A true CODESYS `qualified_only` attribute renders the

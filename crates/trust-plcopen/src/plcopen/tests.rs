@@ -8,5 +8,6 @@ include!("tests/semantic_import_contract.rs");
 include!("tests/project_model_contract.rs");
 include!("tests/global_var_contract.rs");
 include!("tests/action_import_contract.rs");
+include!("tests/ecockpit_dialect_contract.rs");
 include!("tests/semantic_export_contract.rs");
 include!("tests/transaction_contract.rs");

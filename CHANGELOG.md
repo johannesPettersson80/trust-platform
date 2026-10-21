@@ -6,6 +6,18 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- PLCopen import carries the CODESYS/e!COCKPIT dialect constructs that vendor
+  projects rely on: `REFERENCE TO`/`POINTER TO` derived names import as native
+  pointer/reference declarations, `datatypeinheritance` emits `TYPE x EXTENDS y`,
+  `pouinheritance` puts `EXTENDS`/`IMPLEMENTS` on FUNCTION_BLOCK declarations,
+  project-level `<Interface>` objects import as declaration-only `INTERFACE`
+  blocks, `globalVars` container qualifiers (`retain`/`persistent`/`constant`)
+  survive into the rendered `VAR_GLOBAL` header, e!COCKPIT `MixedAttrsVarList`
+  attribute views and identical whole-list duplicate copies merge into the
+  primary list instead of multiplying into files, and array dimension bounds
+  pass through verbatim as constant expressions. The migration report counts
+  imported interfaces in `imported_interfaces`.
+
 - Compile CODESYS textual POU parts in the runtime harness compiler:
   `ACTION ... END_ACTION` blocks declared inside a `FUNCTION_BLOCK` or
   `PROGRAM` lower as same-instance sub-bodies — a bare-name call from the
@@ -21,6 +33,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   — OSCAT pins `TIMER_EXT.ON` / `FF_DRE.SET` and the `eChar.Null` member no
   longer need to be dropped. `NULL` stays the reference literal in value
   position and `ON` stays the `RESOURCE ... ON` separator.
+
 - Share compact, lossless floating-point text codecs across runtime platforms,
   preserving both conversion directions and existing diagnostic spelling.
 

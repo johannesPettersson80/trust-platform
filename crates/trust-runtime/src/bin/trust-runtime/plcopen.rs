@@ -207,8 +207,9 @@ fn print_import_report(report: &PlcopenImportReport) {
         report.discovered_pous, report.source_coverage_percent, report.semantic_loss_percent
     );
     println!(
-        "Imported {} data type(s), {} global list(s), {} configuration(s), {} resource(s), {} task(s), {} program instance(s)",
+        "Imported {} data type(s), {} interface(s), {} global list(s), {} configuration(s), {} resource(s), {} task(s), {} program instance(s)",
         report.imported_data_types,
+        report.imported_interfaces,
         report.imported_global_var_lists,
         report.imported_configurations,
         report.imported_resources,
