@@ -58,6 +58,8 @@ pub(super) fn var_block_kind(node: &SyntaxNode) -> Result<VarBlockKind, CompileE
 pub(super) fn var_block_qualifiers(node: &SyntaxNode) -> Result<VarBlockQualifiers, CompileError> {
     let mut qualifiers = VarBlockQualifiers::default();
     let mut qualifier_count = 0usize;
+    let mut seen_retain = false;
+    let mut seen_persistent = false;
     for element in node.children_with_tokens() {
         if let Some(child) = element.as_node()
             && child.kind() == SyntaxKind::VarDecl
@@ -74,7 +76,7 @@ pub(super) fn var_block_qualifiers(node: &SyntaxNode) -> Result<VarBlockQualifie
         match token.kind() {
             SyntaxKind::KwRetain => {
                 qualifier_count += 1;
-                qualifiers.retain = crate::RetainPolicy::Retain;
+                seen_retain = true;
             }
             SyntaxKind::KwNonRetain => {
                 qualifier_count += 1;
@@ -82,7 +84,7 @@ pub(super) fn var_block_qualifiers(node: &SyntaxNode) -> Result<VarBlockQualifie
             }
             SyntaxKind::KwPersistent => {
                 qualifier_count += 1;
-                qualifiers.retain = crate::RetainPolicy::Persistent;
+                seen_persistent = true;
             }
             SyntaxKind::KwConstant => {
                 qualifier_count += 1;
@@ -91,7 +93,18 @@ pub(super) fn var_block_qualifiers(node: &SyntaxNode) -> Result<VarBlockQualifie
             _ => {}
         }
     }
-    if qualifier_count > 1 {
+    // IEC_DECISIONS 2026-10-11: `RETAIN PERSISTENT` in either order is the
+    // accepted WAGO/CODESYS vendor extension — persistent storage implies
+    // retention, so the combined section keeps the Persistent policy.
+    // Duplicates of a qualifier, `NON_RETAIN` combined with `RETAIN` or
+    // `PERSISTENT`, and anything beyond that pair stay rejected.
+    if seen_persistent {
+        qualifiers.retain = crate::RetainPolicy::Persistent;
+    } else if seen_retain {
+        qualifiers.retain = crate::RetainPolicy::Retain;
+    }
+    let vendor_retain_persistent = seen_retain && seen_persistent && qualifier_count == 2;
+    if qualifier_count > 1 && !vendor_retain_persistent {
         return Err(CompileError::new(
             "a variable section accepts at most one qualifier",
         ));
