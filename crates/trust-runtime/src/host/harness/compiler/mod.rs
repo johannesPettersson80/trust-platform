@@ -22,8 +22,8 @@ pub(super) use config::{
     lower_configuration, lower_root_global_var_blocks, resolve_program_type_name,
 };
 pub(super) use dependency_prelude::{
-    predeclare_project_types, resolve_pou_local_constants, resolve_project_global_constants,
-    validate_project_aliases,
+    predeclare_project_types, resolve_pou_local_constants, resolve_project_declared_sizes,
+    resolve_project_global_constants, validate_project_aliases,
 };
 pub(super) use edge::collect_edge_declarations;
 pub(crate) use model::{

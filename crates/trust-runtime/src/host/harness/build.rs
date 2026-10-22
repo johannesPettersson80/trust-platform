@@ -209,6 +209,21 @@ fn lower_project_types(
         true,
         storage_abi,
     )?;
+    // IEC_DEVIATIONS 2026-10-21: plain initializer-backed globals act as
+    // declaration sizes. Evaluated once against the true constants and
+    // absorbed into every later constant set.
+    let declared_sizes = super::resolve_project_declared_sizes(
+        &frontend.syntaxes,
+        builder.registry_mut(),
+        profile,
+        frontend.project.database(),
+        &frontend.file_ids,
+        statement_locations,
+        &preliminary_consts,
+        storage_abi,
+    );
+    let mut preliminary_consts = preliminary_consts;
+    preliminary_consts.absorb_declared_sizes(declared_sizes.clone());
 
     for (idx, syntax) in frontend.syntaxes.iter().enumerate() {
         let (registry, initializer_catalog) = builder.registry_and_initializer_catalog_mut();
@@ -236,6 +251,7 @@ fn lower_project_types(
         false,
         storage_abi,
     )?;
+    compile_time_consts.absorb_declared_sizes(declared_sizes.clone());
     let mut root_globals_per_file = Vec::with_capacity(frontend.parses.len());
     for (idx, syntax) in frontend.syntaxes.iter().enumerate() {
         let mut inputs = LoweringInputs::new(

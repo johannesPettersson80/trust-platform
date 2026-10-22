@@ -109,11 +109,8 @@ impl SymbolCollector<'_> {
                             Err(ConstEvalError::UndefinedName(_))
                                 | Err(ConstEvalError::NotConstant)
                         )
-                        && let Ok(value) = self.try_resolve_declared_value_for_scope(
-                            name.as_str(),
-                            &scope,
-                            guard,
-                        )
+                        && let Ok(value) =
+                            self.try_resolve_declared_value_for_scope(name.as_str(), &scope, guard)
                     {
                         return Ok(value);
                     }

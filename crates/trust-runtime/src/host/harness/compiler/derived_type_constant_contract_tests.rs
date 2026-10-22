@@ -492,8 +492,9 @@ fn derived_type_constant_rejects_mutable_array_bound() {
         r#"
 VAR_GLOBAL
     Upper : INT := INT#3;
+    Via : INT := Upper;
 END_VAR
-TYPE Samples : ARRAY[0..Upper] OF INT;
+TYPE Samples : ARRAY[0..Via] OF INT;
 END_TYPE
 PROGRAM Main
 END_PROGRAM
@@ -536,8 +537,9 @@ fn derived_type_constant_rejects_mutable_string_capacity() {
         r#"
 VAR_GLOBAL
     TextSize : INT := INT#8;
+    Via : INT := TextSize;
 END_VAR
-TYPE Label : STRING[TextSize];
+TYPE Label : STRING[Via];
 END_TYPE
 PROGRAM Main
 END_PROGRAM
@@ -549,6 +551,45 @@ END_PROGRAM
             && error.to_ascii_lowercase().contains("textsize"),
         "{error}"
     );
+}
+
+// IEC_DEVIATIONS 2026-10-21: a plain initializer-backed global is a valid
+// declaration size — DUT-level STRING capacities and array bounds compile
+// with the declared value.
+#[test]
+fn derived_type_constant_accepts_initialized_global_string_capacity() {
+    let runtime = runtime(&[(
+        "sized_string.st",
+        r#"
+VAR_GLOBAL
+    TextSize : INT := INT#8;
+END_VAR
+TYPE Label : STRING[TextSize];
+END_TYPE
+PROGRAM Main
+END_PROGRAM
+"#,
+    )]);
+
+    assert_eq!(string_capacity(&runtime, "Label"), 8);
+}
+
+#[test]
+fn derived_type_constant_accepts_initialized_global_array_bound() {
+    let runtime = runtime(&[(
+        "sized_array.st",
+        r#"
+VAR_GLOBAL
+    Upper : INT := INT#3;
+END_VAR
+TYPE Samples : ARRAY[0..Upper] OF INT;
+END_TYPE
+PROGRAM Main
+END_PROGRAM
+"#,
+    )]);
+
+    assert_eq!(array_dimensions(&runtime, "Samples"), vec![(0, 3)]);
 }
 
 #[test]

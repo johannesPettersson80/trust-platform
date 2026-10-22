@@ -2,7 +2,26 @@ pub(in crate::harness) fn parse_subrange(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
 ) -> Result<(i64, i64), CompileError> {
-    parse_subrange_in(node, ctx, None)
+    let exprs = direct_expr_children(node);
+    if exprs.is_empty() {
+        return Err(CompileError::new("missing subrange bounds"));
+    }
+    if exprs.len() == 1 {
+        if is_wildcard_expr(&exprs[0]) {
+            return Ok((0, i64::MAX));
+        }
+        let value = const_size_int_from_node(&exprs[0], ctx)?;
+        return Ok((value, value));
+    }
+    if exprs.len() == 2 {
+        if is_wildcard_expr(&exprs[0]) || is_wildcard_expr(&exprs[1]) {
+            return Ok((0, i64::MAX));
+        }
+        let lower = const_size_int_from_node(&exprs[0], ctx)?;
+        let upper = const_size_int_from_node(&exprs[1], ctx)?;
+        return Ok((lower, upper));
+    }
+    Err(CompileError::new("invalid subrange bounds"))
 }
 
 /// Subrange bounds whose untyped literals take `base` as their destination type, so a subrange
@@ -60,6 +79,33 @@ pub(in crate::harness) fn const_int_from_node(
     ctx: &mut LoweringContext<'_>,
 ) -> Result<i64, CompileError> {
     const_int_from_node_in(node, ctx, None)
+}
+
+/// Declaration-size evaluation (string capacities, array dimension bounds,
+/// IEC_DEVIATIONS 2026-10-21): falls back to the declared initial values of
+/// plain variables when the expression is not a true constant. Only
+/// declaration-size lowering calls this; every other compile-time-constant
+/// context keeps the strict rule.
+pub(in crate::harness) fn const_size_int_from_node(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<i64, CompileError> {
+    match const_int_from_node(node, ctx) {
+        Ok(value) => Ok(value),
+        Err(strict_error) => {
+            if ctx.compile_time_consts.declared_sizes_is_empty() {
+                return Err(strict_error);
+            }
+            let size_view = ctx.compile_time_consts.size_evaluation_view();
+            let saved = std::mem::replace(&mut ctx.compile_time_consts, size_view);
+            let result = const_int_from_node(node, ctx);
+            ctx.compile_time_consts = saved;
+            match result {
+                Ok(value) => Ok(value),
+                Err(_) => Err(strict_error),
+            }
+        }
+    }
 }
 
 fn const_int_from_node_in(
