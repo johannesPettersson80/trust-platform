@@ -62,8 +62,10 @@ parameter record (`TIC101_Parameters`), the PID's own measurement (`TIC101.State
 the output, the setpoint, the manual output, the Auto/Manual signal (`TIC101_Manual`, TRUE in
 Manual) and the startup flag. The engineer typed only the names, units, ranges and the
 identification step (10 % for the tank, 5 % for the room, so the room stays below the fan
-thermostat's off-point). The gains in the program are the design values; tuning them end to end
-in Control Studio does not succeed on this plant yet.
+thermostat's off-point). The gains in the program are the design values. Control Studio identifies,
+tunes, validates, applies, restores and keeps them end to end on this plant: the D5 acceptance
+(`crates/trust-control-studio/tests/control_studio_d5_acceptance.rs`) runs that sequence against
+this example's runtime.
 
 ## What it is not
 

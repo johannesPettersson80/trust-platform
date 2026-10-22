@@ -4770,6 +4770,16 @@ END_PROGRAM
             },
         },
     ]);
+    // The scan cycle reports the runtime's I/O as not simulation-only: its fieldbus driver is physical. A mix of simulated and physical
+    // I/O is physical, so the target stays physical with the simulation enabled (specification 35, A2.4).
+    state.debug.push_control_snapshot_at(
+        crate::io::IoSnapshot::default(),
+        0,
+        &crate::memory::VariableStorage::default(),
+        &[],
+        false,
+        false,
+    );
 
     let status = handle_request_value(json!({"id": 33, "type": "status"}), &state, None);
     assert!(status.ok, "status should succeed: {:?}", status.error);
@@ -4817,7 +4827,7 @@ END_PROGRAM
             .and_then(serde_json::Value::as_str),
         Some("simulation clock scaled")
     );
-    // A simulation at speed 4 with no measured speed yet names its speed; no I/O is simulated here, so it is physical (A2.4).
+    // A simulation at speed 4 with no measured speed yet names its speed; its I/O is not simulation-only, so the target is physical (A2.4).
     assert_eq!(
         result.get("simulated").and_then(serde_json::Value::as_bool),
         Some(false)

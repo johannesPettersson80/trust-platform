@@ -30,8 +30,6 @@ truST's logic is written in Rust. There is no exception without the user's writt
 - **No new logic in TypeScript.** A change that needs logic adds it in Rust, even when similar logic
   already exists in TypeScript.
 - **Existing TypeScript logic is debt to remove.** Known debt:
-  - most of `editors/vscode/src/controlStudio/` (about 31,000 lines): the TypeScript route that
-    still serves parked loops, and the parked features (checklist V7);
   - `editors/vscode/src/hmiBuilder/editor/quality.ts` (about 250 lines): the HMI editor's quality
     warnings (specification 39 §14.1).
 
