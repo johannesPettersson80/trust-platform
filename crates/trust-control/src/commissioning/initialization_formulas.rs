@@ -19,8 +19,8 @@ use super::texts;
 use super::transfer::{TransferBinding, TransferValue};
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
-    channel_signal, measured_disturbance, InitialSource, InitialValue, InitializedState,
-    LoopDefinition,
+    channel_signal, measured_disturbance, ChannelSignal, InitialSource, InitialValue,
+    InitializedState, LoopDefinition, Range,
 };
 use crate::model::GeneralModel;
 
@@ -82,7 +82,7 @@ pub enum InitializationFormula {
     DecoupledOutput {
         /// The plant inputs that the group's channels drive, read fresh, in the channels' order.
         output_symbols: Vec<String>,
-        /// The decoupler's gains, guards that the snapshot holds: `matrix_symbols[i][j]` is D[i][j].
+        /// The decoupler's gains, guards that the snapshot holds: `matrix_symbols[i][j]` is `D[i][j]`.
         matrix_symbols: Vec<Vec<String>>,
         /// The row of D⁻¹·u that the state takes.
         row: usize,
@@ -102,7 +102,8 @@ pub fn initialization_formulas(
     definition: &ControllerInitialization,
 ) -> Result<BTreeMap<String, InitializationFormula>, Failure> {
     // A group has a plant connection per channel, which the scalar connection does not describe, so only a loop without a group
-    // reads that connection (as the TypeScript does, eagerly), and a group's sources read its channels.
+    // reads that connection (as the TypeScript does, eagerly), and a group's sources read its declared channels (`plant_input`,
+    // `process_symbol`).
     if loop_definition.controller.group.is_none() {
         connected_model_channels(loop_definition, model)?;
     }
@@ -215,8 +216,10 @@ fn scalar_formula(
 ) -> Result<InitializationFormula, Failure> {
     let formula = match source {
         InitialSource::ModelInputIs { index, value } => {
-            let output_symbol = input_symbol(channels, state, *index)?;
-            let range = channels.input.range;
+            let PlantInput {
+                symbol: output_symbol,
+                range,
+            } = plant_input(loop_definition, channels, state, *index)?;
             if !value.is_finite() || *value < range.minimum || *value > range.maximum {
                 return Err(Failure::new(
                     &texts::formula_predicate_not_level(&state.symbol),
@@ -240,7 +243,7 @@ fn scalar_formula(
             weight,
         } => {
             let process_variable = process_symbol(loop_definition, model, channels, state, *index)?;
-            let output_symbol = input_symbol(channels, state, *input_index)?;
+            let output_symbol = plant_input(loop_definition, channels, state, *input_index)?.symbol;
             InitializationFormula::PidIntegral {
                 output_symbol,
                 process_variable,
@@ -269,7 +272,7 @@ fn scalar_formula(
             match disturbance_symbol_at(loop_definition, model, *index) {
                 Some(process_variable) => InitializationFormula::ModelOutput { process_variable },
                 None => InitializationFormula::ModelInput {
-                    output_symbol: input_symbol(channels, state, *index)?,
+                    output_symbol: plant_input(loop_definition, channels, state, *index)?.symbol,
                 },
             }
         }
@@ -410,20 +413,56 @@ fn decoupled_output_share(
     decoupled_share(&matrix, &inputs, row)
 }
 
-/// The actuator's symbol for a plant input index: the loop's single input, index 0 (`inputs[index]?.signal.symbol`).
-fn input_symbol(
+/// The actuator that a state's source reads: its command's symbol, and the range that command may take.
+struct PlantInput {
+    symbol: String,
+    range: Range,
+}
+
+/// The actuator for a plant input index (`inputs[index]?.signal`): the loop's single input, index 0, or for a PID group the signal of the
+/// declared input channel at that position (`controllerModelIndex`, C7), since the scalar connection holds the primary member's alone.
+fn plant_input(
+    loop_definition: &LoopDefinition,
     channels: &ConnectedChannels<'_>,
     state: &InitializedState,
     index: usize,
-) -> Result<String, Failure> {
-    if index != 0 || channels.input.symbol.is_empty() {
-        return Err(Failure::new(
-            &texts::formula_no_bound_actuator(&state.symbol),
-            Cause::Settings,
-            NextAction::OpenLoopSetup,
-        ));
+) -> Result<PlantInput, Failure> {
+    if loop_definition.controller.group.is_some() {
+        return group_input(loop_definition, index)
+            .map(|signal| PlantInput {
+                symbol: signal.symbol.to_owned(),
+                range: signal.range,
+            })
+            .ok_or_else(|| no_bound_actuator(state));
     }
-    Ok(channels.input.symbol.clone())
+    if index != 0 || channels.input.symbol.is_empty() {
+        return Err(no_bound_actuator(state));
+    }
+    Ok(PlantInput {
+        symbol: channels.input.symbol.clone(),
+        range: channels.input.range,
+    })
+}
+
+/// The signal of the declared input channel of a PID group at `index`, `None` when the group declares no channel there.
+fn group_input(loop_definition: &LoopDefinition, index: usize) -> Option<ChannelSignal<'_>> {
+    let input = loop_definition.channels.as_ref()?.inputs.get(index)?;
+    channel_signal(loop_definition, &input.signal_id)
+}
+
+/// The signal of the declared output channel of a PID group at `index`, `None` when the group declares no channel there.
+fn group_output(loop_definition: &LoopDefinition, index: usize) -> Option<ChannelSignal<'_>> {
+    let output = loop_definition.channels.as_ref()?.outputs.get(index)?;
+    channel_signal(loop_definition, &output.signal_id)
+}
+
+/// The refusal of a state whose process measurement has no bound signal (`formula_no_bound_process`).
+fn no_bound_process(state: &InitializedState) -> Failure {
+    Failure::new(
+        &texts::formula_no_bound_process(&state.symbol),
+        Cause::Settings,
+        NextAction::OpenLoopSetup,
+    )
 }
 
 /// The process value's symbol for a measured output index: the loop's single output, index 0 (`outputs[index]?.signal.symbol`).
@@ -438,12 +477,14 @@ fn process_symbol(
     if let Some(symbol) = cascade_measurement_symbol(loop_definition, model, index) {
         return Ok(symbol);
     }
+    // A PID group's members each measure their own output: the state's index is the position of the declared output channel (C7).
+    if loop_definition.controller.group.is_some() {
+        return group_output(loop_definition, index)
+            .map(|signal| signal.symbol.to_owned())
+            .ok_or_else(|| no_bound_process(state));
+    }
     if index != 0 || channels.output.symbol.is_empty() {
-        return Err(Failure::new(
-            &texts::formula_no_bound_process(&state.symbol),
-            Cause::Settings,
-            NextAction::OpenLoopSetup,
-        ));
+        return Err(no_bound_process(state));
     }
     Ok(channels.output.symbol.clone())
 }

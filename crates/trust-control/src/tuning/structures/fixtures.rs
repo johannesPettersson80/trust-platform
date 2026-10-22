@@ -228,6 +228,7 @@ pub fn requirements(
     duration_seconds: f64,
 ) -> TuningRequirements {
     TuningRequirements {
+        channel_requirements: None,
         reference_change,
         maximum_error,
         settling_band,

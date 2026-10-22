@@ -15,7 +15,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::json::parse_text;
-use trust_control::loop_definition::LoopScope;
+use trust_control::loop_definition::{LoopDefinition, LoopScope};
 use trust_control::model::GeneralModel;
 use trust_control::setup::binding_route::answer_selection;
 use trust_control::setup::catalog::{decode_catalog_answer, CatalogAnswer};
@@ -24,19 +24,25 @@ use trust_control::setup::discovery::{
     ModelFileText, MAXIMUM_LOOP_BYTES,
 };
 use trust_control::setup::form::setup_form_model;
+use trust_control::setup::mapping_match::{match_mapping, own_mapping};
 use trust_control::setup::messages::{
-    LoopSummary, SavedLoop, SetupDiscoverRequest, SetupDiscoverResult, SetupSaveRequest,
-    SetupSaveResult,
+    ConfiguredLoopRequest, LoopSummary, SavedLoop, SetupDiscoverRequest, SetupDiscoverResult,
+    SetupSaveRequest, SetupSaveResult,
 };
 use trust_control::setup::save::{
     check_setup_targets, decode_estimator_model, estimator_model_path, parse_setup_draft,
     plan_setup_save_with_estimator, ExistingLoopFile, LoopFileId, PlannedLoop, SetupDraft,
 };
+use trust_control::setup::step_answers;
 use trust_control::setup::texts::save as texts;
 
+use crate::busy_loops::{LoopClaim, LoopClaims};
 use crate::commands::to_value;
 use crate::language_tool::{LanguageTool, ProjectTool};
 use crate::loops;
+
+/// The operation name a binding change holds its loop under, which a refusal of another request names (A8.5).
+const BINDING_OPERATION: &str = "Binding change";
 
 /// The command that answers the compiled project's control catalog (specification 14 §6.6.2 and §7.8). Its argument is empty:
 /// the project is read from disk.
@@ -47,7 +53,10 @@ const CATALOG_COMMAND: &str = "trust-lsp.hmiBindings";
 ///
 /// # Errors
 /// The compiled project cannot be read: the compiler's own reason, as `trust-lsp command` answers it.
-pub fn answer_discover(request: &SetupDiscoverRequest) -> Result<Value, Failure> {
+pub fn answer_discover(
+    request: &SetupDiscoverRequest,
+    claims: &LoopClaims,
+) -> Result<Value, Failure> {
     let project = Path::new(&request.project_root);
     let catalog = compiled_catalog(request.language_tool.as_deref(), project)?;
     let discovery = match loop_file_texts(project) {
@@ -61,22 +70,34 @@ pub fn answer_discover(request: &SetupDiscoverRequest) -> Result<Value, Failure>
         ),
     };
     // The binding the three-page panel chose is checked against the loops this discovery lists (B1.3, C0).
-    let selected_file = request
+    let selected = request
         .selection
         .as_ref()
-        .map(|selection| {
-            answer_selection(&discovery, selection, request.family.as_deref())
-                .map(|target| target.configuration_path.clone())
-        })
+        .map(|selection| answer_selection(&discovery, selection, request.family.as_deref()))
         .transpose()?;
+    // A binding change is refused while an operation of this engine works on the selected loop; the claim lasts for this answer (B1.3, A8.5).
+    let _claim = selected
+        .map(|target| claim_binding(claims, &target.loop_definition))
+        .transpose()?;
+    let selected_file = selected.map(|target| target.configuration_path.clone());
+    let selected_request =
+        selected.map(|target| ConfiguredLoopRequest::of(target.loop_definition.clone()));
     // The model files an LQG estimator can implement (C4 Setup), listed by the rules of the discovery.
     let estimator_models = estimator_model_files(&model_file_texts(project));
+    // The mapping the selectors name, or, for a panel that names none, the choices of the loop it shows (B1.2, B3.6).
+    let mapping = match (&request.mapping, &request.loop_id) {
+        (Some(mapping), _) => Some(match_mapping(&discovery, mapping)),
+        (None, Some(loop_id)) => own_mapping(&discovery, loop_id),
+        (None, None) => None,
+    };
     to_value(&SetupDiscoverResult {
         form_model: setup_form_model(&catalog.control),
         loops: discovery.targets.iter().map(loop_summary).collect(),
         rejected: discovery.rejected,
         selected_file,
         estimator_models,
+        selected_request,
+        mapping,
     })
 }
 
@@ -85,19 +106,25 @@ pub fn answer_discover(request: &SetupDiscoverRequest) -> Result<Value, Failure>
 /// changes nothing.
 ///
 /// # Errors
-/// The draft is not a setup this engine saves (its structure is parked or unknown, or a choice is incomplete); the compiled
-/// project cannot be read; the loops do not satisfy the loop contract; a file or identifier is taken; or a file cannot be written.
+/// The draft is not a setup this engine saves (its structure is parked or unknown, or a choice is incomplete); a step-by-step answer is
+/// not of its question's kind or names no compiled entry; the compiled project cannot be read; the loops do not satisfy the loop
+/// contract; a file or identifier is taken; or a file cannot be written.
 pub fn answer_save(request: &SetupSaveRequest) -> Result<Value, Failure> {
     let project = Path::new(&request.project_root);
-    let draft = parse_setup_draft(&request.draft)?;
-    let catalog = compiled_catalog(request.language_tool.as_deref(), project)?;
     let scope = LoopScope {
         project_id: project_id(project),
         runtime_id: request.runtime_id.clone(),
     };
-    let estimator = estimator_model_for(project, &draft)?;
-    let planned =
-        plan_setup_save_with_estimator(&catalog.control, &scope, &draft, estimator.as_ref())?;
+    // The step-by-step draft is the answers of its questions: the engine builds its loop from them (`configure_loop`, B1.3).
+    let planned = if step_answers::is_step_by_step(&request.draft) {
+        let catalog = compiled_catalog(request.language_tool.as_deref(), project)?;
+        vec![step_answers::plan(&request.draft, &catalog, &scope)?]
+    } else {
+        let draft = parse_setup_draft(&request.draft)?;
+        let catalog = compiled_catalog(request.language_tool.as_deref(), project)?;
+        let estimator = estimator_model_for(project, &draft)?;
+        plan_setup_save_with_estimator(&catalog.control, &scope, &draft, estimator.as_ref())?
+    };
     check_setup_targets(&existing_loop_files(project)?, &planned)?;
     write_all_or_none(project, &planned)?;
     to_value(&SetupSaveResult {
@@ -109,12 +136,35 @@ pub fn answer_save(request: &SetupSaveRequest) -> Result<Value, Failure> {
                 file: plan.file_name.clone(),
             })
             .collect(),
+        // The page opens Control Studio on the first loop written (B1.3).
+        open_request: planned
+            .first()
+            .map(|plan| ConfiguredLoopRequest::of(plan.loop_definition.clone())),
     })
+}
+
+/// Claims the loop a binding change selects (B1.3, A8.5): a loop that a Test or another operation of this engine is working on refuses the
+/// change, and the refusal names that operation.
+///
+/// # Errors
+/// An operation of this engine is working on the loop.
+fn claim_binding(
+    claims: &LoopClaims,
+    loop_definition: &LoopDefinition,
+) -> Result<LoopClaim, Failure> {
+    claims.claim(
+        &loop_definition.project_id,
+        &loop_definition.id,
+        BINDING_OPERATION,
+    )
 }
 
 /// The compiled project's control catalog, from `trust-lsp command` (§0.1a). The language tool is the given executable, or the one
 /// beside the engine or on the PATH.
-fn compiled_catalog(language_tool: Option<&str>, project: &Path) -> Result<CatalogAnswer, Failure> {
+pub(crate) fn compiled_catalog(
+    language_tool: Option<&str>,
+    project: &Path,
+) -> Result<CatalogAnswer, Failure> {
     let tool = LanguageTool::new(language_tool.map(PathBuf::from));
     let answer = tool.answer(CATALOG_COMMAND, project, &json!({}))?;
     decode_catalog_answer(&answer)

@@ -38,6 +38,7 @@ export interface Failure {
    */
   nextAction:
     | "connect-runtime"
+    | "start-simulator"
     | "open-loop-setup"
     | "open-limits"
     | "open-requirements"

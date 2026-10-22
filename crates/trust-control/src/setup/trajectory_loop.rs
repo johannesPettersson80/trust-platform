@@ -10,10 +10,13 @@ use serde::Deserialize;
 
 use super::catalog::CompiledCatalog;
 use super::loop_bindings::{
-    binding, compiled, measured_signal, real_type, state_type, stated_unit, with_revision,
-    FormSignal,
+    binding, blank_when_null, compiled, measured_signal, real_type, required_choice, state_type,
+    stated_unit, with_revision, FormSignal,
 };
-use super::own_law_loop::{own_law_loop_definition, OwnLawFamily, OwnLawGain, OwnLawLoopDraft};
+use super::own_law_loop::{
+    checked_gain, own_law_loop_definition, OwnLawFamily, OwnLawGain, OwnLawLoopDraft,
+};
+use super::texts::generators;
 use super::texts::save as texts;
 use crate::commissioning::initial_state::ControllerInitialization;
 use crate::failure::{Cause, Failure, NextAction};
@@ -41,6 +44,7 @@ pub struct TrajectoryLoopDraft {
     /// change starts it, and Validate observes it (C11).
     pub planned_trajectory: FormSignal,
     /// The variable that holds the feedforward term that the program adds to its output: zero at rest, so the switch to Auto does not bump.
+    #[serde(default, deserialize_with = "blank_when_null")]
     pub feedforward_term: String,
 }
 
@@ -60,11 +64,36 @@ pub fn trajectory_loop_definition(
         return Err(refusal(texts::trajectory_law_not_pid()));
     }
     let mut loop_definition = own_law_loop_definition(catalog, scope, &draft.own_law)?;
+    check_choices(draft)?;
     attach_seed(&mut loop_definition, draft)?;
     add_feedforward_state(catalog, &mut loop_definition, draft)?;
     add_planned_trajectory(catalog, &mut loop_definition, draft)?;
     add_feedforward_parameters(catalog, &mut loop_definition, draft)?;
     Ok(with_revision(loop_definition))
+}
+
+/// The trajectory's own questions, checked in the order the form asks them (`loopSetupForm.ts`, the trajectory section): the rate and the
+/// acceleration feedforward gains, the planned trajectory and the variable of the feedforward term.
+///
+/// # Errors
+/// A gain is blank or its range is not an interval, the planned trajectory is blank, or the feedforward term is blank.
+fn check_choices(draft: &TrajectoryLoopDraft) -> Result<(), Failure> {
+    checked_gain(&draft.rate_gain, "rate feedforward gain", "traj.rateGain")?;
+    checked_gain(
+        &draft.acceleration_gain,
+        "acceleration feedforward gain",
+        "traj.accelerationGain",
+    )?;
+    measured_signal(
+        &draft.planned_trajectory,
+        "planned trajectory",
+        Some("traj.plannedTrajectory"),
+    )?;
+    required_choice(
+        &draft.feedforward_term,
+        generators::feedforward_term_needed(),
+        "traj.feedforwardTerm",
+    )
 }
 
 /// The seed of the own law becomes the trajectory seed: the PID variables the own-law loop names, and the two feedforward variables.

@@ -475,3 +475,44 @@ fn an_isolated_job_identifier_is_fresh_and_a_runtime_identifier() {
         "the runtime accepts {first} as a request identifier (E8.4)"
     );
 }
+
+#[test]
+fn a_cancellation_that_arrives_while_the_start_is_answered_cancels_the_job_the_start_returned() {
+    // TS control-studio-verification-client, "cancels the returned job when cancellation arrives during start" (E8.4, E11.4, E11.5): the
+    // engineer cancels while the start request is being answered. The job the runtime returned is then cancelled by its identity and
+    // revision, its end is confirmed, the operation ends with the cancellation, and the identity leaves the journal.
+    let folder = storage("cancelled-during-start");
+    let cancel = Arc::new(AtomicBool::new(false));
+    let fake = FakeRuntime::start({
+        let cancel = Arc::clone(&cancel);
+        move |request| match request["type"].as_str()? {
+            "control.simulation.run.start" => {
+                // The cancellation arrives before the start's answer does.
+                cancel.store(true, Ordering::SeqCst);
+                Some(started(request))
+            }
+            "control.simulation.run.status" => Some(status(request, "running", false)),
+            "control.simulation.run.cancel" => Some(status(request, "cancelled", true)),
+            _ => None,
+        }
+    });
+    let mut client = RuntimeClient::connect(&fake.connection(None)).expect("the fake runtime");
+    let mut journal = open_journal(&folder);
+    let is_cancelled = || cancel.load(Ordering::SeqCst);
+    let failure = run(&mut client, &mut journal, &is_cancelled, 10_000, QUICK)
+        .expect_err("the run is cancelled");
+    assert_eq!(failure, cancelled());
+    let cancels = fake.requests_of("control.simulation.run.cancel");
+    assert_eq!(cancels.len(), 1, "the returned job is cancelled once");
+    assert_eq!(
+        cancels[0]["params"],
+        json!({ "job_id": JOB, "expected_project_revision": REVISION, "include_results": false }),
+        "and by the identity and the revision of its start"
+    );
+    assert_eq!(
+        open_journal(&folder).entries(),
+        [] as [crate::journal::JournalEntry; 0],
+        "a confirmed end leaves the journal"
+    );
+    fs::remove_dir_all(&folder).expect("clean up");
+}

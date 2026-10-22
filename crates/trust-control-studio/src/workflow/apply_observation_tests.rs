@@ -679,3 +679,137 @@ fn a_reopened_engine_reattaches_to_the_observation_and_assesses_it() {
     );
     let _ = std::fs::remove_dir_all(&folder);
 }
+
+/// TS control-studio-apply-reattach, "a journalled Apply whose observation never started is not reattached: the reviewed recovery path
+/// keeps it (A8.6)": the checkpoint journals the observation's recording owner only while the observation runs (A8.5), so a checkpoint
+/// without one has nothing to follow. The runtime is not asked, nothing is written, and the checkpoint stays for the reviewed recovery.
+#[test]
+fn a_journaled_checkpoint_whose_observation_never_started_is_not_reattached_and_stays_journaled() {
+    let loop_definition = pid_loop();
+    let bindings = loop_inspection_bindings(&loop_definition);
+    let plant = reopened_plant(&loop_definition, &bindings);
+    let folder = scratch("reattach-unobserved");
+    let mut journal = Journal::open(&folder, &loop_definition.project_id, &loop_definition.id)
+        .expect("the journal opens");
+    let mut checkpoint =
+        observing_checkpoint(&loop_definition, held_owner(&loop_definition, &bindings));
+    checkpoint.recording = None;
+    journal
+        .persist(JournalEntry::Commissioning {
+            checkpoint: Box::new(checkpoint),
+        })
+        .expect("journaled");
+    let study = Study::new(&loop_definition.id, &loop_definition.revision);
+    let connection = plant.connection();
+    let mut context = ApplyContext {
+        loop_definition: &loop_definition,
+        study: &study,
+        connection: &connection,
+        journal: &mut journal,
+        physical_approved: false,
+        project_root: &folder,
+    };
+    let clock = || 0_u64;
+    let refused = reattach_reporting(&mut context, &Report::default(), &instant(&clock))
+        .expect_err("a checkpoint without a recording owner has nothing to follow");
+    assert_eq!(refused, apply_texts::no_observation_to_resume());
+    assert_eq!(
+        plant.world().log,
+        [] as [&str; 0],
+        "nothing was followed, stopped, released or written"
+    );
+    let kept = journal
+        .entries()
+        .iter()
+        .find_map(|entry| match entry {
+            JournalEntry::Commissioning { checkpoint } => Some(checkpoint.as_ref().clone()),
+            _ => None,
+        })
+        .expect("the checkpoint stays journaled");
+    assert_eq!(kept.stage, CheckpointStage::Transfer);
+    assert!(kept.recording.is_none());
+    let _ = std::fs::remove_dir_all(&folder);
+}
+
+/// TS control-studio-found-mode, "a target change the runtime no longer reports under its journalled identity is not added to the
+/// receipt" (B6.3, A8.6): the receipt carries the transfers journaled before the target change, and the target change only as the runtime
+/// still reports it under its journaled identity. Another last transaction adds none.
+#[test]
+fn a_target_change_no_longer_reported_under_its_journaled_identity_is_not_in_the_receipt() {
+    use trust_control::commissioning::commissioning_result::{
+        TransferConfirmation, TransferState, TransferStatus, TransferTransaction,
+    };
+    let loop_definition = pid_loop();
+    let bindings = loop_inspection_bindings(&loop_definition);
+    let plant = reopened_plant(&loop_definition, &bindings);
+    {
+        // The runtime's last transaction is someone else's.
+        let mut world = plant.world();
+        world.transaction = Some(json!({
+            "id": "someone-else", "program_revision": "program-1", "binding_revision": TRANSFER_REVISION,
+            "status": "applied", "reason": null, "observed_values": null, "confirmation": "output-image"
+        }));
+    }
+    let earlier = TransferStatus {
+        program_revision: "program-1".into(),
+        binding_revision: TRANSFER_REVISION.into(),
+        values: BTreeMap::new(),
+        runtime_time_ns: Some(1),
+        status: TransferState::Applied,
+        reason: None,
+        supported_tracking: None,
+        transaction: Some(TransferTransaction {
+            id: "transaction-auto".into(),
+            program_revision: "program-1".into(),
+            binding_revision: TRANSFER_REVISION.into(),
+            status: TransferState::Applied,
+            reason: None,
+            observed_values: None,
+            confirmation: Some(TransferConfirmation::OutputImage),
+            initial_values: None,
+            applied_values: None,
+            restored: None,
+        }),
+    };
+    let mut checkpoint =
+        observing_checkpoint(&loop_definition, held_owner(&loop_definition, &bindings));
+    checkpoint.transfers = vec![earlier];
+    let folder = scratch("reattach-other-transaction");
+    let mut journal = Journal::open(&folder, &loop_definition.project_id, &loop_definition.id)
+        .expect("the journal opens");
+    journal
+        .persist(JournalEntry::Commissioning {
+            checkpoint: Box::new(checkpoint),
+        })
+        .expect("journaled");
+    let study = Study::new(&loop_definition.id, &loop_definition.revision);
+    let connection = plant.connection();
+    let mut context = ApplyContext {
+        loop_definition: &loop_definition,
+        study: &study,
+        connection: &connection,
+        journal: &mut journal,
+        physical_approved: false,
+        project_root: &folder,
+    };
+    let clock = || 0_u64;
+    let outcome =
+        reattach_reporting(&mut context, &Report::default(), &instant(&clock)).expect("reattached");
+    let shown: Vec<String> = outcome
+        .result
+        .transfers
+        .iter()
+        .filter_map(|transfer| {
+            transfer
+                .transaction
+                .as_ref()
+                .map(|transaction| transaction.id.clone())
+        })
+        .collect();
+    assert_eq!(
+        shown,
+        ["transaction-auto"],
+        "the journaled transfer is shown, and the target change is not invented"
+    );
+    let _ = std::fs::remove_dir_all(&folder);
+}

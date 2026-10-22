@@ -13,11 +13,6 @@ export type TuneChoice = "faster" | "balanced" | "more-robust";
  * settings the engineer enters. Absent in a request, the method is Automatic (B4.2).
  */
 export type TuneMethod = "SIMC" | "AMIGO" | "relay" | "manual" | "state-space";
-/**
- * Which terms a controller keeps (C0, "Families and zero terms"). A term the family does not use is written as an
- * explicit zero, so the structure follows from the gains that are not zero.
- */
-export type Structure = "P" | "PI" | "PD" | "PID";
 
 /**
  * The arguments of `controlStudio/tune` (specification 35, §0.1a; B4.1, B4.2 and B4.5): the loop, the method, the declared
@@ -44,9 +39,10 @@ export interface TuneRequest {
    */
   method?: TuneMethod | null;
   /**
-   * The settings the engineer pinned (B4.2): the loop revision they belong to, their family and their values.
+   * The settings the engineer pinned (B4.2): the loop revision they belong to and their values. The family is the study's: the
+   * structure this request names, else the family of the study's candidate, else the family of the study's pins.
    */
-  pins?: ControllerSettingsPins | null;
+  pins?: PinnedSettings | null;
   /**
    * The project folder.
    */
@@ -60,17 +56,20 @@ export interface TuneRequest {
    * are refused with any other method.
    */
   settings?: {
-    [k: string]: number;
+    [k: string]: number | string;
   } | null;
   /**
    * The folder of the operation journals (A8.3).
    */
   storageFolder: string;
   /**
-   * The structure the engineer fixed; absent leaves the structure to Automatic's choice (B4.4: an explicitly chosen
-   * structure is never replaced silently).
+   * The structure the engineer chose; absent, the engine designs for the structure the study's inputs record (A8.1) and, for the
+   * manual method with none recorded, for the family the Controller selector shows (`structure_of_request`, B4.2). Every other
+   * method then leaves the structure to its own design (B4.4: an explicitly chosen structure is never replaced silently). The page
+   * sends the family the engineer chose in the selector, as a word, and none otherwise: `P`, `PI`, `PD` and `PID` fix that
+   * structure, and any other word (the family of a state law or of a program) fixes none.
    */
-  structure?: Structure | null;
+  structure?: string | null;
 }
 /**
  * Where the bound runtime listens and its control token, as the extension's runtime lifecycle
@@ -82,19 +81,21 @@ export interface RuntimeConnection {
    */
   endpoint: string;
   /**
+   * The runtime this endpoint belongs to, as the extension's selection names it (A2.7). A live request whose loop is bound to
+   * another runtime is refused before it starts. The command line names no selection and leaves it empty.
+   */
+  runtimeId?: string | null;
+  /**
    * The control token, when the runtime requires one.
    */
   token?: string | null;
 }
 /**
- * The pins a user set on the settings of a controller (`ControllerSettingsPins`): the loop they belong to, the family
- * they were set for, and each pinned symbol's value.
+ * The pins a request of `controlStudio/tune` or `controlStudio/preview` names (B4.2): the loop revision they belong to and each
+ * pinned symbol's value. The family is not named by the page: the study gives it (`study::tune::resolve_pins`), so a request holds
+ * no family of its own.
  */
-export interface ControllerSettingsPins {
-  /**
-   * The family the pins were set for.
-   */
-  family: "P" | "PI" | "PD" | "PID";
+export interface PinnedSettings {
   /**
    * The revision of the loop the pins belong to.
    */

@@ -10,9 +10,10 @@
 //! it, [`requirements`] fills the requirement record, [`design`] chooses the structure and the gains (with the pole
 //! placement of [`crate::tuning::placement`]), [`relay`] and [`manual`] give the relay rule's and the entered settings'
 //! candidates, [`comparison`] evaluates the constrained comparison (N5.10), [`prediction`] predicts the response and reads
-//! the margins, and [`result`] writes the answer. This module holds the section, what a run reads and gives ([`TuneInputs`],
-//! [`TuneOutcome`]), the refusals that come before any operation starts ([`check_before_start`], B4.7), the manual preview
-//! ([`preview`], B4.5) and the relay evidence of the study's record ([`relay_evidence_for`], N5.R).
+//! the margins, [`structure_choice`] says which structure a request designs for, and [`result`] writes the answer. This module
+//! holds the section, what a run reads and gives ([`TuneInputs`], [`TuneOutcome`]), the refusals that come before any operation
+//! starts ([`check_before_start`], B4.7), the manual preview ([`preview`], B4.5) and the relay evidence of the study's record
+//! ([`relay_evidence_for`], N5.R).
 
 #![allow(clippy::module_name_repetitions)] // The section keeps the name of its stage.
 
@@ -20,6 +21,7 @@ use std::collections::BTreeMap;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use trust_control_math::identify::gain::ControllerAction;
 use trust_control_math::identify::LowOrderModelKind;
 
@@ -30,7 +32,7 @@ use crate::identification::plant::IdentifiedModel;
 use crate::identification::recorded_model::check_gain_sign;
 use crate::identification::refusal::Refusal;
 use crate::loop_definition::{Action, ControllerProject, LoopDefinition};
-use crate::messages::{TuneMethod, TuneRequest, TuneResult};
+use crate::messages::{TuneMethod, TuneRequest, TuneResult, TuneWords};
 use crate::model::general::js_text;
 use crate::model::GeneralModel;
 use crate::recording::RecordingFile;
@@ -50,8 +52,11 @@ use crate::tuning::recommendation::Attempt;
 use crate::tuning::relay_rule::{self, RelayCycleEvidence};
 use crate::tuning::requirements::TuningRequirements;
 use crate::tuning::search::SearchCandidate;
-use crate::tuning::settings_pins::{family_setting_symbols, ControllerSettingsPins};
+use crate::tuning::settings_pins::{
+    family_setting_symbols, ControllerSettingsPins, PinnedSettings,
+};
 use crate::tuning::state_controller::StateControllerDesign;
+use crate::tuning::structure::Structure;
 use crate::tuning::texts;
 
 pub mod comparison;
@@ -66,6 +71,7 @@ pub mod requirements;
 pub mod result;
 pub mod search_record;
 pub mod state;
+pub mod structure_choice;
 
 /// The result of one Tune, kept in the study under the key `tune`: the candidate, how it was designed, the requirements it was
 /// designed to, and the model it was designed on. The candidate is unapplied.
@@ -153,6 +159,20 @@ impl TuneSection {
             }
             _ => None,
         }
+    }
+
+    /// The structure of the study's controller candidate, when the candidate is a `Control.PID`'s or a program's own law's (B4.2): the
+    /// family a request's pins belong to when it names no structure ([`resolve_pins`]).
+    #[must_use]
+    pub fn candidate_structure(&self) -> Option<Structure> {
+        self.candidate
+            .as_ref()
+            .map(|candidate| candidate.structure)
+            .or_else(|| {
+                self.project_candidate
+                    .as_ref()
+                    .map(|candidate| candidate.structure)
+            })
     }
 }
 
@@ -324,6 +344,9 @@ pub struct TuneInputs<'a> {
     pub previous: Option<&'a TuneSection>,
     /// What the engineer asked for.
     pub request: &'a TuneRequest,
+    /// The pins the design takes (B4.2), with the family they are set for: the request's pins, resolved by [`resolve_pins`] or
+    /// given as the run recorded them. `None` when the request names none.
+    pub pins: Option<&'a ControllerSettingsPins>,
     /// The relay cycle of the study's estimation recording, when the method is the relay rule and the engine read it
     /// ([`relay_evidence_for`]). The relay rule is refused without a qualified one (N5.R).
     pub relay: Option<&'a RelayCycleEvidence>,
@@ -374,7 +397,7 @@ const SEARCH_LAW_NAMED_METHOD: &str =
 /// - a loop that uses a feature the Rust engine does not run yet, or has no controller law without being a C12 loop: the
 ///   failure of `rust_engine_support` (no controller: the loop setup);
 /// - settings that the manual method needs and the other methods refuse, pins for another loop revision or family, and
-///   entered settings outside their bounds (B4.2, B4.5): the settings themselves;
+///   entered settings outside their bounds or without a structure (B4.2, B4.5): the settings themselves;
 /// - a relay rule with no qualified relay record of the study (N5.R, N2.9): choose another method;
 /// - a named method that does not apply to the model (N5.2 to N5.7): choose another method.
 ///
@@ -421,7 +444,7 @@ pub fn check_before_start(inputs: &TuneInputs<'_>) -> Result<(), Failure> {
         .map_err(refused_as(Cause::ModelOrData, NextAction::OpenLoopSetup))?;
     loop_definition.rust_engine_support()?;
     check_settings(inputs.request)?;
-    check_pins(loop_definition, inputs.request)?;
+    check_pins(loop_definition, inputs)?;
     match inputs.request.method {
         Some(TuneMethod::Simc) => check_method(loop_definition, &fitted, TuningMethod::Simc),
         Some(TuneMethod::Amigo) => check_method(loop_definition, &fitted, TuningMethod::Amigo),
@@ -457,7 +480,10 @@ pub fn tune_held(
     held: Option<&TuningRequirements>,
     running: Option<&BTreeMap<String, f64>>,
 ) -> Result<TuneOutcome, Failure> {
-    design::run(inputs, held, running)
+    let mut outcome = design::run(inputs, held, running)?;
+    let words = TuneWords::of_result(inputs.loop_definition, &outcome.result);
+    outcome.result.words = Some(words);
+    Ok(outcome)
 }
 
 /// The answer of a manual preview (B4.5): the result that Tune with the manual method would finish with, on the study as it
@@ -471,6 +497,8 @@ pub fn preview(
     running: Option<&BTreeMap<String, f64>>,
 ) -> Result<TuneResult, Failure> {
     let mut result = design::run(inputs, None, running)?.result;
+    let words = TuneWords::of_result(inputs.loop_definition, &result);
+    result.words = Some(words);
     let evidence = stage_evidence(
         inputs.loop_definition,
         inputs.model,
@@ -484,6 +512,19 @@ pub fn preview(
     Ok(result)
 }
 
+/// Whether the study's Identify section keeps a Feedback relay record: a live relay identification whose request holds the relay plan
+/// (N5.R). The section alone says so, so a caller reads the estimation recording only when it does.
+#[must_use]
+pub fn holds_relay_record(identify: &IdentifySection) -> bool {
+    matches!(
+        identify.method,
+        IdentifyMethod::Live(ControlExperimentKind::Relay)
+    ) && identify.record_request.as_ref().is_some_and(|record| {
+        matches!(record.request.experiment.kind, ControlExperimentKind::Relay)
+            && record.request.experiment.relay_feedback.is_some()
+    })
+}
+
 /// The relay cycle of the study's estimation recording (N5.R, N2.9): `None` unless the Identify section is a live Feedback
 /// relay whose request holds the relay plan, and the recording is the loop's. Otherwise the evidence: qualified, or not, with
 /// the reason the record gives.
@@ -493,18 +534,16 @@ pub fn relay_evidence_for(
     loop_definition: &LoopDefinition,
     recording: &RecordingFile,
 ) -> Option<RelayCycleEvidence> {
-    if !matches!(
-        identify.method,
-        IdentifyMethod::Live(ControlExperimentKind::Relay)
-    ) || recording.loop_id != loop_definition.id
-    {
+    if !holds_relay_record(identify) || recording.loop_id != loop_definition.id {
         return None;
     }
-    let experiment = &identify.record_request.as_ref()?.request.experiment;
-    if !matches!(experiment.kind, ControlExperimentKind::Relay) {
-        return None;
-    }
-    let plan = experiment.relay_feedback.as_ref()?;
+    let plan = identify
+        .record_request
+        .as_ref()?
+        .request
+        .experiment
+        .relay_feedback
+        .as_ref()?;
     Some(relay_rule::evidence(
         plan.high_output,
         plan.low_output,
@@ -564,10 +603,59 @@ fn check_settings(request: &TuneRequest) -> Result<(), Failure> {
     }
 }
 
+/// The pins of a request with the family they are set for (B4.2): the structure the request names, else the family of the study's
+/// candidate, else the family of the study's recorded pins. The page names the pins without a family, so this is where the family is
+/// decided. When none of the three applies, the pins have no family to belong to, and the request is refused with the sentence that
+/// asks the page to choose a controller configuration (`family` field).
+///
+/// # Errors
+/// The request names pins, and no structure, candidate family or recorded pins family applies.
+pub fn resolve_pins(
+    pins: &PinnedSettings,
+    structure: Option<Structure>,
+    candidate: Option<Structure>,
+    recorded: Option<&ControllerSettingsPins>,
+) -> Result<ControllerSettingsPins, Failure> {
+    structure
+        .or(candidate)
+        .or(recorded.map(|recorded| recorded.family))
+        .map(|family| pins.with_family(family))
+        .ok_or_else(|| {
+            Failure::new(texts::PINS_NEED_FAMILY, Cause::Settings, NextAction::None)
+                .with_field("family")
+        })
+}
+
+/// The settings a manual preview enters (B4.5): each symbol with its number. A preview needs them, so a missing value, or one that is
+/// not a number, is refused with the preview's sentence.
+///
+/// # Errors
+/// The settings are missing, or one of them is not a number.
+pub fn preview_settings(settings: Option<&Value>) -> Result<BTreeMap<String, f64>, Failure> {
+    // The page sends each entry as the engineer typed it: text that reads as a number is that number, and an entry that no number reads
+    // is refused with the settings' sentence (B4.5).
+    settings
+        .and_then(Value::as_object)
+        .map(|entries| {
+            entries
+                .iter()
+                .map(|(symbol, value)| (symbol.clone(), crate::json::number_or_text(value)))
+                .collect::<BTreeMap<String, f64>>()
+        })
+        .filter(|entries| entries.values().all(|value| !value.is_nan()))
+        .ok_or_else(|| {
+            Failure::new(
+                texts::PREVIEW_NEEDS_SETTINGS,
+                Cause::Settings,
+                NextAction::None,
+            )
+        })
+}
+
 /// The pinned settings belong to this loop revision, and a request that fixes a structure fixes the pinned family (B4.2): the
 /// pins are refused for another revision, and for a structure other than their family.
-fn check_pins(loop_definition: &LoopDefinition, request: &TuneRequest) -> Result<(), Failure> {
-    let Some(pins) = &request.pins else {
+fn check_pins(loop_definition: &LoopDefinition, inputs: &TuneInputs<'_>) -> Result<(), Failure> {
+    let Some(pins) = inputs.pins else {
         return Ok(());
     };
     if pins.loop_revision != loop_definition.revision {
@@ -577,7 +665,8 @@ fn check_pins(loop_definition: &LoopDefinition, request: &TuneRequest) -> Result
             NextAction::None,
         ));
     }
-    if request
+    if inputs
+        .request
         .structure
         .is_some_and(|structure| structure != pins.family)
     {
@@ -599,20 +688,23 @@ fn check_pins(loop_definition: &LoopDefinition, request: &TuneRequest) -> Result
 }
 
 /// The entered settings name the loop's settings and lie within their bounds (B4.5): the first that does not is the refusal,
-/// with its own sentence. The presence of the settings is checked by [`check_settings`].
+/// with its own sentence. The presence of the settings is checked by [`check_settings`]. Manual settings take the structure the
+/// request fixes: without one they are refused, as a preview is (B4.2).
 fn check_manual(loop_definition: &LoopDefinition, request: &TuneRequest) -> Result<(), Failure> {
     let Some(settings) = &request.settings else {
         return Ok(());
     };
-    if let Some(sentence) = manual::outside_bounds(loop_definition, settings) {
-        return Err(Failure::new(&sentence, Cause::Settings, NextAction::None));
+    // The refusal names its setting's field, under which the page shows it (B4.5).
+    if let Some((symbol, sentence)) = manual::first_outside_bounds(loop_definition, settings) {
+        return Err(Failure::new(&sentence, Cause::Settings, NextAction::None).with_field(&symbol));
     }
-    // The family the request fixes, by its structure or by its pins, takes only its own settings (the page asks for these alone).
-    let Some(family) = request
-        .structure
-        .or(request.pins.as_ref().map(|pins| pins.family))
-    else {
-        return Ok(());
+    // The structure the request fixes takes only its own settings (the page asks for these alone).
+    let Some(family) = request.structure else {
+        return Err(Failure::new(
+            texts::MANUAL_NEEDS_CONTROLLER,
+            Cause::Settings,
+            NextAction::None,
+        ));
     };
     let symbols = family_setting_symbols(loop_definition, family);
     match settings.keys().find(|symbol| !symbols.contains(*symbol)) {
@@ -665,6 +757,14 @@ fn invalid(reason: &str, cause: Cause) -> Failure {
         NextAction::None,
     )
 }
+
+#[cfg(test)]
+#[path = "tune_request_tests.rs"]
+mod request_tests;
+
+#[cfg(test)]
+#[path = "tune_test_support.rs"]
+mod test_support;
 
 #[cfg(test)]
 #[path = "tune_tests.rs"]

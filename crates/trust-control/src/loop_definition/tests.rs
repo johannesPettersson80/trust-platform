@@ -9,7 +9,7 @@ pub(super) fn decode(value: &Value) -> Result<LoopDefinition, LoopRejection> {
     LoopDefinition::decode(&value.to_string())
 }
 
-fn scope(value: &Value) -> LoopScope {
+pub(super) fn scope(value: &Value) -> LoopScope {
     LoopScope {
         project_id: value["projectId"].as_str().unwrap_or_default().into(),
         runtime_id: value["runtimeId"].as_str().unwrap_or_default().into(),
@@ -483,6 +483,23 @@ fn a_bit_address_overlaps_only_its_byte_and_a_bit_number_on_a_wide_address_is_ig
         None,
         "an address past the last bit is refused, never wrapped"
     );
+    // The page reads a byte offset as a safe integer: 2^53 - 1 is the last offset it accepts (`addressRange`).
+    assert!(parse_address("%IB9007199254740991").is_some());
+    assert_eq!(parse_address("%IB9007199254740992"), None);
+}
+
+#[test]
+fn a_parameter_label_counts_utf16_units_and_refuses_only_characters_below_a_space() {
+    let mut value = complete_loop();
+    // A wrench is two UTF-16 units: 512 of them fill the page's 1024, and 513 do not fit.
+    value["parameterBinding"]["task_name"] = json!("\u{1F527}".repeat(512));
+    assert!(LoopDefinition::decode(&value.to_string()).is_ok());
+    value["parameterBinding"]["task_name"] = json!("\u{1F527}".repeat(513));
+    assert!(LoopDefinition::decode(&value.to_string()).is_err());
+    value["parameterBinding"]["task_name"] = json!("Main\u{1}Task");
+    assert!(LoopDefinition::decode(&value.to_string()).is_err());
+    value["parameterBinding"]["task_name"] = json!("Main\u{7f}Task");
+    assert!(LoopDefinition::decode(&value.to_string()).is_ok());
 }
 
 #[test]
@@ -614,178 +631,28 @@ fn a_control_pid_initialization_binds_its_seven_states_to_their_operating_point_
 }
 
 #[test]
-fn the_rust_engine_refuses_a_parked_feature_and_a_pid_loop_that_lost_its_law() {
-    // A top-level cascade is the two-loop form, which the Rust engine does not run yet (checklist V7). A PID group is served now.
-    let cascaded = with(complete_loop(), &["cascade"], json!({}));
-    let failure = decode(&cascaded)
-        .expect("decoded")
-        .rust_engine_support()
-        .expect_err("refused");
-    assert!(failure.message.contains("a cascade"), "{}", failure.message);
-    // A loop the project does not design and that has no law is a loop setup to repair, not a C12 loop (specification 35, C12).
-    let mut lawless = complete_loop();
-    lawless["controller"]
-        .as_object_mut()
-        .expect("controller")
-        .remove("law");
-    let failure = decode(&lawless)
-        .expect("decoded")
-        .rust_engine_support()
-        .expect_err("refused");
-    assert_eq!(
-        (failure.cause, failure.next_action),
-        (Cause::Implementation, NextAction::OpenLoopSetup),
-        "{failure:?}"
+fn a_control_pid_application_state_is_a_declared_state_the_page_accepts() {
+    // The application states are declared states too (`decodeControllerInitialization`): a blank unit, or a BOOL outside 0..1, is refused.
+    let with_application = |unit: &str, maximum: f64| {
+        with(
+            complete_loop(),
+            &["controller", "pidInitialization"],
+            json!({
+                "kind": "control-pid-v1", "maximumSnapshotAgeMs": 100, "states": library_states("%", "%"),
+                "applicationStates": [{ "symbol": "Main.Initialized", "iec_type": "BOOL", "unit": unit,
+                    "minimum": 0, "maximum": maximum, "initial": 1, "postScan": "unchanged" }]
+            }),
+        )
+    };
+    assert_eq!(validate(&with_application("1", 1.0)), Ok(()));
+    assert!(
+        validate(&with_application("", 1.0)).is_err(),
+        "a state needs a unit"
     );
     assert!(
-        failure.message.contains("no controller law"),
-        "{}",
-        failure.message
+        validate(&with_application("1", 2.0)).is_err(),
+        "a BOOL state is 0..1"
     );
-}
-
-#[test]
-fn the_rust_engine_runs_an_observation_loop_without_a_law_and_its_law_stages_refuse_it() {
-    // C12: the project designs the controller and binds no law. The engine runs the loop; Tune, Validate and Apply refuse it.
-    let mut observed = complete_loop();
-    observed["controller"]
-        .as_object_mut()
-        .expect("controller")
-        .remove("law");
-    observed["controller"]["design"] = json!("project");
-    observed["experiment"] = json!({
-        "execution": "project-scripted", "kind": "observation", "amplitude": 0,
-        "durationSeconds": 120, "seed": 1
-    });
-    let observed = decode(&observed).expect("decoded");
-    observed
-        .rust_engine_support()
-        .expect("the engine runs a loop without a controller law (C12)");
-    let refusal = observed
-        .require_controller_law()
-        .expect_err("nothing to tune");
-    assert_eq!(refusal.message, NO_CONTROLLER_LAW, "{refusal:?}");
-    assert_eq!(
-        (refusal.cause, refusal.next_action),
-        (Cause::Implementation, NextAction::None),
-        "{refusal:?}"
-    );
-    let with_law = decode(&complete_loop()).expect("decoded");
-    assert!(
-        with_law.require_controller_law().is_ok(),
-        "the PID loop has its law"
-    );
-}
-
-#[test]
-fn the_engine_runs_an_observation_lesson_and_an_open_loop_lesson_of_the_examples() {
-    // Specification 35, C12: heater lesson 04 is an observation loop (project-scripted, no law) and process-response lesson 13 is
-    // an open-loop experiment loop (`topology: "open-loop"`, schema 2, no law). Both are the examples the course opens (checklist
-    // V7, wave 1). The cold-storage lessons, which are schema 1, are tested by
-    // `the_cold_storage_lessons_of_schema_one_open_as_observation_loops`.
-    for text in [
-        include_str!(
-            "../../../../examples/control/01-feedback-foundations-and-temperature-control/04-water-heater-p/control-loop.json"
-        ),
-        include_str!(
-            "../../../../examples/control/01-feedback-foundations-and-temperature-control/13-process-response-classes/control-loop.json"
-        ),
-    ] {
-        let value: Value = serde_json::from_str(text).expect("json");
-        let loop_definition =
-            LoopDefinition::decode(text).unwrap_or_else(|error| panic!("{}: {error}", value["id"]));
-        loop_definition
-            .validate(&scope(&value))
-            .unwrap_or_else(|error| panic!("{}: {error}", value["id"]));
-        loop_definition
-            .rust_engine_support()
-            .unwrap_or_else(|error| panic!("{}: {error:?}", value["id"]));
-        assert!(
-            loop_definition.require_controller_law().is_err(),
-            "{}: no controller law, so Tune, Validate and Apply refuse it",
-            value["id"]
-        );
-    }
-}
-
-#[test]
-fn the_cold_storage_lessons_of_schema_one_open_as_observation_loops() {
-    // Specification 35, B1 and C12: lessons 01, 02, 03 and 80 are version 1 files, each a project-scripted observation with no law.
-    // The engine reads them by the version 1 rules, so they open and Identify serves them; Tune, Validate and Apply do not apply.
-    use crate::stages::{stage_availability, Stage, StageEvidence, StageStatus};
-
-    for text in [
-        include_str!(
-            "../../../../examples/control/01-feedback-foundations-and-temperature-control/01-cold-storage-loop-anatomy/control-loop.json"
-        ),
-        include_str!(
-            "../../../../examples/control/01-feedback-foundations-and-temperature-control/02-cold-storage-on-off/control-loop.json"
-        ),
-        include_str!(
-            "../../../../examples/control/01-feedback-foundations-and-temperature-control/03-cold-storage-hysteresis-dwell/control-loop.json"
-        ),
-        include_str!(
-            "../../../../examples/control/14-integrated-capstones/80-cold-storage/control-loop.json"
-        ),
-    ] {
-        let value: Value = serde_json::from_str(text).expect("json");
-        let id = &value["id"];
-        assert_eq!(value["schemaVersion"], 1, "{id} is a version 1 file");
-        let loop_definition =
-            LoopDefinition::decode(text).unwrap_or_else(|error| panic!("{id}: {error}"));
-        loop_definition
-            .validate(&scope(&value))
-            .unwrap_or_else(|error| panic!("{id}: {error}"));
-        loop_definition
-            .rust_engine_support()
-            .unwrap_or_else(|error| panic!("{id}: {error:?}"));
-        assert!(loop_definition.is_observation_or_open_loop(), "{id}");
-        let stages = stage_availability(&StageEvidence {
-            loop_bound: true,
-            controller_stages_apply: !loop_definition.is_observation_or_open_loop(),
-            ..StageEvidence::default()
-        });
-        let status = |wanted: Stage| {
-            stages
-                .iter()
-                .find(|stage| stage.stage == wanted)
-                .map(|stage| stage.status)
-        };
-        assert_eq!(
-            status(Stage::Identify),
-            Some(StageStatus::NeedsData),
-            "{id}: Identify is served"
-        );
-        for stage in [Stage::Tune, Stage::Validate, Stage::Apply] {
-            assert_eq!(
-                status(stage),
-                Some(StageStatus::NotApplicable),
-                "{id}: {stage:?} does not apply"
-            );
-        }
-        let refusal = loop_definition
-            .require_controller_law()
-            .expect_err("no controller law");
-        assert_eq!(refusal.message, NO_CONTROLLER_LAW, "{id}");
-    }
-}
-
-#[test]
-fn the_reference_examples_loops_decode_validate_and_run_on_the_rust_engine() {
-    for text in [
-        include_str!("../../../../examples/room_heating/control-loops/tank-temperature.json"),
-        include_str!("../../../../examples/control-pid-commissioning/control-loop.json"),
-    ] {
-        let value: Value = serde_json::from_str(text).expect("json");
-        let loop_definition =
-            LoopDefinition::decode(text).unwrap_or_else(|error| panic!("{}: {error}", value["id"]));
-        loop_definition
-            .validate(&scope(&value))
-            .unwrap_or_else(|error| panic!("{}: {error}", value["id"]));
-        loop_definition
-            .rust_engine_support()
-            .unwrap_or_else(|error| panic!("{}: {error}", value["id"]));
-    }
 }
 
 /// Every `control-loop.json` and `control-loops/*.json` below `folder`.
@@ -872,21 +739,98 @@ fn every_shipped_loop_runs_on_the_rust_engine_or_is_parked_never_refused_otherwi
     assert!(problems.is_empty(), "{problems:#?}");
 }
 
-/// A loop declares one controller structure: a controller law beside state feedback is refused by its sentence.
+/// The complete loop whose PID law also declares the derivative setpoint weight γ as the record field
+/// `Main.Parameters.DerivativeSetpointWeight` (unit `1`, from 0 to 1): the fourth parameter of its binding.
+fn loop_with_derivative_weight() -> Value {
+    let mut value = complete_loop();
+    value["controller"]["law"]["derivativeSetpointWeightSymbol"] =
+        json!("Main.Parameters.DerivativeSetpointWeight");
+    value["parameterBinding"]["parameters"]
+        .as_array_mut()
+        .expect("the parameters of the binding")
+        .push(json!({
+            "symbol": "Main.Parameters.DerivativeSetpointWeight", "iec_type": "LREAL", "unit": "1",
+            "convention": "derivative setpoint weight", "minimum": 0, "maximum": 1
+        }));
+    value
+}
+
+/// A named change of the derivative weight's parameter that the loop contract refuses.
+type WeightChange = (&'static str, fn(&mut Value));
+
 #[test]
-fn a_loop_with_two_controller_structures_is_refused() {
-    // The complete loop has a controller law; state feedback beside it is a second structure.
-    let mut mixed = decode(&complete_loop()).expect("decoded");
-    mixed.controller.state_feedback = Some(json!({}));
-    let refusal = mixed
-        .rust_engine_support()
-        .expect_err("a law beside state feedback is refused");
+fn the_derivative_setpoint_weight_is_a_declared_dimensionless_record_field_between_0_and_1() {
+    // control-studio-derivative-weight: "declares the derivative setpoint weight as a Control.PID record field between 0 and 1"
+    // (specification 35, C0 "Setpoint weight β": one unique bound field, dimensionless, within 0 to 1).
+    let accepted = decode(&loop_with_derivative_weight()).expect("a declared weight in [0, 1]");
+    let Some(ControllerLaw::Pid(law)) = &accepted.controller.law else {
+        panic!("the loop declares a PID law");
+    };
+    assert_eq!(
+        law.derivative_setpoint_weight_symbol.as_deref(),
+        Some("Main.Parameters.DerivativeSetpointWeight")
+    );
+    let refused: [WeightChange; 4] = [
+        ("a weight is dimensionless", |value: &mut Value| {
+            value["parameterBinding"]["parameters"][3]["unit"] = json!("%");
+        }),
+        ("a weight is at most 1", |value: &mut Value| {
+            value["parameterBinding"]["parameters"][3]["maximum"] = json!(2);
+        }),
+        ("a weight is at least 0", |value: &mut Value| {
+            value["parameterBinding"]["parameters"][3]["minimum"] = json!(-1);
+        }),
+        ("the weight is a declared parameter", |value: &mut Value| {
+            value["controller"]["law"]["derivativeSetpointWeightSymbol"] =
+                json!("Main.Parameters.Other");
+        }),
+    ];
+    for (rule, change) in refused {
+        let mut value = loop_with_derivative_weight();
+        change(&mut value);
+        assert!(
+            matches!(decode(&value), Err(LoopRejection::Malformed(_))),
+            "{rule}"
+        );
+    }
+}
+
+#[test]
+fn a_signal_may_have_a_symbol_and_no_address_but_an_address_it_has_is_a_direct_address() {
+    // control-studio-loop-monitor: "accepts a monitored signal that has a symbol and no address" (§17.1: a program variable without an
+    // address). The monitor then shows the signal by its symbol (`loop_monitor_tests`); an address that a signal does give is a direct
+    // address, so an empty one is refused when the loop loads.
+    let mut symbol_only = complete_loop();
+    symbol_only["signals"]["processVariable"]
+        .as_object_mut()
+        .expect("the measurement")
+        .remove("address");
+    let accepted = decode(&symbol_only).expect("a signal with a symbol and no address");
+    assert_eq!(accepted.signals.process_variable.address, None);
+    let empty = with(
+        complete_loop(),
+        &["signals", "processVariable", "address"],
+        json!(""),
+    );
     assert!(
-        refusal
-            .detail
-            .as_deref()
-            .unwrap_or(refusal.message.as_str())
-            .contains("more than one controller structure"),
-        "{refusal:?}"
+        matches!(decode(&empty), Err(LoopRejection::Malformed(_))),
+        "an empty address is no direct address"
+    );
+}
+
+#[test]
+fn the_declared_validation_scenarios_are_declared_as_a_list_of_objects() {
+    // The loop file holds the scenarios as a list; the generated type of the field is a list of objects, where the free JSON value was
+    // generated as one object (the page narrowed it with `Array.isArray`).
+    let schema = schemars::SchemaGenerator::default().into_root_schema_for::<LoopDefinition>();
+    let schema = serde_json::to_value(&schema).expect("the schema is JSON");
+    let declared = &schema["properties"]["verificationScenarios"];
+    assert_eq!(declared["type"], json!("array"));
+    assert_eq!(declared["items"], json!({ "type": "object" }));
+    assert!(
+        !schema["required"]
+            .as_array()
+            .is_some_and(|required| required.contains(&json!("verificationScenarios"))),
+        "a loop file that declares no scenarios is complete"
     );
 }

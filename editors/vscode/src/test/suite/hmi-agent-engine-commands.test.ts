@@ -62,7 +62,8 @@ const PICTURE = [
 
 const PROJECT_FILES: Record<string, string> = {
   "src/main.st": PROGRAM,
-  "hmi/screen.toml": "format = 1\nsize = [1280, 720]\ntheme = \"dark\"\nsymbols = \"flat\"\n\n[navigation]\nstyle = \"none\"\n",
+  "hmi/screen.toml":
+    'format = 1\nsize = [1280, 720]\ntheme = "dark"\nsymbols = "flat"\n\n[navigation]\nstyle = "none"\n',
   "hmi/pages/overview.toml": OVERVIEW,
 };
 
@@ -116,9 +117,7 @@ async function copiedDraft(
   file: string,
   source = "hmi/pages/overview.toml",
 ): Promise<{ draftId: string; revision: string }> {
-  const composed = answered(
-    await engine.compose(project, envelope({ key, file, sourceFile: source })),
-  );
+  const composed = answered(await engine.compose(project, envelope({ key, file, sourceFile: source })));
   const draftId = String(composed.data.draftId);
   return { draftId, revision: String(composed.data.revision) };
 }
@@ -175,15 +174,21 @@ suite("HMI agent: the forwarded authoring commands", function () {
     const validated = answered(await engine.validate(project, envelope({ draftId, revision: moved })));
     assert.strictEqual(typeof validated.data.engineeringValid, "boolean", JSON.stringify(validated.data));
 
-    const prepared = answered(await engine.review(project, "prepare", envelope({ draftId, revision: moved, action: "review" })));
+    const prepared = answered(
+      await engine.review(project, "prepare", envelope({ draftId, revision: moved, action: "review" })),
+    );
     assert.strictEqual((prepared.data.pages as unknown[]).length, 1, JSON.stringify(prepared.data));
 
-    const checked = answered(await engine.checkInput(project, "hmi_render_draft", envelope({ draftId, revision: moved })));
+    const checked = answered(
+      await engine.checkInput(project, "hmi_render_draft", envelope({ draftId, revision: moved })),
+    );
     assert.strictEqual(checked.data.valid, true, JSON.stringify(checked.data));
 
     answered(await engine.drafts(project, "cleanup"));
 
-    const discarded = answered(await engine.discard(project, envelope({ draftId, revision: moved, action: "discard" })));
+    const discarded = answered(
+      await engine.discard(project, envelope({ draftId, revision: moved, action: "discard" })),
+    );
     assert.strictEqual(discarded.data.discarded, true, JSON.stringify(discarded.data));
   });
 
@@ -250,7 +255,12 @@ suite("HMI agent: the forwarded authoring commands", function () {
 
   test("a review whose project image is missing is refused and leaves the draft unreviewed", async () => {
     const { project } = fixture({ ...PROJECT_FILES, "hmi/pages/picture.toml": PICTURE });
-    const { draftId, revision } = await copiedDraft(project, "picture-copy", "hmi/pages/picture-copy.toml", "hmi/pages/picture.toml");
+    const { draftId, revision } = await copiedDraft(
+      project,
+      "picture-copy",
+      "hmi/pages/picture-copy.toml",
+      "hmi/pages/picture.toml",
+    );
 
     await assert.rejects(
       reviewDraft(
@@ -288,7 +298,8 @@ suite("HMI agent: the forwarded authoring commands", function () {
   test("a project whose program does not compile still lists its pages and names the failure", async () => {
     const { project } = fixture({
       "src/main.st": "PROGRAM Broken\nVAR\n    x : ;\nEND_PROGRAM\n",
-      "hmi/screen.toml": "format = 1\nsize = [1280, 720]\ntheme = \"dark\"\nsymbols = \"flat\"\n\n[navigation]\nstyle = \"none\"\n",
+      "hmi/screen.toml":
+        'format = 1\nsize = [1280, 720]\ntheme = "dark"\nsymbols = "flat"\n\n[navigation]\nstyle = "none"\n',
       "hmi/pages/overview.toml": OVERVIEW,
     });
     const context = answered(await engine.context(project, envelope({ sections: ["pages", "variables"] })));

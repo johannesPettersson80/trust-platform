@@ -33,6 +33,7 @@ use crate::tuning::project_candidate::{feedforward_candidate, served_feedforward
 use crate::tuning::project_seed::{FeedforwardPidSeed, FeedforwardTerms};
 use crate::tuning::requirements::TuningRequirements;
 use crate::tuning::settings_pins::mapped_parameters;
+use crate::tuning::state_controller::coefficients::ratio_unit;
 use crate::tuning::structure::Structure;
 use crate::tuning::structures::feedforward::{
     design_feedforward, reduce_paths, FeedforwardChannels, FeedforwardDesign,
@@ -98,7 +99,7 @@ pub(super) fn run(
         &ReducedPathSupport,
     )
     .map_err(refused(Cause::TaskInfeasible, NextAction::OpenRequirements))?;
-    let answer_section = feedforward_answer(&design);
+    let answer_section = feedforward_answer(&design, &current.model, &shape.channels);
     let (designed, candidate) = design_of(seed, &design, &requirements);
 
     let (stored, stored_project) = candidate.clone().into_parts();
@@ -334,12 +335,39 @@ fn design_of(
     (designed, candidate)
 }
 
-/// The answer's feedforward section (C8): both paths, the three values, the disturbance step and the two largest deviations.
-fn feedforward_answer(design: &FeedforwardDesign) -> FeedforwardAnswer {
+/// The answer's feedforward section (C8): both paths, the three values, the disturbance step and the two largest deviations, each gain
+/// with its unit. The units are the model's channels': a gain is the unit of what it gives per the unit of what it takes (`ratio_unit`),
+/// so the page composes none.
+fn feedforward_answer(
+    design: &FeedforwardDesign,
+    model: &GeneralModel,
+    channels: &FeedforwardChannels,
+) -> FeedforwardAnswer {
+    let identity = model.identity();
+    let input_unit = |index: usize| {
+        identity
+            .inputs
+            .get(index)
+            .map(|channel| channel.unit.as_str())
+    };
+    let controller = input_unit(channels.controller_input);
+    let disturbance = input_unit(channels.disturbance_input);
+    let measurement = identity
+        .outputs
+        .get(channels.measurement)
+        .map(|channel| channel.unit.as_str());
+    let per = |numerator: Option<&str>, denominator: Option<&str>| {
+        numerator
+            .zip(denominator)
+            .map(|(numerator, denominator)| ratio_unit(numerator, denominator))
+    };
     FeedforwardAnswer {
-        output_path: path_answer(&design.output_path),
-        disturbance_path: path_answer(&design.disturbance_path),
+        output_path: path_answer(&design.output_path, per(measurement, controller)),
+        disturbance_path: path_answer(&design.disturbance_path, per(measurement, disturbance)),
         gain: design.gain,
+        gain_unit: per(controller, disturbance),
+        disturbance_unit: disturbance.map(str::to_owned),
+        measurement_unit: measurement.map(str::to_owned),
         lead_seconds: design.lead_seconds,
         lag_seconds: design.lag_seconds,
         disturbance_step: design.disturbance_step,
@@ -348,10 +376,11 @@ fn feedforward_answer(design: &FeedforwardDesign) -> FeedforwardAnswer {
     }
 }
 
-/// A reduced path as the answer shows it.
-fn path_answer(path: &TwoPointReduction) -> FeedforwardPath {
+/// A reduced path as the answer shows it, with the unit of its gain.
+fn path_answer(path: &TwoPointReduction, gain_unit: Option<String>) -> FeedforwardPath {
     FeedforwardPath {
         gain: path.gain,
+        gain_unit,
         time_constant_seconds: path.time_constant_seconds,
         delay_seconds: path.delay_seconds,
     }

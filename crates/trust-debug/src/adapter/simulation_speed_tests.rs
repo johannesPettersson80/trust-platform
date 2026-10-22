@@ -45,7 +45,7 @@ const SCALE_TEN: &str = "[simulation]\nenabled = true\ntime_scale = 10\n";
 const SCALE_TEN_PLANTS_DISABLED: &str = "[simulation]\nenabled = false\ntime_scale = 10\n";
 const TEN_TIMES_WARNING: &str = "Simulation mode active (time scale x10). Not for live hardware.";
 
-fn source_options(root: &Path) -> SourceOptionsUpdate {
+pub(super) fn source_options(root: &Path) -> SourceOptionsUpdate {
     SourceOptionsUpdate {
         root: Some(root.to_string_lossy().into_owned()),
         include_globs: Some(vec!["**/*.st".to_string()]),
@@ -78,7 +78,12 @@ fn loaded_session(
 }
 
 /// Starts the control server of `adapter` at `addr`, with `auth` as its token.
-fn start_control_server(adapter: &mut DebugAdapter, root: &Path, addr: SocketAddr, auth: &str) {
+pub(super) fn start_control_server(
+    adapter: &mut DebugAdapter,
+    root: &Path,
+    addr: SocketAddr,
+    auth: &str,
+) {
     adapter.control_server = Some(
         DebugControlServer::start(
             adapter.session(),
@@ -91,7 +96,7 @@ fn start_control_server(adapter: &mut DebugAdapter, root: &Path, addr: SocketAdd
 }
 
 /// The result of the control server's `status` request.
-fn control_status(addr: SocketAddr, auth: &str) -> serde_json::Value {
+pub(super) fn control_status(addr: SocketAddr, auth: &str) -> serde_json::Value {
     let response = send_control_request(addr, auth, json!({ "id": 1, "type": "status" }));
     assert_control_ok(&response, "status");
     control_result(&response).clone()
@@ -276,7 +281,7 @@ fn a_reload_that_attaches_a_simulated_driver_updates_what_control_status_reports
         .session_mut()
         .reload_program(Some(main.to_string_lossy().as_ref()))
         .unwrap();
-    adapter.sync_control_simulation();
+    adapter.sync_control_program();
 
     let status = control_status(addr, auth);
     assert_eq!(status["simulation_enabled"], json!(true));

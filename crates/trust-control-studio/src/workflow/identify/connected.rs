@@ -10,11 +10,13 @@ use trust_control::failure::Failure;
 use trust_control::identification::connected_run::StartRead;
 use trust_control::identification::reconcile::StatusRead;
 use trust_control::loop_definition::LoopDefinition;
+use trust_control::recording::context::PlantContext;
 use trust_control::recording::evidence::RecordingEvidence;
 use trust_control::recording::RecordedRun;
 use trust_control::runtime::RuntimeConnection;
 
 use super::{IdentifyRecording, IdentifyRuntime};
+use crate::runtime_client::project_experiment_hold::applied_project_hold_over;
 use crate::runtime_client::runtime_recording::{
     PendingReleases, RecordingOwnerPersistence, RecordingStartError, RecordingStartPlan,
     RuntimeRecordingSession,
@@ -91,6 +93,27 @@ impl IdentifyRuntime for ConnectedRuntime<'_> {
 
     fn io_list(&self) -> Result<Value, Failure> {
         RuntimeClient::read_io_list(self.connection)
+    }
+
+    /// The value the runtime applies to the loop's hold parameter, read from its parameter record over a connection of its own (E7.2).
+    /// A loop that declares no hold parameter reads nothing (C12, Hold parameter).
+    fn applied_hold_seconds(
+        &self,
+        loop_definition: &LoopDefinition,
+    ) -> Result<Option<f64>, Failure> {
+        applied_project_hold_over(loop_definition, Some(self.connection))
+    }
+
+    /// The plant the loop is tuned against, as the runtime proves it runs it: the project's saved plant configuration (`plant.read`)
+    /// and the runtime's active status (`plant.status`; specification 34, §20.2 to §20.4). A runtime that cannot be read for either
+    /// states no plant, and the run goes on without one (B10.2).
+    fn plant_context(&self, loop_definition: &LoopDefinition) -> Option<PlantContext> {
+        loop_definition.plant_id.as_ref()?;
+        let mut client = RuntimeClient::connect(self.connection).ok()?;
+        let read = client.plant_read().ok()?;
+        let project_id = read.get("project_id")?.as_str()?;
+        let status = client.plant_status(project_id).ok()?;
+        PlantContext::of(loop_definition, &read, &status)
     }
 }
 

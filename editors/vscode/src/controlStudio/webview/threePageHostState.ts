@@ -1,13 +1,11 @@
-import type { GeneralModel } from "../generalModel";
-import { renderIdentifiedModel } from "./threePageModel";
 import { applyStudioTargetLabel } from "./studioTargetLabel";
 import { receiveEngineMessage } from "./engineOpened";
 
 export type StudioPage = "model" | "tune" | "verify";
 /**
  * Tells the chart and the Tune and Requirements editors what a stage brought: the `engineer` and `flow` stages, and a manual
- * preview's answer (specification 35, B9.6). The TypeScript route and the engine route both call it, so the same answers reach
- * the same listeners.
+ * preview's answer (specification 35, B9.6). Every answer of the engine reaches the page through it, so each listener hears the same
+ * answers.
  */
 export function dispatchEngineerEvent(stage: string, payload: Record<string, unknown>): void {
   const preview = stage === "tune" && payload.status === "preview";
@@ -15,10 +13,8 @@ export function dispatchEngineerEvent(stage: string, payload: Record<string, unk
 }
 export function bindThreePageHostState(root: HTMLElement, receive: (stage: string, payload: Record<string, unknown>) => void,
   select: (page: StudioPage, persist: boolean) => void,
-  receiveEnvelope?: (message: Record<string, unknown>) => void,
-  /** A model reached the page; the operation gate decides whether Tune may run. */
-  modelArrived?: () => void): void {
-  /** The stage router, then the engineer event: the engine route's answers reach the page the same way the TypeScript route's do. */
+  receiveEnvelope?: (message: Record<string, unknown>) => void): void {
+  /** The stage router, then the engineer event: the engine's answers reach the page's listeners in that order. */
   const receiveEngine = (stage: string, payload: Record<string, unknown>): void => {
     receive(stage, payload);
     dispatchEngineerEvent(stage, payload);
@@ -36,42 +32,9 @@ export function bindThreePageHostState(root: HTMLElement, receive: (stage: strin
       receiveEngineMessage(root, message, { select, receive: receiveEngine });
       return;
     }
-    if (message.kind === "control-studio.navigation.restore") {
-      if (record(message.view)) {
-        const view = message.view;
-        const method = root.querySelector<HTMLSelectElement>("[data-engineer-acquisition-method]");
-        if (method && Array.from(method.options).some(option => option.value === view.acquisitionMethod)) method.value = String(view.acquisitionMethod);
-        const signals = root.querySelector<HTMLSelectElement>("[data-three-page-experiment-signals]");
-        if (signals && Array.isArray(view.experimentSignalIds)) {
-          for (const option of Array.from(signals.options)) {
-            option.selected = view.experimentSignalIds.includes(option.value);
-            option.toggleAttribute("selected", option.selected);
-          }
-          if (method?.value === "project") window.dispatchEvent(new CustomEvent("trust-control-studio-experiment-signals", {
-            detail: { signalIds: Array.from(signals.selectedOptions, option => option.value) } }));
-        }
-      }
-      receiveEnvelope?.(message);
-      if (["model", "tune", "verify", "apply"].includes(String(message.stage))) select(message.stage === "apply" ? "verify" : message.stage as StudioPage, false);
-      root.dataset.hostReady = "true";
-      return;
-    }
     receiveEnvelope?.(message);
     if (message.kind !== "control-studio.engineering.result" || !record(message.payload)) return;
     const payload = message.payload;
-    if (record(payload.identificationPreview)) {
-      const preview = payload.identificationPreview;
-      root.querySelector<HTMLElement>("[data-studio-model-type]")!.textContent = String(preview.name ?? "Plant model");
-      root.querySelector<HTMLElement>("[data-studio-model-equation]")!.textContent = String(preview.equation ?? "");
-      root.querySelector<HTMLElement>("[data-studio-model-result]")!.hidden = false;
-    }
-    if (record(payload.model) && ["transfer-function", "continuous-state-space", "discrete-state-space"].includes(String(payload.model.kind))) {
-      // Tune is enabled by the page's operation gate when the model reaches it, never directly here.
-      renderIdentifiedModel(root, payload.model as unknown as GeneralModel);
-      modelArrived?.();
-      const notice = root.querySelector<HTMLElement>('[data-studio-message="tune"]')!;
-      notice.textContent = ""; notice.hidden = true;
-    }
     receive(String(message.stage), payload);
     dispatchEngineerEvent(String(message.stage), payload);
   });

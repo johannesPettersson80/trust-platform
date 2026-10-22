@@ -8,6 +8,7 @@ use crate::identification::identify_result::tests::plant_loop;
 use crate::loop_definition::{ControllerLaw, ModeBinding, ParameterBinding, PidLaw, RealType};
 use crate::messages::TuneRequest;
 use crate::tuning::candidate::{CandidateSource, ControlPidCandidate, LawCandidate};
+use crate::tuning::project_seed::{ParallelPidSeed, TrajectoryFeedforwardSeed};
 use crate::tuning::settings_pins::{family_setting_symbols, ControllerSettingsPins};
 
 /// The `Control.PID` record of a manual candidate: these tests hold a `Control.PID` loop, so the candidate is a record.
@@ -76,6 +77,58 @@ fn entry(pairs: &[(&str, f64)]) -> BTreeMap<String, f64> {
         .collect()
 }
 
+/// The trajectory-following law's seed over `Main.Kp`, `Main.Ki`, `Main.Kd`, `Main.Kv` and `Main.Ka` (C11).
+fn trajectory_seed() -> TrajectoryFeedforwardSeed {
+    TrajectoryFeedforwardSeed {
+        pid: ParallelPidSeed {
+            family: Structure::PID,
+            proportional_symbol: "Main.Kp".to_owned(),
+            integral_symbol: Some("Main.Ki".to_owned()),
+            derivative_symbol: Some("Main.Kd".to_owned()),
+        },
+        rate_symbol: "Main.Kv".to_owned(),
+        acceleration_symbol: "Main.Ka".to_owned(),
+    }
+}
+
+#[test]
+fn a_trajectory_manual_entry_keeps_its_rate_and_acceleration_gains_and_refuses_without_them() {
+    let seed = trajectory_seed();
+    let gains = ParallelGains {
+        proportional_gain: 2.0,
+        integral_gain: 1.0,
+        derivative_gain: 0.0,
+    };
+    let entered = entry(&[
+        ("Main.Kp", 2.0),
+        ("Main.Ki", 1.0),
+        ("Main.Kd", 0.0),
+        ("Main.Kv", 0.3),
+        ("Main.Ka", 0.1),
+    ]);
+    let (rate, acceleration) =
+        trajectory_feedforward(&seed, &entered).expect("both feedforward gains are entered");
+    let candidate =
+        trajectory_candidate(&seed, CandidateSource::Manual, gains, (rate, acceleration));
+    assert!(candidate
+        .values
+        .get("Main.Kv")
+        .is_some_and(|value| (value - 0.3).abs() < f64::EPSILON));
+    assert!(candidate
+        .values
+        .get("Main.Ka")
+        .is_some_and(|value| (value - 0.1).abs() < f64::EPSILON));
+    let without = entry(&[
+        ("Main.Kp", 2.0),
+        ("Main.Ki", 1.0),
+        ("Main.Kd", 0.0),
+        ("Main.Kv", 0.3),
+    ]);
+    let failure =
+        trajectory_feedforward(&seed, &without).expect_err("the acceleration gain is required");
+    assert_eq!(failure.message, texts::REQUIRED_SETTING_MISSING);
+}
+
 #[test]
 fn a_pi_entry_on_a_bound_loop_is_an_unapplied_candidate_from_the_manual_source() {
     let loop_definition = bound_pi_loop(false);
@@ -113,6 +166,25 @@ fn an_entry_outside_its_bounds_or_for_an_unbound_symbol_gives_its_sentence() {
             &entry(&[("Main.Kp", 1.0), ("Main.Ki", 0.5)])
         ),
         None
+    );
+}
+
+#[test]
+fn a_refused_setting_names_its_own_field_and_an_entry_no_number_reads_is_refused_so() {
+    let loop_definition = bound_pi_loop(false);
+    assert_eq!(
+        first_outside_bounds(&loop_definition, &entry(&[("Main.Kp", 11.0)])),
+        Some((
+            "Main.Kp".to_owned(),
+            "Main.Kp must be between 0 and 10 1; 11 is outside that range.".to_owned()
+        ))
+    );
+    let unreadable = first_outside_bounds(&loop_definition, &entry(&[("Main.Kp", f64::NAN)]))
+        .expect("an entry that no number reads is refused");
+    assert_eq!(unreadable.0, "Main.Kp");
+    assert_eq!(
+        unreadable.1,
+        "Main.Kp must be between 0 and 10 1; the entry is not a number."
     );
 }
 
@@ -204,6 +276,7 @@ fn without_a_fixed_structure_the_entered_gains_give_it_and_the_method_must_be_ma
     let proportional_only = candidate_of(
         &loop_definition,
         &request(entry(&[("Main.Kp", 1.2)]), Some(TuneMethod::Manual)),
+        None,
     )
     .expect("a proportional entry is a candidate")
     .expect("the manual method gives a candidate");
@@ -214,13 +287,14 @@ fn without_a_fixed_structure_the_entered_gains_give_it_and_the_method_must_be_ma
             entry(&[("Main.Kp", 1.2), ("Main.Ki", 0.4)]),
             Some(TuneMethod::Manual),
         ),
+        None,
     )
     .expect("a PI entry is a candidate")
     .expect("the manual method gives a candidate");
     assert_eq!(with_integral.structure(), Some(Structure::PI));
     let formula = request(entry(&[("Main.Kp", 1.2)]), Some(TuneMethod::Simc));
     assert_eq!(
-        candidate_of(&loop_definition, &formula).expect("a formula is not a candidate"),
+        candidate_of(&loop_definition, &formula, None).expect("a formula is not a candidate"),
         None
     );
 }
@@ -269,4 +343,99 @@ fn a_proportional_law_names_its_gain_for_every_family_the_page_shows() {
             vec!["Main.Kp".to_owned()]
         );
     }
+}
+
+/// The loop of [`bound_pi_loop`] whose law also declares the derivative setpoint weight γ as the record field `Main.Gamma`, from 0 to 1.
+fn gamma_loop() -> LoopDefinition {
+    let mut loop_definition = bound_pi_loop(false);
+    let Some(ControllerLaw::Pid(law)) = loop_definition.controller.law.as_mut() else {
+        panic!("the loop has a PID law");
+    };
+    law.derivative_setpoint_weight_symbol = Some("Main.Gamma".to_owned());
+    loop_definition
+        .parameter_binding
+        .as_mut()
+        .expect("the loop binds its parameters")
+        .parameters
+        .push(bound("Main.Gamma", RealType::Lreal, 1.0));
+    loop_definition
+}
+
+#[test]
+fn the_entered_derivative_weight_reaches_the_record_and_a_calculated_candidate_states_gamma_zero() {
+    // control-studio-derivative-weight: "writes the entered derivative weight and a calculated candidate differentiates the measurement"
+    // (specification 35, C0 "Setpoint weight": manual settings require the weight beside the gains, and a calculated candidate writes the
+    // default weight, γ = 0, so that the derivative acts on the measurement).
+    use crate::study::tune::record::shaping_of_candidate;
+    let loop_definition = gamma_loop();
+    let entered = entry(&[("Main.Kp", 6.0), ("Main.Kd", 3.0), ("Main.Gamma", 1.0)]);
+    let candidate = manual_candidate(&loop_definition, Structure::PD, &entered, None)
+        .expect("a complete PD entry");
+    assert!(
+        (pid(&candidate).parameters.derivative_setpoint_weight - 1.0).abs() <= 1e-12,
+        "the record receives the engineer's γ"
+    );
+    assert!(
+        (shaping_of_candidate(&candidate).derivative_setpoint_weight - 1.0).abs() <= 1e-12,
+        "and the prediction uses the same γ"
+    );
+
+    let missing = manual_candidate(
+        &loop_definition,
+        Structure::PD,
+        &entry(&[("Main.Kp", 6.0), ("Main.Kd", 3.0)]),
+        None,
+    )
+    .expect_err("a declared derivative weight is part of the manual PD settings");
+    assert_eq!(missing.message, texts::REQUIRED_SETTING_MISSING);
+
+    let calculated = candidate_record(
+        ParallelGains {
+            proportional_gain: 6.0,
+            integral_gain: 0.0,
+            derivative_gain: 3.0,
+        },
+        CandidateSource::ConstrainedComparison,
+        &LoopLimits::of(&loop_definition),
+        record_shaping(&loop_definition, &BTreeMap::new()),
+        None,
+    )
+    .expect("a valid record");
+    assert!(
+        calculated.parameters.derivative_setpoint_weight.abs() <= 1e-12,
+        "a calculated candidate differentiates the measurement, so its record states γ = 0"
+    );
+}
+
+#[test]
+fn an_entered_gain_is_taken_inside_its_bounds_and_refused_below_them_or_when_no_number_reads() {
+    // control-studio-chart: "keeps exact graphical gain parsing as a pure controller input boundary" (specification 35, B4.5 and C0): with
+    // the bounds 0.01 to 20 the gain 4.25 is taken, 0 is below the minimum, and an entry that no number reads is refused, each with the
+    // bounds in its sentence.
+    let mut loop_definition = bound_pi_loop(false);
+    let proportional = &mut loop_definition
+        .parameter_binding
+        .as_mut()
+        .expect("the loop binds its parameters")
+        .parameters[0];
+    assert_eq!(proportional.symbol, "Main.Kp");
+    proportional.minimum = 0.01;
+    proportional.maximum = 20.0;
+    assert_eq!(
+        first_outside_bounds(&loop_definition, &entry(&[("Main.Kp", 4.25)])),
+        None
+    );
+    assert_eq!(
+        first_outside_bounds(&loop_definition, &entry(&[("Main.Kp", 0.0)])),
+        Some((
+            "Main.Kp".to_owned(),
+            "Main.Kp must be between 0.01 and 20 1; 0 is outside that range.".to_owned()
+        ))
+    );
+    let unreadable = first_outside_bounds(&loop_definition, &entry(&[("Main.Kp", f64::NAN)]))
+        .expect("an entry that no number reads is refused");
+    assert_eq!(
+        unreadable.1,
+        "Main.Kp must be between 0.01 and 20 1; the entry is not a number."
+    );
 }

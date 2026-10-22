@@ -1,11 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
 import * as vscode from "vscode";
-import {
-  createMessageConnection,
-  type MessageConnection,
-  StreamMessageReader,
-  StreamMessageWriter,
-} from "vscode-jsonrpc/node";
+import { createMessageConnection, type MessageConnection, StreamMessageReader, StreamMessageWriter } from "vscode-jsonrpc/node";
 import { getBinaryPath } from "../../binary";
 
 /** Starts allowed within `START_WINDOW_MS`: the first start and three restarts. */
@@ -42,10 +37,6 @@ export function startEngine(options: StartEngineOptions): EngineProcess {
  * engine's standard input, which ends it.
  */
 export class EngineProcess implements vscode.Disposable {
-  private readonly startedEmitter = new vscode.EventEmitter<number>();
-  /** Fires with the start count after each start of the engine, the first one included. */
-  readonly onDidStart = this.startedEmitter.event;
-
   private readonly handlers = new Map<string, Set<NotificationHandler>>();
   /** The methods whose notifications the current connection already dispatches. */
   private registeredMethods = new Set<string>();
@@ -56,18 +47,12 @@ export class EngineProcess implements vscode.Disposable {
   }> = [];
   private child: ChildProcessWithoutNullStreams | undefined;
   private current: MessageConnection | undefined;
-  private startCount = 0;
   private stderrTail = "";
   private failure: string | undefined;
   private disposed = false;
 
   constructor(private readonly options: StartEngineOptions) {
     this.start();
-  }
-
-  /** The process id of the running engine, when one runs. */
-  get pid(): number | undefined {
-    return this.child?.pid;
   }
 
   /** The live connection. It waits while the engine restarts, and fails once the engine stopped for good. */
@@ -111,7 +96,6 @@ export class EngineProcess implements vscode.Disposable {
     this.current = undefined;
     const child = this.child;
     this.child = undefined;
-    this.startedEmitter.dispose();
     if (child) {
       // Closing the standard input ends the engine (specification 35, §0.1a).
       child.stdin.end();
@@ -131,7 +115,6 @@ export class EngineProcess implements vscode.Disposable {
     });
     this.child = child;
     this.startTimes.push(Date.now());
-    this.startCount += 1;
     this.stderrTail = "";
     child.stderr.on("data", (chunk: Buffer) => {
       this.stderrTail = `${this.stderrTail}${chunk.toString("utf8")}`.slice(-STDERR_TAIL_CHARS);
@@ -165,7 +148,6 @@ export class EngineProcess implements vscode.Disposable {
       for (const waiter of this.waiting.splice(0)) {
         waiter.resolve(connection);
       }
-      this.startedEmitter.fire(this.startCount);
     });
   }
 

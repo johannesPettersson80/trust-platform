@@ -1,7 +1,8 @@
 //! The commissioning adapter of a PID group (specification 35, C7; `pidControllerGroup.ts`, `assertPidGroupAdapter`): the checks that
 //! make a group one coherent transaction (its members, parameters and states belong to one compiled program, and each is claimed
 //! once), and the transfer binding that writes every member's output together. A group's declared states and its tracking go through
-//! the declared initialization, which refuses a loop with channel bindings until the channel port (checklist V7) makes it group-aware.
+//! the declared initialization, which takes the group's binding and its further channels from here (`group_transfer_binding`,
+//! `group_channel_symbols`).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -489,6 +490,67 @@ fn primary_members(
         .position(|member| member.output.symbol == manipulated)
         .ok_or_else(|| refusal(PRIMARY_NOT_MEMBER))?;
     Ok((reference, output))
+}
+
+/// The symbols of a PID group's channels that its declared tracking and its commissioning's references name (`declaredControllerChannels`
+/// of a group, C7). The loop's own member leads each list, as it leads the transfer's states: its setpoint is the transfer's first
+/// state and its Manual command the second.
+pub(super) struct GroupChannelSymbols {
+    /// Every member's setpoint: the references that the review keeps and a Restore writes back.
+    pub(super) references: Vec<String>,
+    /// Each other member's setpoint with its own process value (`additional_references`).
+    pub(super) further_references: Vec<(String, String)>,
+    /// Every member's process value (`additional_measurements`).
+    pub(super) measurements: Vec<String>,
+    /// Each other member's Manual command with the output it holds (`additional_commands`).
+    pub(super) further_commands: Vec<(String, String)>,
+}
+
+/// The channel symbols of a PID group, in the order of its transfer binding ([`group_transfer_binding`]).
+///
+/// # Errors
+/// A channel or signal that a member names is not declared, a member has no setpoint or no Manual command, a member's signal is not REAL
+/// or LREAL, or the loop's setpoint or manipulated variable is not a member's.
+pub(super) fn group_channel_symbols(
+    loop_definition: &LoopDefinition,
+    group: &PidControllerGroup,
+) -> Result<GroupChannelSymbols, Failure> {
+    let members = group
+        .members
+        .iter()
+        .map(|member| member_channels(loop_definition, member))
+        .collect::<Result<Vec<MemberChannels>, Failure>>()?;
+    let (reference, output) = primary_members(loop_definition, &members)?;
+    Ok(GroupChannelSymbols {
+        references: std::iter::once(&members[reference])
+            .chain(others(&members, reference))
+            .map(|member| member.reference.symbol.clone())
+            .collect(),
+        further_references: others(&members, reference)
+            .map(|member| {
+                (
+                    member.reference.symbol.clone(),
+                    member.measurement.symbol.clone(),
+                )
+            })
+            .collect(),
+        measurements: members
+            .iter()
+            .map(|member| member.measurement.symbol.clone())
+            .collect(),
+        further_commands: others(&members, output)
+            .map(|member| (member.command.symbol.clone(), member.output.symbol.clone()))
+            .collect(),
+    })
+}
+
+/// The members other than the one at `lead`, in member order.
+fn others(members: &[MemberChannels], lead: usize) -> impl Iterator<Item = &MemberChannels> {
+    members
+        .iter()
+        .enumerate()
+        .filter(move |(index, _)| *index != lead)
+        .map(|(_, member)| member)
 }
 
 /// A signal as a transfer member (`transferSignalMember`): REAL or LREAL, or with `actuator`, also a dimensionless BOOL level from 0

@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::failure::{Cause, Failure, NextAction};
+use crate::identification::connected_run::loop_signal_of;
 use crate::identification::selected_recording::selected_model_id;
 use crate::loop_definition::{
     ChannelInput, ChannelOutput, Direction, LoopChannels, LoopDefinition, LoopSignal, Range,
@@ -42,13 +43,31 @@ pub enum CatalogKind {
     Legacy,
 }
 
-/// One channel a recording offers: its name and its unit.
+/// The words a legacy file's applied input is shown with (B3.6).
+const LEGACY_INPUT_LABEL: &str = "Applied input";
+/// The words a legacy file's measured output is shown with (B3.6).
+const LEGACY_OUTPUT_LABEL: &str = "Measured output";
+
+/// One channel a recording offers: its name, its unit and, for a legacy file, the words it is shown with.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CatalogChannel {
     /// The channel's name, the symbol of its loop signal in an archive.
     pub id: String,
     /// The channel's unit.
     pub unit: String,
+    /// The words the selector shows for the channel in place of its name: a legacy file's `appliedMv` and `pv` carry them (B3.6), and
+    /// an archive's channels, which are named by their symbols, carry none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+}
+
+/// The words a legacy file's channel `id` is shown with, or `None` for any other channel.
+fn legacy_label(id: &str) -> Option<String> {
+    match id {
+        "appliedMv" => Some(LEGACY_INPUT_LABEL.to_string()),
+        "pv" => Some(LEGACY_OUTPUT_LABEL.to_string()),
+        _ => None,
+    }
 }
 
 /// What an opened recording offers and what is selected (`RecordingSignalCatalog`). It is stored with the study, so
@@ -61,6 +80,11 @@ pub struct RecordingSignalCatalog {
     pub selection: RecordingSignalSelection,
     /// Whether the channels come from runs or from a legacy file.
     pub kind: CatalogKind,
+    /// The channels the inputs selector offers: a signal the loop declares as a measured output is not offered (`side_channels`).
+    pub inputs: Vec<CatalogChannel>,
+    /// The channels the outputs selector offers: a signal the loop declares as a plant input is not offered, so an input is never a
+    /// measured output; an extra output that the loop does not bind stays offered (B3.6).
+    pub outputs: Vec<CatalogChannel>,
 }
 
 /// The units of a recording file that a legacy recording reads (`ControlStudioWorkflowResult.units`, the fields of
@@ -214,16 +238,22 @@ pub fn opened_recording_catalog(
                         .any(|(other, other_unit)| other == id && other_unit == unit)
                 })
             })
-            .map(|(id, unit)| CatalogChannel { id, unit })
+            .map(|(id, unit)| CatalogChannel {
+                id,
+                unit,
+                label: None,
+            })
             .collect(),
         None => vec![
             CatalogChannel {
                 id: "appliedMv".to_string(),
                 unit: units.mv.clone(),
+                label: legacy_label("appliedMv"),
             },
             CatalogChannel {
                 id: "pv".to_string(),
                 unit: units.pv.clone(),
+                label: legacy_label("pv"),
             },
         ],
     };
@@ -252,7 +282,7 @@ pub fn opened_recording_catalog(
     } else {
         CatalogKind::Archive
     };
-    select_catalog(channels, defaults, kind, requested)
+    select_catalog(loop_definition, channels, defaults, kind, requested)
 }
 
 /// The catalogue of an archive whose runs hold `channels` (`openedRecordingCatalog` with runs): the loop's plant input and
@@ -278,12 +308,19 @@ pub fn archive_catalog(
             .filter(|id| has_channel(&channels, id))
             .collect(),
     };
-    select_catalog(channels, defaults, CatalogKind::Archive, requested)
+    select_catalog(
+        loop_definition,
+        channels,
+        defaults,
+        CatalogKind::Archive,
+        requested,
+    )
 }
 
 /// The catalogue with `channels`, and the selection `requested` or else `defaults`. A selection that names a channel the
-/// recording does not have is refused.
+/// recording does not have is refused. Each selector's channels come from the loop (`side_channels`).
 fn select_catalog(
+    loop_definition: &LoopDefinition,
     channels: Vec<CatalogChannel>,
     defaults: RecordingSignalSelection,
     kind: CatalogKind,
@@ -301,11 +338,91 @@ fn select_catalog(
     {
         return Err(not_present());
     }
+    let (inputs, outputs) = side_channels(loop_definition, &channels, kind);
     Ok(RecordingSignalCatalog {
         channels,
         selection,
         kind,
+        inputs,
+        outputs,
     })
+}
+
+/// The channels each selector offers (`fillRecording`, B3.6): a plant input on the inputs selector and a measured output on the outputs
+/// selector, so that a signal the loop declares on the other side is offered on neither. An archive's channels are filtered by the loop's
+/// declared sides; a legacy file offers its `appliedMv` as the input and its `pv` as the output.
+fn side_channels(
+    loop_definition: &LoopDefinition,
+    channels: &[CatalogChannel],
+    kind: CatalogKind,
+) -> (Vec<CatalogChannel>, Vec<CatalogChannel>) {
+    match kind {
+        CatalogKind::Legacy => (
+            channels_named(channels, "appliedMv"),
+            channels_named(channels, "pv"),
+        ),
+        CatalogKind::Archive => {
+            let loop_inputs = declared_symbols(loop_definition, Side::Inputs);
+            let loop_outputs = declared_symbols(loop_definition, Side::Outputs);
+            (
+                channels
+                    .iter()
+                    .filter(|channel| !loop_outputs.contains(&channel.id))
+                    .cloned()
+                    .collect(),
+                channels
+                    .iter()
+                    .filter(|channel| !loop_inputs.contains(&channel.id))
+                    .cloned()
+                    .collect(),
+            )
+        }
+    }
+}
+
+/// The side of a loop whose declared signals `declared_symbols` names.
+#[derive(Clone, Copy)]
+enum Side {
+    Inputs,
+    Outputs,
+}
+
+/// The symbols of the loop's declared plant inputs or measured outputs, as the loop declares them: the signals its channels bind, or
+/// for a loop with no channels its manipulated variable or its process variable (`loopSideSymbols`).
+fn declared_symbols(loop_definition: &LoopDefinition, side: Side) -> Vec<String> {
+    let Some(channels) = &loop_definition.channels else {
+        let signals = &loop_definition.signals;
+        return vec![match side {
+            Side::Inputs => signals.manipulated_variable.symbol.clone(),
+            Side::Outputs => signals.process_variable.symbol.clone(),
+        }];
+    };
+    let signal_ids: Vec<&str> = match side {
+        Side::Inputs => channels
+            .inputs
+            .iter()
+            .map(|input| input.signal_id.as_str())
+            .collect(),
+        Side::Outputs => channels
+            .outputs
+            .iter()
+            .map(|output| output.signal_id.as_str())
+            .collect(),
+    };
+    signal_ids
+        .into_iter()
+        .filter_map(|id| loop_signal_of(loop_definition, id))
+        .map(|signal| signal.symbol)
+        .collect()
+}
+
+/// The channels of `channels` that carry the identifier `id`: at most one, as a legacy file names its two channels.
+fn channels_named(channels: &[CatalogChannel], id: &str) -> Vec<CatalogChannel> {
+    channels
+        .iter()
+        .filter(|channel| channel.id == id)
+        .cloned()
+        .collect()
 }
 
 fn has_channel(channels: &[CatalogChannel], id: &str) -> bool {
@@ -348,6 +465,11 @@ pub fn decode_recording_catalog(value: &Value) -> Option<RecordingSignalCatalog>
         channels.push(CatalogChannel {
             id: id.to_string(),
             unit: unit.to_string(),
+            label: if kind == CatalogKind::Legacy {
+                legacy_label(id)
+            } else {
+                None
+            },
         });
     }
     let selection = decode_selection(object.get("selection")?).ok()?;
@@ -359,7 +481,10 @@ pub fn decode_recording_catalog(value: &Value) -> Option<RecordingSignalCatalog>
     {
         return None;
     }
+    // A stored catalog holds no loop, so its selectors offer every channel: the loop's declared sides are applied where a catalog is built.
     Some(RecordingSignalCatalog {
+        inputs: channels.clone(),
+        outputs: channels.clone(),
         channels,
         selection,
         kind,

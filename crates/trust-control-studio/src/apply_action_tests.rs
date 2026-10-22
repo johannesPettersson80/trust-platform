@@ -8,7 +8,9 @@ use std::sync::Arc;
 
 use serde_json::{json, Value};
 use trust_control::loop_definition::LoopDefinition;
-use trust_control::messages::{ApplicationAnswer, ApplicationRequest, OperationUpdate};
+use trust_control::messages::{
+    AnswerKind, ApplicationAnswer, ApplicationRequest, OperationStarted, OperationUpdate,
+};
 
 use crate::commands::{ControlStudio, APPLY, KEEP, METHODS, RESTORE};
 use crate::operation::UpdateSink;
@@ -79,14 +81,17 @@ fn a_request_decodes_its_review_identity_and_refuses_an_unknown_field() {
         "a physical target is not approved unless the reviewed approval says so (A2.5)"
     );
     assert!(request.connection.is_none());
-    let unknown = serde_json::from_value::<ApplicationRequest>(json!({
-        "projectRoot": "/project",
-        "runtimeId": "simulator",
-        "loopId": "tank",
-        "storageFolder": "/journal",
-        "approve": true,
-    }));
-    assert!(unknown.is_err(), "an unknown field is refused");
+    // `confirm` is a retired field (the recovery's Restore is confirmed by the review's own identity): it is refused like any other.
+    for field in ["approve", "confirm"] {
+        let unknown = serde_json::from_value::<ApplicationRequest>(json!({
+            "projectRoot": "/project",
+            "runtimeId": "simulator",
+            "loopId": "tank",
+            "storageFolder": "/journal",
+            field: true,
+        }));
+        assert!(unknown.is_err(), "the unknown field `{field}` is refused");
+    }
 }
 
 #[test]
@@ -149,11 +154,17 @@ fn an_apply_refuses_a_loop_that_an_operation_of_this_engine_holds() {
     fs::remove_dir_all(&root).expect("clean up");
 }
 
+/// §0.1a: a started Apply, Restore or Keep is answered by its kind and the operation's identifier, as every started operation is, and
+/// nothing else. The wrong behaviour caught: a started operation that the page can tell from a review only by the field it carries.
 #[test]
-fn a_started_operation_is_answered_by_its_identifier_only() {
-    let started = serde_json::to_value(ApplicationAnswer::Started {
+fn a_started_operation_is_answered_by_its_kind_and_identifier_only() {
+    let started = serde_json::to_value(ApplicationAnswer::Started(OperationStarted {
+        kind: AnswerKind::new(),
         operation_id: "operation-1".to_string(),
-    })
+    }))
     .expect("written");
-    assert_eq!(started, json!({ "operationId": "operation-1" }));
+    assert_eq!(
+        started,
+        json!({ "kind": "operationStarted", "operationId": "operation-1" })
+    );
 }

@@ -4,6 +4,11 @@
  */
 
 /**
+ * The method of a Tune run (specification 35, B4.2; numerical annexes N5 and N5.R): a formula method, the relay rule, or the
+ * settings the engineer enters. Absent in a request, the method is Automatic (B4.2).
+ */
+export type TuneMethod = "SIMC" | "AMIGO" | "relay" | "manual" | "state-space";
+/**
  * A named formula method (N5.2 to N5.5). Automatic is not a method here: it chooses among them (N5.11).
  */
 export type TuningMethod = "SIMC" | "AMIGO";
@@ -31,6 +36,21 @@ export interface IdentifyResult {
    * One plain line of the key numbers and their units.
    */
   keyNumbers: string;
+  /**
+   * The answer's kind (§0.1a): the page shows the answer by it, never by the fields it carries.
+   */
+  kind: "identification";
+  /**
+   * The title of each method of `methods`, keyed by the method's word (as the open answer gives them).
+   */
+  methodTitles?: {
+    [k: string]: string;
+  } | null;
+  /**
+   * The tuning methods the study offers the Tune page after this identification (C4, N5.R): the loop's named methods, and the relay
+   * rule beside Manual when the kept record is a qualified Feedback relay record. Absent when the loop has no method list.
+   */
+  methods?: TuneMethod[] | null;
   /**
    * The revision of the identified model: the one Validate's model check names when it checks this model (B5.2).
    */
@@ -64,11 +84,27 @@ export interface IdentifyResult {
    * and a resumed campaign.
    */
   restoration?: CampaignRestoration | null;
+  /**
+   * The sentence that says the finished project test releases its experiment settings (C12): present exactly when `restoration`
+   * is, because the settings' ownership ends only after the terminal restoration. The page shows it with the parameter tool.
+   * Absent where the run kept no restoration.
+   */
+  settingsReleased?: string | null;
   stageEvidence: StageEvidence;
   /**
    * The status of every stage after this result.
    */
   stages: StageAvailability[];
+  /**
+   * The sentence the Identify page's status line shows with this identification (B3.8, B9.9), as the engine words it: `Model
+   * identified.`, or `Provisional model identified.` for a provisional model. The page writes none of its own.
+   */
+  statusSentence: string;
+  /**
+   * The sentence that says how the project test ended (C12): `Project test completed.`, followed by `Outputs restored.` when the
+   * runtime confirmed the restoration. The page shows it as the test's status. Absent for an identification that is no project test.
+   */
+  testOutcome?: string | null;
   /**
    * The readable text of the result: the model type, "Provisional" when it is, the equation and the key numbers.
    */
@@ -114,7 +150,8 @@ export interface PlotTrace {
 /**
  * One sample of a kept recording as the Identify chart draws it (`control-studio.recording.evidence`): its process time from the
  * recording's first scan (A3.2), its scan, its quality, the setpoint, the measurement, the requested and the applied output, and
- * the additional recorded signals by identifier (A4.2, A8.3). The page draws the signals it selects and decides nothing.
+ * the additional recorded signals by identifier (A4.2, A8.3), and the value each plotted signal takes by its identifier (`plotted`,
+ * B9.6). The page draws the signals it selects from `plotted` and decides nothing.
  */
 export interface RecordedChartSample {
   /**
@@ -129,6 +166,14 @@ export interface RecordedChartSample {
    * The sample's process time in s from the recording's first scan.
    */
   elapsedSeconds: number;
+  /**
+   * The value each plotted signal takes at the sample, by the signal's identifier (`PlotSignal::id` of `liveSides.plotSignals`): the
+   * value the plot draws, or null where it draws a gap. A missing, bad or forced value is a gap in its own trace and removes no good
+   * value of another signal (B9.6).
+   */
+  plotted: {
+    [k: string]: number | null;
+  };
   /**
    * The measurement; null where the recording holds none.
    */
@@ -193,13 +238,23 @@ export interface TuningRequirements {
    */
   automaticCriteria?: AutomaticCriteria | null;
   /**
+   * The requirements of each controlled output of a loop with several, by the output's model channel identifier (B4.3, C7). Each
+   * is checked by the rules of this record, and its refusals name the output's channel. The record's own values are the first
+   * output's copy, which the engine writes when it assembles the record from the rows typed for each output (`study::inputs_change`);
+   * absent for a loop with one controlled output.
+   */
+  channelRequirements?: {
+    [k: string]: OutputRequirements;
+  } | null;
+  /**
    * The constant input disturbance of the load trial, in the output's unit; absent when none is declared (N5.12(b)).
    */
   constantInputDisturbance?: number | null;
   /**
-   * The validation duration in seconds: longer than the settling time, and within the runtime limit (A7).
+   * The validation duration in seconds: longer than the settling time, and within the runtime limit (A7). It is read as the settling
+   * time is.
    */
-  durationSeconds: number;
+  durationSeconds: number | string;
   /**
    * The fraction of gain uncertainty of the scenarios, between zero and one.
    */
@@ -225,9 +280,10 @@ export interface TuningRequirements {
    */
   settlingBand: number;
   /**
-   * The settling-time deadline in seconds, positive.
+   * The settling-time deadline in seconds, positive. The page sends the time the engineer typed (`90 s`, `1 h 30 min`) or a number of
+   * seconds; a time no duration reads is NaN and is refused under its field.
    */
-  settlingTimeSeconds: number;
+  settlingTimeSeconds: number | string;
   /**
    * The Auto-entry tolerance in output units, zero or more (A6.4).
    */
@@ -254,6 +310,33 @@ export interface AutomaticCriteria {
    * The revision of the model the values were generated from.
    */
   modelRevision: string;
+}
+/**
+ * The requirements that one controlled output holds to (B4.3, C7): the setpoint change of its own test, the error limit, the settling
+ * band, the time by which it settles, and its overshoot limit when it declares one. The record's `channelRequirements` holds one of these
+ * for each controlled output of a loop with several.
+ */
+export interface OutputRequirements {
+  /**
+   * The largest error allowed after the settling time, in the output's unit.
+   */
+  maximumError: number;
+  /**
+   * The overshoot limit in percent of the setpoint change; absent declares no limit.
+   */
+  maximumOvershootPercent?: number | null;
+  /**
+   * The setpoint change of the output's own test, in its unit. Never zero.
+   */
+  referenceChange: number;
+  /**
+   * The settling band around the final value, in the output's unit. Smaller than `maximum_error`.
+   */
+  settlingBand: number;
+  /**
+   * The settling-time deadline of the output in seconds, positive. The page sends the time the engineer typed or a number of seconds.
+   */
+  settlingTimeSeconds: number | string;
 }
 /**
  * The stage evidence after this result, from which `stages` is computed. An identification leaves no candidate and no
@@ -309,15 +392,27 @@ export interface StageEvidence {
 }
 /**
  * One stage's status, with the words the panel shows. A stage that is Not applicable also names the reason, which the page
- * shows in place of its actions (C12).
+ * shows in place of its actions (C12), and so does a stage that an Apply's checkpoint holds (B6.4, B6.7) and a stage that cannot
+ * start yet for want of what it works on (B9.4). `available` says whether the stage's own action can start now (B9.4).
  */
 export interface StageAvailability {
+  /**
+   * Whether the stage's own action can start now (B9.4). The page enables the action exactly then, and holds no copy of the
+   * rule. A bound loop can always Monitor, Test and Identify. Tune needs a model, a declared analysis or manual controller
+   * parameters; Validate needs a candidate; Apply needs a candidate whose current validation passed ([`apply_available`]), and in
+   * an answer that states the Validate page's offers, Apply offered (B7, `application_offers::offered_stages`). A stage that is
+   * Not applicable never starts (C12), and while an Apply's checkpoint waits for its Restore only Monitor starts
+   * ([`blocked_stage_availability`]).
+   */
+  available: boolean;
   /**
    * The status in words.
    */
   label: string;
   /**
-   * Why the stage does not apply, when its status is Not applicable.
+   * Why the stage does not apply, when its status is Not applicable (C12), or why its action waits, while an Apply's checkpoint
+   * waits for its Restore (B6.4, B6.7) and while the study lacks what the stage works on: a model for Tune, a candidate for
+   * Validate (B9.4). The page shows it on the stage's page.
    */
   reason?: string | null;
   /**

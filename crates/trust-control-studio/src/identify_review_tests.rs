@@ -1,6 +1,6 @@
 //! Tests of the review that `controlStudio/identify` answers with `action: "review"` (specification 35, §0.1a, B3.2 to B3.4 and C12):
-//! the campaign Identify would run, answered with nothing started and nothing written. They need no runtime: a project-scripted
-//! experiment's review is given by the loop alone, and a closed-loop review without a runtime says that one is needed.
+//! the campaign Identify would run, answered with nothing started and nothing written. A project-scripted experiment's review is given
+//! by the loop and the runtime that runs it, and a closed-loop review without a runtime says that one is needed.
 
 #![allow(clippy::float_cmp)] // The review's duration is compared exactly on purpose.
 
@@ -14,14 +14,17 @@ use trust_control::identification::acquisition_settings::{AcquisitionMethod, Acq
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::messages::{IdentifyAction, IdentifyRequest, OperationUpdate};
 
-use super::{answer, start_refusal};
+use super::answer;
+use super::identify_review::start_refusal;
 use crate::busy_loops::LoopClaims;
 use crate::operation::{Operations, UpdateSink};
+use crate::runtime_client::fake_runtime::{answer as reply, refusal, FakeRuntime};
 use crate::runtime_client::runtime_recording::PendingReleases;
 use trust_control::experiment::{ControllerMode, ExperimentSample, PlanSignal};
 use trust_control::identification::campaign_review::campaign_review;
 use trust_control::identification::connected_run::REVIEW_CHANGED_TEXT;
 use trust_control::recording::EvidenceSource;
+use trust_control::runtime::RuntimeConnection;
 use trust_control::signals::Quality;
 
 const EXAMPLE: &str = include_str!("../../../examples/control-pid-commissioning/control-loop.json");
@@ -56,6 +59,15 @@ impl Project {
 
     /// The review of `settings` on this project's loop, with no runtime connection.
     fn review(&self, settings: AcquisitionSettings) -> Result<Value, Failure> {
+        self.review_on(None, settings)
+    }
+
+    /// The review of `settings` on this project's loop, over `connection`.
+    fn review_on(
+        &self,
+        connection: Option<RuntimeConnection>,
+        settings: AcquisitionSettings,
+    ) -> Result<Value, Failure> {
         answer(
             &Operations::new(Arc::new(Ignore)),
             &Arc::new(PendingReleases::default()),
@@ -65,8 +77,11 @@ impl Project {
                 runtime_id: self.loop_definition.runtime_id.clone(),
                 loop_id: self.loop_definition.id.clone(),
                 storage_folder: self.root.join("storage").display().to_string(),
-                connection: None,
-                action: IdentifyAction::Review { settings },
+                connection,
+                runtime_mode: None,
+                action: IdentifyAction::Review {
+                    settings: Some(settings),
+                },
             },
         )
     }
@@ -115,12 +130,42 @@ fn project_scripted_document() -> String {
     document.to_string()
 }
 
+/// A simulated runtime (E1.3) that answers the loop's scan as pending (E3), so a review has no live sample.
+fn simulated_runtime() -> FakeRuntime {
+    FakeRuntime::start(|request| match request["type"].as_str()? {
+        "status" => Some(reply(
+            request,
+            json!({
+                "session_epoch": 7, "simulation_enabled": true, "simulation_only_io": true,
+                "simulation_time_scale": 1, "simulation_achieved_time_scale": null,
+                "program_revision": "program:1", "tasks": [{ "name": "MainTask", "interval_ms": 100 }],
+                "cycle_interval_ms": 100
+            }),
+        )),
+        "control.signals.inspect" => {
+            let params = &request["params"];
+            Some(reply(
+                request,
+                json!({
+                    "available": false, "loop_revision": params["loop_revision"],
+                    "program_revision": "program:1", "bindings": params["bindings"],
+                    "reason": "Waiting for the next coherent runtime scan."
+                }),
+            ))
+        }
+        _ => Some(refusal(request, "invalid_request", "Not in this test.")),
+    })
+}
+
 #[test]
 fn the_review_of_a_project_scripted_experiment_names_its_activation_and_writes_nothing() {
     let project = Project::new("review-scripted", &project_scripted_document());
+    let runtime = simulated_runtime();
     let reviewed = project
-        .review(automatic_settings(30.0))
-        .expect("the project's scenario is reviewed without a runtime");
+        .review_on(Some(runtime.connection(None)), automatic_settings(30.0))
+        .expect(
+            "the project's scenario is reviewed on the running runtime, which needs no live mode",
+        );
     assert_eq!(
         reviewed["execution"],
         json!("project-scripted"),
@@ -196,12 +241,27 @@ fn live(source: EvidenceSource) -> ExperimentSample {
 fn the_identity_names_the_campaign_it_reviews_and_changes_with_its_settings() {
     let loop_definition = LoopDefinition::decode(EXAMPLE).expect("the example loop");
     let sample = live(EvidenceSource::SimulatedPlant);
-    let first = campaign_review(&loop_definition, &automatic_settings(16.0), Some(&sample))
-        .expect("the review of the campaign");
-    let again = campaign_review(&loop_definition, &automatic_settings(16.0), Some(&sample))
-        .expect("the same review again");
-    let longer = campaign_review(&loop_definition, &automatic_settings(20.0), Some(&sample))
-        .expect("the review of a longer campaign");
+    let first = campaign_review(
+        &loop_definition,
+        &automatic_settings(16.0),
+        Some(&sample),
+        None,
+    )
+    .expect("the review of the campaign");
+    let again = campaign_review(
+        &loop_definition,
+        &automatic_settings(16.0),
+        Some(&sample),
+        None,
+    )
+    .expect("the same review again");
+    let longer = campaign_review(
+        &loop_definition,
+        &automatic_settings(20.0),
+        Some(&sample),
+        None,
+    )
+    .expect("the review of a longer campaign");
     assert!(first.identity.starts_with("sha256:"), "{}", first.identity);
     assert_eq!(
         first.identity, again.identity,
@@ -221,12 +281,14 @@ fn a_start_is_admitted_with_the_reviewed_identity_and_on_a_physical_target_with_
         &loop_definition,
         &settings,
         Some(&live(EvidenceSource::SimulatedPlant)),
+        None,
     )
     .expect("the simulated review");
     let physical = campaign_review(
         &loop_definition,
         &settings,
         Some(&live(EvidenceSource::PhysicalPlant)),
+        None,
     )
     .expect("the physical review");
     assert!(

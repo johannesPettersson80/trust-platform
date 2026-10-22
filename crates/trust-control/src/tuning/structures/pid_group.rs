@@ -1,14 +1,15 @@
 //! The PID group (specification 35, C7). The decentralized design gives each member a PI by SIMC on its own path, for the gain it sees
 //! when the other loops are closed: `Kᵢᵢ/λᵢᵢ`, with `λ` the relative gain array of the members' steady-state gains (N4.5). The static
 //! decoupler `D = K⁻¹·diag(K)` makes each member move only its own measurement in steady state, and its members are then designed on the
-//! model seen through it. The TypeScript it ports is `decentralizedPidDesign.ts` and `decoupledGroupDesign.ts`.
+//! model seen through it. Each member's PI is designed to its own requirements (its entry in the record's `channelRequirements`, else
+//! the record) by the single-loop design of its path (C1, Automatic), with SIMC responses only (C7, step 3). The TypeScript it ports is
+//! `decentralizedPidDesign.ts` and `decoupledGroupDesign.ts`, which gave every member one response.
 //!
 //! The values that these designs write into the program's variables are mapped by the loop's seed, not here: the designs return the gains
 //! and the matrix by member and channel.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use trust_control_math::identify::gain::ControllerAction;
 use trust_control_math::linalg::{DenseMatrix, NumericalTolerance};
 use trust_control_math::model::{StateSpace, Timing};
 use trust_control_math::multichannel::{
@@ -17,14 +18,18 @@ use trust_control_math::multichannel::{
 use trust_control_math::simulate::DelayedSystem;
 use trust_control_math::tuning::FirstOrderPlusDelay;
 
-use super::path::{delayed_plant, open_loop_step_response, two_point_path, StepResponse};
+use super::path::{
+    delayed_plant, design_pi_on_path, open_loop_step_response, operating_point, operating_value,
+    two_point_path, LoopFacts, PathSupport, StepResponse,
+};
 use super::texts;
 use crate::identification::refusal::Refusal;
 use crate::model::{GeneralModel, ModelChannel};
-use crate::tuning::formula::tune_pi;
-use crate::tuning::objective::{TuningMethod, TuningObjective, AUTOMATIC_OBJECTIVE};
+use crate::tuning::placement::{PlacementRefusal, PolePlacement};
 use crate::tuning::plant::TuningPlant;
-use crate::tuning::structure::ParallelGains;
+use crate::tuning::requirements::TuningRequirements;
+use crate::tuning::shortfall::{DesignContext, ResponsePredictor};
+use crate::tuning::structure::{ParallelGains, Structure};
 
 /// The most pairs whose pairing the search covers (N4.5): a larger group names no pairing, so it never enumerates the permutations.
 pub const MAXIMUM_SEARCHED_PAIRS: usize = 8;
@@ -169,18 +174,60 @@ fn significant(value: f64) -> String {
     format!("{value:.2e}")
 }
 
-/// Designs each member's PI by SIMC on its own path, for the gain it sees when the other loops are closed (C7, steps 1 to 3).
+/// What the members' PIs are designed with (C7, step 3): the loop's facts, the engine's support for a member's path, and the loop's
+/// requirement record. A member is designed to its own requirements, its entry in the record's `channelRequirements` keyed by its output
+/// channel, and to the record itself when it has no entry.
+#[derive(Clone, Copy)]
+pub struct GroupTuning<'a> {
+    /// The loop's facts: the controller action, the task period, the bounds, the limits and the units.
+    pub facts: &'a LoopFacts,
+    /// The engine's response predictor for a member's path (C1, B4.5).
+    pub support: &'a dyn PathSupport,
+    /// The loop's requirement record.
+    pub requirements: &'a TuningRequirements,
+}
+
+/// Why a PID group has no design (C7). A member whose PI cannot meet its own requirements on its own path is refused as the requirements
+/// (the engineer relaxes them, so the next action is Requirements); the model, the pairing, the decoupler and the members' paths refuse
+/// the group itself (the next action is loop setup).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GroupRefusal {
+    /// A member's PI cannot meet its own requirements on its path (`design_pi_on_path`).
+    Requirements(Refusal),
+    /// The model, the pairing, the decoupler or a member's path refuses the group.
+    Model(Refusal),
+}
+
+impl GroupRefusal {
+    /// The sentence of the refusal, whichever part of the group it names.
+    #[must_use]
+    pub fn sentence(&self) -> &str {
+        match self {
+            Self::Requirements(Refusal(sentence)) | Self::Model(Refusal(sentence)) => {
+                sentence.as_str()
+            }
+        }
+    }
+}
+
+impl From<Refusal> for GroupRefusal {
+    fn from(refusal: Refusal) -> Self {
+        Self::Model(refusal)
+    }
+}
+
+/// Designs each member's PI by SIMC on its own path, for the gain it sees when the other loops are closed and for its own requirements
+/// (C7, steps 1 to 3).
 ///
 /// # Errors
 /// Returns a refusal when the pairs are fewer than two or do not pair each input and each output once, when the members' steady-state
-/// gains are singular, when a diagonal relative gain is not positive (naming the pairing to use), or when a member's path or formula is
-/// refused.
+/// gains are singular, when a diagonal relative gain is not positive (naming the pairing to use), or when a member's path, formula or
+/// requirements are refused.
 pub fn design_decentralized_pi(
     model: &GeneralModel,
     pairs: &[DecentralizedPair],
-    objective: TuningObjective,
-    action: ControllerAction,
-) -> Result<DecentralizedPiDesign, Refusal> {
+    tuning: GroupTuning<'_>,
+) -> Result<DecentralizedPiDesign, GroupRefusal> {
     let plant = delayed_plant(model)?;
     let identity = model.identity();
     let inputs: Option<Vec<usize>> = pairs
@@ -192,10 +239,10 @@ pub fn design_decentralized_pi(
         .map(|pair| index_of(&identity.outputs, &pair.output_id))
         .collect();
     let (Some(inputs), Some(outputs)) = (inputs, outputs) else {
-        return Err(Refusal::new(texts::PAIR_EACH_MEMBER));
+        return Err(Refusal::new(texts::PAIR_EACH_MEMBER).into());
     };
     validate_pairs(pairs.len(), &inputs, &outputs)?;
-    design_members(&plant, pairs, &inputs, &outputs, objective, action)
+    design_members(&plant, model, pairs, &inputs, &outputs, tuning)
 }
 
 /// Designs the static decoupler `D = K⁻¹·diag(K)` of a PID group and the members' PIs through it (C7). The members' PIs are designed on
@@ -207,14 +254,13 @@ pub fn design_decentralized_pi(
 pub fn design_decoupled_group(
     model: &GeneralModel,
     members: &[DecouplerMember],
-    objective: Option<TuningObjective>,
-    action: ControllerAction,
-) -> Result<DecouplerDesign, Refusal> {
+    tuning: GroupTuning<'_>,
+) -> Result<DecouplerDesign, GroupRefusal> {
     if members.is_empty() {
-        return Err(Refusal::new(texts::DECOUPLER_MEMBERS));
+        return Err(Refusal::new(texts::DECOUPLER_MEMBERS).into());
     }
     if matches!(model, GeneralModel::TransferFunction { .. }) {
-        return Err(Refusal::new(texts::DECOUPLER_STATE_MODEL));
+        return Err(Refusal::new(texts::DECOUPLER_STATE_MODEL).into());
     }
     let identity = model.identity();
     let inputs: Option<Vec<usize>> = members
@@ -226,7 +272,7 @@ pub fn design_decoupled_group(
         .map(|member| index_of(&identity.outputs, &member.output_channel_id))
         .collect();
     let (Some(inputs), Some(outputs)) = (inputs, outputs) else {
-        return Err(Refusal::new(texts::DECOUPLER_CHANNELS));
+        return Err(Refusal::new(texts::DECOUPLER_CHANNELS).into());
     };
     let plant = delayed_plant(model)?;
     let discrete = matches!(plant.timing, Timing::Discrete { .. });
@@ -262,14 +308,7 @@ pub fn design_decoupled_group(
         })
         .collect();
     validate_pairs(pairs.len(), &inputs, &outputs)?;
-    let design = design_members(
-        &decoupled,
-        &pairs,
-        &inputs,
-        &outputs,
-        objective.unwrap_or(AUTOMATIC_OBJECTIVE),
-        action,
-    )?;
+    let design = design_members(&decoupled, model, &pairs, &inputs, &outputs, tuning)?;
     Ok(DecouplerDesign {
         matrix,
         input_ids: members
@@ -285,15 +324,16 @@ pub fn design_decoupled_group(
     })
 }
 
-/// The decentralized design of the members on a plant whose members' inputs and outputs are given by index (C7).
+/// The decentralized design of the members on a plant whose members' inputs and outputs are given by index (C7). Each member's PI is
+/// designed on its own path for its effective gain, to its own requirements (C7, step 3); `model` gives the operating point.
 fn design_members(
     plant: &DelayedSystem,
+    model: &GeneralModel,
     pairs: &[DecentralizedPair],
     inputs: &[usize],
     outputs: &[usize],
-    objective: TuningObjective,
-    action: ControllerAction,
-) -> Result<DecentralizedPiDesign, Refusal> {
+    tuning: GroupTuning<'_>,
+) -> Result<DecentralizedPiDesign, GroupRefusal> {
     let responses = inputs
         .iter()
         .map(|&input| open_loop_step_response(plant, input, "group member"))
@@ -314,51 +354,109 @@ fn design_members(
         value.is_nan() || value <= 0.0
     });
     if let Some(conflicting) = conflicting {
-        return Err(Refusal::new(conflict_sentence(
-            pairs,
-            &relative_gains,
-            conflicting,
-        )));
+        return Err(Refusal::new(conflict_sentence(pairs, &relative_gains, conflicting)).into());
     }
+    let (operating_inputs, operating_outputs) = operating_point(model);
     let members = pairs
         .iter()
         .enumerate()
-        .map(|(index, pair)| -> Result<DecentralizedMember, Refusal> {
-            let response = &responses[index];
-            let path = two_point_path(
-                &response.times,
-                &response.outputs[outputs[index]],
-                "group member",
-            )?;
-            // Tune checks the signed effective gain against the action (N6.3) and returns the signed Kp (N6.4).
-            let effective_gain = gain_matrix[index][index] / relative_gains[index][index];
-            let tuning = tune_pi(
-                &TuningPlant::FirstOrder(FirstOrderPlusDelay {
+        .map(
+            |(index, pair)| -> Result<DecentralizedMember, GroupRefusal> {
+                let response = &responses[index];
+                let path = two_point_path(
+                    &response.times,
+                    &response.outputs[outputs[index]],
+                    "group member",
+                )?;
+                // Tune checks the signed effective gain against the action (N6.3) and returns the signed Kp (N6.4).
+                let effective_gain = gain_matrix[index][index] / relative_gains[index][index];
+                let member_path = TuningPlant::FirstOrder(FirstOrderPlusDelay {
                     gain: effective_gain,
                     time_constant_seconds: path.time_constant_seconds,
                     delay_seconds: path.delay_seconds,
-                }),
-                TuningMethod::Simc,
-                objective,
-                action,
-                "",
-            )?;
-            Ok(DecentralizedMember {
-                pair: pair.clone(),
-                path_gain: gain_matrix[index][index],
-                relative_gain: relative_gains[index][index],
-                effective_gain,
-                time_constant_seconds: path.time_constant_seconds,
-                delay_seconds: path.delay_seconds,
-                gains: tuning.gains(),
-            })
-        })
-        .collect::<Result<Vec<DecentralizedMember>, Refusal>>()?;
+                });
+                let operating = (
+                    operating_value(&operating_inputs, inputs[index]),
+                    operating_value(&operating_outputs, outputs[index]),
+                );
+                let requirements = member_requirements(tuning.requirements, &pair.output_id);
+                // A member's PI that cannot meet its own requirements on its path is the requirements' refusal (C7).
+                let gains = design_pi_on_path(
+                    &member_path,
+                    tuning.facts,
+                    operating,
+                    &requirements,
+                    &SimcSupport(tuning.support),
+                )
+                .map_err(GroupRefusal::Requirements)?;
+                Ok(DecentralizedMember {
+                    pair: pair.clone(),
+                    path_gain: gain_matrix[index][index],
+                    relative_gain: relative_gains[index][index],
+                    effective_gain,
+                    time_constant_seconds: path.time_constant_seconds,
+                    delay_seconds: path.delay_seconds,
+                    gains,
+                })
+            },
+        )
+        .collect::<Result<Vec<DecentralizedMember>, GroupRefusal>>()?;
     Ok(DecentralizedPiDesign {
         gain_matrix,
         relative_gains,
         members,
     })
+}
+
+/// The requirements that a member is designed to (C7, step 3): its entry in the record's `channelRequirements`, keyed by its output
+/// channel and with the record's shared values, or else the record itself.
+fn member_requirements(record: &TuningRequirements, output_id: &str) -> TuningRequirements {
+    match record
+        .channel_requirements
+        .as_ref()
+        .and_then(|entries| entries.get(output_id))
+    {
+        Some(own) => record.for_output(own),
+        None => record.clone(),
+    }
+}
+
+/// The support of a member's design (C7): the engine's predictor on its path, and no pole placement. A member is a SIMC PI, so a
+/// member that no SIMC response meets is refused, and the placement of the poles (C1, Automatic) does not design it.
+struct SimcSupport<'a>(&'a dyn PathSupport);
+
+impl PathSupport for SimcSupport<'_> {
+    fn predictor(
+        &self,
+        path: &TuningPlant,
+        facts: &LoopFacts,
+        operating: (f64, f64),
+    ) -> Box<dyn ResponsePredictor + '_> {
+        self.0.predictor(path, facts, operating)
+    }
+
+    fn placement(
+        &self,
+        _path: &TuningPlant,
+        _requirements: &TuningRequirements,
+        _context: &DesignContext<'_>,
+    ) -> Box<dyn PolePlacement + '_> {
+        Box::new(NoPlacement)
+    }
+}
+
+/// The placement of a member, which has no form for any structure: the member is then designed by a SIMC response alone (C7).
+struct NoPlacement;
+
+impl PolePlacement for NoPlacement {
+    fn gains(
+        &self,
+        _family: Structure,
+        _envelope: f64,
+        _settling_time_seconds: f64,
+    ) -> Result<ParallelGains, PlacementRefusal> {
+        Err(PlacementRefusal::NoPlacementForm)
+    }
 }
 
 /// The sentence of a conflicting diagonal relative gain (N4.5): the pair and its relative gain, and the pairing to use when every

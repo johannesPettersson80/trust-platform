@@ -15,6 +15,7 @@ use crate::identification::independent_validation::RequirementStatus;
 use crate::identification::recording_import::display_engineering_unit;
 use crate::limits::SEARCH_TRIAL_LIMIT;
 use crate::loop_definition::{LoopDefinition, ParameterBinding, ProjectAxis, RealType};
+use crate::messages::AnswerKind;
 use crate::model::{GeneralModel, SimulationOverride};
 use crate::stages::{stage_availability, StageAvailability, StageEvidence};
 use crate::tuning::settings_pins::single_precision;
@@ -163,6 +164,8 @@ pub enum SearchStatus {
 #[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchAnswer {
+    /// The answer's kind (§0.1a): the page shows the answer by it, never by the fields it carries.
+    pub kind: AnswerKind<SearchAnswer>,
     /// How the search ended.
     pub status: SearchStatus,
     /// The sentence that says why the search did not complete; absent when it completed.
@@ -665,6 +668,7 @@ pub fn answer_of(
         Some(SearchStop::RunFailed(text)) => (SearchStatus::RunFailed, Some(text)),
     };
     SearchAnswer {
+        kind: AnswerKind::new(),
         status,
         message,
         selected,

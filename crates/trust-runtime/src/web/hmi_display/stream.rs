@@ -22,6 +22,7 @@ use crate::hmi::display_values::WireValue;
 use crate::hmi::exchange::{HmiExchange, ScreenId};
 use crate::hmi::member_paths::MemberPath;
 use crate::scheduler::{ResourceControl, StdClock};
+use crate::simulation::speed::speed_facts;
 
 /// The shortest update period, whatever the scan period (§11.1).
 pub(super) const MIN_PERIOD: Duration = Duration::from_millis(250);
@@ -224,8 +225,10 @@ fn session_message(session: Option<&SessionInfo>) -> Value {
 
 /// The simulation fields `control.status` reports (specification 33, §6.1): whether simulation is
 /// on, the configured speed, and the achieved speed (`null` until it is measured). They are read
-/// from the state `control.status` reads, so the header and the status agree. `None` while that
-/// state cannot be read.
+/// from the state `control.status` reads, so the header and the status agree. `speed_configured` is
+/// the configured speed when it is above 1x, and `speed_achieved` the achieved speed as text when it
+/// is behind (specification 35, B9.2), both decided by the same function as the status answer; the
+/// page only translates the phrase for a speed that is behind. `None` while that state cannot be read.
 fn simulation_status(control: &ControlState) -> Option<Value> {
     let (enabled, time_scale) = control
         .settings
@@ -237,10 +240,14 @@ fn simulation_status(control: &ControlState) -> Option<Value> {
         .lock()
         .ok()
         .and_then(|metrics| metrics.simulation_achieved_time_scale());
+    let only_io = control.debug.simulation_only_io().unwrap_or(false);
+    let speed = speed_facts(enabled, only_io, time_scale, achieved);
     Some(json!({
         "enabled": enabled,
         "time_scale": time_scale,
         "achieved_time_scale": achieved,
+        "speed_configured": speed.configured,
+        "speed_achieved": speed.achieved_behind,
     }))
 }
 

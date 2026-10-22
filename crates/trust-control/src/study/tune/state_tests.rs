@@ -11,12 +11,12 @@ use trust_control_math::margins::MarginValue;
 use crate::failure::Failure;
 use crate::identification::identify_result::kept_candidate;
 use crate::loop_definition::LoopDefinition;
-use crate::messages::{TuneMethod, TuneRequest};
+use crate::messages::{TuneMethod, TuneRequest, TuneResult, TuneWords};
 use crate::model::general::decode_general_model;
 use crate::model::GeneralModel;
 use crate::setup::discovery::{adapter_compatibility, ControllerCompatibility};
 use crate::study::current_model::{CurrentModel, CurrentModelSource};
-use crate::study::tune::state::{run, state_fields, StateDesignInput};
+use crate::study::tune::state::{declared_design_text, run, state_fields, StateDesignInput};
 use crate::study::tune::{TuneInputs, TuneOutcome};
 use crate::study::StudySection;
 use crate::tuning::candidate::LawCandidate;
@@ -33,6 +33,40 @@ const LESSON_69_LOOP: &str = include_str!("../../../../../editors/vscode/media/e
 /// Lesson 72's control loop and its one-second model, with only tank 2 measured.
 const LESSON_72_LOOP: &str = include_str!("../../../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/72-lqg/control-loop.json");
 const LESSON_72_MODEL: &str = include_str!("../../../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/72-lqg/lqg-model.json");
+
+#[test]
+fn the_design_form_starts_from_the_declared_matrices_as_json_and_from_nothing_without_a_law() {
+    let mut declared = loop_of(LESSON_68_LOOP);
+    let design = declared
+        .controller
+        .state_feedback
+        .as_mut()
+        .and_then(serde_json::Value::as_object_mut)
+        .expect("lesson 68 declares a state-feedback law");
+    design.insert("desiredPoles".to_owned(), serde_json::json!([[-1.0, 0.0]]));
+    design.insert("stateWeights".to_owned(), serde_json::json!([1.0, 2.0]));
+    design.insert("processNoise".to_owned(), serde_json::Value::Null);
+    design.insert(
+        "finiteHorizon".to_owned(),
+        serde_json::json!({ "steps": 3 }),
+    );
+    let text = declared_design_text(&declared);
+    assert_eq!(
+        text.len(),
+        2,
+        "only the declared matrices the form shows are given"
+    );
+    assert_eq!(
+        text["desiredPoles"],
+        serde_json::json!([[-1.0, 0.0]]).to_string()
+    );
+    assert_eq!(
+        text["stateWeights"],
+        serde_json::json!([1.0, 2.0]).to_string()
+    );
+    declared.controller.state_feedback = None;
+    assert!(declared_design_text(&declared).is_empty());
+}
 
 /// The loop of a lesson file, decoded as the engine reads it.
 fn loop_of(text: &str) -> LoopDefinition {
@@ -133,8 +167,17 @@ fn designed(
         previous: None,
         request: &request,
         relay: None,
+        pins: None,
     };
     run(&inputs, Some(held), Some(state)).expect("the lesson's law designs")
+}
+
+/// The answer `controlStudio/tune` sends for a run: the run's result with the words the engine gives every design, which the studio's
+/// `run_tune` attaches to the state law's result as `tune_held` does to a single loop's (`tune_action_tests.rs` proves it on a live Tune).
+fn answered(loop_definition: &LoopDefinition, outcome: &TuneOutcome) -> TuneResult {
+    let mut result = outcome.result.clone();
+    result.words = Some(TuneWords::of_result(loop_definition, &result));
+    result
 }
 
 /// The value of a coefficient of the candidate, by its symbol.
@@ -351,6 +394,7 @@ fn a_state_law_without_requirements_is_refused_before_its_design() {
         previous: None,
         request: &request,
         relay: None,
+        pins: None,
     };
     let failure = run(&inputs, None, None).expect_err("no requirements are held");
     assert_eq!(
@@ -377,6 +421,7 @@ fn a_draft_field_that_is_not_json_names_its_field_in_the_refusal() {
         previous: None,
         request: &request,
         relay: None,
+        pins: None,
     };
     let failure = run(&inputs, Some(&requirements(60.0, 120.0)), Some(&state))
         .expect_err("the desired poles are not JSON");
@@ -433,6 +478,7 @@ fn refused(
         previous: None,
         request: &request,
         relay: None,
+        pins: None,
     };
     run(&inputs, Some(held), Some(state)).expect_err("the draft is refused")
 }
@@ -481,6 +527,17 @@ fn the_setup_answer_of_a_state_law_is_its_offer_as_the_page_receives_it() {
     assert_eq!(
         page["familySettings"]["LQR"],
         json!(["P1.K1", "P1.K2", "P1.N"])
+    );
+}
+
+#[test]
+fn the_state_law_gives_the_title_of_its_one_method_as_the_engine_names_it() {
+    // C4: the page shows the state-space design under its title, keyed by the method's word.
+    let page = serde_json::to_value(adapter_compatibility(&loop_of(LESSON_68_LOOP)))
+        .expect("the answer encodes");
+    assert_eq!(
+        page["methodTitles"],
+        json!({ "state-space": "State-space design" })
     );
 }
 
@@ -540,7 +597,7 @@ fn a_kept_state_section_reopens_to_the_live_answer() {
         live.result.stage_evidence,
     )
     .expect("the kept state section is answered");
-    assert_eq!(reopened, live.result);
+    assert_eq!(reopened, answered(&loop_68, &live));
 
     let loop_69 = loop_of(LESSON_69_LOOP);
     let live = designed(
@@ -556,7 +613,7 @@ fn a_kept_state_section_reopens_to_the_live_answer() {
         live.result.stage_evidence,
     )
     .expect("the kept state section is answered");
-    assert_eq!(reopened, live.result);
+    assert_eq!(reopened, answered(&loop_69, &live));
     assert!(reopened
         .state
         .as_ref()

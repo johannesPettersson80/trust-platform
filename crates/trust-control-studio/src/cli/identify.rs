@@ -62,7 +62,7 @@ fn request(args: &IdentifyArgs, environment: Environment<'_>) -> Result<Identify
             let loop_definition = loops::open(&places.project, SELECTED_RUNTIME, &args.loop_id)?;
             // The command line names no review and no approval: a physical target is refused here, as in the panel (A2.5).
             let action = IdentifyAction::Identify {
-                settings: declared_settings(&loop_definition, method),
+                settings: Some(declared_settings(&loop_definition, method)),
                 review: None,
                 physical_approved: false,
             };
@@ -88,6 +88,7 @@ fn request(args: &IdentifyArgs, environment: Environment<'_>) -> Result<Identify
         loop_id: args.loop_id.clone(),
         storage_folder: text_of(&places.journal),
         connection,
+        runtime_mode: None,
         action,
     })
 }
@@ -286,6 +287,7 @@ mod tests {
             Some(RuntimeConnection {
                 endpoint: "tcp://127.0.0.1:1".to_string(),
                 token: None,
+                runtime_id: None,
             })
         );
         assert_eq!(connected.action, IdentifyAction::Resume);

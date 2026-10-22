@@ -2,10 +2,9 @@
 //! currency against the study's model, the evidence it gives the stages, the refusals that come before Tune starts, and the
 //! words of the messages.
 
-use std::collections::BTreeMap;
-
 use serde_json::json;
 
+use super::test_support::record;
 use super::*;
 use crate::experiment::ControlExperimentKind;
 use crate::identification::evidence::tests::fitted_model;
@@ -14,11 +13,8 @@ use crate::identification::identify_result::identify_signals;
 use crate::identification::identify_result::tests::plant_loop;
 use crate::identification::model_comparison::ComparisonPresentation;
 use crate::identification::presentation::identified_model_presentation;
-use crate::loop_definition::{
-    ControllerLaw, ControllerProject, Design, Parameter, PidLaw, RealType, Topology,
-    NO_CONTROLLER_LAW,
-};
-use crate::messages::{CandidateOutcome, PreviewRequest, TuneChoice, TuneMethod, TuneRole};
+use crate::loop_definition::{ControllerLaw, Design, PidLaw, Topology, NO_CONTROLLER_LAW};
+use crate::messages::{CandidateOutcome, TuneChoice, TuneMethod};
 use crate::model::decode_general_model;
 use crate::recording::EvidenceSource;
 use crate::stages::{stage_availability, Stage, StageStatus};
@@ -30,10 +26,7 @@ use crate::tuning::candidate::{
     ControlPidParameters,
 };
 use crate::tuning::objective::TuningObjective;
-use crate::tuning::relay_rule::RelayCycleEvidence;
-use crate::tuning::settings_pins::ControllerSettingsPins;
 use crate::tuning::structure::Structure;
-use crate::tuning::texts;
 
 /// The recording file the identification's model was fitted from.
 const RECORDING_ID: &str = "rec-00112233445566778899aabbccddeeff";
@@ -110,6 +103,7 @@ fn identify_section(revision: &str, gain: f64, delay: f64) -> IdentifySection {
 /// Requirements that hold their rules, two of them generated.
 fn valid_requirements() -> TuningRequirements {
     TuningRequirements {
+        channel_requirements: None,
         reference_change: 2.0,
         maximum_error: 0.4,
         settling_band: 0.1,
@@ -166,11 +160,6 @@ fn pid_loop() -> LoopDefinition {
         anti_windup: None,
     })));
     loop_definition
-}
-
-/// The `Control.PID` record of an answer or a section: these tests design a `Control.PID` loop, which keeps a record.
-fn record(candidate: Option<&ControlPidCandidate>) -> &ControlPidCandidate {
-    candidate.expect("a Control.PID loop keeps a record")
 }
 
 /// The `Control.PID` record of a section, for the tests that break it.
@@ -317,7 +306,9 @@ fn a_section_that_breaks_a_rule_is_neither_kept_nor_read() {
 
     let requirements = refusal_of(|section| section.requirements.settling_band = 0.4);
     assert!(
-        requirements.message.contains("settling allowance"),
+        requirements
+            .message
+            .contains("greater than the settling band"),
         "{}",
         requirements.message
     );
@@ -416,6 +407,7 @@ fn tune_refuses_a_loop_without_a_controller_law_before_it_looks_for_a_model() {
         previous: None,
         request: &request,
         relay: None,
+        pins: None,
     })
     .expect_err("no controller law to tune");
     assert_eq!(refused.message, NO_CONTROLLER_LAW);
@@ -435,6 +427,7 @@ fn tune_is_refused_at_once_without_a_model_that_is_current_for_the_loop() {
         previous: None,
         request: &request,
         relay: None,
+        pins: None,
     };
     let refused = check_before_start(&without_model).expect_err("no model");
     assert_eq!(
@@ -470,6 +463,7 @@ fn a_model_that_every_method_takes_is_accepted() {
             previous: None,
             request: &request,
             relay: None,
+            pins: None,
         };
         assert_eq!(check_before_start(&inputs), Ok(()), "{method:?}");
     }
@@ -487,6 +481,7 @@ fn a_named_method_outside_its_domain_is_refused_with_choose_another_method() {
         previous: None,
         request: &amigo,
         relay: None,
+        pins: None,
     };
     let refused = check_before_start(&inputs).expect_err("L/T above 1");
     assert_eq!(
@@ -519,6 +514,7 @@ fn a_gain_that_contradicts_the_controller_action_is_refused_with_the_loop_setup(
             previous: None,
             request: &request,
             relay: None,
+            pins: None,
         };
         let refused = check_before_start(&inputs).expect_err("the gain contradicts the action");
         assert_eq!(
@@ -543,6 +539,7 @@ fn a_gain_that_contradicts_the_controller_action_is_refused_with_the_loop_setup(
         previous: None,
         request: &request,
         relay: None,
+        pins: None,
     };
     assert_eq!(check_before_start(&inputs), Ok(()));
 }
@@ -613,577 +610,6 @@ fn the_messages_use_the_words_of_the_command_line() {
     );
 }
 
-/// The record symbols of the commissioning example's proportional and integral gains.
-const PROPORTIONAL: &str = "P1.Parameters.ProportionalGain";
-const INTEGRAL: &str = "P1.Parameters.IntegralGain";
-/// The measurement filter time that [`example_loop_with_filter`] declares, a REAL parameter in seconds from zero to 10.
-const FILTER: &str = "P1.Parameters.MeasurementFilterTime";
-
-/// The loop of the commissioning example: a direct-acting PID loop whose parameters the engineer may enter, with the bindings
-/// its PID law names (`examples/control-pid-commissioning`).
-fn example_loop() -> LoopDefinition {
-    LoopDefinition::decode(include_str!(
-        "../../../../examples/control-pid-commissioning/control-loop.json"
-    ))
-    .expect("the commissioning example's loop")
-}
-
-/// The example loop with a measurement filter that its PID law declares (C0).
-fn example_loop_with_filter() -> LoopDefinition {
-    let mut loop_definition = example_loop();
-    if let Some(ControllerLaw::Pid(pid)) = &mut loop_definition.controller.law {
-        pid.measurement_filter_time_symbol = Some(FILTER.to_owned());
-    }
-    if let Some(binding) = &mut loop_definition.parameter_binding {
-        binding.parameters.push(Parameter {
-            symbol: FILTER.to_owned(),
-            iec_type: RealType::Real,
-            unit: "s".to_owned(),
-            convention: "Control.PID MeasurementFilterTime".to_owned(),
-            minimum: 0.0,
-            maximum: 10.0,
-        });
-    }
-    loop_definition
-}
-
-/// The study of the example loop: the first-order model of the model tests, on the loop's own signals, so that the study is
-/// current for the loop (A8.4).
-fn example_identify(loop_definition: &LoopDefinition) -> IdentifySection {
-    let base = crate::study::tune::model::tests::identify_section(None);
-    IdentifySection::new(
-        base.method,
-        base.source,
-        identify_signals(loop_definition, ControlExperimentKind::SetpointStep),
-        &base.estimation_recording_id,
-        None,
-        base.selected_model.clone(),
-        base.presentation
-            .clone()
-            .expect("a fit keeps its presentation"),
-    )
-}
-
-/// A request for the example loop with the method given and nothing else.
-fn example_request(method: Option<TuneMethod>) -> TuneRequest {
-    TuneRequest {
-        project_root: "/projects/control-pid-commissioning".to_owned(),
-        runtime_id: "simulator".to_owned(),
-        loop_id: "control-pid-commissioning".to_owned(),
-        storage_folder: "/state/trust".to_owned(),
-        method,
-        choice: None,
-        structure: None,
-        pins: None,
-        settings: None,
-        connection: None,
-    }
-}
-
-#[test]
-fn the_tune_method_words_are_the_stored_ones_and_only_the_formulas_have_a_formula() {
-    for (method, word, formula) in [
-        (TuneMethod::Simc, "SIMC", Some(TuningMethod::Simc)),
-        (TuneMethod::Amigo, "AMIGO", Some(TuningMethod::Amigo)),
-        (TuneMethod::Relay, "relay", None),
-        (TuneMethod::Manual, "manual", None),
-    ] {
-        assert_eq!(serde_json::to_value(method).expect("a word"), json!(word));
-        assert_eq!(method.formula(), formula, "{word}");
-    }
-    assert_eq!(TuneMethod::Simc.title(), TuningMethod::Simc.title());
-    assert_eq!(TuneMethod::Relay.title(), "Relay rule");
-    assert_eq!(TuneMethod::Manual.title(), "Manual settings");
-}
-
-#[test]
-fn the_manual_settings_the_pins_and_the_relay_record_are_refused_at_once_with_their_sentences() {
-    let loop_definition = example_loop();
-    let identify = CurrentModel::identified(example_identify(&loop_definition));
-    let refused_by = |request: &TuneRequest, relay: Option<&RelayCycleEvidence>| {
-        check_before_start(&TuneInputs {
-            loop_definition: &loop_definition,
-            model: Some(&identify),
-            previous: None,
-            request,
-            relay,
-        })
-        .expect_err("the request is refused")
-    };
-
-    // The manual method takes its settings, and the other methods refuse them (B4.2).
-    let missing = refused_by(&example_request(Some(TuneMethod::Manual)), None);
-    assert_eq!(
-        (missing.message.as_str(), missing.cause, missing.next_action),
-        (
-            texts::MANUAL_NEEDS_SETTINGS,
-            Cause::Settings,
-            NextAction::None
-        )
-    );
-    let mut with_settings = example_request(Some(TuneMethod::Simc));
-    with_settings.settings = Some(BTreeMap::from([(PROPORTIONAL.to_owned(), 2.0)]));
-    assert_eq!(
-        refused_by(&with_settings, None).message,
-        texts::SETTINGS_NEED_MANUAL
-    );
-
-    // The entered settings are the loop's, and within their bounds (B4.5).
-    let mut out_of_range = example_request(Some(TuneMethod::Manual));
-    out_of_range.settings = Some(BTreeMap::from([(PROPORTIONAL.to_owned(), 150.0)]));
-    assert_eq!(
-        refused_by(&out_of_range, None).message,
-        "P1.Parameters.ProportionalGain must be between 0 and 100 %/°C; 150 is outside that range."
-    );
-    let mut unknown = example_request(Some(TuneMethod::Manual));
-    unknown.settings = Some(BTreeMap::from([("P1.Other".to_owned(), 1.0)]));
-    assert_eq!(
-        refused_by(&unknown, None).message,
-        "P1.Other is not a setting of this controller."
-    );
-
-    // The pins belong to this loop revision and to the structure that the request fixes (B4.2).
-    let mut other_revision = example_request(Some(TuneMethod::Simc));
-    other_revision.pins = Some(ControllerSettingsPins {
-        loop_revision: "sha256:another-revision".to_owned(),
-        family: Structure::PI,
-        values: BTreeMap::new(),
-    });
-    assert_eq!(
-        refused_by(&other_revision, None).message,
-        texts::PINS_LOOP_REVISION
-    );
-    let mut other_family = example_request(Some(TuneMethod::Simc));
-    other_family.structure = Some(Structure::PD);
-    other_family.pins = Some(ControllerSettingsPins {
-        loop_revision: loop_definition.revision.clone(),
-        family: Structure::PI,
-        values: BTreeMap::new(),
-    });
-    assert_eq!(refused_by(&other_family, None).message, texts::PINS_FAMILY);
-
-    // The relay rule needs a qualified relay record of the study (N5.R, N2.9).
-    let relay = example_request(Some(TuneMethod::Relay));
-    let no_record = refused_by(&relay, None);
-    assert_eq!(
-        (
-            no_record.message.as_str(),
-            no_record.cause,
-            no_record.next_action
-        ),
-        (
-            texts::RELAY_NOT_IDENTIFIED,
-            Cause::ModelOrData,
-            NextAction::ChooseMethod
-        )
-    );
-    let reason = "At least three complete feedback relay cycles are required.";
-    let not_qualified = RelayCycleEvidence::NotQualified {
-        reason: reason.to_owned(),
-    };
-    assert_eq!(refused_by(&relay, Some(&not_qualified)).message, reason);
-}
-
-#[test]
-fn a_manual_entry_is_the_same_candidate_through_tune_and_through_preview_and_preview_keeps_nothing()
-{
-    let loop_definition = example_loop();
-    let identify = CurrentModel::identified(example_identify(&loop_definition));
-    let settings = BTreeMap::from([(PROPORTIONAL.to_owned(), 2.0), (INTEGRAL.to_owned(), 0.5)]);
-    let mut request = example_request(Some(TuneMethod::Manual));
-    request.settings = Some(settings.clone());
-    let inputs = TuneInputs {
-        loop_definition: &loop_definition,
-        model: Some(&identify),
-        previous: None,
-        request: &request,
-        relay: None,
-    };
-    let outcome = tune(&inputs).expect("the entered PI settings are a candidate");
-    assert_eq!(outcome.section.method, Some(TuneMethod::Manual));
-    assert_eq!(outcome.result.method, Some(TuneMethod::Manual));
-    assert_eq!(outcome.result.method_title, "Manual settings");
-    assert_eq!(
-        record(outcome.result.candidate.as_ref()).source,
-        CandidateSource::Manual
-    );
-    assert_eq!(
-        record(outcome.result.candidate.as_ref()).structure,
-        Structure::PI
-    );
-    assert!(
-        !record(outcome.result.candidate.as_ref()).applied,
-        "Tune never applies"
-    );
-    assert_eq!(outcome.result.reason, texts::MANUAL_READY);
-    // The answer carries the evidence its stages are computed from: the model and the candidate it designed (B9.4).
-    assert!(outcome.result.stage_evidence.has_model && outcome.result.stage_evidence.has_candidate);
-    assert_eq!(
-        outcome.result.stages,
-        stage_availability(&outcome.result.stage_evidence)
-    );
-
-    // The preview answers the same settings with the same candidate and prediction. Its result is a `TuneResult`, which has
-    // no study section, so nothing is stored.
-    let preview_request = PreviewRequest {
-        project_root: request.project_root.clone(),
-        runtime_id: request.runtime_id.clone(),
-        loop_id: request.loop_id.clone(),
-        structure: None,
-        settings,
-        pins: None,
-        connection: None,
-    }
-    .tune_request();
-    let previewed = preview(
-        &TuneInputs {
-            request: &preview_request,
-            ..inputs
-        },
-        None,
-    )
-    .expect("the preview answers the entered settings");
-    assert_eq!(previewed.candidate, outcome.result.candidate);
-    assert_eq!(previewed.outcome, outcome.result.outcome);
-    assert_eq!(previewed.response, outcome.result.response);
-    // A preview keeps nothing, so its evidence is the study's own: the model, and no candidate, because the study holds no earlier
-    // Tune section (B4.5). Its stages are computed from that evidence.
-    assert!(previewed.stage_evidence.has_model && !previewed.stage_evidence.has_candidate);
-    assert_eq!(
-        previewed.stages,
-        stage_availability(&previewed.stage_evidence)
-    );
-
-    // Without a model, the preview is refused at once, with the next action Identify (B4.7).
-    let without_model = preview(
-        &TuneInputs {
-            model: None,
-            ..inputs
-        },
-        None,
-    )
-    .expect_err("a preview needs a model");
-    assert_eq!(without_model.next_action, NextAction::Identify);
-}
-
-/// B4.5: the running controller's settings, when the engine read them, add the two current traces to the prediction on the
-/// candidate's time base, and the candidate keeps its own settling time, overshoot, outcome and traces. Without them the response
-/// holds the candidate's three traces.
-#[test]
-fn the_running_settings_add_the_current_traces_and_leave_the_candidate_alone() {
-    let loop_definition = example_loop();
-    let identify = CurrentModel::identified(example_identify(&loop_definition));
-    let mut request = example_request(Some(TuneMethod::Manual));
-    request.settings = Some(BTreeMap::from([
-        (PROPORTIONAL.to_owned(), 2.0),
-        (INTEGRAL.to_owned(), 0.5),
-    ]));
-    let inputs = TuneInputs {
-        loop_definition: &loop_definition,
-        model: Some(&identify),
-        previous: None,
-        request: &request,
-        relay: None,
-    };
-    let alone = tune(&inputs).expect("the entered PI settings are a candidate");
-    let alone_traces = &alone
-        .result
-        .response
-        .as_ref()
-        .expect("a predicted response")
-        .traces;
-    assert_eq!(alone_traces.len(), 3, "the candidate's three traces");
-
-    let running = BTreeMap::from([(PROPORTIONAL.to_owned(), 1.0), (INTEGRAL.to_owned(), 0.1)]);
-    let compared = tune_held(&inputs, None, Some(&running)).expect("the comparison is predicted");
-    let response = compared
-        .result
-        .response
-        .as_ref()
-        .expect("a predicted response");
-    let roles: Vec<TuneRole> = response.traces.iter().map(|trace| trace.role).collect();
-    assert_eq!(
-        roles,
-        [
-            TuneRole::Setpoint,
-            TuneRole::Measurement,
-            TuneRole::Command,
-            TuneRole::CurrentMeasurement,
-            TuneRole::CurrentCommand,
-        ]
-    );
-    assert_eq!(response.traces[..3], alone_traces[..]);
-    assert_eq!(compared.result.candidate, alone.result.candidate);
-    assert_eq!(compared.result.outcome, alone.result.outcome);
-    assert_eq!(
-        compared.result.settling_time_seconds,
-        alone.result.settling_time_seconds
-    );
-    assert_eq!(
-        compared.result.overshoot_percent,
-        alone.result.overshoot_percent
-    );
-
-    // The preview with the same running settings predicts the same comparison, and keeps nothing (B4.5).
-    let previewed = preview(&inputs, Some(&running)).expect("the preview answers the settings");
-    assert_eq!(previewed.response, compared.result.response);
-}
-
-#[test]
-fn a_qualified_relay_record_gives_the_relay_rule_candidate_with_its_ku_and_pu() {
-    let loop_definition = example_loop();
-    let identify = CurrentModel::identified(example_identify(&loop_definition));
-    let relay = RelayCycleEvidence::Qualified {
-        cycles: 4,
-        output_amplitude: 1.0,
-        response_amplitude: 1.0,
-        period_seconds: 4.0,
-        ultimate_gain: 2.0,
-        proportional_gain: 0.9,
-        integral_time_seconds: 4.0 / 1.2,
-        integral_gain: 0.27,
-    };
-    let request = example_request(Some(TuneMethod::Relay));
-    let outcome = tune(&TuneInputs {
-        loop_definition: &loop_definition,
-        model: Some(&identify),
-        previous: None,
-        request: &request,
-        relay: Some(&relay),
-    })
-    .expect("a qualified relay record designs the relay rule");
-    assert_eq!(outcome.result.method, Some(TuneMethod::Relay));
-    assert_eq!(outcome.result.method_title, "Relay rule");
-    assert_eq!(
-        record(outcome.result.candidate.as_ref()).source,
-        CandidateSource::RelayRule
-    );
-    assert_eq!(
-        record(outcome.result.candidate.as_ref()).structure,
-        Structure::PI
-    );
-    assert_eq!(
-        outcome.result.reason,
-        "Relay rule from Ku = 2 and Pu = 4 s: Kp = 0.45·Ku, Ti = Pu/1.2. Validate before applying."
-    );
-    assert!(outcome.result.method_description.contains("Ku"));
-    assert!(outcome.result.method_description.contains("Pu"));
-    // The example is direct-acting, so Kp and Ki are positive (N6.4); Ki = Kp/Ti with Ti = 4/1.2 s.
-    assert!(
-        (record(outcome.result.candidate.as_ref())
-            .parameters
-            .proportional_gain
-            - 0.9)
-            .abs()
-            <= 1e-9
-    );
-    assert!(
-        (record(outcome.result.candidate.as_ref())
-            .parameters
-            .integral_gain
-            - 0.27)
-            .abs()
-            <= 1e-9
-    );
-}
-
-#[test]
-fn a_law_that_declares_a_filter_writes_its_filter_time_and_predicts_with_it() {
-    let loop_definition = example_loop_with_filter();
-    let identify = CurrentModel::identified(example_identify(&loop_definition));
-    let calculated_request = example_request(Some(TuneMethod::Simc));
-    let calculated = tune(&TuneInputs {
-        loop_definition: &loop_definition,
-        model: Some(&identify),
-        previous: None,
-        request: &calculated_request,
-        relay: None,
-    })
-    .expect("SIMC designs a PI with the filter declared");
-    assert_eq!(
-        record(calculated.result.candidate.as_ref()).measurement_filter_seconds,
-        Some(0.0),
-        "a calculated candidate writes Tf = 0 unless Tf is pinned (C0)"
-    );
-
-    let mut pinned_request = example_request(Some(TuneMethod::Simc));
-    pinned_request.pins = Some(ControllerSettingsPins {
-        loop_revision: loop_definition.revision.clone(),
-        family: Structure::PI,
-        values: BTreeMap::from([(FILTER.to_owned(), 0.5)]),
-    });
-    let pinned = tune(&TuneInputs {
-        loop_definition: &loop_definition,
-        model: Some(&identify),
-        previous: None,
-        request: &pinned_request,
-        relay: None,
-    })
-    .expect("the pinned filter time keeps its value");
-    assert_eq!(
-        record(pinned.result.candidate.as_ref()).measurement_filter_seconds,
-        Some(0.5)
-    );
-    assert_ne!(
-        pinned.result.response, calculated.result.response,
-        "the filter lag is part of the predicted response (C0)"
-    );
-
-    let plain_loop = example_loop();
-    let plain_identify = CurrentModel::identified(example_identify(&plain_loop));
-    let plain = tune(&TuneInputs {
-        loop_definition: &plain_loop,
-        model: Some(&plain_identify),
-        previous: None,
-        request: &calculated_request,
-        relay: None,
-    })
-    .expect("SIMC designs a PI without a filter");
-    assert_eq!(
-        record(plain.result.candidate.as_ref()).measurement_filter_seconds,
-        None
-    );
-}
-
-#[test]
-fn the_result_names_each_setting_of_the_candidate_by_its_symbol() {
-    // A manual PI entry is the candidate, and the result gives its record under the loop's own symbols (B4.2, C0). The
-    // measurement filter time that the loop declares is named with the value the engineer entered.
-    let loop_definition = example_loop();
-    let identify = CurrentModel::identified(example_identify(&loop_definition));
-    let mut request = example_request(Some(TuneMethod::Manual));
-    request.settings = Some(BTreeMap::from([
-        (PROPORTIONAL.to_owned(), 2.0),
-        (INTEGRAL.to_owned(), 0.5),
-    ]));
-    let outcome = tune(&TuneInputs {
-        loop_definition: &loop_definition,
-        model: Some(&identify),
-        previous: None,
-        request: &request,
-        relay: None,
-    })
-    .expect("the entered PI settings are a candidate");
-    assert_eq!(outcome.result.settings.get(PROPORTIONAL), Some(&2.0));
-    assert_eq!(outcome.result.settings.get(INTEGRAL), Some(&0.5));
-    let bound = loop_definition
-        .parameter_binding
-        .as_ref()
-        .expect("the example binds its parameters");
-    assert!(
-        outcome.result.settings.keys().all(|symbol| bound
-            .parameters
-            .iter()
-            .any(|parameter| &parameter.symbol == symbol)),
-        "every named setting is a parameter the loop binds"
-    );
-
-    let filtered_loop = example_loop_with_filter();
-    let filtered_identify = CurrentModel::identified(example_identify(&filtered_loop));
-    let mut filtered_request = example_request(Some(TuneMethod::Manual));
-    filtered_request.settings = Some(BTreeMap::from([
-        (PROPORTIONAL.to_owned(), 2.0),
-        (INTEGRAL.to_owned(), 0.5),
-        (FILTER.to_owned(), 0.25),
-    ]));
-    let filtered = tune(&TuneInputs {
-        loop_definition: &filtered_loop,
-        model: Some(&filtered_identify),
-        previous: None,
-        request: &filtered_request,
-        relay: None,
-    })
-    .expect("the entered settings with the filter time are a candidate");
-    assert_eq!(filtered.result.settings.get(FILTER), Some(&0.25));
-}
-
-/// The commissioning example as a program's own PI law (C2): its controller law and its PID initialization are replaced by a
-/// served `parallel-pid` seed that names the example's proportional and integral parameters.
-fn example_program_pi_loop() -> LoopDefinition {
-    let mut loop_definition = example_loop();
-    loop_definition.controller.law = None;
-    loop_definition.controller.pid_initialization = None;
-    loop_definition.controller.project = Some(
-        ControllerProject::from_value(&json!({
-            "convention": "project-owned-native-controller",
-            "family": "PI",
-            "initialization": { "kind": "declared-state-v1", "states": [] },
-            "seed": { "kind": "parallel-pid", "family": "PI",
-                "proportionalSymbol": PROPORTIONAL, "integralSymbol": INTEGRAL },
-            "axes": [],
-            "objective": { "requirementId": "target-error", "direction": "minimize" },
-            "maximumCandidates": 4, "maximumCycles": 50000, "wallBudgetMs": 60000
-        }))
-        .expect("a served PI seed is a complete project block"),
-    );
-    loop_definition
-}
-
-#[test]
-fn a_program_pi_law_gives_a_project_candidate_whose_settings_name_its_variables() {
-    // C2 Tune: the answer carries the program's candidate, with the values of the variables of its structure, and no Control.PID record.
-    let loop_definition = example_program_pi_loop();
-    let identify = CurrentModel::identified(example_identify(&loop_definition));
-    let mut request = example_request(Some(TuneMethod::Simc));
-    request.structure = Some(Structure::PI);
-    let outcome = tune(&TuneInputs {
-        loop_definition: &loop_definition,
-        model: Some(&identify),
-        previous: None,
-        request: &request,
-        relay: None,
-    })
-    .expect("the program's PI law is designed on the model");
-    assert!(
-        outcome.result.candidate.is_none(),
-        "a program's law keeps no record"
-    );
-    assert!(outcome.section.candidate.is_none());
-    let candidate = outcome
-        .result
-        .project_candidate
-        .as_ref()
-        .expect("the program's candidate");
-    assert_eq!(candidate.structure, Structure::PI);
-    assert!(!candidate.applied, "Tune never applies");
-    assert_eq!(
-        candidate.values,
-        BTreeMap::from([
-            (PROPORTIONAL.to_owned(), candidate.gains.proportional_gain),
-            (INTEGRAL.to_owned(), candidate.gains.integral_gain),
-        ]),
-        "a PI candidate holds its proportional and integral variables only"
-    );
-    assert_eq!(outcome.result.settings, candidate.values);
-    assert_eq!(outcome.section.project_candidate.as_ref(), Some(candidate));
-
-    // A proportional design of the same law holds its proportional variable only (C2, the family's own variables).
-    let mut proportional = example_request(Some(TuneMethod::Simc));
-    proportional.structure = Some(Structure::P);
-    let answer = tune(&TuneInputs {
-        loop_definition: &loop_definition,
-        model: Some(&identify),
-        previous: None,
-        request: &proportional,
-        relay: None,
-    })
-    .expect("the program's P is designed on the model");
-    let candidate = answer
-        .result
-        .project_candidate
-        .as_ref()
-        .expect("the program's candidate");
-    assert_eq!(candidate.structure, Structure::P);
-    assert_eq!(
-        candidate.values,
-        BTreeMap::from([(PROPORTIONAL.to_owned(), candidate.gains.proportional_gain)])
-    );
-    assert!(
-        candidate.gains.integral_gain.abs() <= 1e-12,
-        "P has no integral term"
-    );
-}
-
 #[test]
 fn a_control_pid_section_keeps_its_bytes_and_holds_no_project_candidate() {
     // C1: a Control.PID section names no project candidate, and reads and writes back unchanged.
@@ -1196,4 +622,81 @@ fn a_control_pid_section_keeps_its_bytes_and_holds_no_project_candidate() {
     let decoded = TuneSection::decode(&text).expect("the section decodes");
     assert_eq!(decoded, section);
     assert_eq!(decoded.encode().expect("the section encodes again"), text);
+}
+
+#[test]
+fn a_constrained_proportional_recommendation_is_kept_and_read_back_whole() {
+    // control-studio-validate-apply: "round-trips a retained constrained proportional recommendation" (B10.2, B10.4; C0 "Families and
+    // zero terms": a P writes its integral and derivative gains as explicit zeros). The candidate keeps its source and its structure.
+    let mut section = valid_section("model:fitted:1");
+    section.method = None;
+    section.closed_loop_time_seconds = None;
+    section.candidate = Some(
+        candidate_from_control_pid(
+            ControlPidParameters {
+                proportional_gain: 0.8,
+                integral_gain: 0.0,
+                derivative_gain: 0.0,
+                ..parameters()
+            },
+            CandidateSource::ConstrainedComparison,
+        )
+        .expect("a valid record"),
+    );
+    let text = section.encode().expect("encoded");
+    let decoded = TuneSection::decode(&text).expect("decoded");
+    assert_eq!(decoded, section);
+    let kept = record(decoded.candidate.as_ref());
+    assert_eq!(kept.source, CandidateSource::ConstrainedComparison);
+    assert_eq!(kept.structure, Structure::P);
+    assert!(!kept.applied, "a candidate is never applied by Tune");
+
+    let value = serde_json::to_value(&section).expect("json");
+    assert_eq!(
+        value["candidate"]["source"],
+        json!("Constrained comparison")
+    );
+    assert_eq!(value["candidate"]["structure"], json!("P"));
+}
+
+#[test]
+fn the_automatic_comparison_keeps_every_attempt_and_refuses_an_unknown_status_or_lambda() {
+    // control-studio-validate-apply: "round-trips and validates the complete automatic tuning comparison" (B4.4, Part C "Candidates and
+    // results": every attempt stays with its reason; B10.4: a record that breaks a rule is rejected as a whole).
+    use crate::tuning::recommendation::AttemptStatus;
+    let mut section = valid_section("model:fitted:1");
+    section.method = None;
+    section.closed_loop_time_seconds = Some(1.5);
+    section.attempts = vec![
+        Attempt {
+            structure: Structure::P,
+            status: AttemptStatus::Rejected,
+            reason: "Failed: Noise response.".to_owned(),
+        },
+        Attempt {
+            structure: Structure::PI,
+            status: AttemptStatus::Feasible,
+            reason: "A compatible candidate on the model.".to_owned(),
+        },
+    ];
+    let text = section.encode().expect("encoded");
+    assert_eq!(
+        TuneSection::decode(&text).expect("decoded"),
+        section,
+        "every attempt comes back with its structure, status and reason"
+    );
+
+    let mut unknown = serde_json::to_value(&section).expect("json");
+    unknown["attempts"][0]["status"] = json!("Winner");
+    assert!(
+        TuneSection::decode(&unknown.to_string()).is_err(),
+        "an unknown attempt status does not reopen as qualified evidence"
+    );
+
+    let lambda = refusal_of(|broken| broken.closed_loop_time_seconds = Some(-1.0));
+    assert!(
+        lambda.message.contains("closed-loop time constant"),
+        "{}",
+        lambda.message
+    );
 }

@@ -1,73 +1,15 @@
-import * as vscode from "vscode";
-import * as fs from "fs";
 import { randomUUID } from "crypto";
-import { createControlStudioBindingSession, type WorkspaceControlProject } from "./hostBindingSession";
-import { discoverControlStudioBindings, type ControlStudioBindingSelection } from "./hostBindingDiscovery";
-import { controlLoopConfigurationPaths, type ProjectControlLoopOpenRequest } from "./projectLoop";
-import { isControllerFamily, type ControllerFamily } from "./controllerFamilies";
-import type { ControlLoopDefinition } from "./loopDefinition";
+import type { ConfiguredLoopRequest, LoopDefinition } from "./generated/ProjectLoopsResult";
 import type { LoopMessageScope } from "./messages";
-import type { DiscoverControlSignals } from "./configureLoop";
-import { storeEngineerDraft } from "./engineerDraftStorage";
-import { storeEngineerStage } from "./engineerNavigationStorage";
-import type { StudioAnalysisSessions } from "./studioAnalysisSessions";
-import type { EngineerStudy } from "./engineerStudyPersistence";
-import { connectedModelChannels } from "./loopChannels";
 import type { ControlStudioEngine } from "./engine/engineClient";
 import type { SetupDiscoverRequest } from "./generated/SetupDiscoverRequest";
-import { engineAnswer, refusalText } from "./loopSetup/setupEngine";
+import { engineAnswer } from "./loopSetup/setupEngine";
 
+/** A binding selection that opens a new loop session: its session identifier, and the controller family it chose (B1.3). */
 export interface StudioBindingOpen {
   sessionId: string;
-  family?: ControllerFamily;
-  sourceLoop?: ControlLoopDefinition;
-  sourceStudy?: EngineerStudy;
-}
-
-/** The engine route's hand-over of the controller family a binding selection chose, before the engine opens the loop (B1.3). */
-export interface StudioBindingEngine {
-  bindingFamily(family: ControllerFamily): void;
-}
-
-/**
- * Keep the same plant model when only the controller target changes. The controller family goes to the engine that serves the loop,
- * when the panel gives its port; otherwise it goes to the TypeScript session (B1.3).
- */
-export async function adoptStudioBinding(context: vscode.ExtensionContext, loop: ControlLoopDefinition,
-  sessions: StudioAnalysisSessions, scope: LoopMessageScope, selection: StudioBindingOpen, engine?: StudioBindingEngine): Promise<void> {
-  const source = selection.sourceLoop, study = selection.sourceStudy, model = study?.selectedModel;
-  if (model && source && source.projectId === loop.projectId && source.runtimeId === loop.runtimeId && source.plantId === loop.plantId) {
-    let same = false;
-    try {
-      const identities = (binding: ControlLoopDefinition) => {
-        const channels = connectedModelChannels(binding, model);
-        return [...channels.inputs, ...channels.outputs].map(channel => channel.signal);
-      };
-      same = JSON.stringify(identities(source)) === JSON.stringify(identities(loop));
-    } catch { /* A different plant/channel selection needs its own model. */ }
-    if (same) {
-      sessions.engineer?.assertModelReplacementAllowed();
-      sessions.model.selectModel(model);
-      const current = sessions.engineer?.snapshotStudy();
-      sessions.engineer?.restoreStudy({ selectedModel: model, modelComparison: study.modelComparison,
-        task: study.task, campaigns: study.campaigns, recordingCatalog: study.recordingCatalog, settingsPins: current?.settingsPins,
-        controllerChoice: current?.controllerChoice, tuningPreferences: current?.tuningPreferences });
-      sessions.engineer?.modelChanged();
-    }
-  }
-  if (selection.family) {
-    if (engine) engine.bindingFamily(selection.family);
-    else await adoptStudioFamily(sessions, scope, selection.family);
-  }
-  await storeEngineerDraft(loop, sessions.engineer?.snapshotStudy());
-  await storeEngineerStage(loop, { schemaVersion: 1, kind: "control-studio.navigation.select", ...scope,
-    expectedLoopRevision: scope.loopRevision, payload: { stage: "tune" } }, scope);
-}
-
-/** Hands a controller family to the TypeScript session of a loop that the engine does not serve (until V7). */
-export async function adoptStudioFamily(sessions: StudioAnalysisSessions, scope: LoopMessageScope, family: ControllerFamily): Promise<void> {
-  await sessions.engineer?.handle({ schemaVersion: 1, kind: "control-studio.engineer.invalidate", messageId: randomUUID(),
-    ...scope, expectedLoopRevision: scope.loopRevision, payload: { family } }, scope, async () => {});
+  /** The controller family the engineer chose; the engine checks it against the selected loop's adapter (C0). */
+  family?: string;
 }
 
 /** The engine that discovers and selects the loops of the panel's project (B1.2, B1.3), and the project folder it answers for. */
@@ -78,126 +20,85 @@ export interface EngineBindingPort {
   readonly languageTool?: string;
 }
 
-/** Adapts the existing scoped webview messages to compiled binding discovery. */
+/** How many ids of handled messages the route keeps to answer a repeated message once; the oldest is forgotten first. */
+const HANDLED_MESSAGES_KEPT = 4096;
+
+/**
+ * The binding page of the loop's project, on the engine (B1.2, B1.3): the engine discovers the loops of the project and selects the
+ * binding; the page shows its answer and its refusals. The route holds no rule of its own.
+ */
 export class ThreePageBindingRoute {
-  private readonly session;
+  /** The ids of the messages already handled, newest last: a message the page sends twice is answered once. Only the last ones are kept. */
   private readonly handled = new Set<string>();
   private selecting = false;
-  private family: ControllerFamily | undefined;
-  constructor(private readonly loop: ControlLoopDefinition, private readonly scope: LoopMessageScope,
-    discover: DiscoverControlSignals | undefined, private readonly current: () => boolean,
-    private readonly assertCanChange: () => void,
-    private readonly open: (request: ProjectControlLoopOpenRequest, sessionId: string, family?: ControllerFamily) => Promise<void>,
-    /** When given, the engine discovers and selects the bindings; otherwise the TypeScript session does (until stage V7). */
-    private readonly engineBindings?: EngineBindingPort) {
-    this.session = createControlStudioBindingSession({
-      scope: { projectId: scope.projectId, runtimeId: loop.runtimeId, sessionId: scope.editorSessionId },
-      workspaceProjects: () => (vscode.workspace.workspaceFolders ?? []).map(folder => ({ id: loop.projectId, name: folder.name, rootUri: folder.uri.toString() })),
-      selectWorkspaceProject: projects => this.project(projects),
-      discover: async uri => {
-        if (!discover) throw new Error("Compiled signal discovery is not ready. Reopen the controller selector after the project loads.");
-        return discoverControlStudioBindings(vscode.Uri.parse(uri).fsPath, loop.runtimeId, await discover(uri));
-      },
-      newSessionId: () => randomUUID(),
-      openNewSession: async value => {
-        if (!this.current()) return;
-        this.assertCanChange();
-        await open(value.request, value.sessionId, this.family);
-      },
-    });
+  private family: string | undefined;
+  constructor(private readonly loop: LoopDefinition, private readonly scope: LoopMessageScope,
+    private readonly current: () => boolean,
+    private readonly open: (request: ConfiguredLoopRequest, sessionId: string, family?: string) => Promise<void>,
+    private readonly port: EngineBindingPort) {}
+
+  /**
+   * Lists the project's loops (B1.3). With the page's mapping, the engine also answers which loop that mapping matches and whether its
+   * signals changed (B3.6); the route forwards the mapping as the page sent it and the engine's answer as it came. The request names the
+   * loop the panel shows, so that a listing without a mapping is answered with the choices of that loop's own mapping, the other loops
+   * that bind the same plant signals (B1.2, B3.6).
+   */
+  async publish(post: (payload: Record<string, unknown>) => Promise<void>, mapping?: SetupDiscoverRequest["mapping"]): Promise<void> {
+    if (!this.current()) return;
+    const answer = await engineAnswer(() => this.port.engine.setupDiscover({ projectRoot: this.port.projectRoot, runtimeId: this.loop.runtimeId,
+      loopId: this.loop.id, ...(this.port.languageTool ? { languageTool: this.port.languageTool } : {}), ...(mapping ? { mapping } : {}) }));
+    if (!this.current()) return;
+    // The page shows the engine's whole sentence (A11.1); the host adds no words of its own to it.
+    if ("failure" in answer) await post({ status: "failed", reason: answer.failure.detail || answer.failure.message });
+    else await post({ status: "bindings", targets: answer.result.loops, rejected: answer.result.rejected,
+      ...(answer.result.mapping ? { mapping: answer.result.mapping } : {}) });
   }
-  async publish(post: (payload: Record<string, unknown>) => Promise<void>): Promise<void> {
-    if (this.engineBindings) return this.publishFromEngine(this.engineBindings, post);
-    try {
-      const result = await this.session.handle({ schemaVersion: 1, kind: "control-studio.binding.list", scope: this.bindingScope() });
-      if (this.current()) await post({ ...result, status: result.status === "accepted" ? "bindings" : "failed" });
-    } catch (error) { if (this.current()) await post({ status: "failed", reason: reason(error) }); }
-  }
+
   async handle(value: unknown, post: (payload: Record<string, unknown>) => Promise<void>): Promise<boolean> {
     if (!record(value) || !["control-studio.binding.list", "control-studio.binding.select"].includes(String(value.kind))) return false;
     if (value.schemaVersion !== 1 || value.projectId !== this.scope.projectId || value.editorSessionId !== this.scope.editorSessionId
       || value.loopId !== this.scope.loopId || value.expectedLoopRevision !== this.scope.loopRevision || !record(value.payload)
       || typeof value.messageId !== "string" || !value.messageId || !this.current()) return true;
     if (this.handled.has(value.messageId) || this.selecting) return true;
-    if (this.handled.size >= 4096) { await post({ status: "failed", reason: "Reopen Control Studio before changing its binding again." }); return true; }
     this.handled.add(value.messageId);
-    if (value.kind === "control-studio.binding.list") { await this.publish(post); return true; }
+    if (this.handled.size > HANDLED_MESSAGES_KEPT) this.handled.delete(this.handled.values().next().value as string);
+    if (value.kind === "control-studio.binding.list") {
+      // The page's JSON: the engine decodes and checks the mapping, so its shape is the engine's, not the page's to restate.
+      await this.publish(post, record(value.payload.mapping) ? value.payload.mapping as unknown as SetupDiscoverRequest["mapping"] : undefined);
+      return true;
+    }
     const payload = value.payload;
     try {
-      if (this.engineBindings) { await this.selectWithEngine(this.engineBindings, payload, post); return true; }
-      if (!selection(payload.selection) || payload.family !== undefined && !isControllerFamily(payload.family)) throw new Error("Choose a declared controller and its complete signal mapping.");
-      const selectedBinding = payload.selection;
-      this.assertCanChange(); this.selecting = true;
-      this.family = isControllerFamily(payload.family) ? payload.family : undefined;
-      // Recheck compiled identities and configuration immediately before selection.
-      const listed = await this.session.handle({ schemaVersion: 1, kind: "control-studio.binding.list", scope: this.bindingScope() });
-      if (!this.current()) return true;
-      if (listed.status !== "accepted") throw new Error(listed.reason ?? "The configured project is unavailable.");
-      if (this.family && "targets" in listed) {
-        const compatible = listed.targets.find(target => target.loopId === selectedBinding.loopId)?.controllerCompatibility;
-        if (compatible?.kind !== "accepted" || !compatible.families.includes(this.family)) throw new Error("Choose a configuration supported by that controller's declared adapter.");
-      }
-      const selected = await this.session.handle({ schemaVersion: 1, kind: "control-studio.binding.select", scope: this.bindingScope(), selection: selectedBinding });
-      if (selected.status !== "accepted" && this.current()) await post({ status: "failed", page: payload.page, reason: selected.reason });
-    } catch (error) { if (this.current()) await post({ status: "failed", page: payload.page, reason: reason(error) }); }
-    finally { this.selecting = false; }
+      await this.selectWithEngine(payload, post);
+    } catch (error) {
+      if (this.current()) await post({ status: "failed", page: payload.page, reason: reason(error) });
+    } finally { this.selecting = false; }
     return true;
   }
-  private bindingScope() { return { projectId: this.scope.projectId, runtimeId: this.loop.runtimeId, sessionId: this.scope.editorSessionId }; }
-  /** Lists the project's loops as the engine discovers them (B1.2): the loops it lists, and its refusals with their next action. */
-  private async publishFromEngine(port: EngineBindingPort, post: (payload: Record<string, unknown>) => Promise<void>): Promise<void> {
-    const answer = await engineAnswer(() => port.engine.setupDiscover({ projectRoot: port.projectRoot, runtimeId: this.loop.runtimeId,
-      ...(port.languageTool ? { languageTool: port.languageTool } : {}) }));
-    if (!this.current()) return;
-    if ("failure" in answer) await post({ status: "failed", reason: refusalText(answer.failure) });
-    else await post({ status: "bindings", targets: answer.result.loops, rejected: answer.result.rejected });
-  }
+
   /**
-   * Selects a binding through the engine (B1.3, C0): the engine checks the selection and the family against the loops it lists and names
-   * the loop's file, which opens as a new session. A refusal is posted to the page with its next action.
+   * Selects a binding through the engine (B1.3, C0): the engine checks the selection and the family against the loops it lists and answers
+   * the open request of the selected loop, which opens as a new session. A refusal is posted to the page with its next action.
    */
-  private async selectWithEngine(port: EngineBindingPort, payload: Record<string, unknown>,
-    post: (payload: Record<string, unknown>) => Promise<void>): Promise<void> {
-    this.assertCanChange();
+  private async selectWithEngine(payload: Record<string, unknown>, post: (payload: Record<string, unknown>) => Promise<void>): Promise<void> {
     this.selecting = true;
-    const answer = await engineAnswer(() => port.engine.setupDiscover({
-      projectRoot: port.projectRoot,
+    const answer = await engineAnswer(() => this.port.engine.setupDiscover({
+      projectRoot: this.port.projectRoot,
       runtimeId: this.loop.runtimeId,
-      ...(port.languageTool ? { languageTool: port.languageTool } : {}),
+      ...(this.port.languageTool ? { languageTool: this.port.languageTool } : {}),
       selection: payload.selection as SetupDiscoverRequest["selection"],
       family: payload.family as string | undefined,
     }));
     if (!this.current()) return;
-    if ("failure" in answer) { await post({ status: "failed", page: payload.page, reason: refusalText(answer.failure) }); return; }
-    const file = answer.result.selectedFile;
-    if (!file) { await post({ status: "failed", page: payload.page, reason: "The engine did not name the selected loop." }); return; }
-    this.family = isControllerFamily(payload.family) ? payload.family : undefined;
-    const loopDefinition = JSON.parse(await fs.promises.readFile(file, "utf8"));
-    const request: ProjectControlLoopOpenRequest = { schemaVersion: 1, source: "ConfiguredLoop",
-      scope: { projectId: loopDefinition.projectId, runtimeId: loopDefinition.runtimeId }, loopDefinition };
+    if ("failure" in answer) { await post({ status: "failed", page: payload.page, reason: answer.failure.detail || answer.failure.message }); return; }
+    const selected = answer.result.selectedRequest;
+    if (!selected) { await post({ status: "failed", page: payload.page, reason: "The engine did not name the selected loop." }); return; }
+    // The engine checked the family with the selection above; the page's family is kept as the engine accepted it.
+    this.family = typeof payload.family === "string" ? payload.family : undefined;
     if (!this.current()) return;
-    this.assertCanChange();
-    await this.open(request, randomUUID(), this.family);
-  }
-  private async project(projects: readonly WorkspaceControlProject[]): Promise<WorkspaceControlProject | undefined> {
-    if (projects.length === 1) return projects[0];
-    const matches: WorkspaceControlProject[] = [];
-    for (const project of projects) {
-      for (const file of await controlLoopConfigurationPaths(vscode.Uri.parse(project.rootUri).fsPath)) {
-        try {
-          if ((await fs.promises.stat(file)).size > 512 * 1024) continue;
-          const value = JSON.parse(await fs.promises.readFile(file, "utf8"));
-          if (value.id === this.loop.id && value.projectId === this.loop.projectId && value.runtimeId === this.loop.runtimeId) { matches.push(project); break; }
-        } catch { /* Missing/invalid definitions are reported by the owning discovery. */ }
-      }
-    }
-    if (matches.length !== 1) throw new Error("Open Control Studio from the configured project to identify its controller bindings.");
-    return matches[0];
+    await this.open(selected, randomUUID(), this.family);
   }
 }
+
 function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === "object" && !Array.isArray(value); }
-function selection(value: unknown): value is ControlStudioBindingSelection {
-  const ids = (input: unknown) => Array.isArray(input) && input.length > 0 && input.length <= 16 && input.every(id => typeof id === "string" && id.length > 0);
-  return record(value) && typeof value.loopId === "string" && typeof value.controllerInstance === "string" && ids(value.inputIds) && ids(value.outputIds);
-}
 function reason(error: unknown): string { return error instanceof Error ? error.message : String(error); }

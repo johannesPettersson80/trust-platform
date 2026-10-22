@@ -2,7 +2,7 @@
 //! (`recordedRunWire.ts`).
 //!
 //! A sample's `values` holds one number or null per channel, in the run's `channels` order. Its `quality`
-//! holds one code per channel, an index into [`QUALITY_NAMES`], and is absent when every channel is good. A
+//! holds one code per channel, an index into `QUALITY_NAMES`, and is absent when every channel is good. A
 //! missing value has no measurement, so it cannot be good. The runtime writes the same vocabulary in its worker
 //! frames (`control/search/worker_checkpoint.rs`).
 

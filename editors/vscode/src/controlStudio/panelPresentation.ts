@@ -1,14 +1,14 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import type { PlantControlStudioHandoff } from "./handoff";
-import type { ControlLoopDefinition } from "./loopDefinition";
+import type { LoopDefinition } from "./generated/OpenResult";
 import { escapeHtml, renderControlStudioHtml } from "./panelTemplate";
 
 export function controlStudioHtml(
   webview: vscode.Webview,
   context: vscode.ExtensionContext,
   handoff?: PlantControlStudioHandoff,
-  loopDefinition?: ControlLoopDefinition,
+  loopDefinition?: LoopDefinition,
   sessionId = "",
   targetLabel?: string
 ): string {

@@ -414,3 +414,53 @@ fn a_schedule_draft_reads_the_camel_case_fields_the_form_sends() {
         "a field the draft does not declare is refused"
     );
 }
+
+/// The tank's schedule as the setup form posts it (B1.3): every operating-point row it draws, each number as the text typed, with the
+/// two filled rows `low` and `high` and the rows `third` and `fourth` after them.
+fn posted(low: &Value, high: &Value, third: &Value, fourth: &Value) -> ScheduleLoopDraft {
+    decode_value(json!({
+        "name": "Tank level", "action": "direct", "instance": "P1.Loop", "parameterRecord": "P1.Parameters",
+        "scheduling": { "symbol": "P1.LevelM", "unit": "m" },
+        "processVariable": { "symbol": "P1.LevelM", "unit": "m", "minimum": "0", "maximum": "2" },
+        "manipulatedVariable": { "symbol": "P1.ValvePct", "unit": "%", "minimum": "0", "maximum": "100" },
+        "setpoint": { "symbol": "P1.SetpointM" }, "mode": { "symbol": "P1.Auto", "whenTrue": "Auto" },
+        "manualOutput": "P1.ManualPct", "points": [low, high, third, fourth], "startupFlag": "P1.Started"
+    }))
+    .expect("the posted draft decodes")
+}
+
+/// B1.3 and C10 Setup: the form posts the four operating-point rows it draws, each number as the text typed. The two rows the engineer
+/// filled in, Low at `"0.09"` and High at `"0.49"`, each within `"0.01"`, are the points, and the two blank rows after them are no points:
+/// the draft writes the loops of the two-point draft. A row with any entry is a point, so a row that names only a gain variable is
+/// refused as a point without its name, and a value typed as `"0,09"` is refused with the sentence that asks for Low's value. The wrong
+/// behaviour caught: a blank row the page draws counted as a point, a typed number refused as missing, or a decimal comma read as a number.
+#[test]
+fn an_operating_point_row_with_no_entry_is_no_point() {
+    let blank = json!({ "name": "", "value": "", "tolerance": "", "proportionalGain": "", "integralGain": "" });
+    let low = json!({ "name": "Low", "value": "0.09", "tolerance": "0.01", "proportionalGain": "P1.KpLow", "integralGain": "P1.KiLow" });
+    let high = json!({ "name": "High", "value": "0.49", "tolerance": "0.01", "proportionalGain": "P1.KpHigh", "integralGain": "P1.KiHigh" });
+    assert_eq!(
+        schedule_loop_definitions(&tank(), &scope(), &posted(&low, &high, &blank, &blank))
+            .expect("the filled rows are the points"),
+        schedule_loop_definitions(&tank(), &scope(), &draft()).expect("the two-point draft")
+    );
+
+    let gain_only = json!({ "name": "", "value": "", "tolerance": "", "proportionalGain": "P1.KpMid", "integralGain": "" });
+    let refusal =
+        schedule_loop_definitions(&tank(), &scope(), &posted(&low, &high, &gain_only, &blank))
+            .expect_err("a row with an entry is a point");
+    assert_eq!(
+        text_of(&refusal),
+        "Give each operating point its own name and its own two gain variables."
+    );
+
+    let mut comma = low.clone();
+    comma["value"] = json!("0,09");
+    let refusal =
+        schedule_loop_definitions(&tank(), &scope(), &posted(&comma, &high, &blank, &blank))
+            .expect_err("a decimal comma is no number");
+    assert_eq!(
+        text_of(&refusal),
+        "Enter operating point Low's value of the scheduling variable."
+    );
+}

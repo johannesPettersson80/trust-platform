@@ -1,12 +1,16 @@
 import * as assert from "assert";
 
 import type { PlantControlStudioHandoff } from "../../controlStudio/handoff";
-import {
-  loadPlantMonitor,
-  projectPlantMonitor,
-} from "../../controlStudio/plantMonitor";
+import { loadPlantMonitor, type PlantMonitorDependencies } from "../../controlStudio/plantMonitor";
+import type { EngineAnswer } from "../../controlStudio/engine/engineClient";
+import type { PlantMonitorResult } from "../../controlStudio/generated/PlantMonitorResult";
 import type { RuntimeLifecycleSnapshot } from "../../runtimeLifecycle";
-import type { PlantContractMessage } from "../../networkCanvas/plant/contract";
+import { bindPlantSummary, plantSummaryText } from "../../controlStudio/webview/plantSummary";
+import { renderThreePageStudioHtml } from "../../controlStudio/threePageTemplate";
+import type { ControlStudioView } from "../../controlStudio/panelTemplate";
+
+// The plant summary is the engine's (`controlStudio/plantMonitor`, specification 35 §0.1a): these tests cover only the host's wiring.
+// The decisions (the reads that are made, the decode, the stale and missing plant) are pinned by trust-control's Rust tests.
 
 const handoff: PlantControlStudioHandoff = {
   schemaVersion: 1,
@@ -20,120 +24,113 @@ const handoff: PlantControlStudioHandoff = {
   requestedContext: { mode: "Monitor", selection: "plant_summary" },
 };
 
+const answer: PlantMonitorResult = {
+  availability: "unavailable",
+  source: "Simulation",
+  plantId: "tank",
+  reason: "Plant no longer exists",
+};
+
 suite("Control Studio plant monitor", () => {
-  test("uses the existing lifecycle endpoint and plant.status operation", async () => {
-    const requests: unknown[][] = [];
-    const result = await loadPlantMonitor(handoff, {
-      async lifecycleSnapshot() { return lifecycle("running"); },
-      async authToken(endpoint) {
-        assert.strictEqual(endpoint, "tcp://127.0.0.1:9900");
-        return "secret";
-      },
-      async request(...request) {
-        requests.push(request);
-        return status();
-      },
-    });
-    assert.strictEqual(result.availability, "available");
-    assert.deepStrictEqual(requests, [[
-      "tcp://127.0.0.1:9900",
-      "secret",
-      "plant.status",
-      {
-        contract: "trust.plant",
-        schema_version: 1,
-        project_id: "project:sha256:fixture",
-      },
-    ]]);
+  test("hands the engine the handoff's plant, the runtime's state and endpoint, and the token, then posts its answer", async () => {
+    const requests: unknown[] = [];
+    const result = await loadPlantMonitor(handoff, dependencies("running", async request => {
+      requests.push(request);
+      return { result: answer };
+    }));
+    assert.deepStrictEqual(result, answer);
+    assert.deepStrictEqual(requests, [{
+      projectId: "project:sha256:fixture",
+      plantId: "tank",
+      activeConfigurationDigest: "sha256:active",
+      runtimeStopped: false,
+      endpointReachable: true,
+      connection: { endpoint: "tcp://127.0.0.1:9900", token: "secret" },
+    }]);
   });
 
-  test("queries the endpoint owned by a running debug session without an external probe flag", async () => {
+  test("asks for the token of the endpoint it reads", async () => {
+    const endpoints: string[] = [];
+    await loadPlantMonitor(handoff, {
+      ...dependencies("running", async () => ({ result: answer })),
+      async authToken(endpoint) {
+        endpoints.push(endpoint);
+        return "secret";
+      },
+    });
+    assert.deepStrictEqual(endpoints, ["tcp://127.0.0.1:9900"]);
+  });
+
+  test("a stopped runtime is reported to the engine as stopped, with no token", async () => {
+    const requests: Array<{ runtimeStopped: boolean; connection: unknown }> = [];
+    await loadPlantMonitor(handoff, dependencies("stopped", async request => {
+      requests.push(request as { runtimeStopped: boolean; connection: unknown });
+      return { result: answer };
+    }, null));
+    assert.strictEqual(requests[0].runtimeStopped, true);
+    assert.deepStrictEqual(requests[0].connection, { endpoint: "" });
+  });
+
+  test("a running runtime whose probe did not answer is still sent as running", async () => {
+    const requests: Array<{ runtimeStopped: boolean; endpointReachable: boolean }> = [];
     const running = lifecycle("running");
-    const result = await loadPlantMonitor(handoff, {
+    await loadPlantMonitor(handoff, {
       async lifecycleSnapshot() {
         return { ...running, status: { ...running.status, endpointReachable: false } };
       },
       async authToken() { return "secret"; },
-      async request() { return status(); },
-    });
-    assert.strictEqual(result.availability, "available");
-  });
-
-  test("queries a reachable configured runtime that was started outside VS Code", async () => {
-    const stopped = lifecycle("stopped");
-    const result = await loadPlantMonitor(handoff, {
-      async lifecycleSnapshot() {
-        return {
-          ...stopped,
-          status: {
-            ...stopped.status,
-            runtimeMode: "online",
-            endpoint: "unix:///tmp/trust-runtime.sock",
-            endpointConfigured: true,
-            endpointReachable: true,
-          },
-        };
+      async monitor(request) {
+        requests.push(request as { runtimeStopped: boolean; endpointReachable: boolean });
+        return { result: answer };
       },
-      async authToken() { return undefined; },
-      async request() { return status(); },
     });
-    assert.strictEqual(result.availability, "available");
+    assert.strictEqual(requests[0].runtimeStopped, false);
+    assert.strictEqual(requests[0].endpointReachable, false);
   });
 
-  test("projects the shared decoded status without inventing a setpoint", () => {
-    assert.deepStrictEqual(projectPlantMonitor(status(), handoff), {
-      availability: "available",
-      source: "Simulation",
-      plantId: "tank",
-      activeConfigurationRevision: "sha256:active",
-      runtimeVersion: "0.24.64",
-      simulationTimeNs: "2000000",
-      operatingState: "running",
-      model: "first_order_dead_time",
-      command: [2],
-      appliedInput: [1.8],
-      idealOutput: [1.4],
-      measuredFeedback: [1.37],
-      publishedFeedback: [1.38],
-      state: [1.25],
-      timeScale: 1,
-      effectiveSeed: "42",
-      randomAlgorithm: "chacha8",
-      randomAlgorithmVersion: 1,
-      actuators: [],
-      activeUncertainties: [],
-      activeDropouts: [],
-      pendingEventCount: 0,
-      delayBufferDepth: 2,
-      lastSubsteps: 1,
-      currentFault: null,
-    });
-  });
-
-  test("clears current evidence for stopped, deleted, and stale plants", async () => {
-    const stopped = await loadPlantMonitor(handoff, {
-      async lifecycleSnapshot() { return lifecycle("stopped"); },
-      async authToken() { throw new Error("must not request auth"); },
-      async request() { throw new Error("must not request status"); },
-    });
-    assert.deepStrictEqual(stopped, {
+  test("an engine refusal shows the plant as unavailable with the engine's sentence", async () => {
+    const result = await loadPlantMonitor(handoff, dependencies("running", async () => failureAnswer(
+      "The engine did not answer.",
+      "The engine did not answer the plant status. Retry later.",
+    )));
+    // The engine named no source in a failure, so the summary names none: the host invents no default.
+    assert.deepStrictEqual(result, {
       availability: "unavailable",
-      source: "Simulation",
       plantId: "tank",
-      reason: "Runtime is stopped",
+      reason: "The engine did not answer the plant status. Retry later.",
     });
-    assert.strictEqual(projectPlantMonitor({ ...status(), plants: [] }, handoff).availability, "unavailable");
-    assert.deepStrictEqual(
-      projectPlantMonitor(status(), { ...handoff, activeConfigurationDigest: "sha256:other" }),
-      {
-        availability: "unavailable",
-        source: "Simulation",
-        plantId: "tank",
-        reason: "Running plant revision is stale",
-      }
-    );
+  });
+
+  test("a call that throws shows the plant as unavailable with the error's text", async () => {
+    const result = await loadPlantMonitor(handoff, {
+      async lifecycleSnapshot() { throw new Error("The lifecycle service is down."); },
+      async authToken() { return "secret"; },
+      async monitor() { throw new Error("must not be called"); },
+    });
+    assert.deepStrictEqual(result, {
+      availability: "unavailable",
+      plantId: "tank",
+      reason: "The lifecycle service is down.",
+    });
   });
 });
+
+/** The lifecycle service's facts for `state`. `token` is the control token the service holds for the endpoint: `null` is none (an `undefined` argument would take the default). */
+function dependencies(
+  state: "running" | "stopped",
+  monitor: PlantMonitorDependencies["monitor"],
+  token: string | null = "secret",
+): PlantMonitorDependencies {
+  return {
+    async lifecycleSnapshot() { return lifecycle(state); },
+    async authToken() { return token ?? undefined; },
+    monitor,
+  };
+}
+
+function failureAnswer(message: string, detail: string): EngineAnswer<PlantMonitorResult> {
+  return { failure: { message, detail, cause: "runtime", nextAction: "none" } } as unknown as EngineAnswer<PlantMonitorResult>;
+}
 
 function lifecycle(runtimeState: "running" | "stopped"): RuntimeLifecycleSnapshot {
   return {
@@ -153,42 +150,50 @@ function lifecycle(runtimeState: "running" | "stopped"): RuntimeLifecycleSnapsho
   };
 }
 
-function status(): PlantContractMessage {
-  return {
-    contract: "trust.plant",
-    schema_version: 1,
-    operation: "plant.status",
-    project_id: "project:sha256:fixture",
-    available: true,
-    active_configuration_revision: "sha256:active",
-    simulation_time_ns: "2000000",
-    effective_seed: "42",
-    random_algorithm: "chacha8",
-    random_algorithm_version: 1,
-    runtime_version: "0.24.64",
-    time_scale: 1,
-    restart_policy: "manual",
-    plants: [{
-      id: "tank",
-      model: "first_order_dead_time",
-      operating_state: "running",
-      enabled: true,
-      step_ns: "1000000",
-      simulation_time_ns: "2000000",
-      state: [1.25],
-      command: [2],
-      applied_input: [1.8],
-      ideal_output: [1.4],
-      measured_feedback: [1.37],
-      published_feedback: [1.38],
-      actuators: [],
-      active_uncertainties: [],
-      active_dropouts: [],
-      pending_event_count: 0,
-      delay_buffer_depth: 2,
-      accumulated_remainder_ns: "0",
-      last_substeps: 1,
-      current_fault: null,
-    }],
-  };
-}
+// The page shows the engine's answer for the plant handoff in one line (specification 35, B1.1); the engine decides every word of the
+// availability, which these tests do not pin (the Rust tests of plant_monitor.rs do).
+suite("Control Studio plant summary line", () => {
+  /** The engine's answer for an available plant; only the fields the line shows are filled. */
+  const availableWith = (status: Record<string, unknown>): PlantMonitorResult =>
+    ({ availability: "available", source: "Simulation", plantId: "tank", status }) as unknown as PlantMonitorResult;
+  const available = availableWith({ model: "first-order", operatingState: "running", currentFault: null });
+
+  test("words the engine's answer: the plant and its source, then its model and state, or the engine's reason", () => {
+    assert.strictEqual(plantSummaryText(available), "tank · Simulation · first-order · running");
+    const faulted = availableWith({ model: "first-order", operatingState: "faulted", currentFault: "Pump stuck" });
+    assert.strictEqual(plantSummaryText(faulted), "tank · Simulation · first-order · faulted (Pump stuck)");
+    assert.strictEqual(plantSummaryText(answer), "tank · Simulation · unavailable: Plant no longer exists");
+    assert.strictEqual(plantSummaryText({ availability: "unavailable", source: "Simulation", plantId: "tank" }), "tank · Simulation · unavailable");
+    // A failure's sentence names no source (the host invents none), and the line names none.
+    assert.strictEqual(plantSummaryText({ availability: "unavailable", plantId: "tank", reason: "The engine did not answer." }),
+      "tank · unavailable: The engine did not answer.");
+  });
+
+  test("the page holds a hidden summary line, and a snapshot of its project, session and plant revision fills and shows it", () => {
+    const { JSDOM } = require("jsdom");
+    const html = renderThreePageStudioHtml({ cspSource: "x", nonce: "n", chartScript: "chart.js", workflowScript: "workflow.js", project: "project-1",
+      session: "session-1", loop: "", loopRevision: "", revision: "sha256:saved", processUnit: "", outputUnit: "" } as unknown as ControlStudioView, text => text);
+    const dom = new JSDOM(html);
+    try {
+      const root = dom.window.document.querySelector("[data-studio-three-page]") as HTMLElement;
+      const line = root.querySelector("[data-studio-plant-summary]") as HTMLElement;
+      assert.strictEqual(line.hidden, true, "a page without a snapshot shows no summary");
+      bindPlantSummary(root);
+      const post = (data: unknown) => dom.window.dispatchEvent(new dom.window.MessageEvent("message", { data }));
+      const snapshot = (overrides: Record<string, unknown>, payload: PlantMonitorResult = answer) => ({
+        schemaVersion: 1, kind: "plant.monitor.snapshot", messageId: "m", projectId: "project-1", editorSessionId: "session-1",
+        plantId: "tank", expectedPlantRevision: "sha256:saved", payload, ...overrides });
+      // Another project, another session, another plant revision and another kind of message are not this page's.
+      post(snapshot({ projectId: "project-2" }));
+      post(snapshot({ editorSessionId: "session-2" }));
+      post(snapshot({ expectedPlantRevision: "sha256:other" }));
+      post(snapshot({ kind: "loop.monitor.snapshot" }));
+      assert.strictEqual(line.hidden, true);
+      post(snapshot({}));
+      assert.strictEqual(line.hidden, false);
+      assert.strictEqual(line.textContent, "tank · Simulation · unavailable: Plant no longer exists");
+      post(snapshot({}, available));
+      assert.strictEqual(line.textContent, "tank · Simulation · first-order · running", "the next answer replaces the line");
+    } finally { dom.window.close(); }
+  });
+});

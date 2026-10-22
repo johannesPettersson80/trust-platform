@@ -1,6 +1,6 @@
 import type { StudioPage } from "./threePageHostState";
 import { identificationStatus, textOf } from "./engineIdentify";
-import { applyStageStatuses, record, studioFailure } from "./engineShared";
+import { applyStageStatuses, ENGINE_OPENED_EVENT, record, showChannelsEditor, studioFailure } from "./engineShared";
 import { ENGINE_VIEW_EVENT } from "./engineInputs";
 import { ENGINE_STAGE_RECEIVERS } from "./engineStages";
 import { isSearchAnswer, predictedPlots, previewPayload, searchPayload, showTunePlots, tuneCandidatePayload } from "./engineTune";
@@ -33,6 +33,19 @@ function identifyRefusal(failure: Record<string, unknown>): { reason: string; fi
   return { reason: textOf(failure.detail) || textOf(failure.message), ...(field ? { field } : {}) };
 }
 
+/**
+ * The page that keeps the refusal of a change of the study inputs, when it is not the page of the operation shown last: the engine names the fix
+ * (`nextAction`), the editor to reopen, and the refusal stays on that editor's page with its sentence and that action: Channels… and
+ * Requirements… on Tune (the Tune page annex, Multichannel controller mapping), Limits… on Identify. A run that is refused for its mapping names the
+ * same fix and keeps its own page. The page only places the refusal; the engine decided that it is one.
+ */
+function refusalPage(method: unknown, failure: Record<string, unknown>): StudioPage | undefined {
+  return method === "inputs" && typeof failure.nextAction === "string" ? EDITOR_PAGES[failure.nextAction] : undefined;
+}
+
+/** The page each editor that a refused change of the study inputs reopens is on: Channels… and Requirements… on Tune, Limits… on Identify. */
+const EDITOR_PAGES: Partial<Record<string, StudioPage>> = { "open-channels": "tune", "open-requirements": "tune", "open-limits": "model" };
+
 export interface EngineHostPorts {
   /** Shows a page of the three-page panel. */
   readonly select: (page: StudioPage, persist: boolean) => void;
@@ -46,11 +59,16 @@ export function receiveEngineMessage(root: HTMLElement, message: Record<string, 
     case "control-studio.engine.opened": {
       const result = record(message.result);
       if (!result || result.kind !== "opened") return;
-      // The engine's answer replaces the TypeScript restore of the page, so the page is ready here.
+      // The engine's open answer is what the page waits for, so the page is ready here.
       root.dataset.hostReady = "true";
+      showChannelsEditor(root, result.channelChoices);
+      // The page's own open fields reach the page as one event: the Method list, the default Limits, the project test and the state design.
+      root.ownerDocument.defaultView?.dispatchEvent(new CustomEvent(ENGINE_OPENED_EVENT, { detail: result }));
       const page = PAGE_OF_ENGINE_PAGE.get(String(result.page));
       if (page) ports.select(page, false);
       applyStageStatuses(root, result.stages);
+      // The tuning methods the study offers the Tune page (C4, N5.R): the loop's, and the relay rule when the study holds a qualified record.
+      if (Array.isArray(result.methods)) ports.receive("engineer", { methods: result.methods, methodTitles: result.methodTitles });
       // The page's own view choices the study kept (view state, A8.1): the page shows them once the recorded inputs are shown.
       const view = record(result.pageView);
       if (view) root.ownerDocument.defaultView?.dispatchEvent(new CustomEvent(ENGINE_VIEW_EVENT, { detail: view }));
@@ -60,16 +78,19 @@ export function receiveEngineMessage(root: HTMLElement, message: Record<string, 
       return;
     }
     case "control-studio.engine.failure": {
+      // A refused open is an answer too: the page is ready to show the engine's refusal, with its next action (specification 35, §0.1a).
+      if (message.method === "open") root.dataset.hostReady = "true";
       const failure = record(message.failure) ?? {};
       // A refused manual preview shows its refusal in the Tune area; it is not a flow (B4.5).
       if (message.method === "preview") {
         ports.receive("tune", { status: "failed", failure: studioFailure(failure), reason: textOf(failure.message) });
         return;
       }
-      ports.receive("flow", { status: "failed", failure: studioFailure(failure) });
+      const owner = refusalPage(message.method, failure);
+      ports.receive("flow", { status: "failed", failure: studioFailure(failure), ...(owner ? { page: owner } : {}) });
       // A start the engine cannot take ends the Identify page's wait too, so that its command is not left running (B3.3).
       if (message.method === "identify" || message.method === "start") ports.receive("identify", { status: "failed", ...identifyRefusal(failure) });
-      // A refused Tune drops the candidate the page holds, as the TypeScript Tune does (threePageTuning.ts).
+      // A refused Tune drops the candidate the page holds (threePageTuning.ts).
       if (message.method === "tune") ports.receive("engineer", { status: "failed", flowStage: "Tune", failure: studioFailure(failure), reason: textOf(failure.message) });
       ENGINE_STAGE_RECEIVERS.get(String(message.method))?.failure?.(root, failure, ports);
       return;
@@ -84,10 +105,12 @@ export function receiveEngineMessage(root: HTMLElement, message: Record<string, 
         ports.receive("flow", { status: "running", flowStage, reason: progress });
         if (identify) ports.receive("identify", { status: "running", reason: progress });
       } else if (update.state === "cancelled") {
-        ports.receive("flow", { status: "cancelled", flowStage });
+        // The sentence is the engine's (`message` of the cancelled update, specification 35, B3, B9.4); none is written when the engine sends none.
+        const sentence = textOf(update.message);
+        ports.receive("flow", { status: "cancelled", flowStage, ...(sentence ? { reason: sentence } : {}) });
         if (identify) {
           ports.receive("identify", { status: "cancelled" });
-          identificationStatus(root, "Identification cancelled.");
+          if (sentence) identificationStatus(root, sentence);
         }
       } else if (update.state === "finished") {
         // The result follows as `control-studio.engine.result`; this only ends the page's running state, with the evidence the

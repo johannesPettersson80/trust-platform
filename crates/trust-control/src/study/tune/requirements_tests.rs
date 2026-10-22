@@ -66,6 +66,7 @@ fn first_requirements(
 /// had generated its test change and duration from an earlier model.
 fn declared_record() -> TuningRequirements {
     TuningRequirements {
+        channel_requirements: None,
         reference_change: 4.0,
         maximum_error: 0.3,
         settling_band: 0.1,
@@ -384,6 +385,7 @@ fn a_model_with_two_inputs_needs_a_channel_mapping() {
 fn the_requirements_the_study_holds_are_taken_as_given_over_an_earlier_generated_value() {
     let (general, _, model) = fopdt();
     let held = TuningRequirements {
+        channel_requirements: None,
         reference_change: 2.0,
         maximum_error: 0.4,
         settling_band: 0.1,

@@ -11,13 +11,35 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use trust_control_math::model::OperatingPoint;
 
+use super::application_offers::PrimaryAction;
 use super::commissioning_result::CommissioningResult;
 use super::found_mode::FoundMode;
 use super::parameter_status::ParameterStatus;
-use super::reviewed_application::ApplicationAction;
 use crate::identification::independent_validation::digest;
 use crate::loop_definition::LoopDefinition;
+use crate::messages::AnswerKind;
 use crate::recording::RecordedRun;
+use crate::stages::StageAvailability;
+
+/// What a reviewed request asks for: an Apply, or a Restore (a rollback).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ApplicationAction {
+    /// Apply the reviewed values.
+    Apply,
+    /// Restore the previous settings.
+    Restore,
+}
+
+impl ApplicationAction {
+    /// The word that names the action in the replies (`applicationAction`).
+    #[must_use]
+    pub fn word(self) -> &'static str {
+        match self {
+            Self::Apply => "apply",
+            Self::Restore => "restore",
+        }
+    }
+}
 
 /// What a review is for (§0.1b): an Apply (B6.1) or a Restore of the previous settings (B6.4). It is the answered form of
 /// `ApplicationAction`, which has no serde form, and serializes to that action's word.
@@ -35,6 +57,35 @@ impl From<ApplicationAction> for ReviewedAction {
         match action {
             ApplicationAction::Apply => Self::Apply,
             ApplicationAction::Restore => Self::Restore,
+        }
+    }
+}
+
+/// How the engineer confirms a review (A2.5, B6.5, B9.3). The engine decides it with the review, and the page shows the review the way
+/// the word says, deciding nothing: a page that read the target's kind itself would hold a second copy of A2.4 and A2.5.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum ReviewConfirmation {
+    /// The press of the action is the confirmation (A2.5): the target is simulated, so the page shows no approval and sends the
+    /// review's identity at once. The engine still refuses the confirmation when the runtime changed since the review (§0.1b).
+    Press,
+    /// The engineer's approval is part of the confirmation (A2.5, B9.3): the target is physical, so the page shows the approval block
+    /// with **Approve** and **Cancel**, and sends the identity with the approval the engineer gave.
+    Approval,
+    /// The engineer reads the review and confirms it with a button (B6.5): Keep in project edits the project's files, so its review is
+    /// always shown, on any target, and no approval is asked for because Keep never writes the controller.
+    Explicit,
+}
+
+impl ReviewConfirmation {
+    /// The confirmation of a write to a target that is physical or simulated (A2.4, A2.5): the approval on a physical target, the
+    /// press on a simulated one.
+    #[must_use]
+    pub const fn of_target(physical: bool) -> Self {
+        if physical {
+            Self::Approval
+        } else {
+            Self::Press
         }
     }
 }
@@ -65,6 +116,8 @@ pub type ReviewedOperatingPoint = OperatingPoint;
 #[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ApplicationReview {
+    /// The answer's kind (§0.1a): the page shows the answer by it, never by the fields it carries.
+    pub kind: AnswerKind<ApplicationReview>,
     /// What the review is for.
     pub action: ReviewedAction,
     /// The review identity that the confirmation names (`review_identity`).
@@ -78,6 +131,9 @@ pub struct ApplicationReview {
     pub description: String,
     /// Whether the target is physical, so that the confirmation needs the engineer's approval (A2.4, A2.5).
     pub physical: bool,
+    /// How the review is confirmed (A2.5, B9.3): the press of the action on a simulated target, the engineer's approval on a physical
+    /// one. The page shows the review the way this says and reads `physical` for no decision.
+    pub confirmation: ReviewConfirmation,
     /// The operating point the candidate was validated at (B6.2); `None` when the review has none to show.
     pub operating_point: Option<ReviewedOperatingPoint>,
     /// What one physical approval covers (A2.5, B9.3), filled in Rust for the page to show; a simulated target shows it too.
@@ -206,7 +262,10 @@ pub fn approval_block(
 /// The outcome of a confirmed Apply (B6.1 to B6.3, B6.7): the commissioning result, and what the engineer may do next.
 #[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+#[allow(clippy::struct_excessive_bools)] // Whether it was restored, and the three offers the page shows as the engine states them.
 pub struct ApplyOutcome {
+    /// The answer's kind (§0.1a): the page shows the answer by it, never by the fields it carries.
+    pub kind: AnswerKind<ApplyOutcome>,
     /// The stored result of the run (B6.3).
     pub result: CommissioningResult,
     /// Whether the previous settings were restored at once: after a measured output left its permitted range, or after a
@@ -216,6 +275,17 @@ pub struct ApplyOutcome {
     pub restore_available: bool,
     /// Whether Keep in project is offered: the settings stay applied and no Restore followed (B6.5).
     pub keep_available: bool,
+    /// Whether Apply is offered once this Apply has ended (B7): never, since its settings stand with Restore in the Apply position, or
+    /// were restored at once and need a new validation (`application_offers::apply_offered_after`).
+    pub apply_available: bool,
+    /// The action that holds the Validate page's position once this Apply has ended (B7; `application_offers::primary_action`): Keep
+    /// in project while it is offered, else Restore previous settings while it is offered; absent when none is offered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub primary_action: Option<PrimaryAction>,
+    /// The status of every stage once this Apply has ended (B9.4), with the block of a checkpoint that waits for its Restore (B6.4,
+    /// B6.7), as `controlStudio/apply` answers them; absent from the workflow's own outcome, which the method completes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stages: Option<Vec<StageAvailability>>,
     /// The identifier of the Apply's journaled commissioning checkpoint (`CommissioningCheckpoint::id`, A8.5), which a later
     /// Restore starts from (B6.4).
     pub checkpoint_id: String,
@@ -226,7 +296,10 @@ pub struct ApplyOutcome {
 /// The outcome of a confirmed Restore (B6.4, B6.7).
 #[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+#[allow(clippy::struct_excessive_bools)] // Whether it was restored, and the three offers the page shows as the engine states them.
 pub struct RestoreOutcome {
+    /// The answer's kind (§0.1a): the page shows the answer by it, never by the fields it carries.
+    pub kind: AnswerKind<RestoreOutcome>,
     /// Whether the runtime confirmed the restoration; Restored is shown only then (B6.4).
     pub restored: bool,
     /// The sentence the engineer reads: what was restored, or why the restoration is unavailable or unconfirmed (A11.1).
@@ -243,6 +316,17 @@ pub struct RestoreOutcome {
     pub restore_available: bool,
     /// Whether Keep in project is offered: never after a Restore (B6.5).
     pub keep_available: bool,
+    /// Whether Apply is offered once this Restore has ended (B7): never; a candidate must pass validation again first
+    /// (`application_offers::apply_offered_after`).
+    pub apply_available: bool,
+    /// The action that holds the Validate page's position once this Restore has ended (B7; `application_offers::primary_action`);
+    /// absent when none is offered, as after a confirmed Restore.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub primary_action: Option<PrimaryAction>,
+    /// The status of every stage once this Restore has ended (B9.4): a confirmed Restore ends the block of the checkpoint it resolved
+    /// (B6.4, B6.7), as `controlStudio/restore` answers them; absent from the workflow's own outcome, which the method completes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stages: Option<Vec<StageAvailability>>,
 }
 
 /// The review identity (§0.1b Confirmation): `sha256:` followed by the lowercase hexadecimal SHA-256 digest of the canonical

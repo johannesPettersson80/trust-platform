@@ -63,7 +63,18 @@ impl RuntimeClient {
     /// # Errors
     /// The endpoint is not an endpoint, or cannot be reached.
     pub fn connect(connection: &RuntimeConnection) -> Result<Self, Failure> {
-        open_client(connection)
+        Self::connect_within(connection, REQUEST_TIMEOUT)
+    }
+
+    /// Connects to the runtime of `connection`, every request of the connection waiting at most `timeout`.
+    ///
+    /// # Errors
+    /// The endpoint is not an endpoint, or cannot be reached.
+    pub fn connect_within(
+        connection: &RuntimeConnection,
+        timeout: Duration,
+    ) -> Result<Self, Failure> {
+        open_client_within(connection, timeout)
             .map(|client| Self { client })
             .map_err(|reason| Failure::unreachable(&reason))
     }
@@ -237,6 +248,20 @@ impl RuntimeClient {
         self.call(
             "plant.read",
             Some(json!({ "contract": "trust.plant", "schema_version": 1 })),
+        )
+    }
+
+    /// The plant status of `project_id` (`plant.status`, specification 34, §20.4), as the runtime answers it, with the refusal
+    /// code of a refused request. Trust-control decides what the answer means.
+    ///
+    /// # Errors
+    /// The runtime cannot be reached, or refuses the request.
+    pub fn plant_status(&mut self, project_id: &str) -> Result<Value, CallFailure> {
+        self.call_coded(
+            "plant.status",
+            Some(
+                json!({ "contract": "trust.plant", "schema_version": 1, "project_id": project_id }),
+            ),
         )
     }
 
@@ -484,9 +509,17 @@ struct ParameterValues {
 
 /// Opens the control connection of `connection`. The reason says why it could not be opened.
 fn open_client(connection: &RuntimeConnection) -> Result<ControlClient, String> {
+    open_client_within(connection, REQUEST_TIMEOUT)
+}
+
+/// Opens the control connection of `connection`, every read and write of it waiting at most `timeout`.
+fn open_client_within(
+    connection: &RuntimeConnection,
+    timeout: Duration,
+) -> Result<ControlClient, String> {
     let endpoint = ControlEndpoint::parse(&connection.endpoint)
         .ok_or_else(|| format!("{} is not a runtime endpoint.", connection.endpoint))?;
-    ControlClient::connect(&endpoint, connection.token.as_deref(), REQUEST_TIMEOUT)
+    ControlClient::connect(&endpoint, connection.token.as_deref(), timeout)
         .map_err(|error| error.to_string())
 }
 

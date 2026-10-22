@@ -2,10 +2,7 @@ import * as assert from "assert";
 
 import { axisTickFormatter, frequencyAxisTickFormatter, linearAxisFractionDigits } from "../../controlStudio/webview/axisFormat";
 import { displayEngineeringUnit } from "../../controlStudio/unitDisplay";
-import { automaticFractionDigits, CONTROL_CHART_SIGNALS, liveResponseAxisRange } from "../../controlStudio/chartContract";
-import { buildEngineeringPlotEvidence } from "../../controlStudio/engineeringPlots";
-import { candidateFromControlPid, type ControlPidParameters } from "../../controlStudio/controllerCandidate";
-import type { IdentifiedModel } from "../../controlStudio/identification";
+import { automaticFractionDigits, liveResponseAxisRange } from "../../controlStudio/chartContract";
 
 // ECharts calls a value-axis formatter as (value, index); this cast reproduces that call
 // shape against a formatter typed with just (value) so the test fails the same way a real
@@ -15,6 +12,7 @@ function callAsEcharts(formatter: (value: unknown) => string, value: unknown, in
 }
 
 suite("Control Studio strict-review visual fixes", () => {
+
   test("keeps signal colors attached to PV and SP across response views", () => {
     const { JSDOM } = require("jsdom");
     const { chartTheme } = require("../../controlStudio/webview/chartPrimitives");
@@ -87,46 +85,4 @@ suite("Control Studio strict-review visual fixes", () => {
     assert.strictEqual(liveResponseAxisRange([]), undefined, "no samples yet must not force a degenerate range");
     assert.strictEqual(liveResponseAxisRange([null, undefined]), undefined);
   });
-
-  test("V-08: SP is dashed so it stays visible drawn on top of a coinciding solid PV trace", () => {
-    const sp = CONTROL_CHART_SIGNALS.find((signal) => signal.id === "sp");
-    const pv = CONTROL_CHART_SIGNALS.find((signal) => signal.id === "pv");
-    assert.strictEqual(sp?.line, "dashed");
-    assert.strictEqual(pv?.line, "solid");
-  });
-
-  test("V-05/engineeringPlots: the candidate evidence exposes the exact crossover points the markers need", () => {
-    const model: IdentifiedModel = { kind: "first_order", gain: 1.4, timeConstantSeconds: 4, deadTimeSeconds: 0.6, stable: true, normalizedError: 0.05 };
-    const base: ControlPidParameters = {
-      proportionalGain: 0.4, integralGain: 0.1, derivativeGain: 0,
-      proportionalSetpointWeight: 1, derivativeSetpointWeight: 0, bias: 0,
-      outputMinimum: 0, outputMaximum: 100, rateMinimum: -100, rateMaximum: 100,
-      trackingTime: 1, antiWindup: "BackCalculation",
-    };
-    const evidence = buildEngineeringPlotEvidence(model,
-      candidateFromControlPid(base, "Imported"), candidateFromControlPid(base, "Imported"));
-    assert.ok(evidence.gainCrossover, "this loop crosses 0 dB");
-    assert.ok(Number.isFinite(evidence.gainCrossover.frequencyRadPerSecond));
-    assert.ok(Math.abs(evidence.gainCrossover.magnitudeDb) < 1e-6, "the gain crossover is defined at 0 dB");
-    assert.ok(evidence.phaseCrossover === undefined || Number.isFinite(evidence.phaseCrossover.frequencyRadPerSecond));
-  });
-
-  test("V-17/engineeringPlots: the uncertainty method reaches the plot as words, never a raw enum", () => {
-    const model: IdentifiedModel = {
-      kind: "first_order", gain: 1.4, timeConstantSeconds: 4, stable: true, normalizedError: 0.05,
-      uncertainty: { method: "sample-resolution-envelope", gain: { minimum: 1.2, maximum: 1.6 } },
-    };
-    const base: ControlPidParameters = {
-      proportionalGain: 0.4, integralGain: 0.1, derivativeGain: 0,
-      proportionalSetpointWeight: 1, derivativeSetpointWeight: 0, bias: 0,
-      outputMinimum: 0, outputMaximum: 100, rateMinimum: -100, rateMaximum: 100,
-      trackingTime: 1, antiWindup: "BackCalculation",
-    };
-    const evidence = buildEngineeringPlotEvidence(model,
-      candidateFromControlPid(base, "Imported"), candidateFromControlPid(base, "Imported"));
-    assert.strictEqual(evidence.uncertainty.method, "sample-resolution envelope from the estimation record");
-    assert.doesNotMatch(evidence.uncertainty.method, /^[a-z0-9]+(-[a-z0-9]+)+$/,
-      "the method must not reach the plot as a dash-case identifier");
-  });
-
 });

@@ -29,16 +29,17 @@ export function showEngineIdentification(root: HTMLElement, result: Record<strin
   root.querySelector<HTMLElement>("[data-studio-model-result]")?.removeAttribute("hidden");
   showPlot(root, result.plot);
   showEngineRequirements(root, result.requirements);
-  identificationStatus(root, provisional ? "Provisional model identified." : "Model identified.");
+  // The status line is the engine's sentence for this identification (`statusSentence`, B3.8, B9.9); the page writes none.
+  identificationStatus(root, textOf(result.statusSentence));
   dispatchOnView(root, ENGINE_MODEL_CHANGED_EVENT);
 }
 
 /**
  * Clears the model of the study the engine has reset (A8.4): a new working study holds no identification yet, and the status line
- * says so. The chart drops its model comparison and resumes live observation from the reset's own answer (engineStages.ts), as the
- * Identify page specification's Reset requires.
+ * says so in the engine's sentence (`sentence`, the reset answer's `statusSentence`, B9.9). The chart drops its model comparison and resumes
+ * live observation from the reset's own answer (engineStages.ts), as the Identify page specification's Reset requires.
  */
-export function clearEngineIdentification(root: HTMLElement): void {
+export function clearEngineIdentification(root: HTMLElement, sentence: string): void {
   const type = root.querySelector<HTMLElement>("[data-studio-model-type]");
   const equation = root.querySelector<HTMLElement>("[data-studio-model-equation]");
   const numbers = root.querySelector<HTMLElement>("[data-studio-model-numbers]");
@@ -54,7 +55,15 @@ export function clearEngineIdentification(root: HTMLElement): void {
     warnings.hidden = true;
   }
   root.querySelector<HTMLElement>("[data-studio-model-result]")?.setAttribute("hidden", "");
-  identificationStatus(root, "New identification study started.");
+  identificationStatus(root, sentence);
+  dispatchOnView(root, ENGINE_MODEL_CHANGED_EVENT);
+}
+
+/**
+ * Tells the page that the engine's answer accepted a model into the study (the Recorded-data fit's accepted step, B3.3, B3.7): the Analyze…
+ * list asks the engine which tools apply to it (B9.9), as it does when an answer shows or clears an identification.
+ */
+export function announceModelChange(root: HTMLElement): void {
   dispatchOnView(root, ENGINE_MODEL_CHANGED_EVENT);
 }
 

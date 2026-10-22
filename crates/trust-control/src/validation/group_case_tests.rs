@@ -12,10 +12,12 @@ use serde_json::{json, Value};
 
 use super::independent_reference_cases;
 use crate::commissioning::adapters::controller_adapter;
+use crate::commissioning::observation::commissioning_reference_targets;
 use crate::commissioning::transfer_tracking::TransferTracking;
 use crate::loop_definition::LoopDefinition;
 use crate::tuning::candidate::{CandidateSource, LawCandidate};
 use crate::tuning::group_candidate::GroupCandidate;
+use crate::tuning::output_requirements::OutputRequirements;
 use crate::tuning::structures::fixtures::{decoupler_zones_model, requirements};
 use crate::validation::engineer_verification_campaign::{
     engineer_verification_campaign, CampaignCase,
@@ -328,4 +330,208 @@ fn the_group_write_set_is_its_values_through_the_coefficient_path() {
     )
     .expect("the write set");
     assert_eq!(coefficients, Some(candidate.values.clone()));
+}
+
+/// The campaign of the group on the decoupler model, held to `task`, which may declare each output's own record.
+fn campaign_with(
+    loop_definition: &LoopDefinition,
+    task: &EngineerRequirements,
+    values: &BTreeMap<String, f64>,
+) -> Vec<CampaignCase> {
+    engineer_verification_campaign(
+        loop_definition,
+        &decoupler_zones_model(),
+        task,
+        values,
+        &BTreeMap::new(),
+    )
+    .expect("the group's campaign")
+}
+
+#[test]
+fn each_member_of_a_group_is_held_to_its_own_record_in_the_campaign() {
+    // Member two declares its own record: a step of 2 °C, an error of 0.5 °C, a band of 0.2 °C and 30 s to settle (C7). Member one
+    // keeps the task's limits: a step of 1 °C, an error of 0.3 °C, a band of 0.1 °C and 40 s.
+    let mut own = task();
+    own.channel_requirements = Some(BTreeMap::from([(
+        "P1.Zone2C".to_owned(),
+        OutputRequirements {
+            reference_change: 2.0,
+            maximum_error: 0.5,
+            settling_band: 0.2,
+            settling_time_seconds: 30.0,
+            maximum_overshoot_percent: None,
+        },
+    )]));
+    let cases = campaign_with(&group_loop(), &own, &group_candidate().values);
+    let nominal = &cases[0];
+    assert_eq!(nominal.plan.initial_values["P1.Zone1SetpointC"], 36.0);
+    assert_eq!(nominal.plan.initial_values["P1.Zone2SetpointC"], 37.0);
+    let RunCheck::Settling {
+        target,
+        band,
+        deadline_seconds,
+        ..
+    } = &requirement(nominal, "P1.Zone2C:response-deadline").check
+    else {
+        panic!("member two keeps a settling check");
+    };
+    assert_eq!((*target, *band, *deadline_seconds), (37.0, 0.5, 30.0));
+    let RunCheck::Error { maximum, .. } = &requirement(nominal, "P1.Zone2C:target-error").check
+    else {
+        panic!("member two keeps an error check");
+    };
+    assert_eq!(*maximum, 0.5);
+    let RunCheck::Settling {
+        band,
+        deadline_seconds,
+        ..
+    } = &requirement(nominal, "P1.Zone1C:response-deadline").check
+    else {
+        panic!("member one keeps a settling check");
+    };
+    assert_eq!((*band, *deadline_seconds), (0.3, 40.0));
+    let RunCheck::Error { maximum, .. } = &requirement(nominal, "P1.Zone1C:target-error").check
+    else {
+        panic!("member one keeps an error check");
+    };
+    assert_eq!(*maximum, 0.3);
+    // In member one's own case, member two holds at its operating value, and its settling check keeps its own band.
+    let held = &cases[1];
+    assert_eq!(held.plan.initial_values["P1.Zone2SetpointC"], 35.0);
+    let RunCheck::Settling {
+        target: held_target,
+        band: held_band,
+        ..
+    } = &requirement(held, "P1.Zone2C:response-deadline").check
+    else {
+        panic!("member two keeps its settling check when it is held");
+    };
+    assert_eq!((*held_target, *held_band), (35.0, 0.5));
+}
+
+/// The declared profile of the group on the decoupler model, at the candidate's values.
+fn group_profile(
+    loop_definition: &LoopDefinition,
+) -> crate::commissioning::profile::CommissioningProfile {
+    controller_adapter(loop_definition)
+        .expect("the group's adapter")
+        .declared_profile(&decoupler_zones_model(), &group_candidate().values)
+        .expect("the group's declared profile")
+        .expect("a declared profile")
+}
+
+#[test]
+fn the_declared_profile_of_a_group_transfers_every_member_and_keeps_every_setpoint() {
+    // Apply and Restore write through the profile's binding (C7): it holds both members' setpoints and Manual commands, and both outputs.
+    let loop_definition = group_loop();
+    let profile = group_profile(&loop_definition);
+    assert_eq!(
+        profile.references,
+        ["P1.Zone1SetpointC", "P1.Zone2SetpointC"],
+        "the review keeps both setpoints and a Restore writes both back"
+    );
+    let binding = profile.binding().expect("the profile's binding");
+    let states: Vec<&str> = binding
+        .states
+        .iter()
+        .take(4)
+        .map(|state| state.symbol.as_str())
+        .collect();
+    assert_eq!(
+        states,
+        [
+            "P1.Zone1SetpointC",
+            "P1.Zone1ManualPct",
+            "P1.Zone2SetpointC",
+            "P1.Zone2ManualPct"
+        ]
+    );
+    let outputs: Vec<&str> = std::iter::once(&binding.output)
+        .chain(&binding.additional_outputs)
+        .map(|output| output.symbol.as_str())
+        .collect();
+    assert_eq!(outputs, ["P1.Heater1Pct", "P1.Heater2Pct"]);
+    for measurement in ["P1.Zone1C", "P1.Zone2C"] {
+        assert!(
+            binding
+                .guards
+                .iter()
+                .any(|guard| guard.symbol == measurement),
+            "{measurement} is a guard"
+        );
+    }
+    // Restore's identity check compares the checkpoint's binding with the adapter's own.
+    assert_eq!(
+        binding,
+        controller_adapter(&loop_definition)
+            .expect("the group's adapter")
+            .transfer_binding()
+            .expect("the adapter's binding")
+    );
+}
+
+#[test]
+fn the_tracking_of_a_group_names_every_other_setpoint_command_and_measurement_as_the_runtime_requires(
+) {
+    let loop_definition = group_loop();
+    let profile = group_profile(&loop_definition);
+    let binding = profile.binding().expect("the profile's binding");
+    let TransferTracking::DeclaredState(tracking) = profile
+        .tracking(&binding, true)
+        .expect("the profile's tracking")
+    else {
+        panic!("a declared-state tracking");
+    };
+    let references: Vec<(&str, &str)> = tracking
+        .additional_references
+        .iter()
+        .map(|channel| {
+            (
+                channel.reference_symbol.as_str(),
+                channel.process_variable.as_str(),
+            )
+        })
+        .collect();
+    assert_eq!(references, [("P1.Zone2SetpointC", "P1.Zone2C")]);
+    let commands: Vec<(&str, &str)> = tracking
+        .additional_commands
+        .iter()
+        .map(|channel| {
+            (
+                channel.manual_command_symbol.as_str(),
+                channel.output_symbol.as_str(),
+            )
+        })
+        .collect();
+    assert_eq!(commands, [("P1.Zone2ManualPct", "P1.Heater2Pct")]);
+    assert_eq!(tracking.additional_measurements, ["P1.Zone1C", "P1.Zone2C"]);
+    // The runtime accepts the record only when it names every state and every additional actuator exactly once
+    // (`validate_declared_states`, E6.4).
+    assert_eq!(
+        tracking.initialization_values.len()
+            + 2
+            + tracking.additional_references.len()
+            + tracking.additional_commands.len(),
+        binding.states.len()
+    );
+    assert_eq!(
+        tracking.additional_commands.len(),
+        binding.additional_outputs.len()
+    );
+}
+
+#[test]
+fn apply_aims_every_controlled_setpoint_at_the_target_that_validate_holds_it_to() {
+    // Both zones rest at 35 °C. Each output is held to a 1 °C step: the task's for the loop's process variable, its own record for the
+    // second member's output (C7), so the targets are those of Validate's per-output checks.
+    let targets = commissioning_reference_targets(&group_loop(), &decoupler_zones_model(), &task())
+        .expect("the group's targets");
+    assert_eq!(
+        targets,
+        BTreeMap::from([
+            ("P1.Zone1SetpointC".to_owned(), 36.0),
+            ("P1.Zone2SetpointC".to_owned(), 36.0),
+        ])
+    );
 }

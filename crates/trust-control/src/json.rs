@@ -10,7 +10,11 @@
 //! Integers stay integers, and a fraction keeps the exact `f64` it denotes (the crate decodes with
 //! `float_roundtrip`).
 
+use std::collections::BTreeMap;
+
+use schemars::{json_schema, Schema, SchemaGenerator};
 use serde::de::{DeserializeOwned, Error as _};
+use serde::{Deserialize, Deserializer};
 use serde_json::{Number, Value};
 
 /// Decodes `text` as `T`.
@@ -70,12 +74,110 @@ fn shortest(number: Number) -> Result<Number, serde_json::Error> {
         .ok_or_else(|| serde_json::Error::custom(format!("number out of range: {number}")))
 }
 
+/// The JSON Schema of a number that the page may send as text, which its decoder reads (`duration_of_setting`, `number_of_entry`):
+/// a number, or a string. The generated type of such a field is `number | string`.
+#[must_use]
+pub fn number_or_text_schema(_generator: &mut SchemaGenerator) -> Schema {
+    json_schema!({ "anyOf": [{ "type": "number" }, { "type": "string" }] })
+}
+
+/// The JSON Schema of an optional number that the page may send as text (see [`number_or_text_schema`]): absent, null, a number or a
+/// string.
+#[must_use]
+pub fn optional_number_or_text_schema(_generator: &mut SchemaGenerator) -> Schema {
+    json_schema!({ "type": ["number", "string", "null"] })
+}
+
+/// The JSON Schema of a field that holds any JSON value (a `serde_json::Value` that is read and written as it is): the generated type
+/// is `unknown`. A schema that carries only the field's description is generated as an object type, which most JSON values are not;
+/// the declaration generator takes `tsType` as the field's type.
+#[must_use]
+pub fn any_value_schema(_generator: &mut SchemaGenerator) -> Schema {
+    json_schema!({ "tsType": "unknown" })
+}
+
+/// The JSON Schema of an optional list of JSON objects that the engine keeps as they are (the validation scenarios a loop file declares):
+/// the generated type is a list of objects. A schema that carries only the field's description is generated as one object, which a list
+/// is not.
+#[must_use]
+pub fn object_list_schema(_generator: &mut SchemaGenerator) -> Schema {
+    json_schema!({ "type": "array", "items": { "type": "object" } })
+}
+
+/// A number that the page sent as a JSON number or as the text it typed. Text that no finite number reads, and any other value, is NaN,
+/// which no JSON number is, so that the checks refuse it under its field.
+#[must_use]
+pub fn number_or_text(value: &Value) -> f64 {
+    match value {
+        Value::Number(number) => number
+            .as_f64()
+            .filter(|value| value.is_finite())
+            .unwrap_or(f64::NAN),
+        Value::String(text) => text
+            .trim()
+            .parse::<f64>()
+            .ok()
+            .filter(|value| value.is_finite())
+            .unwrap_or(f64::NAN),
+        _ => f64::NAN,
+    }
+}
+
+/// A map of numbers that the page may send as text, each read by [`number_or_text`]: an entry that no number reads is NaN.
+///
+/// # Errors
+/// The field is present but is not a map.
+pub fn number_or_text_map<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<BTreeMap<String, f64>>, D::Error> {
+    Ok(
+        Option::<BTreeMap<String, Value>>::deserialize(deserializer)?.map(|entries| {
+            entries
+                .iter()
+                .map(|(symbol, value)| (symbol.clone(), number_or_text(value)))
+                .collect()
+        }),
+    )
+}
+
+/// The JSON Schema of an optional map of numbers that the page may send as text (see [`number_or_text_map`]).
+#[must_use]
+pub fn optional_number_or_text_map_schema(_generator: &mut SchemaGenerator) -> Schema {
+    json_schema!({
+        "type": ["object", "null"],
+        "additionalProperties": { "anyOf": [{ "type": "number" }, { "type": "string" }] }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use serde::Deserialize;
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn a_map_of_numbers_reads_text_as_its_number_and_no_text_as_nan() {
+        #[derive(Debug, Deserialize)]
+        struct Holder {
+            #[serde(default, deserialize_with = "number_or_text_map")]
+            settings: Option<BTreeMap<String, f64>>,
+        }
+        let holder: Holder = decode_value(json!({
+            "settings": { "Main.Kp": "1.5", "Main.Ki": 2, "Main.Kd": "", "Main.Kt": "x" }
+        }))
+        .expect("a map of numbers and text decodes");
+        let settings = holder.settings.expect("the map is sent");
+        assert!((settings["Main.Kp"] - 1.5).abs() < 1e-12);
+        assert!((settings["Main.Ki"] - 2.0).abs() < 1e-12);
+        assert!(settings["Main.Kd"].is_nan(), "a blank entry is no number");
+        assert!(
+            settings["Main.Kt"].is_nan(),
+            "text no number reads is refused"
+        );
+        let absent: Holder = decode_value(json!({})).expect("an absent map decodes");
+        assert!(absent.settings.is_none());
+    }
 
     #[derive(Debug, PartialEq, Deserialize)]
     #[serde(tag = "kind", rename_all = "lowercase")]

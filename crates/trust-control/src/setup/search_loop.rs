@@ -27,7 +27,7 @@ use crate::loop_definition::{
 };
 
 /// The families a program's law may name when Tune searches it (`SEARCH_FAMILIES`, C5).
-const SEARCH_FAMILIES: [&str; 12] = [
+pub(super) const SEARCH_FAMILIES: [&str; 12] = [
     "MPC",
     "ratio",
     "split-range",
@@ -46,10 +46,10 @@ const SEARCH_FAMILIES: [&str; 12] = [
 const PROJECT_CONVENTION: &str = "project-owned-native-controller";
 
 /// The most coefficients a search tries (`searchLawLoopGenerator.ts`, C5).
-const MAXIMUM_COEFFICIENTS: usize = 4;
+pub(super) const MAXIMUM_COEFFICIENTS: usize = 4;
 
 /// The most values the program keeps from scan to scan (`searchLawLoopGenerator.ts`, C5).
-const MAXIMUM_KEPT_VALUES: usize = 3;
+pub(super) const MAXIMUM_KEPT_VALUES: usize = 3;
 
 /// The most combinations a search tries (C5, A7).
 const MAXIMUM_COMBINATIONS: usize = 64;

@@ -6,18 +6,19 @@
 
 use std::collections::BTreeSet;
 
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use serde_json::{json, Value};
 
 use super::catalog::{CompiledCatalog, CompiledController, CompiledSymbol, CompiledTask};
 use super::loop_bindings::{
-    binding, compiled, cyclic_task, explicit_experiment, loop_id, manual_output_type,
-    measured_signal, measurement_binding, real_type, state_type, stated_signal, with_revision,
-    FormSignal, MeasuredSignal,
+    binding, compiled, cyclic_task, explicit_experiment, form_number, loop_id, manual_output_type,
+    measured_signal, measurement_binding, real_type, required_choice, state_type, stated_signal,
+    with_revision, FormSignal, MeasuredSignal,
 };
 use super::pid_bindings::{startup_flag_is_bool, startup_reason, startup_state};
-use super::pid_loop::{setpoint_signal, ModeChoice, SignalChoice};
+use super::pid_loop::{required_mode, setpoint_signal, ModeChoice, SignalChoice};
 use super::texts::generators as texts;
+use super::texts::save;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
     Action, Controller, ControllerProject, Design, Direction, Execution, ExperimentKind,
@@ -49,16 +50,31 @@ pub enum DerivativeOn {
     Measurement,
 }
 
-/// A variable that holds one gain of the program's law, with the range Tune may choose from (`OwnLawGain`).
+/// A variable that holds one gain of the program's law, with the range Tune may choose from (`OwnLawGain`). The form sends each bound as
+/// the text typed (`form_number`); a blank bound, or one that no number reads, is NaN: `checked_gain` refuses it under its field before
+/// any bound is used.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct OwnLawGain {
-    /// The variable's path.
+    /// The variable's path; blank when none is chosen.
     pub symbol: String,
     /// The smallest value Tune may choose.
+    #[serde(default = "missing_bound", deserialize_with = "bound_or_missing")]
     pub minimum: f64,
     /// The largest value Tune may choose.
+    #[serde(default = "missing_bound", deserialize_with = "bound_or_missing")]
     pub maximum: f64,
+}
+
+/// A bound the form did not send: NaN, which `checked_gain` refuses (see `OwnLawGain`).
+fn missing_bound() -> f64 {
+    f64::NAN
+}
+
+/// Reads a bound as the form's text gives it (`form_number`): its number, or NaN when it is blank or no number reads it (see
+/// `OwnLawGain`).
+fn bound_or_missing<'de, D: Deserializer<'de>>(deserializer: D) -> Result<f64, D::Error> {
+    Ok(form_number(deserializer)?.unwrap_or(f64::NAN))
 }
 
 /// A program's own law as the engineer confirmed it (`OwnLawLoopDraft`, C2). Setup asks for no experiment step or duration.
@@ -116,19 +132,12 @@ pub fn own_law_loop_definition(
     scope: &LoopScope,
     draft: &OwnLawLoopDraft,
 ) -> Result<LoopDefinition, Failure> {
+    let checked = check_choices(catalog, draft)?;
     let (program, task) = own_law_program(catalog, draft)?;
-    let parts = law_parts(draft)?;
+    let parts = checked.parts;
     check_variables(draft, parts)?;
-    let process_variable = stated_signal(&measured_signal(
-        &draft.process_variable,
-        "measurement",
-        Some("own.processVariable"),
-    )?);
-    let manipulated_variable = stated_signal(&measured_signal(
-        &draft.manipulated_variable,
-        "output",
-        Some("own.manipulatedVariable"),
-    )?);
+    let process_variable = stated_signal(&checked.process_variable);
+    let manipulated_variable = stated_signal(&checked.manipulated_variable);
     let setpoint = setpoint_signal(&draft.setpoint, &process_variable);
     let manual = compiled(catalog, &draft.manual_output)?;
     let mut states = integral_state(
@@ -248,30 +257,93 @@ struct Parts<'a> {
     derivative: Option<(&'a OwnLawGain, &'a str, DerivativeOn)>,
 }
 
-/// The parts the law needs, refused when one is missing (`ownLawLoopDefinition`, the first checks).
+/// The checked questions of an own-law draft: the measurement and the output as signals, and the gain variables the law has.
+struct Checked<'a> {
+    process_variable: MeasuredSignal,
+    manipulated_variable: MeasuredSignal,
+    parts: Parts<'a>,
+}
+
+/// The questions of an own-law setup, checked in the order the form asks them (`ownLawDraft`, `loopSetupForm.ts`): the name, the instance
+/// that computes the law, the measurement, the setpoint, the output, the Auto/Manual signal, the manual output, and the gains and terms the
+/// law uses (`law_parts`).
+///
+/// # Errors
+/// A question is blank, a signal is invalid (`measured_signal`), or the law lacks a gain or term it needs.
+fn check_choices<'a>(
+    catalog: &CompiledCatalog,
+    draft: &'a OwnLawLoopDraft,
+) -> Result<Checked<'a>, Failure> {
+    required_choice(&draft.name, save::name_needed(), "name")?;
+    required_choice(
+        &draft.instance,
+        texts::law_instance_needed(),
+        "own.instance",
+    )?;
+    let process_variable = measured_signal(
+        &draft.process_variable,
+        "measurement",
+        Some("own.processVariable"),
+    )?;
+    required_choice(
+        &draft.setpoint.symbol,
+        save::setpoint_needed(),
+        "own.setpoint",
+    )?;
+    let manipulated_variable = measured_signal(
+        &draft.manipulated_variable,
+        "output",
+        Some("own.manipulatedVariable"),
+    )?;
+    required_mode(catalog, &draft.mode.symbol, "own.mode")?;
+    required_choice(
+        &draft.manual_output,
+        save::manual_output_needed(),
+        "own.manualOutput",
+    )?;
+    let parts = law_parts(draft)?;
+    Ok(Checked {
+        process_variable,
+        manipulated_variable,
+        parts,
+    })
+}
+
+/// The parts the law needs, with their gains checked: the proportional gain, then the integral gain and term for PI and PID, then the
+/// derivative gain, the variable of its previous value and where that is taken from for PID (`ownLawLoopDefinition`, the first checks).
+///
+/// # Errors
+/// A gain's variable is blank, its range is not an interval, or the law lacks the integral or derivative part it needs.
 fn law_parts(draft: &OwnLawLoopDraft) -> Result<Parts<'_>, Failure> {
     let law = family_name(draft.law);
+    checked_gain(
+        &draft.proportional_gain,
+        "proportional gain",
+        "own.proportionalGain",
+    )?;
     let integral = if draft.law == OwnLawFamily::P {
         None
     } else {
-        let Some(gain) = draft.integral_gain.as_ref() else {
-            return Err(refuse_settings(&texts::integral_gain_needed(law)));
-        };
-        let Some(term) = named(draft.integral_term.as_deref()) else {
-            return Err(refuse_settings(&texts::integral_term_needed(law)));
-        };
+        let gain = draft.integral_gain.as_ref().ok_or_else(|| {
+            refuse_settings(&texts::integral_gain_needed(law)).with_field("own.integralGain")
+        })?;
+        checked_gain(gain, "integral gain", "own.integralGain")?;
+        let term = named(draft.integral_term.as_deref()).ok_or_else(|| {
+            refuse_settings(&texts::integral_term_needed(law)).with_field("own.integralTerm")
+        })?;
         Some((gain, term))
     };
     let derivative = if draft.law == OwnLawFamily::Pid {
-        let Some(gain) = draft.derivative_gain.as_ref() else {
-            return Err(refuse_settings(texts::derivative_gain_needed()));
-        };
-        let (Some(state), Some(on)) = (
-            named(draft.derivative_state.as_deref()),
-            draft.derivative_on,
-        ) else {
-            return Err(refuse_settings(texts::derivative_state_needed()));
-        };
+        let gain = draft.derivative_gain.as_ref().ok_or_else(|| {
+            refuse_settings(texts::derivative_gain_needed()).with_field("own.derivativeGain")
+        })?;
+        checked_gain(gain, "derivative gain", "own.derivativeGain")?;
+        let state = named(draft.derivative_state.as_deref()).ok_or_else(|| {
+            refuse_settings(texts::derivative_state_needed()).with_field("own.derivativeState")
+        })?;
+        let on = draft.derivative_on.ok_or_else(|| {
+            refuse_settings(texts::derivative_on_needed()).with_field("own.derivativeOn")
+        })?;
         Some((gain, state, on))
     } else {
         None
@@ -282,7 +354,30 @@ fn law_parts(draft: &OwnLawLoopDraft) -> Result<Parts<'_>, Failure> {
     })
 }
 
-/// The gains and the integral term are distinct variables, and each gain's range is an interval (`ownLawLoopDefinition`).
+/// A gain variable the form asks for (`gainValue`, `loopSetupForm.ts`): a variable, and a range whose bounds are numbers with the minimum
+/// below the maximum. The first missing item is the one refused, under its field (`field`, `field.minimum`, `field.maximum`).
+///
+/// # Errors
+/// The variable is blank, a bound is not a number, or the minimum is not below the maximum.
+pub(super) fn checked_gain(gain: &OwnLawGain, label: &str, field: &str) -> Result<(), Failure> {
+    required_choice(&gain.symbol, &texts::gain_symbol_needed(label), field)?;
+    if !gain.minimum.is_finite() {
+        return Err(refuse_settings(&save::signal_range_needed(label))
+            .with_field(&format!("{field}.minimum")));
+    }
+    if !gain.maximum.is_finite() {
+        return Err(refuse_settings(&save::signal_range_needed(label))
+            .with_field(&format!("{field}.maximum")));
+    }
+    if gain.maximum <= gain.minimum {
+        return Err(refuse_settings(&texts::gain_range(&gain.symbol))
+            .with_field(&format!("{field}.maximum")));
+    }
+    Ok(())
+}
+
+/// The gains, the integral term and the derivative's previous value are distinct variables (`ownLawLoopDefinition`). The gains' ranges are
+/// checked by `checked_gain` before this runs.
 fn check_variables(draft: &OwnLawLoopDraft, parts: Parts<'_>) -> Result<(), Failure> {
     let mut variables = vec![draft.proportional_gain.symbol.as_str()];
     if let Some((gain, term)) = parts.integral {
@@ -299,16 +394,6 @@ fn check_variables(draft: &OwnLawLoopDraft, parts: Parts<'_>) -> Result<(), Fail
         .collect();
     if distinct.len() != variables.len() {
         return Err(refuse_settings(texts::distinct_variables()));
-    }
-    let mut gains = vec![&draft.proportional_gain];
-    gains.extend(parts.integral.map(|(gain, _)| gain));
-    gains.extend(parts.derivative.map(|(gain, _, _)| gain));
-    for gain in gains {
-        let ordered =
-            gain.minimum.is_finite() && gain.maximum.is_finite() && gain.minimum < gain.maximum;
-        if !ordered {
-            return Err(refuse_settings(&texts::gain_range(&gain.symbol)));
-        }
     }
     Ok(())
 }
@@ -592,7 +677,7 @@ fn seeded_symbols(draft: &OwnLawLoopDraft, parts: Parts<'_>) -> Vec<String> {
 }
 
 /// The family's name in the loop file: `P`, `PI` or `PID`.
-fn family_name(law: OwnLawFamily) -> &'static str {
+pub(super) fn family_name(law: OwnLawFamily) -> &'static str {
     match law {
         OwnLawFamily::P => "P",
         OwnLawFamily::Pi => "PI",

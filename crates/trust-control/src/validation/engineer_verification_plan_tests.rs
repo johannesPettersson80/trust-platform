@@ -2,17 +2,9 @@
 
 use serde_json::json;
 
+use super::test_support::{base_task, text};
 use super::*;
 use crate::model::decode_general_model;
-use crate::tuning::automatic_criteria::REQUIREMENT_KEYS;
-
-/// The message of a failure, whole: its detail when the sentence has more than one sentence.
-fn text(failure: &Failure) -> String {
-    failure
-        .detail
-        .clone()
-        .unwrap_or_else(|| failure.message.clone())
-}
 
 /// A model channel with the fixtures' range of -20 to 20.
 fn channel(id: &str, unit: &str) -> Value {
@@ -122,26 +114,6 @@ fn gains(kp: f64, ki: f64, kd: f64) -> BTreeMap<String, f64> {
     ])
 }
 
-/// The task of the `TypeScript` tests' `BASE`: a 1-unit change, a 0.2 error limit, a 0.1 settling band, a 15 s response
-/// and a 30 s run.
-fn base_task() -> EngineerRequirements {
-    EngineerRequirements {
-        reference_change: 1.0,
-        maximum_error: 0.2,
-        settling_band: 0.1,
-        settling_time_seconds: 15.0,
-        duration_seconds: 30.0,
-        constant_input_disturbance: None,
-        measurement_noise_band: None,
-        gain_uncertainty_fraction: None,
-        transfer_tolerance: None,
-        maximum_overshoot_percent: None,
-        tuning_method: None,
-        tuning_objective: None,
-        automatic_criteria: None,
-    }
-}
-
 /// The plan of a loop on the first-order model, with no controller initial values.
 fn plan_of(
     loop_definition: &LoopDefinition,
@@ -155,19 +127,6 @@ fn plan_of(
         values,
         &BTreeMap::new(),
     )
-}
-
-/// The task record as the decoder reads it: the base values as JSON.
-fn base_json() -> Value {
-    json!({ "referenceChange": 1, "maximumError": 0.2, "settlingBand": 0.1,
-        "settlingTimeSeconds": 15, "durationSeconds": 30 })
-}
-
-/// The task record with a declared overshoot limit, as the decoder reads it.
-fn decoded_overshoot(value: Value) -> Result<Option<f64>, Failure> {
-    let mut task = base_json();
-    task["maximumOvershootPercent"] = value;
-    engineer_requirements(&task).map(|task| task.maximum_overshoot_percent)
 }
 
 /// A bounds requirement on the manipulated variable, for the condition tests.
@@ -189,162 +148,6 @@ fn ids(plan: &VerificationPlan) -> Vec<&str> {
         .iter()
         .map(|item| item.id.as_str())
         .collect()
-}
-
-#[test]
-fn the_task_decodes_its_required_values_and_its_optional_ones() {
-    let mut value = base_json();
-    value["transferTolerance"] = json!(0);
-    value["tuningMethod"] = json!("SIMC");
-    value["tuningObjective"] = json!("robust");
-    value["constantInputDisturbance"] = json!(0.3);
-    value["measurementNoiseBand"] = json!(0);
-    value["gainUncertaintyFraction"] = json!(1);
-    let task = engineer_requirements(&value).expect("a complete task");
-    assert_eq!(
-        (
-            task.reference_change,
-            task.maximum_error,
-            task.settling_band
-        ),
-        (1.0, 0.2, 0.1)
-    );
-    assert_eq!(
-        (task.settling_time_seconds, task.duration_seconds),
-        (15.0, 30.0)
-    );
-    assert_eq!(
-        (
-            task.transfer_tolerance,
-            task.constant_input_disturbance,
-            task.measurement_noise_band,
-            task.gain_uncertainty_fraction
-        ),
-        (Some(0.0), Some(0.3), Some(0.0), Some(1.0))
-    );
-    assert_eq!(
-        (task.tuning_method, task.tuning_objective),
-        (Some(TuningMethod::Simc), Some(TuningObjective::Robust))
-    );
-}
-
-#[test]
-fn a_missing_or_mistyped_required_value_is_refused() {
-    let mut value = base_json();
-    value
-        .as_object_mut()
-        .expect("an object")
-        .remove("referenceChange");
-    let failure = engineer_requirements(&value).expect_err("a missing target change");
-    assert_eq!(text(&failure), "Enter finite task requirements.");
-    value["referenceChange"] = json!("1");
-    let failure = engineer_requirements(&value).expect_err("a text target change");
-    assert_eq!(text(&failure), "Enter finite task requirements.");
-    assert_eq!(
-        (failure.cause, failure.next_action),
-        (Cause::Settings, NextAction::OpenRequirements)
-    );
-}
-
-#[test]
-fn the_task_order_is_checked_as_the_requirement_record_checks_it() {
-    const ORDER: &str = "Use a nonzero target change, positive response time, a smaller settling allowance than the error limit, and a longer test duration.";
-    let cases = [
-        ("settlingBand", json!(0.2)),
-        ("referenceChange", json!(0)),
-        ("durationSeconds", json!(86_401)),
-    ];
-    for (key, value) in cases {
-        let mut task = base_json();
-        task[key] = value;
-        let failure = engineer_requirements(&task).expect_err(key);
-        assert_eq!(text(&failure), ORDER, "{key}");
-    }
-}
-
-#[test]
-fn an_invalid_optional_value_is_refused_with_its_own_sentence() {
-    const BOUNDS: &str =
-        "Enter finite disturbance/noise bounds and gain uncertainty between zero and one.";
-    let cases = [
-        (
-            "transferTolerance",
-            json!(-1),
-            "Auto-entry tolerance must be blank for automatic or a finite nonnegative value in output units.",
-        ),
-        ("tuningMethod", json!("LAMBDA"), "Choose a supported tuning method."),
-        ("tuningObjective", json!("best"), "Choose a supported tuning objective."),
-        ("constantInputDisturbance", json!(null), BOUNDS),
-        ("measurementNoiseBand", json!(-0.1), BOUNDS),
-        ("gainUncertaintyFraction", json!(1.5), BOUNDS),
-    ];
-    for (key, value, expected) in cases {
-        let mut task = base_json();
-        task[key] = value;
-        let failure = engineer_requirements(&task).expect_err(key);
-        assert_eq!(text(&failure), expected, "{key}");
-    }
-}
-
-#[test]
-fn a_declared_overshoot_limit_is_kept_and_a_blank_one_declares_none() {
-    // control-studio-overshoot-requirement.test.ts: "parses a declared overshoot limit and leaves a blank or absent one undeclared".
-    assert_eq!(
-        engineer_requirements(&base_json())
-            .expect("an absent limit")
-            .maximum_overshoot_percent,
-        None
-    );
-    assert_eq!(decoded_overshoot(json!("  ")).expect("a blank limit"), None);
-    assert_eq!(decoded_overshoot(json!(null)).expect("a null limit"), None);
-    assert_eq!(decoded_overshoot(json!(5)).expect("a 5 % limit"), Some(5.0));
-    assert_eq!(
-        decoded_overshoot(json!(1000)).expect("the largest limit"),
-        Some(1000.0),
-        "1000 % is the largest permitted limit"
-    );
-}
-
-#[test]
-fn an_invalid_overshoot_limit_is_refused_with_its_permitted_range() {
-    // control-studio-overshoot-requirement.test.ts: "refuses an invalid overshoot limit and names the field and its permitted range".
-    const SENTENCE: &str = "Maximum overshoot must be blank for no limit, or a finite value above 0 and at most 1000 % of the setpoint change.";
-    for value in [json!(0), json!(-1), json!(1000.5), json!("5")] {
-        let failure = decoded_overshoot(value.clone()).expect_err(&value.to_string());
-        assert_eq!(text(&failure), SENTENCE, "refuses {value}");
-    }
-    // NaN and the infinities cannot be written as JSON; the record's own check refuses them.
-    let mut task = base_task();
-    task.maximum_overshoot_percent = Some(f64::NAN);
-    assert_eq!(task.validate().expect_err("NaN").0, SENTENCE);
-    task.maximum_overshoot_percent = Some(f64::INFINITY);
-    assert_eq!(task.validate().expect_err("infinity").0, SENTENCE);
-}
-
-#[test]
-fn automatic_criteria_never_generate_an_overshoot_limit() {
-    // control-studio-overshoot-requirement.test.ts: "automatic criteria never generate an overshoot limit".
-    assert!(
-        REQUIREMENT_KEYS
-            .iter()
-            .all(|key| !key.to_lowercase().contains("overshoot")),
-        "automatic setup fills no overshoot limit"
-    );
-    let mut task = base_json();
-    task["automaticCriteria"] =
-        json!({ "modelRevision": "r1", "fields": ["maximumOvershootPercent"] });
-    let failure = engineer_requirements(&task).expect_err("a stored overshoot claim");
-    assert_eq!(text(&failure), "Invalid automatic test criteria.");
-    task["automaticCriteria"] = json!({ "modelRevision": "r1", "fields": ["maximumError"] });
-    assert_eq!(
-        engineer_requirements(&task)
-            .expect("a generated error limit")
-            .automatic_criteria,
-        Some(AutomaticCriteria {
-            model_revision: "r1".to_owned(),
-            fields: vec!["maximumError".to_owned()],
-        })
-    );
 }
 
 #[test]

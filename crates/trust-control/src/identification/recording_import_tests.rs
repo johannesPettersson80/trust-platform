@@ -483,3 +483,59 @@ fn a_copy_whose_origin_has_other_units_is_refused() {
     copied["recording"]["provenance"] = origin;
     assert_eq!(refused(&copied), INVALID_SENTENCE);
 }
+
+#[test]
+fn a_sample_of_another_evidence_source_than_the_result_or_before_the_origin_refuses_the_result() {
+    // control-studio-validate-apply: "rejects mixed evidence sources and non-monotonic saved samples" (B10.2: simulated evidence is never
+    // loaded as physical evidence; B10.4: a record with inconsistent sample order is rejected as a whole).
+    let mut mixed = saved_result();
+    mixed["recording"]["rawSamples"][1]["source"] = json!("Physical");
+    assert_eq!(
+        refused(&mixed),
+        INVALID_SENTENCE,
+        "a simulation result must not hold a physical sample"
+    );
+    let mut reversed = saved_result();
+    reversed["recording"]["rawSamples"][1]["elapsedSeconds"] = json!(-0.1);
+    assert_eq!(
+        refused(&reversed),
+        INVALID_SENTENCE,
+        "saved samples stay in order of elapsed time, which starts at zero"
+    );
+}
+
+#[test]
+fn the_plant_of_a_result_keeps_its_evidence_source_and_an_experiment_ends_in_a_known_state() {
+    // control-studio-validate-apply: "retains validated experiment and plant context without changing evidence class" (B10.2: simulated
+    // plant evidence is never loaded as physical plant evidence). The import reads the plant's source and the experiment's status; the
+    // plant's configuration and the experiment's restoration are not read by the engine.
+    let mut contextual = saved_result();
+    contextual["experiment"] = json!({
+        "kind": "setpoint_step", "requestedValue": 1, "appliedValue": 1, "status": "completed",
+        "stopReason": "duration_complete", "aborted": false,
+        "restoration": { "value": 0, "status": "confirmed" }
+    });
+    contextual["plant"] = json!({
+        "source": "Simulation", "id": "tank", "configurationRevision": "sha256:revision-1"
+    });
+    assert!(
+        check(&contextual).is_ok(),
+        "the context of a simulation result with a simulated plant and a completed experiment"
+    );
+
+    let mut physical_plant = contextual.clone();
+    physical_plant["plant"]["source"] = json!("Physical");
+    assert_eq!(
+        refused(&physical_plant),
+        INVALID_SENTENCE,
+        "a simulation result must not carry a physical plant"
+    );
+
+    let mut unknown_end = contextual.clone();
+    unknown_end["experiment"]["status"] = json!("unknown");
+    assert_eq!(
+        refused(&unknown_end),
+        INVALID_SENTENCE,
+        "an experiment ends completed, aborted, failed or failed to restore"
+    );
+}

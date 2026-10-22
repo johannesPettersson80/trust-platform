@@ -8,8 +8,14 @@
 //! `identification_method`), so the review refuses what the campaign refuses, with the same next action. What the campaign
 //! measures before it steps (the steady baseline's noise, B3.3) is not known yet: the amplitude is then shown as the engineer
 //! asked for it, and zero means Identify sizes it after the baseline.
+//!
+//! A project test (C12) is reviewed and started without the engineer's settings: the project owns its experiment, so it runs the
+//! loop's declared experiment ([`campaign_settings`]). Its review binds the experiment settings the runtime holds when it is made
+//! ([`bound_to_settings`]), so a setting changed before the start gives another identity and the start is refused.
 
 #![allow(clippy::module_name_repetitions)] // `campaign_review` names the review it gives.
+
+use std::collections::BTreeMap;
 
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -18,12 +24,16 @@ use serde_json::json;
 use crate::commissioning::application_records::review_identity;
 use crate::experiment::plan::project_stop_conditions;
 use crate::experiment::{ControlExperimentKind, ExperimentSample};
-use crate::failure::Failure;
-use crate::identification::acquisition_settings::{configured_acquisition, AcquisitionSettings};
+use crate::failure::{Cause, Failure, NextAction};
+use crate::identification::acquisition_settings::{
+    configured_acquisition, declared_settings, AcquisitionMethod, AcquisitionSettings,
+};
 use crate::identification::campaign::{
     campaign_maximum_ms, ms_as_f64, plant_input_range, require_campaign_limits,
 };
-use crate::identification::connected_run::{campaign_method, own_steps_check};
+use crate::identification::connected_run::{
+    campaign_hold_ms, campaign_method, own_steps_check, ACQUISITION_SETTINGS_TEXT,
+};
 use crate::identification::policy::{identification_method, project_scripted};
 use crate::limits::RESTORATION_CONFIRMATION_EXECUTIONS;
 use crate::loop_definition::{
@@ -50,7 +60,9 @@ pub struct IdentifyReview {
     pub input_range: Range,
     /// The permitted range of the measured output (B3.4 step 1).
     pub output_range: Range,
-    /// The longest the campaign runs, in s: the baseline wait and the maximum duration of the step (A7, B3.4 step 2).
+    /// The longest the campaign runs, in s: the baseline wait and the maximum duration of the step (A7, B3.4 step 2). A project step
+    /// test whose loop declares a hold parameter runs the recording of the hold the runtime applies: its baseline, that hold and one
+    /// restoration sample (C12).
     pub maximum_duration_seconds: f64,
     /// The amplitude the campaign starts from. Zero means Identify sizes the step from the measured noise after the baseline (B3.3).
     pub amplitude: f64,
@@ -81,6 +93,10 @@ pub struct CampaignApproval {
     pub stop_conditions: Vec<String>,
     /// What the restoration returns, and when it is confirmed (B3.4 step 5, A7).
     pub restoration: String,
+    /// The sentence the page shows with the block: the target is physical, and nothing is written before the engineer approves the
+    /// reviewed campaign (A2.5). Always present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 }
 
 /// One signal an identification campaign writes, with the limits it keeps it in (A2.5, B3.4). A limit the loop does not declare
@@ -117,6 +133,10 @@ pub struct ProjectScriptedReview {
     pub restoration: Option<RestorationReview>,
     /// The stop conditions the runtime applies to the scenario (E5.5, C12): the list the test's plan names.
     pub stop_conditions: Vec<String>,
+    /// The test signal of the plan, in words (C12): the activation and the value the start writes to it, `P1.ExperimentEnabled · TRUE
+    /// while the test runs`, or `Observation only: no signal is written` when the project declares no activation. Always present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub test_signal: Option<String>,
 }
 
 /// How the activation of a project-scripted experiment is restored (C12, A7).
@@ -164,18 +184,78 @@ const CAMPAIGN_RESTORATION: &str = "The runtime restores the written signal to i
 /// The restoration of a campaign that writes nothing, in the words its approval shows.
 const NOTHING_WRITTEN: &str = "Nothing is written, so nothing is restored.";
 
+/// The test signal of a project test whose project declares no activation (C12).
+pub const OBSERVATION_ONLY: &str = "Observation only: no signal is written";
+
+/// The sentence of the approval block of a project test (A2.5, C12).
+const APPROVE_TEST: &str =
+    "Physical target. Approve the reviewed test before it starts; nothing is written before your approval.";
+
+/// The sentence of the approval block of any other campaign (A2.5).
+const APPROVE_CAMPAIGN: &str =
+    "Physical target. Approve the reviewed campaign before it starts; nothing is written before your approval.";
+
+/// The settings that a review and a start of `controlStudio/identify` run with (§0.1a, B3.2, C12): the engineer's, when the request
+/// carries them. The project test of a project-scripted loop carries none: the project owns its experiment, so the test runs the loop's
+/// declared experiment with the Automatic method (`declared_settings`), and a loop that declares no duration is refused under Limits by
+/// the campaign's own check (B3.4 step 1). Any other loop needs the engineer's method and limits.
+///
+/// # Errors
+/// The request carries no settings, and the loop has no project test (B3.2), with Limits as the next action.
+pub fn campaign_settings(
+    loop_definition: &LoopDefinition,
+    settings: Option<AcquisitionSettings>,
+) -> Result<AcquisitionSettings, Failure> {
+    if let Some(settings) = settings {
+        return Ok(settings);
+    }
+    if project_scripted(loop_definition).is_some() {
+        return Ok(declared_settings(
+            loop_definition,
+            AcquisitionMethod::Automatic,
+        ));
+    }
+    Err(Failure::new(
+        ACQUISITION_SETTINGS_TEXT,
+        Cause::Settings,
+        NextAction::OpenLimits,
+    ))
+}
+
+/// The review of a project test bound to the values of its experiment settings that the runtime holds when the review is made (C12,
+/// Parameter purpose: the settings are frozen through review, baseline and execution). The identity is the digest of the review's own
+/// identity and those values, so a setting that changes between the review and the start gives another identity, and the start is
+/// refused as a changed review is (E11.8). A review without settings, of a loop whose parameter tool writes none, is returned as it is.
+#[must_use]
+pub fn bound_to_settings(
+    mut review: IdentifyReview,
+    settings: Option<&BTreeMap<String, f64>>,
+) -> IdentifyReview {
+    if let Some(values) = settings {
+        review.identity = review_identity(&json!({
+            "review": review.identity,
+            "experimentSettings": values,
+        }));
+    }
+    review
+}
+
 /// The review of the campaign that `settings` ask for on `loop_definition`, with the loop's live `sample` when a runtime
 /// answered one (B3.3). The campaign's checks run first, in its order, so the first refusal is the one the campaign would give.
-/// A live sample on a physical target gives the review its approval block (A2.5).
+/// A live sample on a physical target gives the review its approval block (A2.5). `hold_seconds` is the value the runtime applies to
+/// the loop's declared hold parameter, which the caller reads for a project step test (C12, Hold parameter): the review's duration
+/// is the recording of that hold. A loop that declares no hold parameter ignores it.
 ///
 /// # Errors
 /// The settings cannot configure the loop (B3.2); a limit the campaign needs is missing or not ordered (B3.4 step 1, next action
-/// Limits); the maximum duration is outside 1 s to 24 h (A7, next action Limits); or the method cannot be chosen from the loop's
-/// mode and policy (B3.3), with the next action the policy names.
+/// Limits); the maximum duration is outside 1 s to 24 h (A7, next action Limits); the method cannot be chosen from the loop's
+/// mode and policy (B3.3), with the next action the policy names; or the loop's hold parameter has no applied value within its
+/// bounds, or one whose recording is longer than the maximum duration (`campaign_hold_ms`).
 pub fn campaign_review(
     loop_definition: &LoopDefinition,
     settings: &AcquisitionSettings,
     sample: Option<&ExperimentSample>,
+    hold_seconds: Option<f64>,
 ) -> Result<IdentifyReview, Failure> {
     let configured =
         configured_acquisition(loop_definition, Some(settings)).map_err(|error| error.failure())?;
@@ -186,8 +266,14 @@ pub fn campaign_review(
     let method = campaign_method(&configured, loop_method);
     let maximum_ms = campaign_maximum_ms(&configured)?;
     let input_range = plant_input_range(&configured)?;
+    // A project step test records its baseline, the hold the runtime applies and one restoration sample (C12): that recording is the
+    // duration the review shows, and a hold that cannot be recorded is refused here, before the engineer starts the test.
+    let hold_ms = campaign_hold_ms(&configured, hold_seconds)?;
     let experiment = configured.experiment.as_ref();
-    let maximum_duration_seconds = ms_as_f64(maximum_ms) / 1_000.0;
+    let maximum_duration_seconds = hold_ms.map_or_else(
+        || ms_as_f64(maximum_ms) / 1_000.0,
+        |recording_ms| recording_ms / 1_000.0,
+    );
     let execution = experiment.map_or(Execution::ControlStudio, |experiment| experiment.execution);
     let amplitude = experiment.map_or(0.0, |experiment| experiment.amplitude);
     let output_range = configured.signals.process_variable.range;
@@ -258,6 +344,10 @@ fn project_scripted_review(
                     .map(|asserted| (abort.symbol.as_str(), asserted))
             }),
         ),
+        test_signal: Some(experiment.activation.as_ref().map_or_else(
+            || OBSERVATION_ONLY.to_owned(),
+            |activation| format!("{} · TRUE while the test runs", activation.symbol),
+        )),
     }
 }
 
@@ -303,6 +393,11 @@ fn campaign_approval(
             .map(|text| (*text).to_owned())
             .collect(),
     };
+    let message = if project_scripted.is_some() {
+        APPROVE_TEST
+    } else {
+        APPROVE_CAMPAIGN
+    };
     CampaignApproval {
         loop_id: loop_definition.id.clone(),
         signals,
@@ -310,6 +405,7 @@ fn campaign_approval(
         duration_seconds,
         stop_conditions,
         restoration,
+        message: Some(message.to_owned()),
     }
 }
 

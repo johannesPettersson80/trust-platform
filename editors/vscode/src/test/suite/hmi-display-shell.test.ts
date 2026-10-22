@@ -277,28 +277,36 @@ suite("HMI display: browser shell", () => {
     assert.ok(badge.closest('header[data-part="top-bar"]'), "the badge stands in the top bar");
     assert.strictEqual(badge.hidden, true, "no simulation, no badge");
     const report = (status: unknown): void => socketOf(host).send({ simulation: status });
-    report({ enabled: false, time_scale: 10, achieved_time_scale: null });
+    report({ enabled: false, speed_configured: 10, speed_achieved: null });
     assert.strictEqual(badge.hidden, true, "a stopped simulation shows no badge");
-    report({ enabled: true, time_scale: 1, achieved_time_scale: 0.8 });
+    report({ enabled: true, speed_configured: null, speed_achieved: null });
     assert.strictEqual(badge.hidden, false, "a simulation at speed 1 shows the badge");
     assert.strictEqual(badge.firstElementChild?.textContent, "SIMULATION");
-    assert.strictEqual(speedOf(badge).hidden, true, "at speed 1 no speed is shown, achieved or not");
-    report({ enabled: true, time_scale: 10, achieved_time_scale: null });
+    assert.strictEqual(speedOf(badge).hidden, true, "at speed 1 the runtime gives no speed, so none is shown");
+    report({ enabled: true, speed_configured: 10, speed_achieved: null });
     assert.strictEqual(speedOf(badge).hidden, false);
-    assert.strictEqual(speedOf(badge).textContent, "×10", "a simulation at ×10 before its speed is measured");
+    assert.strictEqual(
+      speedOf(badge).textContent,
+      "×10",
+      "the configured speed alone when the runtime gives no achieved speed",
+    );
     assert.strictEqual(badge.textContent, "SIMULATION ×10", "the label, a space, then the speed");
-    report({ enabled: true, time_scale: 10, achieved_time_scale: 9.6 });
-    assert.strictEqual(speedOf(badge).textContent, "×10", "95 % of the configured speed or more is on target");
-    report({ enabled: true, time_scale: 10, achieved_time_scale: 6.8 });
+    report({ enabled: true, speed_configured: 10, speed_achieved: "6.8" });
     assert.strictEqual(
       speedOf(badge).textContent,
       "×6.8 of ×10",
-      "behind, the measured speed is shown to a tenth, rounded down",
+      "behind, the achieved speed is shown as the runtime words it, with the phrase translated",
     );
     assert.strictEqual(badge.textContent, "SIMULATION ×6.8 of ×10");
-    report({ enabled: true, time_scale: 5, achieved_time_scale: 4.66 });
-    assert.strictEqual(speedOf(badge).textContent, "×4.6 of ×5", "never rounded up to the configured speed");
-    report({ enabled: false, time_scale: 10, achieved_time_scale: 6.8 });
+    report({ enabled: true, speed_configured: 5, speed_achieved: "4.6" });
+    assert.strictEqual(speedOf(badge).textContent, "×4.6 of ×5", "the words are shown as the runtime gives them");
+    report({ enabled: true, speed_configured: 10, speed_achieved: "9.6" });
+    assert.strictEqual(
+      speedOf(badge).textContent,
+      "×9.6 of ×10",
+      "the page keeps no speed rule of its own: it shows the achieved speed it is given",
+    );
+    report({ enabled: false, speed_configured: 10, speed_achieved: "6.8" });
     assert.strictEqual(badge.hidden, true, "back to no simulation, no badge");
   });
 
@@ -317,7 +325,7 @@ suite("HMI display: browser shell", () => {
     await startDisplay(element, host, drawing);
     const badge = badgeOf(element);
     assert.strictEqual(badge.firstElementChild?.textContent, "SIMULERING");
-    socketOf(host).send({ simulation: { enabled: true, time_scale: 10, achieved_time_scale: 6.8 } });
+    socketOf(host).send({ simulation: { enabled: true, speed_configured: 10, speed_achieved: "6.8" } });
     assert.strictEqual(speedOf(badge).textContent, "×6.8 av ×10");
   });
 
@@ -339,7 +347,7 @@ suite("HMI display: browser shell", () => {
     const corner = badge.parentElement as HTMLElement;
     assert.ok(corner.classList.contains("hmi-corner"), corner.outerHTML);
     assert.ok(corner.querySelector('[data-action="language"]'), "the language button stands in the same corner");
-    socketOf(host).send({ simulation: { enabled: true, time_scale: 10, achieved_time_scale: null } });
+    socketOf(host).send({ simulation: { enabled: true, speed_configured: 10, speed_achieved: null } });
     assert.strictEqual(badge.hidden, false, "the badge shows without a top bar too");
     assert.strictEqual(speedOf(badge).textContent, "×10");
     const single = container();

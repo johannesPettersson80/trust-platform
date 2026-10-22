@@ -64,8 +64,9 @@ impl<'j> SharedJournal<'j> {
         self.journal.borrow_mut().clear(id)
     }
 
-    /// Retires a checkpoint whose runtime was replaced since its Apply (B6.4): it is no longer journaled, and the returned record,
-    /// marked `retired`, is the history the caller keeps in the study's Apply section.
+    /// Retires a checkpoint whose runtime was replaced since its Apply, when a new Apply replaces it (B6.4, A8.5): it is no longer
+    /// journaled, and the returned record, marked `retired`, is the history the caller keeps in the study's Apply section. A Restore on
+    /// a replaced runtime keeps the retired checkpoint journaled instead (`restore::retire_after_replacement`).
     ///
     /// # Errors
     /// The journal cannot be written.

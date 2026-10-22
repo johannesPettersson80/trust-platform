@@ -28,7 +28,11 @@ export interface IdentifyRequest {
          * now differs from the reviewed one (E11.8). Absent on a simulated target, where pressing the action is the confirmation.
          */
         review?: string | null;
-        settings: AcquisitionSettings;
+        /**
+         * The method (`automatic`, or a named one) and the limits of the experiment. Absent for the project test of a project-scripted
+         * loop, which runs the loop's declared experiment with the Automatic method (C12); any other loop is refused without them.
+         */
+        settings?: AcquisitionSettings | null;
         [k: string]: unknown;
       }
     | {
@@ -74,7 +78,12 @@ export interface IdentifyRequest {
       }
     | {
         action: "review";
-        settings: AcquisitionSettings1;
+        /**
+         * The method and the experiment limits the campaign would run with (B3.2). Absent for the project test of a project-scripted
+         * loop, which is reviewed with the loop's declared experiment and the Automatic method (C12); any other loop is refused
+         * without them.
+         */
+        settings?: AcquisitionSettings | null;
         [k: string]: unknown;
       }
     | {
@@ -86,9 +95,10 @@ export interface IdentifyRequest {
         action: "manualQualify";
         form: IdentificationFormDraft1;
         /**
-         * The identifier of the recording to check, `rec-…` (annex E4).
+         * The identifier of the recording to check, `rec-…` (annex E4). Absent, the study's last opened recording is checked, as
+         * `OpenRecording` fits it, and a study that keeps none refuses the check (B3.6).
          */
-        recordingId: string;
+        recordingId?: string | null;
         [k: string]: unknown;
       }
     | {
@@ -137,12 +147,19 @@ export interface IdentifyRequest {
    */
   runtimeId: string;
   /**
+   * The mode of the window's runtime lifecycle when no runtime is running, as the extension reports it with a live request that
+   * carries no connection: `simulate` for the local simulator, `online` for a runtime attached through its endpoint. A live request
+   * without a connection is refused with the next action that applies: Start simulator for `simulate`, otherwise Connect runtime
+   * (A2.8, E11.1). Absent when a runtime is running, and on the command line.
+   */
+  runtimeMode?: string | null;
+  /**
    * The folder of the operation journals (A8.3).
    */
   storageFolder: string;
 }
 /**
- * The method (`automatic`, or a named one) and the limits of the experiment.
+ * The request for an identification experiment: what it excites, for how long and how far, and the ranges it may use.
  */
 export interface AcquisitionSettings {
   /**
@@ -150,41 +167,45 @@ export interface AcquisitionSettings {
    */
   amplitude: number;
   /**
-   * The duration of the experiment in seconds, from one second to 24 hours.
+   * The duration of the experiment in seconds, from one second to 24 hours. The page sends the time it typed (`15 min`), which
+   * `duration_of_setting` reads as seconds; a time that no duration reads is refused under the duration's field.
    */
-  durationSeconds: number;
+  durationSeconds: number | string;
   /**
-   * The range of the manipulated variable the experiment may use.
+   * The range of the manipulated variable the experiment may use, in the form of a record written before ranges were kept by
+   * signal. It reads as the range `input_ranges` names for the manipulated variable, which takes precedence. The page sends
+   * `input_ranges` alone (B3.2).
    */
-  inputRange?: Range | null;
+  inputRange?: RangeSetting | null;
   /**
-   * The ranges of further input signals, by symbol: at most sixteen.
+   * The range of each plant input the experiment may use, by symbol: at most sixteen.
    */
   inputRanges?: {
-    [k: string]: Range;
+    [k: string]: RangeSetting;
   } | null;
   /**
    * The method of the experiment.
    */
   method: "configured" | "automatic" | "mv_step" | "mv_pulse" | "setpoint_step" | "relay" | "prbs" | "multisine";
   /**
-   * The range of the measured output the experiment may use.
+   * The range of the measured output the experiment may use, in the earlier form of `input_range`: it reads as the range
+   * `output_ranges` names for the process variable, which takes precedence.
    */
-  outputRange?: Range | null;
+  outputRange?: RangeSetting | null;
   /**
-   * The ranges of further output signals, by symbol: at most sixteen.
+   * The range of each measured output the experiment may use, by symbol: at most sixteen.
    */
   outputRanges?: {
-    [k: string]: Range;
+    [k: string]: RangeSetting;
   } | null;
   /**
    * The first direction of a relay experiment.
    */
   relayDirection?: RelayDirection | null;
   /**
-   * Whether the experiment may reuse a recording of the same loop.
+   * Whether the experiment may reuse a recording of the same loop. Absent means it may not, which is what every request asks.
    */
-  reuseRecordings: boolean;
+  reuseRecordings?: boolean;
   /**
    * The declared signal a setpoint step moves, when the loop has no setpoint of its own.
    */
@@ -192,67 +213,19 @@ export interface AcquisitionSettings {
   [k: string]: unknown;
 }
 /**
- * A signal's range.
+ * A range the settings give: the lowest and the highest value the experiment may use. The page sends each bound as the number or the
+ * text the engineer typed (`"20"`), which `number_of_bound` reads. A bound that no finite number reads, blank text included, is
+ * NaN, which no JSON number is, so the checks refuse the range under its field (B3.2, `check_settings`).
  */
-export interface Range {
+export interface RangeSetting {
   /**
-   * The largest value.
+   * The highest value.
    */
-  maximum: number;
+  maximum: number | string;
   /**
-   * The smallest value.
+   * The lowest value.
    */
-  minimum: number;
-}
-/**
- * The method and the experiment limits the campaign would run with (B3.2).
- */
-export interface AcquisitionSettings1 {
-  /**
-   * The amplitude of the experiment; zero asks for the declared one.
-   */
-  amplitude: number;
-  /**
-   * The duration of the experiment in seconds, from one second to 24 hours.
-   */
-  durationSeconds: number;
-  /**
-   * The range of the manipulated variable the experiment may use.
-   */
-  inputRange?: Range | null;
-  /**
-   * The ranges of further input signals, by symbol: at most sixteen.
-   */
-  inputRanges?: {
-    [k: string]: Range;
-  } | null;
-  /**
-   * The method of the experiment.
-   */
-  method: "configured" | "automatic" | "mv_step" | "mv_pulse" | "setpoint_step" | "relay" | "prbs" | "multisine";
-  /**
-   * The range of the measured output the experiment may use.
-   */
-  outputRange?: Range | null;
-  /**
-   * The ranges of further output signals, by symbol: at most sixteen.
-   */
-  outputRanges?: {
-    [k: string]: Range;
-  } | null;
-  /**
-   * The first direction of a relay experiment.
-   */
-  relayDirection?: RelayDirection | null;
-  /**
-   * Whether the experiment may reuse a recording of the same loop.
-   */
-  reuseRecordings: boolean;
-  /**
-   * The declared signal a setpoint step moves, when the loop has no setpoint of its own.
-   */
-  setpointSignalId?: string | null;
-  [k: string]: unknown;
+  minimum: number | string;
 }
 /**
  * The form the page holds: the requested model, whether the held-step analysis is on, and the text of each field.
@@ -327,6 +300,11 @@ export interface RuntimeConnection {
    * `tcp://host:port` or `unix:///absolute/path`.
    */
   endpoint: string;
+  /**
+   * The runtime this endpoint belongs to, as the extension's selection names it (A2.7). A live request whose loop is bound to
+   * another runtime is refused before it starts. The command line names no selection and leaves it empty.
+   */
+  runtimeId?: string | null;
   /**
    * The control token, when the runtime requires one.
    */

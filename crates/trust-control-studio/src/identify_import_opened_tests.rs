@@ -391,6 +391,8 @@ fn open_recording_without_an_id_fits_the_studys_last_opened_recording() {
         .as_str()
         .expect("the kept recording")
         .to_string();
+    // The engine fits the checked recording within the import (B3.6); the fit ends before the page's own fit can start.
+    let _import_fit = final_update(&updates);
     // A recording the study keeps after it, which the engine did not open, is not the one fitted (B3.6).
     let mut later =
         storage::read_recording(&project.root, LOOP_ID, &opened).expect("the kept file reads back");

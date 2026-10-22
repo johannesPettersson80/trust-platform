@@ -4,14 +4,17 @@
 
 #![allow(clippy::module_name_repetitions)] // `IdentifyLoopDraft` names the module's subject, as the TypeScript does.
 
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
+use serde_json::Value;
 
 use super::catalog::{CompiledCatalog, CompiledController};
 use super::loop_bindings::{
-    binding, cyclic_task, identification_duration, loop_id, measured_signal, measurement_binding,
-    stated_signal, with_revision, FormSignal,
+    binding, cyclic_task, duration_seconds_of_text, identification_duration, loop_id,
+    measured_signal, measurement_binding, required_choice, stated_signal, with_revision,
+    FormSignal,
 };
 use super::texts::generators as texts;
+use super::texts::save;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
     Action, Controller, Design, Direction, Execution, Experiment, ExperimentKind, Limits,
@@ -28,8 +31,20 @@ pub struct IdentifyLoopDraft {
     pub manipulated_variable: FormSignal,
     /// The measured output.
     pub process_variable: FormSignal,
-    /// How long Studio records the project's experiment, in s; the form asks for it (C12).
+    /// How long Studio records the project's experiment: the form's text as typed (`15 min`, `900`), or a number of seconds. The
+    /// engine reads it with `duration_of_form`; a text that is not a duration, or a duration outside 1 s to 24 h, is refused (C12).
+    #[serde(default, deserialize_with = "duration_of_form")]
     pub experiment_duration_seconds: Option<f64>,
+}
+
+/// The recording duration the form posts (`durationField.ts`): a number of seconds, or text with its unit words. Text that is not a duration
+/// reads as absent, and the setup refuses it with its sentence.
+fn duration_of_form<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<f64>, D::Error> {
+    Ok(match Option::<Value>::deserialize(deserializer)? {
+        Some(Value::Number(number)) => number.as_f64(),
+        Some(Value::String(text)) => duration_seconds_of_text(&text),
+        _ => None,
+    })
 }
 
 /// The identify-only loop definition (`identifyLoopDefinition`): an open loop on the program that owns the input, whose experiment the
@@ -44,6 +59,20 @@ pub fn identify_loop_definition(
     scope: &LoopScope,
     draft: &IdentifyLoopDraft,
 ) -> Result<LoopDefinition, Failure> {
+    // The form's questions in the order it asks them: the name, the plant input, the measured output, the recording duration.
+    required_choice(&draft.name, save::name_needed(), "name")?;
+    let input = stated_signal(&measured_signal(
+        &draft.manipulated_variable,
+        "plant input",
+        Some("identify.manipulatedVariable"),
+    )?);
+    let process_variable = stated_signal(&measured_signal(
+        &draft.process_variable,
+        "measured output",
+        Some("identify.processVariable"),
+    )?);
+    let duration = identification_duration(&draft.name, draft.experiment_duration_seconds)
+        .map_err(|failure| failure.with_field("identify.durationSeconds"))?;
     let owner = draft
         .manipulated_variable
         .symbol
@@ -62,19 +91,8 @@ pub fn identify_loop_definition(
             )
         })?;
     let task = cyclic_task(program)?;
-    let input = stated_signal(&measured_signal(
-        &draft.manipulated_variable,
-        "plant input",
-        Some("identify.manipulatedVariable"),
-    )?);
-    let process_variable = stated_signal(&measured_signal(
-        &draft.process_variable,
-        "measured output",
-        Some("identify.processVariable"),
-    )?);
     let process_signal = measurement_binding(catalog, &process_variable)?;
     let input_signal = binding(catalog, &input, Direction::Read)?;
-    let duration = identification_duration(&draft.name, draft.experiment_duration_seconds)?;
     Ok(with_revision(LoopDefinition {
         schema_version: LOOP_SCHEMA_VERSION,
         id: loop_id(&draft.name),

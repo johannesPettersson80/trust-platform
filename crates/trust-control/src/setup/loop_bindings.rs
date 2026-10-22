@@ -1,7 +1,7 @@
 //! The bindings of a generated loop (specification 35, B1.3, B1.4, §17.1, A5 and A7): the signals it reads and writes, its id,
 //! its revision, its identification experiment and the one task that runs its controller. Ported from `loopBindings.ts`.
 
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -9,6 +9,7 @@ use super::catalog::{CompiledCatalog, CompiledController, CompiledSymbol, Compil
 use super::texts::generators as texts;
 use super::texts::save;
 use crate::failure::{Cause, Failure, NextAction};
+use crate::json::number_or_text;
 use crate::limits::{MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS};
 use crate::loop_definition::{
     Direction, Execution, Experiment, ExperimentKind, LoopDefinition, LoopSignal, ManualOutputType,
@@ -41,11 +42,11 @@ pub struct FormSignal {
     /// The signal's unit; blank when none is given.
     #[serde(default)]
     pub unit: String,
-    /// The smallest value; absent when it is not a number.
-    #[serde(default)]
+    /// The smallest value, as the form's text reads it ([`form_number`]): absent when it is blank, NaN when no number reads it.
+    #[serde(default, deserialize_with = "form_number")]
     pub minimum: Option<f64>,
-    /// The largest value; absent when it is not a number.
-    #[serde(default)]
+    /// The largest value, as the form's text reads it ([`form_number`]): absent when it is blank, NaN when no number reads it.
+    #[serde(default, deserialize_with = "form_number")]
     pub maximum: Option<f64>,
 }
 
@@ -258,6 +259,96 @@ pub fn identification_duration(name: &str, seconds: Option<f64>) -> Result<f64, 
             NextAction::OpenLoopSetup,
         )),
     }
+}
+
+/// A choice the setup form asks for that is blank: the sentence the engine answers, under the form field it names (B1.3). The checks
+/// run in the order the form asks its questions, so the first blank choice is the one the page shows.
+///
+/// # Errors
+/// The value is blank.
+pub fn required_choice(value: &str, sentence: &str, field: &str) -> Result<(), Failure> {
+    if value.trim().is_empty() {
+        return Err(
+            Failure::new(sentence, Cause::Settings, NextAction::OpenLoopSetup).with_field(field),
+        );
+    }
+    Ok(())
+}
+
+/// A name the form sends as null while it is blank (`optionalText`, `loopSetupForm.ts`): read as the blank text, so the setup's own check
+/// names the choice that is missing.
+///
+/// # Errors
+/// The value is neither null nor text.
+pub fn blank_when_null<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    Ok(Option::<String>::deserialize(deserializer)?.unwrap_or_default())
+}
+
+/// A number field of a setup draft, which the form sends as the text the engineer typed (B1.3): absent, null or blank text is not given
+/// (`None`); a JSON number, or a text that a finite number reads (`number_or_text`), is that number; any other text, or a value of
+/// another type, is NaN (`Some(NaN)`), which the setup's checks refuse under the field with the sentence that asks for it.
+///
+/// # Errors
+/// The value cannot be read as JSON.
+pub fn form_number<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<f64>, D::Error> {
+    Ok(match Option::<Value>::deserialize(deserializer)? {
+        None | Some(Value::Null) => None,
+        Some(Value::String(text)) if text.trim().is_empty() => None,
+        Some(value) => Some(number_or_text(&value)),
+    })
+}
+
+/// The seconds of one unit word of a recording duration (`durationField.ts`, `UNIT_SECONDS`).
+fn unit_seconds(unit: &str) -> Option<f64> {
+    match unit {
+        "h" | "hr" | "hrs" | "hour" | "hours" => Some(3_600.0),
+        "min" | "mins" | "minute" | "minutes" => Some(60.0),
+        "s" | "sec" | "secs" | "second" | "seconds" => Some(1.0),
+        _ => None,
+    }
+}
+
+/// A number of the form `\d+(\.\d+)?`, which is the only form a duration's number takes (`durationField.ts`).
+fn plain_number(text: &str) -> Option<f64> {
+    let digits = |part: &str| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit());
+    let (whole, fraction) = match text.split_once('.') {
+        Some((whole, fraction)) => (whole, Some(fraction)),
+        None => (text, None),
+    };
+    if !digits(whole) || fraction.is_some_and(|part| !digits(part)) {
+        return None;
+    }
+    text.parse::<f64>().ok()
+}
+
+/// A recording duration as the setup form writes it: a plain number of seconds, or words of hours, minutes and seconds such as `15 min`
+/// or `1 h 30 min` (`durationField.ts`, `parseDurationSeconds`). Any other text is `None`, which the setup refuses.
+#[must_use]
+pub fn duration_seconds_of_text(text: &str) -> Option<f64> {
+    let source = text.trim().to_ascii_lowercase();
+    if source.is_empty() {
+        return None;
+    }
+    if let Some(seconds) = plain_number(&source) {
+        return Some(seconds);
+    }
+    let mut rest = source.as_str();
+    let mut total = 0.0;
+    while !rest.is_empty() {
+        let end = rest
+            .find(|character: char| !(character.is_ascii_digit() || character == '.'))
+            .unwrap_or(rest.len());
+        let (number, after) = rest.split_at(end);
+        let value = plain_number(number)?;
+        let after = after.trim_start();
+        let unit_end = after
+            .find(|character: char| !character.is_ascii_lowercase())
+            .unwrap_or(after.len());
+        let (unit, remaining) = after.split_at(unit_end);
+        total += value * unit_seconds(unit)?;
+        rest = remaining.trim_start();
+    }
+    Some(total)
 }
 
 /// The identification duration limits in s (A7): 1 s to 24 h of process time.

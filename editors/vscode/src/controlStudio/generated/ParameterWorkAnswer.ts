@@ -4,13 +4,25 @@
  */
 
 /**
+ * One action of the parameter tool (C12).
+ */
+export type ParameterToolStep = "inspect" | "review" | "apply" | "restore";
+/**
+ * How a parameter write ended (C12, E7.4).
+ */
+export type ParameterWriteStatus = "applied" | "failed";
+
+/**
  * What `controlStudio/parameters` answers (C12). Each action gives the fields it needs: `draft` gives `values`; `inspect` gives
- * `values` and `observed`; `review` and `reviewRestore` give `identity`, `changes` and `physical`. `apply` and `restore` answer an
- * `operationId`, and the operation's result is `observed`, the record that the write was confirmed on.
+ * `values` and `observed`; `review` and `reviewRestore` give `identity`, `changes` and `physical`; `released` gives
+ * `settingsReleased` or the reason in `message`. `confirm` answers an `operationId`, and the operation's result is the write's
+ * outcome: `status` with its sentence in `message`, and `values` and `observed`, the record the runtime confirmed, when it applied.
+ * `inspect`, `review`, `reviewRestore`, `invalidate`, `released` and the write's outcome give the tool's `offer`.
  */
 export interface ParameterWorkAnswer {
   /**
-   * The parameters the page shows (`draft`, `inspect`): only those the analysis may write, with the bounds the analysis allows (C12).
+   * The parameters the page shows (`draft`, `inspect`): those the loop's tool may write, with the bounds it allows (C12). A declared
+   * analysis's are only the mapped ones, with the bounds the analysis allows; the experiment's settings are the loop's whole binding.
    */
   binding?: ParameterBinding | null;
   /**
@@ -22,15 +34,38 @@ export interface ParameterWorkAnswer {
    */
   identity?: string | null;
   /**
+   * The sentence the page shows with the answer: the copy note of a `draft`, what an `inspect` or a review answered and what the
+   * engineer does next, the words of an `invalidate`, the sentence of the write's outcome, and the reason a `released` question is
+   * answered without a release (C12).
+   */
+  message?: string | null;
+  /**
    * The record that the runtime reported (`inspect`, and the result of a confirmed write).
    */
   observed?: ParameterStatus | null;
+  /**
+   * What the tool offers after this answer (C12): the step its own button runs next and the actions the engine takes now, from the
+   * loop's claim and journal and the review the answer gives, also after a project test's end (`released`). The page renders it and
+   * keeps no phase of its own.
+   */
+  offer?: ParameterToolOffer | null;
   /**
    * Whether the target is physical, so that the write needs the engineer's approval (A2.5).
    */
   physical?: boolean | null;
   /**
-   * The mapped values, by symbol (`draft`, `inspect`).
+   * The sentence that says a project test left the loop's settings released (`released`, C12): present exactly when no operation of
+   * the engine works on the loop and its journal holds no unfinished operation, that is, once the test's terminal restoration is
+   * confirmed or none was needed. The page shows it with the parameter tool.
+   */
+  settingsReleased?: string | null;
+  /**
+   * How the write ended (the result of `confirm`, C12, E7.4): `applied` once the runtime reported the written values after the task
+   * executed, else `failed`; `message` says which, in the engine's words.
+   */
+  status?: ParameterWriteStatus | null;
+  /**
+   * The mapped values, by symbol (`draft`, `inspect`), and the values a `review` read from its `json` or its `values`.
    */
   values?: {
     [k: string]: number;
@@ -167,5 +202,20 @@ export interface ParameterStatus {
   values: {
     [k: string]: number;
   };
+  [k: string]: unknown;
+}
+/**
+ * What the parameter tool offers after an answer (C12): the step its own button runs next, and every action the engine takes now.
+ */
+export interface ParameterToolOffer {
+  /**
+   * The actions the engine takes now, in the tool's order: `inspect` always; `review` and `restore` while the settings are free; and
+   * `apply` after a review, which it confirms.
+   */
+  available: ParameterToolStep[];
+  /**
+   * One action of the parameter tool (C12).
+   */
+  nextStep: "inspect" | "review" | "apply" | "restore";
   [k: string]: unknown;
 }

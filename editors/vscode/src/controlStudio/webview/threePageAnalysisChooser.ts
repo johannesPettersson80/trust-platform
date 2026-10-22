@@ -27,7 +27,6 @@ export class ThreePageAnalysisChooser {
     this.closeButton.hidden = !toolActive;
     if (this.button.hidden) this.hide();
   }
-  get open(): boolean { return !this.list.hidden; }
   private show(): void {
     const choices = this.options.tools().map(tool => {
       const choice = this.list.ownerDocument.createElement("button");

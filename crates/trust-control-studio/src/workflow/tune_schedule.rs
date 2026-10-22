@@ -133,6 +133,7 @@ fn members_of<'a>(
                         previous: work.previous.as_ref(),
                         request: own.request,
                         relay: None,
+                        pins: own.pins,
                     },
                     held: work.held.as_ref(),
                     running: None,

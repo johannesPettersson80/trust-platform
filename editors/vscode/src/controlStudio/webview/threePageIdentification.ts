@@ -1,30 +1,24 @@
-import { formatEngineeringNumber } from "../chartContract";
 import { displayEngineeringUnit } from "../unitDisplay";
+import { formatEngineeringNumber } from "../chartContract";
 import { modelStructureEvidence } from "./modelStructureEvidence";
+import { showModelChoices } from "./modelChoiceSelect";
 import { renderStepResponse } from "./stepResponseControls";
-import { stepResponseSettingsProblem, type StepResponseAnalysis, type StepResponseMeasurement, type StepResponseSettings } from "../stepResponseIdentification";
-import type { IdentificationModelSelection, IdentifiedModelPresentation } from "../identification";
-import type { IdentificationFormDraft } from "../identificationFormDraft";
-import type { SensorLagComparison, StructureChoice } from "../sensorLagComparison";
-import type { ManualIdentificationAnswer } from "../generated/ManualIdentificationAnswer";
-import { plainReason } from "./studioFailure";
+import type { IdentificationFormDraft, IdentifiedModelPresentation, ManualIdentificationAnswer, StepResponseAnalysis,
+  StepResponseMeasurement } from "../generated/ManualIdentificationAnswer";
+
+/** The model a manual identification is run for, by the engine's names (the form's model field). */
+type IdentificationModelSelection = IdentificationFormDraft["model"];
 
 export type ThreePageIdentificationPost = (kind: string, payload?: Record<string, unknown>) => void;
-// V7.17 debt: the parked loop's stages are the TypeScript rules below. A served loop has no stage of its own: the engine answers it.
-type IdentificationStage = "initial" | "imported" | "qualified" | "validation_required" | "acceptance_required" | "accepted" | "failed";
 
-const FORM_KEYS = [
-  "baselineDurationSeconds", "finalDurationSeconds", "maximumWindowRange", "maximumWindowSlopePerSecond",
-  "measurementBound", "onsetThreshold", "onsetSamples", "baselineStep", "gainStep", "timestampShiftSeconds",
-  "delay.minimum", "delay.maximum", "delay.step", "timeConstant.minimum", "timeConstant.maximum", "timeConstant.step",
-  "sensorTimeConstant.minimum", "sensorTimeConstant.maximum", "sensorTimeConstant.step",
-  "modelAdequacy.maximumAbsoluteResidual", "modelAdequacy.maximumFinalError",
-] as const;
-
-/** The pause after the last change of a settings field before a served loop's form is sent to the engine (presentation only). */
+/** The pause after the last change of a settings field before the changed form is sent to the engine (presentation only). */
 const EDIT_DEBOUNCE_MS = 250;
 
-/** Reconnects the existing Identify workflow to the compact three-page surface. */
+/**
+ * The Recorded-data fit's page (specification 35, B3.3). The engine decides every step: its answers name the stage, the labels, the status,
+ * the gates and the models that may be chosen, and the page shows them and sends the form as the engineer typed it. The engine reads and
+ * checks that text, and refuses a value under the form field it names.
+ */
 export class ThreePageIdentification {
   private readonly section: HTMLElement;
   private readonly model: HTMLSelectElement;
@@ -32,25 +26,18 @@ export class ThreePageIdentification {
   private readonly settings: HTMLElement;
   private readonly exclusions: HTMLElement;
   private readonly status: HTMLElement;
-  private stage: IdentificationStage = "initial";
-  private fitRole: "estimation" | "validation" = "estimation";
   private selectedMethod = false;
   private pending = false;
-  private hasRecording = false;
-  private comparison: SensorLagComparison | undefined;
-  private acceptanceReady = false;
-  private readonly openValidationRecording?: () => void;
-  /** True while the engine serves the opened loop: its answers then decide the stage, the labels and the gates (B3.3). */
-  private served = false;
-  /** The engine's last answer to the Recorded-data fit of a served loop. */
+  /** The engine's last answer to the Recorded-data fit. */
   private answer: ManualIdentificationAnswer | undefined;
-  /** The timer that sends a served loop's changed form after the last change. */
+  /** The models the engine's last answer lets the page enable (`modelChoices`, B3.3); none before an answer. */
+  private modelChoices: readonly ModelChoice[] = [];
+  /** The timer that sends the changed form after the last change. */
   private editTimer: ReturnType<typeof setTimeout> | undefined;
-  /** True while a changed form of a served loop has not been sent to the engine. */
+  /** True while a changed form has not been sent to the engine. */
   private editPending = false;
 
   constructor(private readonly root: HTMLElement, private readonly post: ThreePageIdentificationPost,
-    openValidationRecording?: () => void,
     /** The shared stage gate; Identify stays disabled while any page gate reports a block. */
     private readonly blocked: () => string | undefined = () => undefined) {
     const section = root.querySelector<HTMLElement>("[data-three-page-identification]");
@@ -61,197 +48,58 @@ export class ThreePageIdentification {
     this.settings = section.querySelector<HTMLElement>("[data-three-page-identification-settings]")!;
     this.exclusions = section.querySelector<HTMLElement>("[data-three-page-identification-exclusions]")!;
     this.status = section.querySelector<HTMLElement>("[data-three-page-identification-status]")!;
-    this.openValidationRecording = openValidationRecording;
     const processUnit = displayEngineeringUnit(root.dataset.processUnit ?? "PV");
     const inputUnit = displayEngineeringUnit(root.dataset.outputUnit ?? "MV");
     for (const label of Array.from(section.querySelectorAll<HTMLElement>("[data-three-page-identification-label]"))) {
       label.textContent = (label.textContent ?? "").replace("PV/MV", `${processUnit}/${inputUnit}`).replace(/PV/g, processUnit);
       if (label.dataset.threePageIdentificationLabel === "baselineStep") label.textContent += ` (${processUnit})`;
     }
-    this.model.addEventListener("change", () => this.edit());
-    this.heldStep.addEventListener("change", () => {
-      // V7.17 debt: a parked loop's held step selects its model here. A served loop's model is the engine's answer to the form.
-      if (this.heldStep.checked && !this.served) this.model.value = "fopdt";
-      this.edit();
-    });
+    // The settings the choice shows or hides follow it at once; the changed form goes to the engine after the debounce.
+    this.model.addEventListener("change", () => { this.render(); this.scheduleEdit(); });
+    this.heldStep.addEventListener("change", () => { this.render(); this.scheduleEdit(); });
     section.querySelectorAll<HTMLInputElement>("[data-three-page-identification-setting],[data-three-page-identification-excluded-start],[data-three-page-identification-excluded-end]")
-      .forEach(input => input.addEventListener("input", () => this.edit()));
+      .forEach(input => input.addEventListener("input", () => this.scheduleEdit()));
     this.render();
   }
 
   setSelectedMethod(selected: boolean): void {
+    const chosen = selected && !this.selectedMethod;
     this.selectedMethod = selected;
     this.section.hidden = !selected;
-    this.render();
+    // The engine's answer that came while another method was shown appears when the Recorded-data fit is chosen (A8.6, B3.3).
+    if (chosen && this.answer) this.showAnswer();
+    else this.render();
   }
-
-  /**
-   * Whether the engine serves the opened loop (V7 wave 3). A served loop's Recorded-data fit shows the engine's answers and sends its
-   * form as the page holds it; a parked loop keeps the TypeScript stages until V7.17.
-   */
-  setEngineServed(served: boolean): void {
-    this.served = served;
-    this.render();
-  }
-
-  synchronize(): void { this.render(); }
 
   get isSelected(): boolean { return this.selectedMethod; }
-  get busy(): boolean { return this.pending; }
+  /** Cancel while a command runs, else the label of the action the engine's answer names; before an answer, the file picker's. */
   get primaryActionLabel(): string {
     if (this.pending) return "Cancel";
-    if (this.served) return this.answer?.primaryActionLabel ?? "Open recording…";
-    // V7.17 debt: a parked loop's labels are the TypeScript rules below.
-    if (this.stage === "acceptance_required") return this.acceptanceReady ? "Use fitted model" : "Validation not qualified";
-    if (this.stage === "validation_required") {
-      if (this.comparison && !this.comparison.choice) return this.comparison.recommended === "first_order" ? "Keep first-order model"
-        : this.comparison.recommended === "additional_lag" ? "Keep additional-lag model" : "Review settings";
-      return "Open validation recording";
-    }
-    if (this.stage === "qualified") return this.fitRole === "validation" ? "Compare with model" : "Fit plant model";
-    if (this.stage === "imported" || this.stage === "failed" && this.hasRecording) return "Check recording";
-    if (this.stage === "accepted") return "Model ready";
-    return "Open recording…";
+    return this.answer?.primaryActionLabel ?? "Open recording…";
   }
 
   primaryAction(): boolean {
     if (!this.selectedMethod) return false;
-    if (this.served) return this.pending ? this.cancel() : this.servedPrimaryAction();
-    // V7.17 debt: the parked loop's primary action follows the TypeScript stages below.
-    if (this.stage === "accepted") return false;
-    if (this.pending) return this.cancel();
-    if (this.stage === "validation_required") {
-      if (this.comparison && !this.comparison.choice) {
-        if (this.comparison.recommended !== "neither") return this.chooseStructure(this.comparison.recommended);
-        (this.settings as HTMLDetailsElement).open = true;
-        this.input("measurementBound")?.focus();
-        return true;
-      }
-      this.openValidationRecording?.();
-      return Boolean(this.openValidationRecording);
-    }
-    if (this.stage === "acceptance_required") {
-      if (!this.acceptanceReady) {
-        this.status.textContent = "Independent validation or model-structure evidence is not qualified for acceptance.";
-        this.render();
-        return false;
-      }
-      return this.send("control-studio.identify.accept");
-    }
-    if (this.stage === "qualified") return this.send("control-studio.identify.fit");
-    if (!this.hasRecording) {
-      window.dispatchEvent(new CustomEvent("trust-control-studio-identification-open-recording"));
-      return true;
-    }
-    const settings = this.readStepResponseSettings();
-    if (settings === null) return false;
-    const excludedIntervals = this.readExcludedIntervals();
-    if (excludedIntervals === null) return false;
-    const payload: Record<string, unknown> = { model: this.model.value };
-    if (settings) payload.stepResponseSettings = settings;
-    else if (excludedIntervals.length) payload.excludedIntervals = excludedIntervals;
-    return this.send("control-studio.identify.run", payload);
+    return this.pending ? this.cancel() : this.namedAction();
   }
 
   cancel(): boolean {
     if (!this.pending) return false;
-    // A served loop's status is the engine's: the cancelled update of the operation shows its answer again.
-    if (!this.served) this.status.textContent = "Cancelling identification…";
+    // The status is the engine's: the cancelled update of the operation shows its answer again.
     this.post("control-studio.identify.cancel");
     return true;
   }
 
-  chooseStructure(choice: StructureChoice): boolean {
-    if (this.pending || !this.comparison || this.comparison.recommended !== choice || this.comparison.choice) return false;
-    this.pending = true;
-    this.status.textContent = "Retaining the selected model structure…";
-    this.render();
-    this.post("control-studio.identify.choose-structure", { choice });
-    return true;
-  }
-
-  bindPrimaryButton(button: HTMLButtonElement): void {
-    button.addEventListener("click", event => { event.preventDefault(); this.primaryAction(); });
-    this.renderPrimaryButton(button);
-  }
-
-  /** Shared Open recording picker calls this with the selected JSON. */
+  /** Sends the file the engineer opened: the engine checks it and keeps it as the manual identification's recording (B3.6). */
   openRecording(json: string): void {
     this.pending = true;
-    if (!this.served) this.status.textContent = "Opening the complete recording…";
     this.render();
     this.post("control-studio.identify.import", { json });
   }
 
+  /** Shows the engine's running, cancelled and refused updates of the Recorded-data fit, and its answers. */
   receive(stage: string, rawPayload: unknown): void {
     const payload = record(rawPayload) ? rawPayload : {};
-    if (this.served) { this.receiveEngine(stage, payload); return; }
-    // V7.17 debt: from here to the end of `receive` is the parked loop's TypeScript stage logic.
-    if (stage === "study") { this.restoreStudy(payload); return; }
-    if (stage === "recording" && record(payload.reference)) this.restoreStudy({ current: payload.reference });
-    if (payload.nextFitRole === "estimation" || payload.nextFitRole === "validation") this.fitRole = payload.nextFitRole;
-    if (stage === "recording") {
-      this.pending = false;
-      if (payload.status === "imported") {
-        this.hasRecording = true;
-        this.stage = "imported";
-        this.status.textContent = "Recording opened. Check it before fitting a model.";
-      } else {
-        this.status.textContent = text(payload.reason) ?? "The recording could not be opened.";
-      }
-      this.render();
-      return;
-    }
-    if (stage !== "identify") return;
-    if (payload.status === "running") {
-      this.pending = true;
-      this.status.textContent = text(payload.reason) ?? "Identification is running…";
-      this.render();
-      return;
-    }
-    const samples = qualificationOf(payload)?.samples;
-    if (Array.isArray(samples) && samples.length > 0) this.hasRecording = true;
-    const phase = text(payload.phase);
-    this.pending = false;
-    if (phase === "editing") {
-      this.hasRecording = payload.hasRecording === true;
-      this.stage = this.hasRecording ? "imported" : "initial";
-      this.acceptanceReady = false;
-      if (record(payload.form)) this.restoreForm(payload.form);
-      window.dispatchEvent(new CustomEvent("trust-control-studio-identification-method-required"));
-    }
-    this.renderEvidence(payload);
-    if (payload.status === "complete" && phase && ["qualified", "validation_required", "acceptance_required", "accepted"].includes(phase)) {
-      this.stage = phase as Exclude<IdentificationStage, "initial" | "imported" | "failed">;
-      this.hasRecording = true;
-      this.acceptanceReady = phase === "acceptance_required" && acceptanceEvidenceIsReady(payload, this.comparison);
-    } else if (payload.status === "complete" && phase === "recording-selected") {
-      this.hasRecording = true;
-      this.stage = "imported";
-      this.acceptanceReady = false;
-    } else if (payload.status === "failed") {
-      this.stage = "failed";
-      this.acceptanceReady = false;
-      this.status.textContent = text(payload.reason) ?? "Identification failed.";
-    }
-    if (payload.status === "complete") {
-      if (phase === "qualified") this.status.textContent = `Recording qualified. ${this.primaryActionLabel}.`;
-      if (phase === "validation_required") this.status.textContent = this.comparison && !this.comparison.choice
-        ? this.comparison.recommended === "first_order" ? "First order meets the limits; the extra state is not justified."
-          : this.comparison.recommended === "additional_lag" ? "The additional lag meets the limits. Its physical origin remains unresolved."
-          : "Neither model meets the declared requirements. Review the comparison and settings."
-        : "The estimation preview is ready. Open a distinct validation recording.";
-      if (phase === "acceptance_required") this.status.textContent = "Independent validation is ready. Review it before using the fitted model.";
-      if (phase === "accepted") this.status.textContent = "Model accepted for design.";
-    }
-    this.render();
-  }
-
-  /**
-   * A served loop's answer to the Recorded-data fit (B3.3): the engine's running, cancelled and refused updates, and its answer. The page
-   * decides nothing here; the stage, the labels, the status and the gates are the answer's.
-   */
-  private receiveEngine(stage: string, payload: Record<string, unknown>): void {
     if (stage !== "identify") return;
     if (payload.status === "running") {
       this.pending = true;
@@ -264,15 +112,20 @@ export class ThreePageIdentification {
       this.showAnswer();
       return;
     }
+    // An answer names its primary action. A recording the check does not qualify and a validation the model fails are answers too: they carry
+    // the reason with the evidence the engine scored, which stays in view (B3.3).
+    if (typeof payload.primaryAction === "string") {
+      this.answer = payload as unknown as ManualIdentificationAnswer;
+      this.modelChoices = modelChoicesOf(payload);
+      this.pending = false;
+      // While another method is shown the answer waits: showing it would write its model over the model that method shows.
+      if (this.selectedMethod) this.showAnswer();
+      return;
+    }
+    // A failure without an answer is a refusal of the request, under the field the engine names.
     if (payload.status === "failed") {
       this.pending = false;
       this.refuse(text(payload.reason) ?? "", typeof payload.field === "string" ? payload.field : undefined);
-      return;
-    }
-    if (typeof payload.primaryAction === "string") {
-      this.answer = payload as unknown as ManualIdentificationAnswer;
-      this.pending = false;
-      this.showAnswer();
     }
     // A `complete` update without an answer ends an operation whose answer follows it (`control-studio.engine.result`).
   }
@@ -282,17 +135,14 @@ export class ThreePageIdentification {
     this.clearRefusals();
     const answer = this.answer;
     if (!answer) { this.render(); return; }
-    this.hasRecording = answer.hasRecording;
-    this.fitRole = answer.nextFitRole;
-    this.acceptanceReady = answer.acceptanceReady;
-    if (answer.form && !this.editPending) this.restoreForm(answer.form as unknown as Record<string, unknown>);
+    if (answer.form && !this.editPending) this.restoreForm(answer.form);
     this.renderEvidence(answer as unknown as Record<string, unknown>);
     this.status.textContent = answer.status === "failed" ? answer.reason ?? "" : answer.message ?? "";
     this.render();
   }
 
   /** The engine's primary action (B3.3): the request it names, with the form the page holds; a stage that asks for none sends nothing. */
-  private servedPrimaryAction(): boolean {
+  private namedAction(): boolean {
     const answer = this.answer;
     if (!answer) return false;
     switch (answer.primaryAction) {
@@ -301,14 +151,14 @@ export class ThreePageIdentification {
         window.dispatchEvent(new CustomEvent("trust-control-studio-identification-open-recording"));
         return true;
       case "checkRecording":
-        return this.sendServed("control-studio.identify.run", { form: this.readFormDraft() as unknown as Record<string, unknown> });
+        return this.send("control-studio.identify.run", { form: this.readFormDraft() as unknown as Record<string, unknown> });
       case "fitPlant":
       case "compareWithModel":
-        return this.sendServed("control-studio.identify.fit");
+        return this.send("control-studio.identify.fit");
       case "chooseStructure":
-        return answer.structureChoice ? this.sendServed("control-studio.identify.choose-structure", { choice: answer.structureChoice }) : false;
+        return answer.structureChoice ? this.send("control-studio.identify.choose-structure", { choice: answer.structureChoice }) : false;
       case "accept":
-        return answer.acceptanceReady ? this.sendServed("control-studio.identify.accept") : false;
+        return answer.acceptanceReady ? this.send("control-studio.identify.accept") : false;
       case "reviewSettings":
         (this.settings as HTMLDetailsElement).open = true;
         this.input("measurementBound")?.focus();
@@ -318,8 +168,8 @@ export class ThreePageIdentification {
     }
   }
 
-  /** Sends a command of a served loop, after the form the page changed is sent, so that the engine checks the form it holds. */
-  private sendServed(kind: string, payload: Record<string, unknown> = {}): boolean {
+  /** Sends a command, after the form the page changed is sent, so that the engine checks the form it holds. */
+  private send(kind: string, payload: Record<string, unknown> = {}): boolean {
     this.flushEdit();
     this.pending = true;
     this.render();
@@ -364,48 +214,32 @@ export class ThreePageIdentification {
     if (record(measurement) && record(measurement.baseline) && record(measurement.final) && record(measurement.settings) && Array.isArray(measurement.warnings)) {
       renderStepResponse(measurement as unknown as StepResponseMeasurement,
         String(qualification?.outputUnit ?? units.output ?? "PV"), String(qualification?.inputUnit ?? units.input ?? "MV"), details,
-        fit?.stepResponse as StepResponseAnalysis | undefined, Boolean(payload.validationQualification || payload.nextFitRole === "validation"));
-      if (typeof fit?.rootMeanSquareError === "number" && Array.isArray(fit.points) && fit.points.length) {
-        const unit = displayEngineeringUnit(String(qualification?.outputUnit ?? units.output ?? "PV"));
-        const peak = Math.max(...fit.points.map((point: { residual: number }) => Math.abs(point.residual)));
-        for (const [label, value] of [["Prediction RMSE", fit.rootMeanSquareError], ["Maximum absolute residual", peak]] as const) {
-          const row = document.createElement("tr"), heading = document.createElement("th"), cell = document.createElement("td");
-          heading.scope = "row"; heading.textContent = label; cell.textContent = `${formatEngineeringNumber(value)} ${unit}`;
-          row.append(heading, cell); details.querySelector("tbody")!.append(row);
-        }
+        fit?.stepResponse as StepResponseAnalysis | undefined, Boolean(payload.validationQualification || payload.nextFitRole === "validation"),
+        typeof units.gain === "string" ? units.gain : undefined);
+      // The prediction's error rows are the engine's numbers: the fit's root mean square error and the largest absolute residual of its
+      // samples, which the answer states (B3.3). A row the engine states no number for is not shown.
+      const unit = displayEngineeringUnit(String(qualification?.outputUnit ?? units.output ?? "PV"));
+      for (const [label, value] of [["Prediction RMSE", fit?.rootMeanSquareError], ["Maximum absolute residual", payload.maximumAbsoluteResidual]] as const) {
+        if (typeof value !== "number") continue;
+        const row = document.createElement("tr"), heading = document.createElement("th"), cell = document.createElement("td");
+        heading.scope = "row"; heading.textContent = label; cell.textContent = `${formatEngineeringNumber(value)} ${unit}`;
+        row.append(heading, cell); details.querySelector("tbody")!.append(row);
       }
     } else details.hidden = true;
     const presentation = record(payload.presentation) ? payload.presentation as IdentifiedModelPresentation : undefined;
-    this.comparison = isSensorLagComparison(presentation?.modelStructure) ? presentation.modelStructure : undefined;
+    // The comparison is the engine's `modelStructure`, shown when the answer carries one (N2.10); the evidence is drawn when both candidates
+    // carry the consistency grid that it compares.
+    const comparison = presentation?.modelStructure ?? undefined;
     const comparisonDetails = this.section.querySelector<HTMLDetailsElement>("[data-model-comparison-evidence]")!;
-    comparisonDetails.hidden = !this.comparison;
-    if (this.comparison?.candidateA.analysis?.consistency && this.comparison.candidateB.analysis?.consistency) {
-      const { tableWrap, explanation, details: parameters } = modelStructureEvidence(this.comparison, units);
+    comparisonDetails.hidden = !comparison;
+    if (comparison?.candidateA.analysis?.consistency && comparison.candidateB.analysis?.consistency) {
+      const { tableWrap, explanation, details: parameters } = modelStructureEvidence(comparison, units);
       comparisonDetails.querySelector("[data-model-comparison-content]")!.replaceChildren(tableWrap, explanation, parameters);
     }
     this.publishPresentation(payload);
   }
 
-  private send(kind: string, payload: Record<string, unknown> = {}): boolean {
-    // V7.17 debt: the parked loop's status sentences for each command.
-    this.pending = true;
-    this.status.textContent = kind.endsWith("run") ? "Checking the complete recording…" : kind.endsWith("fit") ? this.fitRole === "validation" ? "Comparing with the model…" : "Fitting the plant model…" : "Using the fitted model…";
-    this.render();
-    this.post(kind, payload);
-    return true;
-  }
-
-  private edit(): void {
-    if (this.served) { this.scheduleEdit(); return; }
-    // V7.17 debt: the parked loop posts each change at once, with its status sentence.
-    if (!this.selectedMethod || !this.hasRecording) return;
-    this.post("control-studio.identify.edit", { form: this.readFormDraft() as unknown as Record<string, unknown> });
-    this.status.textContent = "Identification settings changed. Check the recording before fitting.";
-    this.stage = "imported";
-    this.render();
-  }
-
-  /** A served loop's change waits for the debounce: a burst of typing is one edit the engine answers (presentation only). */
+  /** A change waits for the debounce: a burst of typing is one edit the engine answers (presentation only). */
   private scheduleEdit(): void {
     if (!this.selectedMethod) return;
     this.editPending = true;
@@ -413,7 +247,7 @@ export class ThreePageIdentification {
     this.editTimer = setTimeout(() => this.flushEdit(), EDIT_DEBOUNCE_MS);
   }
 
-  /** Sends the served loop's changed form now, when a change waits for the debounce. */
+  /** Sends the changed form now, when a change waits for the debounce. */
   private flushEdit(): void {
     clearTimeout(this.editTimer);
     this.editTimer = undefined;
@@ -422,74 +256,33 @@ export class ThreePageIdentification {
     this.post("control-studio.identify.edit", { form: this.readFormDraft() as unknown as Record<string, unknown> });
   }
 
+  /** The form as the page holds it: the text of every setting field of the template, by its key, and the other fields as typed. */
   private readFormDraft(): IdentificationFormDraft {
-    const values = Object.fromEntries(FORM_KEYS.map(key => [key, this.input(key)?.value ?? ""])) as IdentificationFormDraft["values"];
+    const values = Object.fromEntries(this.settingInputs().map(input => [settingKey(input), input.value])) as IdentificationFormDraft["values"];
     return { schemaVersion: 1, model: this.model.value as IdentificationModelSelection, heldStep: this.heldStep.checked, values,
       excludedStart: this.input("excluded-start")?.value ?? "", excludedEnd: this.input("excluded-end")?.value ?? "" };
   }
 
-  // V7.17 debt: the parked loop's held-step and exclusion readers. A served loop sends the form as the page holds it (text) instead.
-  private readStepResponseSettings(): StepResponseSettings | null | undefined {
-    if (!this.heldStep.checked) return undefined;
-    const values = (key: string): number => Number(this.input(key)?.value ?? "");
-    const comparison = this.model.value === "sopdt";
-    const settings: Record<string, unknown> = {
-      baselineDurationSeconds: values("baselineDurationSeconds"), finalDurationSeconds: values("finalDurationSeconds"),
-      maximumWindowRange: values("maximumWindowRange"), maximumWindowSlopePerSecond: values("maximumWindowSlopePerSecond"),
-      measurementBound: values("measurementBound"), onsetThreshold: values("onsetThreshold"), onsetSamples: values("onsetSamples"),
-      baselineStep: values("baselineStep"), gainStep: values("gainStep"), timestampShiftSeconds: values("timestampShiftSeconds"),
-      delay: { minimum: values("delay.minimum"), maximum: values("delay.maximum"), step: values("delay.step") },
-      timeConstant: { minimum: values("timeConstant.minimum"), maximum: values("timeConstant.maximum"), step: values("timeConstant.step") },
-    };
-    if (comparison) {
-      settings.sensorTimeConstant = { minimum: values("sensorTimeConstant.minimum"), maximum: values("sensorTimeConstant.maximum"), step: values("sensorTimeConstant.step") };
-      settings.modelAdequacy = { maximumAbsoluteResidual: values("modelAdequacy.maximumAbsoluteResidual"), maximumFinalError: values("modelAdequacy.maximumFinalError") };
+  /** Shows the form the engine holds. */
+  private restoreForm(form: IdentificationFormDraft): void {
+    // The options are the engine's choices, listed before the form's model is chosen among them.
+    showModelChoices(this.model, this.modelChoices);
+    this.model.value = form.model;
+    this.heldStep.checked = form.heldStep;
+    const values: Record<string, unknown> = record(form.values) ? form.values : {};
+    for (const input of this.settingInputs()) {
+      const value = values[settingKey(input)];
+      if (typeof value === "string") input.value = value;
     }
-    const problem = stepResponseSettingsProblem(settings);
-    if (!problem) return settings as unknown as StepResponseSettings;
-    this.status.textContent = `${problem.field}: ${problem.message}`;
-    return null;
-  }
-
-  // V7.17 debt: the parked loop's exclusion reader (see readStepResponseSettings).
-  private readExcludedIntervals(): Array<{ startSeconds: number; endSeconds: number }> | null {
-    if (this.heldStep.checked) return [];
-    const startText = this.input("excluded-start")?.value.trim() ?? "";
-    const endText = this.input("excluded-end")?.value.trim() ?? "";
-    if (!startText && !endText) return [];
-    const start = Number(startText), end = Number(endText);
-    if (!startText || !endText || !Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) {
-      this.status.textContent = "Enter an exclusion interval with a nonnegative start and an end strictly after it.";
-      return null;
-    }
-    return [{ startSeconds: start, endSeconds: end }];
-  }
-
-  private restoreStudy(study: Record<string, unknown>): void {
-    if (record(study.form)) { this.restoreForm(study.form); return; }
-    const saved = record(study.current) ? study.current : undefined;
-    if (!saved) return;
-    const settings = record(saved.stepResponseSettings) ? saved.stepResponseSettings : undefined;
-    const excluded = Array.isArray(saved.excluded) ? saved.excluded[0] : undefined;
-    this.restoreForm({ model: saved.requestedKind, heldStep: Boolean(settings),
-      values: Object.fromEntries(FORM_KEYS.map(key => {
-        const [group, field] = key.split(".");
-        const value = settings && (field ? settings[group]?.[field] : settings[group]);
-        return [key, value === undefined ? this.input(key)?.defaultValue ?? "" : String(value)];
-      })), excludedStart: excluded ? String(excluded.startSeconds) : "", excludedEnd: excluded ? String(excluded.endSeconds) : "" });
-  }
-
-  private restoreForm(form: Record<string, unknown>): void {
-    if (typeof form.model === "string") this.model.value = form.model;
-    this.heldStep.checked = form.heldStep === true;
-    // V7.17 debt: a parked loop's held step forces its model. A served loop's model is the engine's to say.
-    if (!this.served && this.heldStep.checked && !["fopdt", "sopdt"].includes(this.model.value)) this.model.value = "fopdt";
-    const values = record(form.values) ? form.values : {};
-    for (const key of FORM_KEYS) if (typeof values[key] === "string") { const input = this.input(key); if (input) input.value = values[key]; }
     const start = this.input("excluded-start"); const end = this.input("excluded-end");
-    if (typeof form.excludedStart === "string" && start) start.value = form.excludedStart;
-    if (typeof form.excludedEnd === "string" && end) end.value = form.excludedEnd;
+    if (start) start.value = form.excludedStart;
+    if (end) end.value = form.excludedEnd;
     this.render();
+  }
+
+  /** The setting fields of the template: the form's keys are theirs. */
+  private settingInputs(): HTMLInputElement[] {
+    return Array.from(this.section.querySelectorAll<HTMLInputElement>("[data-three-page-identification-setting]"));
   }
 
   private input(key: string): HTMLInputElement | undefined {
@@ -502,18 +295,25 @@ export class ThreePageIdentification {
     this.section.hidden = !this.selectedMethod;
     this.settings.hidden = !this.heldStep.checked;
     this.exclusions.hidden = this.heldStep.checked;
-    for (const key of FORM_KEYS.filter(key => key.startsWith("sensorTimeConstant.") || key.startsWith("modelAdequacy."))) {
-      const label = this.input(key)?.closest("label");
+    // The additional-lag settings belong to the comparison of that family (Compare additional lag); the other families do not show them.
+    for (const input of this.settingInputs().filter(field => /^(sensorTimeConstant|modelAdequacy)\./.test(settingKey(field)))) {
+      const label = input.closest("label");
       if (label) label.hidden = this.model.value !== "sopdt";
     }
-    for (const option of Array.from(this.model.options)) {
-      option.disabled = this.heldStep.checked && !["fopdt", "sopdt"].includes(option.value);
-    }
+    // The models are the engine's `modelChoices`, each with its words and whether the page may enable it (B3.3).
+    showModelChoices(this.model, this.modelChoices);
     const button = this.root.querySelector<HTMLButtonElement>("[data-engineer-find]");
     if (button) this.renderPrimaryButton(button);
-    // A served loop's primary button opens the recording picker itself, so the template's file button stays hidden.
+    // The template's file button repeats the primary button while that already opens the recording picker (before the engine's first answer,
+    // and while its next step is a recording to open); otherwise it stays, to open another file.
     const open = this.root.querySelector<HTMLButtonElement>("[data-identify-import]");
-    if (open) open.hidden = this.served || (this.selectedMethod && (!this.hasRecording || this.stage === "validation_required"));
+    if (open) open.hidden = this.selectedMethod && this.opensRecording();
+  }
+
+  /** Whether the primary action is the one that opens the recording picker. */
+  private opensRecording(): boolean {
+    const action = this.answer?.primaryAction;
+    return action === undefined || action === "openRecording" || action === "openValidationRecording";
   }
 
   private publishPresentation(payload: Record<string, unknown>): void {
@@ -525,40 +325,34 @@ export class ThreePageIdentification {
 
   private renderPrimaryButton(button: HTMLButtonElement): void {
     if (!this.selectedMethod) return;
-    if (this.served) {
-      // The engine's label; the gates are the answer's: a model that is ready, and an acceptance the engine does not allow, stay disabled.
-      const answer = this.answer;
-      const gated = !this.pending && (answer?.primaryAction === "modelReady" || (answer?.primaryAction === "accept" && !answer.acceptanceReady));
-      button.textContent = this.primaryActionLabel;
-      button.disabled = gated || this.blocked() !== undefined;
-      return;
-    }
-    // V7.17 debt: a parked loop's gates are the TypeScript stages.
+    // The engine's label; the gates are the answer's: a model that is ready, and an acceptance the engine does not allow, stay disabled.
+    const answer = this.answer;
+    const gated = !this.pending && (answer?.primaryAction === "modelReady" || (answer?.primaryAction === "accept" && !answer.acceptanceReady));
     button.textContent = this.primaryActionLabel;
-    button.disabled = this.stage === "accepted" || (this.stage === "acceptance_required" && !this.acceptanceReady) || this.blocked() !== undefined;
+    button.disabled = gated || this.blocked() !== undefined;
   }
-
-
 }
 
 function record(value: unknown): value is Record<string, any> { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
-function text(value: unknown): string | undefined { return typeof value === "string" && value.length > 0 ? plainReason(value) : undefined; }
+function text(value: unknown): string | undefined { return typeof value === "string" && value.length > 0 ? value : undefined; }
+
+/** The key the engine's form names a setting field with: the template's own name for it. */
+function settingKey(input: HTMLInputElement): string { return input.dataset.threePageIdentificationSetting ?? ""; }
+
+/** One model of the page's model select, its words and whether the engine lets the page enable it (`modelChoices`, B3.3). */
+interface ModelChoice {
+  readonly model: string;
+  readonly enabled: boolean;
+  readonly label?: string | null;
+}
+
+/** The engine's model choices of an answer. An answer that names none leaves every model enabled. */
+function modelChoicesOf(answer: Record<string, unknown>): ModelChoice[] {
+  return Array.isArray(answer.modelChoices) ? (answer.modelChoices as ModelChoice[]) : [];
+}
 
 /** The qualification an answer shows: the validation's, else the check's, else the estimation's (B3.3). */
 function qualificationOf(payload: Record<string, unknown>): Record<string, any> | undefined {
   return record(payload.validationQualification) ? payload.validationQualification
     : record(payload.qualification) ? payload.qualification : record(payload.estimationQualification) ? payload.estimationQualification : undefined;
-}
-
-function isSensorLagComparison(value: unknown): value is SensorLagComparison {
-  return record(value) && record(value.candidateA) && record(value.candidateB) && record(value.requirements) &&
-    typeof value.rmsImprovement === "number" && ["first_order", "additional_lag", "neither"].includes(String(value.recommended)) &&
-    value.physicalOrigin === "unresolved" && value.provisional === true;
-}
-
-// V7.17 debt: the parked loop's acceptance gate. A served loop's gate is the answer's `acceptanceReady`.
-function acceptanceEvidenceIsReady(payload: Record<string, any>, comparison: SensorLagComparison | undefined): boolean {
-  const validation = record(payload.validationQualification) && payload.validationQualification.suitable === true;
-  if (!validation) return false;
-  return !comparison || (comparison.recommended !== "neither" && comparison.choice === comparison.recommended);
 }

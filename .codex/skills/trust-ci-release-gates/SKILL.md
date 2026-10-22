@@ -57,7 +57,9 @@ for the exact-SHA artifact. A commit, rebase or source change requires evidence 
    `just clippy` or `just test-all` is not cross-platform parity.
 2. The following checks must pass on the builder in the authorized batch. Count commands covered
    by `prepare` once; add only required checks it does not cover:
-   `just fmt`, `just clippy`, `just test-all`, and applicable area checks below:
+   `just fmt`, `just clippy`, the documentation build CI runs
+   (`RUSTDOCFLAGS='-D warnings' cargo doc --no-deps --all-features`, which `prepare` includes),
+   `just test-all`, and applicable area checks below:
    - **`trust-lsp` tests or dependency/config resolution**: `./scripts/prepush_ci_gate.sh`. It
      includes the test-path hygiene check and the Windows GNU check of trust-lsp's tests.
    - **Runtime networking, mesh or TLS**:
@@ -96,6 +98,16 @@ These pushes go through the guard in this skill's `scripts/`:
    python3 .codex/skills/trust-ci-release-gates/scripts/release_candidate_guard.py \
      prepare --remote-worktree '<clean exact-SHA trust-builder worktree>'
    ```
+
+   For isolated, pinned builder tools, append
+   `--remote-tool-path '<complete remote PATH>' --remote-cargo-home '<private Cargo home>'`.
+   These optional values apply to every recorded remote command, including initial
+   VS Code installation/compilation and formatting before the internal target prefixes.
+   With either value supplied, leased commands use a non-login shell so profile
+   initialization cannot replace the pinned environment; default commands retain
+   their existing login-shell behavior.
+   Record the exact values in the candidate command map; preserve the native/cross
+   compiler environments and leave shared machine tools unchanged.
 
    - It records the required commands:
      - parity of `AGENTS.md` and `.codex/skills/` with the primary checkout;
@@ -195,7 +207,7 @@ that the intended issues are closed after the merge.
   - honor the builder's Cargo job configuration for cold `just test-all`; do not force one job;
   - `TMPDIR` inside the task's own target.
 
-  Between Clippy and `just test-all`, recheck available space on the validated
+  Between Clippy, the documentation build and `just test-all`, recheck available space on the validated
   target filesystem. Preserve the warm target when the existing 80 GiB floor is
   met. Otherwise reclaim only that target through
   `scripts/remove_cargo_target_if_idle.sh`, prepare its directories again and

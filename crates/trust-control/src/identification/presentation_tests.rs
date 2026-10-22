@@ -595,3 +595,156 @@ fn a_presentation_with_more_time_constants_names_its_order_and_lists_them() {
         "Gain 1.5 °C per kW, time constants 4 s, 0.5 s and 0.25 s, delay 0.3 s"
     );
 }
+
+// The key numbers write a unit in the notation a student reads (`displayEngineeringUnit`, specification 35, B9.5): `degC` as `°C`,
+// the word `pp` as `percentage points`; the stored unit is not rewritten.
+#[test]
+fn the_key_numbers_write_units_in_the_notation_a_student_reads() {
+    let model = model_of(
+        LowOrderModelKind::FirstOrderDeadTime,
+        0.21,
+        [Some(75.0), None],
+        Some(12.0),
+    );
+    let stored = presented(&model, "pp", "degC");
+    assert_eq!(
+        stored.units.output, "degC",
+        "the stored unit stays as it is"
+    );
+    assert_eq!(
+        identified_model_key_numbers(&stored),
+        "Gain 0.21 °C per percentage points, time constant 75 s, delay 12 s"
+    );
+}
+
+/// A fraction of the equation, with its delay when it has one.
+fn fraction_of(numerator: &str, denominator: &str, delay: Option<&str>) -> EquationFraction {
+    EquationFraction {
+        numerator: numerator.to_string(),
+        denominator: denominator.to_string(),
+        delay: delay.map(str::to_string),
+    }
+}
+
+// Specification 35, B3.8; Identify page specification, "Identified model and plot": an answer gives the presentation the engine's
+// words for the model, so that the page composes none of them (`threePageModel.ts` did).
+#[test]
+fn an_answer_gives_the_presentation_its_type_its_key_numbers_and_its_fraction() {
+    let model = model_of(
+        LowOrderModelKind::FirstOrderDeadTime,
+        0.21,
+        [Some(75.0), None],
+        Some(12.0),
+    );
+    let stored = presented(&model, "%", "°C");
+    assert_eq!(
+        stored.model_type, None,
+        "a stored presentation holds no words"
+    );
+    assert_eq!(stored.key_numbers, None);
+    assert_eq!(stored.equation_fraction, None);
+    let shown = stored.clone().with_words();
+    assert_eq!(
+        shown.model_type.as_deref(),
+        Some("First-order model with delay")
+    );
+    assert_eq!(
+        shown.key_numbers.as_deref(),
+        Some("Gain 0.21 °C per %, time constant 75 s, delay 12 s")
+    );
+    assert_eq!(
+        shown.equation_fraction,
+        Some(fraction_of("0.21", "(75s + 1)", Some("12s")))
+    );
+    let without = IdentifiedModelPresentation {
+        model_type: None,
+        key_numbers: None,
+        equation_fraction: None,
+        ..shown
+    };
+    assert_eq!(without, stored, "the words are all it adds");
+}
+
+#[test]
+fn the_fraction_has_a_factor_for_each_time_constant_and_s_for_an_integrator() {
+    let fraction = |kind, gain, time_constants, dead_time| {
+        identified_equation_fraction(&presented(
+            &model_of(kind, gain, time_constants, dead_time),
+            "kW",
+            "°C",
+        ))
+    };
+    // Six significant digits, the factors in the order of the time constants, and no delay without a dead time.
+    assert_eq!(
+        fraction(
+            LowOrderModelKind::SecondOrder,
+            1.23456,
+            [Some(4500.0), Some(0.123_456)],
+            Some(0.0)
+        ),
+        Some(fraction_of("1.23456", "(4500s + 1)(0.123456s + 1)", None))
+    );
+    assert_eq!(
+        fraction(
+            LowOrderModelKind::Integrating,
+            0.0004,
+            [None, None],
+            Some(2.0)
+        ),
+        Some(fraction_of("0.0004", "s", Some("2s")))
+    );
+    assert_eq!(
+        fraction(LowOrderModelKind::StaticGain, -2.5, [None, None], None),
+        Some(fraction_of("-2.5", "1", None))
+    );
+}
+
+#[test]
+fn a_presentation_without_a_gain_has_no_fraction_and_its_equation_text_stands_alone() {
+    let mut presentation = presented(
+        &model_of(
+            LowOrderModelKind::FirstOrder,
+            0.21,
+            [Some(75.0), None],
+            None,
+        ),
+        "%",
+        "°C",
+    );
+    presentation
+        .parameters
+        .retain(|parameter| parameter.name != "Gain");
+    assert_eq!(identified_equation_fraction(&presentation), None);
+    let shown = presentation.with_words();
+    assert_eq!(shown.equation_fraction, None);
+    assert_eq!(shown.model_type.as_deref(), Some("First-order model"));
+}
+
+#[test]
+fn the_words_serialize_in_camel_case_and_a_stored_presentation_without_them_reads_back() {
+    let model = model_of(
+        LowOrderModelKind::FirstOrderDeadTime,
+        0.21,
+        [Some(75.0), None],
+        Some(12.0),
+    );
+    let stored = presented(&model, "%", "°C");
+    let stored_value = serde_json::to_value(&stored).expect("the presentation serializes");
+    for key in ["modelType", "keyNumbers", "equationFraction"] {
+        assert_eq!(stored_value.get(key), None, "{key} is not stored");
+    }
+    let read: IdentifiedModelPresentation =
+        serde_json::from_value(stored_value).expect("a presentation without words reads");
+    assert_eq!(read, stored);
+    let shown = stored.with_words();
+    let value = serde_json::to_value(&shown).expect("the presentation serializes");
+    assert_eq!(value["modelType"], json!("First-order model with delay"));
+    assert_eq!(
+        value["keyNumbers"],
+        json!("Gain 0.21 °C per %, time constant 75 s, delay 12 s")
+    );
+    assert_eq!(
+        value["equationFraction"],
+        json!({ "numerator": "0.21", "denominator": "(75s + 1)", "delay": "12s" })
+    );
+}

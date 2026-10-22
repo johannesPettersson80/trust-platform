@@ -292,3 +292,26 @@ fn the_estimator_rows_follow_the_model_and_its_shape() {
         "The estimator's model must be a state-space model with one input and the controlled output as its one output."
     );
 }
+
+/// B1.3 and C4: the form posts every estimate row it draws (three, the most an estimator has) and each number as the text typed. For the
+/// two-state model, the first two rows are the states' and the third, blank, is not read: the draft writes the loop that the two-row
+/// draft writes, with the variances typed as `"1e-6"` read as 1e-6. A model with more states than the rows posted is still refused. The
+/// wrong behaviour caught: the blank row the page draws beyond the model's states refusing the loop, or a variance typed as text refused.
+#[test]
+fn an_estimate_row_beyond_the_models_states_is_not_read() {
+    let model = estimator_model();
+    let posted = edited(|value| {
+        value["estimator"]["measurementNoise"] = json!("1e-6");
+        for row in value["estimator"]["states"]
+            .as_array_mut()
+            .expect("the rows")
+        {
+            row["processNoise"] = json!("1e-6");
+        }
+        value["estimator"]["states"]
+            .as_array_mut()
+            .expect("the rows")
+            .push(json!({ "estimate": "", "gain": "", "observerGain": "", "processNoise": "" }));
+    });
+    assert_eq!(write(posted, Some(&model)), write(lqg_json(), Some(&model)));
+}

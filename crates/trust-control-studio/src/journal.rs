@@ -62,7 +62,8 @@ pub enum JournalEntry {
     },
     /// The commissioning checkpoint of an Apply (A8.3, A8.5, B6.4), journaled before its first write and rewritten as each
     /// transaction is dispatched. Kept while the settings are applied, so that Restore works after a restart of the engine;
-    /// cleared once a Restore confirms, or a later Apply replaces it. Its operation is the checkpoint's own identifier.
+    /// cleared once a Restore confirms, or a later Apply replaces it. A Restore on a runtime that was replaced since Apply keeps
+    /// it retired, as history, until a later Apply replaces it. Its operation is the checkpoint's own identifier.
     Commissioning {
         /// The checkpoint (`CommissioningCheckpoint`), whose identifier names the operation.
         checkpoint: Box<CommissioningCheckpoint>,

@@ -486,7 +486,7 @@ export class HmiBuilderEditorProvider implements vscode.CustomTextEditorProvider
           case "openControlStudio": {
             const object = loadedModel?.object.find((object) => object.id === message.id);
             if (object)
-              void openEquipmentControlStudio(project, object).catch((error) =>
+              void openEquipmentControlStudio(this.context, project, object).catch((error) =>
                 vscode.window.showErrorMessage(String(error)),
               );
             return;

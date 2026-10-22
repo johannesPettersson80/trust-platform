@@ -184,7 +184,7 @@ pub fn plan_setup_save_with_estimator(
     };
     loops
         .into_iter()
-        .map(|loop_definition| plan(loop_definition, scope))
+        .map(|loop_definition| plan_loop(loop_definition, scope))
         .collect()
 }
 
@@ -260,8 +260,15 @@ pub fn validation_reason_code(rejection: &LoopRejection) -> &'static str {
     }
 }
 
-/// The planned file of one generated loop, after the checks that need no runtime (B1.4).
-fn plan(loop_definition: LoopDefinition, scope: &LoopScope) -> Result<PlannedLoop, Failure> {
+/// The planned file of one generated loop, after the checks that need no runtime (B1.4). The step-by-step setup plans its loop the same way.
+///
+/// # Errors
+///
+/// A loop that its own scope's checks refuse, with the refusal's reason and Loop setup… as the next action.
+pub fn plan_loop(
+    loop_definition: LoopDefinition,
+    scope: &LoopScope,
+) -> Result<PlannedLoop, Failure> {
     if let Err(rejection) = loop_definition.validate(scope) {
         return Err(Failure::new(
             &texts::incompatible(validation_reason_code(&rejection)),

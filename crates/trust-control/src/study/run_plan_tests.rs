@@ -123,6 +123,60 @@ fn a_failure_on_a_limit_or_a_requirement_names_that_input() {
 }
 
 #[test]
+fn an_input_a_stage_asks_for_carries_the_stage_s_own_sentence_and_field() {
+    // B8, B3.2: the run asks for an input in the sentence of the refusal that stopped it, and names the refusal's form field, so that the
+    // page shows the engine's wording under the right field and writes none. A generic sentence per code would hide what is missing.
+    let duration = Failure::new(
+        "Set the maximum experiment duration in Limits before identification.",
+        Cause::Settings,
+        NextAction::OpenLimits,
+    )
+    .with_field("durationSeconds");
+    let asked = NeededInput::of_failure(&duration).expect("a limit is an input");
+    assert_eq!(asked.needs, RunNeeds::Limits);
+    assert_eq!(
+        asked.message,
+        "Set the maximum experiment duration in Limits before identification."
+    );
+    assert_eq!(asked.field.as_deref(), Some("durationSeconds"));
+    let requirement = Failure::new(
+        "Enter the maximum settling time. The design needs it.",
+        Cause::Settings,
+        NextAction::OpenRequirements,
+    );
+    let asked = NeededInput::of_failure(&requirement).expect("a requirement is an input");
+    assert_eq!(asked.needs, RunNeeds::Requirements);
+    assert_eq!(
+        asked.message, "Enter the maximum settling time.",
+        "the failure's message is its first sentence; the rest is its detail"
+    );
+    assert_eq!(asked.field, None, "a refusal of no field names none");
+}
+
+#[test]
+fn the_manual_settings_are_asked_for_in_the_engine_s_sentence() {
+    // B8: the run asks for the manual method's settings before any stage runs, so no refusal carries the sentence; it is the engine's.
+    let asked = NeededInput::manual_settings();
+    assert_eq!(asked.needs, RunNeeds::ManualSettings);
+    assert_eq!(
+        asked.message,
+        "Enter the manual settings to tune the controller."
+    );
+    assert_eq!(asked.field, None);
+}
+
+#[test]
+fn a_failure_that_asks_for_no_input_gives_no_needed_input() {
+    // Every other failure stops the run as a failure (A11.2): it must not be turned into a request for an input.
+    let infeasible = Failure::new(
+        "No structure meets the requirements.",
+        Cause::TaskInfeasible,
+        NextAction::OpenRequirements,
+    );
+    assert_eq!(NeededInput::of_failure(&infeasible), None);
+}
+
+#[test]
 fn every_other_failure_stops_the_run_as_a_failure() {
     let infeasible = Failure::new(
         "No structure meets the requirements.",

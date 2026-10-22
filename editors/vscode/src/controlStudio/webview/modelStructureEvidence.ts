@@ -1,12 +1,12 @@
-import type { SensorLagComparison } from "../sensorLagComparison";
+import type { SensorLagComparison } from "../generated/ManualIdentificationAnswer";
 import { formatEngineeringNumber } from "../chartContract";
 import { displayEngineeringUnit } from "../unitDisplay";
 
 /** Shared presentation only: calculations and model selection remain host-owned. */
 export function modelStructureEvidence(comparison: SensorLagComparison, units: { input?: string; output?: string } = {}) {
     const output = displayEngineeringUnit(units.output ?? "PV"), input = displayEngineeringUnit(units.input ?? "MV");
-    const value = (number: number | undefined, unit = "") => `${formatEngineeringNumber(number, 5)}${unit ? ` ${unit}` : ""}`;
-    const range = (bounds: { minimum: number; maximum: number } | undefined) => bounds
+    const value = (number: number | null | undefined, unit = "") => `${formatEngineeringNumber(number, 5)}${unit ? ` ${unit}` : ""}`;
+    const range = (bounds: { minimum: number; maximum: number } | null | undefined) => bounds
       ? `${value(bounds.minimum)}–${value(bounds.maximum)}` : "No consistent candidates";
     const a = comparison.candidateA, b = comparison.candidateB;
     const table = document.createElement("table");

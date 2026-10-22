@@ -665,3 +665,16 @@ fn a_result_is_an_accepted_answer_a_back_or_a_cancel() {
     assert_eq!(StepResult::Accepted(3), StepResult::Accepted(3));
     assert_ne!(StepResult::<u8>::Back, StepResult::Cancelled);
 }
+
+#[test]
+fn a_choice_items_value_is_any_json_and_its_declaration_is_unknown_not_an_object() {
+    // A choice's value is the answer the page sends back: a signal's address, a symbol's name, a workflow's key, a flag or null for no
+    // setpoint. The page's declaration of it is `unknown`; the declaration generator reads `tsType`.
+    let schema = schemars::SchemaGenerator::default().into_root_schema_for::<ChoiceItem>();
+    let schema = serde_json::to_value(&schema).expect("the schema is JSON");
+    assert_eq!(
+        schema["properties"]["value"]["tsType"],
+        serde_json::json!("unknown"),
+        "the generated type of the value is unknown"
+    );
+}

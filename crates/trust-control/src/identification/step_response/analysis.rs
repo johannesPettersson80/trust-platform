@@ -18,7 +18,7 @@ use crate::identification::texts::{
 };
 
 use super::measurement::{
-    measured_step, onset, onset_direction, timestamp_shift_warnings, MeasuredStep,
+    measured_step, onset, onset_direction, onset_side, timestamp_shift_warnings, MeasuredStep,
 };
 use super::preparation::record_span;
 use super::{
@@ -263,6 +263,7 @@ fn finish_fit(
         sample_time_seconds: step.prepared.sample_time,
         detectable_onset_seconds,
         onset_threshold,
+        onset_side: Some(onset_side(direction)),
         level63: baseline + 0.632 * final_change,
         best: StepBestFit {
             baseline,

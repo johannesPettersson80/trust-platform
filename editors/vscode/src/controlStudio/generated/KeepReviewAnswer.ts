@@ -9,6 +9,16 @@
  */
 export interface KeepReviewAnswer {
   /**
+   * How the review is confirmed (B6.5, B9.3): always `explicit`, with its own button on any target, because the Keep edits the
+   * project's files and never writes the controller, so it asks for no approval and is not confirmed by a press.
+   */
+  confirmation: "press" | "approval" | "explicit";
+  /**
+   * The sentence that describes what the Keep writes (B6.5, A11.1), as the Apply and Restore reviews describe theirs: the page shows
+   * it as the review's heading.
+   */
+  description: string;
+  /**
    * The files the Keep changes.
    */
   files: KeepFileChange[];
@@ -20,6 +30,10 @@ export interface KeepReviewAnswer {
    * The fields the Keep writes.
    */
   kept: string[];
+  /**
+   * The answer's kind (§0.1a): the page shows the answer by it, never by the fields it carries.
+   */
+  kind: "keepReview";
   /**
    * The record, for example `Main.TIC101_Parameters`.
    */

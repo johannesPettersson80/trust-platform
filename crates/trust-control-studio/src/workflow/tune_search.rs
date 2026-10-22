@@ -26,7 +26,7 @@ use trust_control::study::current_model::{current_model, CurrentModel};
 use trust_control::study::inputs::stage_evidence_of;
 use trust_control::study::inputs::InputsSection;
 use trust_control::study::tune::search_record::search_section;
-use trust_control::study::tune::TuneSection;
+use trust_control::study::tune::{resolve_pins, TuneSection};
 use trust_control::tuning::requirements::{response_deadline_seconds, TuningRequirements};
 use trust_control::tuning::search::{
     answer_of, case_status, check_scan_budget, check_trial_count, grid, has_scenarios,
@@ -35,6 +35,7 @@ use trust_control::tuning::search::{
     TrialRun, NO_PLAN, OBJECTIVE_MISSING, SCENARIOS_MISSING, TARGET_CASE,
 };
 use trust_control::tuning::settings_pins::ControllerSettingsPins;
+use trust_control::tuning::structure::Structure;
 use trust_control::tuning::texts::PINS_LOOP_REVISION;
 use trust_control::validation::engineer_verification_campaign::{
     engineer_verification_campaign, CampaignCase,
@@ -42,6 +43,7 @@ use trust_control::validation::engineer_verification_campaign::{
 use trust_control::validation::isolated_run_protocol::{IsolatedRunEvidence, IsolatedRunStatus};
 use trust_control::validation::model_route::model_route;
 
+use crate::application_state::refuse_while_restore_waits;
 use crate::busy_loops::LoopClaims;
 use crate::commands::to_value;
 use crate::journal::{Journal, JournalEntry};
@@ -111,7 +113,7 @@ struct TrialPlan {
 pub fn answer(
     operations: &Operations,
     claims: &LoopClaims,
-    request: TuneRequest,
+    request: &TuneRequest,
     loop_definition: LoopDefinition,
 ) -> Result<Value, Failure> {
     let claim = claims.claim(
@@ -134,7 +136,7 @@ pub fn answer(
 /// # Errors
 /// The refusals of [`answer`] that come before the start.
 fn search_work(
-    request: TuneRequest,
+    request: &TuneRequest,
     loop_definition: LoopDefinition,
 ) -> Result<SearchWork, Failure> {
     if request.method.is_some() {
@@ -173,10 +175,25 @@ fn search_work(
     let model = current_model(&study)?
         .filter(|current| current.is_current_for(&loop_definition))
         .ok_or_else(|| Failure::new(NO_MODEL, Cause::ModelOrData, NextAction::Identify))?;
-    let held = study
-        .section::<InputsSection>()?
-        .and_then(|inputs| inputs.requirements);
+    let inputs = study.section::<InputsSection>()?;
+    let held = inputs
+        .as_ref()
+        .and_then(|inputs| inputs.requirements.clone());
     let previous = study.section::<TuneSection>()?;
+    // The pins the search honours (C5) take the family the request names, else the structure the study's inputs record, else the
+    // study's candidate or the study's recorded pins give.
+    let pins = request
+        .pins
+        .as_ref()
+        .map(|named| {
+            resolve_pins(
+                named,
+                recorded_structure(request, inputs.as_ref()),
+                previous.as_ref().and_then(TuneSection::candidate_structure),
+                inputs.as_ref().and_then(|inputs| inputs.pins.as_ref()),
+            )
+        })
+        .transpose()?;
     let requirements = held
         .or_else(|| previous.map(|section| section.requirements))
         .ok_or_else(|| {
@@ -195,12 +212,10 @@ fn search_work(
         &loop_definition.id,
     )?;
     refuse_while_journaled(&journal)?;
-    let pin_values = request
-        .pins
+    let pin_values = pins
         .as_ref()
         .map(|pins| pins.values.clone())
         .unwrap_or_default();
-    let pins = request.pins;
     let settling_deadline_seconds = response_deadline_seconds(
         requirements.settling_time_seconds,
         loop_definition.controller.task_period_ms,
@@ -226,11 +241,21 @@ fn search_work(
     })
 }
 
-/// Refuses a search while the loop's journal holds an operation that runs or whose outcome is unconfirmed (A8.5, E11.4).
+/// The structure a search's request designs for (B4.2): the one it names, else the one the study's inputs record. A search names no method
+/// (refused above), so the manual method's fallback to the family the selector shows does not apply (`structure_of_request`).
+fn recorded_structure(request: &TuneRequest, inputs: Option<&InputsSection>) -> Option<Structure> {
+    request
+        .structure
+        .or(inputs.and_then(|inputs| inputs.structure))
+}
+
+/// Refuses a search while the loop's journal holds an operation that runs or whose outcome is unconfirmed (A8.5, E11.4). An Apply's
+/// checkpoint that waits for its Restore is refused with the block's reason and the next action Restore (B6.4, B6.7).
 ///
 /// # Errors
 /// The journal holds such an operation.
 pub(crate) fn refuse_while_journaled(journal: &Journal) -> Result<(), Failure> {
+    refuse_while_restore_waits(journal)?;
     let ids: Vec<&str> = journal
         .entries()
         .iter()

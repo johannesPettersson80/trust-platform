@@ -882,3 +882,27 @@ fn the_current_model_is_the_last_one_kept_and_reset_clears_both() {
     );
     fs::remove_dir_all(&root).expect("clean up");
 }
+
+#[test]
+fn a_reset_that_cannot_keep_the_previous_study_as_history_refuses_and_changes_nothing() {
+    // control-studio-study-reset: "refuses a reset when the previous study cannot be kept as history" (A8.4 Reset: the previous study
+    // moves to `history/` first, so nothing is lost when the move or the new study fails). A file stands where the history folder belongs.
+    let root = project("reset-refused");
+    let mut study = open_study(&root, "loop:tank", "sha256:loop-1").expect("a new study");
+    study
+        .sections
+        .insert("identify".into(), json!({ "model": "first-order" }));
+    save_study(&root, &study, &[]).expect("saved");
+    fs::write(
+        study_directory(&root, "loop:tank").join("history"),
+        "a file in the way",
+    )
+    .expect("the file that blocks the history folder");
+    start_new_study(&root, &study).expect_err("the previous study cannot be kept as history");
+    assert_eq!(
+        open_study(&root, "loop:tank", "sha256:loop-1").expect("reopened"),
+        study,
+        "a reset that cannot keep history changes nothing"
+    );
+    fs::remove_dir_all(&root).expect("clean up");
+}

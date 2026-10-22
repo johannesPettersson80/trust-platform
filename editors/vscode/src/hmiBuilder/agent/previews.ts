@@ -145,11 +145,7 @@ export async function renderState(
   const texts = { ...projectTexts.builtin[language], ...projectTexts.project[language] };
   const frame: DrawFrame = {
     ...scenario.frame,
-    alarms: alarmScenario(
-      projectContext.alarms as AlarmMessage[],
-      models,
-      state === "alarm" || state === "fault",
-    ),
+    alarms: alarmScenario(projectContext.alarms as AlarmMessage[], models, state === "alarm" || state === "fault"),
     asset: (name) => {
       if (!assets[name]) throw new Error(`RENDER_FAILED: image was not loaded: ${name}.`);
       return assets[name].url;

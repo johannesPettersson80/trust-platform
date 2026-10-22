@@ -58,6 +58,7 @@ fn requirements(
     load: Option<f64>,
 ) -> TuningRequirements {
     TuningRequirements {
+        channel_requirements: None,
         reference_change,
         maximum_error: 0.2,
         settling_band: 0.1,
@@ -338,4 +339,42 @@ fn the_selected_model_predictor_answers_the_setpoint_and_the_load_trials() {
             &no_load
         )
         .is_none());
+}
+
+#[test]
+fn the_derivative_setpoint_weight_decides_the_kick_of_the_first_command_after_a_target_step() {
+    // control-studio-derivative-weight: "predicts the derivative kick of a target step" (specification 35, C0 "Setpoint weight", B4.5).
+    // The shaft of lessons 34 to 37, G(s) = 1/(s² + s), on a 20 ms task with its outputs limited to ±20, a unit target step, Kp = 16 and
+    // Kd = 7. With γ = 0 the derivative acts on the measurement, which has not moved, so the first command is Kp·1. With γ = 1 it acts on
+    // the error, whose step over one period adds Kd·1/0.02 = 350, and the limit clips the command at 20.
+    let shaft = model(LowOrderModelKind::Integrating, 1.0, Some(1.0), Some(0.0));
+    let settings = PredictionConditions {
+        period_seconds: 0.02,
+        duration_seconds: 8.0,
+        reference_change: 1.0,
+        operating_input: 0.0,
+        operating_output: 0.0,
+        input_disturbance: 0.0,
+        output_minimum: -20.0,
+        output_maximum: 20.0,
+        rate_minimum: -1.0e9,
+        rate_maximum: 1.0e9,
+    };
+    let first_command = |weight: f64| {
+        let gains = PredictedGains {
+            derivative_setpoint_weight: weight,
+            ..PredictedGains::parallel(16.0, 0.0, 7.0)
+        };
+        let response = predict_response(&shaft, &gains, None, &settings)
+            .expect("the weight is predicted on the shaft");
+        response.points[1].candidate_manipulated
+    };
+    assert!(
+        (first_command(0.0) - 16.0).abs() <= 1e-9,
+        "D on the measurement: only Kp · 1 at the step"
+    );
+    assert!(
+        (first_command(1.0) - 20.0).abs() <= 1e-9,
+        "D on the error: 16 + 7 · 1/0.02, clipped at the 20 limit"
+    );
 }

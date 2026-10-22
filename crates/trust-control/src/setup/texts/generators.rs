@@ -142,6 +142,12 @@ pub fn gain_range(symbol: &str) -> String {
     format!("The range of {symbol} needs a minimum below its maximum.")
 }
 
+/// A PID law needs to know whether its derivative is taken from the error or the measurement (`loopSetupForm.ts`, `derivativeOn`).
+#[must_use]
+pub fn derivative_on_needed() -> &'static str {
+    "Choose whether that previous value is the error or the measurement."
+}
+
 /// The program writes the symbol in its own code (C1 Setup; `loopSetupForm.ts`, `seededWrite`).
 #[must_use]
 pub fn program_writes(symbol: &str) -> String {
@@ -199,5 +205,69 @@ pub fn feedforward_step_span(span: f64, unit: &str) -> String {
 pub fn feedforward_command_not_actuated(symbol: &str) -> String {
     format!(
         "{symbol} cannot move the measured disturbance: a disturbance command must be a simulation or test input, a REAL or LREAL variable the program only reads, at a memory address (%M)."
+    )
+}
+
+/// The setup form asks for the controller and the engine has none chosen (`pidLoopGenerator.ts`, `loopSetupForm.ts`, `instance`).
+#[must_use]
+pub fn controller_needed() -> &'static str {
+    "Choose the controller."
+}
+
+/// The setup form asks for the parameter record and none is chosen (`loopSetupForm.ts`, `parameterRecord`).
+#[must_use]
+pub fn parameter_record_needed() -> &'static str {
+    "Choose the parameter record."
+}
+
+/// The Auto/Manual signal is blank and no BOOL of the program lacks an I/O address, so Apply cannot switch any mode: the sentence says
+/// why and what to do (`loopSetupForm.ts`, `explained`). It follows `save::mode_needed`.
+#[must_use]
+pub fn mode_needs_bool() -> &'static str {
+    "It must be a BOOL without an I/O address, because Apply switches it directly; declare one without AT."
+}
+
+/// A gain's variable is blank (`loopSetupForm.ts`, `gainValue`): the label names the gain, such as "proportional gain".
+#[must_use]
+pub fn gain_symbol_needed(label: &str) -> String {
+    format!("Choose the variable holding the {label}.")
+}
+
+/// The disturbance's identification step is blank or not a number (`loopSetupForm.ts`, `ff.disturbanceStep`).
+#[must_use]
+pub fn disturbance_step_needed() -> &'static str {
+    "Enter the disturbance's identification step, in its unit."
+}
+
+/// The variable Identify steps to move the measured disturbance is blank (`loopSetupForm.ts`, `ff.disturbanceCommand`).
+#[must_use]
+pub fn disturbance_command_needed() -> &'static str {
+    "Choose the variable Identify steps to move the disturbance."
+}
+
+/// The feedforward's gain variable is blank (`loopSetupForm.ts`, `ff.gain`).
+#[must_use]
+pub fn feedforward_gain_needed() -> &'static str {
+    "Choose the variable holding the feedforward gain."
+}
+
+/// The trajectory feedforward's term variable is blank (`loopSetupForm.ts`, `traj.feedforwardTerm`).
+#[must_use]
+pub fn feedforward_term_needed() -> &'static str {
+    "Choose the variable holding the feedforward term."
+}
+
+/// The program's own law is blank about its instance (`loopSetupForm.ts`, `own.instance`).
+#[must_use]
+pub fn law_instance_needed() -> &'static str {
+    "Choose the instance that computes the law."
+}
+
+/// The measurement is blank and the controller reads a value the program computes: a simulated measurement would overwrite it, so the
+/// sentence names that value (`loopSetupForm.ts`, `hinted`). It follows `save::signal_symbol_needed("measurement")`.
+#[must_use]
+pub fn computed_measurement_hint(symbol: &str) -> String {
+    format!(
+        " The controller reads {symbol}, which the program computes, so a simulated measurement would be overwritten every scan; choose the measurement it is computed from."
     )
 }

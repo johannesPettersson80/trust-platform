@@ -28,7 +28,7 @@ use trust_control::messages::{OperationState, OperationUpdate};
 use trust_control::model::{decode_general_model, GeneralModel};
 use trust_control::recording::evidence::recording_evidence;
 use trust_control::recording::{Completeness, RecordedRun, RecordingFile};
-use trust_control::study::identify::IdentifySignals;
+use trust_control::study::identify::{IdentifySection, IdentifySignals};
 
 use super::*;
 use crate::commands::{ControlStudio, IDENTIFY, METHODS, OPEN};
@@ -554,6 +554,8 @@ fn reset_starts_a_new_working_study_and_keeps_the_previous_one_and_the_loop() {
     let loop_file = project.loop_file();
     let (studio, _updates) = engine();
     let answer = identify(&studio, project.request(json!({ "action": "reset" })));
+    // §0.1a: the reset names its kind, so the page clears the model for this answer alone, never for any answer without a model.
+    assert_eq!(answer["result"]["kind"], "reset", "{answer}");
     let stages = &answer["result"]["stages"];
     assert_eq!(
         status_of(stages, "Identify"),
@@ -588,6 +590,21 @@ fn reset_starts_a_new_working_study_and_keeps_the_previous_one_and_the_loop() {
         project.loop_file(),
         loop_file,
         "the loop keeps its signals and limits"
+    );
+}
+
+/// A8.4, B9.9: the answer of a reset states the Identify page's status line, so the page writes none (the sentence of a fit or a supplied model
+/// is `each_identify_answer_states_its_status_sentence` of trust-control).
+#[test]
+fn a_reset_states_its_status_sentence() {
+    let project = Project::new("reset-sentence");
+    project.keep_identify_result(PLANT_INPUT);
+    let (studio, _updates) = engine();
+    let answer = identify(&studio, project.request(json!({ "action": "reset" })));
+    assert_eq!(
+        answer["result"]["statusSentence"],
+        json!("New identification study started."),
+        "{answer}"
     );
 }
 
@@ -682,6 +699,7 @@ fn cancel(studio: &ControlStudio, project: &Project, endpoint: String) -> Operat
     let connection = RuntimeConnection {
         endpoint,
         token: None,
+        runtime_id: None,
     };
     let loop_definition = project.loop_definition();
     cancel_loop(
@@ -756,6 +774,7 @@ fn a_cancel_of_an_operation_the_journal_does_not_hold_is_refused_before_anything
     let connection = RuntimeConnection {
         endpoint: closed_endpoint(),
         token: None,
+        runtime_id: None,
     };
     let loop_definition = project.loop_definition();
     let refused = cancel_loop(
@@ -901,3 +920,77 @@ fn import_recording_refuses_a_file_that_is_not_a_saved_result_with_its_sentence_
 
 #[path = "identify_import_tests.rs"]
 mod import_tests;
+
+#[path = "identify_context_tests.rs"]
+mod context_tests;
+
+/// A complete run of two consecutive samples of the measurement, 30.5 and 31, made after the run of `recorded_run`.
+fn newer_recorded_run() -> RecordedRun {
+    serde_json::from_value(json!({
+        "recording_id": "recording-2", "loop_revision": "sha256:loop-1",
+        "bindings": [{ "id": "processVariable", "address": "%IL0", "iec_type": "LREAL" }],
+        "stop_reason": "sample_limit",
+        "samples": [
+            { "scan": 1, "runtime_time_ns": 100_000_000, "captured_at_ms": 1, "values": [30.5], "forced": [false], "quality": ["good"] },
+            { "scan": 2, "runtime_time_ns": 200_000_000, "captured_at_ms": 2, "values": [31.0], "forced": [false], "quality": ["good"] }
+        ],
+        "acquisition": { "method": "runtime_scan_buffer", "completeness": "complete", "observedSampleCount": 2,
+            "scanRange": { "first": 1, "last": 2 }, "missingScanRanges": [], "droppedObservedSamples": 0,
+            "actualCycleTimingAvailable": true, "freshnessAvailable": false, "reason": "" }
+    }))
+    .expect("a newer recorded run")
+}
+
+#[test]
+fn the_csv_export_writes_the_recording_of_the_current_result_or_the_one_it_names() {
+    // `control-studio-validate-apply.test.ts`, "exports the current completed recording instead of an older working draft" (specification
+    // 35, §0.1a and B10.5): the engine reads the study when it is asked, so a request that names no recording exports the recording the
+    // study's current Identify result was fitted from, not an older one, and a request that names a recording exports that recording as
+    // it is kept, however many results have been kept since.
+    use trust_control::export::{ExportFormat, ExportRequest};
+    let project = Project::new("export-current-recording");
+    project.keep_identify_result(PLANT_INPUT);
+    let older = recording().id().expect("the older recording's identifier");
+    let run = newer_recorded_run();
+    let evidence = recording_evidence(&run, None);
+    let newer = RecordingFile::new(LOOP_ID, EvidenceSource::SimulatedPlant, run, evidence);
+    let section = IdentifySection::new(
+        IdentifyMethod::Live(ControlExperimentKind::MvStep),
+        EvidenceSource::SimulatedPlant,
+        IdentifySignals {
+            inputs: vec![PLANT_INPUT.to_string()],
+            outputs: vec![MEASUREMENT.to_string()],
+            setpoint: None,
+        },
+        &newer.id().expect("the newer recording's identifier"),
+        None,
+        fitted_model(),
+        presentation(),
+    );
+    storage::save_identify(&project.root, &project.working_study(), &section, &[newer])
+        .expect("the newer Identify result is kept");
+    let measurements = |recording_id: Option<&str>| -> Vec<String> {
+        let answer = crate::export_action::answer(ExportRequest {
+            project_root: project.root.display().to_string(),
+            runtime_id: RUNTIME_ID.to_string(),
+            loop_id: LOOP_ID.to_string(),
+            format: ExportFormat::Csv,
+            recording_id: recording_id.map(str::to_string),
+        })
+        .expect("the CSV export");
+        answer["text"]
+            .as_str()
+            .expect("the CSV text")
+            .lines()
+            .skip(1)
+            .map(|row| {
+                row.split(',')
+                    .nth(4)
+                    .expect("the measurement cell")
+                    .to_string()
+            })
+            .collect()
+    };
+    assert_eq!(measurements(None), ["30.5", "31"]);
+    assert_eq!(measurements(Some(older.as_str())), ["20.5", "21"]);
+}

@@ -626,10 +626,9 @@ fn the_failure_names_the_model_check_then_a_failed_requirement_then_the_missing_
     );
     assert_eq!(by_requirement.next_action, NextAction::Tune);
     assert_eq!(by_requirement.cause, Cause::Settings);
-    assert!(
-        by_requirement.message.contains("settles at 20 s"),
-        "{}",
-        by_requirement.message
+    assert_eq!(
+        by_requirement.message, "Maximum settling time: 20 s exceeds the limit of 15 s.",
+        "a failed requirement names its value and its limit in the unit of its result (B5.5)"
     );
     let missing = failure_of(
         None,
@@ -647,6 +646,46 @@ fn the_failure_names_the_model_check_then_a_failed_requirement_then_the_missing_
         "{}",
         missing.message
     );
+}
+
+#[test]
+fn a_failed_requirement_that_holds_no_number_keeps_its_own_reason_as_the_failure() {
+    // B5.5: the failure names the value and the limit when the result holds them; a result without a number says what it found.
+    let mut scenarios = vec![scenario("target-response", RequirementStatus::Fail)];
+    scenarios[0]
+        .candidate
+        .requirements
+        .push(RequirementOutcome {
+            id: "levels".to_owned(),
+            label: "Allowed output levels".to_owned(),
+            channel: RequirementChannel {
+                role: "Output".to_owned(),
+                unit: "%".to_owned(),
+                symbol: "Main.Out".to_owned(),
+            },
+            limit_side: LimitSide::AtMost,
+            status: RequirementStatus::Fail,
+            value: None,
+            limit: None,
+            unit: "%".to_owned(),
+            source: "model model-4".to_owned(),
+            reason: "The output left every allowed level.".to_owned(),
+            automatic: false,
+            guard: false,
+            measured_range: None,
+            limit_range: None,
+        });
+    let failure = failure_of(
+        None,
+        RequirementStatus::Fail,
+        &scenarios,
+        &[],
+        None,
+        None,
+        None,
+    );
+    assert_eq!(failure.message, "The output left every allowed level.");
+    assert_eq!(failure.next_action, NextAction::Tune);
 }
 
 #[test]
@@ -1112,7 +1151,12 @@ fn a_reopened_validation_answers_its_table_and_apply_but_no_plot_or_plant_reason
         .expect("a refused Apply names its reason (B5.5)");
     assert_eq!(
         failure.message,
-        "The response settles at 20 s, after the 15 s limit."
+        "The recorded response did not settle within 15 s."
+    );
+    assert_eq!(
+        failure.detail.as_deref(),
+        Some("The recorded response did not settle within 15 s. It settled after 20 s."),
+        "the failure names the limit, and when the response settled (B5.5)"
     );
     assert_eq!(failure.next_action, NextAction::Tune);
 }

@@ -205,7 +205,11 @@ pub fn prepare_identification_review_with_structure(
     input: &IdentificationReviewInput,
     structure: Option<StructureChoice>,
 ) -> Result<IdentificationReview, Refusal> {
-    if input.step_response_settings.is_some() {
+    // An integrating held step has no fraction and no bounded step review (N2.3): it is fitted as any open-loop record, and the
+    // integrator rule of N2.3a refuses it at the fit when the data cannot yet tell it apart from a slow self-regulating form.
+    let bounded = input.step_response_settings.is_some()
+        && input.requested_kind != IdentificationModelSelection::Integrating;
+    if bounded {
         if input.requested_kind == IdentificationModelSelection::Sopdt {
             return prepare_sensor_lag_comparison(input, structure);
         }

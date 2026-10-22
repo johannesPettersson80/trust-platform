@@ -402,6 +402,7 @@ fn an_approved_physical_setpoint_step_is_planned_on_the_physical_target_and_an_u
         570_000.0,
         false,
         true,
+        None,
     )
     .expect("the approved physical setpoint step is planned");
     assert_eq!(planned.source, PlanSource::Physical);
@@ -418,6 +419,7 @@ fn an_approved_physical_setpoint_step_is_planned_on_the_physical_target_and_an_u
             570_000.0,
             false,
             false,
+            None,
         )
         .is_err(),
         "a physical plan without the approval is refused"
@@ -734,6 +736,21 @@ fn settings_with_no_duration_on_a_loop_that_declares_none_name_the_missing_field
     assert_eq!(declared.next_action, NextAction::OpenLimits);
 }
 
+// B3.2: a range the loop does not allow is refused under the field of Limits that holds it, not under the generic sentence.
+#[test]
+fn a_range_the_loop_does_not_allow_is_refused_under_its_field_on_identify() {
+    let refusal = checked_acquisition_settings(
+        &loop_definition(),
+        &json!({
+            "method": "automatic", "durationSeconds": 600, "amplitude": 0, "reuseRecordings": false,
+            "inputRange": { "minimum": 0, "maximum": 150 }
+        }),
+    )
+    .expect_err("150 % is beyond the declared 100 %");
+    assert_eq!(refusal.field.as_deref(), Some("inputMaximum"));
+    assert_eq!(refusal.next_action, NextAction::OpenLimits);
+}
+
 #[test]
 fn the_step_plan_is_the_reviewed_setpoint_step_held_for_the_hold() {
     let loop_def = loop_definition();
@@ -745,6 +762,7 @@ fn the_step_plan_is_the_reviewed_setpoint_step_held_for_the_hold() {
         &baseline(),
         570_000.0,
         false,
+        None,
     )
     .expect("a setpoint step in Auto");
     assert_eq!(reviewed.kind, ControlExperimentKind::SetpointStep);
@@ -757,6 +775,7 @@ fn the_step_plan_is_the_reviewed_setpoint_step_held_for_the_hold() {
         &baseline(),
         570_000.0,
         false,
+        None,
     )
     .expect_err("no sample, no step");
     assert_eq!(
@@ -926,6 +945,7 @@ fn a_step_on_a_loop_without_a_plant_input_range_is_refused_with_open_limits() {
         &baseline(),
         30_000.0,
         false,
+        None,
     );
     assert_eq!(planned.expect_err("no step is planned"), refusal);
     // A range whose minimum is not below its maximum is the same refusal: the step has no range to size itself in.
@@ -941,6 +961,7 @@ fn a_step_on_a_loop_without_a_plant_input_range_is_refused_with_open_limits() {
         &baseline(),
         30_000.0,
         false,
+        None,
     );
     assert_eq!(
         planned.expect_err("no step is planned").message,
@@ -1071,6 +1092,7 @@ fn a_two_input_campaign_steps_the_valve_then_the_load_each_through_its_own_comma
         &baseline(),
         300_000.0,
         false,
+        None,
     )
     .expect("the valve steps");
     assert_eq!(first.affected_signal, "P1.ManualPct");
@@ -1087,6 +1109,7 @@ fn a_two_input_campaign_steps_the_valve_then_the_load_each_through_its_own_comma
         &baseline(),
         300_000.0,
         false,
+        None,
     )
     .expect("the load steps through its own command");
     assert_eq!(second.affected_signal, "P1.LoadKw");

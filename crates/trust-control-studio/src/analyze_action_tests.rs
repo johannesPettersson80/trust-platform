@@ -12,6 +12,7 @@ use serde_json::{json, Value};
 use trust_control::analysis::budget::{Budget, ANALYSIS_BUDGET, BUDGET_EXCEEDED};
 use trust_control::failure::{Cause, NextAction};
 use trust_control::loop_definition::LoopDefinition;
+use trust_control::messages::InputsRequest;
 use trust_control::messages::{
     AnalysisInputs, AnalysisTool, AnalyzeRequest, FrequencyGrid, OperationState, OperationUpdate,
 };
@@ -19,9 +20,12 @@ use trust_control::model::{decode_general_model, GeneralModel};
 use trust_control::recording::evidence::recording_evidence;
 use trust_control::recording::{EvidenceSource, RecordedRun, RecordingFile};
 use trust_control::study::analysis_records::current_records;
+use trust_control::study::general_model_persistence::SuppliedModelSection;
 
 use super::{answer, calculate, Work};
 use crate::busy_loops::LoopClaims;
+use crate::commands::{ControlStudio, PAGE};
+use crate::inputs_action;
 use crate::operation::{Operations, UpdateSink};
 use crate::storage;
 
@@ -145,6 +149,169 @@ fn without_a_tool_the_answer_lists_the_tools_that_apply_to_the_supplied_model() 
     assert_eq!(frequency["operation"], json!(true));
     assert_eq!(frequency["abortAction"], json!("Abort analysis"));
     assert_eq!(frequency["defaults"]["grid"]["points"], json!(128));
+}
+
+#[test]
+fn an_analysis_answer_is_not_current_after_the_model_changes() {
+    // B9.9, A8.4: the page sends the revision of the model each answer it holds was calculated for, and the list of tools says which of
+    // them no longer belong to the model analysed now (here the request's own, which stands for the study's). Nothing is listed while the
+    // answers match, so the page drops an answer only when the engine says it is out of date.
+    let project = Project::new("currency");
+    let list = |revision: &str, held: &Value| {
+        let mut model = supplied_model();
+        model["revision"] = json!(revision);
+        let request = project.request(&json!({ "model": model, "held": held }));
+        answer(&operations(), &LoopClaims::default(), &request).expect("the tools are listed")
+    };
+    let held = json!([
+        { "tool": "poleZero", "model": "supplied-1" },
+        { "tool": "frequency", "model": "supplied-2" },
+        { "tool": "rootLocus" },
+    ]);
+    let after_the_change = list("supplied-2", &held);
+    assert_eq!(
+        after_the_change["stale"],
+        json!(["poleZero"]),
+        "the answer calculated for the earlier model is stale; the declared analysis does not read the model: {after_the_change}"
+    );
+    let unchanged = list(
+        "supplied-1",
+        &json!([{ "tool": "poleZero", "model": "supplied-1" }]),
+    );
+    assert!(
+        unchanged.get("stale").is_none(),
+        "an answer for the model's revision stays: {unchanged}"
+    );
+    let no_answers = list("supplied-1", &json!([]));
+    assert!(no_answers.get("stale").is_none(), "{no_answers}");
+}
+
+/// B9.9, A8.1, A8.4: the engine records the analysis a calculation answers as the one the Tune page shows, with the inputs it read and the
+/// revision of the model it used, and the answer to a change of the inputs names the recorded analysis when the study's model is another
+/// one. The revisions are worked out by hand: the study holds `supplied-1`, then `supplied-2`.
+#[test]
+fn the_engine_records_the_shown_analysis_and_names_what_a_change_made_stale() {
+    let project = Project::new("shown-analysis");
+    let claims = LoopClaims::default();
+    let revision = project.loop_definition.revision.clone();
+    let study = || {
+        storage::open_study(&project.root, &project.loop_definition.id, &revision)
+            .expect("the study")
+    };
+    let keep_model = |model_revision: &str| {
+        let mut value = supplied_model();
+        value["revision"] = json!(model_revision);
+        let mut next = study();
+        next.set_section(&SuppliedModelSection::new(
+            decode_general_model(&value).expect("a valid model"),
+            None,
+        ))
+        .expect("the model is kept");
+        storage::save_study(&project.root, &next, &[]).expect("the study is saved");
+    };
+    let change = |claims: &LoopClaims| {
+        let request = InputsRequest {
+            project_root: project.root.display().to_string(),
+            runtime_id: project.loop_definition.runtime_id.clone(),
+            loop_id: project.loop_definition.id.clone(),
+            inputs: None,
+            change: json!({ "tuningPreferences": { "method": "automatic" } })
+                .as_object()
+                .cloned(),
+            channel_selection: None,
+            storage_folder: Some(project.root.join("storage").display().to_string()),
+        };
+        inputs_action::answer(claims, request).expect("the change is recorded")
+    };
+    keep_model("supplied-1");
+    assert_eq!(
+        study().analysis,
+        None,
+        "nothing is shown before a calculation"
+    );
+
+    // The page asks for the state structure of the study's own model: the engine records what it answered.
+    let calculated = answer(
+        &operations(),
+        &claims,
+        &project.request(&json!({ "tool": "stateStructure" })),
+    )
+    .expect("the structure is calculated");
+    let recorded = study()
+        .analysis
+        .expect("the answer is recorded as the shown analysis");
+    assert_eq!(recorded.tool, AnalysisTool::StateStructure);
+    assert_eq!(recorded.model_revision.as_deref(), Some("supplied-1"));
+    assert_eq!(
+        serde_json::to_value(&recorded.inputs).expect("the inputs encode"),
+        calculated["inputs"],
+        "the inputs are the ones the engine read, not the ones the page sent"
+    );
+
+    // The model is still the study's: the change leaves the analysis current and the answer lists nothing.
+    let unchanged = change(&claims);
+    assert!(unchanged.get("stale").is_none(), "{unchanged}");
+
+    // The page records the analysis it shows (`controlStudio/page`) without a revision; the engine keeps the one it recorded for the tool.
+    let studio = ControlStudio::new(Arc::new(Ignore));
+    let paged = |analysis: Value| {
+        let reply = studio
+            .execute(
+                PAGE,
+                &[json!({
+                    "projectRoot": project.root.display().to_string(),
+                    "runtimeId": project.loop_definition.runtime_id,
+                    "loopId": project.loop_definition.id,
+                    "page": "Tune",
+                    "analysis": analysis,
+                })],
+            )
+            .expect("the page command is the engine's");
+        assert!(reply.get("failure").is_none(), "{reply}");
+    };
+    paged(json!({ "tool": "stateStructure", "inputs": {} }));
+    assert_eq!(
+        study()
+            .analysis
+            .and_then(|page| page.model_revision)
+            .as_deref(),
+        Some("supplied-1"),
+        "the same tool keeps the revision it was calculated for"
+    );
+
+    // The study's model is replaced: the recorded analysis describes a plant that is not the study's any more.
+    keep_model("supplied-2");
+    let changed = change(&claims);
+    assert_eq!(
+        changed["stale"],
+        json!(["stateStructure"]),
+        "the engine names the analysis the change made stale: {changed}"
+    );
+
+    // Another tool, only selected, was calculated for no model, so nothing is out of date; the page's request replaces the record.
+    paged(json!({ "tool": "poleZero", "inputs": {} }));
+    let recorded = study().analysis.expect("the selection is recorded");
+    assert_eq!(
+        (recorded.tool, recorded.model_revision),
+        (AnalysisTool::PoleZero, None)
+    );
+    assert!(change(&claims).get("stale").is_none());
+}
+
+#[test]
+fn a_calculation_of_a_model_the_request_supplies_is_not_recorded_as_the_shown_analysis() {
+    // The page asks for the study's model. A request that carries a model of its own is an analysis of other evidence: recording it as the
+    // analysis the Tune page shows would name the page's tool for a plant that is not the study's.
+    let project = Project::new("supplied-not-recorded");
+    let request = project.request(&json!({ "model": supplied_model(), "tool": "stateStructure" }));
+    answer(&operations(), &LoopClaims::default(), &request).expect("the structure is calculated");
+    let study = storage::open_study(
+        &project.root,
+        &project.loop_definition.id,
+        &project.loop_definition.revision,
+    )
+    .expect("the study");
+    assert_eq!(study.analysis, None);
 }
 
 #[test]
@@ -311,6 +478,23 @@ fn a_model_of_a_parked_loop_answers_the_tools_that_apply_to_it() {
 }
 
 #[test]
+fn a_parked_loop_without_a_model_lists_no_tools_because_its_refusal_is_the_open_answers() {
+    let project = Project::new("parked-list-without-model");
+    fs::write(
+        project.root.join("control-loop.json"),
+        parked_loop_file("Smith", "smithModel"),
+    )
+    .expect("the parked loop");
+    let listed = answer(
+        &operations(),
+        &LoopClaims::default(),
+        &project.request(&json!({})),
+    )
+    .expect("a refused loop lists no tools, and the refusal is the open answer's (B9.9)");
+    assert_eq!(tool_names(&listed), [] as [&str; 0], "{listed}");
+}
+
+#[test]
 fn a_parked_feedforward_loop_lists_and_runs_its_operations_with_the_request_model() {
     let project = Project::new("parked-feedforward");
     fs::write(
@@ -425,6 +609,7 @@ fn frequency_work(project: &Project, grid: Option<FrequencyGrid>) -> Work {
             ..AnalysisInputs::default()
         },
         defaults: AnalysisInputs::default(),
+        records_shown: false,
         model: Some(model),
         model_revision: None,
         controller_revision: None,

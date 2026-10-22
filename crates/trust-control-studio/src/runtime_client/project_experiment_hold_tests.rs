@@ -60,3 +60,24 @@ fn the_hold_duration_is_the_baseline_the_whole_hold_and_one_restoration_scan() {
     // No baseline: a 30 s hold at a 10 ms period is 3000 scans, plus the restoration scan (trust-control's rule).
     assert_eq!(project_step_recording_ms(&tank_loop(), 30.0), 30_010.0);
 }
+
+#[test]
+fn a_request_without_a_connection_cannot_read_a_hold_and_asks_for_the_runtime() {
+    let refused = applied_project_hold_over(&hold_loop(), None).expect_err("no connection");
+    assert_eq!(refused, runtime_required());
+    assert_eq!(
+        applied_project_hold_over(&tank_loop(), None).expect("a loop without a hold reads nothing"),
+        None
+    );
+    let fake = FakeRuntime::start(|request| {
+        Some(answer(
+            request,
+            json!({ "values": { "P1.HoldSeconds": 35.0 } }),
+        ))
+    });
+    let connection = fake.connection(None);
+    assert_eq!(
+        applied_project_hold_over(&hold_loop(), Some(&connection)).expect("read"),
+        Some(35.0)
+    );
+}

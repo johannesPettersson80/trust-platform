@@ -4,8 +4,7 @@ import { AriaComponent, GridComponent, LegendComponent, TooltipComponent } from 
 import { CanvasRenderer } from "echarts/renderers";
 import type { Failure } from "../generated/Failure";
 import type { AnalysisEnvelope, AnalysisInputs, ToolOffer } from "../generated/AnalyzeAnswer";
-import type { AnalysisTool } from "../generated/AnalyzeRequest";
-import type { AnalysisPage } from "../generated/PageRequest";
+import type { AnalysisTool, HeldAnswer } from "../generated/AnalyzeRequest";
 import { nyquistGeometry, nyquistSeries } from "./nyquistChart";
 import { poleMapGeometry, type PlaneArea, type PlaneGeometry } from "./complexPlaneGeometry";
 import { axis, chartTheme, engineeringLine, formatChartValue, formatPhaseChartValue, formatPhaseDegrees, phaseAxis } from "./chartPrimitives";
@@ -14,23 +13,49 @@ import { sensitivitySeries } from "./sensitivityChart";
 import { initialStateResponseRows, initialStateResponseSeries } from "./initialStateResponseChart";
 import { formatMatrixRows, formatNumberList } from "./numberListText";
 import { formatEngineeringNumber } from "../chartContract";
-import { formatDurationSeconds, parseDurationSeconds } from "./durationField";
-import {
-  ANALYSIS_KIND, ENGINE_MODEL_CHANGED_EVENT, answerOf, type AnalysisUpdate, type EngineAnalysisEvents, type FeedbackAnswer, type FrequencyAnswer,
-  type InitialStateAnswer, type LeadLagAnswer, type MeasuredFrequencyAnswer, type PoleZeroAnswer, type RelativeGainAnswer, type RootLocusAnswer,
-  type RouthAnswer, type StateStructureAnswer,
-} from "./engineAnalysis";
+import { readEditorInputs } from "./analysisEntries";
+import { ANALYSIS_KIND, ENGINE_MODEL_CHANGED_EVENT, answerOf, type AnalysisUpdate, type EngineAnalysisEvents, type FeedbackAnswer, type FrequencyAnswer, type InitialStateAnswer, type LeadLagAnswer, type MeasuredFrequencyAnswer, type PoleZeroAnswer, type RelativeGainAnswer, type RootLocusAnswer, type RouthAnswer, type StateStructureAnswer } from "./engineAnalysis";
 
 echarts.use([LineChart, ScatterChart, GridComponent, LegendComponent, TooltipComponent, AriaComponent, CanvasRenderer]);
 
 /** The tools whose result is drawn in the plot area (B9.9). */
 const PLOTTED_TOOLS = new Set<AnalysisTool>(["rootLocus", "frequency", "measuredFrequency", "poleZero", "feedback", "initialState"]);
 
+/** A duration as the page holds it: the text the engineer typed, which the engine reads, or the engine's words for it (a number only in an old record). */
+type DurationEntry = string | number | null;
+
+/** A number as the page holds it: the text the engineer typed, which the engine reads, or the engine's number. */
+type NumberEntry = string | number | null;
+
+/** Numbers as the page holds them: the text the engineer typed, which the engine reads, or the engine's numbers. */
+type NumberListEntry = string | readonly number[] | null;
+
+/**
+ * The inputs the page holds for a tool: the engine's fields, with every number and duration as the text the engineer typed (the engine
+ * reads each entry, and refuses an entry it cannot read under its field).
+ */
+export type PageAnalysisInputs = Omit<AnalysisInputs, "stepSeconds" | "durationSeconds" | "selectedValue" | "grid" | "frequencies" | "segmentCount" | "minimumCoherence" | "startupSamples" | "crossoverRadPerSecond" | "value" | "initialState" | "input"> & {
+  stepSeconds?: DurationEntry; durationSeconds?: DurationEntry;
+  selectedValue?: NumberEntry; grid?: { minimumFrequency: NumberEntry; maximumFrequency: NumberEntry; points: NumberEntry } | null;
+  frequencies?: NumberListEntry; segmentCount?: NumberEntry; minimumCoherence?: NumberEntry; startupSamples?: NumberEntry;
+  crossoverRadPerSecond?: NumberEntry; value?: NumberEntry; initialState?: NumberListEntry; input?: NumberListEntry;
+};
+
+/** The analysis the page shows, with the inputs it holds for that tool (`controlStudio/page`). */
+export interface ShownAnalysis {
+  tool: AnalysisTool;
+  inputs: PageAnalysisInputs;
+}
+
+/** A duration entry as the editor shows it: the engine's words for the duration (`2 min 30 s`, B9.9), or the text the engineer typed. */
+function durationText(entry: DurationEntry | undefined): string {
+  return entry === undefined || entry === null ? "" : String(entry);
+}
 
 /** The Tune page's analysis presenter (specification 35, B9.9). */
 export interface ThreePageAnalysisPresenter extends EngineAnalysisEvents {
-  /** Takes a stage of the page: a model change clears the shown answers and asks the engine for the tools that apply now. */
-  receive(stage: string | undefined, payload: Record<string, unknown>): void;
+  /** Takes an answer of the page's stages: an inputs answer lists the analyses its change made stale (`staleAnalyses`, B9.9), which the page drops. */
+  receive(payload: Record<string, unknown>): void;
   /** The study kept a recording: the tools that apply may now differ, so the engine is asked for them again (B9.9). */
   recordingsChanged(): void;
   /** Shows the tool the Analyze… list chose, or closes the analysis (undefined). A tool the engine does not offer is not shown. */
@@ -38,10 +63,9 @@ export interface ThreePageAnalysisPresenter extends EngineAnalysisEvents {
   /** Calculates the shown tool, or aborts its running operation. */
   run(): void;
   actionLabel(): string | undefined;
-  choice(): string | undefined;
   availableTools(): readonly string[];
-  /** The tool the page shows with the inputs it holds for it; none when no tool is shown (kept with a parked loop, B9.9). */
-  shown(): AnalysisPage | undefined;
+  /** The tool the page shows with the inputs it holds for it; none when no tool is shown. The workflow records it with the page (`controlStudio/page`, B9.9). */
+  shown(): ShownAnalysis | undefined;
   /** The tools the engine offers for the loop, with the labels and actions it gives them. */
   offers(): readonly ToolOffer[];
   dispose(): void;
@@ -50,8 +74,8 @@ export interface ThreePageAnalysisPresenter extends EngineAnalysisEvents {
 /**
  * Presents the engine's analysis on the Tune page (specification 35, B9.9). The engine answers which tools apply, their labels,
  * default inputs and limits, and every result and sentence. This draws them, shows the editor's fields with the inputs the engine
- * read, and sends what the engineer entered: an entry that is blank or not a number is sent absent, so the engine's default
- * applies. It checks no input and computes no value.
+ * read, and sends what the engineer entered as the text typed: the engine reads a blank entry as absent, so that its default applies,
+ * and refuses an entry it cannot read under its field. It checks no input and computes no value.
  */
 export function initializeThreePageAnalysis(
   root: HTMLElement,
@@ -82,7 +106,7 @@ export function initializeThreePageAnalysis(
   let offerList: readonly ToolOffer[] = [];
   let selected: AnalysisTool | undefined;
   /** The inputs the editor shows for each tool: the engine's defaults, or the inputs the engine last read (B9.9). */
-  const inputsByTool = new Map<AnalysisTool, AnalysisInputs>();
+  const inputsByTool = new Map<AnalysisTool, PageAnalysisInputs>();
   /** The last answer of each tool with a result; the result area shows the selected tool's. */
   const answers = new Map<AnalysisTool, AnalysisEnvelope>();
   /** The calculation the engine runs for the page: its tool when known, and its operation once the engine started one. */
@@ -95,7 +119,7 @@ export function initializeThreePageAnalysis(
   let disposed = false;
 
   const offerOf = (tool: string | undefined): ToolOffer | undefined => offerList.find(offer => offer.tool === tool);
-  const inputsOf = (tool: AnalysisTool): AnalysisInputs => inputsByTool.get(tool) ?? offerOf(tool)?.defaults ?? {};
+  const inputsOf = (tool: AnalysisTool): PageAnalysisInputs => inputsByTool.get(tool) ?? offerOf(tool)?.defaults ?? {};
   /** The last answer of `tool` the page holds, from its last calculation (the result is read by the tool's name). */
   const answerFor = <K extends AnalysisTool>(tool: K) => answerOf(answers.get(tool)?.result ?? undefined, tool);
 
@@ -104,10 +128,9 @@ export function initializeThreePageAnalysis(
     if (!offer) return undefined;
     return pending && offer.operation ? offer.abortAction ?? "Abort analysis" : offer.action;
   };
-  const choice = (): string | undefined => selected ? `analysis:${selected}` : undefined;
   const availableTools = (): readonly string[] => offerList.map(offer => offer.tool);
-  const shown = (): AnalysisPage | undefined => selected ? { tool: selected, inputs: inputsOf(selected) } : undefined;
-  /** The shown analysis the owner was last told of, as text: the owner is told only when it changes (a parked loop keeps it, §0.1a). */
+  const shown = (): ShownAnalysis | undefined => selected ? { tool: selected, inputs: inputsOf(selected) } : undefined;
+  /** The shown analysis the owner was last told of, as text: the owner is told only when it changes, and records it with the page (A8.1). */
   let reportedShown = JSON.stringify(null);
   const reportShown = (): void => {
     const key = JSON.stringify(shown() ?? null);
@@ -128,7 +151,7 @@ export function initializeThreePageAnalysis(
   };
 
   /** Asks the engine to calculate the tool with these inputs: the editor shows them until the engine reads them back. */
-  const calculate = (tool: AnalysisTool, inputs: AnalysisInputs): void => {
+  const calculate = (tool: AnalysisTool, inputs: PageAnalysisInputs): void => {
     inputsByTool.set(tool, inputs);
     refusal = undefined; notice = undefined;
     pending = { tool };
@@ -136,18 +159,26 @@ export function initializeThreePageAnalysis(
     post(ANALYSIS_KIND.run, { tool, inputs });
   };
 
+  /** The answers the page holds, each with the revision of the model it was calculated for (the envelope's `model`), as the engine judges their currency (B9.9). */
+  const heldAnswers = (): HeldAnswer[] =>
+    Array.from(answers, ([tool, envelope]) => ({ tool, ...(envelope.model ? { model: envelope.model.revision } : {}) }));
+
   /**
-   * The study's model changed (B9.9): the shown answers belong to the model before it, and the tools that apply to the model now are
-   * asked again, so the Analyze… list follows the model.
+   * The study's model changed (B9.9): the engine is asked which tools apply to the model now, so that the Analyze… list follows it,
+   * and which of the answers held here are no longer current. The engine decides what is out of date; the page drops what it lists (`tools`).
    */
   const modelChangedNow = (): void => {
-    answers.clear(); refusal = undefined; notice = undefined;
-    post(ANALYSIS_KIND.tools);
-    render();
+    post(ANALYSIS_KIND.tools, { held: heldAnswers() });
   };
 
-  /** An engine model change reaches the page as this window event, when it shows or clears an identification (engineIdentify.ts). */
+  /** The engine's answers that show, clear or accept a model reach the page as this window event (engineIdentify.ts). */
   const onModelChanged = (): void => { if (!disposed) modelChangedNow(); };
+
+  /** Drops the held answers of the tools the engine lists as no longer current for the study's model (B9.9), and the sentence that belonged to the shown one. */
+  const dropStale = (stale: readonly AnalysisTool[]): void => {
+    for (const tool of stale) answers.delete(tool);
+    if (selected && stale.includes(selected)) { refusal = undefined; notice = undefined; }
+  };
   window.addEventListener(ENGINE_MODEL_CHANGED_EVENT, onModelChanged);
 
   const setTool = (tool: string | undefined): void => {
@@ -172,10 +203,11 @@ export function initializeThreePageAnalysis(
   };
 
   const presenter: ThreePageAnalysisPresenter = {
-    receive(stage, payload) {
+    receive(payload) {
       if (disposed) return;
-      // The TypeScript session's stages that change the model (a parked loop); the engine's changes arrive as the model-changed event.
-      if (modelChanged(stage, payload.status)) modelChangedNow();
+      // An inputs answer lists the analyses its change made stale (B9.9): the page drops exactly those answers and asks the engine nothing.
+      const stale = payload.staleAnalyses;
+      if (Array.isArray(stale) && stale.length > 0) { dropStale(stale as AnalysisTool[]); render(); }
     },
     recordingsChanged() {
       // A recording the study keeps can change which tools apply (`measuredFrequency` needs one), so the tools are asked again.
@@ -184,7 +216,6 @@ export function initializeThreePageAnalysis(
     setTool,
     run,
     actionLabel,
-    choice,
     availableTools,
     shown,
     offers: () => offerList,
@@ -195,9 +226,11 @@ export function initializeThreePageAnalysis(
       window.removeEventListener("resize", resize);
       chart.dispose();
     },
-    tools(offers, failure) {
+    tools(offers, failure, stale) {
       if (disposed) return;
       offerList = offers ?? [];
+      // The engine lists the held answers that are no longer current for the model (B9.9); the page drops exactly those.
+      dropStale(stale ?? []);
       if (failure && selected) refusal = failure;
       if (selected && !offerOf(selected)) setTool(undefined);
       changed();
@@ -227,7 +260,7 @@ export function initializeThreePageAnalysis(
       pending = undefined;
       if (update.state === "finished" && update.envelope) receiveAnswer(update.envelope);
       else if (update.state === "failed") refusal = update.failure;
-      else if (update.state === "cancelled") { refusal = undefined; notice = "Analysis cancelled."; }
+      else if (update.state === "cancelled") { refusal = undefined; notice = update.message; }
       renderResult();
     },
     restore(tool, inputs) {
@@ -255,9 +288,10 @@ export function initializeThreePageAnalysis(
     const label = document.createElement("label"); label.className = "studio-field"; label.textContent = labelText;
     label.append(control); editor.append(label);
   };
-  const numberField = (labelText: string, value: number | undefined, name: string): void => {
-    const input = document.createElement("input"); input.type = "number"; input.step = "any";
-    input.value = value === undefined ? "" : String(value);
+  const numberField = (labelText: string, value: NumberEntry | undefined, name: string): void => {
+    // A text field, so that an entry the engineer typed reaches the engine as typed: a number field would hide the text it cannot read.
+    const input = document.createElement("input"); input.type = "text"; input.inputMode = "decimal";
+    input.value = value === undefined || value === null ? "" : String(value);
     input.setAttribute(`data-analysis-${name}`, "");
     field(labelText, input);
   };
@@ -319,9 +353,8 @@ export function initializeThreePageAnalysis(
         return;
       }
       case "initialState": {
-        const stepSeconds = inputs.stepSeconds ?? undefined, durationSeconds = inputs.durationSeconds ?? undefined;
-        textField("Step", stepSeconds === undefined ? "" : formatDurationSeconds(stepSeconds), "response-step");
-        textField("Duration", durationSeconds === undefined ? "" : formatDurationSeconds(durationSeconds), "response-duration");
+        textField("Step", durationText(inputs.stepSeconds), "response-step");
+        textField("Duration", durationText(inputs.durationSeconds), "response-duration");
         textField("Initial state", listText(inputs.initialState ?? undefined), "response-initial");
         textField("Held input", listText(inputs.input ?? undefined), "response-input");
         selectField("Connection", [["open-loop", "Open loop"], ["feedback", "Declared feedback"]], inputs.connection ?? undefined, "response-connection");
@@ -342,50 +375,9 @@ export function initializeThreePageAnalysis(
     }
   };
 
-  /** The entries of the editor as the engine's inputs: a blank or unreadable entry is absent, so the engine's default applies. */
-  function readInputs(tool: AnalysisTool): AnalysisInputs {
-    const text = (name: string): string => editor.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-analysis-${name}]`)?.value ?? "";
-    const number = (name: string): number | undefined => numberOf(text(name));
-    switch (tool) {
-      case "rootLocus":
-      case "routh":
-        return { selectedValue: number("parameter-value") };
-      case "frequency":
-      case "feedback": {
-        const minimumFrequency = number("minimum-frequency"), maximumFrequency = number("maximum-frequency"), points = number("frequency-points");
-        // A grid is sent whole, or not at all: an absent grid takes the engine's grid.
-        return { grid: minimumFrequency === undefined || maximumFrequency === undefined || points === undefined ? undefined
-          : { minimumFrequency, maximumFrequency, points } };
-      }
-      case "measuredFrequency":
-        // No recording is named here: the engine takes the study's last kept recording that meets the periodic rule (B9.9).
-        return {
-          frequencies: numberList(text("periodic-frequencies")),
-          segmentCount: number("periodic-segments"),
-          minimumCoherence: number("periodic-coherence"),
-          startupSamples: number("periodic-startup"),
-        };
-      case "leadLag": {
-        const mode = choiceOf(text("lead-lag-mode"), ["lead", "lag"] as const);
-        return {
-          mode,
-          crossoverRadPerSecond: number("lead-lag-crossover"),
-          value: number(mode === "lag" ? "lead-lag-ratio" : "lead-lag-phase"),
-        };
-      }
-      case "initialState":
-        return {
-          stepSeconds: parseDurationSeconds(text("response-step")),
-          durationSeconds: parseDurationSeconds(text("response-duration")),
-          initialState: numberList(text("response-initial")),
-          input: numberList(text("response-input")),
-          connection: choiceOf(text("response-connection"), ["open-loop", "feedback"] as const),
-        };
-      case "poleZero":
-        return { view: choiceOf(text("pole-view"), ["unreduced", "minimal"] as const) };
-      default:
-        return {};
-    }
+  /** The entries of the editor as the engine's inputs, each as the text the engineer typed (`analysisEntries.ts`, B9.9). */
+  function readInputs(tool: AnalysisTool): PageAnalysisInputs {
+    return readEditorInputs(editor, tool);
   }
 
   /** The parameter's name and unit, as the last answer names them; the label is the engine's, not the page's. */
@@ -403,6 +395,10 @@ export function initializeThreePageAnalysis(
     const envelope = answers.get(selected);
     statusLine.textContent = refusal?.message ?? (pending ? pending.progress ?? "Calculating analysis…" : notice)
       ?? (envelope ? "" : "Analysis evidence is not available yet.");
+    // The field the engine's refusal names is marked (`Failure.field`); the refusal's sentence shows in the status line.
+    editor.querySelectorAll("[aria-invalid]").forEach(marked => marked.removeAttribute("aria-invalid"));
+    const refusedField = refusal?.field;
+    if (refusedField) editor.querySelector(`[data-analysis-${CSS.escape(refusedField)}]`)?.setAttribute("aria-invalid", "true");
     plotHost.hidden = !PLOTTED_TOOLS.has(selected);
     redrawPlot = undefined; plotHost.style.height = "280px";
     chart.clear();
@@ -574,43 +570,16 @@ function poleText(poles: readonly { real: number; imaginary: number }[]): string
   return poles.map(pole => `(${formatEngineeringNumber(pole.real)}, ${formatEngineeringNumber(pole.imaginary)})`).join("; ");
 }
 
-/** A stage that changes the model under the analysis: the answers shown for the model before it are then stale (B9.9). */
-function modelChanged(stage: string | undefined, status: unknown): boolean {
-  if (stage === "engineer") return status === "model-ready" || status === "edited";
-  if (stage === "general-model") return ["imported", "edited", "cancelled"].includes(String(status));
-  return stage === "identify" && status === "complete";
-}
-
-/** A number typed in a field: a blank or unreadable entry is none, so that the engine's default applies. */
-function numberOf(text: string): number | undefined {
-  if (!text.trim()) return undefined;
-  const value = Number(text);
-  return Number.isFinite(value) ? value : undefined;
-}
-
-/** Comma-separated numbers typed in a field: a blank or unreadable list is none, so that the engine's default applies. */
-function numberList(text: string): number[] | undefined {
-  if (!text.trim()) return undefined;
-  const items = text.split(",").map(item => item.trim());
-  if (items.some(item => item === "")) return undefined;
-  const values = items.map(Number);
-  return values.every(value => Number.isFinite(value)) ? values : undefined;
-}
-
-function listText(values: readonly number[] | undefined): string {
+/** A list the page shows: the engine's numbers, comma separated, or the text the engineer typed. */
+function listText(values: NumberListEntry | undefined): string {
+  if (typeof values === "string") return values;
   return values ? values.join(", ") : "";
 }
-
-function choiceOf<T extends string>(text: string, choices: readonly T[]): T | undefined {
-  return choices.find(choice => choice === text);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
 
 function emptyPresenter(): ThreePageAnalysisPresenter {
   return {
     receive: () => undefined, recordingsChanged: () => undefined, setTool: () => undefined, run: () => undefined, actionLabel: () => undefined,
-    choice: () => undefined, availableTools: () => [], shown: () => undefined, offers: () => [], dispose: () => undefined,
+    availableTools: () => [], shown: () => undefined, offers: () => [], dispose: () => undefined,
     tools: () => undefined, started: () => undefined, answer: () => undefined, refused: () => undefined, update: () => undefined, restore: () => undefined,
   };
 }

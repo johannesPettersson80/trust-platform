@@ -217,7 +217,8 @@ fn opening_a_state_feedback_lesson_offers_its_families_and_the_state_space_metho
                 "LQR": ["P1.K1", "P1.K2", "P1.N"]
             },
             "recommendedFamily": "LQR",
-            "methods": ["state-space"]
+            "methods": ["state-space"],
+            "methodTitles": { "state-space": "State-space design" }
         })
     );
     let _ = fs::remove_dir_all(&project);

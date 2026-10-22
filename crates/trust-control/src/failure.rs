@@ -32,6 +32,8 @@ pub enum Cause {
 pub enum NextAction {
     /// Connect a runtime.
     ConnectRuntime,
+    /// Start the local simulator (A2.8): a live request found no runtime running, and the window's runtime is the simulator.
+    StartSimulator,
     /// Open the loop setup.
     OpenLoopSetup,
     /// Open the limits.
@@ -64,6 +66,7 @@ impl NextAction {
     pub fn label(self) -> &'static str {
         match self {
             Self::ConnectRuntime => "Connect runtime…",
+            Self::StartSimulator => "Start simulator",
             Self::OpenLoopSetup => "Loop setup…",
             Self::OpenLimits => "Limits…",
             Self::OpenRequirements => "Requirements…",

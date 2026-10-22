@@ -350,7 +350,7 @@ impl ControllerAdapter<'_> {
                 profile.tracking(&binding, false)
             }
             AdapterKind::Group { project, group } => {
-                // The declared profile refuses a loop with channel bindings until the channel port (V7) makes it group-aware.
+                // The declared profile's own binding is the group's, so its tracking names every member's channels (C7).
                 let profile = declared_profile_of(
                     self.loop_definition,
                     model,

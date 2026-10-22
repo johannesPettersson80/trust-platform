@@ -1,44 +1,75 @@
-import { decodeIdentificationExperiment, type IdentificationExperiment } from "../identificationExperiment";
 import { LineChart } from "echarts/charts";
 import { AriaComponent, GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
 import * as echarts from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 import { axis, chartTheme } from "./chartPrimitives";
-import type { IdentifiedModelPresentation } from "../identification";
 import type { StudioPage } from "./threePageHostState";
 import { displayEngineeringUnit } from "../chartContract";
-import type { EngineeringPlotMessageEvidence } from "../engineeringPlots";
-import type { RunEvaluation } from "../runValidation";
-import type { ControlLoopDefinition } from "../loopDefinition";
-import { loopSignal } from "../loopChannels";
-import { experimentInputBinding, experimentSignalBindings, recordedSignalResponses } from "./threePageRecordedSignals";
+import type { LiveSides, LoopDefinition, PlotSignal } from "../generated/OpenResult";
+import { ENGINE_OPENED_EVENT } from "./engineShared";
+import { openedOffers, setOpenedOffers } from "./openedOffers";
+import { experimentInputBinding, recordedSignalResponses, type ChartSample } from "./threePageRecordedSignals";
 import { responseChartSeries, responseChartTooltip } from "./threePageResponseSeries";
 import { responseRowAxis, responseRowGrids } from "./responseRows";
-import type { WorkflowResultSample } from "../workflowResult";
-import { decodeLoopMonitorEnvelope } from "../messages";
-import { ThreePageLiveSignals, type SignalResponseGroup } from "./threePageLiveSignals";
+import { ThreePageLiveSignals, type LiveSample, type SignalResponseGroup } from "./threePageLiveSignals";
 import { signalRoleName, signalRoleTitle } from "./signalRoles";
 
 type ResponseGroup = SignalResponseGroup;
+
+/** One trace of an experiment on the engine's time base: the applied input or the measured output. A null value is a gap (B10.3). */
+interface ExperimentTrace {
+  id: string;
+  unit: string;
+  points: readonly { timeSeconds: number; value: number | null }[];
+}
+
+/**
+ * What the chart reads of an identification's presentation message: the measured and predicted samples on the engine's time base,
+ * the output they belong to, and the applied inputs the experiment held when the engine's plot has them (`engineIdentify.ts` repackages
+ * `IdentifyResult.plot`; the presentation of a Recorded-data fit holds the samples alone).
+ */
+interface ChartPresentation {
+  predictedResponse?: readonly { timeSeconds: number; measured: number | null; predicted: number | null }[];
+  outputId?: string;
+  experiment?: { inputs: readonly ExperimentTrace[]; outputs: readonly ExperimentTrace[] };
+  units: { output: string };
+}
+
+/** The predicted response of a Tune answer or manual preview (`predictedPlots` of `engineTune.ts`): the candidate's and the current settings' measurement. */
+interface PredictedPlots {
+  timeResponse?: readonly { timeSeconds: number; candidatePv: number | null; currentPv?: number | null }[];
+}
+
+/** The `loop.monitor.snapshot` message the panel posts: the engine's sample (`MonitorResult.sample`) with the scope it belongs to (B2). */
+interface LoopMonitorEnvelope {
+  kind: string;
+  projectId: string;
+  editorSessionId: string;
+  loopId: string;
+  expectedLoopRevision: string;
+  payload: LiveSample;
+}
 
 echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, AriaComponent, CanvasRenderer]);
 const host = document.querySelector<HTMLElement>("[data-control-studio-chart]");
 if (host) {
   const root = document.querySelector<HTMLElement>("[data-studio-three-page]")!;
-  const loop = JSON.parse(root.dataset.studioLoop ?? "null") as ControlLoopDefinition | null;
+  const loop = JSON.parse(root.dataset.studioLoop ?? "null") as LoopDefinition | null;
   const chart = echarts.init(host, undefined, { renderer: "canvas" });
-  // The full symbols of the loop's signals show on hover; the legend and axes name them by role.
-  if (loop) host.title = signalRoleTitle(loop);
   const empty = root.querySelector<HTMLElement>("[data-studio-chart-empty]");
   const plots: Partial<Record<StudioPage, ResponseGroup[]>> = {};
   // The Validate plot's title as the engine names it; the page's own word stands until an engine plot arrives.
   let measuredTitle: string | undefined;
-  let live = loop ? new ThreePageLiveSignals(loop) : undefined;
+  let live = loop ? new ThreePageLiveSignals() : undefined;
   let recordedSource = false;
   let livePage: StudioPage = "model";
   const selected = (kind: string) => Array.from(root.querySelector<HTMLSelectElement>(`[data-studio-${kind}]`)?.selectedOptions ?? [], option => option.value);
+  /** The signals the engine lists for the plots (`liveSides.plotSignals`, B9.6); none until its open answer has arrived. */
+  const plotSignals = (): readonly PlotSignal[] => openedOffers().liveSides?.plotSignals ?? [];
+  /** The sides the engine names the loop's roles from (`liveSides`, B3.6); none until its open answer has arrived. */
+  const liveSides = (): LiveSides | null | undefined => openedOffers().liveSides;
   let page: StudioPage = "model";
-  let recording: readonly WorkflowResultSample[] = [];
+  let recording: readonly ChartSample[] = [];
   let selectedSignals: readonly string[] = [];
   const render = () => {
     const theme = chartTheme();
@@ -62,7 +93,7 @@ if (host) {
     const times = groups.flatMap(group => group.series.flatMap(series => series.points.map(point => point[0]).filter((time): time is number => time !== null)));
     const starts = groups.flatMap(group => group.timeStart === undefined ? [] : [group.timeStart]);
     const timeRange = times.length ? [...times, ...starts].reduce(([low, high], time) => [Math.min(low, time), Math.max(high, time)], [Infinity, -Infinity]) : undefined;
-    const series = responseChartSeries(theme, loop, groups);
+    const series = responseChartSeries(theme, plotSignals(), groups);
     const labels = new Map(groups.flatMap(group => group.series.map(item => [item.name, item.label ?? item.name] as const)));
     const description = groups.length ? `Response plot: ${[...labels.values()].join(", ")}. ${groups.map(group => `${group.name} (${displayEngineeringUnit(group.unit)})`).join(", ")}. Time in seconds.` : "Response plot";
     if (!groups.length) chart.clear();
@@ -92,11 +123,11 @@ if (host) {
     host.setAttribute("aria-label", description);
   };
   window.addEventListener("message", event => {
-    const envelope = decodeLoopMonitorEnvelope(event.data, {
-      projectId: root.dataset.projectId ?? "", editorSessionId: root.dataset.editorSessionId ?? "",
-      loopId: root.dataset.loopId ?? "", loopRevision: root.dataset.loopRevision ?? "",
-    });
-    if (!envelope || !live) return;
+    const envelope = event.data as Partial<LoopMonitorEnvelope> | undefined;
+    if (!live || envelope?.kind !== "loop.monitor.snapshot" || !envelope.payload) return;
+    // A sample of another session, loop or revision is not this page's (B2, A8.6).
+    if (envelope.projectId !== root.dataset.projectId || envelope.editorSessionId !== root.dataset.editorSessionId
+      || envelope.loopId !== root.dataset.loopId || envelope.expectedLoopRevision !== root.dataset.loopRevision) return;
     live.receive(envelope.payload);
     if (page === livePage && !plots[page] && !recordedSource) render();
   });
@@ -107,40 +138,36 @@ if (host) {
   window.addEventListener("trust-control-studio-engineer", event => {
     const payload = (event as CustomEvent<Record<string, unknown>>).detail;
     if (payload.liveIdentification === true && loop) {
-      delete plots.model; recordedSource = false; livePage = "model"; live = new ThreePageLiveSignals(loop);
-    }
-    if (payload.liveModelValidation === true && loop) {
-      delete plots.verify; recordedSource = false; livePage = "verify"; live = new ThreePageLiveSignals(loop);
+      delete plots.model; recordedSource = false; livePage = "model"; live = new ThreePageLiveSignals();
     }
     if (payload.recordingCatalog) recordedSource = true;
     // A reset drops the Tune and Validate plots with the model they were drawn for (the Identify page specification, Reset).
-    if (["edited", "model-ready", "reset"].includes(String(payload.status))) { delete plots.tune; delete plots.verify; }
+    if (["edited", "reset"].includes(String(payload.status))) { delete plots.tune; delete plots.verify; }
     // A new candidate or manual preview replaces the Tune plot; one without a predicted response shows none (B4.5). A payload that
     // carries its plots draws them after this, so the prediction of the settings on the page is the one shown.
     if (payload.status === "candidate" || payload.status === "preview") delete plots.tune;
-    const experiment = decodeIdentificationExperiment(payload.identificationExperiment);
-    if (experiment) { plots.model = experimentResponses(experiment, true, loop); recordedSource = true; }
-    const presentation = payload.identificationPresentation as IdentifiedModelPresentation | undefined;
+    const presentation = payload.identificationPresentation as ChartPresentation | undefined;
     if (presentation?.predictedResponse?.length) {
-      const outputs = presentation.outputFits?.length ? presentation.outputFits : [{ id: presentation.outputId ?? JSON.parse(root.dataset.studioLoop ?? "null")?.signals.processVariable.symbol ?? "Measured output",
-        unit: presentation.units.output, points: presentation.predictedResponse }];
-      const fittedExperiment = decodeIdentificationExperiment(presentation.experiment);
-      const retained = loop && recording.length ? recordedSignalResponses(loop, recording, selectedSignals) : [];
+      const output = { id: presentation.outputId ?? loop?.signals.processVariable.symbol ?? "Measured output",
+        unit: presentation.units.output, points: presentation.predictedResponse };
+      const experiment = presentation.experiment;
+      const retained = loop && recording.length ? recordedSignalResponses(plotSignals(), recording, selectedSignals) : [];
       const retainedSeries = retained.flatMap(group => group.series);
-      plots.model = outputs.map((output, index) => ({ name: signalRoleName(loop, output.id) ?? output.id, unit: output.unit, series: [
-        { signalId: loop ? experimentSignalBindings(loop).find(signal => signal.symbol === output.id)?.id : undefined, name: outputs.length === 1 ? "Measured" : `${signalRoleName(loop, output.id) ?? output.id} · Measured`, points: fittedExperiment?.outputs[index]?.points.map(point => [point.timeSeconds, point.value])
-          ?? retainedSeries.find(series => series.name === output.id || outputs.length === 1 && series.signalId === "pv")?.points
+      const measurement = plotSignals().find(signal => signal.kind === "measurement");
+      plots.model = [{ name: signalRoleName(liveSides(), output.id) ?? output.id, unit: output.unit, series: [
+        { signalId: plotSignals().find(signal => signal.symbol === output.id)?.id, name: "Measured", points: experiment?.outputs[0]?.points.map(point => [point.timeSeconds, point.value])
+          ?? retainedSeries.find(series => series.name === output.id || (measurement !== undefined && series.signalId === measurement.id))?.points
           ?? output.points.map(point => [point.timeSeconds, point.measured]) },
-        { prediction: true, name: outputs.length === 1 ? "Model prediction" : `${signalRoleName(loop, output.id) ?? output.id} · Model prediction`, points: output.points.map(point => [point.timeSeconds, point.predicted]), dashed: true },
-      ] }));
-      if (fittedExperiment) { plots.model.push(...experimentResponses(fittedExperiment, false, loop)); recordedSource = true; }
+        { prediction: true, name: "Model prediction", points: output.points.map(point => [point.timeSeconds, point.predicted]), dashed: true },
+      ] }];
+      if (experiment) { plots.model.push(...appliedInputs(experiment.inputs, liveSides())); recordedSource = true; }
       else if (retained.length) plots.model.push(...retained.map(group => ({ ...group,
         series: group.series.filter(series => selected("inputs").includes(series.name)) })).filter(group => group.series.length > 0));
     }
-    const prediction = payload.plots as EngineeringPlotMessageEvidence | undefined;
+    const prediction = payload.plots as PredictedPlots | undefined;
     if (loop && prediction?.timeResponse?.length) {
       const points = prediction.timeResponse;
-      plots.tune = [{ name: signalRoleName(loop, loop.signals.processVariable.symbol) ?? loop.signals.processVariable.symbol, unit: loop.signals.processVariable.unit, series: [
+      plots.tune = [{ name: signalRoleName(liveSides(), loop.signals.processVariable.symbol) ?? loop.signals.processVariable.symbol, unit: loop.signals.processVariable.unit, series: [
         { name: "Tuned", points: points.map(point => [point.timeSeconds, point.candidatePv]) },
         ...(points.some(point => typeof point.currentPv === "number") ? [{ name: "Current", dashed: true, points: points.map(point => [point.timeSeconds, point.currentPv ?? null]) }] : []),
       ] }];
@@ -150,10 +177,14 @@ if (host) {
       const measured = payload.validationPlot as { title: string; groups: ResponseGroup[] } | null;
       if (measured) { plots.verify = measured.groups; measuredTitle = measured.title; } else delete plots.verify;
     }
-    const evaluation = payload.candidate as RunEvaluation | undefined;
-    if (loop && evaluation?.run?.samples?.length) plots.verify = runResponses(loop, evaluation, payload.baseline as RunEvaluation | undefined);
-    const modelPrediction = payload.modelPrediction as { baseline: RunEvaluation; candidate: RunEvaluation } | undefined;
-    if (loop && modelPrediction?.candidate?.run?.samples?.length) plots.tune = runResponses(loop, modelPrediction.candidate, modelPrediction.baseline);
+    render();
+  });
+  // The engine's open answer names the signals the plots draw and the role of each (B9.6, B9.9); the chart draws from it once the answer has
+  // arrived. The full symbols of the loop's signals show on hover; the legend and axes name them by role.
+  window.addEventListener(ENGINE_OPENED_EVENT, event => {
+    const opened = (event as CustomEvent<{ liveSides?: LiveSides | null }>).detail;
+    setOpenedOffers({ liveSides: opened.liveSides ?? null });
+    host.title = signalRoleTitle(liveSides());
     render();
   });
   window.addEventListener("trust-control-studio-three-page", event => {
@@ -163,26 +194,20 @@ if (host) {
   window.addEventListener("trust-control-studio-experiment-started", () => {
     if (!loop) return;
     recording = []; delete plots.model; recordedSource = false; livePage = "model";
-    live = new ThreePageLiveSignals(loop); render();
+    live = new ThreePageLiveSignals(); render();
   });
-  const showRecording = (samples: readonly WorkflowResultSample[], signals: readonly string[]) => {
+  const showRecording = (samples: readonly ChartSample[], signals: readonly string[]) => {
     recording = samples; selectedSignals = signals; recordedSource = true;
-    if (loop) plots.model = recordedSignalResponses(loop, recording, selectedSignals);
+    if (loop) plots.model = recordedSignalResponses(plotSignals(), recording, selectedSignals);
     render();
   };
   window.addEventListener("trust-control-studio-experiment-recording", event => {
-    const detail = (event as CustomEvent<{ recording: { rawSamples?: readonly WorkflowResultSample[] }; signalIds: readonly string[] }>).detail;
+    const detail = (event as CustomEvent<{ recording: { rawSamples?: readonly ChartSample[] }; signalIds: readonly string[] }>).detail;
     showRecording(detail.recording.rawSamples ?? [], detail.signalIds);
-  });
-  window.addEventListener("trust-control-studio-recording-opened", event => {
-    if (!loop) return;
-    const detail = (event as CustomEvent<{ recording: { rawSamples: readonly WorkflowResultSample[] } }>).detail;
-    const symbols = [...selected("outputs"), ...selected("inputs")];
-    showRecording(detail.recording.rawSamples, experimentSignalBindings(loop).filter(signal => symbols.includes(signal.symbol)).map(signal => signal.id));
   });
   window.addEventListener("trust-control-studio-experiment-signals", event => {
     selectedSignals = (event as CustomEvent<{ signalIds: readonly string[] }>).detail.signalIds;
-    if (loop && recording.length) plots.model = recordedSignalResponses(loop, recording, selectedSignals);
+    if (loop && recording.length) plots.model = recordedSignalResponses(plotSignals(), recording, selectedSignals);
     render();
   });
   render();
@@ -191,29 +216,14 @@ if (host) {
   new MutationObserver(render).observe(document.body, { attributes: true, attributeFilter: ["class", "style", "data-vscode-theme-kind"] });
 }
 
-function runResponses(loop: ControlLoopDefinition, candidate: RunEvaluation, baseline?: RunEvaluation): ResponseGroup[] {
-  const run = candidate.run;
-  const current = baseline?.run?.samples?.length && baseline.run.conditions.modelRevision === run.conditions.modelRevision
-    && baseline.run.conditions.durationSeconds === run.conditions.durationSeconds ? baseline.run : undefined;
-  const outputs = loop.channels?.outputs.map(channel => loopSignal(loop, channel.signalId)) ?? [loop.signals.processVariable];
-  return outputs.map(signal => ({ name: signalRoleName(loop, signal.symbol) ?? signal.symbol, unit: signal.unit, timeStart: 0, series: [
-    { name: outputs.length === 1 ? "Tuned" : `${signal.symbol} · Tuned`, label: outputs.length === 1 ? undefined : `${signalRoleName(loop, signal.symbol) ?? signal.symbol} · Tuned`, points: run.samples.map(sample => [sample.timeSeconds, sample.values[signal.symbol]?.quality === "good" ? sample.values[signal.symbol].value : null]) },
-    ...(current ? [{ name: outputs.length === 1 ? "Current" : `${signal.symbol} · Current`, label: outputs.length === 1 ? undefined : `${signalRoleName(loop, signal.symbol) ?? signal.symbol} · Current`, dashed: true,
-      points: current.samples.map(sample => [sample.timeSeconds, sample.values[signal.symbol]?.quality === "good" ? sample.values[signal.symbol].value : null]) }] : []),
-  ] }));
-}
-
-function experimentResponses(experiment: IdentificationExperiment, includeOutputs: boolean, loop?: ControlLoopDefinition | null): ResponseGroup[] {
-  const bindings = loop ? experimentSignalBindings(loop) : [];
-  const binding = (id: string) => bindings.find(signal => signal.symbol === id);
-  const outputs: ResponseGroup[] = includeOutputs ? experiment.outputs.map(trace => ({ name: signalRoleName(loop, trace.id) ?? trace.id, unit: trace.unit,
-    series: [{ signalId: binding(trace.id)?.id, name: `${signalRoleName(loop, trace.id) ?? trace.id} · Measured`, points: trace.points.map(point => [point.timeSeconds, point.value]) }] })) : [];
-  const inputs = new Map<string, ResponseGroup>();
-  for (const trace of experiment.inputs) {
-    const group = inputs.get(trace.unit) ?? { name: "Applied input", unit: trace.unit, series: [] };
-    const applied = loop ? experimentInputBinding(loop, trace.id) : undefined;
-    group.series.push({ signalId: applied?.id, name: applied ? signalRoleName(loop, applied.symbol) ?? applied.symbol : `${trace.id} · Applied input`, points: trace.points.map(point => [point.timeSeconds, point.value]) });
-    inputs.set(trace.unit, group);
+/** The applied inputs of an experiment, one group for each unit: the plant input it held, drawn beside the measurement and the prediction (B9.6). */
+function appliedInputs(traces: readonly ExperimentTrace[], sides: LiveSides | null | undefined): ResponseGroup[] {
+  const groups = new Map<string, ResponseGroup>();
+  for (const trace of traces) {
+    const group = groups.get(trace.unit) ?? { name: "Applied input", unit: trace.unit, series: [] };
+    const applied = experimentInputBinding(sides?.plotSignals ?? [], trace.id);
+    group.series.push({ signalId: applied?.id, name: applied ? signalRoleName(sides, applied.symbol) ?? applied.symbol : `${trace.id} · Applied input`, points: trace.points.map(point => [point.timeSeconds, point.value]) });
+    groups.set(trace.unit, group);
   }
-  return [...outputs, ...inputs.values()];
+  return [...groups.values()];
 }

@@ -18,22 +18,74 @@ export type OpenResult =
   | {
       analysis: AnalysisRecords;
       /**
+       * Whether Apply is offered (B5.4, B7, A8.6), by the one rule of every answer that states it
+       * (`application_offers::apply_offered`): the study's validation passed for the current candidate, no Apply's checkpoint is
+       * unresolved, and the newest Apply applied another validation, whether its settings stand, were restored or were retired.
+       * The page shows the statement.
+       */
+      applyAvailable: boolean;
+      /**
        * Whether a journaled Apply observation is left to follow to its end, with `controlStudio/apply` and `resume` (A8.5, A8.6): the
-       * journal holds the observation while the runtime may still record it.
+       * journal holds the observation while the runtime may still record it, and no operation of this engine follows it now.
        */
       applyObservationResumable: boolean;
+      /**
+       * The rows of the Channels editor (A8.1, the Tune page's **Channels…**): each model channel's plant signal as the study
+       * selects it, and the signals it may take. Absent for a loop with one input and one output.
+       */
+      channelChoices?: ChannelChoices | null;
+      /**
+       * The controller the Tune page offers the loop, with the rows of its manual editor (C2, C4, B4.2): its families and their labels,
+       * the family the page shows by default and the settings each family takes. Absent when the engine adapts no controller of the loop.
+       */
+      controllerOffer?: ControllerOffer | null;
+      experimentLimits: ExperimentLimits;
+      /**
+       * What the study's recorded inputs mean for the page's editors (A8.6): the Method list's entry that holds the study's method,
+       * and the controller family and pinned settings that apply to the tuning method the study holds. The page decodes no record.
+       */
+      heldInputs?: HeldInputs | null;
       /**
        * The study's current identification, as Identify answers it (A8.6): its readable result, plot, model revision and
        * requirements. Absent without a current model, and after Reset.
        */
       identification?: IdentifyResult | null;
+      /**
+       * The identification methods the Identify page's Method list offers, in its order, each with its label, whether the loop can run
+       * it and the sentence that says why not (B3.2, B3.3). The page builds the list from them.
+       */
+      identifyMethods: IdentifyMethodOffer[];
       inputs: InputsSection;
       /**
-       * Whether Keep in project is offered from the study's Apply receipts (A8.6, B6.5), the same rule `controlStudio/keep` applies.
+       * Whether Keep in project is offered (A8.6, B6.5): an Apply's settings stand, and the study's Apply receipts allow it, the same
+       * receipts `controlStudio/keep` reads.
        */
       keepAvailable: boolean;
       kind: "opened";
+      liveSides: LiveSides;
       loop: LoopDefinition;
+      /**
+       * The Recorded-data fit the study keeps, as its answers state it (B3.3, A8.6): the saved stage replayed from the kept
+       * recordings, or the engine's default form for a study that keeps none. A saved stage that cannot be replayed is answered with
+       * the sentence that says why. The page shows it when the Recorded-data fit is the method it shows; it decides no replay.
+       */
+      manualIdentification?: ManualIdentificationAnswer | null;
+      /**
+       * Whether the measurement noise band is required (B4.3): the loop declares a low-pass or a notch filter, which the
+       * requirements check against the noise. The requirements page shows the band's field when this is true.
+       */
+      measurementNoiseBandRequired?: boolean;
+      /**
+       * The title of each method of `methods`, keyed by the method's word (`SIMC`, `AMIGO`, `relay`, `manual`, `state-space`).
+       */
+      methodTitles?: {
+        [k: string]: string;
+      } | null;
+      /**
+       * The tuning methods the study offers the Tune page, in its order (C4, N5.R): the loop's named methods, and the relay rule beside
+       * Manual when the study holds a qualified Feedback relay record. Absent when the loop has no method list.
+       */
+      methods?: TuneMethod[] | null;
       /**
        * The page last viewed, which reopening shows (A8.1, A8.6); Identify for a new study.
        */
@@ -48,10 +100,31 @@ export type OpenResult =
        */
       pageView?: PageView | null;
       /**
+       * The action that holds the Validate page's position (B7): Apply while it is offered, then Keep in project once it is offered,
+       * else Restore previous settings; absent when none is offered (`application_offers::primary_action`).
+       */
+      primaryAction?: PrimaryAction | null;
+      /**
+       * Whether the loop declares a project-scripted experiment, so that the page offers the project test (C12): the project owns
+       * the excitation. The engine's rule for the project test (`identify_manual::is_project_test`) reads the same declaration.
+       */
+      projectTest?: boolean;
+      /**
+       * The form of the project test of a project-scripted loop (B6.1, C12): the signals it offers, its duration and baseline, and the
+       * parameter tool the page shows. Absent for a loop Control Studio runs.
+       */
+      projectTestForm?: ProjectTestForm | null;
+      /**
        * The journaled operations of the loop that reopening reattaches to (A8.5, A8.6): the recordings, experiments, campaigns and
        * isolated jobs that the journal holds unfinished. A checkpoint is not an operation, so it is not listed (B6.4).
        */
       reattached: string[];
+      /**
+       * The controlled outputs of the Requirements editor (B4.3, C7), in channel order: the outputs that declare a setpoint, or every
+       * output when none does, each with the channel its rows are named by and the requirements they start from. Empty for a loop
+       * without channels, whose requirements are the record's own. The page lists the outputs from this answer.
+       */
+      requirementOutputs: RequirementOutput[];
       /**
        * Whether Restore previous settings is offered from the journaled checkpoint of the loop's Apply (A8.6, B6.4): a reopened
        * loop offers it, and the runtime confirms the review when the engineer asks for it.
@@ -62,15 +135,33 @@ export type OpenResult =
        */
       running: string[];
       /**
+       * The signal that a new initial value or timed change of a scenario starts at (B4.3): the loop's setpoint. Absent when the loop
+       * declares none, which leaves the new row's signal blank for the engine to refuse.
+       */
+      scenarioRowSignal?: string | null;
+      scenarioTemplate: EngineerScenario1;
+      /**
        * The study's current finite-search candidate (C5, A8.6), rebuilt from the study's Tune section: its values, its trials and the
        * unit of J. Given under the rule of `tune` (a current candidate, A8.4), and for a search law only; absent otherwise.
        */
       searchCandidate?: SearchCandidate | null;
-      stageEvidence: StageEvidence1;
       /**
-       * The status of every stage.
+       * The setpoints that a loop without a declared setpoint may take (B3.6); absent when the loop declares its setpoint.
+       */
+      setpointChoices?: SetpointChoice[] | null;
+      stageEvidence: StageEvidence2;
+      /**
+       * The status of every stage. While an Apply's checkpoint waits for its Restore, the stages that write or change the study
+       * cannot start and name the block's reason (B6.4, B6.7), so a reopened loop holds the block.
        */
       stages: StageAvailability[];
+      /**
+       * The text the design form shows for the loop's declared design when the study holds no draft (C4): each declared matrix or pole
+       * list as JSON. Empty for a loop without a state law.
+       */
+      stateDeclaredText?: {
+        [k: string]: string;
+      };
       /**
        * The design-form fields of a state law, with their labels, under the solver policy the stored draft chooses (D-B12): the
        * page shows them before the first Tune. Absent for a loop without a state law.
@@ -108,6 +199,15 @@ export type NyquistReport =
       [k: string]: unknown;
     };
 /**
+ * A relay's first direction.
+ */
+export type RelayDirection = "positive" | "negative";
+/**
+ * The method of a Tune run (specification 35, B4.2; numerical annexes N5 and N5.R): a formula method, the relay rule, or the
+ * settings the engineer enters. Absent in a request, the method is Automatic (B4.2).
+ */
+export type TuneMethod = "SIMC" | "AMIGO" | "relay" | "manual" | "state-space";
+/**
  * A named formula method (N5.2 to N5.5). Automatic is not a method here: it chooses among them (N5.11).
  */
 export type TuningMethod = "SIMC" | "AMIGO";
@@ -121,15 +221,6 @@ export type TuningObjective = "fast" | "balanced" | "robust";
  * back to their original values, or `notRequired` when the experiment wrote none.
  */
 export type CampaignRestoration = "restored" | "notRequired";
-/**
- * A relay's first direction.
- */
-export type RelayDirection = "positive" | "negative";
-/**
- * The method of a Tune run (specification 35, B4.2; numerical annexes N5 and N5.R): a formula method, the relay rule, or the
- * settings the engineer enters. Absent in a request, the method is Automatic (B4.2).
- */
-export type TuneMethod = "SIMC" | "AMIGO" | "relay" | "manual" | "state-space";
 /**
  * One requirement of a run: its identifier, the channel it measures, its window and its calculation (`RunRequirement`).
  */
@@ -429,6 +520,31 @@ export type ParameterPurpose = "controller" | "experiment";
  */
 export type Topology = "closed-loop" | "open-loop";
 /**
+ * The side of the baseline on which the sustained onset is sought (N2.5): `above` when the mean of the hold's last tenth lies above the
+ * baseline mean, and when it does not differ from it (such a hold finds no onset), `below` when it lies below.
+ */
+export type OnsetSide = "above" | "below";
+/**
+ * A structure the engineer may choose (`structureChoice`: `first_order` or `additional_lag`).
+ */
+export type StructureChoice = "first_order" | "additional_lag";
+/**
+ * The stage a manual identification answer shows, named as the page names its stages.
+ */
+export type ManualStage =
+  "editing" | "recording-selected" | "qualified" | "validation_required" | "acceptance_required" | "accepted";
+/**
+ * The step response a presented model plots (`stepResponse`): the measurement of the plotted record when the fit has
+ * one, otherwise the step-response analysis of the estimation record. Both are written as their own record. When one
+ * is read, the analysis is tried first: a measurement lacks the analysis's fit, while an analysis holds every field
+ * of a measurement and would otherwise be read as one.
+ */
+export type StepResponseView = StepResponseAnalysis2 | StepResponseMeasurement1;
+/**
+ * The evidence an identification result names: data of a simulated or of a physical target (A2.4).
+ */
+export type ResultSource = "Identified from simulation data" | "Identified from physical data";
+/**
  * How the response's model is connected: open loop (the held input drives the plant directly) or
  * feedback (through a controller).
  */
@@ -442,6 +558,21 @@ export type LeadLagMode = "lead" | "lag";
  * removed.
  */
 export type PoleZeroView = "unreduced" | "minimal";
+/**
+ * The action that holds the Validate page's position (B7; the Validate page specification: Apply and Restore never compete as primary
+ * actions): `apply` puts Apply in the position, `restore` puts Restore previous settings there, and `keep` makes Keep in project the
+ * page's primary action while Restore previous settings keeps the position beside it.
+ */
+export type PrimaryAction = "apply" | "restore" | "keep";
+/**
+ * One action of the parameter tool (C12).
+ */
+export type ParameterToolStep = "inspect" | "review" | "apply" | "restore";
+/**
+ * The parameter tool the page shows for a project-scripted loop: the experiment's own settings on the Identify page, or the parameters
+ * of a declared analysis on the Tune page (B6.1, C12). `controlStudio/parameters` serves both.
+ */
+export type ParameterTool = "experiment" | "analysis";
 /**
  * The bounds outcome of an attempted trial (C5): every mandatory requirement met, one not met, or evidence missing.
  */
@@ -957,26 +1088,28 @@ export interface SettledTrial {
  */
 export interface TimeWindow {
   /**
-   * The end of the window, in seconds.
+   * The end of the window, in seconds; absent when the request leaves it out. It is read as `start_seconds` is.
    */
-  endSeconds: number;
+  endSeconds?: number | string | null;
   /**
-   * The start of the window, in seconds.
+   * The start of the window, in seconds; absent when the request leaves it out. The page sends the text the engineer typed, which
+   * `number_of_entry` reads; text that is no number is refused under the window's field.
    */
-  startSeconds: number;
+  startSeconds?: number | string | null;
 }
 /**
  * The window after the step.
  */
 export interface TimeWindow1 {
   /**
-   * The end of the window, in seconds.
+   * The end of the window, in seconds; absent when the request leaves it out. It is read as `start_seconds` is.
    */
-  endSeconds: number;
+  endSeconds?: number | string | null;
   /**
-   * The start of the window, in seconds.
+   * The start of the window, in seconds; absent when the request leaves it out. The page sends the text the engineer typed, which
+   * `number_of_entry` reads; text that is no number is refused under the window's field.
    */
-  startSeconds: number;
+  startSeconds?: number | string | null;
 }
 /**
  * The pole paths of a declared analysis (N7.5): the poles at each gain of the sweep, and at evenly
@@ -1329,6 +1462,218 @@ export interface SymbolicRow {
   power: number;
 }
 /**
+ * The rows of the Channels editor (the Tune page's **Channels…**) for a multichannel loop: its inputs and outputs in channel order.
+ */
+export interface ChannelChoices {
+  /**
+   * The model inputs, in channel order.
+   */
+  inputs: ChannelRow[];
+  /**
+   * The model outputs, in channel order.
+   */
+  outputs: ChannelRow[];
+  [k: string]: unknown;
+}
+/**
+ * One model channel of the Channels editor: the plant signal it has now, the signals of its side it may take, and the PID group
+ * member that owns it, when the loop is a group.
+ */
+export interface ChannelRow {
+  /**
+   * The signals of the channel's side, in channel order.
+   */
+  choices: SignalChoice[];
+  /**
+   * The model channel's identifier.
+   */
+  modelChannelId: string;
+  /**
+   * The PID group member's instance that owns the channel, for a group.
+   */
+  owner?: string | null;
+  /**
+   * The plant signal the channel is bound to now.
+   */
+  signalId: string;
+  [k: string]: unknown;
+}
+/**
+ * One signal a model channel can be bound to, as the Channels editor names it.
+ */
+export interface SignalChoice {
+  /**
+   * The signal's identifier in the loop.
+   */
+  signalId: string;
+  /**
+   * The variable's path.
+   */
+  symbol: string;
+  /**
+   * The signal's unit; empty means dimensionless.
+   */
+  unit: string;
+  [k: string]: unknown;
+}
+/**
+ * The controller that the Tune page offers a loop (C2, C4, B4.2): the families the selector lists, the family it shows by default,
+ * the settings each family takes and the rows of the manual editor.
+ */
+export interface ControllerOffer {
+  /**
+   * The family the selector shows until the engineer chooses one: the family of the study's candidate, else the family of its pins
+   * (B4.2). Absent, which is Automatic, when the study holds neither.
+   */
+  defaultFamily?: string | null;
+  /**
+   * The families the selector lists, in the engine's order.
+   */
+  families: FamilyOffer[];
+  /**
+   * The settings each family takes, by the family's name: the rows the manual editor shows for that family.
+   */
+  familySettings: {
+    [k: string]: string[];
+  };
+  /**
+   * The family the selector marks recommended (C4), when the engine names one.
+   */
+  recommended?: string | null;
+  /**
+   * Every setting that a family takes, in the order of the loop's parameter binding. The page shows the rows of the chosen family.
+   */
+  settingRows: SettingRow[];
+  [k: string]: unknown;
+}
+/**
+ * One family that the controller selector lists: its name, as the engine names it, and the label the selector shows.
+ */
+export interface FamilyOffer {
+  /**
+   * The family's name: `P`, `PI`, `PD`, `PID`, `ON/OFF`, `state-feedback`, `LQR`, `LQG` or a program's family.
+   */
+  family: string;
+  /**
+   * The label the selector shows for the family.
+   */
+  label: string;
+  [k: string]: unknown;
+}
+/**
+ * One row of the manual editor (B4.2): a setting of the loop that a family takes, with its label, its unit and its bounds.
+ */
+export interface SettingRow {
+  /**
+   * The label of the row.
+   */
+  label: string;
+  /**
+   * The largest value that the engine accepts for the setting.
+   */
+  maximum: number;
+  /**
+   * The smallest value that the engine accepts for the setting.
+   */
+  minimum: number;
+  /**
+   * The setting's symbol, as the loop's parameter binding names it.
+   */
+  symbol: string;
+  /**
+   * The setting's unit, as the parameter binding names it: `1` for a number without a unit.
+   */
+  unit: string;
+  [k: string]: unknown;
+}
+/**
+ * The limits of the identification experiment as the Limits editor shows them (B3.2, A8.6): every plant input and measured
+ * output with its range, and the maximum duration. They are the loop's declared defaults with the study's own record over
+ * them, so the page merges nothing; the amplitude, the relay direction and the review's duration are the declared ones.
+ */
+export interface ExperimentLimits {
+  /**
+   * The amplitude the loop declares for the experiment; zero asks for the declared one (B3.2).
+   */
+  amplitude: number;
+  /**
+   * The maximum duration the loop declares, in seconds; absent when the loop declares none, and the Limits editor then asks for it.
+   */
+  durationSeconds?: number | null;
+  /**
+   * The maximum duration in the engine's words (`duration_words`, B9.9), such as `90 s` or `1 h 30 min`: the Limits editor shows the
+   * text as it is and sends back what the engineer typed. The words read back as exactly `duration_seconds`, so a duration that the
+   * engineer leaves alone is never changed by the way it is shown. Present exactly when `duration_seconds` is.
+   */
+  durationWords?: string | null;
+  /**
+   * The range of each plant input, in the loop's channel order; the manipulated variable alone for a loop without channels.
+   */
+  inputs: ExperimentRange[];
+  /**
+   * The range of each measured output, in the loop's channel order; the process variable alone for a loop without channels.
+   */
+  outputs: ExperimentRange[];
+  /**
+   * The first direction of a relay the loop declares (B3.3); absent when it declares none.
+   */
+  relayDirection?: RelayDirection | null;
+  /**
+   * The duration a project test's review asks for, in seconds: the loop's declared duration, or zero when it declares none, which the
+   * engine refuses under Limits (C12).
+   */
+  reviewDurationSeconds: number;
+  [k: string]: unknown;
+}
+/**
+ * The range a signal may use in an identification experiment: its symbol, which names its field of a multichannel loop, its unit, and
+ * its smallest and largest value.
+ */
+export interface ExperimentRange {
+  /**
+   * The largest value the experiment may use.
+   */
+  maximum: number;
+  /**
+   * The smallest value the experiment may use.
+   */
+  minimum: number;
+  /**
+   * The signal's symbol.
+   */
+  symbol: string;
+  /**
+   * The signal's unit.
+   */
+  unit: string;
+  [k: string]: unknown;
+}
+/**
+ * The study's recorded inputs as the page's editors show them (A8.6): resolved by the engine, each absent when the study records no
+ * such choice.
+ */
+export interface HeldInputs {
+  /**
+   * The controller family the study holds (B4.4): the family of the state law the engineer chose (`state-feedback`, `LQR` or
+   * `LQG`), else the structure the engineer fixed (`P`, `PI`, `PD` or `PID`). Absent leaves the choice to Automatic.
+   */
+  family?: string | null;
+  /**
+   * The entry of the Identify page's Method list that holds the method the study records (B3.2), by the word of its offer
+   * (`identifyMethods`). The method the loop declares has no entry of its own and is shown as Automatic. Absent when the study
+   * records no method: the list then stands on its first entry.
+   */
+  identifyMethod?: string | null;
+  /**
+   * The pinned settings that apply to the tuning method the study holds (B4.2, C4), by symbol: the state design's pins for the
+   * state-space method, the structure's pins for any other. Absent when the study pins none.
+   */
+  pins?: {
+    [k: string]: number;
+  } | null;
+  [k: string]: unknown;
+}
+/**
  * The result of an identification: the operation's final update of `controlStudio/identify` (B3.8; Identify page
  * specification, "Identified model and plot"). It holds the readable parts the page shows.
  */
@@ -1341,6 +1686,21 @@ export interface IdentifyResult {
    * One plain line of the key numbers and their units.
    */
   keyNumbers: string;
+  /**
+   * The answer's kind (§0.1a): the page shows the answer by it, never by the fields it carries.
+   */
+  kind: "identification";
+  /**
+   * The title of each method of `methods`, keyed by the method's word (as the open answer gives them).
+   */
+  methodTitles?: {
+    [k: string]: string;
+  } | null;
+  /**
+   * The tuning methods the study offers the Tune page after this identification (C4, N5.R): the loop's named methods, and the relay
+   * rule beside Manual when the kept record is a qualified Feedback relay record. Absent when the loop has no method list.
+   */
+  methods?: TuneMethod[] | null;
   /**
    * The revision of the identified model: the one Validate's model check names when it checks this model (B5.2).
    */
@@ -1374,11 +1734,27 @@ export interface IdentifyResult {
    * and a resumed campaign.
    */
   restoration?: CampaignRestoration | null;
+  /**
+   * The sentence that says the finished project test releases its experiment settings (C12): present exactly when `restoration`
+   * is, because the settings' ownership ends only after the terminal restoration. The page shows it with the parameter tool.
+   * Absent where the run kept no restoration.
+   */
+  settingsReleased?: string | null;
   stageEvidence: StageEvidence;
   /**
    * The status of every stage after this result.
    */
   stages: StageAvailability[];
+  /**
+   * The sentence the Identify page's status line shows with this identification (B3.8, B9.9), as the engine words it: `Model
+   * identified.`, or `Provisional model identified.` for a provisional model. The page writes none of its own.
+   */
+  statusSentence: string;
+  /**
+   * The sentence that says how the project test ended (C12): `Project test completed.`, followed by `Outputs restored.` when the
+   * runtime confirmed the restoration. The page shows it as the test's status. Absent for an identification that is no project test.
+   */
+  testOutcome?: string | null;
   /**
    * The readable text of the result: the model type, "Provisional" when it is, the equation and the key numbers.
    */
@@ -1424,7 +1800,8 @@ export interface PlotTrace {
 /**
  * One sample of a kept recording as the Identify chart draws it (`control-studio.recording.evidence`): its process time from the
  * recording's first scan (A3.2), its scan, its quality, the setpoint, the measurement, the requested and the applied output, and
- * the additional recorded signals by identifier (A4.2, A8.3). The page draws the signals it selects and decides nothing.
+ * the additional recorded signals by identifier (A4.2, A8.3), and the value each plotted signal takes by its identifier (`plotted`,
+ * B9.6). The page draws the signals it selects from `plotted` and decides nothing.
  */
 export interface RecordedChartSample {
   /**
@@ -1439,6 +1816,14 @@ export interface RecordedChartSample {
    * The sample's process time in s from the recording's first scan.
    */
   elapsedSeconds: number;
+  /**
+   * The value each plotted signal takes at the sample, by the signal's identifier (`PlotSignal::id` of `liveSides.plotSignals`): the
+   * value the plot draws, or null where it draws a gap. A missing, bad or forced value is a gap in its own trace and removes no good
+   * value of another signal (B9.6).
+   */
+  plotted: {
+    [k: string]: number | null;
+  };
   /**
    * The measurement; null where the recording holds none.
    */
@@ -1503,13 +1888,23 @@ export interface TuningRequirements {
    */
   automaticCriteria?: AutomaticCriteria | null;
   /**
+   * The requirements of each controlled output of a loop with several, by the output's model channel identifier (B4.3, C7). Each
+   * is checked by the rules of this record, and its refusals name the output's channel. The record's own values are the first
+   * output's copy, which the engine writes when it assembles the record from the rows typed for each output (`study::inputs_change`);
+   * absent for a loop with one controlled output.
+   */
+  channelRequirements?: {
+    [k: string]: OutputRequirements;
+  } | null;
+  /**
    * The constant input disturbance of the load trial, in the output's unit; absent when none is declared (N5.12(b)).
    */
   constantInputDisturbance?: number | null;
   /**
-   * The validation duration in seconds: longer than the settling time, and within the runtime limit (A7).
+   * The validation duration in seconds: longer than the settling time, and within the runtime limit (A7). It is read as the settling
+   * time is.
    */
-  durationSeconds: number;
+  durationSeconds: number | string;
   /**
    * The fraction of gain uncertainty of the scenarios, between zero and one.
    */
@@ -1535,9 +1930,10 @@ export interface TuningRequirements {
    */
   settlingBand: number;
   /**
-   * The settling-time deadline in seconds, positive.
+   * The settling-time deadline in seconds, positive. The page sends the time the engineer typed (`90 s`, `1 h 30 min`) or a number of
+   * seconds; a time no duration reads is NaN and is refused under its field.
    */
-  settlingTimeSeconds: number;
+  settlingTimeSeconds: number | string;
   /**
    * The Auto-entry tolerance in output units, zero or more (A6.4).
    */
@@ -1564,6 +1960,33 @@ export interface AutomaticCriteria {
    * The revision of the model the values were generated from.
    */
   modelRevision: string;
+}
+/**
+ * The requirements that one controlled output holds to (B4.3, C7): the setpoint change of its own test, the error limit, the settling
+ * band, the time by which it settles, and its overshoot limit when it declares one. The record's `channelRequirements` holds one of these
+ * for each controlled output of a loop with several.
+ */
+export interface OutputRequirements {
+  /**
+   * The largest error allowed after the settling time, in the output's unit.
+   */
+  maximumError: number;
+  /**
+   * The overshoot limit in percent of the setpoint change; absent declares no limit.
+   */
+  maximumOvershootPercent?: number | null;
+  /**
+   * The setpoint change of the output's own test, in its unit. Never zero.
+   */
+  referenceChange: number;
+  /**
+   * The settling band around the final value, in the output's unit. Smaller than `maximum_error`.
+   */
+  settlingBand: number;
+  /**
+   * The settling-time deadline of the output in seconds, positive. The page sends the time the engineer typed or a number of seconds.
+   */
+  settlingTimeSeconds: number | string;
 }
 /**
  * The stage evidence after this result, from which `stages` is computed. An identification leaves no candidate and no
@@ -1619,15 +2042,27 @@ export interface StageEvidence {
 }
 /**
  * One stage's status, with the words the panel shows. A stage that is Not applicable also names the reason, which the page
- * shows in place of its actions (C12).
+ * shows in place of its actions (C12), and so does a stage that an Apply's checkpoint holds (B6.4, B6.7) and a stage that cannot
+ * start yet for want of what it works on (B9.4). `available` says whether the stage's own action can start now (B9.4).
  */
 export interface StageAvailability {
+  /**
+   * Whether the stage's own action can start now (B9.4). The page enables the action exactly then, and holds no copy of the
+   * rule. A bound loop can always Monitor, Test and Identify. Tune needs a model, a declared analysis or manual controller
+   * parameters; Validate needs a candidate; Apply needs a candidate whose current validation passed ([`apply_available`]), and in
+   * an answer that states the Validate page's offers, Apply offered (B7, `application_offers::offered_stages`). A stage that is
+   * Not applicable never starts (C12), and while an Apply's checkpoint waits for its Restore only Monitor starts
+   * ([`blocked_stage_availability`]).
+   */
+  available: boolean;
   /**
    * The status in words.
    */
   label: string;
   /**
-   * Why the stage does not apply, when its status is Not applicable.
+   * Why the stage does not apply, when its status is Not applicable (C12), or why its action waits, while an Apply's checkpoint
+   * waits for its Restore (B6.4, B6.7) and while the study lacks what the stage works on: a model for Tune, a candidate for
+   * Validate (B9.4). The page shows it on the stage's page.
    */
   reason?: string | null;
   /**
@@ -1638,6 +2073,36 @@ export interface StageAvailability {
    * Its status.
    */
   status: "ready" | "needs-data" | "in-progress" | "complete" | "warning" | "failed" | "not-applicable";
+  [k: string]: unknown;
+}
+/**
+ * One method of the Identify page's Method list (B3.2, B3.3): its word, which the page sends as the Method, its label, whether the
+ * loop can run it, the sentence that says why it cannot, and whether the study records it as an acquisition setting.
+ */
+export interface IdentifyMethodOffer {
+  /**
+   * Whether the loop can run the method.
+   */
+  available: boolean;
+  /**
+   * The label the list shows.
+   */
+  label: string;
+  /**
+   * The sentence that says why the loop cannot run the method; absent when it can.
+   */
+  reason?: string | null;
+  /**
+   * Whether the study records the method as an acquisition setting (A8.1, `controlStudio/inputs`): every live method does. The
+   * recorded-data fit, the supplied model and the project test start no campaign of the study's inputs, so the engine records no
+   * setting for them and the page keeps them as its view (`pageView`). Absent when the study records none.
+   */
+  records?: boolean;
+  /**
+   * The method's word: `automatic`, `mv_step`, `mv_pulse`, `setpoint_step`, `relay`, `prbs`, `multisine`, `recorded-fit`,
+   * `supplied-model` or `project`.
+   */
+  value: string;
   [k: string]: unknown;
 }
 /**
@@ -1706,41 +2171,45 @@ export interface AcquisitionSettings {
    */
   amplitude: number;
   /**
-   * The duration of the experiment in seconds, from one second to 24 hours.
+   * The duration of the experiment in seconds, from one second to 24 hours. The page sends the time it typed (`15 min`), which
+   * `duration_of_setting` reads as seconds; a time that no duration reads is refused under the duration's field.
    */
-  durationSeconds: number;
+  durationSeconds: number | string;
   /**
-   * The range of the manipulated variable the experiment may use.
+   * The range of the manipulated variable the experiment may use, in the form of a record written before ranges were kept by
+   * signal. It reads as the range `input_ranges` names for the manipulated variable, which takes precedence. The page sends
+   * `input_ranges` alone (B3.2).
    */
-  inputRange?: Range | null;
+  inputRange?: RangeSetting | null;
   /**
-   * The ranges of further input signals, by symbol: at most sixteen.
+   * The range of each plant input the experiment may use, by symbol: at most sixteen.
    */
   inputRanges?: {
-    [k: string]: Range;
+    [k: string]: RangeSetting;
   } | null;
   /**
    * The method of the experiment.
    */
   method: "configured" | "automatic" | "mv_step" | "mv_pulse" | "setpoint_step" | "relay" | "prbs" | "multisine";
   /**
-   * The range of the measured output the experiment may use.
+   * The range of the measured output the experiment may use, in the earlier form of `input_range`: it reads as the range
+   * `output_ranges` names for the process variable, which takes precedence.
    */
-  outputRange?: Range | null;
+  outputRange?: RangeSetting | null;
   /**
-   * The ranges of further output signals, by symbol: at most sixteen.
+   * The range of each measured output the experiment may use, by symbol: at most sixteen.
    */
   outputRanges?: {
-    [k: string]: Range;
+    [k: string]: RangeSetting;
   } | null;
   /**
    * The first direction of a relay experiment.
    */
   relayDirection?: RelayDirection | null;
   /**
-   * Whether the experiment may reuse a recording of the same loop.
+   * Whether the experiment may reuse a recording of the same loop. Absent means it may not, which is what every request asks.
    */
-  reuseRecordings: boolean;
+  reuseRecordings?: boolean;
   /**
    * The declared signal a setpoint step moves, when the loop has no setpoint of its own.
    */
@@ -1748,17 +2217,19 @@ export interface AcquisitionSettings {
   [k: string]: unknown;
 }
 /**
- * A signal's range.
+ * A range the settings give: the lowest and the highest value the experiment may use. The page sends each bound as the number or the
+ * text the engineer typed (`"20"`), which `number_of_bound` reads. A bound that no finite number reads, blank text included, is
+ * NaN, which no JSON number is, so the checks refuse the range under its field (B3.2, `check_settings`).
  */
-export interface Range {
+export interface RangeSetting {
   /**
-   * The largest value.
+   * The highest value.
    */
-  maximum: number;
+  maximum: number | string;
   /**
-   * The smallest value.
+   * The lowest value.
    */
-  minimum: number;
+  minimum: number | string;
 }
 /**
  * The pins a user set on the settings of a controller (`ControllerSettingsPins`): the loop they belong to, the family
@@ -1971,6 +2442,76 @@ export interface StateDesignDraft {
   terminalWeights?: string | null;
 }
 /**
+ * The live sides of the loop (B3.6): the plant signals each live selector offers, the loop's channels in channel order, or its
+ * manipulated and process variables when it declares no channels. The page offers each side from this answer.
+ */
+export interface LiveSides {
+  /**
+   * The plant inputs, in channel order.
+   */
+  inputs: SideSignal[];
+  /**
+   * The measured outputs, in channel order.
+   */
+  outputs: SideSignal[];
+  /**
+   * The signals the live plot and the plot of a kept recording draw (B9.6), by the identifier of the project test's Signals selector,
+   * each with its variable, unit and range width. The values of a recorded sample are named by these identifiers (`plotted`).
+   */
+  plotSignals?: PlotSignal[] | null;
+  [k: string]: unknown;
+}
+/**
+ * One plant signal of a live selector: its identifier in the loop, its variable's path and its unit.
+ */
+export interface SideSignal {
+  /**
+   * The signal's identifier in the loop: `manipulatedVariable`, `processVariable`, or the signal of a channel.
+   */
+  signalId: string;
+  /**
+   * The variable's path.
+   */
+  symbol: string;
+  /**
+   * The signal's unit; empty means dimensionless.
+   */
+  unit: string;
+  [k: string]: unknown;
+}
+/**
+ * One signal the plots draw: its identifier, its kind, its variable and unit, and the width of its declared range.
+ */
+export interface PlotSignal {
+  /**
+   * The identifier the plots name the signal with, and the project test's Signals selector offers it by: `sp`, `pv`, `mv` (the
+   * output the process received), `requestedMv`, or the identifier of an additional signal of the loop.
+   */
+  id: string;
+  /**
+   * What the signal is, as the identifier says it: the page names and colours the signals by this and reads no identifier.
+   */
+  kind: "setpoint" | "measurement" | "appliedOutput" | "requestedOutput" | "additional";
+  /**
+   * The symbol the experiment's recorded trace of this signal carries, when it is not `symbol`. The plant input an identification
+   * records is the output the process received, and a loop with an actuator records it under the manipulated variable's symbol.
+   */
+  recordedAs?: string | null;
+  /**
+   * The width of the signal's declared range (the largest value less the smallest), by which the plot frames a flat value.
+   */
+  span: number;
+  /**
+   * The variable's path.
+   */
+  symbol: string;
+  /**
+   * The signal's unit; empty means dimensionless.
+   */
+  unit: string;
+  [k: string]: unknown;
+}
+/**
  * The checked loop definition.
  */
 export interface LoopDefinition {
@@ -2057,11 +2598,11 @@ export interface LoopDefinition {
    */
   topology?: Topology | null;
   /**
-   * The declared validation scenarios; ported with Validate (stage V3).
+   * The declared validation scenarios: a list, which Validate decodes and checks (stage V3).
    */
   verificationScenarios?: {
     [k: string]: unknown;
-  };
+  }[];
 }
 /**
  * The loop's channels: the model's inputs and outputs, and the state deviations of the selected model.
@@ -2741,7 +3282,7 @@ export interface LoopSignal {
    * The variable's IEC type.
    */
   iecType: string;
-  range: Range1;
+  range: Range;
   /**
    * The variable's path.
    */
@@ -2752,9 +3293,9 @@ export interface LoopSignal {
   unit: string;
 }
 /**
- * A signal's range.
+ * The signal's range.
  */
-export interface Range1 {
+export interface Range {
   /**
    * The largest value.
    */
@@ -2788,7 +3329,7 @@ export interface AuxiliarySignal {
    * The variable's IEC type.
    */
   iecType: string;
-  range: Range2;
+  range: Range1;
   /**
    * Its role in the channel.
    */
@@ -2803,9 +3344,9 @@ export interface AuxiliarySignal {
   unit: string;
 }
 /**
- * A signal's range.
+ * The signal's range.
  */
-export interface Range2 {
+export interface Range1 {
   /**
    * The largest value.
    */
@@ -2831,7 +3372,7 @@ export interface LoopSignal1 {
    * The variable's IEC type.
    */
   iecType: string;
-  range: Range1;
+  range: Range;
   /**
    * The variable's path.
    */
@@ -2857,7 +3398,7 @@ export interface LoopSignal2 {
    * The variable's IEC type.
    */
   iecType: string;
-  range: Range1;
+  range: Range;
   /**
    * The variable's path.
    */
@@ -2868,11 +3409,2057 @@ export interface LoopSignal2 {
   unit: string;
 }
 /**
+ * What `controlStudio/identify` answers for the manual identification (the Recorded-data fit, B3.3): the stage the page shows, its
+ * status, the checks and the model, and the primary action the page offers with its label. The engine decides all of it; the page
+ * renders it and sends the request of `primary_action`, and keeps no copy of the rules (AGENTS.md).
+ */
+export interface ManualIdentificationAnswer {
+  /**
+   * Whether the page may accept the review: the validation qualifies, and a compared structure is kept.
+   */
+  acceptanceReady: boolean;
+  /**
+   * The check of the estimation recording, once a model is fitted from it.
+   */
+  estimationQualification?: QualifiedIdentificationData | null;
+  /**
+   * The fit evidence of that model.
+   */
+  fit?: ModelFitEvidence | null;
+  /**
+   * The form the study keeps, which the page shows and sends back with its next request.
+   */
+  form?: IdentificationFormDraft | null;
+  /**
+   * Whether the study keeps a recording to check.
+   */
+  hasRecording: boolean;
+  /**
+   * The answer's kind (§0.1a): the page shows the answer by it, never by the fields it carries.
+   */
+  kind: "manualIdentification";
+  /**
+   * The largest absolute residual of that fit's samples, in output units: the engine's number for the evidence row that the page
+   * shows beside the prediction's root mean square error (B3.3). Absent without a fit, and when the fit holds no sample.
+   */
+  maximumAbsoluteResidual?: number | null;
+  /**
+   * The sentence the page shows under the stage, as the engine words it (the stage's status line).
+   */
+  message?: string | null;
+  /**
+   * The model the stage shows.
+   */
+  model?: IdentifiedModel2 | null;
+  /**
+   * The model choices the page may enable for the form it holds (`modelChoices`): every model of its model select, in the
+   * select's order. While the held-step measurement is on, only `fopdt` and `sopdt` are enabled, and the others are listed with
+   * `enabled` false.
+   */
+  modelChoices?: ManualModelChoice[];
+  /**
+   * Whether the next fit estimates the model or validates it.
+   */
+  nextFitRole: "estimation" | "validation";
+  /**
+   * The stage the page shows; absent while nothing is checked.
+   */
+  phase?: ManualStage | null;
+  /**
+   * What the page shows of the model, with the sensor-lag comparison when one was made.
+   */
+  presentation?: IdentifiedModelPresentation | null;
+  /**
+   * The action the page offers, decided by the engine.
+   */
+  primaryAction:
+    | "openRecording"
+    | "checkRecording"
+    | "fitPlant"
+    | "compareWithModel"
+    | "chooseStructure"
+    | "reviewSettings"
+    | "openValidationRecording"
+    | "accept"
+    | "modelReady";
+  /**
+   * The label the page shows on that action.
+   */
+  primaryActionLabel: string;
+  /**
+   * The check of the recording, in the stages after a check.
+   */
+  qualification?: QualifiedIdentificationData | null;
+  /**
+   * The sentence of a failure: a refusal, a qualification that does not hold, or a failed validation.
+   */
+  reason?: string | null;
+  /**
+   * The recording the next check reads, `rec-…`: the recording the stage selected or checked. Absent while a preview awaits the
+   * independent recording, and while no recording is kept.
+   */
+  recordingId?: string | null;
+  /**
+   * Where the model's values come from (A9).
+   */
+  source?: ResultSource | null;
+  /**
+   * The evidence the study's stages are computed from, as the study is saved after the action (A8.4). An accepted model is the
+   * study's current model (B3.7), so Tune is available once it is kept. The engine fills it from the saved study.
+   */
+  stageEvidence?: StageEvidence1 | null;
+  /**
+   * The status of every stage, computed from `stage_evidence` as the open answer computes its stages.
+   */
+  stages?: StageAvailability[] | null;
+  /**
+   * `complete`, or `failed` with `reason`.
+   */
+  status: "complete" | "failed";
+  /**
+   * The sensor-lag structure the primary action keeps, when it keeps one.
+   */
+  structureChoice?: StructureChoice | null;
+  /**
+   * The sentence that says how the project test that recorded the stage's independent recording ended (C12), as
+   * `IdentifyResult::test_outcome` gives it; absent for every other answer.
+   */
+  testOutcome?: string | null;
+  /**
+   * The check of the validation recording, at the validated review.
+   */
+  validationQualification?: QualifiedIdentificationData | null;
+  [k: string]: unknown;
+}
+/**
+ * A recording qualified for a fit (N1.1; `QualifiedIdentificationData`): the samples received, the samples a fit may
+ * use, and whether they suffice. Suitability for a same-run preview and qualification for controller design are
+ * separate states: a recording is suitable for design only with independent validation available.
+ */
+export interface QualifiedIdentificationData {
+  /**
+   * The first unit a sample states for the input, or `unit`.
+   */
+  inputUnit: string;
+  metrics: IdentificationQualificationMetrics;
+  /**
+   * The first unit a sample states for the output, or `unit`.
+   */
+  outputUnit: string;
+  /**
+   * Every sample received, unchanged; raw samples are never deleted (N1.4).
+   */
+  rawSamples: ExperimentIdentificationSample[];
+  /**
+   * Why they do not suffice, when they do not.
+   */
+  reason?: string | null;
+  /**
+   * The median positive interval between retained samples, in s.
+   */
+  sampleTimeSeconds: number;
+  /**
+   * The finite good samples outside the excluded intervals.
+   */
+  samples: ExperimentIdentificationSample[];
+  /**
+   * The measured step response of a bounded step review; set by the caller that measured it.
+   */
+  stepResponse?: StepResponseMeasurement | null;
+  /**
+   * Whether the retained samples suffice for a fit.
+   */
+  suitable: boolean;
+  /**
+   * Whether the recording qualifies for controller design: suitable, with independent validation available.
+   */
+  suitableForDesign: boolean;
+  [k: string]: unknown;
+}
+/**
+ * The qualification summary.
+ */
+export interface IdentificationQualificationMetrics {
+  /**
+   * The drift of the measured output across the baseline, per second.
+   */
+  baselineDriftPerSecond: number;
+  /**
+   * The number of received samples reported as clipped.
+   */
+  clippedSampleCount: number;
+  /**
+   * The coherence, which is never evaluated for a time-domain excitation (N1.1).
+   */
+  coherence: string;
+  /**
+   * The time from the first to the last retained sample, in s; zero with fewer than two.
+   */
+  durationSeconds: number;
+  /**
+   * The excitation class.
+   */
+  excitation: "step" | "insufficient";
+  /**
+   * The number of intervals longer than one and a half median intervals (A4.3, A4.4).
+   */
+  gapCount: number;
+  /**
+   * Whether an independent validation recording is available.
+   */
+  independentValidationAvailable: boolean;
+  /**
+   * The span of the retained inputs: their maximum minus their minimum.
+   */
+  inputSpan: number;
+  /**
+   * The largest deviation of an interval from the median interval, in percent of the median interval.
+   */
+  maximumSampleTimeDeviationPercent: number;
+  /**
+   * The median positive interval between retained samples, in s.
+   */
+  medianSampleTimeSeconds: number;
+  /**
+   * The span of the retained outputs.
+   */
+  outputSpan: number;
+  /**
+   * The number of samples received.
+   */
+  rawSampleCount: number;
+  /**
+   * The number of received samples whose quality is not good.
+   */
+  rejectedQualitySampleCount: number;
+  /**
+   * The number of finite good samples outside the excluded intervals.
+   */
+  retainedSampleCount: number;
+  /**
+   * The number of received samples reported as saturated.
+   */
+  saturationSampleCount: number;
+  /**
+   * The time-domain signal-to-noise estimate in dB: the output span over the baseline noise `σ` (N1.3, N2.6).
+   */
+  signalToNoiseDb: number;
+  [k: string]: unknown;
+}
+/**
+ * One sample Identify fits: the time from the first runtime execution, the plant input and the measured output
+ * (`ExperimentIdentificationSample`).
+ */
+export interface ExperimentIdentificationSample {
+  /**
+   * Whether the input is clipped by its limits.
+   */
+  clipped?: boolean | null;
+  /**
+   * The plant input; NaN when missing.
+   */
+  input: number;
+  /**
+   * The input's unit.
+   */
+  inputUnit?: string | null;
+  /**
+   * The measured output; NaN when missing.
+   */
+  output: number;
+  /**
+   * The output's unit.
+   */
+  outputUnit?: string | null;
+  /**
+   * The sample's quality.
+   */
+  quality: "good" | "uncertain" | "bad";
+  /**
+   * Whether the manipulated output sits on its limit.
+   */
+  saturated?: boolean | null;
+  /**
+   * The process time from the first sample, in s.
+   */
+  timeSeconds: number;
+  [k: string]: unknown;
+}
+/**
+ * The measurement of a held step without a fit (`measureStepResponse`; N2.5, N2.6): the windows, the step and its
+ * hold, the onset and the 63 % level of the measured change.
+ */
+export interface StepResponseMeasurement {
+  baseline: StepResponseWindow;
+  /**
+   * The detectable onset after the step, in s; absent when no sustained run crosses the threshold (N2.5).
+   */
+  detectableOnsetSeconds?: number | null;
+  final: StepResponseWindow1;
+  /**
+   * The time of the restoration, which ends the hold, in s.
+   */
+  holdEndSeconds: number;
+  /**
+   * The step amplitude `Δu`: the mean held input less the mean input over the baseline (N2.2).
+   */
+  inputChange: number;
+  /**
+   * The 63 % level `y0 + 0.632·(ȳ_final − y0)` of the measured change.
+   */
+  level63: number;
+  /**
+   * The side of the baseline the onset threshold lies on (N2.5), so that the page words the criterion without deriving it from the
+   * windows. Absent in a record kept before the engine stated it.
+   */
+  onsetSide?: OnsetSide | null;
+  /**
+   * The onset threshold `y0 ± h` (N2.5).
+   */
+  onsetThreshold: number;
+  /**
+   * The sample time of the prepared samples, in s.
+   */
+  sampleTimeSeconds: number;
+  settings: StepResponseSettings;
+  /**
+   * The time of the step, in s.
+   */
+  stepTimeSeconds: number;
+  /**
+   * The warnings the engineer reads: a timestamp shift.
+   */
+  warnings: string[];
+  [k: string]: unknown;
+}
+/**
+ * The baseline window, which ends at the step.
+ */
+export interface StepResponseWindow {
+  /**
+   * The number of samples in the window.
+   */
+  count: number;
+  /**
+   * The requested end of the window in seconds; the window excludes it.
+   */
+  endSeconds: number;
+  /**
+   * The largest measured output in the window.
+   */
+  maximum: number;
+  /**
+   * The mean measured output over the window.
+   */
+  mean: number;
+  /**
+   * The smallest measured output in the window.
+   */
+  minimum: number;
+  /**
+   * The largest less the smallest measured output.
+   */
+  range: number;
+  /**
+   * The change from the first to the last measured output over the time between them, per second; zero when the
+   * two samples share a time.
+   */
+  slopePerSecond: number;
+  /**
+   * The requested start of the window in seconds.
+   */
+  startSeconds: number;
+  [k: string]: unknown;
+}
+/**
+ * The final window, which ends at the restoration.
+ */
+export interface StepResponseWindow1 {
+  /**
+   * The number of samples in the window.
+   */
+  count: number;
+  /**
+   * The requested end of the window in seconds; the window excludes it.
+   */
+  endSeconds: number;
+  /**
+   * The largest measured output in the window.
+   */
+  maximum: number;
+  /**
+   * The mean measured output over the window.
+   */
+  mean: number;
+  /**
+   * The smallest measured output in the window.
+   */
+  minimum: number;
+  /**
+   * The largest less the smallest measured output.
+   */
+  range: number;
+  /**
+   * The change from the first to the last measured output over the time between them, per second; zero when the
+   * two samples share a time.
+   */
+  slopePerSecond: number;
+  /**
+   * The requested start of the window in seconds.
+   */
+  startSeconds: number;
+  [k: string]: unknown;
+}
+/**
+ * The settings the measurement used.
+ */
+export interface StepResponseSettings {
+  /**
+   * The length of the baseline window, which ends at the step, in s.
+   */
+  baselineDurationSeconds: number;
+  /**
+   * The spacing of the consistent set's baseline lattice.
+   */
+  baselineStep: number;
+  delay: SearchGrid;
+  /**
+   * The length of the final window, which ends at the restoration, in s.
+   */
+  finalDurationSeconds: number;
+  /**
+   * The spacing of the consistent set's gain lattice.
+   */
+  gainStep: number;
+  /**
+   * The largest output range a steady window may have.
+   */
+  maximumWindowRange: number;
+  /**
+   * The largest output slope a steady window may have, per s.
+   */
+  maximumWindowSlopePerSecond: number;
+  /**
+   * The absolute measurement bound `b_m` of the consistent set (N2.4).
+   */
+  measurementBound: number;
+  /**
+   * The residual requirements of a sensor-lag comparison (`modelAdequacy`; N2.10); the annex's defaults when absent.
+   */
+  modelAdequacy?: ModelAdequacy | null;
+  /**
+   * The number of consecutive samples beyond the threshold that establish onset (N2.5).
+   */
+  onsetSamples: number;
+  /**
+   * The sustained-onset threshold `h`, an offset from the baseline mean (N2.5).
+   */
+  onsetThreshold: number;
+  /**
+   * The sensor-time grid of a sensor-lag comparison (`sensorTimeConstant`; N2.10); the annex's default grid when absent.
+   */
+  sensorTimeConstant?: SearchGrid1 | null;
+  timeConstant: SearchGrid2;
+  /**
+   * The timestamp shift of the sensitivity study, at most one sample time (N2.4), in s.
+   */
+  timestampShiftSeconds: number;
+}
+/**
+ * The delay grid, in s.
+ */
+export interface SearchGrid {
+  /**
+   * The largest value of the grid.
+   */
+  maximum: number;
+  /**
+   * The smallest value of the grid.
+   */
+  minimum: number;
+  /**
+   * The spacing of the grid's values.
+   */
+  step: number;
+}
+/**
+ * The residual requirements a structure must meet to be adequate (`modelAdequacy`).
+ */
+export interface ModelAdequacy {
+  /**
+   * The largest absolute residual over the fitted samples, in output units.
+   */
+  maximumAbsoluteResidual: number;
+  /**
+   * The largest absolute mean residual over the final window, in output units.
+   */
+  maximumFinalError: number;
+  [k: string]: unknown;
+}
+/**
+ * A search grid of one parameter (N2.2, N2.4): the values `minimum + k·step` from the minimum up to the maximum.
+ */
+export interface SearchGrid1 {
+  /**
+   * The largest value of the grid.
+   */
+  maximum: number;
+  /**
+   * The smallest value of the grid.
+   */
+  minimum: number;
+  /**
+   * The spacing of the grid's values.
+   */
+  step: number;
+}
+/**
+ * A search grid of one parameter (N2.2, N2.4): the values `minimum + k·step` from the minimum up to the maximum.
+ */
+export interface SearchGrid2 {
+  /**
+   * The largest value of the grid.
+   */
+  maximum: number;
+  /**
+   * The smallest value of the grid.
+   */
+  minimum: number;
+  /**
+   * The spacing of the grid's values.
+   */
+  step: number;
+}
+/**
+ * The fit evidence of an identified model (B3.5, B3.8; `ModelFitEvidence`): the measured response with the
+ * prediction, the residual root mean square, the delay, the operating range and the warnings. A bounded step review
+ * adds its step-response analysis and the measurement of the plotted record.
+ */
+export interface ModelFitEvidence {
+  /**
+   * The model's dead time, in s; zero without one.
+   */
+  delaySeconds: number;
+  /**
+   * The fraction of its fitted final change a held step reached (A10.3); absent where it is not defined.
+   */
+  finalChangeFraction?: number | null;
+  /**
+   * The model-structure comparison the model was chosen by, when a held step was compared (`modelStructure`; N2.10).
+   * Boxed, because the comparison holds the fit evidence of its two candidates.
+   */
+  modelStructure?: SensorLagComparison | null;
+  operatingRange: OperatingRange;
+  /**
+   * The first output unit a sample states, or `unit`.
+   */
+  outputUnit: string;
+  /**
+   * The measured and predicted output at every sample.
+   */
+  points: ModelFitPoint[];
+  /**
+   * The root mean square of the residuals.
+   */
+  rootMeanSquareError: number;
+  /**
+   * Whether the model is stable.
+   */
+  stable: boolean;
+  /**
+   * The step-response analysis of a bounded step review: the estimation grid the model was fitted on.
+   */
+  stepResponse?: StepResponseAnalysis1 | null;
+  /**
+   * The step-response measurement of the plotted record, when it is another record than the estimation's.
+   */
+  stepResponseMeasurement?: StepResponseMeasurement | null;
+  /**
+   * The warnings the engineer reads before using the model.
+   */
+  warnings: string[];
+  [k: string]: unknown;
+}
+/**
+ * The structure comparison of a held step (`SensorLagComparison`; N2.10): both candidates, the requirements they were
+ * judged by, the root-mean-square improvement of the additional lag, the recommendation and, once the engineer chose,
+ * the structure. The comparison is provisional, and the additional lag's physical origin is unresolved.
+ */
+export interface SensorLagComparison {
+  candidateA: StructureCandidate;
+  candidateB: StructureCandidate2;
+  /**
+   * The structure the engineer chose, which must be the recommended one; absent until a choice is made.
+   */
+  choice?: StructureChoice | null;
+  /**
+   * The recommended structure.
+   */
+  recommended: "first_order" | "additional_lag" | "neither";
+  requirements: ModelAdequacy1;
+  /**
+   * The first-order root-mean-square residual less the additional lag's.
+   */
+  rmsImprovement: number;
+  [k: string]: unknown;
+}
+/**
+ * The first-order model with dead time, the reference.
+ */
+export interface StructureCandidate {
+  /**
+   * Whether both residual requirements hold.
+   */
+  adequate: boolean;
+  analysis: StepResponseAnalysis;
+  /**
+   * The model's equation with its coefficients.
+   */
+  equation: string;
+  /**
+   * The absolute mean residual over the final window.
+   */
+  finalError: number;
+  fit: ModelFitEvidence1;
+  /**
+   * The largest absolute residual over the fitted samples.
+   */
+  maximumAbsoluteResidual: number;
+  model: IdentifiedModel;
+  /**
+   * The root-mean-square residual over the fitted samples.
+   */
+  rootMeanSquareError: number;
+  [k: string]: unknown;
+}
+/**
+ * The analysis the structure was fitted with: the first-order reference's, or the sensor-lag search's.
+ */
+export interface StepResponseAnalysis {
+  baseline: StepResponseWindow2;
+  best: StepBestFit;
+  /**
+   * Whether the best fit lies on a search boundary.
+   */
+  boundaryLimited: boolean;
+  consistency: ConsistentSet;
+  /**
+   * The detectable onset after the step, in s; absent when no sustained run crosses the threshold (N2.5).
+   */
+  detectableOnsetSeconds?: number | null;
+  final: StepResponseWindow3;
+  /**
+   * The fraction of the fitted final change the held response reached (A10.3).
+   */
+  finalChangeFraction?: number | null;
+  /**
+   * The final-window mean less the fitted steady value `y0 + K·Δu`: a reported check, never an input (N2.4).
+   */
+  finalWindowDifference?: number | null;
+  /**
+   * The time of the restoration, which ends the hold, in s.
+   */
+  holdEndSeconds: number;
+  /**
+   * The step amplitude `Δu`: the mean held input less the mean input over the baseline (N2.2).
+   */
+  inputChange: number;
+  /**
+   * The 63 % level `y0 + 0.632·K·Δu`.
+   */
+  level63: number;
+  /**
+   * The side of the baseline the onset threshold lies on (N2.5), so that the page words the criterion without deriving it from the
+   * windows. Absent in a record kept before the engine stated it.
+   */
+  onsetSide?: OnsetSide | null;
+  /**
+   * The onset threshold `y0 ± h` (N2.5).
+   */
+  onsetThreshold: number;
+  /**
+   * The held samples with the fitted output.
+   */
+  points: StepResponsePoint[];
+  /**
+   * The sample time of the fitted samples, in s.
+   */
+  sampleTimeSeconds: number;
+  settings: StepResponseSettings1;
+  /**
+   * The time of the step, in s.
+   */
+  stepTimeSeconds: number;
+  /**
+   * The warnings the engineer reads: a search boundary, an empty consistent set, a timestamp shift.
+   */
+  warnings: string[];
+  [k: string]: unknown;
+}
+/**
+ * The baseline window, which ends at the step.
+ */
+export interface StepResponseWindow2 {
+  /**
+   * The number of samples in the window.
+   */
+  count: number;
+  /**
+   * The requested end of the window in seconds; the window excludes it.
+   */
+  endSeconds: number;
+  /**
+   * The largest measured output in the window.
+   */
+  maximum: number;
+  /**
+   * The mean measured output over the window.
+   */
+  mean: number;
+  /**
+   * The smallest measured output in the window.
+   */
+  minimum: number;
+  /**
+   * The largest less the smallest measured output.
+   */
+  range: number;
+  /**
+   * The change from the first to the last measured output over the time between them, per second; zero when the
+   * two samples share a time.
+   */
+  slopePerSecond: number;
+  /**
+   * The requested start of the window in seconds.
+   */
+  startSeconds: number;
+  [k: string]: unknown;
+}
+/**
+ * The best grid fit.
+ */
+export interface StepBestFit {
+  /**
+   * The baseline mean `y0`; measured, not fitted.
+   */
+  baseline: number;
+  /**
+   * The grid delay `L`, in s.
+   */
+  delaySeconds: number;
+  /**
+   * The gain `K`.
+   */
+  gain: number;
+  /**
+   * The squared error `E = Σ(y_k − y0 − K·s_k)²` over the held samples.
+   */
+  squaredError: number;
+  /**
+   * The grid time constant `T`, in s.
+   */
+  timeConstantSeconds: number;
+  [k: string]: unknown;
+}
+/**
+ * The grid combinations consistent with the measurement bound (N2.4).
+ */
+export interface ConsistentSet {
+  /**
+   * The smallest and largest consistent baseline.
+   */
+  baseline?: ParameterInterval | null;
+  /**
+   * The number of consistent combinations of baseline, gain, delay and time constant.
+   */
+  count: number;
+  /**
+   * The smallest and largest consistent delay in seconds.
+   */
+  delaySeconds?: ParameterInterval | null;
+  /**
+   * The smallest and largest consistent gain.
+   */
+  gain?: ParameterInterval | null;
+  /**
+   * The smallest and largest consistent time constant in seconds.
+   */
+  timeConstantSeconds?: ParameterInterval | null;
+  [k: string]: unknown;
+}
+/**
+ * A closed interval for one parameter.
+ */
+export interface ParameterInterval {
+  /**
+   * The largest value in the interval.
+   */
+  maximum: number;
+  /**
+   * The smallest value in the interval.
+   */
+  minimum: number;
+  [k: string]: unknown;
+}
+/**
+ * The final window, which ends at the restoration.
+ */
+export interface StepResponseWindow3 {
+  /**
+   * The number of samples in the window.
+   */
+  count: number;
+  /**
+   * The requested end of the window in seconds; the window excludes it.
+   */
+  endSeconds: number;
+  /**
+   * The largest measured output in the window.
+   */
+  maximum: number;
+  /**
+   * The mean measured output over the window.
+   */
+  mean: number;
+  /**
+   * The smallest measured output in the window.
+   */
+  minimum: number;
+  /**
+   * The largest less the smallest measured output.
+   */
+  range: number;
+  /**
+   * The change from the first to the last measured output over the time between them, per second; zero when the
+   * two samples share a time.
+   */
+  slopePerSecond: number;
+  /**
+   * The requested start of the window in seconds.
+   */
+  startSeconds: number;
+  [k: string]: unknown;
+}
+/**
+ * One held sample with the fitted model's value (N2.2, N3.1): its time, the measured output `y_k`, the fitted output
+ * `ŷ_k = y0 + K·s_k` and the residual `y_k − ŷ_k`.
+ */
+export interface StepResponsePoint {
+  /**
+   * The measured output.
+   */
+  measured: number;
+  /**
+   * The fitted output.
+   */
+  predicted: number;
+  /**
+   * The measured less the fitted output.
+   */
+  residual: number;
+  /**
+   * The sample's time, in s.
+   */
+  timeSeconds: number;
+  [k: string]: unknown;
+}
+/**
+ * The settings the analysis used.
+ */
+export interface StepResponseSettings1 {
+  /**
+   * The length of the baseline window, which ends at the step, in s.
+   */
+  baselineDurationSeconds: number;
+  /**
+   * The spacing of the consistent set's baseline lattice.
+   */
+  baselineStep: number;
+  delay: SearchGrid;
+  /**
+   * The length of the final window, which ends at the restoration, in s.
+   */
+  finalDurationSeconds: number;
+  /**
+   * The spacing of the consistent set's gain lattice.
+   */
+  gainStep: number;
+  /**
+   * The largest output range a steady window may have.
+   */
+  maximumWindowRange: number;
+  /**
+   * The largest output slope a steady window may have, per s.
+   */
+  maximumWindowSlopePerSecond: number;
+  /**
+   * The absolute measurement bound `b_m` of the consistent set (N2.4).
+   */
+  measurementBound: number;
+  /**
+   * The residual requirements of a sensor-lag comparison (`modelAdequacy`; N2.10); the annex's defaults when absent.
+   */
+  modelAdequacy?: ModelAdequacy | null;
+  /**
+   * The number of consecutive samples beyond the threshold that establish onset (N2.5).
+   */
+  onsetSamples: number;
+  /**
+   * The sustained-onset threshold `h`, an offset from the baseline mean (N2.5).
+   */
+  onsetThreshold: number;
+  /**
+   * The sensor-time grid of a sensor-lag comparison (`sensorTimeConstant`; N2.10); the annex's default grid when absent.
+   */
+  sensorTimeConstant?: SearchGrid1 | null;
+  timeConstant: SearchGrid2;
+  /**
+   * The timestamp shift of the sensitivity study, at most one sample time (N2.4), in s.
+   */
+  timestampShiftSeconds: number;
+}
+/**
+ * The fit evidence of the model on the estimation record.
+ */
+export interface ModelFitEvidence1 {
+  /**
+   * The model's dead time, in s; zero without one.
+   */
+  delaySeconds: number;
+  /**
+   * The fraction of its fitted final change a held step reached (A10.3); absent where it is not defined.
+   */
+  finalChangeFraction?: number | null;
+  /**
+   * The model-structure comparison the model was chosen by, when a held step was compared (`modelStructure`; N2.10).
+   * Boxed, because the comparison holds the fit evidence of its two candidates.
+   */
+  modelStructure?: SensorLagComparison | null;
+  operatingRange: OperatingRange;
+  /**
+   * The first output unit a sample states, or `unit`.
+   */
+  outputUnit: string;
+  /**
+   * The measured and predicted output at every sample.
+   */
+  points: ModelFitPoint[];
+  /**
+   * The root mean square of the residuals.
+   */
+  rootMeanSquareError: number;
+  /**
+   * Whether the model is stable.
+   */
+  stable: boolean;
+  /**
+   * The step-response analysis of a bounded step review: the estimation grid the model was fitted on.
+   */
+  stepResponse?: StepResponseAnalysis1 | null;
+  /**
+   * The step-response measurement of the plotted record, when it is another record than the estimation's.
+   */
+  stepResponseMeasurement?: StepResponseMeasurement | null;
+  /**
+   * The warnings the engineer reads before using the model.
+   */
+  warnings: string[];
+  [k: string]: unknown;
+}
+/**
+ * The range the samples cover.
+ */
+export interface OperatingRange {
+  /**
+   * The largest input.
+   */
+  inputMaximum: number;
+  /**
+   * The smallest input.
+   */
+  inputMinimum: number;
+  /**
+   * The largest output.
+   */
+  outputMaximum: number;
+  /**
+   * The smallest output.
+   */
+  outputMinimum: number;
+  [k: string]: unknown;
+}
+/**
+ * One point of the fit evidence (`ModelFitPoint`): the time, the measured output, the model's prediction and the
+ * residual `measured − predicted`.
+ */
+export interface ModelFitPoint {
+  /**
+   * The measured output.
+   */
+  measured: number;
+  /**
+   * The output the model predicts.
+   */
+  predicted: number;
+  /**
+   * The measured output minus the prediction.
+   */
+  residual: number;
+  /**
+   * The time of the sample, in s.
+   */
+  timeSeconds: number;
+  [k: string]: unknown;
+}
+/**
+ * The analysis of a held step (N2.2 to N2.6): the measured windows, the step and its hold, the onset and the 63 %
+ * level, the best first-order-with-delay fit, the measurement-consistent set, the warnings, the fitted held samples,
+ * the fraction of the fitted final change reached (A10.3) and the final-window check (N2.4).
+ */
+export interface StepResponseAnalysis1 {
+  baseline: StepResponseWindow2;
+  best: StepBestFit;
+  /**
+   * Whether the best fit lies on a search boundary.
+   */
+  boundaryLimited: boolean;
+  consistency: ConsistentSet;
+  /**
+   * The detectable onset after the step, in s; absent when no sustained run crosses the threshold (N2.5).
+   */
+  detectableOnsetSeconds?: number | null;
+  final: StepResponseWindow3;
+  /**
+   * The fraction of the fitted final change the held response reached (A10.3).
+   */
+  finalChangeFraction?: number | null;
+  /**
+   * The final-window mean less the fitted steady value `y0 + K·Δu`: a reported check, never an input (N2.4).
+   */
+  finalWindowDifference?: number | null;
+  /**
+   * The time of the restoration, which ends the hold, in s.
+   */
+  holdEndSeconds: number;
+  /**
+   * The step amplitude `Δu`: the mean held input less the mean input over the baseline (N2.2).
+   */
+  inputChange: number;
+  /**
+   * The 63 % level `y0 + 0.632·K·Δu`.
+   */
+  level63: number;
+  /**
+   * The side of the baseline the onset threshold lies on (N2.5), so that the page words the criterion without deriving it from the
+   * windows. Absent in a record kept before the engine stated it.
+   */
+  onsetSide?: OnsetSide | null;
+  /**
+   * The onset threshold `y0 ± h` (N2.5).
+   */
+  onsetThreshold: number;
+  /**
+   * The held samples with the fitted output.
+   */
+  points: StepResponsePoint[];
+  /**
+   * The sample time of the fitted samples, in s.
+   */
+  sampleTimeSeconds: number;
+  settings: StepResponseSettings1;
+  /**
+   * The time of the step, in s.
+   */
+  stepTimeSeconds: number;
+  /**
+   * The warnings the engineer reads: a search boundary, an empty consistent set, a timestamp shift.
+   */
+  warnings: string[];
+  [k: string]: unknown;
+}
+/**
+ * The model of the structure.
+ */
+export interface IdentifiedModel {
+  /**
+   * The dead time `L` in seconds.
+   */
+  deadTimeSeconds?: number | null;
+  /**
+   * The residuals on the estimation record (N3.4).
+   */
+  estimationResiduals?: number[] | null;
+  /**
+   * The static gain `K`, or the rate gain `K′` of an integrating form.
+   */
+  gain: number;
+  /**
+   * The model form.
+   */
+  kind:
+    "static_gain" | "integrating" | "first_order" | "first_order_dead_time" | "second_order" | "second_order_dead_time";
+  /**
+   * The normalised error that decides the model (N3.2): the validation error of an independently validated fit,
+   * the error on the recording itself for a single-run preview. A fit always records it. A supplied model was not fitted, so
+   * it records none, and Tune's error check does not apply to it (B3.7).
+   */
+  normalizedError?: number | null;
+  /**
+   * The normalised error on the estimation record.
+   */
+  normalizedEstimationError?: number | null;
+  /**
+   * The normalised error on the independent validation record.
+   */
+  normalizedValidationError?: number | null;
+  /**
+   * Whether the best grid point of the fit lies on the edge of its search grid: a search-boundary finding that N2.4
+   * keeps.
+   */
+  onSearchBoundary?: boolean;
+  /**
+   * The second time constant in seconds, for the second-order forms.
+   */
+  secondTimeConstantSeconds?: number | null;
+  /**
+   * Whether the model may be used as a stable form: an integrating form, or a form whose time constants are
+   * positive.
+   */
+  stable: boolean;
+  /**
+   * The time constant `T` in seconds, or the first time constant of a second-order form.
+   */
+  timeConstantSeconds?: number | null;
+  /**
+   * The uncertainty intervals of the parameters.
+   */
+  uncertainty?: IdentifiedUncertainty | null;
+  /**
+   * The residuals on the validation record (N3.4).
+   */
+  validationResiduals?: number[] | null;
+  [k: string]: unknown;
+}
+/**
+ * The uncertainty intervals of an identified model (N2.4). A parameter the model does not have has no interval.
+ */
+export interface IdentifiedUncertainty {
+  /**
+   * The interval of the dead time, when the model has one.
+   */
+  deadTimeSeconds?: ParameterInterval | null;
+  gain: ParameterInterval1;
+  /**
+   * How the intervals were obtained.
+   */
+  method: "grid-resolution-and-validation-residual" | "sample-resolution-envelope" | "measurement-consistent-grid";
+  /**
+   * The interval of the second time constant, when the model has one.
+   */
+  secondTimeConstantSeconds?: ParameterInterval | null;
+  /**
+   * The interval of the time constant, when the model has one.
+   */
+  timeConstantSeconds?: ParameterInterval | null;
+  [k: string]: unknown;
+}
+/**
+ * A closed interval for one parameter.
+ */
+export interface ParameterInterval1 {
+  /**
+   * The largest value in the interval.
+   */
+  maximum: number;
+  /**
+   * The smallest value in the interval.
+   */
+  minimum: number;
+  [k: string]: unknown;
+}
+/**
+ * The second-order model with dead time, the additional lag.
+ */
+export interface StructureCandidate2 {
+  /**
+   * Whether both residual requirements hold.
+   */
+  adequate: boolean;
+  analysis: SensorLagStepAnalysis;
+  /**
+   * The model's equation with its coefficients.
+   */
+  equation: string;
+  /**
+   * The absolute mean residual over the final window.
+   */
+  finalError: number;
+  fit: ModelFitEvidence2;
+  /**
+   * The largest absolute residual over the fitted samples.
+   */
+  maximumAbsoluteResidual: number;
+  model: IdentifiedModel1;
+  /**
+   * The root-mean-square residual over the fitted samples.
+   */
+  rootMeanSquareError: number;
+  [k: string]: unknown;
+}
+/**
+ * The analysis the structure was fitted with: the first-order reference's, or the sensor-lag search's.
+ */
+export interface SensorLagStepAnalysis {
+  baseline: StepResponseWindow4;
+  best: SensorLagBest;
+  /**
+   * Whether any best parameter lies on the edge of its grid.
+   */
+  boundaryLimited: boolean;
+  consistency: SensorLagRanges;
+  final: StepResponseWindow5;
+  /**
+   * The end of the held step in seconds.
+   */
+  holdEndSeconds: number;
+  /**
+   * The fitted input change `Δu`.
+   */
+  inputChange: number;
+  /**
+   * The measured output and the fitted prediction at each held sample.
+   */
+  points: ModelFitPoint[];
+  sensorTimeConstant: SearchGrid3;
+  settings: StepResponseSettings2;
+  /**
+   * The time of the step in seconds.
+   */
+  stepTimeSeconds: number;
+  /**
+   * The warnings of the fit, in the order the specification gives them.
+   */
+  warnings: string[];
+  /**
+   * Whether the best dead time is zero and the search allowed zero, a one-sided finding rather than an unresolved bound.
+   */
+  zeroDelayLowerBound: boolean;
+  [k: string]: unknown;
+}
+/**
+ * The steady baseline window of the reference analysis.
+ */
+export interface StepResponseWindow4 {
+  /**
+   * The number of samples in the window.
+   */
+  count: number;
+  /**
+   * The requested end of the window in seconds; the window excludes it.
+   */
+  endSeconds: number;
+  /**
+   * The largest measured output in the window.
+   */
+  maximum: number;
+  /**
+   * The mean measured output over the window.
+   */
+  mean: number;
+  /**
+   * The smallest measured output in the window.
+   */
+  minimum: number;
+  /**
+   * The largest less the smallest measured output.
+   */
+  range: number;
+  /**
+   * The change from the first to the last measured output over the time between them, per second; zero when the
+   * two samples share a time.
+   */
+  slopePerSecond: number;
+  /**
+   * The requested start of the window in seconds.
+   */
+  startSeconds: number;
+  [k: string]: unknown;
+}
+/**
+ * The least-squares candidate over the whole grid.
+ */
+export interface SensorLagBest {
+  /**
+   * The baseline output `y₀`.
+   */
+  baseline: number;
+  /**
+   * The dead time `L`, in s.
+   */
+  delaySeconds: number;
+  /**
+   * The gain `K`.
+   */
+  gain: number;
+  /**
+   * The second time constant `τ₂`, the sensor lag, in s.
+   */
+  secondTimeConstantSeconds: number;
+  /**
+   * The sum of the squared residuals over the held samples.
+   */
+  squaredError: number;
+  /**
+   * The first time constant `τ`, in s.
+   */
+  timeConstantSeconds: number;
+  [k: string]: unknown;
+}
+/**
+ * The measurement-consistent set of the search.
+ */
+export interface SensorLagRanges {
+  /**
+   * The interval of the consistent baselines.
+   */
+  baseline?: ParameterInterval | null;
+  /**
+   * The number of consistent baseline grid points, summed over the consistent gains and shapes.
+   */
+  count: number;
+  /**
+   * The interval of the consistent dead times, in s.
+   */
+  delaySeconds?: ParameterInterval | null;
+  /**
+   * The interval of the consistent gains.
+   */
+  gain?: ParameterInterval | null;
+  /**
+   * The interval of the consistent second time constants, in s.
+   */
+  secondTimeConstantSeconds?: ParameterInterval | null;
+  /**
+   * The interval of the consistent first time constants, in s.
+   */
+  timeConstantSeconds?: ParameterInterval | null;
+  [k: string]: unknown;
+}
+/**
+ * The final window of the reference analysis.
+ */
+export interface StepResponseWindow5 {
+  /**
+   * The number of samples in the window.
+   */
+  count: number;
+  /**
+   * The requested end of the window in seconds; the window excludes it.
+   */
+  endSeconds: number;
+  /**
+   * The largest measured output in the window.
+   */
+  maximum: number;
+  /**
+   * The mean measured output over the window.
+   */
+  mean: number;
+  /**
+   * The smallest measured output in the window.
+   */
+  minimum: number;
+  /**
+   * The largest less the smallest measured output.
+   */
+  range: number;
+  /**
+   * The change from the first to the last measured output over the time between them, per second; zero when the
+   * two samples share a time.
+   */
+  slopePerSecond: number;
+  /**
+   * The requested start of the window in seconds.
+   */
+  startSeconds: number;
+  [k: string]: unknown;
+}
+/**
+ * A search grid of one parameter (N2.2, N2.4): the values `minimum + k·step` from the minimum up to the maximum.
+ */
+export interface SearchGrid3 {
+  /**
+   * The largest value of the grid.
+   */
+  maximum: number;
+  /**
+   * The smallest value of the grid.
+   */
+  minimum: number;
+  /**
+   * The spacing of the grid's values.
+   */
+  step: number;
+}
+/**
+ * The settings the search used: the reference's, with the comparison's own measurement settings.
+ */
+export interface StepResponseSettings2 {
+  /**
+   * The length of the baseline window, which ends at the step, in s.
+   */
+  baselineDurationSeconds: number;
+  /**
+   * The spacing of the consistent set's baseline lattice.
+   */
+  baselineStep: number;
+  delay: SearchGrid;
+  /**
+   * The length of the final window, which ends at the restoration, in s.
+   */
+  finalDurationSeconds: number;
+  /**
+   * The spacing of the consistent set's gain lattice.
+   */
+  gainStep: number;
+  /**
+   * The largest output range a steady window may have.
+   */
+  maximumWindowRange: number;
+  /**
+   * The largest output slope a steady window may have, per s.
+   */
+  maximumWindowSlopePerSecond: number;
+  /**
+   * The absolute measurement bound `b_m` of the consistent set (N2.4).
+   */
+  measurementBound: number;
+  /**
+   * The residual requirements of a sensor-lag comparison (`modelAdequacy`; N2.10); the annex's defaults when absent.
+   */
+  modelAdequacy?: ModelAdequacy | null;
+  /**
+   * The number of consecutive samples beyond the threshold that establish onset (N2.5).
+   */
+  onsetSamples: number;
+  /**
+   * The sustained-onset threshold `h`, an offset from the baseline mean (N2.5).
+   */
+  onsetThreshold: number;
+  /**
+   * The sensor-time grid of a sensor-lag comparison (`sensorTimeConstant`; N2.10); the annex's default grid when absent.
+   */
+  sensorTimeConstant?: SearchGrid1 | null;
+  timeConstant: SearchGrid2;
+  /**
+   * The timestamp shift of the sensitivity study, at most one sample time (N2.4), in s.
+   */
+  timestampShiftSeconds: number;
+}
+/**
+ * The fit evidence of the model on the estimation record.
+ */
+export interface ModelFitEvidence2 {
+  /**
+   * The model's dead time, in s; zero without one.
+   */
+  delaySeconds: number;
+  /**
+   * The fraction of its fitted final change a held step reached (A10.3); absent where it is not defined.
+   */
+  finalChangeFraction?: number | null;
+  /**
+   * The model-structure comparison the model was chosen by, when a held step was compared (`modelStructure`; N2.10).
+   * Boxed, because the comparison holds the fit evidence of its two candidates.
+   */
+  modelStructure?: SensorLagComparison | null;
+  operatingRange: OperatingRange;
+  /**
+   * The first output unit a sample states, or `unit`.
+   */
+  outputUnit: string;
+  /**
+   * The measured and predicted output at every sample.
+   */
+  points: ModelFitPoint[];
+  /**
+   * The root mean square of the residuals.
+   */
+  rootMeanSquareError: number;
+  /**
+   * Whether the model is stable.
+   */
+  stable: boolean;
+  /**
+   * The step-response analysis of a bounded step review: the estimation grid the model was fitted on.
+   */
+  stepResponse?: StepResponseAnalysis1 | null;
+  /**
+   * The step-response measurement of the plotted record, when it is another record than the estimation's.
+   */
+  stepResponseMeasurement?: StepResponseMeasurement | null;
+  /**
+   * The warnings the engineer reads before using the model.
+   */
+  warnings: string[];
+  [k: string]: unknown;
+}
+/**
+ * The model of the structure.
+ */
+export interface IdentifiedModel1 {
+  /**
+   * The dead time `L` in seconds.
+   */
+  deadTimeSeconds?: number | null;
+  /**
+   * The residuals on the estimation record (N3.4).
+   */
+  estimationResiduals?: number[] | null;
+  /**
+   * The static gain `K`, or the rate gain `K′` of an integrating form.
+   */
+  gain: number;
+  /**
+   * The model form.
+   */
+  kind:
+    "static_gain" | "integrating" | "first_order" | "first_order_dead_time" | "second_order" | "second_order_dead_time";
+  /**
+   * The normalised error that decides the model (N3.2): the validation error of an independently validated fit,
+   * the error on the recording itself for a single-run preview. A fit always records it. A supplied model was not fitted, so
+   * it records none, and Tune's error check does not apply to it (B3.7).
+   */
+  normalizedError?: number | null;
+  /**
+   * The normalised error on the estimation record.
+   */
+  normalizedEstimationError?: number | null;
+  /**
+   * The normalised error on the independent validation record.
+   */
+  normalizedValidationError?: number | null;
+  /**
+   * Whether the best grid point of the fit lies on the edge of its search grid: a search-boundary finding that N2.4
+   * keeps.
+   */
+  onSearchBoundary?: boolean;
+  /**
+   * The second time constant in seconds, for the second-order forms.
+   */
+  secondTimeConstantSeconds?: number | null;
+  /**
+   * Whether the model may be used as a stable form: an integrating form, or a form whose time constants are
+   * positive.
+   */
+  stable: boolean;
+  /**
+   * The time constant `T` in seconds, or the first time constant of a second-order form.
+   */
+  timeConstantSeconds?: number | null;
+  /**
+   * The uncertainty intervals of the parameters.
+   */
+  uncertainty?: IdentifiedUncertainty | null;
+  /**
+   * The residuals on the validation record (N3.4).
+   */
+  validationResiduals?: number[] | null;
+  [k: string]: unknown;
+}
+/**
+ * The residual requirements a structure must meet to be adequate (`modelAdequacy`).
+ */
+export interface ModelAdequacy1 {
+  /**
+   * The largest absolute residual over the fitted samples, in output units.
+   */
+  maximumAbsoluteResidual: number;
+  /**
+   * The largest absolute mean residual over the final window, in output units.
+   */
+  maximumFinalError: number;
+  [k: string]: unknown;
+}
+/**
+ * The raw form of Identify (`IdentificationFormDraft`; A8.2): the requested model, whether the held-step analysis is
+ * on, the text of each settings field and the typed bounds of the excluded interval.
+ */
+export interface IdentificationFormDraft {
+  /**
+   * The end of the excluded interval, as typed.
+   */
+  excludedEnd: string;
+  /**
+   * The start of the excluded interval, as typed.
+   */
+  excludedStart: string;
+  /**
+   * Whether the held-step analysis is switched on.
+   */
+  heldStep: boolean;
+  /**
+   * The model the engineer asks for.
+   */
+  model: "automatic" | "integrating" | "first_order" | "fopdt" | "second_order" | "sopdt";
+  /**
+   * Always 1.
+   */
+  schemaVersion: number;
+  /**
+   * The text of each field by its key: every key of [`IDENTIFICATION_FORM_KEYS`], and any key of
+   * [`IDENTIFICATION_COMPARISON_FORM_KEYS`].
+   */
+  values: {
+    [k: string]: string;
+  };
+}
+/**
+ * A low-order model identified from a recording (B3.5, B3.8; N2.1; `IdentifiedModel`): its form, gain and dynamics,
+ * its normalised errors and residuals, and its uncertainty. A parameter the form does not have is absent.
+ */
+export interface IdentifiedModel2 {
+  /**
+   * The dead time `L` in seconds.
+   */
+  deadTimeSeconds?: number | null;
+  /**
+   * The residuals on the estimation record (N3.4).
+   */
+  estimationResiduals?: number[] | null;
+  /**
+   * The static gain `K`, or the rate gain `K′` of an integrating form.
+   */
+  gain: number;
+  /**
+   * The model form.
+   */
+  kind:
+    "static_gain" | "integrating" | "first_order" | "first_order_dead_time" | "second_order" | "second_order_dead_time";
+  /**
+   * The normalised error that decides the model (N3.2): the validation error of an independently validated fit,
+   * the error on the recording itself for a single-run preview. A fit always records it. A supplied model was not fitted, so
+   * it records none, and Tune's error check does not apply to it (B3.7).
+   */
+  normalizedError?: number | null;
+  /**
+   * The normalised error on the estimation record.
+   */
+  normalizedEstimationError?: number | null;
+  /**
+   * The normalised error on the independent validation record.
+   */
+  normalizedValidationError?: number | null;
+  /**
+   * Whether the best grid point of the fit lies on the edge of its search grid: a search-boundary finding that N2.4
+   * keeps.
+   */
+  onSearchBoundary?: boolean;
+  /**
+   * The second time constant in seconds, for the second-order forms.
+   */
+  secondTimeConstantSeconds?: number | null;
+  /**
+   * Whether the model may be used as a stable form: an integrating form, or a form whose time constants are
+   * positive.
+   */
+  stable: boolean;
+  /**
+   * The time constant `T` in seconds, or the first time constant of a second-order form.
+   */
+  timeConstantSeconds?: number | null;
+  /**
+   * The uncertainty intervals of the parameters.
+   */
+  uncertainty?: IdentifiedUncertainty | null;
+  /**
+   * The residuals on the validation record (N3.4).
+   */
+  validationResiduals?: number[] | null;
+  [k: string]: unknown;
+}
+/**
+ * One model of the page's model select and whether the page may enable it (`modelChoices` of the manual identification answer).
+ */
+export interface ManualModelChoice {
+  /**
+   * Whether the page may enable the option.
+   */
+  enabled: boolean;
+  /**
+   * The words of the option, as the engine offers them with the choice: the page lists the options from the choices and keeps no
+   * label table of its own.
+   */
+  label?: string | null;
+  /**
+   * The model, which the select's option value names in snake case (`fopdt`, `first_order` and so on).
+   */
+  model: "automatic" | "integrating" | "first_order" | "fopdt" | "second_order" | "sopdt";
+  [k: string]: unknown;
+}
+/**
+ * An identified model as the engineer reviews it (B3.8; `IdentifiedModelPresentation`).
+ */
+export interface IdentifiedModelPresentation {
+  /**
+   * The dead time, in s; zero without one.
+   */
+  delaySeconds: number;
+  /**
+   * The plant-model equation with the identified coefficients.
+   */
+  equation: string;
+  /**
+   * The equation as a stacked fraction (B3.8). An answer gives it; a stored presentation holds none, and a presentation without a
+   * gain has none.
+   */
+  equationFraction?: EquationFraction | null;
+  estimation: PresentationError;
+  /**
+   * One plain line of the key numbers, such as "Gain 0.21 °C per %, time constant 75 min, delay 12 s" (B3.8). An answer gives it;
+   * a stored presentation holds none.
+   */
+  keyNumbers?: string | null;
+  /**
+   * The model-structure comparison the model was chosen by, when a held step was compared (`modelStructure`; N2.10).
+   */
+  modelStructure?: SensorLagComparison | null;
+  /**
+   * The model type in plain words, such as "First-order model with delay" (B3.8). An answer gives it ([`Self::with_words`]); a
+   * stored presentation holds none.
+   */
+  modelType?: string | null;
+  /**
+   * The gain, each time constant and the dead time, in that order.
+   */
+  parameters: PresentationParameter[];
+  /**
+   * The poles: zero for an integrator, otherwise `−1/τ` for each time constant.
+   */
+  poles: number[];
+  /**
+   * The measured response with the prediction.
+   */
+  predictedResponse: ModelFitPoint[];
+  /**
+   * The step response to plot, when the fit came from a bounded step review.
+   */
+  stepResponse?: StepResponseView | null;
+  uncertainty: PresentationUncertainty;
+  units: PresentationUnits;
+  validation: PresentationError1;
+  validityRange: OperatingRange1;
+  /**
+   * The warnings of the fit evidence.
+   */
+  warnings: string[];
+  /**
+   * The zeros; the low-order forms have none.
+   */
+  zeros: number[];
+  [k: string]: unknown;
+}
+/**
+ * The equation of an identified model split for display as a stacked fraction, `G(s) = numerator / denominator · e^(−delay)`
+ * (B3.8): the gain, the factors of the denominator and the delay of the exponent, each written to six significant digits. The
+ * page lays the three out and writes none of them.
+ */
+export interface EquationFraction {
+  /**
+   * The delay of the exponent, such as `12s` for `e^(−12s)`; absent without a dead time.
+   */
+  delay?: string | null;
+  /**
+   * The denominator: `s` for an integrator, one factor `(τs + 1)` for each time constant, and `1` without one.
+   */
+  denominator: string;
+  /**
+   * The numerator: the gain, or the rate gain of an integrator.
+   */
+  numerator: string;
+  [k: string]: unknown;
+}
+/**
+ * The error evidence on the estimation record.
+ */
+export interface PresentationError {
+  /**
+   * The normalized error on the record.
+   */
+  normalizedError?: number | null;
+  /**
+   * The lag-one correlation of the residuals on the record.
+   */
+  residualLagOneCorrelation?: number | null;
+  [k: string]: unknown;
+}
+/**
+ * One identified parameter with its value and unit (`parameters`).
+ */
+export interface PresentationParameter {
+  /**
+   * The parameter's name: `Gain`, `Time constant 1`, `Time constant 2` or `Dead time`.
+   */
+  name: string;
+  /**
+   * The value's unit.
+   */
+  unit: string;
+  /**
+   * The identified value.
+   */
+  value: number;
+  [k: string]: unknown;
+}
+/**
+ * The analysis of a held step (N2.2 to N2.6): the measured windows, the step and its hold, the onset and the 63 %
+ * level, the best first-order-with-delay fit, the measurement-consistent set, the warnings, the fitted held samples,
+ * the fraction of the fitted final change reached (A10.3) and the final-window check (N2.4).
+ */
+export interface StepResponseAnalysis2 {
+  baseline: StepResponseWindow2;
+  best: StepBestFit;
+  /**
+   * Whether the best fit lies on a search boundary.
+   */
+  boundaryLimited: boolean;
+  consistency: ConsistentSet;
+  /**
+   * The detectable onset after the step, in s; absent when no sustained run crosses the threshold (N2.5).
+   */
+  detectableOnsetSeconds?: number | null;
+  final: StepResponseWindow3;
+  /**
+   * The fraction of the fitted final change the held response reached (A10.3).
+   */
+  finalChangeFraction?: number | null;
+  /**
+   * The final-window mean less the fitted steady value `y0 + K·Δu`: a reported check, never an input (N2.4).
+   */
+  finalWindowDifference?: number | null;
+  /**
+   * The time of the restoration, which ends the hold, in s.
+   */
+  holdEndSeconds: number;
+  /**
+   * The step amplitude `Δu`: the mean held input less the mean input over the baseline (N2.2).
+   */
+  inputChange: number;
+  /**
+   * The 63 % level `y0 + 0.632·K·Δu`.
+   */
+  level63: number;
+  /**
+   * The side of the baseline the onset threshold lies on (N2.5), so that the page words the criterion without deriving it from the
+   * windows. Absent in a record kept before the engine stated it.
+   */
+  onsetSide?: OnsetSide | null;
+  /**
+   * The onset threshold `y0 ± h` (N2.5).
+   */
+  onsetThreshold: number;
+  /**
+   * The held samples with the fitted output.
+   */
+  points: StepResponsePoint[];
+  /**
+   * The sample time of the fitted samples, in s.
+   */
+  sampleTimeSeconds: number;
+  settings: StepResponseSettings1;
+  /**
+   * The time of the step, in s.
+   */
+  stepTimeSeconds: number;
+  /**
+   * The warnings the engineer reads: a search boundary, an empty consistent set, a timestamp shift.
+   */
+  warnings: string[];
+  [k: string]: unknown;
+}
+/**
+ * The measurement of a held step without a fit (`measureStepResponse`; N2.5, N2.6): the windows, the step and its
+ * hold, the onset and the 63 % level of the measured change.
+ */
+export interface StepResponseMeasurement1 {
+  baseline: StepResponseWindow;
+  /**
+   * The detectable onset after the step, in s; absent when no sustained run crosses the threshold (N2.5).
+   */
+  detectableOnsetSeconds?: number | null;
+  final: StepResponseWindow1;
+  /**
+   * The time of the restoration, which ends the hold, in s.
+   */
+  holdEndSeconds: number;
+  /**
+   * The step amplitude `Δu`: the mean held input less the mean input over the baseline (N2.2).
+   */
+  inputChange: number;
+  /**
+   * The 63 % level `y0 + 0.632·(ȳ_final − y0)` of the measured change.
+   */
+  level63: number;
+  /**
+   * The side of the baseline the onset threshold lies on (N2.5), so that the page words the criterion without deriving it from the
+   * windows. Absent in a record kept before the engine stated it.
+   */
+  onsetSide?: OnsetSide | null;
+  /**
+   * The onset threshold `y0 ± h` (N2.5).
+   */
+  onsetThreshold: number;
+  /**
+   * The sample time of the prepared samples, in s.
+   */
+  sampleTimeSeconds: number;
+  settings: StepResponseSettings;
+  /**
+   * The time of the step, in s.
+   */
+  stepTimeSeconds: number;
+  /**
+   * The warnings the engineer reads: a timestamp shift.
+   */
+  warnings: string[];
+  [k: string]: unknown;
+}
+/**
+ * The uncertainty label and intervals.
+ */
+export interface PresentationUncertainty {
+  /**
+   * The parameter intervals of the fit, when it has them.
+   */
+  intervals?: IdentifiedUncertainty | null;
+  /**
+   * What the intervals are; never a statistical confidence the fit has not established.
+   */
+  label: string;
+  [k: string]: unknown;
+}
+/**
+ * The units of the input, the output, the gain and time.
+ */
+export interface PresentationUnits {
+  /**
+   * The gain's unit, `output/input`.
+   */
+  gain: string;
+  /**
+   * The input's unit.
+   */
+  input: string;
+  /**
+   * The output's unit.
+   */
+  output: string;
+  /**
+   * The unit of time, `s`.
+   */
+  time: string;
+  [k: string]: unknown;
+}
+/**
+ * The error evidence on the validation record.
+ */
+export interface PresentationError1 {
+  /**
+   * The normalized error on the record.
+   */
+  normalizedError?: number | null;
+  /**
+   * The lag-one correlation of the residuals on the record.
+   */
+  residualLagOneCorrelation?: number | null;
+  [k: string]: unknown;
+}
+/**
+ * The range the model is evidence for.
+ */
+export interface OperatingRange1 {
+  /**
+   * The largest input.
+   */
+  inputMaximum: number;
+  /**
+   * The smallest input.
+   */
+  inputMinimum: number;
+  /**
+   * The largest output.
+   */
+  outputMaximum: number;
+  /**
+   * The smallest output.
+   */
+  outputMinimum: number;
+  [k: string]: unknown;
+}
+/**
+ * The evidence a study holds that decides the stages' status.
+ */
+export interface StageEvidence1 {
+  /**
+   * Tune, Validate and Apply apply to the loop. False for an open-loop experiment or an observation loop (C12), whose
+   * project owns the controller: those three stages are Not applicable.
+   */
+  controllerStagesApply: boolean;
+  /**
+   * A controller candidate exists.
+   */
+  hasCandidate: boolean;
+  /**
+   * The project declares its own analysis.
+   */
+  hasDeclaredAnalysis: boolean;
+  /**
+   * Manual controller parameters are entered.
+   */
+  hasManualParameters: boolean;
+  /**
+   * A plant model exists.
+   */
+  hasModel: boolean;
+  /**
+   * A recording exists.
+   */
+  hasRecording: boolean;
+  /**
+   * The last identification failed.
+   */
+  identificationFailed: boolean;
+  /**
+   * A loop is bound, so Monitor and Test can be used.
+   */
+  loopBound: boolean;
+  /**
+   * Validation has a result.
+   */
+  validationHasResult: boolean;
+  /**
+   * That result is inconclusive: a requirement lacks the evidence to pass or to fail (B5.4).
+   */
+  validationInconclusive: boolean;
+  /**
+   * That result passed.
+   */
+  validationPassed: boolean;
+  [k: string]: unknown;
+}
+/**
  * The page the engineer views with an analysis tool (§0.1a, `controlStudio/page`; A8.1): the tool shown and its inputs, so that
- * reopening shows them again.
+ * reopening shows them again. The engine records it itself with each calculation it answers, with the inputs it read and the model
+ * it used (B9.9).
  */
 export interface AnalysisPage {
   inputs?: AnalysisInputs;
+  /**
+   * The revision of the model the engine calculated the tool for, which the engine records with the analysis it answers (B9.9): it
+   * says whether the analysis is still current when the study's model changes (`stale` of an inputs answer). Absent while the tool
+   * is only selected, and in a record the page sends, whose revision the engine keeps for the same tool.
+   */
+  modelRevision?: string | null;
   /**
    * The tool shown.
    */
@@ -2906,9 +5493,9 @@ export interface AnalysisInputs {
    */
   crossoverRadPerSecond?: number | null;
   /**
-   * `initialState`: the duration in seconds, a whole number of steps.
+   * `initialState`: the duration in seconds, a whole number of steps. An answer writes it as the engine's words, as `step_seconds`.
    */
-  durationSeconds?: number | null;
+  durationSeconds?: number | string | null;
   /**
    * `measuredFrequency`: the tone frequencies in rad/s.
    */
@@ -2929,7 +5516,7 @@ export interface AnalysisInputs {
    * `measuredPaths`: the largest change that an input which was not stepped may make during a trial, in its unit: finite and
    * nonnegative. Absent, the check is not made.
    */
-  maximumUnexcitedInputDrift?: number | null;
+  maximumUnexcitedInputDrift?: number | string | null;
   /**
    * `measuredFrequency`: the minimum coherence, 0 to 1.
    */
@@ -2967,9 +5554,10 @@ export interface AnalysisInputs {
    */
   startupSamples?: number | null;
   /**
-   * `initialState`: the output step in seconds, above 0.
+   * `initialState`: the output step in seconds, above 0. An answer writes it as the engine's words (`2 min 30 s`), which the engine
+   * reads back as the same duration; a request gives seconds or the text the engineer typed.
    */
-  stepSeconds?: number | null;
+  stepSeconds?: number | string | null;
   /**
    * `leadLag`: the phase in degrees for a lead, or the low-frequency gain ratio for a lag.
    */
@@ -3019,6 +5607,136 @@ export interface PageView {
    * (B3.6, B3.7), which start no campaign. At most 64 characters.
    */
   identifyMethod?: string | null;
+}
+/**
+ * The form of a project test (B6.1, C12): what the Identify page shows before the engine's review answers.
+ */
+export interface ProjectTestForm {
+  /**
+   * The baseline the test shows before its activation, in seconds; absent when the loop declares none, or declares none above zero.
+   */
+  baselineSeconds?: number | null;
+  /**
+   * The duration the test shows, in seconds: the loop's declared duration, or the default when it declares none.
+   */
+  durationSeconds: number;
+  /**
+   * The parameters the tool starts from (B6.1, C12). The experiment's settings are the loop's whole binding. A declared analysis's
+   * tool starts with a binding that lists no parameter, because its parameters are the ones the engine's answers name, with the
+   * bounds the analysis allows. Absent when the form names no tool.
+   */
+  parameterBinding?: ParameterBinding | null;
+  /**
+   * What the tool offers when the loop opens (C12), before any answer of `controlStudio/parameters`: Inspect, which reads only
+   * (`messages::first_tool_offer`). Absent when the form names no tool.
+   */
+  parameterOffer?: ParameterToolOffer | null;
+  /**
+   * The parameter tool the page shows; absent when the loop has none (see [`parameter_tool`]).
+   */
+  parameterTool?: ParameterTool | null;
+  /**
+   * The signals the test offers, in the order the selector lists them.
+   */
+  signals: ProjectTestSignal[];
+  [k: string]: unknown;
+}
+/**
+ * What the parameter tool offers after an answer (C12): the step its own button runs next, and every action the engine takes now.
+ */
+export interface ParameterToolOffer {
+  /**
+   * The actions the engine takes now, in the tool's order: `inspect` always; `review` and `restore` while the settings are free; and
+   * `apply` after a review, which it confirms.
+   */
+  available: ParameterToolStep[];
+  /**
+   * One action of the parameter tool (C12).
+   */
+  nextStep: "inspect" | "review" | "apply" | "restore";
+  [k: string]: unknown;
+}
+/**
+ * One signal the project test's Signals selector offers (B6.1): its identifier, its label without the unit, its unit and whether the
+ * test starts with it selected.
+ */
+export interface ProjectTestSignal {
+  /**
+   * The identifier the page sends back: `sp`, `pv`, `mv`, `requestedMv`, or the identifier of an additional signal of the loop.
+   */
+  id: string;
+  /**
+   * The signal's symbol and its role, as the selector names it.
+   */
+  label: string;
+  /**
+   * Whether the test starts with the signal selected.
+   */
+  selected: boolean;
+  /**
+   * The signal's unit, which the page shows after the label; absent for a signal without one.
+   */
+  unit?: string | null;
+  [k: string]: unknown;
+}
+/**
+ * One controlled output of the Requirements editor (B4.3, C7).
+ */
+export interface RequirementOutput {
+  /**
+   * The output's identifier in the model: the channel its record is kept under in the requirements' `channelRequirements`, and the
+   * channel the editor names its rows with.
+   */
+  channelId: string;
+  /**
+   * The requirements the output is held to when the loop opens, which its rows start from: its own record in the requirements the
+   * study holds, else the loop's declared requirements for the channel, else, for the loop's process variable, the record's own
+   * values (the order Validate reads them). Absent when the output is held to none.
+   */
+  requirements?: OutputRequirements | null;
+  /**
+   * The identifier of the loop signal the output measures. `liveSides` names that signal's variable and unit.
+   */
+  signalId: string;
+  [k: string]: unknown;
+}
+/**
+ * One scenario of a verification campaign (`TypeScript` `EngineerScenario`): the values it starts from, the timed events
+ * it writes, the effects it applies and the requirements it checks. The stored form is `camelCase`.
+ */
+export interface EngineerScenario1 {
+  /**
+   * The effects the scenario applies to the plant: disturbances, noise and parameter variations.
+   */
+  effects?: EngineerScenarioEffect[] | null;
+  /**
+   * The timed writes of the run.
+   */
+  events: ScenarioEvent[];
+  /**
+   * The scenario's identity: unique within its campaign, and not `target-response`.
+   */
+  id: string;
+  /**
+   * The values the run starts from, by symbol.
+   */
+  initialValues: {
+    [k: string]: number;
+  };
+  /**
+   * The plant model the scenario runs on, when it is not the selected one; the campaign decodes it.
+   */
+  model?: {
+    [k: string]: unknown;
+  };
+  /**
+   * The operating outputs of that model, when the scenario names them.
+   */
+  operatingOutputs?: number[] | null;
+  /**
+   * The requirements the scenario checks.
+   */
+  requirements: RunRequirement[];
 }
 /**
  * The finite search of a program's law, kept unapplied in the study's Tune section (C5): the values of the selected trial by the variable
@@ -3072,10 +5790,27 @@ export interface SearchTrial {
   score?: number | null;
 }
 /**
- * The stage evidence of the opened study, which the page gates its actions on (B9.4, A8.6): whether a model, a candidate
- * and a passed validation exist now. It is the evidence `stages` is computed from, as `controlStudio/run` answers it.
+ * A signal that a loop without a declared setpoint may take as its setpoint (B3.6): its identifier, its symbol and its unit.
  */
-export interface StageEvidence1 {
+export interface SetpointChoice {
+  /**
+   * The signal's identifier in the loop.
+   */
+  id: string;
+  /**
+   * The signal's symbol.
+   */
+  symbol: string;
+  /**
+   * The signal's unit, which is the process variable's.
+   */
+  unit: string;
+  [k: string]: unknown;
+}
+/**
+ * The evidence a study holds that decides the stages' status.
+ */
+export interface StageEvidence2 {
   /**
    * Tune, Validate and Apply apply to the loop. False for an open-loop experiment or an observation loop (C12), whose
    * project owns the controller: those three stages are Not applicable.
@@ -3128,6 +5863,11 @@ export interface StageEvidence1 {
  */
 export interface FormField {
   /**
+   * The choices of a field that is a choice, each with its words (the solver policy); absent for a field of text. The page lists the
+   * options from these choices and keeps no label table of its own.
+   */
+  choices?: FieldChoice[] | null;
+  /**
    * The field.
    */
   field:
@@ -3143,6 +5883,25 @@ export interface FormField {
    * The label the form shows.
    */
   label: string;
+  /**
+   * The value of the choice the form shows now, for a field that is a choice: `finite` while the stored solver policy is the finite
+   * horizon, else `infinite`. Absent for a field of text. The page shows it and invents no default.
+   */
+  selected?: string | null;
+  [k: string]: unknown;
+}
+/**
+ * One choice of a form field that is a choice, with its words: the value the draft holds and the label the form shows for it.
+ */
+export interface FieldChoice {
+  /**
+   * The label the form shows for the choice.
+   */
+  label: string;
+  /**
+   * The value the draft holds for this choice (`infinite` or `finite` for the solver policy).
+   */
+  value: string;
   [k: string]: unknown;
 }
 /**
@@ -3187,6 +5946,10 @@ export interface TuneResult {
    * of each variable that Apply writes. Absent for every other law.
    */
   group?: GroupCandidate | null;
+  /**
+   * The answer's kind (§0.1a): the page shows the answer by it, never by the fields it carries.
+   */
+  kind: "tuneResult";
   /**
    * The margins of the candidate on the model (B4.6, N7.7); absent when they cannot be given.
    */
@@ -3276,7 +6039,7 @@ export interface TuneResult {
    * not predicted.
    */
   settlingTimeSeconds?: number | null;
-  stageEvidence: StageEvidence2;
+  stageEvidence: StageEvidence3;
   /**
    * The status of every stage after this result.
    */
@@ -3286,6 +6049,11 @@ export interface TuneResult {
    * (D-B12). Absent for every other law.
    */
   state?: StateAnswer | null;
+  /**
+   * The words of the answer that the page shows as text: the margins in words, the outcome sentence and the labels of the setting rows
+   * (the Tune page specification, "Result and plot"). Set for every answer that the engine gives.
+   */
+  words?: TuneWords | null;
   [k: string]: unknown;
 }
 /**
@@ -3418,6 +6186,10 @@ export interface ComparisonEntry {
         [k: string]: unknown;
       };
   /**
+   * The sentence of the outcome as the page shows it, the same words as the outcome's sentence (B4.4, B4.5).
+   */
+  outcomeText: string;
+  /**
    * Which terms a controller keeps (C0, "Families and zero terms"). A term the family does not use is written as an
    * explicit zero, so the structure follows from the gains that are not zero.
    */
@@ -3453,6 +6225,10 @@ export interface FeedforwardAnswer {
    */
   disturbanceStep: number;
   /**
+   * The unit of the measured disturbance, which its step is in.
+   */
+  disturbanceUnit?: string | null;
+  /**
    * The largest deviation of the measurement from its operating value after the step, with the PI alone, on the model.
    */
   feedbackDeviation: number;
@@ -3465,6 +6241,10 @@ export interface FeedforwardAnswer {
    */
   gain: number;
   /**
+   * The unit of `K_ff`: the manipulated variable's unit per the disturbance's, or `1` when they are the same.
+   */
+  gainUnit?: string | null;
+  /**
    * The lag time `T_lag` in seconds, when the program has a lead and a lag.
    */
   lagSeconds?: number | null;
@@ -3472,6 +6252,10 @@ export interface FeedforwardAnswer {
    * The lead time `T_lead` in seconds, when the program has a lead and a lag.
    */
   leadSeconds?: number | null;
+  /**
+   * The unit of the measurement, which the two deviations are in.
+   */
+  measurementUnit?: string | null;
   outputPath: FeedforwardPath1;
   [k: string]: unknown;
 }
@@ -3487,6 +6271,11 @@ export interface FeedforwardPath {
    * The steady-state gain of the path.
    */
   gain: number;
+  /**
+   * The unit of the path's gain: the measurement's unit per the unit of the path's input, or `1` when they are the same. The page shows
+   * the gain with it and composes no unit.
+   */
+  gainUnit?: string | null;
   /**
    * The time constant of the path in seconds.
    */
@@ -3505,6 +6294,11 @@ export interface FeedforwardPath1 {
    * The steady-state gain of the path.
    */
   gain: number;
+  /**
+   * The unit of the path's gain: the measurement's unit per the unit of the path's input, or `1` when they are the same. The page shows
+   * the gain with it and composes no unit.
+   */
+  gainUnit?: string | null;
   /**
    * The time constant of the path in seconds.
    */
@@ -3572,6 +6366,11 @@ export interface GroupDecoupler {
    */
   inputChannelIds: string[];
   /**
+   * The names of the rows of `D`, in member order, as `input_name` of a member gives them. Tune names them; a candidate kept before
+   * holds none.
+   */
+  inputNames?: string[] | null;
+  /**
    * `D = K⁻¹·diag(K)`, by plant input (row) and member (column).
    */
   matrix: number[][];
@@ -3626,6 +6425,11 @@ export interface GroupMemberDesign {
    */
   inputChannelId: string;
   /**
+   * The name of the plant input the member drives: the symbol of the signal the loop binds to its input channel, else the channel's
+   * identifier (L19). Tune names it, so that the page resolves no signal; a candidate kept before holds none.
+   */
+  inputName?: string | null;
+  /**
    * The member's instance path.
    */
   instance: string;
@@ -3637,6 +6441,10 @@ export interface GroupMemberDesign {
    * The identifier of the model output the member measures.
    */
   outputChannelId: string;
+  /**
+   * The name of the measured output the member measures, as `input_name` names the input.
+   */
+  outputName?: string | null;
   /**
    * The steady-state gain of the member's own path, `Kᵢᵢ` (N4.5).
    */
@@ -3777,13 +6585,23 @@ export interface TuningRequirements1 {
    */
   automaticCriteria?: AutomaticCriteria | null;
   /**
+   * The requirements of each controlled output of a loop with several, by the output's model channel identifier (B4.3, C7). Each
+   * is checked by the rules of this record, and its refusals name the output's channel. The record's own values are the first
+   * output's copy, which the engine writes when it assembles the record from the rows typed for each output (`study::inputs_change`);
+   * absent for a loop with one controlled output.
+   */
+  channelRequirements?: {
+    [k: string]: OutputRequirements;
+  } | null;
+  /**
    * The constant input disturbance of the load trial, in the output's unit; absent when none is declared (N5.12(b)).
    */
   constantInputDisturbance?: number | null;
   /**
-   * The validation duration in seconds: longer than the settling time, and within the runtime limit (A7).
+   * The validation duration in seconds: longer than the settling time, and within the runtime limit (A7). It is read as the settling
+   * time is.
    */
-  durationSeconds: number;
+  durationSeconds: number | string;
   /**
    * The fraction of gain uncertainty of the scenarios, between zero and one.
    */
@@ -3809,9 +6627,10 @@ export interface TuningRequirements1 {
    */
   settlingBand: number;
   /**
-   * The settling-time deadline in seconds, positive.
+   * The settling-time deadline in seconds, positive. The page sends the time the engineer typed (`90 s`, `1 h 30 min`) or a number of
+   * seconds; a time no duration reads is NaN and is refused under its field.
    */
-  settlingTimeSeconds: number;
+  settlingTimeSeconds: number | string;
   /**
    * The Auto-entry tolerance in output units, zero or more (A6.4).
    */
@@ -3923,10 +6742,9 @@ export interface ScheduleAnswerVariable {
   unit: string;
 }
 /**
- * The stage evidence after this result, from which `stages` is computed: whether the model and the candidate this result
- * is the answer of exist (B9.4). A preview keeps nothing, so it carries the study's own evidence (B4.5).
+ * The evidence a study holds that decides the stages' status.
  */
-export interface StageEvidence2 {
+export interface StageEvidence3 {
   /**
    * Tune, Validate and Apply apply to the loop. False for an open-loop experiment or an observation loop (C12), whose
    * project owns the controller: those three stages are Not applicable.
@@ -4020,6 +6838,81 @@ export interface StateHorizon {
   [k: string]: unknown;
 }
 /**
+ * The words of a Tune answer that the page shows as text (the Tune page specification, "Result and plot").
+ */
+export interface TuneWords {
+  /**
+   * The delay margin in words, when it is not a number (the words of `gain_margin`). Absent when it is finite.
+   */
+  delayMargin?: string | null;
+  gainLabels: GainLabels;
+  /**
+   * The gain margin in words, when it is not a number: `unbounded`, or `not observed in range`. Absent when it is finite.
+   */
+  gainMargin?: string | null;
+  /**
+   * The line that names a state law's finite horizon and its policy, such as `Finite horizon: 3 steps · Repeated first gain` (C4,
+   * N5.14). Absent for an answer without a finite horizon. The page shows the line and keeps no table of policy words.
+   */
+  horizonPolicy?: string | null;
+  /**
+   * The heading of the finite horizon's stages, such as `Riccati stages`; the stages of a design that a pin fixed are the nominal ones
+   * (D-B9). Absent where `horizon_policy` is.
+   */
+  horizonStages?: string | null;
+  /**
+   * The outcome sentence: `Meets the requirements`, `Misses: ` and the shortfall, or `No prediction: ` and the reason.
+   */
+  outcome: string;
+  /**
+   * The phase margin in words, when it is not a number (the words of `gain_margin`). Absent when it is finite.
+   */
+  phaseMargin?: string | null;
+  /**
+   * The rows of the settings that the page draws for a PID law, in the order of the loop's parameter binding, each with its label.
+   * A setting without a finite value has no row. Empty when no row applies.
+   */
+  settingLabels: SettingLabel[];
+  [k: string]: unknown;
+}
+/**
+ * The names of `Control.PID`'s gains as the engine words them (C6, C7, C9, C10): the labels that the structure tables of the page show.
+ */
+export interface GainLabels {
+  /**
+   * The derivative gain's name.
+   */
+  derivative: string;
+  /**
+   * The integral gain's name.
+   */
+  integral: string;
+  /**
+   * The proportional gain's name.
+   */
+  proportional: string;
+  [k: string]: unknown;
+}
+/**
+ * One row of the settings that the page draws: the setting's symbol, the label of its row and its unit.
+ */
+export interface SettingLabel {
+  /**
+   * The label of the row.
+   */
+  label: string;
+  /**
+   * The setting's symbol, as the loop's parameter binding names it.
+   */
+  symbol: string;
+  /**
+   * The setting's unit, as the parameter binding names it: `1` for a number without a unit. The page shows the value with it and
+   * reads no unit from the loop.
+   */
+  unit?: string | null;
+  [k: string]: unknown;
+}
+/**
  * The final result of `controlStudio/validate` (specification 35, B5.1 to B5.5), and the `result` of the command line's
  * `validate --json` object. It holds the independent model check when Validate ran one, each scenario's current and
  * candidate runs, the overall result of the candidate and whether Apply is available. Nothing in it is written to the
@@ -4027,7 +6920,9 @@ export interface StateHorizon {
  */
 export interface ValidateResult {
   /**
-   * Whether Apply is available: the model is qualified and the candidate passed every requirement (B5.4).
+   * Whether Apply is available: the model is qualified and the candidate passed every requirement (B5.4). The answer of
+   * `controlStudio/validate` states it by the one rule of every answer that offers Apply (B7, `application_offers::apply_offered`),
+   * which also asks that no Apply's checkpoint is unresolved and that the newest Apply applied another validation.
    */
   applyAvailable: boolean;
   /**
@@ -4062,13 +6957,19 @@ export interface ValidateResult {
    * The measured response of the target-response case for the plot (B5.4, B9.6); absent when the candidate's run has no sample.
    */
   plot?: ValidationPlot | null;
+  /**
+   * The action that holds the Validate page's position after this result (B7; `application_offers::primary_action`), stated by the
+   * answer of `controlStudio/validate`; absent when none is offered, and in the result a reopened study holds (A8.6), whose open
+   * answer states the offers.
+   */
+  primaryAction?: PrimaryAction | null;
   requirements: TuningRequirements2;
   /**
    * Each scenario of the campaign in its order, the target-response case first: the current settings' run and the
    * candidate's (B5.3).
    */
   scenarios: ScenarioOutcome[];
-  stageEvidence: StageEvidence3;
+  stageEvidence: StageEvidence4;
   /**
    * The status of every stage after this result.
    */
@@ -4078,6 +6979,12 @@ export interface ValidateResult {
    * and Pass otherwise.
    */
   status: "Pass" | "Fail" | "Inconclusive";
+  /**
+   * The rows of the table in the order the page shows them (B9.9): the independent model check first unless it fails, the failing
+   * rows, the inconclusive rows, the passing rows, the row that counts the passing guards and the candidate's overall row. Absent
+   * when there are none.
+   */
+  table?: ValidateRow[];
   [k: string]: unknown;
 }
 /**
@@ -4226,6 +7133,7 @@ export interface Failure {
    */
   nextAction:
     | "connect-runtime"
+    | "start-simulator"
     | "open-loop-setup"
     | "open-limits"
     | "open-requirements"
@@ -4398,13 +7306,23 @@ export interface TuningRequirements2 {
    */
   automaticCriteria?: AutomaticCriteria | null;
   /**
+   * The requirements of each controlled output of a loop with several, by the output's model channel identifier (B4.3, C7). Each
+   * is checked by the rules of this record, and its refusals name the output's channel. The record's own values are the first
+   * output's copy, which the engine writes when it assembles the record from the rows typed for each output (`study::inputs_change`);
+   * absent for a loop with one controlled output.
+   */
+  channelRequirements?: {
+    [k: string]: OutputRequirements;
+  } | null;
+  /**
    * The constant input disturbance of the load trial, in the output's unit; absent when none is declared (N5.12(b)).
    */
   constantInputDisturbance?: number | null;
   /**
-   * The validation duration in seconds: longer than the settling time, and within the runtime limit (A7).
+   * The validation duration in seconds: longer than the settling time, and within the runtime limit (A7). It is read as the settling
+   * time is.
    */
-  durationSeconds: number;
+  durationSeconds: number | string;
   /**
    * The fraction of gain uncertainty of the scenarios, between zero and one.
    */
@@ -4430,9 +7348,10 @@ export interface TuningRequirements2 {
    */
   settlingBand: number;
   /**
-   * The settling-time deadline in seconds, positive.
+   * The settling-time deadline in seconds, positive. The page sends the time the engineer typed (`90 s`, `1 h 30 min`) or a number of
+   * seconds; a time no duration reads is NaN and is refused under its field.
    */
-  settlingTimeSeconds: number;
+  settlingTimeSeconds: number | string;
   /**
    * The Auto-entry tolerance in output units, zero or more (A6.4).
    */
@@ -4517,10 +7436,9 @@ export interface RunOutcome1 {
   status: "Pass" | "Fail" | "Inconclusive";
 }
 /**
- * The stage evidence after this result, from which `stages` is computed: the model, the candidate and this validation's
- * result, which passed or did not (B5.4). The page gates Apply on it (B9.4).
+ * The evidence a study holds that decides the stages' status.
  */
-export interface StageEvidence3 {
+export interface StageEvidence4 {
   /**
    * Tune, Validate and Apply apply to the loop. False for an open-loop experiment or an observation loop (C12), whose
    * project owns the controller: those three stages are Not applicable.
@@ -4566,5 +7484,51 @@ export interface StageEvidence3 {
    * That result passed.
    */
   validationPassed: boolean;
+  [k: string]: unknown;
+}
+/**
+ * One row of the Validate table (B9.9; the Validate page specification, "Results and plot"): the words the row shows, its measured
+ * and limit texts and its verdict, all decided by the engine. The page lays the rows out in the order of `ValidateResult::table`.
+ */
+export interface ValidateRow {
+  /**
+   * The limit with its unit: "≤" or "≥" before a value, "= " before a single declared value, a declared range as "lowest–highest";
+   * "—" when the row has none.
+   */
+  limit: string;
+  /**
+   * The measured value or range with its unit, or "—" when the check has no good value.
+   */
+  measured: string;
+  /**
+   * The row's identity: the requirement's id, or for the row that counts the passing guards and for the overall row, the marker
+   * the page keeps them by (`limit-and-controller-checks` and `overall`).
+   */
+  requirement: string;
+  /**
+   * The plant the check ran against, which the page shows under the title; empty when the row names none.
+   */
+  source: string;
+  /**
+   * The channel's symbol, which the page shows on hover; empty when the row names none.
+   */
+  symbol: string;
+  /**
+   * The row's name: the scenario's and the run's words in front of the requirement's label, its Automatic mark, and its
+   * channel's role with its unit, for example "Target response · Candidate · Maximum settling time · Automatic · Measurement (°C)".
+   */
+  title: string;
+  /**
+   * The engine's verdict word: Pass, Fail or Inconclusive (N8.4, N8.5).
+   */
+  verdict: string;
+  /**
+   * The verdict's class, which the page styles from: "pass", "fail" or "inconclusive".
+   */
+  verdictClass: string;
+  /**
+   * The verdict cell's words: the word alone for a pass, and the word, " · " and the reason for a verdict that is not a pass.
+   */
+  verdictText: string;
   [k: string]: unknown;
 }

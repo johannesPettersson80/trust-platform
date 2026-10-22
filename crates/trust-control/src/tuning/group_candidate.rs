@@ -11,7 +11,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::failure::{Cause, Failure, NextAction};
-use crate::loop_definition::{PidControllerGroup, PidGroupMember};
+use crate::identification::connected_run::loop_signal_of;
+use crate::loop_definition::{LoopDefinition, PidControllerGroup, PidGroupMember};
 use crate::tuning::candidate::CandidateSource;
 use crate::tuning::structure::ParallelGains;
 use crate::tuning::structures::pid_group::{DecentralizedMember, StaticDecoupler2x2Design};
@@ -45,6 +46,13 @@ pub struct GroupMemberDesign {
     pub input_channel_id: String,
     /// The identifier of the model output the member measures.
     pub output_channel_id: String,
+    /// The name of the plant input the member drives: the symbol of the signal the loop binds to its input channel, else the channel's
+    /// identifier (L19). Tune names it, so that the page resolves no signal; a candidate kept before holds none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_name: Option<String>,
+    /// The name of the measured output the member measures, as `input_name` names the input.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_name: Option<String>,
     /// The symbol of the member's proportional gain in its parameter record; the page shows it with the record's unit.
     pub proportional_symbol: String,
     /// The symbol of the member's integral gain in its parameter record; the page shows it with the record's unit.
@@ -72,6 +80,10 @@ pub struct GroupDecoupler {
     pub matrix: Vec<Vec<f64>>,
     /// The members' input channel identifiers, in member order: the rows of `D`.
     pub input_channel_ids: Vec<String>,
+    /// The names of the rows of `D`, in member order, as `input_name` of a member gives them. Tune names them; a candidate kept before
+    /// holds none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_names: Option<Vec<String>>,
     /// The members' instance paths, in member order: the columns of `D`.
     pub member_instances: Vec<String>,
     /// The configuration of `Control.StaticDecoupler2x2` for two members (C7; spec 37 §4.2), absent for a larger group.
@@ -80,6 +92,35 @@ pub struct GroupDecoupler {
 }
 
 impl GroupCandidate {
+    /// The candidate with each member's channels and the decoupler's rows named by the plant signals the loop binds to them (L19), so
+    /// that the page resolves no signal of its own.
+    #[must_use]
+    pub fn named_by(&self, loop_definition: &LoopDefinition) -> Self {
+        let mut named = self.clone();
+        for member in &mut named.members {
+            member.input_name = Some(channel_name(
+                loop_definition,
+                Side::Input,
+                &member.input_channel_id,
+            ));
+            member.output_name = Some(channel_name(
+                loop_definition,
+                Side::Output,
+                &member.output_channel_id,
+            ));
+        }
+        if let Some(decoupler) = &mut named.decoupler {
+            decoupler.input_names = Some(
+                decoupler
+                    .input_channel_ids
+                    .iter()
+                    .map(|id| channel_name(loop_definition, Side::Input, id))
+                    .collect(),
+            );
+        }
+        named
+    }
+
     /// The rules that a stored PID group candidate holds (B4.1, B10.4): it is unapplied, and every number is finite.
     ///
     /// # Errors
@@ -120,6 +161,38 @@ impl GroupCandidate {
     }
 }
 
+/// The side of the model a channel is on.
+#[derive(Clone, Copy)]
+enum Side {
+    /// A model input.
+    Input,
+    /// A model output.
+    Output,
+}
+
+/// The name a channel goes by in an answer (L19): the symbol of the plant signal that the loop binds to the channel, else the channel's
+/// identifier when the loop declares no such channel or signal.
+fn channel_name(loop_definition: &LoopDefinition, side: Side, channel_id: &str) -> String {
+    let signal_id = loop_definition
+        .channels
+        .as_ref()
+        .and_then(|channels| match side {
+            Side::Input => channels
+                .inputs
+                .iter()
+                .find(|input| input.model_channel_id == channel_id)
+                .map(|input| input.signal_id.as_str()),
+            Side::Output => channels
+                .outputs
+                .iter()
+                .find(|output| output.model_channel_id == channel_id)
+                .map(|output| output.signal_id.as_str()),
+        });
+    signal_id
+        .and_then(|id| loop_signal_of(loop_definition, id))
+        .map_or_else(|| channel_id.to_owned(), |signal| signal.symbol)
+}
+
 /// The member's design as the candidate keeps it: its declared instance, channels and gain symbols, and its design.
 ///
 /// # Errors
@@ -132,6 +205,8 @@ pub fn member_design(
         instance: declared.instance.clone(),
         input_channel_id: declared.input_channel_id.clone(),
         output_channel_id: declared.output_channel_id.clone(),
+        input_name: None,
+        output_name: None,
         proportional_symbol: gain_symbol(declared, "ProportionalGain")?,
         integral_symbol: gain_symbol(declared, "IntegralGain")?,
         path_gain: design.path_gain,

@@ -265,6 +265,7 @@ impl Lab {
         let connection = RuntimeConnection {
             endpoint: format!("unix://{}", socket.display()),
             token: Some(TOKEN.into()),
+            runtime_id: None,
         };
         let first = wait_for_status(&connection, &log);
         assert_eq!(

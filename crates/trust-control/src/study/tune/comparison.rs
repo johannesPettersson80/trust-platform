@@ -45,11 +45,13 @@ pub(crate) fn simc_comparison(
                 gains: candidate.gains,
             };
             let outcome = predicted_outcome(&design, requirements, context);
+            let outcome = candidate_outcome(outcome, predictor, candidate.gains, requirements);
             ComparisonEntry {
                 label: label_of(candidate.label).to_string(),
                 structure: candidate.structure,
                 gains: candidate.gains,
-                outcome: candidate_outcome(outcome, predictor, candidate.gains, requirements),
+                outcome_text: outcome.sentence(),
+                outcome,
             }
         })
         .collect()

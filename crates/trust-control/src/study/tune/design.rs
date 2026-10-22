@@ -168,13 +168,13 @@ pub(crate) fn run_single(
     let model = tuning_model(current).map_err(refused(Cause::ModelOrData, NextAction::Identify))?;
     let requirements = run_requirements(inputs, current, &model, held)?;
     // The manual candidate comes first, because its settings shape the prediction; a design's shape is the pinned one.
-    let entry = manual::candidate_of(loop_definition, request)?;
+    let entry = manual::candidate_of(loop_definition, request, inputs.pins)?;
     let mapped = mapped_parameters(loop_definition);
     let shaping = match &entry {
         Some(candidate) => shaping_of_candidate(candidate),
         None => record_shaping(
             loop_definition,
-            &pinned_settings(loop_definition, request, &mapped)?,
+            &pinned_settings(loop_definition, inputs.pins, &mapped)?,
         ),
     };
     let setup = LoopSetup::of(
@@ -206,7 +206,7 @@ pub(crate) fn run_single(
         reason: designed.reason.clone(),
         closed_loop_time_seconds: designed.closed_loop_time_seconds,
         attempts: designed.attempts.clone(),
-        pins: request.pins.clone(),
+        pins: inputs.pins.cloned(),
     };
     // A fit names the recording it was fitted on, so the study holds one; a supplied model names none (B3.7).
     let evidence = stage_evidence(
@@ -269,7 +269,7 @@ fn designed_candidate(
             law: setup.law,
             gain_unit: &setup.gain_unit,
         };
-        let designed = design(formula, fixed_structure(request), &basis)?;
+        let designed = design(formula, fixed_structure(request, inputs.pins), &basis)?;
         let comparison = if formula == Some(TuningMethod::Simc) {
             simc_comparison(&plant, requirements, context, predictor, &setup.gain_unit)
         } else {
@@ -278,8 +278,7 @@ fn designed_candidate(
         (designed, comparison)
     };
     let mapped = mapped_parameters(loop_definition);
-    let (designed, applied) =
-        pinned_design(loop_definition, request.pins.as_ref(), designed, &mapped)?;
+    let (designed, applied) = pinned_design(loop_definition, inputs.pins, designed, &mapped)?;
     let candidate = match (
         served_trajectory(loop_definition),
         served_seed(loop_definition),
@@ -896,10 +895,11 @@ fn no_candidate(attempts: &[Attempt]) -> Failure {
 
 /// The structure that a request fixes (B4.4, B4.2): the structure the engineer chose, or else the family of the pinned
 /// settings, which the pins hold for.
-fn fixed_structure(request: &TuneRequest) -> Option<Structure> {
-    request
-        .structure
-        .or(request.pins.as_ref().map(|pins| pins.family))
+fn fixed_structure(
+    request: &TuneRequest,
+    pins: Option<&ControllerSettingsPins>,
+) -> Option<Structure> {
+    request.structure.or(pins.map(|pins| pins.family))
 }
 
 /// The design with the pins applied (B4.2, C0): each pinned gain replaces the design's value, and the structure follows from

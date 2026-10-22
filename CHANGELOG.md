@@ -6,6 +6,56 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Control Studio's panel in VS Code is now presentation only: every rule, check and decision runs in its Rust engine, and the
+  TypeScript route and session are removed. A loop the engine does not run shows the engine's refusal and its next action.
+  Export (JSON of the workflow result, CSV of the selected signal table, B10.5), the Channels… mapping, the loop monitor's live
+  values and the target label, the study inputs, and the loop setup's step-by-step save now run through the engine; the HMI
+  Builder opens an equipment's loops through it.
+- The Tune page's initial-state response reads its Step and Duration in the engine: a time typed as `15 min`, `90 s` or `1 h 30 min`
+  is read as its seconds, and a text that is no time is refused with its sentence and the field marked, instead of silently taking the default.
+- Control Studio's Requirements… and experiment Limits… dialogs no longer check ranges themselves: the engine refuses a value
+  outside its range, a reversed range, or a blank or unreadable number, with its sentence under the field that holds it. A PID group's Tune designs each
+  member to its own output's requirements.
+- Control Studio's verification scenarios are named and checked by the engine: a scenario added in the Requirements editor has no
+  name until the list is saved and then takes the first free `scenario-N`, a timed change whose time is not a whole number of the
+  loop's task periods is refused when the list changes (not when Validate runs), and the advanced fields are read by the engine as
+  the text typed. The setup form's optional gain-schedule points and the PID group's decoupler matrix follow the engine's answer.
+- Control Studio's Apply, Restore and Keep follow the engine: it states which of them is offered after open and after each outcome,
+  and how a review is confirmed (a press on a simulated target, an approval on a physical one). A confirmed Restore now ends its
+  recovery and unlocks the page, a refused Apply, Restore or Keep keeps the engine's offers, and cancelling the approval of a
+  recovery's Restore review frees the Review restore button again. The stage tabs enable what the engine's stage availability
+  allows, and a finished project test that restored its declared values releases the experiment settings.
+- Control Studio's experiment-settings tool runs on the engine again, for the course projects that declare their experiment's
+  settings (lessons 21, 65, 71, 74, 75, 78 and 79): the settings are reviewed and applied within their bounds, frozen while a project
+  test works on them, and released after its restoration is confirmed, also after an Abort or a failed test. The engine refuses an
+  Identify start whose method the loop cannot run, with the Method list's own sentence; after a refused method choice the
+  Method list shows the method the study still holds.
+- The VS Code simulator's control status reports the tasks of the loaded program and the cycle its runner takes, also after a
+  reload. It reported a fixed 10 ms cycle, so Control Studio sized the recordings and Apply observations of a loop on a
+  background task in the simulator for 10 ms executions instead of the task's own period.
+- Control Studio reviews a project test on any runtime: on a stopped Simulator the review answers with a Start simulator button,
+  and a physical target is reviewed and run without a Simulator start first (the page used to start the Simulator before every first
+  review, so a physical target could not review its project test).
+- Control Studio's Restore on a runtime that was restarted or reloaded since Apply says that nothing could be restored, keeps the
+  Apply's checkpoint as history and offers Validate again, instead of leaving the loop blocked. After any Restore, Apply is offered
+  again only once a new validation passes, also when the panel is reopened. While a checkpoint waits for its Restore,
+  Identify, Tune, Validate, Reset and the imports are refused with the reason, also after the panel is reopened.
+- Control Studio's loop setup form sends every number as it was typed, and the engine refuses one it cannot read under its field
+  (a browser number field used to blank text such as `1,5` before the engine saw it).
+- Control Studio's project test that declares a baseline records from the start of its plan, so the recording times a lesson
+  gives are the recording's own; a test that declares none still waits for a steady baseline first, so its fit has one. Every
+  project test keeps each scan of its hold: a 30.1 s test keeps all 300 scans of its 30 s hold.
+- Control Studio's project test of a loop that names a hold parameter (lesson 21) is reviewed and planned from the hold the runtime
+  applies: the review shows the baseline, the hold and one restoration sample (35.1 s for a 30 s hold), and refuses a hold that cannot
+  be read, lies outside its bounds or exceeds the declared maximum.
+- Control Studio keeps each experiment's trajectory, approval, stop reason, abort state and restoration, and the simulated plant's
+  configuration, seed, events and actuator, in the study's recording files, and the JSON export writes them; a failed Validate
+  requirement names its value and its limit.
+- Control Studio's Identify page takes the model's words from the engine: the Recorded-data fit starts from the engine's default
+  numbers (the first import no longer clears them), the model line names the model type, the gain, the time constants and the delay
+  as the engine words them (an integrator's rate gain per second, `°C`), and a failed check keeps the evidence the engine sent with
+  it. A plant handoff shows the plant's summary line from the runtime's `plant.status`. The simulation's speed (`×10`, or
+  `×9.4 of ×10` when it falls behind) is the runtime's own words on every surface.
 - Control Studio's loop discovery no longer refuses a loop that declares an addressed BOOL signal, such as the course's
   experiment activation, fault and state indications: the compiled process image now lists BOOL bits beside the numeric
   variables, so the setup page and the Tune page's controller list find these loops.

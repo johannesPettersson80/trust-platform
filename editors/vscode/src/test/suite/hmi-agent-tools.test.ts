@@ -180,8 +180,6 @@ suite("HMI agent tools in VS Code", function () {
     assert.strictEqual(bridgeTools.find((tool) => tool.name === "hmi_apply_draft")?.annotations.readOnlyHint, false);
   });
 
-
-
   test("authoring uses customer agent tools rather than the retired model-calling command", async () => {
     const commands = await vscode.commands.getCommands(true);
     assert.ok(
@@ -190,7 +188,6 @@ suite("HMI agent tools in VS Code", function () {
     );
     assert.ok(commands.includes("trust-lsp.hmiBuilder.connectAgent"));
   });
-
 
   test("cancellation after the editor commits reports the applied outcome", async () => {
     const storageRoot = await fs.mkdtemp(path.join(os.tmpdir(), "trust-agent-cancel-"));
@@ -239,11 +236,6 @@ suite("HMI agent tools in VS Code", function () {
     }
   });
 
-
-
-
-
-
   test("cancelled native requests retain a typed cancellation result", async () => {
     const cancellation = new vscode.CancellationTokenSource();
     cancellation.cancel();
@@ -261,9 +253,6 @@ suite("HMI agent tools in VS Code", function () {
       await fs.rm(storageRoot, { recursive: true, force: true });
     }
   });
-
-
-
 
   test("tool discovery describes binding maps and semantic edit shapes precisely", () => {
     const compose = JSON.parse(
@@ -295,8 +284,16 @@ suite("HMI agent tools in VS Code", function () {
     const parent = new vscode.CancellationTokenSource();
     const storageRoot = await fs.mkdtemp(path.join(os.tmpdir(), "trust-agent-deadline-"));
     try {
-      const tool = Reflect.construct(HmiAgentTool, ["hmi_get_context", undefined, { storageRoot, fontFile: "" }, 1]) as HmiAgentTool;
-      const result = await tool.invoke({ input: { contractVersion: 1, workspaceId: fixtureId, input: {} } }, parent.token);
+      const tool = Reflect.construct(HmiAgentTool, [
+        "hmi_get_context",
+        undefined,
+        { storageRoot, fontFile: "" },
+        1,
+      ]) as HmiAgentTool;
+      const result = await tool.invoke(
+        { input: { contractVersion: 1, workspaceId: fixtureId, input: {} } },
+        parent.token,
+      );
       assert.strictEqual(parent.token.isCancellationRequested, false, "the request owns its deadline, not its caller");
       const payload = JSON.parse((result.content[0] as vscode.LanguageModelTextPart).value);
       assert.strictEqual(payload.code, "CANCELLED");

@@ -2,7 +2,7 @@ import { renderThreePageStudioHtml } from "./threePageTemplate";
 // Control Studio panel HTML template: builds the webview document from a
 // plain view model so the markup can be unit tested without a vscode host.
 
-import type { ControlLoopDefinition } from "./loopDefinition";
+import type { LoopDefinition } from "./generated/OpenResult";
 
 export function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character] ?? character));
@@ -21,7 +21,7 @@ export interface ControlStudioView {
   readonly loopRevision: string;
   readonly processUnit: string;
   readonly outputUnit: string;
-  readonly loopDefinition?: ControlLoopDefinition;
+  readonly loopDefinition?: LoopDefinition;
   /** The selected target's name and speed, such as "Simulation ×10" (specification 35, B9.2). */
   readonly targetLabel?: string;
 }

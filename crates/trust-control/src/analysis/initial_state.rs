@@ -24,6 +24,21 @@ pub const DEFAULT_STEP_SECONDS: f64 = 0.1;
 /// The duration when the request gives none, in seconds (B9.9).
 pub const DEFAULT_DURATION_SECONDS: f64 = 10.0;
 
+/// A time setting of the response, the output step or the duration, must be a finite time above 0 s (A7). A text that no duration reads
+/// arrives as `NaN` (`messages/analyze.rs`): it is refused with the form a time takes, so the engineer sees what to type. Each refusal
+/// names the page's field, so the page can mark it.
+fn positive_time(value: f64, name: &str, field: &str) -> Result<(), Failure> {
+    if value.is_nan() {
+        let text = format!("The {name} must be a time such as 90 s, 15 min or 1 h 30 min.");
+        return Err(input_failure(&text).with_field(field));
+    }
+    if !(value.is_finite() && value > 0.0) {
+        let text = format!("The {name} must be a finite time above 0 s.");
+        return Err(input_failure(&text).with_field(field));
+    }
+    Ok(())
+}
+
 /// The settings of an initial-state response, checked against the model (N4.0, A7). The step and the duration are positive, the duration
 /// is a whole number of steps and at least one, the response has at most 4,096 output values, a discrete model's step is its sample time,
 /// the initial state and the held input have one finite value per state and per input, and a feedback connection has a controller.
@@ -47,20 +62,15 @@ pub fn checked_settings(
         .clone()
         .unwrap_or_else(|| vec![0.0; plant.system.inputs()]);
     let connection = inputs.connection.unwrap_or(ResponseConnection::OpenLoop);
-    if !(step.is_finite() && step > 0.0) {
-        return Err(input_failure("The step must be a finite time above 0 s."));
-    }
-    if !(duration.is_finite() && duration > 0.0) {
-        return Err(input_failure(
-            "The duration must be a finite time above 0 s.",
-        ));
-    }
+    positive_time(step, "step", "response-step")?;
+    positive_time(duration, "duration", "response-duration")?;
     let count = duration / step;
     let steps = count.round();
     if !count.is_finite() || steps < 1.0 || (count - steps).abs() > WHOLE_STEP_TOLERANCE {
         return Err(input_failure(
             "The duration must be a whole number of steps, at least one step.",
-        ));
+        )
+        .with_field("response-duration"));
     }
     let outputs = f64::from(u32::try_from(plant.system.outputs()).unwrap_or(u32::MAX));
     let maximum = f64::from(u32::try_from(MAXIMUM_TIME_RESPONSE_VALUES).unwrap_or(u32::MAX));
@@ -76,7 +86,8 @@ pub fn checked_settings(
         if (step - sample_time_seconds).abs() > SAMPLE_TIME_TOLERANCE {
             return Err(input_failure(
                 "The step must equal the sample time of this discrete model.",
-            ));
+            )
+            .with_field("response-step"));
         }
     }
     if initial_state.len() != plant.system.states()

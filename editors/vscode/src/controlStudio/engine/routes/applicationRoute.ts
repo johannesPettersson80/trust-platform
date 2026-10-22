@@ -4,13 +4,15 @@ import type { ApplicationAnswer } from "../../generated/ApplicationAnswer";
 import type { ApplicationRequest } from "../../generated/ApplicationRequest";
 import type { KeepReviewAnswer } from "../../generated/KeepReviewAnswer";
 import type { OperationStarted } from "../../generated/OperationStarted";
-import type { LoopMessageScope } from "../../messages";
-import { record, type EngineLoop, type EngineRouteContext, type EngineStageRoute } from "../engineRouteContext";
+import { record, type EngineLoop, type EngineRouteContext, type EngineScope, type EngineStageRoute } from "../engineRouteContext";
 
 /** The methods that review a change and then confirm it with the review's identity (specification 35, §0.1b, B6). */
 type ReviewedMethod = "apply" | "restore" | "keep";
 
-/** The answer of one of the three methods: the review, the started operation (`{operationId}`), or the failure that refuses it. */
+/**
+ * The answer of one of the three methods: the review, the started operation (`{operationId}`), the end of a Restore on a runtime that
+ * was replaced since Apply (its outcome, B6.4), or the failure that refuses it.
+ */
 type ReviewedAnswer = ApplicationAnswer | KeepReviewAnswer | OperationStarted;
 
 /** The page's message kind of each method (`webview/threePageApplication.ts`). */
@@ -20,17 +22,7 @@ const METHOD_OF_KIND = new Map<string, ReviewedMethod>([
   ["control-studio.application.keep", "keep"],
 ]);
 
-/**
- * The recovery actions of an interrupted Apply (`webview/threePageRecovery.ts`; specification 35, B6.4, B6.7). They are the engine's
- * one Restore path: "Review restore", "Review restarted runtime" and "Retry recovery" ask the engine for the Restore review again, and
- * "Confirm" confirms the Restore review the engine answered last, under that review's identity. Only Cancel stops an operation.
- */
-const RESTORE_REVIEW_KINDS = new Set([
-  "control-studio.engineer.rollback",
-  "control-studio.engineer.review-runtime",
-  "control-studio.engineer.retry-recovery",
-]);
-const RESTORE_CONFIRM_KIND = "control-studio.engineer.confirm";
+/** The page's Abort of an Apply, a Restore or a Keep: only Cancel stops an operation. */
 const CANCEL_KIND = "control-studio.engineer.cancel";
 
 /** The operation this stage runs, which Abort stops; the watch ends once the operation has ended. */
@@ -53,24 +45,16 @@ export interface ApplicationStageRoute extends EngineStageRoute {
  * without a review identity asks the engine for the review, which writes nothing; a request with the identity of that review
  * confirms it, and the engine runs the change as an operation whose result follows through the engine route. The engine decides
  * when each action is allowed and refuses what it does not allow: this route only names the request's fields. The runtime
- * connection goes to the engine only (its token is a credential), the physical approval is sent as the page holds it (A2.5), a
- * Restore has nothing to resume, and Keep reads the editors' unsaved files (B6.5).
+ * connection goes to the engine only (its token is a credential), the physical approval and the Resume of an observation are sent
+ * as the page gives them (A2.5, A8.6; the engine refuses a Resume of a Restore), and Keep reads the editors' unsaved files (B6.5).
  */
 export function createApplicationRoute(context: EngineRouteContext): ApplicationStageRoute {
   let running: RunningOperation | undefined;
-  /** The identity of the Restore review the engine answered last: the recovery's confirmation approves that review (§0.1b). */
-  let restoreReview: string | undefined;
 
-  /** Ends the watch of the running operation. */
+  /** Ends the watch of the running operation, which is also what the panel opening the loop again does (`reset`). */
   function forgetOperation(): void {
     running?.watch.dispose();
     running = undefined;
-  }
-
-  /** The panel opens the loop again: the running operation's watch ends, and the pending review is forgotten. */
-  function forget(): void {
-    forgetOperation();
-    restoreReview = undefined;
   }
 
   /** Watches the operation's updates until it ends, so that Abort reaches the operation only while it runs. */
@@ -94,18 +78,19 @@ export function createApplicationRoute(context: EngineRouteContext): Application
     const request: ApplicationRequest = {
       ...base,
       physicalApproved: payload.physicalApproved === true,
-      // Only Apply has an observation to follow (A8.5, A8.6); the engine refuses a Restore that asks for one.
-      ...(method === "apply" && payload.resume === true ? { resume: true } : {}),
+      // The Resume of a journaled observation (A8.5, A8.6), as the page asks for it; the engine refuses it for a Restore.
+      ...(payload.resume === true ? { resume: true } : {}),
     };
     return method === "apply" ? context.client.apply(request) : context.client.restore(request);
   }
 
   /**
    * One request to the engine's method, with the review identity of its confirmation when there is one. A started operation is
-   * followed; a review is posted to the page, which shows it before the engineer confirms it (B6.1, B6.4, B6.5).
+   * followed; a review is posted to the page, which shows it before the engineer confirms it (B6.1, B6.4, B6.5), and so is the end of
+   * a Restore that the engine answers at once on a replaced runtime (B6.4).
    */
   async function request(
-    scope: LoopMessageScope,
+    scope: EngineScope,
     loop: EngineLoop,
     method: ReviewedMethod,
     payload: Record<string, unknown>,
@@ -129,21 +114,19 @@ export function createApplicationRoute(context: EngineRouteContext): Application
     }
     const started = reply.result as { operationId?: unknown };
     if (typeof started.operationId === "string") {
-      restoreReview = undefined;
       watch(started.operationId);
       context.follow(started.operationId, scope);
       return true;
     }
-    if (method === "restore") restoreReview = identityOf(reply.result);
     await context.post(scope, { kind: "control-studio.engine.result", method, result: reply.result });
     return true;
   }
 
   /**
-   * Abort stops the operation this stage runs. The page's Abort of a served loop never reaches the TypeScript session: with no
+   * Abort stops the operation this stage runs. The page's Abort of a served loop is answered here: with no
    * operation running there is nothing to stop, so the command is consumed here.
    */
-  async function cancel(scope: LoopMessageScope): Promise<boolean> {
+  async function cancel(scope: EngineScope): Promise<boolean> {
     const operationId = running?.operationId;
     if (operationId) {
       const reply = await context.ask(scope, "cancel", () => context.client.cancel({ operationId }));
@@ -158,25 +141,17 @@ export function createApplicationRoute(context: EngineRouteContext): Application
       if (!loop) return false;
       const kind = message.kind;
       if (kind === CANCEL_KIND) return cancel(scope);
-      if (typeof kind === "string" && RESTORE_REVIEW_KINDS.has(kind)) return request(scope, loop, "restore", {}, undefined);
-      if (kind === RESTORE_CONFIRM_KIND) return request(scope, loop, "restore", {}, restoreReview);
       const method = typeof kind === "string" ? METHOD_OF_KIND.get(kind) : undefined;
       if (!method) return false;
       const payload = record(message.payload) ?? {};
       return request(scope, loop, method, payload, typeof payload.review === "string" ? payload.review : undefined);
     },
-    reset: forget,
+    reset: forgetOperation,
     // The panel already relays the operation's updates (`follow` at open); the watch is what Cancel reads (`running`).
     adopt(operationId: string): void {
       watch(operationId);
     },
   };
-}
-
-/** The identity of a review the engine answered, when the answer is one. */
-function identityOf(result: unknown): string | undefined {
-  const identity = record(result)?.identity;
-  return typeof identity === "string" ? identity : undefined;
 }
 
 /** The project files that have unsaved changes in an editor: a Keep must not change them (B6.5). */

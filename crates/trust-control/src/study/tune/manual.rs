@@ -13,7 +13,10 @@ use crate::study::tune::record::{candidate_record, record_shaping, LoopLimits};
 use crate::study::tune::settings_refused;
 use crate::tuning::candidate::{CandidateSource, LawCandidate};
 use crate::tuning::objective::TuningObjective;
-use crate::tuning::project_candidate::{project_candidate, served_seed};
+use crate::tuning::project_candidate::{
+    project_candidate, served_seed, served_trajectory, trajectory_candidate,
+};
+use crate::tuning::project_seed::TrajectoryFeedforwardSeed;
 use crate::tuning::settings_pins::{
     apply_pins, mapped_parameters, merge_manual_entry, ControllerSettingsPins, GainKey,
     MappedParameter,
@@ -22,12 +25,13 @@ use crate::tuning::structure::{ParallelGains, Structure};
 use crate::tuning::texts;
 
 /// The first setting of an entry that the loop does not bind, or whose value lies outside the bounds of its parameter or is
-/// not finite, in words (B4.5; `outOfBounds` of `manualPreview.ts`). The settings are read in the order of their symbols.
+/// not finite, with the symbol of its setting and its sentence (B4.5; `outOfBounds` of `manualPreview.ts`). The symbol names the
+/// setting's field, under which the page shows the refusal. The settings are read in the order of their symbols.
 #[must_use]
-pub fn outside_bounds(
+pub fn first_outside_bounds(
     loop_definition: &LoopDefinition,
     settings: &BTreeMap<String, f64>,
-) -> Option<String> {
+) -> Option<(String, String)> {
     let parameters: &[Parameter] = match &loop_definition.parameter_binding {
         Some(binding) => &binding.parameters,
         None => &[],
@@ -37,30 +41,51 @@ pub fn outside_bounds(
             .iter()
             .find(|parameter| &parameter.symbol == symbol)
         else {
-            return Some(texts::not_a_setting(symbol));
+            return Some((symbol.clone(), texts::not_a_setting(symbol)));
         };
+        if value.is_nan() {
+            let sentence = texts::setting_not_a_number(
+                symbol,
+                parameter.minimum,
+                parameter.maximum,
+                &parameter.unit,
+            );
+            return Some((symbol.clone(), sentence));
+        }
         let inside =
             value.is_finite() && *value >= parameter.minimum && *value <= parameter.maximum;
         (!inside).then(|| {
-            texts::outside_bounds(
+            let sentence = texts::outside_bounds(
                 symbol,
                 parameter.minimum,
                 parameter.maximum,
                 &parameter.unit,
                 *value,
-            )
+            );
+            (symbol.clone(), sentence)
         })
     })
 }
 
+/// The sentence of the first setting that [`first_outside_bounds`] refuses.
+#[must_use]
+pub fn outside_bounds(
+    loop_definition: &LoopDefinition,
+    settings: &BTreeMap<String, f64>,
+) -> Option<String> {
+    first_outside_bounds(loop_definition, settings).map(|(_, sentence)| sentence)
+}
+
 /// The candidate of a request that uses the manual method (B4.2, B4.5): the settings it enters, for the structure the request
-/// fixes or, when it fixes none, the structure its entered gains give (C0). `None` for any other method.
+/// fixes or, when it fixes none, the family of the pins (`pins`, resolved for the design) or the structure its entered gains give (C0).
+/// `None` for any other method.
 ///
 /// # Errors
 /// The failure of [`manual_candidate`], or the manual method without the settings it takes.
 pub(crate) fn candidate_of(
     loop_definition: &LoopDefinition,
     request: &TuneRequest,
+    pins: Option<&ControllerSettingsPins>,
 ) -> Result<Option<LawCandidate>, Failure> {
     if request.method != Some(TuneMethod::Manual) {
         return Ok(None);
@@ -72,7 +97,6 @@ pub(crate) fn candidate_of(
             NextAction::None,
         ));
     };
-    let pins = request.pins.as_ref();
     let family = request
         .structure
         .or(pins.map(|pins| pins.family))
@@ -107,6 +131,15 @@ pub(crate) fn manual_candidate(
     )
     .map_err(settings_refused())?;
     let gains = family_gains(family, &applied);
+    if let Some(trajectory) = served_trajectory(loop_definition) {
+        let feedforward = trajectory_feedforward(trajectory, &values)?;
+        return Ok(LawCandidate::Project(trajectory_candidate(
+            trajectory,
+            CandidateSource::Manual,
+            gains,
+            feedforward,
+        )));
+    }
     if let Some(seed) = served_seed(loop_definition) {
         return Ok(LawCandidate::Project(project_candidate(
             seed,
@@ -138,6 +171,31 @@ pub(crate) fn design_of(candidate: &LawCandidate, objective: TuningObjective) ->
         reason: texts::MANUAL_READY.to_owned(),
         description: Some(texts::MANUAL_DESCRIPTION.to_owned()),
     })
+}
+
+/// The rate and acceleration feedforward gains of a trajectory-following law's manual entry (C11): both must be entered, or pinned, as
+/// finite numbers. A missing one refuses the candidate, so Apply never writes a zero that the engineer did not enter.
+fn trajectory_feedforward(
+    seed: &TrajectoryFeedforwardSeed,
+    values: &BTreeMap<String, f64>,
+) -> Result<(f64, f64), Failure> {
+    let entered = |symbol: &str| {
+        values
+            .get(symbol)
+            .copied()
+            .filter(|value| value.is_finite())
+    };
+    match (
+        entered(&seed.rate_symbol),
+        entered(&seed.acceleration_symbol),
+    ) {
+        (Some(rate), Some(acceleration)) => Ok((rate, acceleration)),
+        _ => Err(Failure::new(
+            texts::REQUIRED_SETTING_MISSING,
+            Cause::Settings,
+            NextAction::None,
+        )),
+    }
 }
 
 /// The values of the bound parameters, by the record field each holds (C0).

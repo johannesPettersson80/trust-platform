@@ -164,6 +164,11 @@ pub fn draft_label(field: DraftField) -> &'static str {
     }
 }
 
+/// The words of the infinite-horizon choice of the solver policy (B4.2, C4): the steady-state solution.
+pub const SOLVER_INFINITE_LABEL: &str = "Infinite-horizon / steady-state";
+/// The words of the finite-horizon choice of the solver policy (B4.2, C4): the horizon with a fixed policy.
+pub const SOLVER_FINITE_LABEL: &str = "Finite-horizon (fixed policy)";
+
 /// A draft field whose text is not JSON.
 #[must_use]
 pub fn not_valid_json(label: &str) -> String {

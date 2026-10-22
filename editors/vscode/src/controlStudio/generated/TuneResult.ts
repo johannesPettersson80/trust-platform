@@ -70,6 +70,10 @@ export interface TuneResult {
    */
   group?: GroupCandidate | null;
   /**
+   * The answer's kind (§0.1a): the page shows the answer by it, never by the fields it carries.
+   */
+  kind: "tuneResult";
+  /**
    * The margins of the candidate on the model (B4.6, N7.7); absent when they cannot be given.
    */
   margins?: CandidateMargins | null;
@@ -167,6 +171,11 @@ export interface TuneResult {
    * (D-B12). Absent for every other law.
    */
   state?: StateAnswer | null;
+  /**
+   * The words of the answer that the page shows as text: the margins in words, the outcome sentence and the labels of the setting rows
+   * (the Tune page specification, "Result and plot"). Set for every answer that the engine gives.
+   */
+  words?: TuneWords | null;
   [k: string]: unknown;
 }
 /**
@@ -297,6 +306,10 @@ export interface ComparisonEntry {
         [k: string]: unknown;
       };
   /**
+   * The sentence of the outcome as the page shows it, the same words as the outcome's sentence (B4.4, B4.5).
+   */
+  outcomeText: string;
+  /**
    * The candidate's structure.
    */
   structure: "P" | "PI" | "PD" | "PID";
@@ -331,6 +344,10 @@ export interface FeedforwardAnswer {
    */
   disturbanceStep: number;
   /**
+   * The unit of the measured disturbance, which its step is in.
+   */
+  disturbanceUnit?: string | null;
+  /**
    * The largest deviation of the measurement from its operating value after the step, with the PI alone, on the model.
    */
   feedbackDeviation: number;
@@ -343,6 +360,10 @@ export interface FeedforwardAnswer {
    */
   gain: number;
   /**
+   * The unit of `K_ff`: the manipulated variable's unit per the disturbance's, or `1` when they are the same.
+   */
+  gainUnit?: string | null;
+  /**
    * The lag time `T_lag` in seconds, when the program has a lead and a lag.
    */
   lagSeconds?: number | null;
@@ -350,6 +371,10 @@ export interface FeedforwardAnswer {
    * The lead time `T_lead` in seconds, when the program has a lead and a lag.
    */
   leadSeconds?: number | null;
+  /**
+   * The unit of the measurement, which the two deviations are in.
+   */
+  measurementUnit?: string | null;
   outputPath: FeedforwardPath1;
   [k: string]: unknown;
 }
@@ -365,6 +390,11 @@ export interface FeedforwardPath {
    * The steady-state gain of the path.
    */
   gain: number;
+  /**
+   * The unit of the path's gain: the measurement's unit per the unit of the path's input, or `1` when they are the same. The page shows
+   * the gain with it and composes no unit.
+   */
+  gainUnit?: string | null;
   /**
    * The time constant of the path in seconds.
    */
@@ -383,6 +413,11 @@ export interface FeedforwardPath1 {
    * The steady-state gain of the path.
    */
   gain: number;
+  /**
+   * The unit of the path's gain: the measurement's unit per the unit of the path's input, or `1` when they are the same. The page shows
+   * the gain with it and composes no unit.
+   */
+  gainUnit?: string | null;
   /**
    * The time constant of the path in seconds.
    */
@@ -450,6 +485,11 @@ export interface GroupDecoupler {
    */
   inputChannelIds: string[];
   /**
+   * The names of the rows of `D`, in member order, as `input_name` of a member gives them. Tune names them; a candidate kept before
+   * holds none.
+   */
+  inputNames?: string[] | null;
+  /**
    * `D = K⁻¹·diag(K)`, by plant input (row) and member (column).
    */
   matrix: number[][];
@@ -504,6 +544,11 @@ export interface GroupMemberDesign {
    */
   inputChannelId: string;
   /**
+   * The name of the plant input the member drives: the symbol of the signal the loop binds to its input channel, else the channel's
+   * identifier (L19). Tune names it, so that the page resolves no signal; a candidate kept before holds none.
+   */
+  inputName?: string | null;
+  /**
    * The member's instance path.
    */
   instance: string;
@@ -515,6 +560,10 @@ export interface GroupMemberDesign {
    * The identifier of the model output the member measures.
    */
   outputChannelId: string;
+  /**
+   * The name of the measured output the member measures, as `input_name` names the input.
+   */
+  outputName?: string | null;
   /**
    * The steady-state gain of the member's own path, `Kᵢᵢ` (N4.5).
    */
@@ -653,13 +702,23 @@ export interface TuningRequirements {
    */
   automaticCriteria?: AutomaticCriteria | null;
   /**
+   * The requirements of each controlled output of a loop with several, by the output's model channel identifier (B4.3, C7). Each
+   * is checked by the rules of this record, and its refusals name the output's channel. The record's own values are the first
+   * output's copy, which the engine writes when it assembles the record from the rows typed for each output (`study::inputs_change`);
+   * absent for a loop with one controlled output.
+   */
+  channelRequirements?: {
+    [k: string]: OutputRequirements;
+  } | null;
+  /**
    * The constant input disturbance of the load trial, in the output's unit; absent when none is declared (N5.12(b)).
    */
   constantInputDisturbance?: number | null;
   /**
-   * The validation duration in seconds: longer than the settling time, and within the runtime limit (A7).
+   * The validation duration in seconds: longer than the settling time, and within the runtime limit (A7). It is read as the settling
+   * time is.
    */
-  durationSeconds: number;
+  durationSeconds: number | string;
   /**
    * The fraction of gain uncertainty of the scenarios, between zero and one.
    */
@@ -685,9 +744,10 @@ export interface TuningRequirements {
    */
   settlingBand: number;
   /**
-   * The settling-time deadline in seconds, positive.
+   * The settling-time deadline in seconds, positive. The page sends the time the engineer typed (`90 s`, `1 h 30 min`) or a number of
+   * seconds; a time no duration reads is NaN and is refused under its field.
    */
-  settlingTimeSeconds: number;
+  settlingTimeSeconds: number | string;
   /**
    * The Auto-entry tolerance in output units, zero or more (A6.4).
    */
@@ -714,6 +774,33 @@ export interface AutomaticCriteria {
    * The revision of the model the values were generated from.
    */
   modelRevision: string;
+}
+/**
+ * The requirements that one controlled output holds to (B4.3, C7): the setpoint change of its own test, the error limit, the settling
+ * band, the time by which it settles, and its overshoot limit when it declares one. The record's `channelRequirements` holds one of these
+ * for each controlled output of a loop with several.
+ */
+export interface OutputRequirements {
+  /**
+   * The largest error allowed after the settling time, in the output's unit.
+   */
+  maximumError: number;
+  /**
+   * The overshoot limit in percent of the setpoint change; absent declares no limit.
+   */
+  maximumOvershootPercent?: number | null;
+  /**
+   * The setpoint change of the output's own test, in its unit. Never zero.
+   */
+  referenceChange: number;
+  /**
+   * The settling band around the final value, in the output's unit. Smaller than `maximum_error`.
+   */
+  settlingBand: number;
+  /**
+   * The settling-time deadline of the output in seconds, positive. The page sends the time the engineer typed or a number of seconds.
+   */
+  settlingTimeSeconds: number | string;
 }
 /**
  * The predicted response of a candidate on the selected model (B4.5, B9.6): one time base and the traces on it.
@@ -866,15 +953,27 @@ export interface StageEvidence {
 }
 /**
  * One stage's status, with the words the panel shows. A stage that is Not applicable also names the reason, which the page
- * shows in place of its actions (C12).
+ * shows in place of its actions (C12), and so does a stage that an Apply's checkpoint holds (B6.4, B6.7) and a stage that cannot
+ * start yet for want of what it works on (B9.4). `available` says whether the stage's own action can start now (B9.4).
  */
 export interface StageAvailability {
+  /**
+   * Whether the stage's own action can start now (B9.4). The page enables the action exactly then, and holds no copy of the
+   * rule. A bound loop can always Monitor, Test and Identify. Tune needs a model, a declared analysis or manual controller
+   * parameters; Validate needs a candidate; Apply needs a candidate whose current validation passed ([`apply_available`]), and in
+   * an answer that states the Validate page's offers, Apply offered (B7, `application_offers::offered_stages`). A stage that is
+   * Not applicable never starts (C12), and while an Apply's checkpoint waits for its Restore only Monitor starts
+   * ([`blocked_stage_availability`]).
+   */
+  available: boolean;
   /**
    * The status in words.
    */
   label: string;
   /**
-   * Why the stage does not apply, when its status is Not applicable.
+   * Why the stage does not apply, when its status is Not applicable (C12), or why its action waits, while an Apply's checkpoint
+   * waits for its Restore (B6.4, B6.7) and while the study lacks what the stage works on: a model for Tune, a candidate for
+   * Validate (B9.4). The page shows it on the stage's page.
    */
   reason?: string | null;
   /**
@@ -929,6 +1028,11 @@ export interface ComplexValue {
  */
 export interface FormField {
   /**
+   * The choices of a field that is a choice, each with its words (the solver policy); absent for a field of text. The page lists the
+   * options from these choices and keeps no label table of its own.
+   */
+  choices?: FieldChoice[] | null;
+  /**
    * The field.
    */
   field:
@@ -944,6 +1048,25 @@ export interface FormField {
    * The label the form shows.
    */
   label: string;
+  /**
+   * The value of the choice the form shows now, for a field that is a choice: `finite` while the stored solver policy is the finite
+   * horizon, else `infinite`. Absent for a field of text. The page shows it and invents no default.
+   */
+  selected?: string | null;
+  [k: string]: unknown;
+}
+/**
+ * One choice of a form field that is a choice, with its words: the value the draft holds and the label the form shows for it.
+ */
+export interface FieldChoice {
+  /**
+   * The label the form shows for the choice.
+   */
+  label: string;
+  /**
+   * The value the draft holds for this choice (`infinite` or `finite` for the solver policy).
+   */
+  value: string;
   [k: string]: unknown;
 }
 /**
@@ -966,5 +1089,80 @@ export interface StateHorizon {
    * The number of control steps.
    */
   steps: number;
+  [k: string]: unknown;
+}
+/**
+ * The words of a Tune answer that the page shows as text (the Tune page specification, "Result and plot").
+ */
+export interface TuneWords {
+  /**
+   * The delay margin in words, when it is not a number (the words of `gain_margin`). Absent when it is finite.
+   */
+  delayMargin?: string | null;
+  gainLabels: GainLabels;
+  /**
+   * The gain margin in words, when it is not a number: `unbounded`, or `not observed in range`. Absent when it is finite.
+   */
+  gainMargin?: string | null;
+  /**
+   * The line that names a state law's finite horizon and its policy, such as `Finite horizon: 3 steps · Repeated first gain` (C4,
+   * N5.14). Absent for an answer without a finite horizon. The page shows the line and keeps no table of policy words.
+   */
+  horizonPolicy?: string | null;
+  /**
+   * The heading of the finite horizon's stages, such as `Riccati stages`; the stages of a design that a pin fixed are the nominal ones
+   * (D-B9). Absent where `horizon_policy` is.
+   */
+  horizonStages?: string | null;
+  /**
+   * The outcome sentence: `Meets the requirements`, `Misses: ` and the shortfall, or `No prediction: ` and the reason.
+   */
+  outcome: string;
+  /**
+   * The phase margin in words, when it is not a number (the words of `gain_margin`). Absent when it is finite.
+   */
+  phaseMargin?: string | null;
+  /**
+   * The rows of the settings that the page draws for a PID law, in the order of the loop's parameter binding, each with its label.
+   * A setting without a finite value has no row. Empty when no row applies.
+   */
+  settingLabels: SettingLabel[];
+  [k: string]: unknown;
+}
+/**
+ * The names of `Control.PID`'s gains as the engine words them (C6, C7, C9, C10): the labels that the structure tables of the page show.
+ */
+export interface GainLabels {
+  /**
+   * The derivative gain's name.
+   */
+  derivative: string;
+  /**
+   * The integral gain's name.
+   */
+  integral: string;
+  /**
+   * The proportional gain's name.
+   */
+  proportional: string;
+  [k: string]: unknown;
+}
+/**
+ * One row of the settings that the page draws: the setting's symbol, the label of its row and its unit.
+ */
+export interface SettingLabel {
+  /**
+   * The label of the row.
+   */
+  label: string;
+  /**
+   * The setting's symbol, as the loop's parameter binding names it.
+   */
+  symbol: string;
+  /**
+   * The setting's unit, as the parameter binding names it: `1` for a number without a unit. The page shows the value with it and
+   * reads no unit from the loop.
+   */
+  unit?: string | null;
   [k: string]: unknown;
 }

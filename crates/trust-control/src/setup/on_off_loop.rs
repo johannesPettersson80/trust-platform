@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 
 use super::catalog::CompiledCatalog;
 use super::loop_bindings::{
-    binding, compiled, cyclic_task, explicit_experiment, loop_id, manual_output_type,
+    binding, compiled, cyclic_task, explicit_experiment, form_number, loop_id, manual_output_type,
     measured_signal, measurement_binding, real_type, with_revision, FormSignal, MeasuredSignal,
 };
 use super::pid_bindings::startup_state;
@@ -62,13 +62,19 @@ pub struct OnOffLoopDraft {
     pub latch: String,
     /// The dwell timer's symbol, when the program counts the seconds in the current state.
     pub dwell_timer: Option<String>,
-    /// The switched equipment's own minimum ON time in seconds, zero when it has none; absent when the engineer has not declared it.
+    /// The switched equipment's own minimum ON time in seconds, zero when it has none; absent when the engineer has not declared it. The
+    /// form sends the text typed (`form_number`), and a text that no number reads is refused under its field.
+    #[serde(default, deserialize_with = "form_number")]
     pub equipment_minimum_on_seconds: Option<f64>,
     /// The switched equipment's own minimum OFF time in seconds; see `equipment_minimum_on_seconds`.
+    #[serde(default, deserialize_with = "form_number")]
     pub equipment_minimum_off_seconds: Option<f64>,
-    /// The lower output level; the output's minimum when absent (D-11).
+    /// The lower output level; the output's minimum when absent (D-11). The form sends the text typed (`form_number`), and a text that
+    /// no number reads is refused under its field.
+    #[serde(default, deserialize_with = "form_number")]
     pub low_output: Option<f64>,
-    /// The upper output level; the output's maximum when absent (D-11).
+    /// The upper output level; the output's maximum when absent (D-11); see `low_output`.
+    #[serde(default, deserialize_with = "form_number")]
     pub high_output: Option<f64>,
     /// The measurement's noise half-band, in its unit, zero or more.
     pub noise_band: Option<f64>,
@@ -112,6 +118,7 @@ pub fn on_off_loop_definition(
         Some("onoff.manipulatedVariable"),
     )?;
     check_equipment_times(draft)?;
+    check_output_levels(draft)?;
     let controller = catalog
         .controllers
         .iter()
@@ -170,10 +177,10 @@ pub fn on_off_loop_definition(
 }
 
 /// The equipment's minimum ON and OFF times are zero or more seconds, or blank when the equipment declares none (`equipmentSeconds` of
-/// `loopSetupForm.ts`). A negative time is refused under its field.
+/// `loopSetupForm.ts`). A negative time, or a text that no number reads, is refused under its field.
 ///
 /// # Errors
-/// A declared time is below zero.
+/// A declared time is not a number of zero or more seconds.
 fn check_equipment_times(draft: &OnOffLoopDraft) -> Result<(), Failure> {
     let times = [
         (
@@ -188,9 +195,30 @@ fn check_equipment_times(draft: &OnOffLoopDraft) -> Result<(), Failure> {
         ),
     ];
     for (seconds, label, field) in times {
-        if seconds.is_some_and(|seconds| seconds < 0.0) {
+        if seconds.is_some_and(|seconds| !seconds.is_finite() || seconds < 0.0) {
             let text = format!(
                 "The {label} must be zero or more seconds; leave it blank when the equipment has none."
+            );
+            return Err(settings(&text).with_field(field));
+        }
+    }
+    Ok(())
+}
+
+/// The output levels are numbers, or blank for the output's limits (D-11; B1.3: the form sends the text typed). A text that no number
+/// reads is refused under its field.
+///
+/// # Errors
+/// A level is given as a text that no number reads.
+fn check_output_levels(draft: &OnOffLoopDraft) -> Result<(), Failure> {
+    let levels = [
+        (draft.low_output, "low", "minimum", "onoff.lowOutput"),
+        (draft.high_output, "high", "maximum", "onoff.highOutput"),
+    ];
+    for (level, which, limit, field) in levels {
+        if level.is_some_and(|level| !level.is_finite()) {
+            let text = format!(
+                "The {which} output level must be a number; leave it blank to use the output's {limit}."
             );
             return Err(settings(&text).with_field(field));
         }

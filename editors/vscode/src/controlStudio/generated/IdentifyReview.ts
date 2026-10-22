@@ -49,7 +49,9 @@ export interface IdentifyReview {
    */
   manual: boolean;
   /**
-   * The longest the campaign runs, in s: the baseline wait and the maximum duration of the step (A7, B3.4 step 2).
+   * The longest the campaign runs, in s: the baseline wait and the maximum duration of the step (A7, B3.4 step 2). A project step
+   * test whose loop declares a hold parameter runs the recording of the hold the runtime applies: its baseline, that hold and one
+   * restoration sample (C12).
    */
   maximumDurationSeconds: number;
   outputRange: Range1;
@@ -77,6 +79,11 @@ export interface CampaignApproval {
    * The loop the campaign works on.
    */
   loopId: string;
+  /**
+   * The sentence the page shows with the block: the target is physical, and nothing is written before the engineer approves the
+   * reviewed campaign (A2.5). Always present.
+   */
+  message?: string | null;
   /**
    * What the restoration returns, and when it is confirmed (B3.4 step 5, A7).
    */
@@ -165,6 +172,11 @@ export interface ProjectScriptedReview {
    * The stop conditions the runtime applies to the scenario (E5.5, C12): the list the test's plan names.
    */
   stopConditions: string[];
+  /**
+   * The test signal of the plan, in words (C12): the activation and the value the start writes to it, `P1.ExperimentEnabled · TRUE
+   * while the test runs`, or `Observation only: no signal is written` when the project declares no activation. Always present.
+   */
+  testSignal?: string | null;
   [k: string]: unknown;
 }
 /**

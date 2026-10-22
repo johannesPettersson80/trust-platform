@@ -1,84 +1,83 @@
 import * as assert from "assert";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import * as vscode from "vscode";
 import { nativeSetupPrompts } from "../../controlStudio/nativeSetupPrompts";
+import type { ChoiceItem, SetupQuestion } from "../../controlStudio/generated/SetupStepResult";
 
-function signal<T>() {
-  const listeners = new Set<(value: T) => void>();
-  const event = ((listener: (value: T) => void) => {
-    listeners.add(listener);
-    return { dispose: () => listeners.delete(listener) };
-  }) as vscode.Event<T>;
-  return { event, fire: (value: T) => [...listeners].forEach(listener => listener(value)), size: () => listeners.size };
+/** A control stub: the properties the presenter sets, and the events a test fires. */
+function control(properties: Record<string, unknown>) {
+  const listeners = new Map<string, Array<(value?: unknown) => void>>();
+  const on = (name: string) => (listener: (value?: unknown) => void) => {
+    listeners.set(name, [...(listeners.get(name) ?? []), listener]);
+    return { dispose: () => undefined };
+  };
+  const fire = (name: string, value?: unknown) => (listeners.get(name) ?? []).forEach(listener => listener(value));
+  return {
+    value: "", buttons: [] as unknown[], selectedItems: [] as unknown[], show: () => undefined, dispose: () => undefined,
+    onDidAccept: on("accept"), onDidTriggerButton: on("button"), onDidHide: on("hide"),
+    fireAccept: () => fire("accept"), fireButton: (button: unknown) => fire("button", button), ...properties,
+  } as any;
 }
 
-function fakeInputBox() {
-  const accept = signal<void>();
-  const change = signal<string>();
-  const triggerButton = signal<vscode.QuickInputButton>();
-  const hide = signal<void>();
-  const box: any = {
-    value: "",
-    validationMessage: undefined,
-    busy: false,
-    onDidAccept: accept.event,
-    onDidChangeValue: change.event,
-    onDidTriggerButton: triggerButton.event,
-    onDidHide: hide.event,
-    show: () => undefined,
-    dispose: () => { box.disposeCount += 1; },
-    disposeCount: 0,
-    fireAccept: () => accept.fire(undefined),
-    fireChange: (value: string) => { box.value = value; change.fire(value); },
-    fireHide: () => hide.fire(undefined),
-  };
-  return box;
+function question(properties: Partial<SetupQuestion>): SetupQuestion {
+  return { key: "name", phase: 1, phaseName: "Loop and signals", title: "Loop name", kind: "text", items: [], ...properties } as SetupQuestion;
 }
 
 suite("Control Studio native setup prompts", () => {
-  test("revalidates the current draft while an older async acceptance is pending", async () => {
-    const vscodeWindow = vscode.window as typeof vscode.window & { createInputBox: typeof vscode.window.createInputBox };
-    const originalCreateInputBox = vscodeWindow.createInputBox;
-    const box = fakeInputBox();
-    vscodeWindow.createInputBox = () => box;
-    let releaseOld!: () => void;
-    const oldValidation = new Promise<string | undefined>(resolve => { releaseOld = () => resolve(undefined); });
-    const validationValues: string[] = [];
-    let result: ReturnType<typeof nativeSetupPrompts.input> | undefined;
+  test("a text question returns the text the engineer typed, with the engine's refusal of the last answer under the box", async () => {
+    const window = vscode.window as any;
+    const original = window.createInputBox;
+    const box = control({});
+    window.createInputBox = () => box;
     try {
-      result = nativeSetupPrompts.input({ title: "Loop name", validateInput: async value => {
-        validationValues.push(value);
-        if (value === "old") return oldValidation;
-        return value === "bad" ? "Invalid draft" : undefined;
-      } }, { phase: 1, canGoBack: false, previous: "old" });
+      const pending = nativeSetupPrompts.ask(question({}), { previous: "Tank", refusal: "Enter a value.", canGoBack: false });
+      assert.strictEqual(box.value, "Tank", "the previous answer is shown again");
+      assert.strictEqual(box.validationMessage, "Enter a value.");
+      box.value = "  Tank 2 ";
       box.fireAccept();
-      await Promise.resolve();
-      assert.strictEqual(box.busy, true, "the first asynchronous validation must be pending");
+      assert.deepStrictEqual(await pending, { kind: "answered", answer: "  Tank 2 " }, "the presenter sends the text as typed; the engine checks it");
+    } finally { window.createInputBox = original; }
+  });
 
-      box.fireChange("bad");
-      await Promise.resolve();
-      await Promise.resolve();
-      assert.strictEqual(box.busy, false, "editing must stop the stale validation busy state");
-      assert.strictEqual(box.validationMessage, "Invalid draft", "the current invalid draft must be validated immediately");
-      assert.deepStrictEqual(validationValues, ["old", "bad"]);
+  test("a choice returns the value of the item the engineer picks, and Back returns to the question before", async () => {
+    const window = vscode.window as any;
+    const original = window.createQuickPick;
+    // The engine's choice values are any JSON (setup/prompts.rs, ChoiceItem.value): null stands for no setpoint, a text for a signal's address.
+    const items: ChoiceItem[] = [{ index: 0, label: "No setpoint (open loop)", value: null }, { index: 1, label: "P1.Ref", description: "%IL1 · LREAL", value: "%IL1" }];
+    const pick = control({});
+    window.createQuickPick = () => pick;
+    try {
+      const pending = nativeSetupPrompts.ask(question({ kind: "choice", key: "setpoint", title: "Setpoint", items }), { previous: "%IL1", canGoBack: true });
+      assert.deepStrictEqual(pick.items.map((item: any) => item.label), ["No setpoint (open loop)", "P1.Ref"]);
+      assert.deepStrictEqual(pick.activeItems.map((item: any) => item.value), ["%IL1"], "the previous choice is active");
+      assert.strictEqual(pick.buttons.length, 1, "Back is offered");
+      pick.selectedItems = [pick.items[0]];
+      pick.fireAccept();
+      assert.deepStrictEqual(await pending, { kind: "answered", answer: null }, "the item's value is the answer, so no setpoint is null");
+    } finally { window.createQuickPick = original; }
+    const backPick = control({});
+    window.createQuickPick = () => backPick;
+    try {
+      const pending = nativeSetupPrompts.ask(question({ kind: "choice", key: "setpoint", title: "Setpoint", items }), { canGoBack: true });
+      backPick.fireButton(vscode.QuickInputButtons.Back);
+      assert.deepStrictEqual(await pending, { kind: "back" });
+    } finally { window.createQuickPick = original; }
+  });
 
-      releaseOld();
-      await Promise.resolve();
-      await Promise.resolve();
-      let settled = false;
-      void result.then(() => { settled = true; });
-      await Promise.resolve();
-      assert.strictEqual(settled, false, "the obsolete valid answer must not settle the prompt");
-
-      box.fireHide();
-      const cancelled = await result;
-      assert.deepStrictEqual(cancelled, { kind: "cancelled" });
-      box.fireHide();
-      assert.strictEqual(box.disposeCount, 1, "settlement must dispose the prompt exactly once");
+  test("a file question returns the text of the file the engineer chooses", async () => {
+    const window = vscode.window as any;
+    const original = window.showOpenDialog;
+    const file = path.join(os.tmpdir(), `control-studio-adapter-${process.pid}.json`);
+    fs.writeFileSync(file, "{\"kind\":\"adapter\"}");
+    window.showOpenDialog = async () => [vscode.Uri.file(file)];
+    try {
+      const answer = await nativeSetupPrompts.ask(question({ kind: "file", key: "adapterMapping", title: "Controller adapter mapping" }), { canGoBack: false });
+      assert.deepStrictEqual(answer, { kind: "answered", answer: "{\"kind\":\"adapter\"}" });
     } finally {
-      box.fireHide();
-      releaseOld();
-      await result;
-      vscodeWindow.createInputBox = originalCreateInputBox;
+      window.showOpenDialog = original;
+      fs.rmSync(file, { force: true });
     }
   });
 });

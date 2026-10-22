@@ -40,15 +40,3 @@ export function initializeChartExportBridge(post: (kind: string, payload: Record
   });
   win.addEventListener("pagehide", () => pending.clear());
 }
-
-export function requestChartExport(url: string, filename: string, mimeType: string, owner: Document = document): string {
-  const win = owner.defaultView!;
-  const requestId = win.crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-  const handled = !win.dispatchEvent(new win.CustomEvent("trust-control-studio-export-request", {
-    detail: { requestId, url, filename, mimeType }, cancelable: true,
-  }));
-  if (!handled) win.setTimeout(() => win.dispatchEvent(new win.CustomEvent<ChartExportResultEvent>("trust-control-studio-export-result", {
-    detail: { requestId, result: { ok: false, reason: "Export is not ready. Reload Control Studio." } },
-  })), 0);
-  return requestId;
-}

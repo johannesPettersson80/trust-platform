@@ -1,20 +1,29 @@
 @startuml compiled-binding-sources
 !theme plain
 title Sources used for compiled PLC bindings
-actor "Plant editor / Control Studio" as ui
-participant "LSP command handler" as command
-participant "load_hmi_sources" as loader
+actor "Control Studio engine (setupDiscover)" as engine
+actor "Plant editor (HMI Builder, network canvas)" as ui
+participant "LSP command handler\ntrust-lsp command hmiBindings" as command
+participant "load_hmi_sources_edited" as loader
 participant "Runtime compiler" as compiler
-ui -> command : Request compiled bindings
-command -> loader : Read project ST sources
+engine -> command : Request compiled bindings\n(a separate command-line run; no language server session)
+ui -> command : Request compiled bindings\n(language server command)
+command -> loader : Read project ST sources: open editor text when the call names it, else the disk
 loader -> loader : Exclude files with @trustlsp:runtime-ignore\nin their first 20 lines
 loader --> command : Runtime sources only
 command -> compiler : Compile retained sources
 alt Runtime source error
-compiler --> command : Compile error
-command --> ui : Explain error; no catalog
+  compiler --> command : Compile error
+  command --> engine : Explain error; no catalog
+  command --> ui : Explain error; no catalog
 else Successful compilation
-compiler --> command : Runtime metadata
-command --> ui : Configured PLC bindings
+  compiler --> command : Runtime metadata
+  command -> command : Process image: commands (outputs), feedbacks (inputs) and memory\nlist the numeric signals, SINT to LREAL; booleans list every addressed BOOL\nbit of inputs, outputs and memory, such as %MX40.0
+  note right of command
+    A declared BOOL state is a catalog signal (B1.3, booleans);
+    the plant candidates stay numeric.
+  end note
+  command --> engine : Configured PLC bindings and catalog signals
+  command --> ui : Configured PLC bindings
 end
 @enduml

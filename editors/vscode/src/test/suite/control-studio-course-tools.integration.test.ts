@@ -27,12 +27,26 @@ async function calculate(inner: Inner, tool: string): Promise<any> {
   await inner("d.querySelector('[data-engineer-tune]').click();return 'calculate';");
   return answerOf(inner, tool);
 }
+/**
+ * A declared analysis and a loop's channels are served on a loop without a controller law (C12, specification 35): the loop is an
+ * open-loop observation of the plant. An open loop declares no setpoint (C12, Setup; the engine refuses a loop that does), so the
+ * fixture's setpoint goes with its law.
+ */
+function observation(loop: any): void {
+  loop.topology = "open-loop"; loop.controller.design = "project"; delete loop.controller.law; delete loop.controller.pidInitialization;
+  delete loop.signals.setpoint;
+}
+/**
+ * Opens a plant model through the Identify page's Supplied plant model method, as the engineer does (B3.7). The engine checks the
+ * model against the import contract and keeps it as the study's model: a model it refuses leaves the equation empty and shows its
+ * sentence, which the failure of the wait names.
+ */
 async function supply(inner: Inner, model: Record<string, unknown>): Promise<void> {
   model.evidence = ["analytical test fixture"];
-  assert.ok(require("../../controlStudio/generalModel").decodeGeneralModel(model), "The supplied analysis fixture must satisfy the actual import contract");
   await inner("d.querySelector('[data-engineer-stage-tab=model]').click();const method=d.querySelector('[data-engineer-acquisition-method]');method.value='supplied-model';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'supplied';");
   await inner(`const transfer=new d.defaultView.DataTransfer();transfer.items.add(new d.defaultView.File([${JSON.stringify(JSON.stringify(model))}],'model.json',{type:'application/json'}));const file=d.querySelector('[data-studio-model-file]');file.files=transfer.files;file.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'import';`);
-  await pollValue("selected model", () => inner("return d.querySelector('[data-studio-model-equation]')?.textContent??'';"), value => value.length > 0, 10000);
+  await pollValue("selected model", () => inner("return JSON.stringify({equation:d.querySelector('[data-studio-model-equation]')?.textContent??'',message:d.querySelector('[data-studio-message=model]')?.textContent??''});"),
+    value => (JSON.parse(value) as { equation: string }).equation.length > 0, 10000);
 }
 function declared(loop: any): void {
   loop.analysis = {
@@ -73,7 +87,7 @@ suite("Control Studio course tools in three pages", () => {
       // Reopening calculates the reading again (B9.9), so its summary arrives after the choice.
       await pollValue("reopened Routh reading", () => inner("return d.querySelector('[data-three-page-analysis-summary]').textContent;"), value => /Kp = 2/.test(value), 15000);
       assert.strictEqual(Boolean(vscode.debug.activeDebugSession), false, "Analysis must not start a simulator");
-    }, { loop: declared });
+    }, { loop: loop => { observation(loop); declared(loop); } });
   });
   test("calculates channel frequency and declared loop plots using the selected model", async function () {
     if (process.env.TRUST_CONTROL_STUDIO_THREE_PAGE !== "1") this.skip(); this.timeout(60000);
@@ -96,7 +110,7 @@ suite("Control Studio course tools in three pages", () => {
         if (view === "nyquist") assert.ok(Number(await inner("let count=0;for(const canvas of d.querySelectorAll('[data-three-page-analysis-plot] canvas')){if(!canvas.width||!canvas.height)continue;const ctx=canvas.getContext('2d');if(!ctx)continue;const pixels=ctx.getImageData(Math.floor(canvas.width*.2),Math.floor(canvas.height*.12),Math.floor(canvas.width*.75),Math.floor(canvas.height*.32)).data;for(let i=0;i<pixels.length;i+=4)if(Math.max(pixels[i],pixels[i+1],pixels[i+2])>150&&Math.max(pixels[i],pixels[i+1],pixels[i+2])-Math.min(pixels[i],pixels[i+1],pixels[i+2])>70)count++;}return String(count);")) > 6, "The real-model Nyquist view must show its negative-frequency conjugate branch above the real axis, below the legend");
       }
       assert.strictEqual(Boolean(vscode.debug.activeDebugSession), false, "Analysis must not start a simulator");
-    }, { loop: loop => { declared(loop); loop.analysis.controller.numerator = [{ parameter: "Kp" }]; } });
+    }, { loop: loop => { observation(loop); declared(loop); loop.analysis.controller.numerator = [{ parameter: "Kp" }]; } });
   });
   test("calculates multichannel state structure and RGA directly without a frequency detour", async function () {
     if (process.env.TRUST_CONTROL_STUDIO_THREE_PAGE !== "1") this.skip(); this.timeout(60000);
@@ -122,6 +136,7 @@ suite("Control Studio course tools in three pages", () => {
       await pollValue("reopened relative gain array", () => inner("return d.querySelector('[data-three-page-analysis-summary]').textContent;"), value => /u1.*u2.*y1.*y2/s.test(value), 15000);
       assert.strictEqual(Boolean(vscode.debug.activeDebugSession), false, "Analysis must not start a simulator");
     }, { loop: loop => {
+      observation(loop);
       loop.signals.additional = [{ ...loop.signals.manipulatedVariable, id: "u2", channel: "u2", role: "MV", symbol: "P1.Mv2", address: "%QL128" }, { ...loop.signals.processVariable, id: "y2", channel: "y2", role: "PV", symbol: "P1.Pv2", address: "%IL128" }];
       const actuator = { kind: "continuous", minimum: loop.signals.manipulatedVariable.range.minimum, maximum: loop.signals.manipulatedVariable.range.maximum };
       loop.channels = { inputs: [{ modelChannelId: "u1", signalId: "manipulatedVariable", actuator }, { modelChannelId: "u2", signalId: "u2", actuator }], outputs: [{ modelChannelId: "y1", signalId: "processVariable" }, { modelChannelId: "y2", signalId: "y2" }] };

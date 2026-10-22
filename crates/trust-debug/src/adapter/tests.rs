@@ -28,6 +28,8 @@ use trust_runtime::value::Value as RuntimeValue;
 use trust_runtime::value::{ArrayValue, Duration, StructValue};
 use trust_runtime::Runtime;
 
+#[path = "control_status_tests.rs"]
+mod control_status_tests;
 #[path = "lifecycle_contract_tests.rs"]
 mod lifecycle_contract_tests;
 #[path = "simulation_speed_tests.rs"]

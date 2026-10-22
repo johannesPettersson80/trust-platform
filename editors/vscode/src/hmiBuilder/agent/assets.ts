@@ -54,7 +54,7 @@ export async function loadPreviewAssets(
         height = bytes.readUInt32BE(20);
       if (width > 4096 || height > 4096 || width * height > 16000000)
         throw new Error("LIMIT_EXCEEDED: project image dimensions exceed preview limits.");
-      for (let at = 8; at + 12 <= bytes.length; ) {
+      for (let at = 8; at + 12 <= bytes.length;) {
         const size = bytes.readUInt32BE(at);
         if (size > bytes.length - at - 12) break;
         if (bytes.subarray(at + 4, at + 8).toString() === "acTL")

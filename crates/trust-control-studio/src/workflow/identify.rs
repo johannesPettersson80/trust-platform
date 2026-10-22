@@ -38,6 +38,7 @@ use trust_control::identification::reconcile::StatusRead;
 use trust_control::identification::texts::MODE_TRANSFER_UNAVAILABLE;
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::messages::{CampaignRestoration, RecordedChartSample};
+use trust_control::recording::context::{ExperimentContext, PlantContext};
 use trust_control::recording::evidence::RecordingEvidence;
 use trust_control::recording::RecordedRun;
 use trust_control::runtime::RuntimeConnection;
@@ -55,7 +56,11 @@ use crate::runtime_client::RuntimeClient;
 pub(crate) mod cancel;
 mod connected;
 #[cfg(test)]
+mod context_tests;
+#[cfg(test)]
 mod final_wiring_tests;
+#[cfg(test)]
+mod hold_tests;
 #[cfg(test)]
 mod long_campaign_tests;
 #[cfg(test)]
@@ -63,6 +68,8 @@ mod project_test_tests;
 pub(crate) mod run;
 #[cfg(test)]
 mod run_tests;
+#[cfg(test)]
+mod test_fixtures;
 #[cfg(test)]
 pub(crate) mod test_support;
 
@@ -91,6 +98,16 @@ pub trait RecordingRetention {
     /// # Errors
     /// The recording cannot be kept. The runtime buffer is then not released, so the keep can be retried.
     fn retain(&mut self, run: &RecordedRun, evidence: &RecordingEvidence) -> Result<(), Failure>;
+
+    /// Notes an experiment of the run whose recording is kept next, with how it ended (B10.2, B10.3): the run notes each experiment
+    /// when its hold ends, whatever it ended with, and one that it aborts after a failure, or that the engineer's Cancel aborts, as it
+    /// ended, so that a recording from an aborted test keeps its stop reason and its restoration. The retention keeps the note with the
+    /// recording. The default keeps none.
+    fn note_experiment(&mut self, _experiment: ExperimentContext) {}
+
+    /// Notes the simulated plant the run ran against (B10.2), when the runtime proves which configuration it runs. The retention
+    /// keeps the note with the recording of the run. The default keeps none.
+    fn note_plant(&mut self, _plant: PlantContext) {}
 }
 
 /// The recording a run follows, stops, keeps and releases: the runtime's recording session, or a test's.
@@ -134,6 +151,27 @@ pub trait IdentifyRuntime {
 
     /// A client of the runtime's experiment, for a campaign's baseline and hold or a confirmation of a restoration.
     fn experiment(&self) -> Self::Experiment;
+
+    /// The simulated plant that `loop_definition` is tuned against, as the runtime proves it runs it (B10.2; specification 34, §20.2
+    /// to §20.4). `None` where the loop names no plant or the runtime cannot prove its configuration: the run then states no plant
+    /// and is not refused for it. The default states none.
+    fn plant_context(&self, _loop_definition: &LoopDefinition) -> Option<PlantContext> {
+        None
+    }
+
+    /// The value the runtime applies to the loop's declared hold parameter, in s (E7.2; specification 35, C12 Hold parameter): how long
+    /// the project holds the step of a project step test, which the test's plan records with its baseline and one restoration sample.
+    /// `None` for a loop that declares no hold parameter, and then nothing is read. The default reads none, so a loop that declares one
+    /// is refused until a runtime reports its value.
+    ///
+    /// # Errors
+    /// The runtime cannot be reached or refuses, its answer is out of protocol, or it does not report the hold as a finite number.
+    fn applied_hold_seconds(
+        &self,
+        _loop_definition: &LoopDefinition,
+    ) -> Result<Option<f64>, Failure> {
+        Ok(None)
+    }
 
     /// Sends the start of `plan` once, and says what came back (E5.3, E0.4).
     fn start_experiment(&self, plan: &ControlExperimentPlan) -> StartRead;

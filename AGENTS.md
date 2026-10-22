@@ -89,7 +89,13 @@ separately.
   2. clean generated targets;
   3. rerun only with the user's explicit authorization for another validation run.
 - The builder has no GPU and no GitHub push credentials, so use it to fetch and validate only.
-- Never put keys, tokens or other credentials in the repo.
+- Never put keys, tokens or other credentials in the repo, and never print them. Filter config,
+  auth, service and server-log files before reading them, and keep a needed secret in a file
+  with mode 600.
+- Never edit a script while it may be running: bash reads a script as it executes. Write
+  `<script>.new`, check it with `bash -n`, and `mv` it over the old one.
+- Run anything that may take longer than about a minute in the background and say what it is.
+  When it is slower than expected, look at its process and log at once instead of waiting.
 
 ## Simplicity and clarity
 
@@ -104,6 +110,15 @@ separately.
 
 ## How to work
 
+- **The owner's plan comes first.** A specification carries out what the owner asked for; it is not
+  a place to change the plan. Never add, keep or build a restriction, a reduced function, or a
+  separate way of working for one platform or product that the owner did not ask for, even when a
+  draft, an earlier assistant or a review put it in a specification. Before building a
+  specification section, check each product decision in it against the owner's own words. Show the
+  owner any decision they have not approved, in plain words, and wait for their answer. Never cut
+  functionality to fit hardware: report the limit, and the owner decides, for example on a bigger
+  board. (Owner, 16 October 2026, after a board-only design was built without approval: "you can
+  not just change the complete plan and spec".)
 - **Specification first.** `docs/specs` defines product behaviour. If the behaviour you need is
   missing, ambiguous or contradictory in the written specification, update it (or ask) before
   writing code.
@@ -122,6 +137,25 @@ separately.
   red/green loops, milestone reruns, or speculative extra checks. This order overrides conflicting
   cadence instructions in skills, plugins, checklists, and historical notes unless the user
   explicitly changes it.
+- **Compile check before reporting** (owner, 17 October 2026: "proposal a approved"). Before an
+  agent reports code as written, it runs a compile check on the crates it changed: format, Clippy
+  with `-D warnings` on all targets and features, and rustdoc with warnings denied. The check runs
+  on the builder, in the worktree's own check copy and target (`trust-remote-builder` skill), and
+  runs no tests. The agent fixes what the check finds in its own files. It reports, and does not
+  fix, errors in files that another agent is writing. The check is not the validation batch; the
+  one consolidated batch still follows.
+- **Implementation agents** (owner, 17 October 2026): implementation work runs through opencode
+  subagents on the free model DeepSeek V4.1 Flash, and the lead orchestrates
+  (`trust-agent-orchestration` skill). Each brief names:
+  - the files to read and the only files the agent may change;
+  - numbered requirements, each with a named test;
+  - the exact compile check.
+
+  The lead verifies the scope, the real check output and the tests itself, never the agent's
+  claims, and commits. A task that fails two rounds goes to a stronger agent.
+- **Tests prove the specification, not the code.** Every expected value comes from the
+  specification and is worked out by hand. Each test names the wrong behaviour it would catch. A
+  test that only repeats what the code returns proves nothing (`trust-test-authoring`).
 - **Failed validation**: retain the complete failure ledger and report failed or unrun checks as
   unverified. Fixes may be prepared within the authorized scope, but another validation run needs
   the user's explicit authorization. Do not weaken tests, bypass release guards, or relabel a retry
@@ -211,7 +245,9 @@ guard rejects a candidate whose copies differ.
   skill.
 - **Architecture program**: start from the Current Board Pointer in
   `docs/internal/testing/checklists/architecture-workboard-index.md`.
-- **Runtime portability**: specification 34 owns behavior;
+- **Runtime portability**: the boards are truST runtimes and work exactly like trust-runtime on
+  Linux, macOS and Windows (owner, 16 October 2026): no board-only protocol, commands, states,
+  restrictions or VS Code panels. Specification 34 owns behavior;
   `docs/internal/testing/checklists/runtime-portability-implementation-checklist.md` owns the
   current scope, remaining work, and evidence. Read its current checkpoint on every resume and
   update it before handoff. A1–A4 are separate scopes with one final validation batch each;
@@ -252,3 +288,4 @@ guard rejects a candidate whose copies differ.
 | `st-lsp-solid` | refactors, module boundaries, runtime/LSP/CLI structure, architecture tooling |
 | `trust-vscode-quality` | VS Code extension work, extension tests, screenshots, UI acceptance |
 | `trust-hmi-contracts` | HMI Builder, runtime HMI, bindings, commands, alarms, HMI tests |
+| `trust-agent-orchestration` | implementation subagents: briefs, launching, follow-ups, reviewing their work |

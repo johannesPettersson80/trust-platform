@@ -23,6 +23,12 @@ export interface OperationUpdate {
    */
   failure?: Failure | null;
   /**
+   * The sentence the page shows for the update, as the engine words it: every cancelled update carries one, `Identification cancelled.`
+   * for an identify operation, `Analysis cancelled.` for an analysis and `The operation was cancelled.` for the others
+   * (specification 35, B3, B9.4); the page writes none of its own.
+   */
+  message?: string | null;
+  /**
    * The operation.
    */
   operationId: string;
@@ -81,6 +87,7 @@ export interface Failure {
    */
   nextAction:
     | "connect-runtime"
+    | "start-simulator"
     | "open-loop-setup"
     | "open-limits"
     | "open-requirements"

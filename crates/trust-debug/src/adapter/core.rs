@@ -58,7 +58,10 @@ impl DebugRunner {
     }
 }
 
-fn cycle_time_hint(metadata: &RuntimeMetadata) -> Duration {
+/// The cycle of the managed runner: the smallest positive task interval of the loaded program, or 10 ms when no task has one
+/// (specification 13). The runner paces by it and advances process time by it for each cycle, and `control.status` reports
+/// the same value as `cycle_interval_ms` (annex E1.3), so both read it from here.
+pub(super) fn cycle_time_hint(metadata: &RuntimeMetadata) -> Duration {
     metadata
         .tasks()
         .iter()

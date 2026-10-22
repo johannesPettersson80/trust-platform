@@ -120,11 +120,16 @@ Studio reads these facts from the `status` operation (A2.3). It never takes them
 | `session_epoch` | integer | The session epoch (E1.1). |
 | `simulation_enabled` | boolean | Whether simulation is enabled. |
 | `simulation_only_io` | boolean | True when every registered I/O driver reports itself as simulated and no ADS or OPC UA client connection is configured. False until the first scan has published its I/O snapshot. |
+| `simulated` | boolean | The target's kind (A2.4): true when simulation is enabled and `simulation_only_io` is true, otherwise false. The runtime states it; Studio shows it and does not derive it from the other fields. |
 | `simulation_time_scale` | integer | The configured speed `time_scale`, a whole number from 1 to 100, and 1 without simulation (spec 33 §6.1, items 2 and 5). |
 | `simulation_achieved_time_scale` | number or null | The achieved speed: simulation time advanced divided by wall time elapsed over the last 5 s of wall time, the lowest of the resources; `null` until one second of wall time has been measured (spec 33 §6.1, item 3). |
+| `simulation_speed_text` | string | The speed words after the simulation's name (spec 35, B9.2): `""` at 1×; `"×N"` above 1×; `"×A of ×N"` when the achieved speed A is below 0.95 N, with A rounded down to one decimal. `""` without simulation. The runtime computes the words once, and every surface shows them as given; the runtime's HMI display translates the phrase for its page language and keeps the runtime's decision. |
+| `simulation_speed_behind` | boolean | True when the achieved speed is behind the configured one: above 1×, and below 0.95 times N (spec 35, B9.2). False without simulation or before the speed is measured. |
 | `program_revision` | string | The revision of the loaded program, the same value each family operation returns (A2.2, A2.3). |
 | `tasks` | array | One `{name, interval_ms}` entry for each scheduled task. An event task has `interval_ms` 0. |
 | `cycle_interval_ms` | integer | The resource cycle interval. |
+
+The VS Code simulator reports these fields as the runtime does: `tasks` lists the tasks of the program it has loaded, and `cycle_interval_ms` is the cycle its managed runner takes, the smallest positive task interval (spec 13); it reports both again after a reload.
 
 The result has other fields that describe the runtime state, its drivers and its metrics. This annex does not use them.
 
@@ -434,7 +439,7 @@ At each execution of the loop's task, the runtime does the following, in this or
    - the target or a relay level lies outside the limits: `signal_outside_limits`;
    - the mode leaves the required one: `mode_changed`;
    - the abort signal of a project sequence reads its asserted value: `project_abort_asserted`; the abort signal is forced: `abort_signal_forced`; the abort signal is not a valid BOOL: `bad_abort_binding`;
-   - the duration has elapsed: `duration_complete`.
+   - the duration has elapsed: `duration_complete`. It has elapsed at the execution after which the next execution would lie at or beyond it. That execution queues the restoring write (step 6), which takes effect at the next execution (A3.5), at the instant the duration names. A write queued at the first execution takes effect at the second, so the target holds an experiment's value for the duration divided by the period of the task, less one, executions: 300 for a duration of 30.1 s at 100 ms.
 5. **Abort and finish.** An abort or finish request takes effect at once. The status moves to its terminal state, the restoration is queued, and the next execution applies no point and no level.
 6. **Restoration.** At the stop, the runtime writes `restoration_value` to the target. For a stop other than `duration_complete` or `finished_early`, an abort binding is asserted in the same step.
 7. **Confirmation.** The restoration is confirmed when the target reads `restoration_value` at the end of an execution that is no later than the third execution after the restoring write (A7). Otherwise the status becomes `failed_to_restore` with the restoration reason `confirmation_timeout`.
@@ -1033,7 +1038,7 @@ Studio journals the identity, then dispatches the request. An experiment is disp
 
 - A lost acknowledgement is resolved by observing the same transaction. Studio MUST NOT repeat an apply.
 - An unconfirmed Manual operation keeps its owner and offers recovery in the current panel. A failed recovery review keeps that route available.
-- Dependent commands and editable task inputs stay locked until the operation is reconciled. The lock holds in the extension host as well as in the view.
+- Dependent commands and changes of the editable task inputs are refused until the operation is reconciled. The engine refuses them, with the block's reason and the next action Restore previous settings (specification 35, B6.4), so the refusal holds for the extension and the command line alike; the view keeps no lock of its own.
 - An explicitly confirmed replacement-runtime review unlocks the next study. It does not claim that the old operation completed, and it does not replay the old operation's writes.
 - A rollback after an unconfirmed operation is always a fresh review (E7.5). Studio never reuses the review of a closed panel, and it never issues a second apply or rollback from that review.
 - New work cannot bypass an unresolved application owner. A saved outcome never restores write authority (A8.6).

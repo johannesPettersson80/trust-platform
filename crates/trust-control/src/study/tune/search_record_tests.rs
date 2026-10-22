@@ -20,6 +20,7 @@ const LESSON_89_MODEL: &str = include_str!(
 
 fn requirements() -> TuningRequirements {
     TuningRequirements {
+        channel_requirements: None,
         reference_change: 1.0,
         maximum_error: 0.02,
         settling_band: 0.01,

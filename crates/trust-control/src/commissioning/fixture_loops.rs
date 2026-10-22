@@ -37,9 +37,13 @@ fn loop_file(
     }
     let mut controller = json!({
         "instance": "Main.TankController", "type": "Control.PID", "revision": "sha256:controller-1",
-        "action": "direct", "taskPeriodMs": 10, "law": law,
+        "action": "direct", "taskPeriodMs": 10,
         "manualOutputSignal": "Main.ManualCommand", "manualOutputType": "LREAL"
     });
+    // A loop without a controller law leaves the key out: the engine refuses a null in a field it reads (B1.2).
+    if !law.is_null() {
+        controller["law"] = law;
+    }
     if let Some(initialization) = initialization {
         controller["pidInitialization"] = initialization;
     }
@@ -177,13 +181,16 @@ fn project_loop_file(
         "family": family,
         "convention": "project-owned-native-controller",
         "initialization": { "kind": "declared-state-v1", "states": states, "applicationStates": application },
-        "seed": seed,
         "axes": [],
         "objective": { "requirementId": "target-error", "direction": "minimize" },
         "maximumCandidates": 4,
         "maximumCycles": 50000,
         "wallBudgetMs": 60000
     });
+    // A project without a seed (a parked or search law) leaves the key out, as the setup writes it (B1.2).
+    if !seed.is_null() {
+        file["controller"]["project"]["seed"] = seed;
+    }
     file
 }
 

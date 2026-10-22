@@ -1,6 +1,5 @@
-import { record, type EngineRouteContext, type EngineStageRoute } from "../engineRouteContext";
+import { record, type EngineRouteContext, type EngineScope, type EngineStageRoute } from "../engineRouteContext";
 import type { RunRequest } from "../../generated/RunRequest";
-import type { LoopMessageScope } from "../../messages";
 
 /** The automatic flow's stage route: `handle` and `reset`, and `adopt`, which takes a run the engine kept running (A8.6). */
 export interface RunStageRoute extends EngineStageRoute {
@@ -21,7 +20,7 @@ export function createRunRoute(context: EngineRouteContext): RunStageRoute {
   let running: string | undefined;
 
   /** Stops the run the route started. False when no run is running, or the run ended on its own, so the other routes keep the command. */
-  async function cancel(scope: LoopMessageScope): Promise<boolean> {
+  async function cancel(scope: EngineScope): Promise<boolean> {
     const operationId = running;
     if (!operationId) return false;
     const reply = await context.ask(scope, "run", () => context.client.cancel({ operationId }));

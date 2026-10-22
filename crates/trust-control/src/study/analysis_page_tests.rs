@@ -19,6 +19,7 @@ fn the_study_keeps_the_analysis_tool_and_its_inputs_with_the_page() {
             }),
             ..AnalysisInputs::default()
         },
+        model_revision: None,
     });
     let text = study.encode().expect("the study is stored");
     let stored = Study::decode(&text, "tank").expect("the study is read back");

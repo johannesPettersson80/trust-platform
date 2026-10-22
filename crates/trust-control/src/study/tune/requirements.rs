@@ -114,7 +114,11 @@ pub(crate) fn requirements_with(
             }
             criteria
         });
-    fill_requirements(&evidence, supplied, criteria.as_ref())
+    let mut filled = fill_requirements(&evidence, supplied, criteria.as_ref())?;
+    // Automatic fills the record's own values. Each controlled output's record is the engineer's, so the filled record keeps it as
+    // given: the validation's currency compares the requirements the study holds (`ValidateSection::is_current`).
+    filled.channel_requirements = recorded.and_then(|record| record.channel_requirements.clone());
+    Ok(filled)
 }
 
 /// The requirements the study's current model needs now, as Tune designs to them (B4.3; the answers name them): the values the

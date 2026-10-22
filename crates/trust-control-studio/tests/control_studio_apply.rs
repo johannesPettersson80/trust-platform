@@ -313,6 +313,10 @@ fn apply_restore_and_keep_run_through_the_command_line_on_lesson_30() {
         ),
     );
     let stale_identity = text_of(&stale_review, "identity");
+    findings.check(
+        stale_review["physical"] == false && stale_review["confirmation"] == "press",
+        "the review of a simulated target says the press of Apply confirms it (A2.4, A2.5)",
+    );
 
     transfer(&lab, true);
     findings.check(
@@ -410,6 +414,10 @@ fn apply_restore_and_keep_run_through_the_command_line_on_lesson_30() {
             && applied["result"]["keepAvailable"] == true,
         "a passed Apply offers Restore and Keep, and restores nothing (B6.3)",
     );
+    findings.check(
+        applied["result"]["applyAvailable"] == false,
+        "a passed Apply offers no second Apply: its settings stand, with Restore in the Apply position (B7)",
+    );
     let checkpoint = text_of(&applied["result"], "checkpointId");
     findings.check(
         !checkpoint.is_empty() && !text_of(&applied["result"], "validationIdentity").is_empty(),
@@ -454,6 +462,15 @@ fn apply_restore_and_keep_run_through_the_command_line_on_lesson_30() {
                 .is_some_and(|settings| !settings.is_empty()),
         format!(
             "open after the Apply holds the study's candidate and its settings (A8.6):\n{}",
+            program.report(status)
+        ),
+    );
+    findings.check(
+        opened["result"]["applyAvailable"] == false
+            && opened["result"]["restoreAvailable"] == true
+            && opened["result"]["keepAvailable"] == true,
+        format!(
+            "open after the Apply offers Restore and Keep in project and not Apply, though the validation passed (B7, A8.6):\n{}",
             program.report(status)
         ),
     );
@@ -530,6 +547,10 @@ fn apply_restore_and_keep_run_through_the_command_line_on_lesson_30() {
         same_values(&next_values(&restore_review), &values_before_apply),
         "the Restore's review names the values from before Apply (B6.4, E7.5)",
     );
+    findings.check(
+        restore_review["physical"] == false && restore_review["confirmation"] == "press",
+        "the Restore's review of a simulated target says the press confirms it (A2.4, A2.5)",
+    );
     let restore_identity = text_of(&restore_review, "identity");
     let (program, status) = lab.run(
         "restore",
@@ -547,6 +568,12 @@ fn apply_restore_and_keep_run_through_the_command_line_on_lesson_30() {
             "Restore is confirmed by the runtime and names Auto (B6.4):\n{}",
             program.report(status)
         ),
+    );
+    findings.check(
+        restored["result"]["restoreAvailable"] == false
+            && restored["result"]["keepAvailable"] == false
+            && restored["result"]["applyAvailable"] == false,
+        "a confirmed Restore offers neither Restore nor Keep in project, and no Apply until a validation passes again (B6.4, B6.5, B7)",
     );
     findings.check(
         same_values(&lab.parameter_values(), &values_before_apply),
@@ -705,6 +732,14 @@ fn apply_restore_and_keep_run_through_the_command_line_on_lesson_30() {
             "Keep in project is confirmed and names the fields it kept (B6.5):\n{}",
             program.report(status)
         ),
+    );
+    findings.check(
+        kept["result"]["restoreAvailable"] == true && kept["result"]["keepAvailable"] == false,
+        "a confirmed Keep still offers Restore previous settings and no Keep in project for the values it kept (B6.5, B7)",
+    );
+    findings.check(
+        keep_review["confirmation"] == "explicit",
+        "a Keep review is confirmed with its own button on any target (B6.5)",
     );
     findings.check(
         read_text(&project.join("src/Main.st")) == after,

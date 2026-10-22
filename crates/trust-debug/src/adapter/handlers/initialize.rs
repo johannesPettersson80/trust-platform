@@ -178,7 +178,7 @@ impl DebugAdapter {
             self.session.set_program_path(program.clone());
             match self.session.reload_program(Some(&program)) {
                 Ok(updated) => {
-                    self.sync_control_simulation();
+                    self.sync_control_program();
                     let mut events = events;
                     events.push(self.debug_output_message(format!(
                         "[trust-debug] reload_program ok; updated_breakpoints={}",

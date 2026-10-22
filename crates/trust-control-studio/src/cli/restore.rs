@@ -1,7 +1,9 @@
 //! The `restore` verb (specification 35, §0.1b; B6.4). Without `--review` it prints the review of the restore and its identity. With
 //! `--review <identity>` it returns the parameter record, and the mode from before Apply, to the retained pre-Apply revision through the
-//! runtime, and prints Restored once the runtime confirms it. It is status 0 only when the runtime confirmed the restore. The verb sends
-//! `controlStudio/restore` through `ControlStudio::execute`, the entry that `serve` uses, and adds no rule of its own.
+//! runtime, and prints Restored once the runtime confirms it. On a runtime that was restarted or whose program was reloaded since Apply,
+//! it prints at once, with or without `--review`, that nothing was restored and that the checkpoint is kept as history (B6.7). It is
+//! status 0 only when the runtime confirmed the restore. The verb sends `controlStudio/restore` through `ControlStudio::execute`, the
+//! entry that `serve` uses, and adds no rule of its own.
 
 use std::io::Write;
 

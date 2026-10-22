@@ -575,6 +575,7 @@ fn room_heating_tic101_is_identified_tuned_validated_applied_restored_and_kept()
     let connection = RuntimeConnection {
         endpoint: format!("unix://{}", socket.display()),
         token: None,
+        runtime_id: None,
     };
     let first = wait_for_status(&connection, &log);
     assert_eq!(

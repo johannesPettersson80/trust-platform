@@ -357,6 +357,7 @@ mod tests {
     /// The requirements of the placement tests: a 10-unit change, a 5-unit error limit, a 1-unit band and a 1 s deadline.
     fn requirements(maximum_error: f64) -> TuningRequirements {
         TuningRequirements {
+            channel_requirements: None,
             reference_change: 10.0,
             maximum_error,
             settling_band: 1.0,

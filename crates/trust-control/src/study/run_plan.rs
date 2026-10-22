@@ -53,6 +53,46 @@ pub fn planned_evidence(evidence: StageEvidence, identify_again: bool) -> StageE
     }
 }
 
+/// The sentence that asks for the manual method's settings (B8). A run stops on them before any stage runs, so no stage's failure
+/// carries it.
+pub const MANUAL_SETTINGS_NEEDED: &str = "Enter the manual settings to tune the controller.";
+
+/// An input the engineer must give before a run can go on (B8), with the words that ask for it. The page shows `message` and writes
+/// no sentence of its own for any input.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NeededInput {
+    /// Which input the run waits for.
+    pub needs: RunNeeds,
+    /// The sentence that asks for it: the sentence of the refusal that stopped the run, so that the engine's own wording names what is
+    /// missing (a limit, a requirement), or the manual settings' sentence.
+    pub message: String,
+    /// The form field the sentence concerns, when it concerns one: the field of the refusal (`durationSeconds` for a missing duration).
+    pub field: Option<String>,
+}
+
+impl NeededInput {
+    /// The input that a stage's failure asks for, with the failure's sentence and field; `None` for a failure that asks for none
+    /// ([`needs_input`]).
+    #[must_use]
+    pub fn of_failure(failure: &Failure) -> Option<Self> {
+        needs_input(failure).map(|needs| Self {
+            needs,
+            message: failure.message.clone(),
+            field: failure.field.clone(),
+        })
+    }
+
+    /// The manual method's settings, which a run asks for before any stage runs ([`MANUAL_SETTINGS_NEEDED`]).
+    #[must_use]
+    pub fn manual_settings() -> Self {
+        Self {
+            needs: RunNeeds::ManualSettings,
+            message: MANUAL_SETTINGS_NEEDED.to_owned(),
+            field: None,
+        }
+    }
+}
+
 /// The input the engineer must give for a stage that failed on it (B8): the limits, or a requirement that Automatic cannot fill
 /// or that the engineer must correct. The failure's own next action says which (A11.2). Every other failure stops the run as a
 /// failure, and this returns `None` for it.

@@ -245,3 +245,27 @@ fn the_setup_reads_the_structure_and_plans_one_loop_file() {
     assert_eq!(planned.len(), 1);
     assert!(planned[0].file_name.starts_with("control-loops/"));
 }
+
+#[test]
+fn a_blank_feedforward_gain_or_term_of_a_trajectory_setup_is_refused_under_its_field() {
+    // The form's trajectory questions follow the own law's; each blank one is refused under its field (C11, B1.3).
+    let mut blank_rate = draft();
+    blank_rate.rate_gain = gain("", 0.0, 10.0);
+    let refusal = trajectory_loop_definition(&drum_axis(), &scope(), &blank_rate)
+        .expect_err("a blank rate gain is refused");
+    assert_eq!(
+        refusal.message,
+        "Choose the variable holding the rate feedforward gain."
+    );
+    assert_eq!(refusal.field.as_deref(), Some("traj.rateGain"));
+
+    let mut blank_term = draft();
+    blank_term.feedforward_term = String::new();
+    let refusal = trajectory_loop_definition(&drum_axis(), &scope(), &blank_term)
+        .expect_err("a blank feedforward term is refused");
+    assert_eq!(
+        refusal.message,
+        "Choose the variable holding the feedforward term."
+    );
+    assert_eq!(refusal.field.as_deref(), Some("traj.feedforwardTerm"));
+}

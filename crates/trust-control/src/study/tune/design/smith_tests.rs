@@ -72,6 +72,7 @@ fn tune_gives_the_model_values_and_the_pi_as_the_candidate() {
         previous: None,
         request: &request,
         relay: None,
+        pins: None,
     };
     let outcome =
         tune_held(&inputs, Some(&task(10.0, 30.0)), None).expect("the Smith predictor is designed");
@@ -115,6 +116,7 @@ fn a_settling_time_no_longer_than_the_models_delay_is_refused() {
         previous: None,
         request: &request,
         relay: None,
+        pins: None,
     };
     let refusal = tune_held(&inputs, Some(&task(0.8, 5.0)), None)
         .expect_err("no controller acts sooner than the delay");
@@ -137,6 +139,7 @@ fn a_named_method_is_refused_because_only_automatic_designs_the_predictor() {
         previous: None,
         request: &request,
         relay: None,
+        pins: None,
     };
     let refusal = tune_held(&inputs, Some(&task(10.0, 30.0)), None)
         .expect_err("a named method does not design the predictor");

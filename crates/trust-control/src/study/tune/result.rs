@@ -10,7 +10,9 @@ use trust_control_math::identify::gain::ControllerAction;
 use trust_control_math::identify::LowOrderModelKind;
 
 use crate::identification::plant::IdentifiedModel;
-use crate::messages::{CandidateOutcome, ComparisonEntry, TuneGainUnits, TuneMethod, TuneResult};
+use crate::messages::{
+    AnswerKind, CandidateOutcome, ComparisonEntry, TuneGainUnits, TuneMethod, TuneResult,
+};
 use crate::stages::{stage_availability, StageEvidence};
 use crate::study::tune::prediction::CandidateResponse;
 use crate::tuning::candidate::LawCandidate;
@@ -111,6 +113,7 @@ pub(crate) fn tune_result(inputs: ResultInputs<'_>) -> TuneResult {
     let (margins, margins_unavailable) = inputs.margins;
     let (candidate, project_candidate) = inputs.candidate.into_parts();
     TuneResult {
+        kind: AnswerKind::new(),
         group: None,
         // The feedforward answer (C8) is added by its own Tune run, which holds both paths; other structures have none.
         feedforward: None,
@@ -146,6 +149,7 @@ pub(crate) fn tune_result(inputs: ResultInputs<'_>) -> TuneResult {
         stages: stage_availability(&inputs.stage_evidence),
         stage_evidence: inputs.stage_evidence,
         schedule: None,
+        words: None,
     }
 }
 

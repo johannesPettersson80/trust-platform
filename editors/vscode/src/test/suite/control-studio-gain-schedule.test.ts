@@ -1,64 +1,20 @@
 import * as assert from "assert";
-import { decodeControlLoopDefinition, validateControlLoopDefinition } from "../../controlStudio/loopDefinition";
-import { pidSymbols, scope, TASK } from "./control-studio-cascade-fixtures";
 import { open } from "./control-studio-loop-setup-form-harness";
 
-/** Loaded dynamically so that a missing owner fails at the behaviour assertion. */
-function setup(): any {
-  try { return require("../../controlStudio/loopSetup/pidLoopSetup"); } catch { return {}; }
-}
-
 /** A tank level held by one library PID whose program interpolates its gains from a two-point schedule (Specification 35 §17.14). */
-const tank = {
-  symbols: [
-    { symbol: "P1.LevelM", type: "LREAL", address: "%IL0" }, { symbol: "P1.SetpointM", type: "LREAL", address: "%ML0" },
-    { symbol: "P1.ValvePct", type: "LREAL", address: "%QL0" }, { symbol: "P1.ManualPct", type: "LREAL", address: "%ML8" },
-    { symbol: "P1.Auto", type: "BOOL" }, { symbol: "P1.KpLow", type: "LREAL" }, { symbol: "P1.KiLow", type: "LREAL" },
-    { symbol: "P1.KpHigh", type: "LREAL" }, { symbol: "P1.KiHigh", type: "LREAL" },
-    ...pidSymbols("P1.Loop", "P1.Parameters"),
-  ],
-  controllers: [{ instance: "P1", type: "Main", tasks: TASK }, { instance: "P1.Loop", type: "Control.PID", tasks: TASK }],
-  links: [
-    { instance: "P1.Loop", method: "Configure", argument: "Parameters", record: "P1.Parameters", output: null, fields: {} },
-    { instance: "P1.Loop", method: "Update", argument: "Input", record: "P1.Input", output: "P1.ValvePct",
-      fields: { ManualOutput: ["P1.ManualPct"], ProcessValue: ["P1.LevelM"], Setpoint: ["P1.SetpointM"] } },
-  ],
-  writes: ["P1.ValvePct", "P1.Parameters.ProportionalGain", "P1.Parameters.IntegralGain"],
-};
-const points = [{ name: "Low", proportionalGain: "P1.KpLow", integralGain: "P1.KiLow" }, { name: "High", proportionalGain: "P1.KpHigh", integralGain: "P1.KiHigh" }];
+
+
 /** The points as the form posts them: each with its value of the scheduling variable and its tolerance (C10). */
-const formPoints = [{ name: "Low", value: 0.5, tolerance: 0.1, proportionalGain: "P1.KpLow", integralGain: "P1.KiLow" },
-  { name: "High", value: 1.5, tolerance: 0.1, proportionalGain: "P1.KpHigh", integralGain: "P1.KiHigh" }];
-const draft = () => ({ ...scope, name: "Tank level", instance: "P1.Loop", action: "direct", parameterRecord: "P1.Parameters",
-  processVariable: { symbol: "P1.LevelM", unit: "m", minimum: 0, maximum: 2 }, manipulatedVariable: { symbol: "P1.ValvePct", unit: "%", minimum: 0, maximum: 100 },
-  setpoint: { symbol: "P1.SetpointM" }, mode: { symbol: "P1.Auto", whenTrue: "Auto" }, manualOutput: "P1.ManualPct",
-  points });
+
+
+
+/** The points as the form posts them: every operating-point row the template draws (the engine's four), each number as the text typed;
+ * the engine takes the rows that have an entry (B1.3, C10). */
+const blankPoint = { name: "", value: "", tolerance: "", proportionalGain: "", integralGain: "" };
+const formPoints = [{ name: "Low", value: "0.5", tolerance: "0.1", proportionalGain: "P1.KpLow", integralGain: "P1.KiLow" },
+  { name: "High", value: "1.5", tolerance: "0.1", proportionalGain: "P1.KpHigh", integralGain: "P1.KiHigh" }, blankPoint, blankPoint];
 
 suite("Control Studio gain schedule", () => {
-  test("writes one loop per operating point whose parameters are that point's gain variables", () => {
-    const api = setup();
-    assert.strictEqual(typeof api.gainScheduleLoopDefinitions, "function", "a gain schedule needs its own generator");
-    const loops = api.gainScheduleLoopDefinitions(tank, draft());
-    assert.deepStrictEqual(loops.map((loop: any) => [loop.name, loop.id]), [["Tank level · Low", "loop:tank-level-low"], ["Tank level · High", "loop:tank-level-high"]]);
-    for (const [index, loop] of loops.entries()) {
-      assert.strictEqual(decodeControlLoopDefinition(loop).kind, "accepted");
-      const validation: any = validateControlLoopDefinition(loop, scope);
-      assert.strictEqual(validation.kind, "accepted", JSON.stringify(validation.reason ?? validation));
-      const project = loop.controller.project;
-      assert.deepStrictEqual([project.family, project.seed], ["gain-scheduled", { kind: "parallel-pid", family: "PI",
-        proportionalSymbol: points[index].proportionalGain, integralSymbol: points[index].integralGain }]);
-      assert.deepStrictEqual(loop.parameterBinding.parameters.map((parameter: any) => [parameter.symbol, parameter.unit]),
-        [[points[index].proportionalGain, "%/m"], [points[index].integralGain, "%/(m*s)"]]);
-      assert.ok(project.initialization.states.some((state: any) => state.symbol === "P1.Loop.StateValue.NominalOutput"), "the PID starts bumplessly");
-      assert.strictEqual(project.objective.requirementId, "target-error");
-    }
-  });
-
-  test("refuses fewer than two or more than four operating points", () => {
-    const api = setup();
-    assert.strictEqual(typeof api.gainScheduleLoopDefinitions, "function", "a gain schedule needs its own generator");
-    assert.throws(() => api.gainScheduleLoopDefinitions(tank, { ...draft(), points: points.slice(0, 1) }), /two to four/);
-  });
 
   test("sets up the schedule's points in the form", () => {
     const view = open({ structure: "pid", addressedReal: ["P1.LevelM", "P1.ManualPct", "P1.SetpointM", "P1.ValvePct"], booleans: ["P1.Auto"], modes: ["P1.Auto"],

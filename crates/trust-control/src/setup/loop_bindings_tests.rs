@@ -411,3 +411,21 @@ fn the_controller_runs_in_exactly_one_task_with_a_positive_interval() {
         assert_eq!(text_of(&failure), "P1 must run in exactly one cyclic task.");
     }
 }
+
+#[derive(Debug, serde::Deserialize)]
+struct BlankProbe {
+    #[serde(default, deserialize_with = "super::blank_when_null")]
+    text: String,
+}
+
+#[test]
+fn a_text_the_form_sends_as_null_reads_as_blank_and_a_text_as_itself() {
+    // The form posts a blank optional text as null (`optionalText`, loopSetupForm.ts): the setup's own check names the missing choice.
+    let blank: BlankProbe = serde_json::from_value(json!({ "text": null })).expect("null decodes");
+    assert_eq!(blank.text, "");
+    let absent: BlankProbe = serde_json::from_value(json!({})).expect("an absent text decodes");
+    assert_eq!(absent.text, "");
+    let named: BlankProbe =
+        serde_json::from_value(json!({ "text": "P1.Pump" })).expect("a text decodes");
+    assert_eq!(named.text, "P1.Pump");
+}

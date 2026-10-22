@@ -149,7 +149,7 @@ impl DebugAdapter {
 
         let reload_result = self.session.reload_program(args.program.as_deref());
         if reload_result.is_ok() {
-            self.sync_control_simulation();
+            self.sync_control_program();
         }
 
         if was_running {

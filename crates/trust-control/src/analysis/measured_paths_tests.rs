@@ -5,6 +5,8 @@
 
 use std::time::Duration;
 
+use serde_json::json;
+
 use super::*;
 use crate::analysis::budget::ANALYSIS_BUDGET;
 use crate::recording::fixtures::{run as fixture_run, sample};
@@ -153,8 +155,8 @@ fn copy_binding(recording: &mut RecordedRun, id: &str, source: &str) {
 
 fn window((start_seconds, end_seconds): (f64, f64)) -> TimeWindow {
     TimeWindow {
-        start_seconds,
-        end_seconds,
+        start_seconds: Some(start_seconds),
+        end_seconds: Some(end_seconds),
     }
 }
 
@@ -392,7 +394,7 @@ fn a_window_outside_the_recording_or_with_a_bad_sample_is_refused() {
     let recording = project_run(&loop_definition, &plant_samples(project_commands));
     let mut beyond = lesson_inputs();
     if let Some(trials) = beyond.settled_trials.as_mut() {
-        trials[1].settled.end_seconds = 93.0;
+        trials[1].settled.end_seconds = Some(93.0);
     }
     let failure = answer(&recording, &loop_definition, &beyond)
         .expect_err("the settled window runs past the last sample");
@@ -483,6 +485,118 @@ fn the_window_and_drift_checks_run_before_any_calculation() {
     let failure = checked_request(&negative).expect_err("the drift tolerance is negative");
     assert_eq!(text_of(&failure), DRIFT_TOLERANCE);
     assert!(checked_request(&lesson_inputs()).is_ok());
+}
+
+#[test]
+fn a_trial_that_leaves_a_window_end_out_is_refused_with_its_field() {
+    let mut blank = lesson_inputs();
+    if let Some(trials) = blank.settled_trials.as_mut() {
+        trials[1].settled.end_seconds = None;
+    }
+    let failure = checked_request(&blank).expect_err("heater 2's settled end is blank");
+    assert_eq!(
+        text_of(&failure),
+        "Enter the settled end of input heater-2."
+    );
+    assert_eq!(failure.field.as_deref(), Some("heater-2:settled-end"));
+}
+
+#[test]
+fn the_refusal_names_each_blank_window_end_and_its_first_field() {
+    let mut blank = lesson_inputs();
+    if let Some(trials) = blank.settled_trials.as_mut() {
+        trials[0].baseline.end_seconds = None;
+        trials[0].settled.start_seconds = None;
+    }
+    let failure = checked_request(&blank).expect_err("two window ends of heater 1 are blank");
+    assert_eq!(
+        text_of(&failure),
+        "Enter the baseline end and settled start of input heater-1."
+    );
+    assert_eq!(failure.field.as_deref(), Some("heater-1:baseline-end"));
+}
+
+#[test]
+fn a_request_with_a_blank_window_end_decodes_it_as_absent() {
+    let inputs: AnalysisInputs = crate::json::decode_value(json!({
+        "settledTrials": [{
+            "inputId": "heater-1",
+            "baseline": { "startSeconds": 0.0 },
+            "settled": { "startSeconds": 27.1, "endSeconds": 31.9 }
+        }]
+    }))
+    .expect("a request with a blank window end decodes");
+    let trials = inputs.settled_trials.as_deref().expect("one trial is sent");
+    assert_eq!(trials[0].baseline.start_seconds, Some(0.0));
+    assert_eq!(trials[0].baseline.end_seconds, None);
+    assert_eq!(trials[0].settled.end_seconds, Some(31.9));
+    let failure = checked_request(&inputs).expect_err("the baseline end is blank");
+    assert_eq!(failure.field.as_deref(), Some("heater-1:baseline-end"));
+}
+
+#[test]
+fn a_window_end_typed_as_text_reads_as_its_number_and_a_blank_one_is_absent() {
+    let typed: TimeWindow = crate::json::decode_value(json!({
+        "startSeconds": " 1.5 ",
+        "endSeconds": ""
+    }))
+    .expect("a window whose ends are typed decodes");
+    assert_eq!(typed.start_seconds, Some(1.5));
+    assert_eq!(typed.end_seconds, None);
+    let exponent: TimeWindow = crate::json::decode_value(json!({ "endSeconds": "2.5e1" }))
+        .expect("an exponent the page accepted before still reads");
+    assert_eq!(exponent.end_seconds, Some(25.0));
+}
+
+#[test]
+fn a_window_end_that_no_number_reads_is_refused_under_its_field() {
+    let typed: TimeWindow = crate::json::decode_value(json!({
+        "startSeconds": "0,5",
+        "endSeconds": "inf"
+    }))
+    .expect("a window whose ends are text decodes; the checks refuse them");
+    assert!(typed.start_seconds.is_some_and(f64::is_nan));
+    assert!(typed.end_seconds.is_some_and(f64::is_nan));
+    let mut unreadable = lesson_inputs();
+    if let Some(trials) = unreadable.settled_trials.as_mut() {
+        trials[0].settled.end_seconds = Some(f64::NAN);
+    }
+    let failure =
+        checked_request(&unreadable).expect_err("the settled end is text no number reads");
+    assert_eq!(
+        text_of(&failure),
+        "The settled end of input heater-1 is not a number of seconds."
+    );
+    assert_eq!(failure.field.as_deref(), Some("heater-1:settled-end"));
+}
+
+#[test]
+fn a_drift_tolerance_typed_as_text_that_no_number_reads_is_refused() {
+    let inputs: AnalysisInputs = crate::json::decode_value(json!({
+        "maximumUnexcitedInputDrift": "small"
+    }))
+    .expect("a drift tolerance sent as text decodes; the checks refuse it");
+    let failure = checked_request(&inputs).expect_err("the tolerance is no number");
+    assert_eq!(text_of(&failure), DRIFT_TOLERANCE);
+    let blank: AnalysisInputs = crate::json::decode_value(json!({
+        "maximumUnexcitedInputDrift": "  "
+    }))
+    .expect("a blank tolerance decodes");
+    assert_eq!(blank.maximum_unexcited_input_drift, None);
+}
+
+#[test]
+fn a_complete_trial_is_accepted_and_reported_with_its_four_ends() {
+    let inputs = lesson_inputs();
+    assert!(checked_request(&inputs).is_ok());
+    let loop_definition = lesson_61();
+    let recording = project_run(&loop_definition, &plant_samples(project_commands));
+    let result =
+        answer(&recording, &loop_definition, &inputs).expect("lesson 69's windows qualify");
+    assert_eq!(result.trials, inputs.settled_trials.unwrap_or_default());
+    let wire = serde_json::to_value(&result.trials[0]).expect("a trial encodes");
+    assert_eq!(wire["baseline"]["endSeconds"], 1.9);
+    assert_eq!(wire["settled"]["startSeconds"], 27.1);
 }
 
 #[test]

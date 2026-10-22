@@ -222,16 +222,13 @@ export class HmiAgentTool {
   ): Promise<Outcome> {
     const action = input.action;
     let flow: FlowResult;
-    if (action === "review") flow = await reviewDraft(project, fontFile, request, this.presenter(project, folder), signal);
+    if (action === "review")
+      flow = await reviewDraft(project, fontFile, request, this.presenter(project, folder), signal);
     else if (action === "apply") flow = await applyDraft(project, request, signal);
     else if (action === "discard") flow = await discardDraft(project, request);
     else throw new Error("INVALID_ARGUMENT: action must be review, apply or discard.");
     if (action === "apply" || action === "discard")
-      updateProposalState(
-        project.workspaceId,
-        String(flow.data.draftId),
-        action === "apply" ? "applied" : "discarded",
-      );
+      updateProposalState(project.workspaceId, String(flow.data.draftId), action === "apply" ? "applied" : "discarded");
     return { answer: succeeded(flow.data, flow.revisions, flow.warnings), images: flow.images };
   }
 

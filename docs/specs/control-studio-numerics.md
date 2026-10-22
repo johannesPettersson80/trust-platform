@@ -121,7 +121,10 @@ changes; `σ` sets the signal-to-noise check (N2.6). The Auto-entry allowance of
 Validate's initialization case and the return to Auto after a failed Apply uses its own
 measure of the noise (specification 35, A6.4: three standard deviations about the mean,
 times √k for averaged samples). The baseline mean of the measured output is `y0`, and the baseline mean of
-the plant input is `u0`. Both are taken over `Wb`.
+the plant input is `u0`. Both are taken over `Wb`. A project-scripted experiment that declares a baseline waits for
+no steady baseline (specification 35, C12): its `Wb` is the baseline the project declares, from the recording's start
+to its last sample before the plan enables the project. A project that declares none waits for the steady baseline,
+which is its `Wb`.
 
 **N1.4 Block averaging.** A fit uses at most 5,000 points per channel (A4.5). A
 resampled record with `N > 5,000` points is block-averaged before fitting:
@@ -264,6 +267,11 @@ this test. A closed-loop fit (a setpoint step in Auto) is not subject to it: the
 controlled output settles, and the plant input's final value tells the two forms
 apart.
 
+A held step allows the first-order-with-delay, the integrating and the two-lag forms; the
+engine refuses any other model at the edit, naming the `model` field. An integrating held
+step has no fraction and no bounded step measurement (N2.3): it is fitted as an open-loop
+record, and the rule of this clause decides at the fit.
+
 **N2.4 Uncertainty and final windows.** An automatic identification has no
 configured measurement bound. It reports the resolution of its fit, labelled as
 such: for a single run, a sample-resolution envelope (each time constant within
@@ -320,7 +328,9 @@ three), independently of the sign of the input step.
   samples that are all strictly above `y0 + h`.
 
 Here `h` is the configured sustained-onset threshold. An isolated crossing does not
-establish onset. If the measured output does not change, onset is unavailable. The
+establish onset. If the measured output does not change, onset is unavailable. The answer states the side of the baseline on which the
+threshold lies (`onsetSide`: `below` for a falling response, `above` for a rising one and for an output that does not change), so a display
+words the criterion without comparing the windows itself. The
 configured measurement bound, the onset threshold and its sample count, and the
 grids of a bounded step analysis are engineering inputs; the grids of an automatic
 identification follow from the record (N2.2). None of them is a plant coefficient.
@@ -1446,7 +1456,7 @@ write to the running controller.
 | Switching controller's threshold policy | `at-or-beyond` (default) or `beyond` | 1 | C3 |
 | Switching controller's minimum time rounding | a whole number of task periods, not below the equipment's minimum | s | C3 |
 
-The switching rows take their values from the switching generator of the TypeScript route (`loopSetup/onOffLoopGenerator.ts`: the minimum times and the timer bounded to 3,600 s and 1,000,000 s, the hysteresis to the measurement span) and from its design (`onOffController.ts`: the rounding of a dwell to the task period). Rust keeps them as `MINIMUM_TIME_MAXIMUM_SECONDS` and `DWELL_TIMER_MAXIMUM_SECONDS` in the loop contract. The threshold policy is the default of D-10.
+The switching rows take their values from the engine's switching setup (`crates/trust-control/src/setup/on_off_loop.rs`: the minimum times and the timer bounded to 3,600 s and 1,000,000 s, the hysteresis to the measurement span) and from its design (`crates/trust-control/src/study/tune/design/on_off.rs`: the rounding of a dwell to the task period). The loop contract keeps the bounds as `MINIMUM_TIME_MAXIMUM_SECONDS` and `DWELL_TIMER_MAXIMUM_SECONDS` (`loop_definition/on_off.rs`). The threshold policy is the default of D-10.
 | Cascade design simulation | at most 200,000 | samples | C6 |
 | Inner settling time of a cascade without inner requirements (`INNER_SETTLING_DIVISOR`) | one fifth of the outer settling time | s | C6 |
 | Inner duration of a cascade without inner requirements (`INNER_DURATION_FIFTHS`) | two fifths of the outer settling time | s | C6 || Feedforward identification order | 2 (maximum order) | count | C8 |

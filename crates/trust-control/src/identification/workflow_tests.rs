@@ -13,8 +13,58 @@ use super::fixtures::{
     worker_samples, worker_settings, workflow,
 };
 use super::*;
-use crate::experiment::ControlExperimentKind;
+use crate::experiment::{ControlExperimentKind, SampleQuality};
 use crate::identification::plant::Partition;
+
+/// A slow first-order plant (gain 2 per input unit, time constant 4500 s) held after a step from 75 to 85 at 100 s, sampled every
+/// 10 s to 2400 s: over its 2300 s hold it looks like a ramp (N2.3a).
+fn slow_held_step() -> Vec<IdentificationSample> {
+    (0_u32..=240)
+        .map(|index| {
+            let time_seconds = f64::from(index) * 10.0;
+            let input = if time_seconds >= 100.0 { 85.0 } else { 75.0 };
+            let elapsed = (time_seconds - 100.0).max(0.0);
+            IdentificationSample {
+                time_seconds,
+                input,
+                output: 35.0 + 20.0 * (1.0 - (-elapsed / 4500.0).exp()),
+                quality: SampleQuality::Good,
+                input_unit: Some("%".to_string()),
+                output_unit: Some("degC".to_string()),
+                clipped: None,
+                saturated: None,
+            }
+        })
+        .collect()
+}
+
+#[test]
+fn an_integrating_held_step_qualifies_without_a_bounded_measurement_and_its_fit_is_the_integrator_rule(
+) {
+    // N2.3 and N2.3a: an integrating form has no fraction and no bounded step measurement, so the check passes the data. Its fit is
+    // refused by the integrator rule, which names the hold: the first-order-with-delay fit is within the limit with a time constant
+    // longer than the hold.
+    let mut workflow = IdentificationWorkflow::new(DEFAULT_WORKFLOW_MAXIMUM_NORMALIZED_ERROR);
+    let qualification = workflow.qualify(request(
+        slow_held_step(),
+        IdentificationModelSelection::Integrating,
+        Some("estimation"),
+        Some(settings()),
+    ));
+    assert!(qualification.suitable, "{:?}", qualification.reason);
+    assert!(
+        qualification.step_response.is_none(),
+        "an integrating form is measured by no bounded step analysis"
+    );
+    let refusal = workflow
+        .fit()
+        .expect_err("the integrator rule refuses the fit");
+    assert!(
+        refusal.0.contains("still rising like a ramp after 38 min"),
+        "{}",
+        refusal.0
+    );
+}
 
 // control-studio-identification-state.test.ts
 

@@ -498,3 +498,66 @@ fn a_cancel_settles_only_for_a_confirmed_answer_about_its_own_identity() {
         "Parameter cancellation remains unconfirmed; retry the retained operation after reconnecting."
     );
 }
+
+// The two tests below were the deleted parameter session's (V7.17: the engine's `controlStudio/parameters` owns the behaviour; nothing
+// called the session). They stay because they are the only pin of `values_of_text`'s 64 kB limit and its refusals, which the engine uses.
+
+#[test]
+fn a_review_text_is_limited_to_64_kilobytes_in_utf16_units() {
+    let base = r#"{"P1.Gain":0.1}"#;
+    let exact = format!("{base}{}", " ".repeat(MAXIMUM_REVIEW_UNITS - base.len()));
+    assert!(
+        values_of_text(Some(exact.as_str())).is_ok(),
+        "a text of exactly 64 kB is read"
+    );
+    let too_long = format!("{exact} ");
+    let refusal = values_of_text(Some(too_long.as_str())).expect_err("a longer text is refused");
+    assert_eq!(
+        refusal.message,
+        "Enter a parameter JSON object of at most 64 kB."
+    );
+    assert_eq!(
+        values_of_text(None).expect_err("a missing text").message,
+        "Enter a parameter JSON object of at most 64 kB."
+    );
+    let not_json = values_of_text(Some("{")).expect_err("a text that is not JSON");
+    assert_eq!(not_json.message, "The parameter values are not valid JSON.");
+}
+
+#[test]
+fn the_values_of_a_review_text_are_an_object_of_numbers_and_each_other_text_has_its_own_refusal() {
+    // The page sends the text as the engineer typed it; the engine reads it here and refuses what is none (specification 35, C12).
+    let values =
+        values_of_text(Some(r#"{"P1.Gain": 2.5, "P1.Other": 3}"#)).expect("an object of numbers");
+    assert_eq!(
+        values,
+        BTreeMap::from([("P1.Gain".to_owned(), 2.5), ("P1.Other".to_owned(), 3.0)])
+    );
+    assert_eq!(
+        values_of_text(Some("{"))
+            .expect_err("a text that is not JSON")
+            .message,
+        "The parameter values are not valid JSON."
+    );
+    for text in ["[1, 2]", r#"{"P1.Gain": "high"}"#, "7"] {
+        assert_eq!(
+            values_of_text(Some(text))
+                .expect_err("JSON that is no object of numbers")
+                .message,
+            "Provide exactly the declared finite parameter values.",
+            "{text}"
+        );
+    }
+    assert_eq!(
+        values_of_text(None).expect_err("no text").message,
+        "Enter a parameter JSON object of at most 64 kB."
+    );
+    // The binding's checks follow the reading: a value outside the bounds is the review's refusal, not the text's.
+    let binding = gain_binding();
+    let reviewed = |text: &str| {
+        let values = values_of_text(Some(text)).expect("an object of numbers");
+        review_input(&binding, &values)
+    };
+    assert!(reviewed(r#"{"P1.Gain": 99}"#).is_err());
+    assert!(reviewed(r#"{"P1.Gain": 2.5}"#).is_ok());
+}

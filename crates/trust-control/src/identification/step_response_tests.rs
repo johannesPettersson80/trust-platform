@@ -879,3 +879,44 @@ fn the_onset_direction_follows_the_mean_of_the_last_tenth_of_the_hold() {
         "a hold at the baseline has no direction"
     );
 }
+
+#[test]
+fn a_step_response_answer_states_its_onset_direction() {
+    // N2.5: the onset is sought above the baseline when the hold ends above it and below it when the hold ends below, and the answer says
+    // which, so the page words the criterion ("0.15 degC below baseline") without deriving the side from the windows itself.
+    let settings = numerics_settings();
+    let rising = samples(&[]);
+    let falling = with_outputs(samples(&[]), |sample| 70.0 - sample.output);
+    // The fit searches the fixture's own delay, as the signed-lattice test does.
+    let fixed_delay = StepResponseSettings {
+        delay: grid(0.1, 0.1, 0.1),
+        ..numerics_settings()
+    };
+    for (record, side, what) in [
+        (&rising, OnsetSide::Above, "a rising response"),
+        (&falling, OnsetSide::Below, "a falling response"),
+    ] {
+        let measured = measure_step_response(record, &settings).expect("the held step is measured");
+        assert_eq!(measured.onset_side, Some(side), "{what}: measurement");
+        let analyzed = analyze(record, &fixed_delay).expect("the held step is fitted");
+        assert_eq!(analyzed.onset_side, Some(side), "{what}: analysis");
+    }
+    // The side follows the mean of the hold's last tenth, which is what the threshold is placed by. Here the final window averages above the
+    // baseline, while the last three samples of the hold lie below it, so the onset is sought below. Reading the side from the final
+    // window against the baseline, as the page did, would say above.
+    let ends_below = samples(&[(37, 31.0), (38, 31.0), (39, 31.0)]);
+    let measured =
+        measure_step_response(&ends_below, &settings).expect("the held step is measured");
+    assert!(
+        measured.final_window.mean > measured.baseline.mean,
+        "the final window lies above the baseline: {} against {}",
+        measured.final_window.mean,
+        measured.baseline.mean
+    );
+    assert_eq!(measured.onset_side, Some(OnsetSide::Below));
+    assert_eq!(
+        measured.onset_threshold,
+        measured.baseline.mean - 0.15,
+        "the threshold lies on the side the answer states"
+    );
+}

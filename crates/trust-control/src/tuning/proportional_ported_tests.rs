@@ -61,3 +61,94 @@ fn an_unstable_entered_gain_is_kept_as_entered_and_its_reason_says_no_bound_exis
         "the reason says that no asymptotic bound exists: {reason}"
     );
 }
+
+// The ported assertions of control-studio-simple-controller-design.test.ts (N5.9, specification 35 B4.4): the gain of a delay-free
+// first-order plant and what refuses it. The engine reads a model as its transfer function, so a supplied and a fitted model of the same
+// numbers are one plant here, and the TypeScript's formula lines and `actualSTVerify` flag are not part of the design.
+
+/// The requirements of the simple design suite: a unit change, a 0.1 steady-error allowance, a 0.02 band, a 2 s settling time and the
+/// given gain bounds.
+fn simple_requirements(bounds: GainBounds) -> ProportionalRequirements {
+    ProportionalRequirements {
+        reference_change: 1.0,
+        constant_input_disturbance: 0.0,
+        maximum_steady_error: 0.1,
+        settling_band: 0.02,
+        settling_time_seconds: 2.0,
+        gain_bounds: bounds,
+    }
+}
+
+// control-studio-simple-controller-design: "derives the same provisional P prediction from supplied and fitted first-order models"
+#[test]
+fn a_delay_free_first_order_gain_meets_both_allowances_and_its_prediction_confirms_it() {
+    // K = 1 and τ = 1: q = K·Kp = 1/0.1 − 1 = 9 meets the steady-error allowance, and the pole −(1 + q)/τ = −10 settles far inside the band.
+    let plant = FirstOrderPlusDelay {
+        gain: 1.0,
+        time_constant_seconds: 1.0,
+        delay_seconds: 0.0,
+    };
+    let design = first_order_design(
+        plant,
+        0.0,
+        &simple_requirements(GainBounds {
+            minimum: -20.0,
+            maximum: 20.0,
+        }),
+    )
+    .expect("a gain within the bounds meets the requirements");
+    assert!(
+        (design.proportional_gain - 9.0).abs() <= 1e-9,
+        "{}",
+        design.proportional_gain
+    );
+    let prediction = &design.prediction;
+    assert!(
+        (prediction.closed_loop_pole + 10.0).abs() <= 1e-9,
+        "{}",
+        prediction.closed_loop_pole
+    );
+    let steady = prediction
+        .steady_error_bound
+        .expect("a stable loop has a steady-error bound");
+    assert!(steady <= 0.1 + 1e-12, "{steady}");
+    let settling = prediction
+        .settling_residual_bound
+        .expect("a stable loop has a settling residual");
+    assert!(settling <= 0.02 + 1e-12, "{settling}");
+    assert_eq!(prediction.reason, None);
+}
+
+// control-studio-simple-controller-design: "rejects unavailable bounded and delayed design paths without weakening the requirement"
+#[test]
+fn gain_bounds_that_cannot_meet_the_requirements_and_a_dead_time_are_refused_not_relaxed() {
+    let plant = FirstOrderPlusDelay {
+        gain: 1.0,
+        time_constant_seconds: 1.0,
+        delay_seconds: 0.0,
+    };
+    // q = 9 needs a gain of 9, and the bounds end at 8.
+    let narrow = first_order_design(
+        plant,
+        0.0,
+        &simple_requirements(GainBounds {
+            minimum: 0.0,
+            maximum: 8.0,
+        }),
+    )
+    .expect_err("the bounds cannot satisfy the requirements");
+    assert_eq!(narrow.0, texts::SIMPLE_P_BOUNDS);
+    let delayed = first_order_design(
+        FirstOrderPlusDelay {
+            delay_seconds: 0.1,
+            ..plant
+        },
+        0.0,
+        &simple_requirements(GainBounds {
+            minimum: -20.0,
+            maximum: 20.0,
+        }),
+    )
+    .expect_err("the simple design has no transport-delay adapter");
+    assert_eq!(delayed.0, texts::SIMPLE_P_NO_DELAY);
+}

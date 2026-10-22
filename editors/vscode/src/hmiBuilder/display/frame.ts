@@ -218,13 +218,17 @@ function buildTopBar(
   return { element: bar, clock, sessionSlot, alarms, simulation };
 }
 
-/** The simulation the runtime reports on its stream (specification 33, §6.1). */
+/**
+ * The simulation the runtime reports on its stream (specification 33, §6.1; specification 39, §8 item 8).
+ * The runtime decides the speed and its words; the page shows them and translates only the phrase
+ * "{achieved} of {configured}".
+ */
 export interface SimulationStatus {
   enabled: boolean;
-  /** The configured speed: the simulation runs this many times real time. */
-  time_scale: number;
-  /** The speed measured so far, or `null` until it is measured. */
-  achieved_time_scale: number | null;
+  /** The configured speed when it is above 1×, the simulation runs this many times real time; `null` at 1×. */
+  speed_configured: number | null;
+  /** The measured speed as text, to one decimal rounded down, when the runtime says it is behind; `null` otherwise. */
+  speed_achieved: string | null;
 }
 
 /** The simulation badge, hidden until the runtime reports a simulation running (§8 item 8). */
@@ -256,23 +260,18 @@ export function showSimulation(badge: HTMLElement, status: SimulationStatus | nu
 }
 
 /**
- * The speed the badge shows after its label (§8 item 8), by the rule every truST surface uses: nothing
- * at speed 1; "×N" at the configured speed N; "×A of ×N" while the measured speed A is below 95 % of N.
+ * The speed the badge shows after its label (§8 item 8), from the words the runtime gives: nothing when it
+ * gives no configured speed (speed 1); "×N" at the configured speed N; "×A of ×N" when it also gives the
+ * achieved speed A (the runtime says it is behind).
  */
 function simulationSpeed(status: SimulationStatus): string {
-  const configured = status.time_scale;
-  if (!Number.isFinite(configured) || configured <= 1) return "";
-  const achieved = status.achieved_time_scale;
-  if (typeof achieved === "number" && achieved < 0.95 * configured) {
-    return say("{achieved} of {configured}", { achieved: `×${tenthsDown(achieved)}`, configured: `×${configured}` });
+  const configured = status.speed_configured;
+  if (typeof configured !== "number") return "";
+  const achieved = status.speed_achieved;
+  if (typeof achieved === "string") {
+    return say("{achieved} of {configured}", { achieved: `×${achieved}`, configured: `×${configured}` });
   }
   return `×${configured}`;
-}
-
-/** One decimal place, rounded down, so a shown measured speed is never at or above the speed it falls short of. */
-function tenthsDown(value: number): string {
-  const tenths = Math.floor(value * 10 + 1e-9);
-  return tenths % 10 === 0 ? String(tenths / 10) : (tenths / 10).toFixed(1);
 }
 
 /**

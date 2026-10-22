@@ -8,6 +8,7 @@ use serde_json::{json, Value};
 use super::{checked_settings, initial_state_answer};
 use crate::analysis::budget::{Budget, ANALYSIS_BUDGET};
 use crate::analysis::general_feedback::{ChannelPair, FeedbackDefinition};
+use crate::json::decode_value;
 use crate::messages::AnalysisInputs;
 use crate::model::response::{
     ResponseConnection, FEEDBACK_SCOPE, FEEDBACK_TRANSFORM, OPEN_LOOP_SCOPE,
@@ -259,4 +260,61 @@ fn a_cancelled_response_stops_before_it_is_computed() {
     let stopped = initial_state_answer(&model, None, &settings(None), &budget)
         .expect_err("a cancelled response is not answered");
     assert_eq!(stopped.message, "Analysis was cancelled.");
+}
+
+#[test]
+fn a_typed_time_is_checked_as_its_number_of_seconds() {
+    let model = delayed_plant();
+    let typed: AnalysisInputs = decode_value(json!({
+        "stepSeconds": "0.25 s", "durationSeconds": "1 s", "initialState": [2.0], "input": [1.0],
+    }))
+    .expect("the typed inputs decode");
+    let number: AnalysisInputs = decode_value(json!({
+        "stepSeconds": 0.25, "durationSeconds": 1.0, "initialState": [2.0], "input": [1.0],
+    }))
+    .expect("the numeric inputs decode");
+    let typed_time = checked_settings(&model, &typed, false).expect("the typed time qualifies");
+    let numeric_time = checked_settings(&model, &number, false).expect("the number qualifies");
+    assert_eq!(typed_time.time.step_seconds, numeric_time.time.step_seconds);
+    assert_eq!(
+        typed_time.time.duration_seconds,
+        numeric_time.time.duration_seconds
+    );
+}
+
+#[test]
+fn a_refused_time_names_the_page_field_it_came_from() {
+    let model = delayed_plant();
+    let refused = |entries: Value| {
+        let inputs: AnalysisInputs = decode_value(entries).expect("the inputs decode");
+        checked_settings(&model, &inputs, false).expect_err("a time outside its rule")
+    };
+    let unreadable = refused(json!({
+        "stepSeconds": "soon", "durationSeconds": 1.0, "initialState": [2.0], "input": [1.0],
+    }));
+    assert_eq!(unreadable.field.as_deref(), Some("response-step"));
+    assert!(
+        unreadable
+            .message
+            .contains("must be a time such as 90 s, 15 min or 1 h 30 min"),
+        "{}",
+        unreadable.message
+    );
+    let zero = refused(json!({
+        "stepSeconds": 0, "durationSeconds": "1 s", "initialState": [2.0], "input": [1.0],
+    }));
+    assert_eq!(zero.field.as_deref(), Some("response-step"));
+    let uneven = refused(json!({
+        "stepSeconds": "0.3", "durationSeconds": "1 s", "initialState": [2.0], "input": [1.0],
+    }));
+    assert_eq!(uneven.field.as_deref(), Some("response-duration"));
+    let unread_duration = refused(json!({
+        "stepSeconds": "0.25 s", "durationSeconds": "12 m", "initialState": [2.0], "input": [1.0],
+    }));
+    assert_eq!(unread_duration.field.as_deref(), Some("response-duration"));
+    assert!(
+        unread_duration.message.contains("must be a time"),
+        "{}",
+        unread_duration.message
+    );
 }

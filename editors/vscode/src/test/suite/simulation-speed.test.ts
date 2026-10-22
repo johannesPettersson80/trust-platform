@@ -1,12 +1,6 @@
 import * as assert from "assert";
 import type { ControlStudioView } from "../../controlStudio/panelTemplate";
 import { renderThreePageStudioHtml } from "../../controlStudio/threePageTemplate";
-import {
-  runtimeTargetFromStatus,
-  simulationSpeedBehind,
-  simulationSpeedText,
-  simulationTargetLabel,
-} from "../../controlStudio/runtimeTarget";
 import { selectedStatusView } from "../../runtimeControls";
 import {
   applyLiveSimulationSpeed,
@@ -194,59 +188,25 @@ suite("Simulation speed", () => {
     );
   });
 
-  test("the status bar names the simulator's speed while it runs", () => {
+  test("the status bar names the simulator's speed in the words the runtime gives while it runs", () => {
+    // The speed words and the behind flag are the runtime's (speed_tests.rs in the runtime pins the rule); the bar shows them.
     const running = selectTarget(simulatorSnapshot("running"), "");
-    const fast = selectedStatusView(running, { configured: 10 });
+    const fast = selectedStatusView(running, { speedText: "×10", speedBehind: false });
     assert.strictEqual(fast.text, "$(circle-filled) truST: Simulator ×10 running");
     assert.strictEqual(fast.simulatorRunning, true);
     assert.strictEqual(fast.speedBehind, false);
 
-    const behind = selectedStatusView(running, { configured: 10, achieved: 7 });
+    const behind = selectedStatusView(running, { speedText: "×7 of ×10", speedBehind: true });
     assert.strictEqual(behind.text, "$(circle-filled) truST: Simulator ×7 of ×10 running");
-    assert.strictEqual(behind.speedBehind, true, "more than 5 % below must use the warning colour");
+    assert.strictEqual(behind.speedBehind, true, "the runtime says the speed is behind: the warning colour");
 
-    const within = selectedStatusView(running, { configured: 10, achieved: 9.5 });
-    assert.strictEqual(within.text, "$(circle-filled) truST: Simulator ×10 running", "exactly 5 % below is not behind");
-    assert.strictEqual(within.speedBehind, false);
-
-    assert.strictEqual(selectedStatusView(running, { configured: 1 }).text, "$(circle-filled) truST: Simulator running");
+    assert.strictEqual(selectedStatusView(running, { speedText: "", speedBehind: false }).text, "$(circle-filled) truST: Simulator running",
+      "the runtime gives no words at 1x");
     assert.strictEqual(selectedStatusView(running).text, "$(circle-filled) truST: Simulator running");
-    const realTimeBehind = selectedStatusView(running, { configured: 1, achieved: 0.9 });
-    assert.strictEqual(realTimeBehind.text, "$(circle-filled) truST: Simulator running", "no achieved speed at 1x");
-    assert.strictEqual(realTimeBehind.speedBehind, false, "no warning colour at 1x");
 
-    const stopped = selectedStatusView(selectTarget(simulatorSnapshot("stopped"), ""), { configured: 10 });
+    const stopped = selectedStatusView(selectTarget(simulatorSnapshot("stopped"), ""), { speedText: "×10", speedBehind: false });
     assert.strictEqual(stopped.text, "$(circle-outline) truST: Simulator stopped");
     assert.strictEqual(stopped.simulatorRunning, false);
-  });
-
-  test("one speed rule: real time shows no achieved speed; behind only above 1x and below 0.95 of N", () => {
-    assert.strictEqual(simulationSpeedText({ configured: 1 }), "");
-    assert.strictEqual(simulationSpeedText({ configured: 1, achieved: 0.9 }), "", "never ×0.9 of ×1");
-    assert.strictEqual(simulationSpeedBehind({ configured: 1, achieved: 0.5 }), false, "no warning at 1x");
-    assert.strictEqual(simulationSpeedText({ configured: 10 }), "×10");
-    assert.strictEqual(simulationSpeedText({ configured: 10, achieved: 7 }), "×7 of ×10");
-    assert.strictEqual(simulationSpeedText({ configured: 10, achieved: 9.5 }), "×10", "exactly 0.95 times N is not behind");
-    assert.strictEqual(simulationSpeedText({ configured: 10, achieved: 9.45 }), "×9.4 of ×10", "shown values round down");
-    assert.strictEqual(simulationSpeedText({ configured: 2, achieved: 1.8 }), "×1.8 of ×2");
-    assert.strictEqual(simulationSpeedText({ configured: 2, achieved: 1.9 }), "×2");
-    assert.strictEqual(simulationSpeedText({ configured: 100, achieved: 94.9 }), "×94.9 of ×100");
-    assert.strictEqual(simulationSpeedBehind({ configured: 20, achieved: 18.9 }), true);
-    assert.strictEqual(simulationSpeedBehind({ configured: 20, achieved: 19 }), false);
-  });
-
-  test("the Control Studio target names simulation and speed, or physical", () => {
-    const simulated = (scale: number, achieved?: number) => runtimeTargetFromStatus({
-      simulation_enabled: true,
-      simulation_only_io: true,
-      simulation_time_scale: scale,
-      ...(achieved === undefined ? {} : { simulation_achieved_time_scale: achieved }),
-    });
-    assert.strictEqual(simulationTargetLabel(simulated(1)), "Simulation");
-    assert.strictEqual(simulationTargetLabel(simulated(1, 0.9)), "Simulation", "no achieved speed at 1x");
-    assert.strictEqual(simulationTargetLabel(simulated(10, 10)), "Simulation ×10");
-    assert.strictEqual(simulationTargetLabel(simulated(10, 7)), "Simulation ×7 of ×10");
-    assert.strictEqual(simulationTargetLabel(runtimeTargetFromStatus({ simulation_enabled: false })), "Physical");
   });
 
   test("the Control Studio page shows its target label only when one is given", () => {

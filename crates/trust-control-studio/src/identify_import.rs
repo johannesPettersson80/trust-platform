@@ -26,7 +26,7 @@ use trust_control::identification::selected_recording::{
     fit_selected_recording_model, SelectedRun,
 };
 use trust_control::loop_definition::LoopDefinition;
-use trust_control::messages::{IdentifyResult, ImportedRecording};
+use trust_control::messages::{AnswerKind, IdentifyResult, ImportedRecording};
 use trust_control::model::decode_general_model;
 use trust_control::recording::opened::opened_recording;
 use trust_control::recording::opened_channels::{
@@ -65,7 +65,7 @@ pub fn import_recording(
     project_root: &Path,
     loop_definition: &LoopDefinition,
     json: &str,
-) -> Result<Value, Failure> {
+) -> Result<ImportedRecording, Failure> {
     match archived_runs(json, loop_definition).map_err(|refusal| refused(&refusal))? {
         Some(archive) => import_archive(project_root, loop_definition, archive),
         None => import_single(project_root, loop_definition, json),
@@ -78,7 +78,7 @@ fn import_single(
     project_root: &Path,
     loop_definition: &LoopDefinition,
     json: &str,
-) -> Result<Value, Failure> {
+) -> Result<ImportedRecording, Failure> {
     let (check, file) =
         opened_recording(json, loop_definition).map_err(|refusal| refused(&refusal))?;
     let recording_id = file.id()?;
@@ -94,13 +94,15 @@ fn import_single(
     };
     let study = with_selection(study, &catalog.selection)?;
     storage::save_recording(project_root, &study, &file)?;
-    to_value(&ImportedRecording {
+    Ok(ImportedRecording {
+        kind: AnswerKind::new(),
         check,
         recording_id,
         recording_catalog: catalog,
         identification: None,
         reason: None,
         validation: None,
+        operation_id: None,
     })
 }
 
@@ -123,7 +125,7 @@ fn import_archive(
     project_root: &Path,
     loop_definition: &LoopDefinition,
     archive: ArchivedRuns,
-) -> Result<Value, Failure> {
+) -> Result<ImportedRecording, Failure> {
     let ArchivedRuns {
         check,
         source,
@@ -153,7 +155,8 @@ fn import_archive(
     let pair = independent_pair(&refs, &selected_units(&catalog));
     if pair.len() < 2 {
         keep_files(project_root, &study, &files)?;
-        return to_value(&ImportedRecording {
+        return Ok(ImportedRecording {
+            kind: AnswerKind::new(),
             check: ImportCheck {
                 status: "recording-needed",
                 ..check
@@ -163,6 +166,7 @@ fn import_archive(
             identification: None,
             reason: Some(NEEDS_SECOND_RECORDING.to_string()),
             validation: None,
+            operation_id: None,
         });
     }
     let fit = PairFit {
@@ -173,13 +177,15 @@ fn import_archive(
         selection: &selection,
     };
     let (estimation_id, identification) = fit_pair(&fit, &candidates, &pair, &files)?;
-    to_value(&ImportedRecording {
+    Ok(ImportedRecording {
+        kind: AnswerKind::new(),
         check,
         recording_id: estimation_id,
         recording_catalog: catalog,
         identification: Some(identification),
         reason: None,
         validation: Some(CHECKED_AGAINST_RECORDING.to_string()),
+        operation_id: None,
     })
 }
 
@@ -268,23 +274,27 @@ pub fn open_kept_recording(
         };
         let (estimation_id, identification) = fit_pair(&fit, &candidates, &pair, &[])?;
         return to_value(&ImportedRecording {
+            kind: AnswerKind::new(),
             check: opened_check(loop_definition, file, "checked"),
             recording_id: estimation_id,
             recording_catalog: catalog.clone(),
             identification: Some(identification),
             reason: None,
             validation: Some(CHECKED_AGAINST_RECORDING.to_string()),
+            operation_id: None,
         })
         .map(Some);
     }
     if file.model_revision.is_some() {
         return to_value(&ImportedRecording {
+            kind: AnswerKind::new(),
             check: opened_check(loop_definition, file, "recording-needed"),
             recording_id: recording_id.to_string(),
             recording_catalog: catalog.clone(),
             identification: None,
             reason: Some(NEEDS_SECOND_RECORDING.to_string()),
             validation: None,
+            operation_id: None,
         })
         .map(Some);
     }

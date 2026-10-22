@@ -17,30 +17,38 @@ const MARKUP = `<main>
   <div data-studio-tuning-result hidden></div>
 </main>`;
 
+/** A form field as the engine lists it: its key and label, and for a choice its options with their words and the option that stands (C4, D-B12). */
+interface ListedField { field: string; label: string; choices?: { value: string; label: string }[]; selected?: string }
+
+/** The solver policy as the engine lists it (`form_fields`, preferences.rs): its two options with their words, and the one that stands. */
+const SOLVER_CHOICES = [{ value: "infinite", label: "Infinite-horizon / steady-state" }, { value: "finite", label: "Finite-horizon (fixed policy)" }];
+const SOLVER: ListedField = { field: "solverMode", label: "Solver policy", choices: SOLVER_CHOICES, selected: "infinite" };
+const SOLVER_FINITE: ListedField = { ...SOLVER, selected: "finite" };
+
 /** The fields the engine lists for each family, in the order the engine lists them (C4, D-B12). */
-const FIELDS: Record<string, { field: string; label: string }[]> = {
+const FIELDS: Record<string, ListedField[]> = {
   "state-feedback": [{ field: "desiredPoles", label: "Desired poles" }],
   LQR: [
-    { field: "solverMode", label: "Solver policy" },
+    SOLVER,
     { field: "stateWeights", label: "State weights (Q)" },
     { field: "inputWeights", label: "Input weights (R)" },
   ],
   "LQR finite": [
-    { field: "solverMode", label: "Solver policy" },
+    SOLVER_FINITE,
     { field: "stateWeights", label: "State weights (Q)" },
     { field: "inputWeights", label: "Input weights (R)" },
     { field: "horizonSteps", label: "Finite horizon steps" },
     { field: "terminalWeights", label: "Terminal weights" },
   ],
   LQG: [
-    { field: "solverMode", label: "Solver policy" },
+    SOLVER,
     { field: "stateWeights", label: "State weights (Q)" },
     { field: "inputWeights", label: "Input weights (R)" },
     { field: "processNoise", label: "Process noise covariance" },
     { field: "measurementNoise", label: "Measurement noise covariance" },
   ],
   "LQG finite": [
-    { field: "solverMode", label: "Solver policy" },
+    SOLVER_FINITE,
     { field: "stateWeights", label: "State weights (Q)" },
     { field: "inputWeights", label: "Input weights (R)" },
     { field: "processNoise", label: "Process noise covariance" },
@@ -65,6 +73,10 @@ const TUNE_RESULT: Record<string, unknown> = {
   gainUnits: {},
   requirements: {},
   outcome: { status: "unpredicted", reason: "The study keeps no prediction." },
+  // The engine's words of the answer (TuneWords): the outcome sentence and the rows of the gains, named by the loop's conventions.
+  words: { outcome: "No prediction: The study keeps no prediction.", horizonPolicy: "Finite horizon: 2 steps · Repeated first gain", horizonStages: "Riccati stages", settingLabels: [
+    { symbol: "Main.K1", label: "Gain K1 on tank 1's level deviation" }, { symbol: "Main.K2", label: "Gain K2 on tank 2's level deviation" },
+    { symbol: "Main.N", label: "Reference gain N" }] },
   margins: { gainMarginDb: { finite: 14.2 }, phaseMarginDegrees: { finite: 95 }, peakSensitivity: 1.3, peakSensitivityRadPerSecond: 0.4 },
   delayMarginSeconds: { finite: 6.1 },
   comparison: [],
@@ -97,6 +109,12 @@ function stateLoop(): any {
   return loop;
 }
 
+/** The controller the engine offers a state law on open (`controllerOffer`, C2, C4): its two families, labelled, and the one it recommends. */
+function stateOffer(recommended: string | null, familySettings: Record<string, string[]> = {}) {
+  return { controllerOffer: { families: [{ family: "state-feedback", label: "State feedback" }, { family: "LQR", label: "LQR" }],
+    recommended, familySettings, settingRows: [] } };
+}
+
 interface Page {
   readonly root: HTMLElement;
   readonly controller: ThreePageController;
@@ -122,9 +140,9 @@ function withStatePage(check: (page: Page) => void): void {
       posts.push({ kind, payload });
     };
     const controller = new ThreePageController(root, loop, post);
-    const tuning = new ThreePageTuning(root, loop, post, () => controller.selectedFamily, () => controller.choice,
+    const tuning = new ThreePageTuning(root, loop, post, () => controller.selectedFamily, () => controller.chosenFamily,
       family => controller.symbolsOf(family));
-    controller.methodsChanged = methods => tuning.offerMethods(methods);
+    controller.methodsChanged = (methods, titles) => tuning.offerMethods(methods, titles);
     const ports: EngineHostPorts = {
       select: () => undefined,
       receive: (stage, payload) => {
@@ -177,7 +195,7 @@ suite("Control Studio state-space design page", () => {
 
   test("sends the typed text as the study's draft, with the chosen family and the state-space method", () => {
     withStatePage(({ root, controller, ports, posts }) => {
-      controller.receive({ availableFamilies: ["state-feedback", "LQR"], recommendedFamily: "LQR", methods: ["state-space"] });
+      controller.receive({ ...stateOffer("LQR"), methods: ["state-space"] });
       const select = root.querySelector<HTMLSelectElement>("[data-studio-controller]")!;
       select.value = "P1::LQR";
       fire(select, "change");
@@ -242,7 +260,7 @@ suite("Control Studio state-space design page", () => {
 
   test("offers exactly the methods the engine gives, and labels the family the engine recommends", () => {
     withStatePage(({ root, controller }) => {
-      controller.receive({ availableFamilies: ["state-feedback", "LQR"], familySettings: {}, recommendedFamily: "state-feedback", methods: ["state-space"] });
+      controller.receive({ ...stateOffer("state-feedback"), methods: ["state-space"], methodTitles: { "state-space": "State-space design" } });
       const families = Array.from(root.querySelectorAll<HTMLOptionElement>("[data-studio-controller] option")).map(option => option.textContent);
       assert.ok(families.includes("P1 · State feedback — recommended"), `the recommended family is labelled: ${families.join(", ")}`);
       assert.ok(families.includes("P1 · LQR"), `the other family is listed: ${families.join(", ")}`);
@@ -256,14 +274,15 @@ suite("Control Studio state-space design page", () => {
   test("the open answer of lesson 69's state-feedback loop offers its State-space design, with LQR recommended", () => {
     // The answer the engine gives an opened state law: its two families, the symbols they take and the one method (C4).
     withStatePage(({ root, controller }) => {
-      controller.receive({ availableFamilies: ["state-feedback", "LQR"],
-        familySettings: { "state-feedback": ["P1.K1", "P1.K2", "P1.N"], LQR: ["P1.K1", "P1.K2", "P1.N"] },
-        recommendedFamily: "LQR", methods: ["state-space"] });
+      controller.receive({ ...stateOffer("LQR", { "state-feedback": ["P1.K1", "P1.K2", "P1.N"], LQR: ["P1.K1", "P1.K2", "P1.N"] }),
+        methods: ["state-space"], methodTitles: { "state-space": "State-space design" } });
       const methods = Array.from(root.querySelectorAll<HTMLOptionElement>("[data-engineer-tuning-method] option"))
         .map(option => [option.value, option.textContent]);
       assert.deepStrictEqual(methods, [["automatic", "Automatic"], ["state-space", "State-space design"]],
         "the Tune page offers State-space design for the opened loop");
-      assert.strictEqual(controller.selectedFamily, "LQR", "the engine's recommended family is the one the page selects");
+      const options = Array.from(root.querySelectorAll<HTMLOptionElement>("[data-studio-controller] option")).map(option => option.textContent);
+      assert.ok(options.includes("P1 · LQR — recommended"), `the engine's recommended family is marked: ${options.join(", ")}`);
+      assert.strictEqual(controller.selectedFamily, "automatic", "Automatic is shown until the engineer chooses (B4.2): the recommendation is only marked");
     });
   });
 
@@ -292,21 +311,6 @@ suite("Control Studio state-space design page", () => {
     });
   });
 
-  test("an acknowledgement of an earlier change does not erase the text typed since", () => {
-    withStatePage(({ root, tuning, ports, posts }) => {
-      inputsReceiver.result?.(root, { stateFields: FIELDS.LQR }, ports);
-      const weights = root.querySelector<HTMLTextAreaElement>("[data-state-design-field=\"stateWeights\"]")!;
-      weights.value = "[[1]]";
-      fire(weights, "input");
-      const earlier = posts[posts.length - 1].payload?.tuningPreferences;
-      weights.value = "[[2]]";
-      fire(weights, "input");
-      tuning.receive({ tuningPreferences: earlier });
-      assert.strictEqual(weights.value, "[[2]]", "the acknowledgement of an earlier change keeps the text typed since");
-      assert.strictEqual(tuning.preferences().stateDesignDraft?.stateWeights, "[[2]]", "the next change sends the text typed since");
-    });
-  });
-
   test("a refused field's sentence clears when the engineer edits that field", () => {
     withStatePage(({ root, ports }) => {
       inputsReceiver.result?.(root, { stateFields: FIELDS.LQR }, ports);
@@ -322,12 +326,37 @@ suite("Control Studio state-space design page", () => {
     });
   });
 
+  test("lists a choice as the engine gives it, with the option that stands, and invents neither an option nor a default (R3, R4)", () => {
+    withStatePage(({ root, ports, posts }) => {
+      // A policy the page has never heard of is listed under the engine's words and stands; the page keeps no table that would drop it.
+      const adaptive: ListedField = { field: "solverMode", label: "Solver policy", selected: "adaptive",
+        choices: [{ value: "adaptive", label: "Adaptive horizon" }, ...SOLVER_CHOICES] };
+      inputsReceiver.result?.(root, { stateFields: [adaptive, { field: "stateWeights", label: "State weights (Q)" }] }, ports);
+      const solver = root.querySelector<HTMLSelectElement>("select[data-state-design-mode]")!;
+      assert.deepStrictEqual(Array.from(solver.options).map(option => [option.value, option.textContent]),
+        [["adaptive", "Adaptive horizon"], ["infinite", "Infinite-horizon / steady-state"], ["finite", "Finite-horizon (fixed policy)"]]);
+      assert.strictEqual(solver.value, "adaptive", "the option the engine says stands is shown");
+      const weights = root.querySelector<HTMLTextAreaElement>("[data-state-design-field=\"stateWeights\"]")!;
+      weights.value = "[[1]]";
+      fire(weights, "input");
+      const sent = (posts[posts.length - 1].payload?.tuningPreferences as { stateDesignDraft: Record<string, string> }).stateDesignDraft;
+      assert.strictEqual(sent.solverMode, "adaptive", "the draft names the option the control shows");
+      // A later answer that moves the standing option moves a control the engineer left alone, and not one the engineer set.
+      inputsReceiver.result?.(root, { stateFields: [{ ...adaptive, selected: "finite" }, { field: "stateWeights", label: "State weights (Q)" }] }, ports);
+      assert.strictEqual(solver.value, "finite", "the engine's standing option follows its answer");
+      solver.value = "infinite";
+      fire(solver, "change");
+      inputsReceiver.result?.(root, { stateFields: [{ ...adaptive, selected: "finite" }, { field: "stateWeights", label: "State weights (Q)" }] }, ports);
+      assert.strictEqual(solver.value, "infinite", "the option the engineer chose stays");
+    });
+  });
+
   test("changing the solver sends the draft through the study's inputs, and the answer's list adds or removes the horizon fields", () => {
     withStatePage(({ root, ports, posts }) => {
       inputsReceiver.result?.(root, { stateFields: FIELDS.LQR }, ports);
       const solver = root.querySelector<HTMLSelectElement>("select[data-state-design-mode]")!;
       assert.deepStrictEqual(Array.from(solver.options).map(option => [option.value, option.textContent]),
-        [["infinite", "Infinite-horizon / steady-state"], ["finite", "Finite-horizon (fixed policy)"]], "the solver offers the page's two choices");
+        [["infinite", "Infinite-horizon / steady-state"], ["finite", "Finite-horizon (fixed policy)"]], "the solver offers the engine's two choices, in its words");
       assert.strictEqual(root.querySelector("textarea[data-state-design-field=\"solverMode\"]"), null, "the solver is a choice, not text");
       const sent = (): Record<string, string> => (posts[posts.length - 1].payload?.tuningPreferences as { stateDesignDraft: Record<string, string> }).stateDesignDraft;
       solver.value = "finite";

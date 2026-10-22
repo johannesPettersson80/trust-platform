@@ -21,22 +21,13 @@ export class ThreePageSuppliedModel {
     if (!this.selected || this.busy() || this.reading) return;
     this.input.value = ""; this.input.click();
   }
-  receive(stage: string, payload: Record<string, unknown>): void {
-    if ((stage === "general-model" && payload.status === "imported" || payload.status === "restored")
-      && (payload.model as { source?: string } | undefined)?.source === "provided") this.method.value = "supplied-model";
-    if (stage === "general-model" && ["imported", "failed"].includes(String(payload.status))) {
-      this.reading = false;
-      this.notice(payload.status === "failed" ? String(payload.reason ?? "The plant model could not be opened.") : "");
-    }
-    this.synchronize();
-  }
+  /** The Identify button names the model's file while Supplied plant model is the method and nothing runs. */
   synchronize(): void {
     if (this.selected && !this.busy()) this.root.querySelector<HTMLButtonElement>("[data-engineer-find]")!.textContent = this.reading ? "Opening model…" : "Open model…";
   }
   private async read(): Promise<void> {
     const file = this.input.files?.[0], current = ++this.selection;
     if (!file || this.busy()) return;
-    if (file.size > 256000) { this.notice("Choose a plant model JSON file of at most 256 kB."); return; }
     try {
       this.reading = true; this.synchronize();
       const json = await file.text();

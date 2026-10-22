@@ -180,3 +180,86 @@ fn a_blank_form_starts_with_the_automatic_model_and_no_held_step() {
         [] as [ExcludedInterval; 0]
     );
 }
+
+// Specification 35, B3.3: the form of the Recorded-data fit starts from the engine's numbers, which the page showed as the
+// template's defaults (`threePageIdentificationTemplate.ts`) before it asked the engine.
+#[test]
+fn the_default_form_holds_the_numbers_the_page_started_from_and_they_are_admissible_settings() {
+    let defaults = default_form();
+    assert_eq!(defaults.model, IdentificationModelSelection::Automatic);
+    assert!(!defaults.held_step);
+    assert!(valid_form_draft(&defaults));
+    assert_eq!(
+        excluded_intervals_of(&defaults).expect("no interval is typed"),
+        [] as [ExcludedInterval; 0]
+    );
+    for key in IDENTIFICATION_FORM_KEYS
+        .iter()
+        .chain(&IDENTIFICATION_COMPARISON_FORM_KEYS)
+    {
+        assert!(
+            defaults
+                .values
+                .get(*key)
+                .is_some_and(|text| !text.is_empty()),
+            "{key} has a default number"
+        );
+    }
+    assert_eq!(
+        defaults.values.len(),
+        IDENTIFICATION_FORM_KEYS.len() + IDENTIFICATION_COMPARISON_FORM_KEYS.len()
+    );
+    // With the held step on, the numbers are settings the analysis admits, for the first-order-with-delay form and, with the
+    // sensor-lag fields, for the comparison.
+    let held = |model| IdentificationFormDraft {
+        model,
+        held_step: true,
+        ..defaults.clone()
+    };
+    let fopdt = held_step_settings_of(&held(IdentificationModelSelection::Fopdt))
+        .expect("the default numbers are admissible")
+        .expect("the held step is on");
+    let expected = StepResponseSettings {
+        baseline_duration_seconds: 5.0,
+        final_duration_seconds: 5.0,
+        maximum_window_range: 0.1,
+        maximum_window_slope_per_second: 0.01,
+        measurement_bound: 0.05,
+        onset_threshold: 0.15,
+        onset_samples: 3,
+        delay: SearchGrid {
+            minimum: 0.0,
+            maximum: 2.0,
+            step: 0.1,
+        },
+        time_constant: SearchGrid {
+            minimum: 0.1,
+            maximum: 20.0,
+            step: 0.1,
+        },
+        baseline_step: 0.01,
+        gain_step: 0.001,
+        timestamp_shift_seconds: 0.0,
+        sensor_time_constant: None,
+        model_adequacy: None,
+    };
+    assert_eq!(fopdt, expected);
+    let sopdt = held_step_settings_of(&held(IdentificationModelSelection::Sopdt))
+        .expect("the default numbers are admissible with the comparison")
+        .expect("the held step is on");
+    assert_eq!(
+        sopdt,
+        StepResponseSettings {
+            sensor_time_constant: Some(SearchGrid {
+                minimum: 0.1,
+                maximum: 10.0,
+                step: 0.1,
+            }),
+            model_adequacy: Some(ModelAdequacy {
+                maximum_absolute_residual: 0.2,
+                maximum_final_error: 0.1,
+            }),
+            ..expected
+        }
+    );
+}

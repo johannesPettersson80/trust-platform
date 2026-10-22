@@ -6,26 +6,27 @@
 
 use std::collections::BTreeMap;
 
-use trust_control_math::identify::gain::ControllerAction;
-
-use super::{declared_response, refused};
+use super::{declared_response, LoopSetup};
 use crate::failure::{Cause, Failure, NextAction};
+use crate::identification::refusal::Refusal;
 use crate::loop_definition::{LoopDefinition, PidControllerGroup, ProjectSeedBlock};
-use crate::messages::{CandidateOutcome, TuneGainUnits, TuneResult};
+use crate::messages::{AnswerKind, CandidateOutcome, TuneGainUnits, TuneResult};
 use crate::model::GeneralModel;
 use crate::stages::{stage_availability, StageEvidence};
-use crate::study::tune::{
-    controller_action, current_for, stage_evidence, TuneInputs, TuneOutcome, TuneSection,
-};
+use crate::study::tune::{current_for, stage_evidence, TuneInputs, TuneOutcome, TuneSection};
 use crate::tuning::candidate::CandidateSource;
 use crate::tuning::group_candidate::{
     decoupler_values, member_design, member_values, GroupCandidate, GroupDecoupler,
     GroupMemberDesign,
 };
 use crate::tuning::objective::TuningObjective;
+use crate::tuning::path_support::ReducedPathSupport;
+use crate::tuning::prediction::RecordShaping;
 use crate::tuning::requirements::TuningRequirements;
+use crate::tuning::structures::path::LoopFacts;
 use crate::tuning::structures::pid_group::{
     design_decentralized_pi, design_decoupled_group, DecentralizedPair, DecouplerMember,
+    GroupRefusal, GroupTuning,
 };
 use crate::tuning::structures::texts::DECOUPLER_MEMBERS;
 
@@ -100,17 +101,22 @@ pub(crate) fn run(
             )
         })?;
     let objective = declared_response(requirements);
-    let action = controller_action(loop_definition);
     let model = &current.model;
+    let facts = facts_of(&LoopSetup::of(loop_definition, model, false));
+    let tuning = GroupTuning {
+        facts: &facts,
+        support: &ReducedPathSupport,
+        requirements,
+    };
     let designed = match loop_definition
         .controller
         .project
         .as_ref()
         .and_then(|project| project.seed.as_ref())
     {
-        Some(ProjectSeedBlock::Decentralized) => paired(group, model, objective, action)?,
+        Some(ProjectSeedBlock::Decentralized) => paired(group, model, tuning)?,
         Some(ProjectSeedBlock::Decoupled(seed)) => {
-            decoupled(group, &seed.matrix_symbols, model, objective, action)?
+            decoupled(group, &seed.matrix_symbols, model, tuning)?
         }
         _ => {
             return Err(Failure::new(
@@ -120,13 +126,15 @@ pub(crate) fn run(
             ))
         }
     };
+    // The candidate names each member's channels and the decoupler's rows by the loop's plant signals (L19), so that the page resolves none.
     let candidate = GroupCandidate {
         applied: false,
         source: CandidateSource::Simc,
         members: designed.members,
         decoupler: designed.decoupler,
         values: designed.values,
-    };
+    }
+    .named_by(loop_definition);
     let section = TuneSection {
         method: None,
         model_revision: model.identity().revision.clone(),
@@ -152,6 +160,21 @@ pub(crate) fn run(
     Ok(TuneOutcome { section, result })
 }
 
+/// The loop's facts for the group's design (B4.2, C7): the controller action, the task period, the bounds, the limits and the units,
+/// as the single-loop design reads them.
+fn facts_of(setup: &LoopSetup) -> LoopFacts {
+    LoopFacts {
+        action: setup.action,
+        task_period_ms: setup.task_period_ms,
+        gain_limits: setup.gain_limits.clone(),
+        output_limits: setup.output_limits,
+        rate_limits: setup.rate_limits,
+        shaping: RecordShaping::default(),
+        process_unit: setup.process_unit.clone(),
+        manipulated_unit: setup.manipulated_unit.clone(),
+    }
+}
+
 /// A group's design: its values (every variable Apply writes), its members, its decoupler when it has one, and the reason.
 struct Designed {
     values: BTreeMap<String, f64>,
@@ -169,12 +192,27 @@ fn declared_group(loop_definition: &LoopDefinition) -> Result<&PidControllerGrou
         .ok_or_else(|| Failure::new(NO_GROUP, Cause::Implementation, NextAction::OpenLoopSetup))
 }
 
-/// The members' PIs of a decentralized group: each member's own path, designed for the gain it sees with the others closed (C7).
+/// The failure of a refused group design (C7): a member whose PI cannot meet its own requirements opens Requirements, as cascade does; the
+/// model, the pairing and the decoupler open loop setup.
+fn group_failure(refusal: GroupRefusal) -> Failure {
+    match refusal {
+        GroupRefusal::Requirements(Refusal(sentence)) => Failure::new(
+            &sentence,
+            Cause::TaskInfeasible,
+            NextAction::OpenRequirements,
+        ),
+        GroupRefusal::Model(Refusal(sentence)) => {
+            Failure::new(&sentence, Cause::ModelOrData, NextAction::OpenLoopSetup)
+        }
+    }
+}
+
+/// The members' PIs of a decentralized group: each member's own path, designed for the gain it sees with the others closed and to its
+/// own requirements (C7).
 fn paired(
     group: &PidControllerGroup,
     model: &GeneralModel,
-    objective: TuningObjective,
-    action: ControllerAction,
+    tuning: GroupTuning<'_>,
 ) -> Result<Designed, Failure> {
     let pairs: Vec<DecentralizedPair> = group
         .members
@@ -184,8 +222,7 @@ fn paired(
             output_id: member.output_channel_id.clone(),
         })
         .collect();
-    let design = design_decentralized_pi(model, &pairs, objective, action)
-        .map_err(refused(Cause::ModelOrData, NextAction::OpenLoopSetup))?;
+    let design = design_decentralized_pi(model, &pairs, tuning).map_err(group_failure)?;
     Ok(Designed {
         values: member_values(group, &design.members)?,
         members: group
@@ -205,8 +242,7 @@ fn decoupled(
     group: &PidControllerGroup,
     symbols: &[Vec<String>],
     model: &GeneralModel,
-    objective: TuningObjective,
-    action: ControllerAction,
+    tuning: GroupTuning<'_>,
 ) -> Result<Designed, Failure> {
     if symbols.len() != group.members.len()
         || symbols.iter().any(|row| row.len() != group.members.len())
@@ -226,8 +262,7 @@ fn decoupled(
             output_channel_id: member.output_channel_id.clone(),
         })
         .collect();
-    let design = design_decoupled_group(model, &members, Some(objective), action)
-        .map_err(refused(Cause::ModelOrData, NextAction::OpenLoopSetup))?;
+    let design = design_decoupled_group(model, &members, tuning).map_err(group_failure)?;
     let mut values = member_values(group, &design.members)?;
     values.extend(decoupler_values(symbols, &design.matrix));
     Ok(Designed {
@@ -241,6 +276,7 @@ fn decoupled(
         decoupler: Some(GroupDecoupler {
             matrix: design.matrix,
             input_channel_ids: design.input_ids,
+            input_names: None,
             member_instances: design.member_ids,
             block: design.block,
         }),
@@ -257,6 +293,7 @@ fn answer(
     evidence: StageEvidence,
 ) -> TuneResult {
     TuneResult {
+        kind: AnswerKind::new(),
         group: Some(candidate.clone()),
         feedforward: None,
         state: None,
@@ -290,6 +327,7 @@ fn answer(
         stages: stage_availability(&evidence),
         stage_evidence: evidence,
         schedule: None,
+        words: None,
     }
 }
 

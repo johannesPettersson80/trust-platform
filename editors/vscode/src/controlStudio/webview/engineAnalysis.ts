@@ -41,8 +41,9 @@ export function answerOf<K extends AnalysisTool>(result: AnalysisResult | undefi
 }
 
 /**
- * The window event that tells the page the study's model changed (B9.9): the answers shown for the model before it no longer hold, and
- * the tools that apply to the new model are asked again. The Identify page sends it when it shows or clears an identification.
+ * The window event that tells the page the study's model changed (B9.9): the page asks the engine which tools apply and which of the
+ * answers it holds are no longer current for the model, and drops those. The engine's Identify answers send it when they show, clear or
+ * accept a model (engineIdentify.ts).
  */
 export const ENGINE_MODEL_CHANGED_EVENT = "trust-control-studio-model-changed";
 
@@ -54,12 +55,17 @@ export interface AnalysisUpdate {
   /** The calculation's envelope once the operation finished. */
   envelope?: AnalysisEnvelope;
   failure?: Failure;
+  /** The engine's sentence of a cancelled operation (`OperationUpdate.message`, B9.4); the page writes none. */
+  message?: string;
 }
 
 /** What the presenter receives from the engine's messages. */
 export interface EngineAnalysisEvents {
-  /** The tools that apply to the loop now; `failure` says why none can be given. */
-  tools(offers: readonly ToolOffer[] | undefined, failure: Failure | undefined): void;
+  /**
+   * The tools that apply to the loop now; `failure` says why none can be given. `stale` lists the tools whose held answers are no longer
+   * current for the model (B9.9): the engine decides which, and the page drops those answers.
+   */
+  tools(offers: readonly ToolOffer[] | undefined, failure: Failure | undefined, stale?: readonly AnalysisTool[]): void;
   /** The engine started an operation for the tool. */
   started(tool: AnalysisTool, operationId: string): void;
   /** A calculation answered: a quick tool's, or an operation's when it finished. */
@@ -81,7 +87,8 @@ export function bindEngineAnalysis(root: HTMLElement, events: EngineAnalysisEven
       || message.loopId !== root.dataset.loopId || (message.expectedLoopRevision ?? message.loopRevision) !== root.dataset.loopRevision) return;
     switch (message.kind) {
       case "control-studio.analysis.tools":
-        events.tools(Array.isArray(message.tools) ? message.tools as ToolOffer[] : undefined, failureOf(message.failure));
+        events.tools(Array.isArray(message.tools) ? message.tools as ToolOffer[] : undefined, failureOf(message.failure),
+          Array.isArray(message.stale) ? message.stale as AnalysisTool[] : undefined);
         return;
       case "control-studio.analysis.started":
         events.started(message.tool as AnalysisTool, String(message.operationId));
@@ -97,6 +104,7 @@ export function bindEngineAnalysis(root: HTMLElement, events: EngineAnalysisEven
           operationId: String(message.operationId),
           state: message.state as AnalysisUpdate["state"],
           ...(typeof message.progress === "string" ? { progress: message.progress } : {}),
+          ...(typeof message.message === "string" ? { message: message.message } : {}),
           ...(isRecord(message.envelope) ? { envelope: message.envelope as unknown as AnalysisEnvelope } : {}),
           ...(failureOf(message.failure) ? { failure: failureOf(message.failure) } : {}),
         });

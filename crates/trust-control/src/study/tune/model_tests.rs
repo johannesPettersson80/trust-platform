@@ -445,3 +445,145 @@ fn lesson_90s_state_space_axis_is_the_integrator_with_a_lag() {
         }
     );
 }
+
+/// The study's current model of a supplied transfer function with no dead time (B3.7): the numerator and the denominator as given,
+/// with no fit error, because a supplied model was not fitted.
+fn supplied_transfer(numerator: Vec<f64>, denominator: Vec<f64>) -> CurrentModel {
+    let section = identify_section(None);
+    let identity = ModelIdentity {
+        delay_seconds: 0.0,
+        ..section.selected_model.identity().clone()
+    };
+    CurrentModel {
+        source: CurrentModelSource::Supplied,
+        model: GeneralModel::TransferFunction {
+            identity,
+            transfer: TransferFunction {
+                numerator,
+                denominator,
+            },
+        },
+        identify: None,
+    }
+}
+
+#[test]
+fn equivalent_transfer_and_state_space_forms_give_one_tuning_model_and_so_one_pi_and_one_p_design()
+{
+    // control-studio-controller-law: "makes the same automatic choice for equivalent transfer and state-space models" and "shares
+    // state-space dynamics across PI tuning, manual P and Routh analysis"; control-studio-simple-controller-design: "uses equivalent
+    // continuous state-space dynamics without changing selected model identity" (N4.7(c), N5.13, specification 35 B4.2). The model
+    // x′ = −x + 2u, y = 0.5x is 1/(s + 1), the transfer function itself, so everything that reads the tuning model reads one plant.
+    use crate::tuning::formula::tune_identified;
+    use crate::tuning::objective::TuningObjective;
+    use crate::tuning::proportional::{first_order_design, GainBounds, ProportionalRequirements};
+    use trust_control_math::identify::gain::ControllerAction;
+
+    let transfer = supplied_transfer(vec![1.0], vec![1.0, 1.0]);
+    let state_space = supplied_state_space(
+        vec![channel("x", "m")],
+        StateSpace {
+            a: vec![vec![-1.0]],
+            b: vec![vec![2.0]],
+            c: vec![vec![0.5]],
+            d: vec![vec![0.0]],
+        },
+    );
+    let revision = state_space.model.identity().revision.clone();
+    let requirements = ProportionalRequirements {
+        reference_change: 1.0,
+        constant_input_disturbance: 0.0,
+        maximum_steady_error: 0.1,
+        settling_band: 0.02,
+        settling_time_seconds: 2.0,
+        gain_bounds: GainBounds {
+            minimum: -20.0,
+            maximum: 20.0,
+        },
+    };
+    for current in [&transfer, &state_space] {
+        let model = tuning_model(current).expect("a first-order form in the shape Identify writes");
+        assert_eq!(model.kind, LowOrderModelKind::FirstOrder);
+        assert!((model.gain - 1.0).abs() <= 1e-12, "{}", model.gain);
+        assert!(matches!(
+            model.time_constant_seconds,
+            Some(time) if (time - 1.0).abs() <= 1e-12
+        ));
+        // SIMC, balanced: λ = 2·max(L, T/3) = 2/3, so Kp = T/(K·(λ + L)) = 1.5.
+        let pi = tune_identified(
+            &model,
+            TuningMethod::Simc,
+            TuningObjective::Balanced,
+            ControllerAction::Direct,
+            "m/V",
+        )
+        .expect("SIMC tunes the first-order form");
+        assert!(
+            (pi.proportional_gain - 1.5).abs() <= 1e-6,
+            "{}",
+            pi.proportional_gain
+        );
+        // The simple P design: q = K·Kp = 1/0.1 − 1 = 9.
+        let TuningPlant::FirstOrder(plant) =
+            from_identified(&model, TuningMethod::Simc).expect("a plant the formulas read")
+        else {
+            panic!("a first-order plant");
+        };
+        let proportional = first_order_design(plant, 0.0, &requirements)
+            .expect("a gain within the bounds meets the requirements");
+        assert!(
+            (proportional.proportional_gain - 9.0).abs() <= 1e-9,
+            "{}",
+            proportional.proportional_gain
+        );
+    }
+    assert!(
+        matches!(state_space.model, GeneralModel::ContinuousStateSpace { .. }),
+        "reading the model as a transfer function leaves the selected model a state-space model"
+    );
+    assert_eq!(
+        state_space.model.identity().revision,
+        revision,
+        "and keeps its identity"
+    );
+}
+
+#[test]
+fn a_manual_p_on_a_state_space_integrator_closes_on_the_pole_minus_rate_times_gain() {
+    // control-studio-controller-law, "shares state-space dynamics across PI tuning, manual P and Routh analysis" (N5.8, specification 35
+    // B4.2): the model x′ = 2u, y = 0.5x is the integrator 1/s with the rate gain 0.5·2 = 1, so an entered Kp of 2 closes it on the
+    // pole −2, and the pole is the plant's own, whatever form the model was supplied in.
+    use crate::tuning::proportional::{integrating_manual, GainBounds, ProportionalRequirements};
+
+    let current = supplied_state_space(
+        vec![channel("x", "m")],
+        StateSpace {
+            a: vec![vec![0.0]],
+            b: vec![vec![2.0]],
+            c: vec![vec![0.5]],
+            d: vec![vec![0.0]],
+        },
+    );
+    let model = tuning_model(&current).expect("an integrating form in the shape Identify writes");
+    assert_eq!(model.kind, LowOrderModelKind::Integrating);
+    let TuningPlant::Integrating(plant) =
+        from_identified(&model, TuningMethod::Simc).expect("a plant the formulas read")
+    else {
+        panic!("a plain integrator");
+    };
+    let requirements = ProportionalRequirements {
+        reference_change: 1.0,
+        constant_input_disturbance: 0.0,
+        maximum_steady_error: 0.1,
+        settling_band: 0.02,
+        settling_time_seconds: 2.0,
+        gain_bounds: GainBounds {
+            minimum: -10.0,
+            maximum: 10.0,
+        },
+    };
+    let manual = integrating_manual(plant, 2.0, 0.0, &requirements)
+        .expect("an entered gain within the bounds is kept");
+    assert!((manual.proportional_gain - 2.0).abs() <= 1e-12);
+    assert!((manual.prediction.closed_loop_pole + 2.0).abs() <= 1e-12);
+}

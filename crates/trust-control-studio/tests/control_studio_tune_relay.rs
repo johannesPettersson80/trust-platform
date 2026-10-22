@@ -256,6 +256,7 @@ impl Lab {
         let connection = RuntimeConnection {
             endpoint: format!("unix://{}", socket.display()),
             token: Some(TOKEN.into()),
+            runtime_id: None,
         };
         let first = wait_for_status(&connection, &log);
         assert_eq!(
@@ -303,7 +304,8 @@ impl Lab {
 
     /// Identifies the heater with `identify --method <method> --json`, with the control token (§0.1b). Nothing after it can run
     /// without the model it keeps, so when the verb does not finish with its model the test ends here with the findings so far.
-    fn identify(&self, findings: &mut Findings, method: &str) {
+    /// Returns the `result` of its answer (`null` when it gave none), so the test can read the methods the answer offers.
+    fn identify(&self, findings: &mut Findings, method: &str) -> Value {
         let (program, status) =
             self.run("identify", &["--method", method, "--json"], true, RUN_LIMIT);
         let kept = study_of(&self.scratch.project)["sections"]["identify"].is_object();
@@ -318,6 +320,10 @@ impl Lab {
         if !finished {
             findings.conclude();
         }
+        serde_json::from_str::<Value>(&read_text(&program.out))
+            .ok()
+            .and_then(|answer| answer.get("result").cloned())
+            .unwrap_or_default()
     }
 
     /// Runs `tune --json` with `extra` arguments and without the control token: Tune never reaches the runtime (B4.1). Returns the
@@ -363,7 +369,16 @@ impl Lab {
 fn relay_tune_gives_the_relay_rule_pi_of_the_measured_cycle() {
     let mut findings = Findings::default();
     let lab = Lab::start("relay-rule");
-    lab.identify(&mut findings, "relay");
+    let identified = lab.identify(&mut findings, "relay");
+    // The identification's answer offers the relay rule at once, beside Manual (C4, N5.R), with its title.
+    findings.check(
+        identified["methods"] == serde_json::json!(["SIMC", "AMIGO", "relay", "manual"])
+            && identified["methodTitles"]["relay"] == "Relay rule (Ziegler–Nichols PI)",
+        format!(
+            "the identify answer offers the relay rule with its title: {} {}",
+            identified["methods"], identified["methodTitles"]
+        ),
+    );
     let result = lab.tune(&mut findings, &["--method", "relay"]);
 
     findings.check(

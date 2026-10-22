@@ -4,22 +4,28 @@
  */
 
 /**
- * The arguments of `controlStudio/parameters` (specification 35, C12 and §0.1a; annex E7): the writes of the parameters that a
- * declared analysis maps. `values` holds the mapped symbols with the values a review or an apply sets; every other symbol of the
- * record keeps its value. `review` is the identity that `apply` and `restore` confirm (A2.5, E11.8). The connection's token is a
- * credential, never journaled.
+ * The arguments of `controlStudio/parameters` (specification 35, C12 and §0.1a; annex E7): the writes of the parameters that the
+ * loop's tool lets a write set: those a declared analysis maps, or the settings of the experiment. `values` holds the symbols with
+ * the values a review or a confirmed Apply sets; every other symbol of the record keeps its value. `review` is the identity that
+ * `confirm` names (A2.5, E11.8). The connection's token is a credential, never journaled.
  */
 export interface ParameterWorkRequest {
   /**
    * What the request does.
    */
-  action: "draft" | "inspect" | "review" | "reviewRestore" | "apply" | "restore";
+  action: "draft" | "inspect" | "review" | "reviewRestore" | "confirm" | "invalidate" | "released";
   /**
    * Where the runtime listens, and its control token (E11.1); the record is read and written through it.
    */
   connection?: RuntimeConnection | null;
   /**
-   * The loop whose declared analysis maps the parameters.
+   * The values of a `review` as the engineer typed them: a JSON object of numbers by symbol, at most 64 kB. The engine reads
+   * the text and refuses one that is none, with its own sentence, and `values` is then not sent. The review answers the values it
+   * read, which `confirm` sends back (C12).
+   */
+  json?: string | null;
+  /**
+   * The loop whose tool writes the parameters: its declared analysis maps them, or it declares the experiment's settings.
    */
   loopId: string;
   /**
@@ -31,7 +37,7 @@ export interface ParameterWorkRequest {
    */
   projectRoot: string;
   /**
-   * The identity of the review that `apply` or `restore` confirms (A2.5); absent to ask for the review.
+   * The identity of the review that `confirm` names (A2.5); absent to ask for the review.
    */
   review?: string | null;
   /**
@@ -43,7 +49,7 @@ export interface ParameterWorkRequest {
    */
   storageFolder: string;
   /**
-   * The values to write, by mapped symbol (`review`, `apply`).
+   * The values to write, by symbol (`review`), and the values an Apply's review read, which `confirm` sends back with its identity.
    */
   values?: {
     [k: string]: number;
@@ -58,6 +64,11 @@ export interface RuntimeConnection {
    * `tcp://host:port` or `unix:///absolute/path`.
    */
   endpoint: string;
+  /**
+   * The runtime this endpoint belongs to, as the extension's selection names it (A2.7). A live request whose loop is bound to
+   * another runtime is refused before it starts. The command line names no selection and leaves it empty.
+   */
+  runtimeId?: string | null;
   /**
    * The control token, when the runtime requires one.
    */

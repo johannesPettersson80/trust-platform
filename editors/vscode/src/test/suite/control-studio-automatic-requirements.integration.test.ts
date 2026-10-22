@@ -5,7 +5,7 @@ import { runtimeLifecycleService } from "../../runtimeLifecycle";
 import { engineAnswerRecorderScript } from "./control-studio-rendered-harness";
 import { withStudio } from "./control-studio-three-page.integration.test";
 import { pollValue, requiredEnvironment } from "./plant-rendered-harness";
-import { parseDurationSeconds } from "../../controlStudio/webview/durationField";
+import { formatDurationSeconds } from "../../controlStudio/webview/durationField";
 
 // The fixture loop (examples/control-pid-commissioning, a Control.PID law without a parked feature) is served by the engine
 // (crates/trust-control/src/loop_definition.rs `rust_engine_support`), so the automatic journey reads the engine's answers that the
@@ -39,6 +39,8 @@ const tuneEndedScript = (from: number): string =>
   `return JSON.stringify({busy:d.querySelector('[data-studio-three-page]').dataset.busy,tuned:(d.defaultView.__engineAnswers||[]).slice(${from}).some(e=>e.status==='candidate'||(e.status==='failed'&&(e.method==='tune'||e.command==='tune')))});`;
 
 const REPORTED_GAPS = "Checks the engine route cannot pass yet (reported gaps)";
+/** A generated duration as the page shows it: formatDurationSeconds's words, such as "47.4 s", "15 min" or "2 h 5 min". */
+const DURATION_TEXT = /^\d+(\.\d+)? (s|min|h)\b/;
 /**
  * Runs one check of a value the engine route does not show yet (a reported gap) where it stands, logs it when it fails, and lets the
  * journey go on, so that one run shows every gap; the test fails at its end when any gap failed.
@@ -56,19 +58,23 @@ suite("Control Studio automatic requirements UI", () => {
   test("prefills an older saved model that has no tuning task", async function () {
     if (process.env.TRUST_AUTOMATIC_REQUIREMENTS_LEGACY !== "1") this.skip();
     this.timeout(35000);
-    const storage=require("../../controlStudio/engineerDraftStorage");
-    const original=storage.restoreEngineerDraft, workflow=storage.restoreWorkflowDraft;
-    storage.restoreEngineerDraft=()=>({campaigns:[],selectedModel:{kind:'transfer-function',numerator:[1.5],denominator:[4,1],delaySeconds:.5,
-      inputs:[{id:'u',unit:'%',operatingRange:{minimum:0,maximum:100}}],outputs:[{id:'y',unit:'°C',operatingRange:{minimum:0,maximum:100}}],
-      operatingPoint:{inputs:[20],outputs:[50]},source:'provided',validation:'validated',revision:'legacy-model',evidence:['declared-legacy-model']}});
-    storage.restoreWorkflowDraft=()=>undefined;
-    try {
-      await withStudio(async (inner,_reopen,capture)=>{
-        await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();d.querySelector('[data-studio-requirements]').click();return 'legacy requirements';");
-        await capture('legacy-automatic-requirements');
-        assert.ok((parseDurationSeconds(await inner("return d.querySelector('[data-studio-requirement=durationSeconds]').value;")) ?? 0)>0,'The restored host must send its generated task to the optional editor');
-      });
-    } finally {storage.restoreEngineerDraft=original;storage.restoreWorkflowDraft=workflow;}
+    // The older draft held this model and no tuning task. The page takes the same model through its plant-model import, so the study
+    // keeps a model and no tuning section, and the engine generates the requirements (pinned by
+    // crates/trust-control/src/study/tune/requirements_tests.rs without_a_previous_section_automatic_generates_every_test_value_inside_the_output_range).
+    const legacyModel = { kind: "transfer-function", numerator: [1.5], denominator: [4, 1], delaySeconds: 0.5, source: "provided", validation: "validated",
+      revision: "legacy-model", evidence: ["declared-legacy-model"],
+      inputs: [{ id: "u", unit: "%", operatingRange: { minimum: 0, maximum: 100 } }],
+      outputs: [{ id: "y", unit: "°C", operatingRange: { minimum: 0, maximum: 100 } }],
+      operatingPoint: { inputs: [20], outputs: [50] } };
+    await withStudio(async (inner, _reopen, capture) => {
+      await inner("const method=d.querySelector('[data-engineer-acquisition-method]');method.value='supplied-model';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'supplied';");
+      await inner(`const transfer=new d.defaultView.DataTransfer();transfer.items.add(new d.defaultView.File([${JSON.stringify(JSON.stringify(legacyModel))}],'legacy-model.json',{type:'application/json'}));const file=d.querySelector('[data-studio-model-file]');file.files=transfer.files;file.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'model imported';`);
+      await pollValue("the legacy model", () => inner("return d.querySelector('[data-studio-model-equation]')?.textContent??'';"), value => value.length > 0, 10000);
+      await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();d.querySelector('[data-studio-requirements]').click();return 'legacy requirements';");
+      await capture('legacy-automatic-requirements');
+      const duration = await inner("return d.querySelector('[data-studio-requirement=durationSeconds]').value;");
+      assert.ok(DURATION_TEXT.test(duration) && !/^0 /.test(duration), `The restored host must send its generated task to the optional editor: ${duration}`);
+    });
   });
   test("identifies, tunes without a form, retains editable defaults and validates their frozen criteria", async function () {
     if (process.env.TRUST_AUTOMATIC_REQUIREMENTS !== "1") this.skip();
@@ -92,8 +98,8 @@ suite("Control Studio automatic requirements UI", () => {
       await reportedGap(gaps, "G5 requirements before the first Tune", () => assert.ok(required.length>=5 && required.every((field:any)=>field.value!==''),'The optional Requirements editor must prefill every required field before the first Tune'));
       assert.deepStrictEqual(initialFields.filter((field:any)=>!field.required).map((field:any)=>[field.key,field.value,field.placeholder]),[['maximumOvershootPercent','','None'],['constantInputDisturbance','','None'],['transferTolerance','','Automatic']],
         'no overshoot limit or load trial is declared and the Auto-entry tolerance stays blank for the automatic allowance');
-      // Durations show in their largest unit ("47.4 s", "15 min") and parse back; other values keep three significant digits.
-      assert.ok(initialFields.filter((field:any)=>/Seconds$/.test(field.key)&&field.value!=='').every((field:any)=>parseDurationSeconds(field.value)!==undefined),'Generated durations should read as durations');
+      // Durations show in their largest unit ("47.4 s", "15 min"); other values keep three significant digits.
+      assert.ok(initialFields.filter((field:any)=>/Seconds$/.test(field.key)&&field.value!=='').every((field:any)=>DURATION_TEXT.test(field.value)),'Generated durations should read as durations');
       assert.ok(initialFields.filter((field:any)=>!/Seconds$/.test(field.key)).every((field:any)=>Number(field.value)===Number(Number(field.value).toPrecision(3))),'Generated values should use readable engineering precision');
       await capture('automatic-requirements-before-tune');
       const beforeTune=await answerCount(inner);
@@ -122,10 +128,11 @@ suite("Control Studio automatic requirements UI", () => {
       await reopen();
       await inner(engineAnswerRecorderScript());
       await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();d.querySelector('[data-studio-requirements]').click();return 'reopen requirements';");
-      const reopenedDuration=parseDurationSeconds(await inner("return d.querySelector('[data-studio-requirement=durationSeconds]').value;"));
+      const reopenedDuration=await inner("return d.querySelector('[data-studio-requirement=durationSeconds]').value;");
       // Gap G3: the reopened loop's identification names the requirements Tune designs to (OpenResult `identification`), which the editor
       // opens with; the study's recorded requirements replace them only when the study holds some.
-      await reportedGap(gaps, "G3 reopened requirements", () => assert.strictEqual(reopenedDuration,candidate.requirements?.durationSeconds));
+      await reportedGap(gaps, "G3 reopened requirements", () => assert.strictEqual(reopenedDuration,
+        candidate.requirements?.durationSeconds === undefined ? undefined : formatDurationSeconds(candidate.requirements.durationSeconds)));
       const beforeRetune=await answerCount(inner);
       await inner("[...d.querySelectorAll('[data-trust-compact-editor] button')].find(b=>b.textContent==='Cancel').click();d.querySelector('[data-engineer-tune]').click();return 'retune';");
       // Tune has run again when the page is idle and the engine has answered this Tune, a candidate after the click (gap G3: the

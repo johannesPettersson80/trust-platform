@@ -1,8 +1,12 @@
 //! The step-by-step loop setup (specification 35, B1.3, C12 and C13): the questions that `configureLoop.ts` asks for a
 //! program the form does not recognise, the choices each one offers, the rule that accepts each answer, and the typed
-//! answers the loop is built from. The `QuickPick`, the input box and the modal confirmation stay in TypeScript
-//! (`nativeSetupPrompts.ts`); this module decides what is asked next and what is accepted. `setupPromptTypes.ts` supplies
-//! the phases.
+//! answers the loop is built from. The `QuickPick` and the input box stay in TypeScript (`nativeSetupPrompts.ts`); this
+//! module decides what is asked next and what is accepted, and `step_session.rs` keeps the session of the answers and the
+//! confirmation the engineer reads before the save.
+
+use schemars::JsonSchema;
+use serde::Serialize;
+use serde_json::Value;
 
 use crate::setup::catalog::{
     CatalogAnswer, CompiledController, CompiledSignal, CompiledSymbol, CompiledTask,
@@ -179,16 +183,22 @@ pub fn accept_number(answer: &str, rule: NumberRule) -> Result<f64, String> {
         .ok_or_else(|| text::invalid_number().to_owned())
 }
 
-/// One choice a question offers. `index` is its position in the list that [`next_step`] returns, which is the answer the
-/// presenter sends back; `description` is the second line of the item when it has one.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// One choice a question offers. `index` is its position in the list that [`next_step`] returns; `value` is the answer the
+/// presenter sends back for the item, which the engine reads as the question's answer (a signal's address, a symbol's name, a
+/// workflow's key, `null` for the custom controller or no setpoint); `description` is the second line of the item when it has one.
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ChoiceItem {
     /// The item's position in the offered list.
     pub index: usize,
     /// The label the engineer reads.
     pub label: String,
     /// The second line, when the item has one.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// The answer the item stands for, as the page sends it back.
+    #[schemars(schema_with = "crate::json::any_value_schema")]
+    pub value: Value,
 }
 
 /// The question a step asks.
@@ -471,6 +481,7 @@ fn loop_step(catalog: &CatalogAnswer, answers: &SetupStepAnswers) -> Option<Setu
             .map(|(index, controller)| ChoiceItem {
                 index,
                 label: controller.instance.clone(),
+                value: Value::from(controller.instance.clone()),
                 description: controller_item_description(
                     &controller.instance,
                     &controller.type_name,
@@ -480,6 +491,7 @@ fn loop_step(catalog: &CatalogAnswer, answers: &SetupStepAnswers) -> Option<Setu
         items.push(ChoiceItem {
             index: controllers.len(),
             label: text::custom_controller().to_owned(),
+            value: Value::Null,
             description: Some(text::custom_controller_description().to_owned()),
         });
         return choice(StepId::Controller, phase, text::controller(), items);
@@ -523,6 +535,7 @@ fn signal_items<'a>(
         .map(|(offset, signal)| ChoiceItem {
             index: first + offset,
             label: signal.symbol.clone(),
+            value: Value::from(signal.address.clone()),
             description: Some(format!("{} · {}", signal.address, signal.iec_type)),
         })
         .collect()
@@ -538,6 +551,7 @@ fn symbol_items<'a>(
         .map(|(offset, symbol)| ChoiceItem {
             index: first + offset,
             label: symbol.symbol.clone(),
+            value: Value::from(symbol.symbol.clone()),
             description: Some(symbol.iec_type.clone()),
         })
         .collect()
@@ -569,6 +583,7 @@ fn signal_step(catalog: &CatalogAnswer, answers: &SetupStepAnswers) -> Option<Se
         let mut items = vec![ChoiceItem {
             index: 0,
             label: text::no_setpoint().to_owned(),
+            value: Value::Null,
             description: None,
         }];
         let candidates = signals
@@ -589,6 +604,17 @@ fn signal_step(catalog: &CatalogAnswer, answers: &SetupStepAnswers) -> Option<Se
     None
 }
 
+/// The key a workflow has in the draft (`step_answers`, `workflow`).
+#[must_use]
+pub fn workflow_key(workflow: SetupWorkflow) -> &'static str {
+    match workflow {
+        SetupWorkflow::Observation => "observation",
+        SetupWorkflow::Adapter => "adapter",
+        SetupWorkflow::OnOff => "on-off",
+        SetupWorkflow::Proportional => "proportional",
+    }
+}
+
 fn workflow_item(index: usize, workflow: SetupWorkflow) -> ChoiceItem {
     let (label, description) = match workflow {
         SetupWorkflow::Observation => (text::observation(), text::observation_description()),
@@ -605,6 +631,7 @@ fn workflow_item(index: usize, workflow: SetupWorkflow) -> ChoiceItem {
     ChoiceItem {
         index,
         label: label.to_owned(),
+        value: Value::from(workflow_key(workflow)),
         description: Some(description.to_owned()),
     }
 }
@@ -736,11 +763,13 @@ fn proportional_step(catalog: &CatalogAnswer, answers: &SetupStepAnswers) -> Opt
             ChoiceItem {
                 index: 0,
                 label: text::true_means_manual().to_owned(),
+                value: Value::Bool(true),
                 description: None,
             },
             ChoiceItem {
                 index: 1,
                 label: text::true_means_auto().to_owned(),
+                value: Value::Bool(false),
                 description: None,
             },
         ];
@@ -772,11 +801,13 @@ fn channel_step(catalog: &CatalogAnswer, answers: &SetupStepAnswers) -> Option<S
             ChoiceItem {
                 index: 0,
                 label: text::single_channel().to_owned(),
+                value: Value::from("single"),
                 description: Some(text::single_channel_description().to_owned()),
             },
             ChoiceItem {
                 index: 1,
                 label: text::multiple_channels().to_owned(),
+                value: Value::from("multiple"),
                 description: Some(text::multiple_channels_description().to_owned()),
             },
         ];
@@ -794,11 +825,13 @@ fn channel_step(catalog: &CatalogAnswer, answers: &SetupStepAnswers) -> Option<S
             ChoiceItem {
                 index: 0,
                 label: text::continuous_output().to_owned(),
+                value: Value::from("continuous"),
                 description: None,
             },
             ChoiceItem {
                 index: 1,
                 label: text::on_off_output().to_owned(),
+                value: Value::from("on-off"),
                 description: None,
             },
         ];
@@ -868,6 +901,7 @@ fn feedback_step(catalog: &CatalogAnswer, answers: &SetupStepAnswers) -> Option<
     let mut items = vec![ChoiceItem {
         index: 0,
         label: text::use_controller_output().to_owned(),
+        value: Value::from("output"),
         description: Some(text::use_controller_output_description().to_owned()),
     }];
     let candidates = catalog
@@ -878,6 +912,7 @@ fn feedback_step(catalog: &CatalogAnswer, answers: &SetupStepAnswers) -> Option<
         items.push(ChoiceItem {
             index: 1 + offset,
             label: signal.symbol.clone(),
+            value: Value::from(signal.address.clone()),
             description: Some(format!("{} · applied action in {unit}", signal.iec_type)),
         });
     }

@@ -224,12 +224,14 @@ fn initial_value(
     match &state.initial {
         InitialValue::Constant(value) => Ok(*value),
         InitialValue::From(InitialSource::ModelInput { index }) => {
-            coordinate_fits(identity.inputs.get(*index), state)?;
-            Ok(operating_input(model, *index))
+            let position = model_input_position(loop_definition, model, *index);
+            coordinate_fits(position.and_then(|at| identity.inputs.get(at)), state)?;
+            Ok(position.map_or(0.0, |at| operating_input(model, at)))
         }
         InitialValue::From(InitialSource::ModelOutput { index }) => {
-            coordinate_fits(identity.outputs.get(*index), state)?;
-            Ok(operating_output(model, *index))
+            let position = model_output_position(loop_definition, model, *index);
+            coordinate_fits(position.and_then(|at| identity.outputs.get(at)), state)?;
+            Ok(position.map_or(0.0, |at| operating_output(model, at)))
         }
         InitialValue::From(InitialSource::ModelInputIs { index, value }) => {
             boolean_state_value(loop_definition, model, state, *index, *value)
@@ -368,6 +370,47 @@ fn plant_input_index(
         .inputs
         .iter()
         .position(|input| input.id == input_channel.model_channel_id)
+}
+
+/// The model output that the group's channel at `channel` measures: the model output whose identifier is the channel's `modelChannelId`
+/// (`controllerModelIndex` of a group, C7). `None` when the loop has no such channel or the model has no such output.
+fn plant_output_index(
+    loop_definition: &LoopDefinition,
+    model: &GeneralModel,
+    channel: usize,
+) -> Option<usize> {
+    let output_channel = loop_definition.channels.as_ref()?.outputs.get(channel)?;
+    model
+        .identity()
+        .outputs
+        .iter()
+        .position(|output| output.id == output_channel.model_channel_id)
+}
+
+/// The model input that a state's source index names (`controllerModelIndex`, C7): the index itself, or for a PID group the model input of
+/// the declared channel at that index, so that a model which orders its channels differently still gives each member its own. `None` when
+/// the group declares no channel there or the model has no input of that identity.
+fn model_input_position(
+    loop_definition: &LoopDefinition,
+    model: &GeneralModel,
+    index: usize,
+) -> Option<usize> {
+    if loop_definition.controller.group.is_none() {
+        return Some(index);
+    }
+    plant_input_index(loop_definition, model, index)
+}
+
+/// The model output that a state's source index names (`controllerModelIndex`, C7); see [`model_input_position`].
+fn model_output_position(
+    loop_definition: &LoopDefinition,
+    model: &GeneralModel,
+    index: usize,
+) -> Option<usize> {
+    if loop_definition.controller.group.is_none() {
+        return Some(index);
+    }
+    plant_output_index(loop_definition, model, index)
 }
 
 /// The share of the operating inputs that a decoupled member starts from: row `row` of D⁻¹·`inputs`, where `matrix` is the decoupler D

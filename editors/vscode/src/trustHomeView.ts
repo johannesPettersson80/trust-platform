@@ -45,7 +45,6 @@ import {
 } from "./managedRuntimeSession";
 import type { ManagedRuntime } from "./localRuntimeModel";
 import { onDidChangeSimulationSpeed, shownSimulatorSpeed } from "./simulationSpeed";
-import { simulationSpeedText } from "./controlStudio/runtimeTarget";
 import { getWorkspaceProjectState } from "./workspaceProject";
 
 // The ONE truST sidebar (WebviewView `trust.home`). It keeps one fixed layout:
@@ -250,9 +249,10 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       deploy: deployButtonState(selected, this.compileState),
     };
     const actionHint = !buttons.action.enabled ? buttons.action.title : selected.primary.hint ?? "";
-    // "Speed ×N" beside the Simulator target (specification 35, B9.2): the running speed, or the saved speed that the next start uses.
+    // "Speed ×N" beside the Simulator target (specification 35, B9.2): the running speed's words from the runtime, or the saved speed
+    // that the next start uses.
     const speedLine = selected.kind === "simulator"
-      ? `Speed ${simulationSpeedText(await shownSimulatorSpeed(snapshot, selected)) || "×1"}`
+      ? `Speed ${(await shownSimulatorSpeed(snapshot, selected)).text || "×1"}`
       : "";
     void this.view.webview.postMessage({
       type: "state",

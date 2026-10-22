@@ -1,15 +1,16 @@
 import * as assert from "assert";
-import type { ControlLoopDefinition } from "../../controlStudio/loopDefinition";
-import type { IdentifiedModelPresentation } from "../../controlStudio/identification";
+import type { LiveSides, LoopDefinition } from "../../controlStudio/generated/OpenResult";
+import type { IdentifiedModelPresentation } from "../../controlStudio/generated/ManualIdentificationAnswer";
 import { ThreePageOperation } from "../../controlStudio/webview/threePageOperation";
+import { applyStageStatuses } from "../../controlStudio/webview/engineShared";
 import { ThreePageAnalysisChooser } from "../../controlStudio/webview/threePageAnalysisChooser";
 import { ThreePageTuning, MANUAL_PREVIEW_DELAY_MS } from "../../controlStudio/webview/threePageTuning";
 import { renderModelPresentation } from "../../controlStudio/webview/threePageModel";
 import { ThreePageLiveSignals } from "../../controlStudio/webview/threePageLiveSignals";
-import { parseDurationSeconds, formatDurationSeconds } from "../../controlStudio/webview/durationField";
-import { plainReason, studioFailureOf } from "../../controlStudio/webview/studioFailure";
-import { signalRoleLabel, signalRoleTitle } from "../../controlStudio/webview/signalRoles";
-import { renderValidationResults } from "../../controlStudio/webview/threePageResults";
+import { formatDurationSeconds } from "../../controlStudio/webview/durationField";
+import { nextActionHasButton } from "../../controlStudio/webview/studioFailure";
+import { studioFailureOf } from "../../controlStudio/webview/studioFailure";
+import { signalRoleLabel, signalRoleName, signalRoleTitle } from "../../controlStudio/webview/signalRoles";
 import { editControlRequirements } from "../../controlStudio/webview/threePageRequirements";
 import { openCompactNumberEditor } from "../../webview/compactEditor";
 import { renderThreePageStudioHtml } from "../../controlStudio/threePageTemplate";
@@ -99,39 +100,89 @@ suite("Control Studio simple by default", () => {
     } finally { dom.restore(); }
   });
 
-  test("only the fixes that open or start something show a button", () => {
+  test("a failure shows a button exactly when the engine names its words", () => {
     const dom = operationRoot();
     try {
       const operation = new ThreePageOperation(dom.root, noop, noop, noop, () => undefined, noop);
       const action = dom.root.querySelector<HTMLButtonElement>('[data-studio-failure-action="tune"]')!;
-      const cases: [string, boolean][] = [["open-limits", true], ["open-requirements", true], ["open-channels", true], ["choose-method", true],
-        ["identify", true], ["tune", true], ["validate", true], ["restore", true], ["connect-runtime", true], ["open-loop-setup", true],
-        ["approve", false], ["wait", false], ["none", false]];
-      for (const [kind, shown] of cases) {
-        operation.failure("tune", { message: `Reason for ${kind}.`, nextAction: { kind, label: "Fix" } });
+      // The labels are the engine's `nextActionLabel` (NextAction::label); a wait or no action names none (specification 35, A11.2).
+      const cases: [string, string, boolean][] = [["open-limits", "Limits…", true], ["open-requirements", "Requirements…", true],
+        ["open-channels", "Channels…", true], ["choose-method", "Choose another method", true], ["identify", "Identify plant", true],
+        ["tune", "Tune controller", true], ["validate", "Validate controller", true], ["restore", "Restore previous settings", true],
+        ["connect-runtime", "Connect runtime…", true], ["open-loop-setup", "Loop setup…", true], ["approve", "Approve…", true],
+        ["wait", "", false], ["none", "", false]];
+      for (const [kind, label, shown] of cases) {
+        operation.failure("tune", { message: `Reason for ${kind}.`, nextAction: { kind, label } });
         assert.strictEqual(action.hidden, !shown, kind);
+        if (shown) assert.strictEqual(action.textContent, label, kind);
       }
       operation.failure("tune", { message: "A fix without a label.", nextAction: { kind: "tune", label: "" } });
       assert.strictEqual(action.hidden, true, "an empty label shows no button");
     } finally { dom.restore(); }
   });
 
-  test("a reason with a Next sentence shows only its message", () => {
+  test("a refused Channels… selection stays in the Tune action area with its sentence and the Channels… action, and no other failure moves", () => {
+    const dom = operationRoot();
+    try {
+      const actions: string[] = [];
+      const operation = new ThreePageOperation(dom.root, noop, noop, noop, () => undefined, (kind, page) => actions.push(`${page}:${kind}`));
+      const sentence = "Choose a different signal; this signal is already assigned to another channel.";
+      const area = (page: string) => dom.root.querySelector<HTMLElement>(`[data-studio-message="${page}"]`)!;
+      const action = (page: string) => dom.root.querySelector<HTMLButtonElement>(`[data-studio-failure-action="${page}"]`)!;
+      // The answer to a change of the study inputs names the page that owns the fix (`page`, engineOpened.ts); the operation shown last is Identify's by default.
+      operation.receive("flow", { status: "failed", page: "tune", failure: { message: sentence, nextAction: { kind: "open-channels", label: "Channels…" } } });
+      // Wrong behaviour caught: the sentence landing in the Identify area, which the engineer on the Tune page, where Channels… is, never sees.
+      assert.strictEqual(area("tune").textContent, sentence);
+      assert.strictEqual(area("tune").hidden, false);
+      assert.strictEqual(action("tune").textContent, "Channels…");
+      assert.strictEqual(action("tune").hidden, false);
+      assert.strictEqual(area("model").textContent, "", "Identify's area shows nothing of it");
+      assert.strictEqual(area("model").hidden, true);
+      assert.strictEqual(action("model").hidden, true);
+      action("tune").click();
+      assert.deepStrictEqual(actions, ["tune:open-channels"], "the action opens the Channels… editor from the page that shows it");
+      // A failure that names no page shows on the page of the operation, as before; an unknown page name is no page.
+      operation.receive("flow", { status: "failed", failure: { message: "The runtime refused.", nextAction: { kind: "connect-runtime", label: "Connect runtime…" } } });
+      assert.strictEqual(area("model").textContent, "The runtime refused.");
+      operation.receive("flow", { status: "failed", page: "elsewhere", failure: { message: "Another refusal.", nextAction: { kind: "none", label: "" } } });
+      assert.strictEqual(area("model").textContent, "Another refusal.");
+    } finally { dom.restore(); }
+  });
+
+  test("a paused or cancelled flow shows the engine's sentence, and writes none of its own", () => {
+    const dom = operationRoot();
+    try {
+      const operation = new ThreePageOperation(dom.root, noop, noop, noop);
+      const area = dom.root.querySelector<HTMLElement>('[data-studio-message="tune"]')!;
+      operation.receive("flow", { status: "running", flowStage: "Tune", reason: "Designing the controller" });
+      assert.strictEqual(area.textContent, "Designing the controller");
+      // The cancelled update's `message` reaches the flow as its reason (engineOpened.ts): the page shows those words.
+      operation.receive("flow", { status: "cancelled", flowStage: "Tune", reason: "The operation was cancelled." });
+      assert.strictEqual(area.textContent, "The operation was cancelled.");
+      operation.receive("flow", { status: "paused", flowStage: "Tune", reason: "Enter the requirements." });
+      assert.strictEqual(area.textContent, "Enter the requirements.");
+      // Wrong behaviour caught: an invented "Operation stopped." where the engine sent no sentence.
+      operation.receive("flow", { status: "cancelled", flowStage: "Tune" });
+      assert.strictEqual(area.textContent, "");
+      assert.strictEqual(area.hidden, true);
+    } finally { dom.restore(); }
+  });
+
+  test("a reason is shown as the engine worded it, and a reason alone names no fix", () => {
     const dom = operationRoot();
     try {
       const operation = new ThreePageOperation(dom.root, noop, noop, noop, () => undefined, noop);
-      operation.notice("model", "Enter the output range. Next: Open Limits….");
+      operation.notice("model", "Enter the output range.");
       assert.strictEqual(dom.root.querySelector<HTMLElement>('[data-studio-message="model"]')!.textContent, "Enter the output range.");
       assert.strictEqual(dom.root.querySelector<HTMLButtonElement>('[data-studio-failure-action="model"]')!.hidden, true);
-      assert.strictEqual(plainReason("Plain sentence."), "Plain sentence.");
-      assert.deepStrictEqual(studioFailureOf({ reason: "Enter the output range. Next: Open Limits…." }),
+      assert.deepStrictEqual(studioFailureOf({ reason: "Enter the output range." }),
         { message: "Enter the output range.", nextAction: { kind: "none", label: "" } });
       assert.strictEqual(studioFailureOf({ failure: { nextAction: "reapply" }, reason: "Apply cancelled." })?.message, "Apply cancelled.");
     } finally { dom.restore(); }
   });
 
   test("an empty plot names what it waits for", () => {
-    const live = new ThreePageLiveSignals({} as ControlLoopDefinition);
+    const live = new ThreePageLiveSignals();
     assert.strictEqual(live.emptyMessage(), "Start the runtime to see live values", "no monitor sample yet");
     live.receive({ availability: "unavailable", source: "runtime", loopId: "room", reason: "The runtime is stopped." } as any);
     assert.strictEqual(live.emptyMessage(), "Start the runtime to see live values");
@@ -140,33 +191,75 @@ suite("Control Studio simple by default", () => {
   });
 
   test("role names carry the full symbol as their hover text", () => {
-    const loop = { id: "room", signals: {
-      processVariable: { symbol: "P1.RoomC", unit: "degC", id: "processVariable" },
-      manipulatedVariable: { symbol: "P1.Heater", unit: "%", id: "manipulatedVariable" },
-      setpoint: { symbol: "P1.SetpointC", unit: "degC" }, additional: [] } } as unknown as ControlLoopDefinition;
-    assert.strictEqual(signalRoleLabel(loop, "P1.RoomC", "degC"), "Measurement (°C)");
-    assert.strictEqual(signalRoleLabel(loop, "P1.Heater", "%"), "Output (%)");
-    assert.strictEqual(signalRoleTitle(loop), "Measurement: P1.RoomC · Output: P1.Heater · Setpoint: P1.SetpointC");
+    // The engine's open answer (`liveSides`, B3.6, B9.6) for a loop with one channel on each side, a declared setpoint and an actuator: the
+    // applied output (`mv`) is the actuator's position and the requested output (`requestedMv`) is the manipulated variable.
+    const sides: LiveSides = {
+      inputs: [{ signalId: "manipulatedVariable", symbol: "P1.Heater", unit: "%" }],
+      outputs: [{ signalId: "processVariable", symbol: "P1.RoomC", unit: "degC" }],
+      plotSignals: [{ id: "sp", kind: "setpoint", symbol: "P1.SetpointC", unit: "degC", span: 100 },
+        { id: "pv", kind: "measurement", symbol: "P1.RoomC", unit: "degC", span: 100 },
+        { id: "mv", kind: "appliedOutput", symbol: "P1.HeaterPosition", unit: "%", span: 100 },
+        { id: "requestedMv", kind: "requestedOutput", symbol: "P1.Heater", unit: "%", span: 100 }],
+    };
+    assert.strictEqual(signalRoleLabel(sides, "P1.RoomC", "degC"), "Measurement (°C)");
+    assert.strictEqual(signalRoleLabel(sides, "P1.Heater", "%"), "Output (%)");
+    assert.strictEqual(signalRoleLabel(sides, "P1.SetpointC", "degC"), "Setpoint (°C)");
+    assert.strictEqual(signalRoleLabel(sides, "P1.Pressure", "1"), "P1.Pressure", "a signal without a role is named by its symbol, and a dimensionless unit adds none");
+    // The actuator's position is no role of its own: a title that listed it would name a signal the legend never calls by a role.
+    assert.strictEqual(signalRoleTitle(sides), "Measurement: P1.RoomC · Output: P1.Heater · Setpoint: P1.SetpointC");
+    assert.strictEqual(signalRoleName(undefined, "P1.RoomC"), undefined, "before the engine's open answer no signal has a role");
+    assert.strictEqual(signalRoleTitle(null), "");
     const dom = fragment("<main></main>");
     try {
       const dialog = openCompactNumberEditor({ title: "Control requirements", fieldAttribute: "data-studio-requirement", rowLayout: "requirements",
-        showSignals: true, fields: [{ key: "maximumError", label: "Maximum steady-state error (°C)", signal: "P1.RoomC", signalLabel: "Measurement (°C)", value: 0.2, minimum: 0 }],
+        showSignals: true, fields: [{ key: "maximumError", label: "Maximum steady-state error (°C)", signal: "P1.RoomC", signalLabel: "Measurement (°C)", value: 0.2 }],
         commit: noop });
       const signal = dialog.querySelector<HTMLElement>('span[title="P1.RoomC"]')!;
       assert.strictEqual(signal.textContent, "Measurement (°C)");
     } finally { dom.restore(); }
   });
 
-  test("durations parse and show in their largest fitting unit", () => {
-    assert.strictEqual(parseDurationSeconds("90 s"), 90);
-    assert.strictEqual(parseDurationSeconds("15 min"), 900);
-    assert.strictEqual(parseDurationSeconds("2 h"), 7200);
-    assert.strictEqual(parseDurationSeconds("1 h 30 min"), 5400);
-    assert.strictEqual(parseDurationSeconds("45"), 45);
-    assert.strictEqual(parseDurationSeconds(" 2 min 5 s "), 125);
-    assert.strictEqual(parseDurationSeconds("12 m"), undefined, "a bare m is not a duration unit");
-    assert.strictEqual(parseDurationSeconds("soon"), undefined);
-    assert.strictEqual(parseDurationSeconds(""), undefined);
+  test("channels of one kind are numbered in the engine's channel order and an additional signal is named by its identifier", () => {
+    // Two measured outputs and two plant inputs, as `liveSides` lists them in channel order; the plot list is in the order of the Signals
+    // selector (sp, pv, mv, then the additional signals), which is not the channel order.
+    const sides: LiveSides = {
+      inputs: [{ signalId: "manipulatedVariable", symbol: "P1.Valve", unit: "%" }, { signalId: "pump", symbol: "P1.Pump", unit: "%" }],
+      outputs: [{ signalId: "pressure", symbol: "P1.Pressure", unit: "bar" }, { signalId: "processVariable", symbol: "P1.Level", unit: "m" }],
+      plotSignals: [{ id: "pv", kind: "measurement", symbol: "P1.Level", unit: "m", span: 10 },
+        { id: "mv", kind: "appliedOutput", symbol: "P1.Valve", unit: "%", span: 100 },
+        { id: "pressure", kind: "additional", symbol: "P1.Pressure", unit: "bar", span: 20 },
+        { id: "pump", kind: "additional", symbol: "P1.Pump", unit: "%", span: 100 },
+        { id: "inflow", kind: "additional", symbol: "P1.Inflow", unit: "m3/h", span: 50 }],
+    };
+    // Wrong behaviour caught: numbering by the position in the plot list would call the pressure "Measurement 2" and the level "Measurement 1".
+    assert.strictEqual(signalRoleName(sides, "P1.Pressure"), "Measurement 1");
+    assert.strictEqual(signalRoleName(sides, "P1.Level"), "Measurement 2");
+    assert.strictEqual(signalRoleName(sides, "P1.Valve"), "Output 1");
+    assert.strictEqual(signalRoleName(sides, "P1.Pump"), "Output 2");
+    // An additional signal that no channel binds is named by its identifier; a symbol the engine does not list has no role.
+    assert.strictEqual(signalRoleName(sides, "P1.Inflow"), "inflow");
+    assert.strictEqual(signalRoleName(sides, "P1.Unlisted"), undefined);
+    assert.strictEqual(signalRoleTitle(sides),
+      "Measurement 1: P1.Pressure · Measurement 2: P1.Level · Output 1: P1.Valve · Output 2: P1.Pump · inflow: P1.Inflow");
+  });
+
+  test("the output the controller requested is named by its identifier when no channel carries it, as an additional signal is", () => {
+    // The loop's input channel binds the actuator's position, so the requested output (the manipulated variable) is no channel: the engine lists it with
+    // its own kind, and the name follows the kind. A name that fixed `requestedMv` among the identifiers of the setpoint, the measurement and the
+    // applied output answered nothing here, while the plot coloured the same signal as an auxiliary one.
+    const sides: LiveSides = {
+      inputs: [{ signalId: "actuator", symbol: "P1.HeaterPosition", unit: "%" }],
+      outputs: [{ signalId: "processVariable", symbol: "P1.RoomC", unit: "degC" }],
+      plotSignals: [{ id: "pv", kind: "measurement", symbol: "P1.RoomC", unit: "degC", span: 100 },
+        { id: "mv", kind: "appliedOutput", symbol: "P1.HeaterPosition", unit: "%", span: 100 },
+        { id: "requestedMv", kind: "requestedOutput", symbol: "P1.Heater", unit: "%", span: 100 }],
+    };
+    assert.strictEqual(signalRoleName(sides, "P1.HeaterPosition"), "Output");
+    assert.strictEqual(signalRoleName(sides, "P1.Heater"), "requestedMv");
+    assert.strictEqual(signalRoleTitle(sides), "Measurement: P1.RoomC · Output: P1.HeaterPosition · requestedMv: P1.Heater");
+  });
+
+  test("durations show in their largest fitting unit", () => {
     assert.strictEqual(formatDurationSeconds(90), "90 s");
     assert.strictEqual(formatDurationSeconds(900), "15 min");
     assert.strictEqual(formatDurationSeconds(125), "2 min 5 s");
@@ -174,26 +267,56 @@ suite("Control Studio simple by default", () => {
     // Below 2 h the largest fitting unit is minutes (specification 35, B9.9).
     assert.strictEqual(formatDurationSeconds(5400), "90 min");
     assert.strictEqual(formatDurationSeconds(7200), "2 h");
-    for (const seconds of [0.5, 45, 125, 4500, 5400, 7325]) assert.strictEqual(parseDurationSeconds(formatDurationSeconds(seconds)), seconds, `${seconds} s`);
+    // A value below 1 ms is plain decimal text: the engine's duration reader refuses an exponent (specification 35, B9.9).
+    assert.strictEqual(formatDurationSeconds(0.0005), "0.0005 s");
+    assert.doesNotMatch(formatDurationSeconds(0.00000005), /e/i);
   });
 
-  test("the model shows a key-numbers line, a fraction and its warnings", () => {
+  test("a failure shows a button only when the engine names its words (specification 35, A11.2)", () => {
+    assert.strictEqual(nextActionHasButton({ kind: "approve", label: "Approve…" }), true, "the engine's Approve label is a button");
+    assert.strictEqual(nextActionHasButton({ kind: "identify", label: "Identify plant" }), true);
+    assert.strictEqual(nextActionHasButton({ kind: "wait", label: "" }), false, "a wait shows the message alone");
+    assert.strictEqual(nextActionHasButton({ kind: "none", label: "" }), false);
+  });
+
+  test("the model shows the engine's key-numbers line, its fraction and its warnings", () => {
     const dom = fragment(`<main data-studio-three-page><div data-studio-model-result hidden><p data-studio-model-type></p>
       <p class="studio-model-equation" data-studio-model-equation></p><p class="studio-model-numbers" data-studio-model-numbers hidden></p>
       <ul class="studio-model-warnings" data-studio-model-warnings hidden></ul></div></main>`);
     try {
       const root = dom.document.querySelector<HTMLElement>("[data-studio-three-page]")!;
+      // The words are the engine's (`modelType`, `keyNumbers` and `equationFraction`; the Rust tests of presentation.rs pin them): the page
+      // shows each as it came and composes none.
       const presentation = {
-        equation: "G(s) = 0.21 · e^(−12s) / (4500s + 1)", units: { input: "%", output: "°C", gain: "°C/%", time: "s" },
-        parameters: [{ name: "Gain", value: 0.21, unit: "°C/%" }, { name: "Time constant 1", value: 4500, unit: "s" }, { name: "Dead time", value: 12, unit: "s" }],
-        poles: [-1 / 4500], zeros: [], delaySeconds: 12, warnings: ["The response reached 87 % of its fitted final change."],
+        equation: "G(s) = 0.21 e^(-12s) / (4500s + 1)", modelType: "First-order model with delay",
+        keyNumbers: "Gain 0.21 °C per %, time constant 75 min, delay 12 s",
+        equationFraction: { numerator: "0.21", denominator: "(4500s + 1)", delay: "12s" },
+        warnings: ["The response reached 87 % of its fitted final change."],
       } as unknown as IdentifiedModelPresentation;
-      renderModelPresentation(root, presentation, "First-order model with delay");
+      renderModelPresentation(root, presentation);
+      assert.strictEqual(root.querySelector<HTMLElement>("[data-studio-model-type]")!.textContent, "First-order model with delay");
       assert.strictEqual(root.querySelector<HTMLElement>("[data-studio-model-numbers]")!.textContent, "Gain 0.21 °C per %, time constant 75 min, delay 12 s");
+      assert.strictEqual(root.querySelector<HTMLElement>("[data-studio-model-numbers]")!.hidden, false);
       assert.strictEqual(root.querySelectorAll("[data-studio-model-warnings] li").length, 1);
       assert.strictEqual(root.querySelector("[data-studio-model-warnings] li")!.textContent, "The response reached 87 % of its fitted final change.");
-      assert.ok(root.querySelector(".studio-math-fraction .studio-math-num"), "the equation is a stacked fraction");
+      assert.strictEqual(root.querySelector(".studio-math-fraction .studio-math-num")!.textContent, "0.21", "the equation is a stacked fraction");
+      assert.strictEqual(root.querySelector(".studio-math-fraction .studio-math-den")!.textContent, "(4500s + 1)");
+      assert.strictEqual(root.querySelector("[data-studio-model-equation] sup")!.textContent, "−12s", "the delay is the exponent of e");
       assert.strictEqual(root.querySelector<HTMLElement>("[data-studio-model-result]")!.hidden, false);
+    } finally { dom.restore(); }
+  });
+
+  test("a model without a fraction shows the engine's equation text, and one without words shows no key numbers", () => {
+    const dom = fragment(`<main data-studio-three-page><div data-studio-model-result hidden><p data-studio-model-type></p>
+      <p class="studio-model-equation" data-studio-model-equation></p><p class="studio-model-numbers" data-studio-model-numbers></p>
+      <ul class="studio-model-warnings" data-studio-model-warnings></ul></div></main>`);
+    try {
+      const root = dom.document.querySelector<HTMLElement>("[data-studio-three-page]")!;
+      renderModelPresentation(root, { equation: "G(s) = 1 / (1s + 1)", warnings: [] } as unknown as IdentifiedModelPresentation);
+      assert.strictEqual(root.querySelector<HTMLElement>("[data-studio-model-equation]")!.textContent, "G(s) = 1 / (1s + 1)");
+      assert.strictEqual(root.querySelector(".studio-math-fraction"), null);
+      assert.strictEqual(root.querySelector<HTMLElement>("[data-studio-model-numbers]")!.hidden, true);
+      assert.strictEqual(root.querySelector<HTMLElement>("[data-studio-model-warnings]")!.hidden, true);
     } finally { dom.restore(); }
   });
 
@@ -249,7 +372,8 @@ suite("Control Studio simple by default", () => {
     const dom = install(html);
     try {
       const values = Array.from(dom.document.querySelectorAll<HTMLOptionElement>("[data-engineer-tuning-method] option")).map(option => option.value);
-      assert.deepStrictEqual(values, ["automatic", "SIMC", "AMIGO", "relay", "manual"]);
+      // The engine's answer fills the methods (specification 35, Tuning method); before it, the select holds Automatic alone.
+      assert.deepStrictEqual(values, ["automatic"]);
       assert.strictEqual(dom.document.querySelector<HTMLButtonElement>("[data-studio-analyze]")!.hidden, true);
     } finally { dom.restore(); }
   });
@@ -270,19 +394,6 @@ suite("Control Studio simple by default", () => {
     } finally { dom.restore(); }
   });
 
-  test("a result row keeps its word and marks its verdict", () => {
-    const dom = fragment(`<main data-studio-three-page><table data-studio-validation-result hidden><thead></thead><tbody></tbody></table></main>`);
-    try {
-      const root = dom.document.querySelector<HTMLElement>("[data-studio-three-page]")!;
-      renderValidationResults(root, { status: "verified", candidate: {
-        requirements: [{ id: "settling", kind: "settling", status: "Fail", value: 5, limit: 4, unit: "s", reason: "late" },
-          { id: "error", kind: "error", status: "Pass", value: 0.1, limit: 0.2, unit: "°C" }],
-        specification: [{ id: "settling", kind: "settling" }, { id: "error", kind: "error" }] } } as any);
-      const cells = Array.from(root.querySelectorAll<HTMLElement>("tbody tr")).map(row => row.lastElementChild as HTMLElement);
-      assert.deepStrictEqual(cells.map(cell => [cell.textContent, cell.dataset.verdict]), [["Fail · late", "fail"], ["Pass", "pass"]]);
-    } finally { dom.restore(); }
-  });
-
   test("the requirements editor shows the working rows and keeps the test design under More…", () => {
     const dom = fragment("<main></main>");
     try {
@@ -293,7 +404,7 @@ suite("Control Studio simple by default", () => {
           manipulatedVariable: { symbol: "P1.Heater", unit: "%", range: { minimum: 0, maximum: 100 }, id: "manipulatedVariable" },
           setpoint: { symbol: "P1.SetpointC", unit: "degC", range: { minimum: 0, maximum: 40 }, id: "setpoint" }, additional: [],
         },
-      } as unknown as ControlLoopDefinition;
+      } as unknown as LoopDefinition;
       editControlRequirements(loop, { referenceChange: 5, maximumError: 0.2, settlingBand: 0.5, settlingTimeSeconds: 900, durationSeconds: 3600 }, noop);
       const dialog = dom.document.querySelector<HTMLElement>("[data-trust-compact-editor]")!;
       const visible = Array.from(dialog.querySelectorAll<HTMLElement>("[data-studio-requirement]"))
@@ -307,27 +418,30 @@ suite("Control Studio simple by default", () => {
     } finally { dom.restore(); }
   });
 
-  test("Done marks every invalid field at once, and a duration keeps its own text", () => {
+  test("a duration goes back as the text it shows, and a number of seconds goes back as the number while its text is unchanged", () => {
     const dom = fragment("<main></main>");
     try {
-      let committed: Record<string, number> | undefined;
-      const dialog = openCompactNumberEditor({ title: "Experiment limits", fieldAttribute: "data-studio-limit", fields: [
-        { key: "inputMinimum", label: "Minimum" }, { key: "outputMaximum", label: "Maximum" },
-        { key: "durationSeconds", label: "Maximum duration", value: 900, duration: true, minimum: 1, maximum: 7200 }],
-        commit: values => { committed = { ...values }; } });
-      dialog.querySelector("form")!.dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
-      const notices = Array.from(dialog.querySelectorAll<HTMLElement>("[role=alert]")).filter(notice => !notice.hidden).map(notice => notice.textContent);
-      assert.deepStrictEqual(notices, ["Enter minimum.", "Enter maximum."]);
-      assert.strictEqual(committed, undefined);
-      let seconds: Record<string, number> | undefined;
-      const limit = openCompactNumberEditor({ title: "Experiment limits", fieldAttribute: "data-studio-limit", fields: [
-        { key: "durationSeconds", label: "Maximum duration", value: 900, duration: true, minimum: 1, maximum: 7200 }],
-        commit: values => { seconds = { ...values }; } });
-      const text = limit.querySelector<HTMLInputElement>("input")!;
-      assert.strictEqual(text.value, "15 min");
-      text.value = "2 min";
-      limit.querySelector("form")!.dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
-      assert.deepStrictEqual(seconds, { durationSeconds: 120 });
+      const submit = (fields: Parameters<typeof openCompactNumberEditor>[0]["fields"], type?: (input: HTMLInputElement) => void) => {
+        let committed: Record<string, number | string> | undefined;
+        const dialog = openCompactNumberEditor({ title: "Experiment limits", fieldAttribute: "data-studio-limit", fields, commit: values => { committed = { ...values }; } });
+        const input = dialog.querySelector<HTMLInputElement>("input")!;
+        const shown = input.value;
+        if (type) type(input);
+        dialog.querySelector("form")!.dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
+        return { shown, committed };
+      };
+      const duration = (value: number | string) => [{ key: "durationSeconds", label: "Maximum duration", value, duration: true }];
+      // A number of seconds is shown in its largest unit, and the number goes back while the text is unchanged (B9.9): a rounded display never edits
+      // a stored value. 89.999 s shows as "90 s" and is not stored as 90.
+      assert.deepStrictEqual(submit(duration(900)), { shown: "15 min", committed: { durationSeconds: 900 } });
+      assert.deepStrictEqual(submit(duration(89.999)), { shown: "90 s", committed: { durationSeconds: 89.999 } });
+      // The typed text is committed; the engine reads it as 120 s (Rust: a_typed_duration_reads_as_the_seconds_it_names).
+      assert.deepStrictEqual(submit(duration(900), input => { input.value = "2 min"; }).committed, { durationSeconds: "2 min" });
+      // A text is shown as it is and goes back as it is: the engine's words, or what the engineer typed. Wrong behaviour caught: a page that
+      // formatted plain digits again would show and send "47.12 s" for the "47.123" the engineer typed, and "90 s" for "89.999".
+      assert.deepStrictEqual(submit(duration("47.123")), { shown: "47.123", committed: { durationSeconds: "47.123" } });
+      assert.deepStrictEqual(submit(duration("89.999")), { shown: "89.999", committed: { durationSeconds: "89.999" } });
+      assert.deepStrictEqual(submit(duration("2 min 5 s")), { shown: "2 min 5 s", committed: { durationSeconds: "2 min 5 s" } });
     } finally { dom.restore(); }
   });
 
@@ -337,6 +451,8 @@ suite("Control Studio simple by default", () => {
       records: ["P1.Parameters"], writes: [], initializes: [], pids: [{ instance: "P1.Controller", task: { name: "MainTask", intervalMs: 100 } }],
       instances: ["P1"], reals: ["P1.AppliedPowerPct", "P1.ManualOutput", "P1.SetpointC", "P1.TemperatureC"],
       prefill: { instance: "P1.Controller", parameterRecord: "P1.Parameters", manipulatedVariable: "P1.AppliedPowerPct", setpoint: "P1.SetpointC", manualOutput: "P1.ManualOutput" },
+      // The loop name the form starts from is the engine's (`loopNames`, B1.3): the last segment of the controller's instance path.
+      loopNames: [{ instance: "P1.Controller", name: "Controller" }],
     };
     const form = open(model);
     try {
@@ -354,21 +470,134 @@ suite("Control Studio simple by default", () => {
     } finally { form.close(); }
   });
 
-  test("Tune and the import wait for their gates, not for a model alone", () => {
+  test("Tune and the import wait for their gates, not for the engine's availability alone", () => {
     const dom = operationRoot();
     try {
       let gate: string | undefined = "The plant mapping is incomplete.";
       const operation = new ThreePageOperation(dom.root, noop, noop, noop, () => gate, noop);
-      operation.modelArrived();
+      // The stage tabs keep the engine's stage answer (B9.4): the engine says Tune can start.
+      const tab = dom.document.createElement("button");
+      tab.dataset.engineerStageTab = "tune";
+      dom.root.append(tab);
+      applyStageStatuses(dom.root, [{ stage: "Tune", status: "ready", label: "Ready", available: true }]);
       const tune = dom.root.querySelector<HTMLButtonElement>("[data-engineer-tune]")!;
       const importControl = dom.root.querySelector<HTMLInputElement>("[data-identify-import]")!;
-      assert.strictEqual(tune.disabled, true, "a model does not override a closed gate");
       operation.synchronize();
+      assert.strictEqual(tune.disabled, true, "an available stage does not override a closed gate");
       assert.strictEqual(importControl.disabled, true, "the idle lock keeps the import closed while its gate is closed");
       gate = undefined;
       operation.synchronize();
-      assert.strictEqual(tune.disabled, false, "Tune opens once the model and every gate agree");
+      assert.strictEqual(tune.disabled, false, "Tune opens once the engine and every gate agree");
       assert.strictEqual(importControl.disabled, false);
+    } finally { dom.restore(); }
+  });
+
+  test("a stage action is enabled exactly when the engine's stage answer says it can start, whatever the page's other evidence", () => {
+    const dom = operationRoot();
+    try {
+      const operation = new ThreePageOperation(dom.root, noop, noop, noop);
+      for (const id of ["model", "tune", "verify"]) {
+        const tab = dom.document.createElement("button");
+        tab.dataset.engineerStageTab = id;
+        dom.root.append(tab);
+      }
+      const tune = dom.root.querySelector<HTMLButtonElement>("[data-engineer-tune]")!;
+      const verify = dom.root.querySelector<HTMLButtonElement>("[data-engineer-verify]")!;
+      const answer = (tuneAvailable: boolean, verifyAvailable: boolean) => [
+        { stage: "Identify", status: "complete", label: "Complete", available: true },
+        { stage: "Tune", status: tuneAvailable ? "ready" : "needs-data", label: "", available: tuneAvailable },
+        { stage: "Validate", status: verifyAvailable ? "ready" : "needs-data", label: "", available: verifyAvailable },
+      ];
+      operation.synchronize();
+      assert.deepStrictEqual([tune.disabled, verify.disabled], [true, true], "before the engine's first stage answer nothing starts");
+      applyStageStatuses(dom.root, answer(true, false));
+      operation.synchronize();
+      assert.deepStrictEqual([tune.disabled, verify.disabled], [false, true], "a model makes Tune available, not Validate");
+      // An answer of the engine that carries a candidate does not move the gate by itself: only the stage answer does.
+      operation.receive("flow", { status: "completed", stageEvidence: { hasModel: true, hasCandidate: true, validationPassed: false } });
+      assert.strictEqual(verify.disabled, true, "the evidence is not the gate");
+      applyStageStatuses(dom.root, answer(true, true));
+      operation.synchronize();
+      assert.deepStrictEqual([tune.disabled, verify.disabled], [false, false], "a candidate makes Validate available");
+      // A change that left only the validation not current leaves the candidate, so Validate stays available (A8.4).
+      operation.receive("engineer", { status: "edited", reason: "Inputs changed. Tune and verify before applying.", stageEvidence: { hasCandidate: true } });
+      assert.strictEqual(verify.disabled, false);
+      assert.strictEqual(dom.root.querySelector<HTMLElement>('[data-studio-message="verify"]')!.textContent, "Inputs changed. Tune and verify before applying.",
+        "the Validate page says why in the engine's words");
+      // A stage the engine says cannot start (it needs data, or it does not apply) never starts, and a chosen analysis starts from Tune whatever the stage says.
+      applyStageStatuses(dom.root, answer(false, false));
+      operation.synchronize();
+      assert.deepStrictEqual([tune.disabled, verify.disabled], [true, true]);
+      dom.root.dataset.analysisSelected = "true";
+      operation.synchronize();
+      assert.strictEqual(tune.disabled, false, "an analysis shown on the Tune page runs from the Tune button");
+      assert.strictEqual(verify.disabled, true);
+    } finally { dom.restore(); }
+  });
+
+  test("a stage that cannot run yet shows the engine's reason at the top of its page, the template writes none, and a later answer clears it", () => {
+    const html = renderThreePageStudioHtml({ cspSource: "x", nonce: "n", chartScript: "chart.js", workflowScript: "workflow.js", project: "p",
+      session: "s", loop: "l", loopRevision: "r", revision: "v", processUnit: "PV", outputUnit: "MV" } as unknown as ControlStudioView, text => text);
+    const dom = install(html);
+    try {
+      const root = dom.document.querySelector<HTMLElement>("[data-studio-three-page]")!;
+      // The page's own sentences ("Identify a plant model first.", "Tune a controller first.") are gone: its action areas start empty.
+      for (const page of ["tune", "verify"]) {
+        const area = root.querySelector<HTMLElement>(`[data-studio-message="${page}"]`)!;
+        assert.deepStrictEqual([area.textContent, area.hidden], ["", true], page);
+      }
+      const reasonOf = (page: string) => root.querySelector<HTMLElement>(`[data-studio-page="${page}"] > [data-engineer-stage-reason]`)?.textContent ?? null;
+      applyStageStatuses(root, [
+        { stage: "Tune", status: "needs-data", label: "Needs data", available: false, reason: "The engine's words for a missing model." },
+        { stage: "Validate", status: "needs-data", label: "Needs data", available: false, reason: "The engine's words for a missing candidate." }]);
+      assert.deepStrictEqual([reasonOf("tune"), reasonOf("verify")], ["The engine's words for a missing model.", "The engine's words for a missing candidate."]);
+      assert.strictEqual(root.querySelector('[data-studio-page="tune"]')!.hasAttribute("inert"), false, "a stage that waits is not inert: only Not applicable is");
+      // A stage that can start names none, so a reopened study with a model shows no sentence on Tune (the audit's N6).
+      applyStageStatuses(root, [
+        { stage: "Tune", status: "ready", label: "Ready", available: true },
+        { stage: "Validate", status: "needs-data", label: "Needs data", available: false, reason: "The engine's words for a missing candidate." }]);
+      assert.deepStrictEqual([reasonOf("tune"), reasonOf("verify")], [null, "The engine's words for a missing candidate."]);
+    } finally { dom.restore(); }
+  });
+
+  test("a stage the engine answers Not applicable shows the engine's reason at the top of its page, and a later answer clears it", () => {
+    const dom = operationRoot();
+    try {
+      const tab = dom.document.createElement("button");
+      tab.dataset.engineerStageTab = "tune";
+      dom.root.append(tab);
+      const page = dom.root.querySelector<HTMLElement>('[data-studio-page="tune"]')!;
+      const tune = dom.root.querySelector<HTMLButtonElement>("[data-engineer-tune]")!;
+      const operation = new ThreePageOperation(dom.root, noop, noop, noop);
+      applyStageStatuses(dom.root, [{ stage: "Tune", status: "not-applicable", label: "Not applicable", available: false, reason: "This loop declares no controller law." }]);
+      operation.synchronize();
+      assert.strictEqual(page.querySelector<HTMLElement>(":scope > [data-engineer-stage-reason]")?.textContent, "This loop declares no controller law.",
+        "the engine's reason is shown in its words, in place of the page's actions");
+      assert.strictEqual(page.hasAttribute("inert"), true, "the page's controls are inert");
+      assert.strictEqual(tune.disabled, true, "and the stage's action cannot start");
+      assert.strictEqual(tab.getAttribute("aria-label"), "Tune, Not applicable");
+      applyStageStatuses(dom.root, [{ stage: "Tune", status: "ready", label: "Ready", available: true }]);
+      operation.synchronize();
+      assert.strictEqual(page.querySelector("[data-engineer-stage-reason]"), null, "any other status clears the reason");
+      assert.strictEqual(page.hasAttribute("inert"), false);
+      assert.strictEqual(tune.disabled, false);
+    } finally { dom.restore(); }
+  });
+
+  test("Done commits what was typed: a number stays a number, a blank entry goes as its text, and a blank optional field is left out", () => {
+    const dom = fragment("<main></main>");
+    try {
+      const fields = [{ key: "inputMinimum", label: "Minimum" }, { key: "outputMaximum", label: "Maximum", value: 80 },
+        { key: "durationSeconds", label: "Maximum duration", duration: true }, { key: "load", label: "Load", optional: true }];
+      let committed: Record<string, number | string> | undefined;
+      const dialog = openCompactNumberEditor({ title: "Experiment limits", fieldAttribute: "data-studio-limit", fields,
+        commit: values => { committed = { ...values }; } });
+      dialog.querySelector("form")!.dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
+      // The engine reads each text and refuses a blank one under its field (B3.2), so the editor refuses none: a page that refused a blank entry
+      // itself would show a sentence of its own, and the engine's would never be seen.
+      assert.deepStrictEqual(committed, { inputMinimum: "", outputMaximum: 80, durationSeconds: "" },
+        "a blank field and a blank duration go as typed, a number stays a number, and a blank optional field is left out");
+      assert.deepStrictEqual(Array.from(dialog.querySelectorAll<HTMLElement>("[role=alert]")).filter(notice => !notice.hidden), [], "the editor marks no field");
     } finally { dom.restore(); }
   });
 });

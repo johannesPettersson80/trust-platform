@@ -187,3 +187,50 @@ fn a_model_without_an_exact_common_factor_says_so_and_both_views_are_the_same() 
         vec![1.0, 2.0]
     );
 }
+
+#[test]
+fn the_four_discretizations_of_a_stable_plant_show_one_pole_on_the_z_plane_inside_the_unit_circle()
+{
+    // control-studio-numerics: "qualifies four discretizations and z-plane root-locus stability" (specification 35 B9.9, numerical annex
+    // N4.6). dx/dt = −2x + 3u sampled at 0.1 s by each method has the single pole a of the method's own formula (the discretization
+    // itself is pinned in trust-control-math), which the z-plane view shows inside the unit circle with no hidden mode.
+    use trust_control_math::discretize::{discretize_state_space, DiscretizationMethod};
+    use trust_control_math::model::StateSpace;
+    let continuous = StateSpace::new(
+        vec![vec![-2.0]],
+        vec![vec![3.0]],
+        vec![vec![1.0]],
+        vec![vec![0.0]],
+    )
+    .expect("consistent shapes");
+    let exact = (-0.2_f64).exp();
+    for (method, pole) in [
+        (DiscretizationMethod::ForwardEuler, 0.8),
+        (DiscretizationMethod::BackwardEuler, 1.0 / 1.2),
+        (DiscretizationMethod::Tustin, 0.9 / 1.1),
+        (DiscretizationMethod::ExactZoh, exact),
+    ] {
+        let discrete =
+            discretize_state_space(&continuous, 0.1, method).expect("the plant qualifies");
+        let model = decode_general_model(&json!({
+            "kind": "discrete-state-space", "revision": "discretized", "source": "provided", "validation": "unvalidated",
+            "evidence": [], "delaySeconds": 0.0, "inputs": [channel("u")], "outputs": [channel("y")],
+            "states": [channel("x")], "a": discrete.system.a, "b": discrete.system.b,
+            "c": discrete.system.c, "d": discrete.system.d,
+            "sampleTimeSeconds": discrete.sample_time_seconds,
+        }))
+        .expect("the discrete model is valid");
+        let answer =
+            pole_zero_answer(&model, &AnalysisInputs::default()).expect("the z-plane view");
+        assert_eq!(answer.domain, PoleDomain::Z, "{method:?}");
+        assert_eq!(answer.poles.len(), 1, "{method:?}");
+        assert!(
+            close(answer.poles[0].real, pole),
+            "{method:?}: {:?}",
+            answer.poles
+        );
+        assert!(close(answer.poles[0].imaginary, 0.0), "{method:?}");
+        assert!(answer.poles[0].real.abs() < 1.0, "{method:?}");
+        assert!(!answer.hidden_unstable_mode, "{method:?}");
+    }
+}

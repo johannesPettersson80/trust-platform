@@ -208,11 +208,15 @@ pub fn acquisition_text(error: &AcquisitionError) -> String {
             signal,
             minimum,
             maximum,
+            ..
         } => format!(
             "Experiment range for {signal} must stay within its configured limits ({} to {}).",
             js_number(*minimum),
             js_number(*maximum),
         ),
+        AcquisitionError::RangeNotValid { signal, .. } => {
+            format!("The range of {signal} must be finite, with its minimum below its maximum.")
+        }
     }
 }
 

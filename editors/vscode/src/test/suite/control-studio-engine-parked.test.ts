@@ -8,8 +8,9 @@ import { startEngine, type EngineProcess } from "../../controlStudio/engine/engi
 import { cascadeLoop, gainScheduleLoop, onOffLoop, pidGroupLoop, smithLibraryLoop, smithLoop } from "./control-studio-structure-loop-fixtures";
 
 /**
- * Specification 35 §0.1a and checklist V6 decision D9: a loop the engine parks (a feature the Rust engine does not run yet, until
- * its V7 port) stays on the TypeScript route. `open` answers false, and no page message of that loop reaches an engine stage.
+ * Specification 35 §0.1a: a loop the engine refuses (`controller-capability`) shows the engine's refusal and its next action on the
+ * page. `open` answers false, the refusal is the page's answer to each stage message of that loop, and no engine stage takes one.
+ * The page's navigation is its own view state, so the route leaves it alone.
  */
 
 type LoopFile = Record<string, unknown>;
@@ -65,11 +66,11 @@ function coreLoop(): LoopFile {
 }
 
 /**
- * The loops the engine parks until V7.17: the feature each one uses. A cascade written as two loop files (the top-level `cascade` key) stays
- * parked (specification 35 C6, D-2); the one-loop cascade, the Smith predictor, the gain schedule, the ON/OFF controller and the PID group
- * are served (see SERVED_LOOPS).
+ * The loops the engine refuses: the feature each one uses. A cascade written as two loop files (the top-level `cascade` key) is refused
+ * (specification 35 C6, D-2); the one-loop cascade, the Smith predictor, the gain schedule, the ON/OFF controller and the PID group are
+ * served (see SERVED_LOOPS).
  */
-const PARKED_LOOPS: ReadonlyArray<readonly [string, () => LoopFile]> = [
+const REFUSED_LOOPS: ReadonlyArray<readonly [string, () => LoopFile]> = [
   ["a cascade written as two loop files", () => {
     const loop = coreLoop();
     loop.cascade = { role: "inner", partnerLoopId: "outer-loop" };
@@ -203,10 +204,6 @@ suite("Control Studio engine parked loops", () => {
       at("handle", "control-studio.application.apply"),
       at("handle", "control-studio.application.restore"),
       at("handle", "control-studio.application.keep"),
-      at("handle", "control-studio.engineer.confirm"),
-      at("handle", "control-studio.engineer.rollback"),
-      at("handle", "control-studio.engineer.review-runtime"),
-      at("handle", "control-studio.engineer.retry-recovery"),
       at("handle", "control-studio.engineer.cancel"),
       at("handle", "control-studio.experiment.review", { kind: "observation", amplitude: 0, durationSeconds: 5, physicalTopologyReviewed: true }),
       at("handle", "control-studio.experiment.approve", { planId: "plan-test", physicalApproved: false }),
@@ -218,35 +215,50 @@ suite("Control Studio engine parked loops", () => {
     ];
   }
 
-  /**
-   * A parked loop's page hears its analysis tools and nothing else (B9.9): the engine's refusal of the loop's own law is answered as
-   * no tool, and it is not a failure the page shows.
-   */
-  function assertOnlyParkedTools(): void {
-    assert.deepStrictEqual(posted.map((message) => message.kind), ["control-studio.analysis.tools"], "a parked loop answers its analysis tools only");
-    assert.ok(posted.every((message) => !("failure" in message)), "a parked refusal is not a failure the page shows");
+  /** The failures the page has been sent, which the engine's refusal of the open loop is one of. */
+  function refusalsPosted(): Array<Record<string, unknown>> {
+    return posted.filter((message) => message.kind === "control-studio.engine.failure");
   }
 
-  /** Asks the route method of each message; every one must be left to the TypeScript route. */
-  async function assertNoStageTakes(current: EnginePanelRoute, scope: LoopMessageScope): Promise<void> {
+  /**
+   * Every stage message of a refused loop is answered with the refusal the engine gave the open (`control-studio.engine.failure`, method
+   * `open`), and nothing else is shown for it. The page's navigation is the page's own view state, so the route does not take it.
+   */
+  async function assertStagesAnswered(current: EnginePanelRoute, scope: LoopMessageScope, refusal: Record<string, unknown>): Promise<void> {
     for (const { method, message } of pageMessages(scope)) {
       const kind = String(message.kind);
+      posted = [];
       const taken = await current[method](message, scope);
-      assert.strictEqual(taken, false, `${method} must leave ${kind} to the TypeScript route`);
+      if (method === "navigation") {
+        assert.strictEqual(taken, false, `the route leaves the page's ${kind} to the page`);
+        assert.deepStrictEqual(posted, [], `${kind} shows nothing`);
+        continue;
+      }
+      assert.strictEqual(taken, true, `${method} answers ${kind} with the refusal`);
+      assert.deepStrictEqual(posted.map((sent) => sent.kind), ["control-studio.engine.failure"], `${kind} shows the refusal and nothing else`);
+      assert.strictEqual(posted[0]?.method, "open", `${kind} shows the refusal of the open`);
+      assert.deepStrictEqual(posted[0]?.failure, refusal, `${kind} shows the engine's sentence and next action`);
     }
-    assertOnlyParkedTools();
   }
 
-  for (const [feature, load] of PARKED_LOOPS) {
-    test(`keeps a loop with ${feature} on the TypeScript route, and no page message reaches an engine stage`, async function () {
+  for (const [feature, load] of REFUSED_LOOPS) {
+    test(`shows the engine's refusal of a loop with ${feature}, and answers each of its page's stage messages with it`, async function () {
       this.timeout(60_000);
       const loop = projectLoop(load());
       const scope = scopeOf(loop);
       const current = startRoute();
-      assert.strictEqual(await current.open(loop, scope), false, "the engine refuses the loop as parked, so the TypeScript route keeps it");
-      assert.strictEqual(await current.open(loop, scope), false, "the parked loop stays out of the way on a second open");
-      assertOnlyParkedTools();
-      await assertNoStageTakes(current, scope);
+      assert.strictEqual(await current.open(loop, scope), false, "the engine refuses the loop, so the route does not serve it");
+      const shown = refusalsPosted();
+      assert.strictEqual(shown.length, 1, "the page is shown one refusal");
+      assert.strictEqual(shown[0]?.method, "open", "the refusal answers the open");
+      const refusal = shown[0]?.failure as Record<string, unknown>;
+      assert.strictEqual(refusal.cause, "controller-capability", "the engine refuses the loop's controller, as the cause says");
+      assert.ok(typeof refusal.message === "string" && refusal.message.length > 0, "the refusal has the engine's sentence");
+      assert.ok(typeof refusal.nextAction === "string", "the refusal has the engine's next action");
+      posted = [];
+      assert.strictEqual(await current.open(loop, scope), false, "the refused loop is asked again on a second open");
+      assert.strictEqual(refusalsPosted().length, 1, "the second open shows the same refusal once");
+      await assertStagesAnswered(current, scope, refusal);
     });
   }
 
@@ -260,7 +272,7 @@ suite("Control Studio engine parked loops", () => {
     });
   }
 
-  test("takes the page's navigation for a loop the engine serves, so the parked answers above are not vacuous", async function () {
+  test("takes the page's navigation for a loop the engine serves, so the refusal answers above are not vacuous", async function () {
     this.timeout(60_000);
     const loop = projectLoop(coreLoop());
     const scope = scopeOf(loop);

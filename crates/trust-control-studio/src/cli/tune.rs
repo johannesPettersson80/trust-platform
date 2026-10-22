@@ -14,7 +14,7 @@ use trust_control::messages::TuneRequest;
 use trust_control::runtime::RuntimeConnection;
 
 use super::{
-    follow, json_answer_of, output, places, refused, settle, text_of, Exit, Places, TuneArgs,
+    follow, json_answer_of, places, refused, settle, text_of, tune_output, Exit, Places, TuneArgs,
     TuneChoiceWord, TuneMethodWord, TuneStructureWord, SELECTED_RUNTIME,
 };
 use crate::commands::{self, ControlStudio};
@@ -38,7 +38,7 @@ pub(super) fn run(
     };
     if answer.get("failure").is_some() {
         // The only answer at once is a refusal (B4.7): no current model, or a method that does not apply.
-        let exit = json_answer_of(&answer, as_json, output::tune_text, stdout, stderr);
+        let exit = json_answer_of(&answer, as_json, tune_output::tune_text, stdout, stderr);
         return settle(exit, presses.count());
     }
     let Some(operation_id) = answer
@@ -48,7 +48,7 @@ pub(super) fn run(
         return refused(no_operation(), as_json, presses, stdout, stderr);
     };
     let followed = follow::to_end(studio.operations(), operation_id, &updates, presses, stderr);
-    follow::ended(followed, as_json, output::tune_text, stdout, stderr)
+    follow::ended(followed, as_json, tune_output::tune_text, stdout, stderr)
 }
 
 /// The request that the arguments make (§0.1b). With a runtime, `--endpoint` or the project's `runtime.toml`, the request carries
@@ -231,6 +231,7 @@ mod tests {
             Some(RuntimeConnection {
                 endpoint: "tcp://127.0.0.1:1".to_string(),
                 token: None,
+                runtime_id: None,
             }),
             "the endpoint that the arguments name is the runtime the comparison reads (B4.5)"
         );

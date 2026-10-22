@@ -74,6 +74,7 @@ fn opens_inspects_records_keeps_and_releases_on_a_real_runtime() {
     let connection = RuntimeConnection {
         endpoint: format!("unix://{}", socket.display()),
         token: Some(TOKEN.into()),
+        runtime_id: None,
     };
     let first = wait_for_status(&connection, &log);
     assert!(first.task(TASK).is_some(), "the runtime schedules {TASK}");

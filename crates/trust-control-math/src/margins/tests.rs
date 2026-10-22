@@ -294,3 +294,45 @@ fn invalid_grids_and_coarse_pure_delays_are_refused() {
         Err(MarginError::DelayPhaseTooFast)
     );
 }
+
+#[test]
+fn the_precision_drive_loop_keeps_the_test_suites_crossover_margin_and_peak_sensitivity() {
+    // Ported from control-studio-numerics.test.ts, "qualifies precision-drive sensitivity and loop-shaping trade-offs" (N7.7, N7.8): the
+    // plant 10/(s² + 0.6s + 1) under the gain 0.4, and under a shaped controller that adds a lead and a roll-off. The grid is the suite's,
+    // 1e-3 to 100 rad/s at 400 points per decade. The suite's peak complementary sensitivity, bandwidth and input-disturbance gain are not
+    // part of a margin report.
+    let grid = logarithmic_grid(1e-3, 100.0, 2001).expect("the grid");
+    let plant_denominator = [1.0, 0.6, 1.0];
+    let baseline = analyze_loop(&continuous(&[4.0], &plant_denominator, 0.0), &grid)
+        .expect("the baseline loop is analysed");
+    assert_close(baseline.peak_sensitivity, 3.1967, 0.003);
+    assert_close(
+        baseline
+            .gain_crossover_rad_per_second
+            .expect("a gain crossover"),
+        2.187,
+        0.01,
+    );
+    assert_close(finite(baseline.phase_margin_degrees), 19.13, 0.08);
+
+    // The shaped controller (5/3·s² + 11/6·s + 0.4) / (25/48·s³ + 277/48·s² + 311/24·s + 1) times the plant's gain of 10.
+    let numerator: Vec<f64> = [5.0 / 3.0, 11.0 / 6.0, 0.4]
+        .iter()
+        .map(|coefficient| 10.0 * coefficient)
+        .collect();
+    let denominator = crate::polynomial::convolve(
+        &[25.0 / 48.0, 277.0 / 48.0, 311.0 / 24.0, 1.0],
+        &plant_denominator,
+    );
+    let shaped = analyze_loop(&continuous(&numerator, &denominator, 0.0), &grid)
+        .expect("the shaped loop is analysed");
+    assert_close(shaped.peak_sensitivity, 1.7235, 0.003);
+    assert_close(
+        shaped
+            .gain_crossover_rad_per_second
+            .expect("a gain crossover"),
+        1.706,
+        0.01,
+    );
+    assert_close(finite(shaped.phase_margin_degrees), 44.11, 0.08);
+}

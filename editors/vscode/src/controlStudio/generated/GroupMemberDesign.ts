@@ -21,6 +21,11 @@ export interface GroupMemberDesign {
    */
   inputChannelId: string;
   /**
+   * The name of the plant input the member drives: the symbol of the signal the loop binds to its input channel, else the channel's
+   * identifier (L19). Tune names it, so that the page resolves no signal; a candidate kept before holds none.
+   */
+  inputName?: string | null;
+  /**
    * The member's instance path.
    */
   instance: string;
@@ -32,6 +37,10 @@ export interface GroupMemberDesign {
    * The identifier of the model output the member measures.
    */
   outputChannelId: string;
+  /**
+   * The name of the measured output the member measures, as `input_name` names the input.
+   */
+  outputName?: string | null;
   /**
    * The steady-state gain of the member's own path, `Kᵢᵢ` (N4.5).
    */

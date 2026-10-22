@@ -562,7 +562,11 @@ duration do not enter plant equations.
    driver makes the target physical.
 6. **Reporting.** The control endpoint's `status` operation reports `simulation_time_scale`, the
    configured speed, and `simulation_achieved_time_scale`, the achieved speed of
-   item 3, or `null` before the first second of wall time has been measured.
+   item 3, or `null` before the first second of wall time has been measured. It also
+   reports the target's kind, `simulated` (specification 35, A2.4), and the speed words
+   `simulation_speed_text` and `simulation_speed_behind` (specification 35, B9.2), which
+   the runtime computes once; every surface shows those words as given, and the runtime's
+   HMI display translates the phrase for its page language.
 7. **Speed does not change results.** Everything scheduled in simulation time
    produces the same values at equal simulation timestamps at any speed and
    under any host load. A write that arrives from outside the runtime, such as

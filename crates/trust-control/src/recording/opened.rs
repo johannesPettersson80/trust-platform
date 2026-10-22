@@ -1,7 +1,8 @@
 //! The recording an opened file becomes when `importRecording` keeps it (specification 35, §0.1a, A9, B3.6 and B10.2), and the
 //! experiment its fit reads (C12). A saved Control Studio result or recording file that `check_import` accepts keeps its
-//! measured samples as one recording file: its original source, the opened marker, and the verdict the runtime's acquisition
-//! gives it. Nothing was written to the plant for such a file, so its fit reads it as an observation (`opened_plan`).
+//! measured samples as one recording file: its original source, the opened marker, the verdict the runtime's acquisition
+//! gives it, and the experiment and the plant that the file states of its run (`saved_context`, B10.2). Nothing was written to the
+//! plant for such a file, so its fit reads it as an observation (`opened_plan`).
 
 use std::time::Duration;
 
@@ -17,6 +18,7 @@ use crate::recording::channels::{
     binding_value, ACTUATOR_BINDING, MANIPULATED_VARIABLE_BINDING, PROCESS_VARIABLE_BINDING,
     SETPOINT_BINDING,
 };
+use crate::recording::context::saved_context;
 use crate::recording::evidence::recording_evidence;
 use crate::recording::{
     Acquisition, Completeness, EvidenceSource, RecordedRun, RecordedSample, RecordingFile,
@@ -92,6 +94,8 @@ pub fn opened_recording(
     let evidence = recording_evidence(&run, None);
     let mut file = RecordingFile::new(&loop_definition.id, source, run, evidence);
     file.opened = true;
+    // The opened recording keeps the experiment and the plant its file states (B10.2, A9).
+    file.context = saved_context(&value, source);
     Ok((check, file))
 }
 

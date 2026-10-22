@@ -11,7 +11,8 @@
 #![allow(clippy::module_name_repetitions)] // The result keeps the name of its tool.
 
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::Value;
 use trust_control_math::linalg::{DenseMatrix, NumericalTolerance};
 use trust_control_math::multichannel;
 
@@ -75,14 +76,54 @@ pub struct PathChannel {
     pub unit: String,
 }
 
-/// A time window in seconds from the first sample of the recording. Both ends belong to the window.
+/// A time window in seconds from the first sample of the recording. Both ends belong to the window. An end that the request leaves out
+/// is `None`: the request checks refuse the trial that holds it, and name the missing window (C7).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TimeWindow {
-    /// The start of the window, in seconds.
-    pub start_seconds: f64,
-    /// The end of the window, in seconds.
-    pub end_seconds: f64,
+    /// The start of the window, in seconds; absent when the request leaves it out. The page sends the text the engineer typed, which
+    /// `number_of_entry` reads; text that is no number is refused under the window's field.
+    #[serde(
+        default,
+        deserialize_with = "number_of_entry",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(schema_with = "crate::json::optional_number_or_text_schema")]
+    pub start_seconds: Option<f64>,
+    /// The end of the window, in seconds; absent when the request leaves it out. It is read as `start_seconds` is.
+    #[serde(
+        default,
+        deserialize_with = "number_of_entry",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(schema_with = "crate::json::optional_number_or_text_schema")]
+    pub end_seconds: Option<f64>,
+}
+
+/// A window end or a drift tolerance as the request sends it: a number, or the text the engineer typed. A blank entry is absent (`None`).
+/// An entry that is no finite number is kept as `NaN`, which no JSON number is, so the checks refuse it under its field (C7), as a
+/// duration that no time reads is refused (`duration_of_setting`).
+pub(crate) fn number_of_entry<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<f64>, D::Error> {
+    Ok(match Option::<Value>::deserialize(deserializer)? {
+        None | Some(Value::Null) => None,
+        Some(Value::Number(number)) => Some(
+            number
+                .as_f64()
+                .filter(|value| value.is_finite())
+                .unwrap_or(f64::NAN),
+        ),
+        Some(Value::String(text)) if text.trim().is_empty() => None,
+        Some(Value::String(text)) => Some(
+            text.trim()
+                .parse::<f64>()
+                .ok()
+                .filter(|value| value.is_finite())
+                .unwrap_or(f64::NAN),
+        ),
+        Some(_) => Some(f64::NAN),
+    })
 }
 
 /// One settled trial (C7): the input stepped, its baseline window (before the step) and its settled window (after the output has
@@ -173,23 +214,106 @@ pub struct MeasuredPathsResult {
     pub details: Vec<String>,
 }
 
-/// The checks of the request that need no loop: each window is finite and ordered, and the drift tolerance, when given, is finite
-/// and nonnegative (the page's checks, `webview/threePageMimoAnalysis.ts:64,68`, which the engine now makes).
+/// The checks of the request that need no loop: each trial gives all four window ends, each window is finite and ordered, and the drift
+/// tolerance, when given, is finite and nonnegative (the page's checks, `webview/threePageMimoAnalysis.ts:64,68`, which the engine now
+/// makes).
 ///
 /// # Errors
-/// Returns the input failure of the first window or tolerance that breaks its rule.
+/// Returns the input failure of the first trial that leaves a window end out, then of the first window or tolerance that breaks its rule.
 pub fn checked_request(inputs: &AnalysisInputs) -> Result<(), Failure> {
-    let windows_ordered = inputs
+    if let Some(failure) = inputs
         .settled_trials
         .iter()
         .flatten()
-        .all(|trial| ordered(trial.baseline) && ordered(trial.settled));
+        .find_map(incomplete_trial)
+    {
+        return Err(failure);
+    }
+    if let Some(failure) = inputs
+        .settled_trials
+        .iter()
+        .flatten()
+        .find_map(unreadable_trial)
+    {
+        return Err(failure);
+    }
+    let windows_ordered = inputs.settled_trials.iter().flatten().all(|trial| {
+        ordered_ends(trial.baseline).is_some() && ordered_ends(trial.settled).is_some()
+    });
     if !windows_ordered {
         return Err(input_failure(WINDOWS));
     }
     match inputs.maximum_unexcited_input_drift {
         Some(limit) if !(limit.is_finite() && limit >= 0.0) => Err(input_failure(DRIFT_TOLERANCE)),
         _ => Ok(()),
+    }
+}
+
+/// The refusal of a trial that leaves a window end out (C7). Its sentence names the input and the missing ends, in the page's order, and
+/// its field is the page's control of the first missing end: `<inputId>:<window key>`, such as `heater-1:baseline-end`.
+fn incomplete_trial(trial: &SettledTrial) -> Option<Failure> {
+    let ends = [
+        (
+            "baseline-start",
+            "baseline start",
+            trial.baseline.start_seconds,
+        ),
+        ("baseline-end", "baseline end", trial.baseline.end_seconds),
+        (
+            "settled-start",
+            "settled start",
+            trial.settled.start_seconds,
+        ),
+        ("settled-end", "settled end", trial.settled.end_seconds),
+    ];
+    let missing: Vec<(&str, &str)> = ends
+        .iter()
+        .filter(|(_, _, value)| value.is_none())
+        .map(|(key, name, _)| (*key, *name))
+        .collect();
+    let (first_key, _) = *missing.first()?;
+    let names: Vec<&str> = missing.iter().map(|(_, name)| *name).collect();
+    let text = format!(
+        "Enter the {} of input {}.",
+        join_words(&names),
+        trial.input_id
+    );
+    Some(input_failure(&text).with_field(&format!("{}:{first_key}", trial.input_id)))
+}
+
+/// The refusal of the first window end that the request sent as text no number reads (C7). Its sentence names the input and the window end,
+/// and its field is the window's control, `<inputId>:<window key>`, as the field of a missing end is.
+fn unreadable_trial(trial: &SettledTrial) -> Option<Failure> {
+    let ends = [
+        (
+            "baseline-start",
+            "baseline start",
+            trial.baseline.start_seconds,
+        ),
+        ("baseline-end", "baseline end", trial.baseline.end_seconds),
+        (
+            "settled-start",
+            "settled start",
+            trial.settled.start_seconds,
+        ),
+        ("settled-end", "settled end", trial.settled.end_seconds),
+    ];
+    let (key, name, _) = ends
+        .into_iter()
+        .find(|(_, _, value)| matches!(value, Some(number) if !number.is_finite()))?;
+    let text = format!(
+        "The {name} of input {} is not a number of seconds.",
+        trial.input_id
+    );
+    Some(input_failure(&text).with_field(&format!("{}:{key}", trial.input_id)))
+}
+
+/// The words as a list: `a`, `a and b`, or `a, b and c`.
+fn join_words(words: &[&str]) -> String {
+    match words {
+        [] => String::new(),
+        [only] => (*only).to_string(),
+        [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
     }
 }
 
@@ -539,12 +663,15 @@ impl<'a> Timeline<'a> {
         )
     }
 
-    /// The samples whose time lies in the window, both ends included.
+    /// The samples whose time lies in the window, both ends included; a window without both ends holds none.
     fn within(&self, window: TimeWindow) -> Vec<(f64, &'a RecordedSample)> {
+        let (Some(start), Some(end)) = (window.start_seconds, window.end_seconds) else {
+            return Vec::new();
+        };
         self.samples
             .iter()
             .copied()
-            .filter(|(time, _)| (window.start_seconds..=window.end_seconds).contains(time))
+            .filter(|(time, _)| (start..=end).contains(time))
             .collect()
     }
 
@@ -567,11 +694,12 @@ impl<'a> Timeline<'a> {
         (good && value.is_finite()).then_some(value)
     }
 
-    /// The mean of each signal over the window (TypeScript `meanWindow`). It is refused when the window is not ordered, lies outside
-    /// the placed samples, holds no sample, or holds a sample without a good value of some signal.
+    /// The mean of each signal over the window (TypeScript `meanWindow`). It is refused when the window is not ordered or lacks an end,
+    /// lies outside the placed samples, holds no sample, or holds a sample without a good value of some signal.
     fn mean(&self, window: TimeWindow, signals: &[&str]) -> Option<Vec<f64>> {
         let (first, last) = self.bounds();
-        if !ordered(window) || window.start_seconds < first || window.end_seconds > last {
+        let (start, end) = ordered_ends(window)?;
+        if start < first || end > last {
             return None;
         }
         let selected = self.within(window);
@@ -611,7 +739,11 @@ impl<'a> Timeline<'a> {
             .iter()
             .filter(|(time, _)| {
                 trials.iter().any(|trial| {
-                    *time >= trial.baseline.start_seconds && *time <= trial.settled.end_seconds
+                    trial
+                        .baseline
+                        .start_seconds
+                        .is_some_and(|start| *time >= start)
+                        && trial.settled.end_seconds.is_some_and(|end| *time <= end)
                 })
             })
             .count()
@@ -630,11 +762,14 @@ fn binding_is_good(recording: &RecordedRun, sample: &RecordedSample, id: &str) -
         })
 }
 
-/// Whether the window is finite and runs forward.
-fn ordered(window: TimeWindow) -> bool {
-    window.start_seconds.is_finite()
-        && window.end_seconds.is_finite()
-        && window.start_seconds < window.end_seconds
+/// The start and the end of a window that has both ends, when both are finite and the window runs forward; `None` for any other window.
+fn ordered_ends(window: TimeWindow) -> Option<(f64, f64)> {
+    match (window.start_seconds, window.end_seconds) {
+        (Some(start), Some(end)) if start.is_finite() && end.is_finite() && start < end => {
+            Some((start, end))
+        }
+        _ => None,
+    }
 }
 
 /// The arithmetic mean of a non-empty series.

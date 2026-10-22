@@ -53,6 +53,7 @@ fn integrator_model() -> IdentifiedModel {
 /// the declared method, if any.
 fn task(tuning_method: Option<TuningMethod>) -> TuningRequirements {
     TuningRequirements {
+        channel_requirements: None,
         reference_change: 1.0,
         maximum_error: 0.1,
         settling_band: 0.02,

@@ -35,14 +35,20 @@ function openRequest(folder: string): OpenRequest {
 /** A project without loops opens as an empty list of loops. */
 const NO_LOOPS = { result: { kind: "loops", loops: [] } };
 
-/** Resolves at the engine's next start, the restart included. */
-function nextStart(engine: EngineProcess): Promise<void> {
-  return new Promise((resolve) => {
-    const subscription = engine.onDidStart(() => {
-      subscription.dispose();
-      resolve();
-    });
-  });
+/** The process id of the engine's running child; the engine announces no start, so the test reads it from the process it supervises. */
+function childProcessId(engine: EngineProcess): number | undefined {
+  return (engine as unknown as { child?: { pid?: number } }).child?.pid;
+}
+
+/** Resolves once the engine runs a child other than the one with process id `stopped`, which is its restart. */
+async function restartedAfter(engine: EngineProcess, stopped: number): Promise<void> {
+  const deadline = Date.now() + 20_000;
+  while (childProcessId(engine) === undefined || childProcessId(engine) === stopped) {
+    if (Date.now() > deadline) {
+      throw new Error("the engine was not started again");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
 }
 
 function frame(body: string): Buffer {
@@ -101,13 +107,12 @@ suite("Control Studio engine process", () => {
     engine = startEngine({ executable: engineBinary() });
     const client = createEngineClient(engine);
     assert.deepStrictEqual(await client.open(openRequest(folder)), NO_LOOPS);
-    const stopped = engine.pid;
+    const stopped = childProcessId(engine);
     assert.ok(stopped !== undefined, "the running engine has a process id");
-    const restarted = nextStart(engine);
     process.kill(stopped);
-    await restarted;
+    await restartedAfter(engine, stopped);
     assert.deepStrictEqual(await client.open(openRequest(folder)), NO_LOOPS);
-    assert.notStrictEqual(engine.pid, stopped);
+    assert.notStrictEqual(childProcessId(engine), stopped);
   });
 
   test("answers a malformed request with a JSON-RPC error", async function () {

@@ -155,3 +155,22 @@ fn warns_of_instability_error_fraction_reached_and_an_unresolved_dead_time_in_th
     );
     assert_eq!(integrating.warnings, [] as [String; 0]);
 }
+
+// Specification 35, B3.3: the page shows the fit's largest absolute residual as the engine states it and computes none.
+#[test]
+fn the_largest_absolute_residual_is_the_largest_magnitude_of_the_residuals_and_absent_without_samples(
+) {
+    // The integrating prediction is 0, 0, 0, 1, 2, 2, so the measured 1.5 lies 0.5 below it: a residual of -0.5, the only one.
+    let evidence = model_fit_evidence(
+        &fitted_model(LowOrderModelKind::Integrating, 1.0),
+        &stepped(&[0.0, 0.0, 0.0, 1.0, 1.5, 2.0]),
+    )
+    .expect("the record has a measured step");
+    assert_eq!(evidence.points[4].residual, -0.5);
+    assert_eq!(evidence.maximum_absolute_residual(), Some(0.5));
+    let without_samples = ModelFitEvidence {
+        points: Vec::new(),
+        ..evidence
+    };
+    assert_eq!(without_samples.maximum_absolute_residual(), None);
+}

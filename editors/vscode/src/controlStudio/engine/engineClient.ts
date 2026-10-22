@@ -3,6 +3,8 @@ import type { EngineProcess } from "./engineProcess";
 import type { ApplicationAnswer } from "../generated/ApplicationAnswer";
 import type { ApplicationRequest } from "../generated/ApplicationRequest";
 import type { CancelResult } from "../generated/CancelResult";
+import type { ExportRequest } from "../generated/ExportRequest";
+import type { ExportResult } from "../generated/ExportResult";
 import type { Failure } from "../generated/Failure";
 import type { IdentifyRequest } from "../generated/IdentifyRequest";
 import type { IdentifyResult } from "../generated/IdentifyResult";
@@ -12,6 +14,8 @@ import type { InputsRequest } from "../generated/InputsRequest";
 import type { InputsResult } from "../generated/InputsResult";
 import type { KeepRequest } from "../generated/KeepRequest";
 import type { KeepReviewAnswer } from "../generated/KeepReviewAnswer";
+import type { MonitorRequest } from "../generated/MonitorRequest";
+import type { MonitorResult } from "../generated/MonitorResult";
 import type { OpenRequest } from "../generated/OpenRequest";
 import type { OpenResult } from "../generated/OpenResult";
 import type { OperationRequest } from "../generated/OperationRequest";
@@ -23,6 +27,8 @@ import type { PageRequest } from "../generated/PageRequest";
 import type { PreviewRequest } from "../generated/PreviewRequest";
 import type { ResetResult } from "../generated/ResetResult";
 import type { RunRequest } from "../generated/RunRequest";
+import type { ProjectLoopsRequest } from "../generated/ProjectLoopsRequest";
+import type { ProjectLoopsResult } from "../generated/ProjectLoopsResult";
 import type { SetupDiscoverRequest } from "../generated/SetupDiscoverRequest";
 import type { SetupDiscoverResult } from "../generated/SetupDiscoverResult";
 import type { SetupSaveRequest } from "../generated/SetupSaveRequest";
@@ -32,6 +38,14 @@ import type { TuneResult } from "../generated/TuneResult";
 import type { ValidateRequest } from "../generated/ValidateRequest";
 import type { AnalyzeAnswer } from "../generated/AnalyzeAnswer";
 import type { AnalyzeRequest } from "../generated/AnalyzeRequest";
+import type { ChartExportAnswer } from "../generated/ChartExportAnswer";
+import type { ChartExportRequest } from "../generated/ChartExportRequest";
+import type { PlantMonitorRequest } from "../generated/PlantMonitorRequest";
+import type { PlantMonitorResult } from "../generated/PlantMonitorResult";
+import type { SimulatorStartAnswer } from "../generated/SimulatorStartAnswer";
+import type { SimulatorStartOutcome } from "../generated/SimulatorStartOutcome";
+import type { SimulatorStartReply } from "../generated/SimulatorStartReply";
+import type { SimulatorStartRequest } from "../generated/SimulatorStartRequest";
 
 /** A method's answer: its `result`, or the `failure` that refuses it (specification 35, A11). */
 export type EngineAnswer<T> = { result: T } | { failure: Failure };
@@ -67,10 +81,24 @@ export interface ControlStudioEngine {
   keep(request: KeepRequest): Promise<EngineAnswer<KeepReviewAnswer | OperationStarted>>;
   /** The parameter writes of a declared analysis (C12): the review, its answer, or the started Apply or Restore. */
   parameters(request: ParameterWorkRequest): Promise<EngineAnswer<ParameterWorkAnswer | OperationStarted>>;
+  /** The loop's sample and, when it changed, the target's label (B2, B9.2). The engine decides availability and staleness. */
+  monitor(request: MonitorRequest): Promise<EngineAnswer<MonitorResult>>;
+  /** The plant summary of a plant handoff (B1.2, specification 34, §20.4): unavailable with its reason, or the plant's status. */
+  plantMonitor(request: PlantMonitorRequest): Promise<EngineAnswer<PlantMonitorResult>>;
+  /** Decides a Start simulator request (A2.8): the extension starts the simulator, joins the start in flight, or shows the reply. */
+  simulatorStart(request: SimulatorStartRequest): Promise<EngineAnswer<SimulatorStartAnswer>>;
+  /** Reports the outcome of the simulator start the extension made, and answers the reply the page shows (A2.8). */
+  simulatorStartResult(request: SimulatorStartOutcome): Promise<EngineAnswer<SimulatorStartReply>>;
+  /** The chart image export (B10.5): the file name, the save filter and the bytes the extension writes. */
+  chartExport(request: ChartExportRequest): Promise<EngineAnswer<ChartExportAnswer>>;
   setupDiscover(request: SetupDiscoverRequest): Promise<EngineAnswer<SetupDiscoverResult>>;
   setupSave(request: SetupSaveRequest): Promise<EngineAnswer<SetupSaveResult>>;
+  /** The loop files of the workspace folders, decided by the engine (A8.3, B1.2): each file, the declaring folder and an equipment's loops. */
+  projectLoops(request: ProjectLoopsRequest): Promise<EngineAnswer<ProjectLoopsResult>>;
   /** Without `tool` the answer lists the tools that apply; with it, a quick calculation, or the started operation (B9.9). */
   analyze(request: AnalyzeRequest): Promise<EngineAnswer<AnalyzeAnswer>>;
+  /** The loop's results for the engineer to save (B10.5): the text of the JSON or the CSV export, and the file name it suggests. */
+  exportLoop(request: ExportRequest): Promise<EngineAnswer<ExportResult>>;
   /** Runs `listener` for each `controlStudio/update` of the operation `operationId`. */
   onUpdate(operationId: string, listener: (update: OperationUpdate) => void): vscode.Disposable;
 }
@@ -91,8 +119,15 @@ const METHOD = {
   keep: "controlStudio/keep",
   setupDiscover: "controlStudio/setupDiscover",
   setupSave: "controlStudio/setupSave",
+  projectLoops: "controlStudio/projectLoops",
   analyze: "controlStudio/analyze",
   parameters: "controlStudio/parameters",
+  monitor: "controlStudio/monitor",
+  plantMonitor: "controlStudio/plantMonitor",
+  simulatorStart: "controlStudio/simulatorStart",
+  simulatorStartResult: "controlStudio/simulatorStartResult",
+  chartExport: "controlStudio/chartExport",
+  exportLoop: "controlStudio/export",
 } as const;
 
 const UPDATE_NOTIFICATION = "controlStudio/update";
@@ -119,8 +154,15 @@ export function createEngineClient(engine: EngineProcess): ControlStudioEngine {
     keep: (request) => call<KeepReviewAnswer | OperationStarted>(METHOD.keep, request),
     setupDiscover: (request) => call<SetupDiscoverResult>(METHOD.setupDiscover, request),
     setupSave: (request) => call<SetupSaveResult>(METHOD.setupSave, request),
+    projectLoops: (request) => call<ProjectLoopsResult>(METHOD.projectLoops, request),
     analyze: (request) => call<AnalyzeAnswer>(METHOD.analyze, request),
     parameters: (request) => call<ParameterWorkAnswer | OperationStarted>(METHOD.parameters, request),
+    monitor: (request) => call<MonitorResult>(METHOD.monitor, request),
+    plantMonitor: (request) => call<PlantMonitorResult>(METHOD.plantMonitor, request),
+    simulatorStart: (request) => call<SimulatorStartAnswer>(METHOD.simulatorStart, request),
+    simulatorStartResult: (request) => call<SimulatorStartReply>(METHOD.simulatorStartResult, request),
+    chartExport: (request) => call<ChartExportAnswer>(METHOD.chartExport, request),
+    exportLoop: (request) => call<ExportResult>(METHOD.exportLoop, request),
     onUpdate: (operationId, listener) =>
       engine.onNotification(UPDATE_NOTIFICATION, (params) => {
         const update = params as OperationUpdate;

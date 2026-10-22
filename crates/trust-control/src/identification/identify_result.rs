@@ -15,12 +15,14 @@ use crate::identification::model_comparison::ComparisonPresentation;
 use crate::identification::presentation::{
     identified_model_key_numbers, identified_model_type_text,
 };
+use crate::identification::project_test::{project_test_outcome, settings_released};
 use crate::identification::recording_import::display_engineering_unit;
 use crate::limits::RECORDING_SAMPLE_LIMIT;
 use crate::loop_definition::{channel_signal, LoopDefinition};
 use crate::messages::{
-    CampaignRestoration, CandidateOutcome, IdentifyPlot, IdentifyResult, PlotRole, PlotTrace,
-    ProjectTestResult, RecordedChartSample, ScheduleAnswer, TuneMethod, TuneResult,
+    plot_signals, recorded_values, AnswerKind, CampaignRestoration, CandidateOutcome, IdentifyPlot,
+    IdentifyResult, PlotRole, PlotTrace, ProjectTestResult, RecordedChartSample, ScheduleAnswer,
+    TuneMethod, TuneResult, TuneWords,
 };
 use crate::model::{GeneralModel, ModelChannel, ModelValidation};
 use crate::recording::channels::{
@@ -51,6 +53,22 @@ use crate::tuning::texts::MANUAL_DESCRIPTION;
 
 /// What the text adds to the model type of a provisional model (B3.5).
 const PROVISIONAL_LABEL: &str = " · Provisional";
+
+/// The sentence of the Identify page's status line for an identified model (B3.8, B9.9).
+const IDENTIFIED_TEXT: &str = "Model identified.";
+
+/// The sentence of the status line for a provisional model (B3.5, B3.8, B9.9).
+const PROVISIONAL_IDENTIFIED_TEXT: &str = "Provisional model identified.";
+
+/// The status line of an identification, as the engine words it.
+fn status_sentence(provisional: bool) -> String {
+    if provisional {
+        PROVISIONAL_IDENTIFIED_TEXT
+    } else {
+        IDENTIFIED_TEXT
+    }
+    .to_owned()
+}
 
 /// The signals an identification of `kind` uses on `loop_definition` (B3.2): the manipulated variable as the plant input,
 /// the measurement as the measured output, and the setpoint, by symbol, only for a setpoint step (closed-loop
@@ -101,7 +119,8 @@ fn channel_symbol(loop_definition: &LoopDefinition, signal_id: &str) -> String {
 /// requirements it is given, and `stages`. The text is the model type, " · Provisional" for a provisional model, then the
 /// equation and the key numbers, each on its own line. The revision is the one Validate's model check names for this model
 /// (B5.2). The requirements are the record [`identify_answer`] works out, and `None` where Automatic cannot form one. A section
-/// with no presentation, a state-space model (B10.2), is answered as a supplied model is.
+/// with no presentation, a state-space model of several channels (C7, B10.2), is answered in a supplied model's words and with
+/// no plot, but it was fitted: it names the recording it was fitted from, as every fit does (A8.3).
 #[must_use]
 pub fn identify_result(
     section: &IdentifySection,
@@ -109,7 +128,11 @@ pub fn identify_result(
     requirements: Option<TuningRequirements>,
 ) -> IdentifyResult {
     let Some(comparison) = section.presentation.as_ref() else {
-        return supplied_result(&section.selected_model, evidence, requirements);
+        return IdentifyResult {
+            kind: AnswerKind::new(),
+            recording_id: Some(section.estimation_recording_id.clone()),
+            ..supplied_result(&section.selected_model, evidence, requirements)
+        };
     };
     let shown = &comparison.presentation;
     let model_type = identified_model_type_text(shown);
@@ -121,15 +144,21 @@ pub fn identify_result(
     };
     let text = format!("{model_type}{label}\n{}\n{key_numbers}", shown.equation);
     IdentifyResult {
+        kind: AnswerKind::new(),
         model_type,
         equation: shown.equation.clone(),
         key_numbers,
         provisional: section.provisional,
+        status_sentence: status_sentence(section.provisional),
         text,
         plot: response_plot(section, comparison),
         recording_id: Some(section.estimation_recording_id.clone()),
         restoration: None,
+        settings_released: None,
+        test_outcome: None,
         recorded_samples: None,
+        methods: None,
+        method_titles: None,
         model_revision: section.selected_model.identity().revision.clone(),
         requirements,
         stage_evidence: evidence,
@@ -176,8 +205,11 @@ pub fn project_test_result(
     let current = current_model(study)?;
     let evidence = study_evidence(loop_definition, current.as_ref(), true);
     Ok(ProjectTestResult {
+        kind: AnswerKind::new(),
         recording_id: recording_id.to_string(),
         restoration,
+        settings_released: settings_released(restoration),
+        test_outcome: Some(project_test_outcome(restoration)),
         recorded_samples,
         fit_refusal,
         stage_evidence: evidence,
@@ -208,10 +240,12 @@ pub fn supplied_result(
         words.model_type, words.equation
     );
     IdentifyResult {
+        kind: AnswerKind::new(),
         model_type: words.model_type,
         equation: words.equation,
         key_numbers,
         provisional,
+        status_sentence: status_sentence(provisional),
         text,
         plot: IdentifyPlot {
             time_seconds: Vec::new(),
@@ -219,7 +253,11 @@ pub fn supplied_result(
         },
         recording_id: None,
         restoration: None,
+        settings_released: None,
+        test_outcome: None,
         recorded_samples: None,
+        methods: None,
+        method_titles: None,
         model_revision: identity.revision.clone(),
         requirements,
         stage_evidence: evidence,
@@ -228,9 +266,10 @@ pub fn supplied_result(
 }
 
 /// The samples of a kept recording as the Identify chart draws them (`control-studio.recording.evidence`): one row per sample, with
-/// its process time from the recording's first scan (A3.2), the setpoint, the measurement, the requested and the applied output, and
-/// the additional recorded signals by identifier (`captureAdditionalChannels`). A recording keeps at most the sample limit (A7), so
-/// the rows are bounded by it. A sample that holds no runtime time is placed at the origin.
+/// its process time from the recording's first scan (A3.2), the setpoint, the measurement, the requested and the applied output, the
+/// additional recorded signals by identifier (`captureAdditionalChannels`), and the value each plotted signal takes by its
+/// identifier (`plotted`, B9.6). A recording keeps at most the sample limit (A7), so the rows are bounded by it. A sample that holds
+/// no runtime time is placed at the origin.
 #[must_use]
 pub fn recorded_chart_samples(
     loop_definition: &LoopDefinition,
@@ -242,12 +281,14 @@ pub fn recorded_chart_samples(
         .and_then(|sample| sample.runtime_time_ns)
         .unwrap_or(0);
     let limit = usize::try_from(RECORDING_SAMPLE_LIMIT).unwrap_or(usize::MAX);
+    let signals = plot_signals(loop_definition);
     run.samples
         .iter()
         .take(limit)
         .map(|sample| {
             let value = |id: &str| binding_value(run, sample, id);
             let forced = |id: &str| binding_forced(run, sample, id);
+            let additional = capture_additional_channels(loop_definition, value, forced);
             RecordedChartSample {
                 elapsed_seconds: sample
                     .runtime_time_ns
@@ -258,7 +299,8 @@ pub fn recorded_chart_samples(
                 pv: process_value(run, sample),
                 requested_mv: requested_mv(run, loop_definition, sample),
                 applied_mv: applied_mv(run, loop_definition, sample),
-                additional: capture_additional_channels(loop_definition, value, forced),
+                plotted: recorded_values(loop_definition, &signals, run, sample, &additional),
+                additional,
             }
         })
         .collect()
@@ -299,7 +341,7 @@ const NOT_KEPT_PREDICTION: &str =
     "The study keeps the candidate but not its prediction, so the response and the margins are not shown until Tune runs again.";
 
 /// The candidate a study keeps, answered as `controlStudio/tune` answers it (B4.5, A8.6): the builder of the Tune answer
-/// ([`tune_result`]) on the study's Tune section and its current model. The study keeps the design, its candidate, method, reason,
+/// (`tune_result`) on the study's Tune section and its current model. The study keeps the design, its candidate, method, reason,
 /// attempts, `λ` and requirements, but no prediction. So the answer holds no response, settling time or overshoot, its outcome is
 /// unpredicted, and it gives no margins and no comparison: nothing is predicted on open. Two values are rebuilt from what the
 /// study keeps and are not the answer's own words: a relay candidate's description is its reason, because the relay cycle's
@@ -319,13 +361,10 @@ pub fn kept_candidate(
     let candidate = section.law_candidate()?;
     // A state law is answered from its design and the study's model, as a run answers it (C4): a low-order fit does not apply.
     if let LawCandidate::State(design) = &candidate {
-        return Some(state::answer(
-            loop_definition,
-            &current.model,
-            section,
-            design,
-            evidence,
-        ));
+        let mut result = state::answer(loop_definition, &current.model, section, design, evidence);
+        let words = TuneWords::of_result(loop_definition, &result);
+        result.words = Some(words);
+        return Some(result);
     }
     // A search law keeps its own answer, which the page reads as `searchCandidate` (C5): no PID-shaped `tune` result is rebuilt for it.
     if matches!(&candidate, LawCandidate::Search(_)) {
@@ -374,6 +413,8 @@ pub fn kept_candidate(
         stage_evidence: evidence,
     });
     result.schedule = schedule;
+    let words = TuneWords::of_result(loop_definition, &result);
+    result.words = Some(words);
     Some(result)
 }
 

@@ -548,3 +548,158 @@ fn an_estimator_model_file_stays_inside_the_project_and_must_decode_as_a_model()
     assert_eq!(full_text(&refusal), "notes.json is not a valid model.");
     assert!(decode_estimator_model("{", "broken.json").is_err());
 }
+
+/// The draft of `draft` with the fields of `edits` replaced, each a JSON pointer and its new value.
+fn edited(mut draft: Value, edits: &[(&str, Value)]) -> Value {
+    for (pointer, value) in edits {
+        *draft.pointer_mut(pointer).expect("the draft has the field") = value.clone();
+    }
+    draft
+}
+
+/// The first loop that the edited draft plans on `catalog`.
+fn first_planned(
+    catalog: &CompiledCatalog,
+    draft: &Value,
+) -> crate::loop_definition::LoopDefinition {
+    let draft = parse_setup_draft(draft).expect("the draft decodes");
+    let planned = plan_setup_save(catalog, &scope(), &draft).expect("the loop is planned");
+    planned
+        .into_iter()
+        .next()
+        .expect("one loop")
+        .loop_definition
+}
+
+/// The refusal that the edited draft gets on `catalog`.
+fn refusal_of(catalog: &CompiledCatalog, draft: &Value) -> Failure {
+    let draft = parse_setup_draft(draft).expect("the draft decodes");
+    plan_setup_save(catalog, &scope(), &draft).expect_err("the draft is refused")
+}
+
+/// R1 (B1.3: the form posts every number field as the text the engineer typed, and the engine reads it): an identify-only loop whose
+/// ranges are typed as `"0"`, `"100"`, `" -5.5 "` and `"90"`, and an ON/OFF loop whose low output level is `"5"`, whose high level is
+/// blank, and whose equipment times are `"20"` and `"0"`. The loops take exactly those numbers: the plant input's limits 0 to 100 and the
+/// measured output's range −5.5 to 90; a low level of 5 and, for the blank high level, the output's maximum, 100 (D-11); a minimum ON
+/// time of 20 s and a declared minimum OFF time of zero, which is not the same as none (D-9). The wrong behaviour caught: a number typed
+/// as text refused as a missing one, or read as zero, and a blank number read as zero.
+#[test]
+fn setup_draft_reads_numbers_typed_as_text() {
+    let identify = first_planned(
+        &save_catalog(),
+        &edited(
+            identify_draft(),
+            &[
+                ("/manipulatedVariable/minimum", json!("0")),
+                ("/manipulatedVariable/maximum", json!("100")),
+                ("/processVariable/minimum", json!(" -5.5 ")),
+                ("/processVariable/maximum", json!("90")),
+                ("/experimentDurationSeconds", json!("120")),
+            ],
+        ),
+    );
+    assert_eq!(
+        (
+            identify.limits.output_minimum,
+            identify.limits.output_maximum
+        ),
+        (Some(0.0), Some(100.0)),
+        "the plant input's range bounds the output"
+    );
+    assert_eq!(
+        (
+            identify.signals.process_variable.range.minimum,
+            identify.signals.process_variable.range.maximum
+        ),
+        (-5.5, 90.0),
+        "the measured output's range is read with its sign and without its spaces"
+    );
+
+    let mut cold_room = cold_room_draft();
+    cold_room["lowOutput"] = json!("5");
+    cold_room["highOutput"] = json!("");
+    cold_room["equipmentMinimumOnSeconds"] = json!("20");
+    cold_room["equipmentMinimumOffSeconds"] = json!("0");
+    let switching = first_planned(&cold_room_catalog(), &cold_room);
+    let block = switching
+        .controller
+        .on_off
+        .as_ref()
+        .expect("the loop holds its switching block");
+    assert_eq!(
+        (block.low_output, block.high_output),
+        (5.0, 100.0),
+        "a blank high level is the output's maximum, not zero"
+    );
+    let actuator = &switching
+        .channels
+        .as_ref()
+        .expect("the switched output's channel")
+        .inputs[0]
+        .actuator;
+    assert_eq!(
+        (actuator.minimum_on_seconds, actuator.minimum_off_seconds),
+        (Some(20.0), Some(0.0)),
+        "a minimum OFF time typed as 0 is declared zero"
+    );
+}
+
+/// R1 (B1.3: a refusal shows under the field it names): a number field whose text no finite number reads is refused under that field,
+/// with the sentence that asks for it. `"1,5"` (a decimal comma) as the measured output's minimum and `"0x10"` (a hexadecimal number,
+/// which JavaScript would read as 16) as the plant input's maximum are refused under `identify.processVariable.minimum` and
+/// `identify.manipulatedVariable.maximum`; `"low"` as the ON/OFF low output level and `"twenty"` as the equipment's minimum ON time are
+/// refused under `onoff.lowOutput` and `onoff.equipmentMinimumOn`. The wrong behaviour caught: an unreadable text taken as blank (a level
+/// at the output's limit, an equipment time not declared), read by another language's number grammar, or refused without its field.
+#[test]
+fn setup_draft_refuses_an_unreadable_number_under_its_field() {
+    let refused = |draft: &Value, catalog: &CompiledCatalog| {
+        let failure = refusal_of(catalog, draft);
+        (full_text(&failure), failure.field)
+    };
+    assert_eq!(
+        refused(
+            &edited(
+                identify_draft(),
+                &[("/processVariable/minimum", json!("1,5"))]
+            ),
+            &save_catalog()
+        ),
+        (
+            "Enter the measured output minimum and maximum.".to_string(),
+            Some("identify.processVariable.minimum".to_string())
+        )
+    );
+    assert_eq!(
+        refused(
+            &edited(
+                identify_draft(),
+                &[("/manipulatedVariable/maximum", json!("0x10"))]
+            ),
+            &save_catalog()
+        ),
+        (
+            "Enter the plant input minimum and maximum.".to_string(),
+            Some("identify.manipulatedVariable.maximum".to_string())
+        )
+    );
+    let mut low = cold_room_draft();
+    low["lowOutput"] = json!("low");
+    assert_eq!(
+        refused(&low, &cold_room_catalog()),
+        (
+            "The low output level must be a number; leave it blank to use the output's minimum."
+                .to_string(),
+            Some("onoff.lowOutput".to_string())
+        )
+    );
+    let mut equipment = cold_room_draft();
+    equipment["equipmentMinimumOnSeconds"] = json!("twenty");
+    assert_eq!(
+        refused(&equipment, &cold_room_catalog()),
+        (
+            "The equipment minimum ON time must be zero or more seconds; leave it blank when the equipment has none."
+                .to_string(),
+            Some("onoff.equipmentMinimumOn".to_string())
+        )
+    );
+}

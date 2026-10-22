@@ -4,6 +4,12 @@
  */
 
 /**
+ * The action that holds the Validate page's position (B7; the Validate page specification: Apply and Restore never compete as primary
+ * actions): `apply` puts Apply in the position, `restore` puts Restore previous settings there, and `keep` makes Keep in project the
+ * page's primary action while Restore previous settings keeps the position beside it.
+ */
+export type PrimaryAction = "apply" | "restore" | "keep";
+/**
  * The mode a loop was found in (`FoundMode`): `auto` or `manual`.
  */
 export type FoundMode = "auto" | "manual";
@@ -22,6 +28,11 @@ export type TransferValue = number | boolean;
  */
 export interface ApplyOutcome {
   /**
+   * Whether Apply is offered once this Apply has ended (B7): never, since its settings stand with Restore in the Apply position, or
+   * were restored at once and need a new validation (`application_offers::apply_offered_after`).
+   */
+  applyAvailable: boolean;
+  /**
    * The identifier of the Apply's journaled commissioning checkpoint (`CommissioningCheckpoint::id`, A8.5), which a later
    * Restore starts from (B6.4).
    */
@@ -30,6 +41,15 @@ export interface ApplyOutcome {
    * Whether Keep in project is offered: the settings stay applied and no Restore followed (B6.5).
    */
   keepAvailable: boolean;
+  /**
+   * The answer's kind (§0.1a): the page shows the answer by it, never by the fields it carries.
+   */
+  kind: "applyOutcome";
+  /**
+   * The action that holds the Validate page's position once this Apply has ended (B7; `application_offers::primary_action`): Keep
+   * in project while it is offered, else Restore previous settings while it is offered; absent when none is offered.
+   */
+  primaryAction?: PrimaryAction | null;
   /**
    * Whether Restore previous settings is offered (B6.3, B7).
    */
@@ -40,6 +60,11 @@ export interface ApplyOutcome {
    */
   restored: boolean;
   result: CommissioningResult;
+  /**
+   * The status of every stage once this Apply has ended (B9.4), with the block of a checkpoint that waits for its Restore (B6.4,
+   * B6.7), as `controlStudio/apply` answers them; absent from the workflow's own outcome, which the method completes.
+   */
+  stages?: StageAvailability[] | null;
   /**
    * The identity of the study's validation that the applied candidate passed, as the checkpoint keeps it (A8.1).
    */
@@ -231,6 +256,7 @@ export interface Failure {
    */
   nextAction:
     | "connect-runtime"
+    | "start-simulator"
     | "open-loop-setup"
     | "open-limits"
     | "open-requirements"
@@ -571,5 +597,40 @@ export interface TransferTransaction {
    * The transaction's status.
    */
   status: "idle" | "pending" | "applied" | "rejected" | "failed" | "cancelled";
+  [k: string]: unknown;
+}
+/**
+ * One stage's status, with the words the panel shows. A stage that is Not applicable also names the reason, which the page
+ * shows in place of its actions (C12), and so does a stage that an Apply's checkpoint holds (B6.4, B6.7) and a stage that cannot
+ * start yet for want of what it works on (B9.4). `available` says whether the stage's own action can start now (B9.4).
+ */
+export interface StageAvailability {
+  /**
+   * Whether the stage's own action can start now (B9.4). The page enables the action exactly then, and holds no copy of the
+   * rule. A bound loop can always Monitor, Test and Identify. Tune needs a model, a declared analysis or manual controller
+   * parameters; Validate needs a candidate; Apply needs a candidate whose current validation passed ([`apply_available`]), and in
+   * an answer that states the Validate page's offers, Apply offered (B7, `application_offers::offered_stages`). A stage that is
+   * Not applicable never starts (C12), and while an Apply's checkpoint waits for its Restore only Monitor starts
+   * ([`blocked_stage_availability`]).
+   */
+  available: boolean;
+  /**
+   * The status in words.
+   */
+  label: string;
+  /**
+   * Why the stage does not apply, when its status is Not applicable (C12), or why its action waits, while an Apply's checkpoint
+   * waits for its Restore (B6.4, B6.7) and while the study lacks what the stage works on: a model for Tune, a candidate for
+   * Validate (B9.4). The page shows it on the stage's page.
+   */
+  reason?: string | null;
+  /**
+   * The stage.
+   */
+  stage: "Monitor" | "Test" | "Identify" | "Tune" | "Validate" | "Apply";
+  /**
+   * Its status.
+   */
+  status: "ready" | "needs-data" | "in-progress" | "complete" | "warning" | "failed" | "not-applicable";
   [k: string]: unknown;
 }

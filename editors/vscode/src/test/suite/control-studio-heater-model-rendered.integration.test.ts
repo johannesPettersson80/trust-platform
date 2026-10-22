@@ -3,49 +3,80 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import { runtimeLifecycleService } from "../../runtimeLifecycle";
-import { attachControlStudio } from "./control-studio-rendered-harness";
-import { captureRenderedWorkbench, connectCdp, devToolsPort, evaluateInWebview, httpJson, pollValue, requiredEnvironment, sleep } from "./plant-rendered-harness";
-import type { ControlStudioWorkflowResult, WorkflowResultSample } from "../../controlStudio/workflowResult";
+import { withStudio } from "./control-studio-three-page.integration.test";
+import { processReading, type SimulatorLoop } from "./control-studio-simulator-runtime";
+import {
+  assertKeptRecordingComplete,
+  channel,
+  chooseProjectExperiment,
+  PROJECT_TEST_COMPLETED,
+  projectTestAnswer,
+  reviewProjectTest,
+  startProjectTest,
+  waitForProjectTestEnd,
+  waitForRecordedChart,
+} from "./control-studio-project-test";
+import { pollValue, requiredEnvironment, sleep } from "./plant-rendered-harness";
 
-const expected = new Map([['control-lesson-13', 'process'], ['control-water-heater-energy-balance', 'energy']]);
-
+/**
+ * Lesson 15's water heater: the held 85 % step of lesson 13, and a model that the project's program integrates beside the plant, whose
+ * temperature is recorded as a signal of its own. This suite once held a lesson 13 case as well; the journey "Control Studio process
+ * dynamics" proves that lesson's recording more closely (the 300 held scans, the delay, the checkpoints and the kept recording).
+ */
 suite("Control Studio heater model actual rendered workflow", () => {
-  for (const [id, kind] of expected) test(`${id} executes its held heater case and retains independent evidence`, async function () {
+  test("control-water-heater-energy-balance executes its held heater case and retains independent evidence", async function () {
     if (process.env.TRUST_CONTROL_STUDIO_HEATER_MODEL !== "1") this.skip();
-    this.timeout(75_000);
+    this.timeout(300_000);
     await vscode.extensions.getExtension("trust-platform.trust-lsp")?.activate();
     const project = vscode.workspace.workspaceFolders![0].uri.fsPath;
-    const loop = JSON.parse(fs.readFileSync(path.join(project, "control-loop.json"), "utf8"));
-    assert.strictEqual(loop.id, id);
-    const authority = loop.signals.additional.find((x: any) => x.address === loop.experiment.activation.address).id;
-    const port = await devToolsPort(requiredEnvironment("TRUST_PLANT_RENDERED_USER_DATA_DIR"), 15_000);
-    const connection = await connectCdp((await httpJson(port, "/json/version")).webSocketDebuggerUrl);
+    const fixture = JSON.parse(fs.readFileSync(path.join(project, "control-loop.json"), "utf8"));
+    assert.strictEqual(fixture.id, "control-water-heater-energy-balance");
+    const captures = path.dirname(requiredEnvironment("TRUST_CONTROL_STUDIO_RENDERED_SCREENSHOT"));
     try {
-      await runtimeLifecycleService.stopRuntime(); assert.strictEqual((await runtimeLifecycleService.startLocalSimulator()).ok, true);
-      await vscode.commands.executeCommand("trust-lsp.controlStudio.open", {schemaVersion:1,source:"ConfiguredLoop",scope:{projectId:loop.projectId,runtimeId:loop.runtimeId},loopDefinition:loop});
-      const session=await attachControlStudio(connection,port), inner=(body:string)=>evaluateInWebview(connection,session,body);
-      const stage=async(name:string)=>inner(`var b=[...d.querySelectorAll('[data-control-studio-mode]')].find(x=>x.textContent.trim()===${JSON.stringify(name)});b.click();return b.textContent.trim();`);
-      await pollValue("fresh hot state",async()=>{await runtimeLifecycleService.requestIoState();return inner("return d.querySelector('[data-control-studio-quality]').textContent;");},x=>!/Unavailable|Waiting|stale/i.test(x),15_000);
-      if(kind==='process') { assert.match(await inner("return d.querySelector('[data-control-studio-pv]').textContent;"),/35/); assert.match(await inner("return d.querySelector('[data-control-studio-mv]').textContent;"),/75/); }
-      await stage('Monitor'); await inner("d.querySelector('[data-control-studio-record-start]').click();return 'ok';");
-      await stage('Test'); await sleep(300); await runtimeLifecycleService.requestIoState(); await inner("d.querySelector('[data-test-review]').click();return 'ok';");
-      await pollValue("review",()=>inner("return d.querySelector('[data-test-state]').textContent;"),x=>x.includes('Simulation test ready'),15_000);
-      assert.match(await inner("return d.querySelector('[data-test-timeout]').textContent;"),/30\.1 s maximum/);
-      await inner("d.querySelector('[data-test-approve]').click();return 'ok';");
-      await pollValue("complete",()=>inner("return d.querySelector('[data-test-state]').textContent;"),x=>/Completed|restor/i.test(x),45_000);
-      await stage('Monitor'); await inner("d.querySelector('[data-control-studio-record-stop]').click();return 'ok';");
-      await pollValue("complete recording",()=>inner("return d.querySelector('[data-control-studio-recording-evidence]').textContent;"),x=>/Complete recording|Recording retained/.test(x),15_000);
-      const shots=process.env.TRUST_CONTROL_STUDIO_HEATER_MODEL_SCREENSHOT_DIR; if(shots){fs.mkdirSync(shots,{recursive:true});captureRenderedWorkbench(path.join(shots,`${id}.png`));}
-      await stage('Validate'); await inner("d.defaultView.addEventListener('message',e=>{if(e.data?.kind==='control-studio.workflow-result')d.defaultView.__heater=e.data.payload.result});d.querySelector('[data-result-save]').click();return 'ok';");
-      await pollValue("save",()=>inner("return d.querySelector('[data-result-state]').textContent;"),x=>x.includes('Saved revision'),15_000);
-      await inner("var h=d.querySelector('[data-result-history]');h.value=[...h.options].filter(o=>o.value).sort((a,b)=>Number(b.value)-Number(a.value))[0].value;h.dispatchEvent(new Event('change'));d.querySelector('[data-result-open]').click();return 'open';");
-      const result=JSON.parse(await pollValue("result",()=>inner("return d.defaultView.__heater?JSON.stringify(d.defaultView.__heater):'';"),x=>x.length>0,15_000)) as ControlStudioWorkflowResult;
-      const active=result.recording.rawSamples.filter(s=>aux(s,authority)===1); assert.ok(active.length>=280);
-      const held=active.filter(s=>s.appliedMv===85); assert.ok(held.length>=298&&held.length<=302,`expected 30 s held 85% segment, got ${held.length} scans`); assert.ok(held.every(s=>s.appliedMv===85));
-      const firstZero=result.recording.rawSamples.findIndex(s=>s.appliedMv===0&&s.scan>active[active.length-1].scan); assert.ok(firstZero>=0,"restoration must command zero after the held window"); assert.ok(result.recording.rawSamples.slice(firstZero).every(s=>s.appliedMv===0),"terminal restoration must remain at zero without reheating");
-      assert.ok(active[0].pv!>=34.9&&active[0].pv!<=35.1); assert.ok(active[active.length-1].pv!>36.8&&active[active.length-1].pv!<37.1);
-      if(kind==='energy'){const model=active.map(s=>aux(s,'model')); assert.ok(model.every(x=>x!==null)); assert.ok(active.some((s,i)=>Math.abs((model[i]??0)-(s.pv??0))>1e-4),"Euler model must be recorded separately from measured PV"); assert.ok(active.every((s,i)=>Math.abs((model[i]??0)-(s.pv??0))<0.08),"Euler and measured PV must agree within declared teaching tolerance");}
-    } finally {connection.close();await runtimeLifecycleService.stopRuntime();}
+      await withStudio(async (inner, _reopen, capture) => {
+        const loop = JSON.parse(await inner("return d.querySelector('[data-studio-three-page]').dataset.studioLoop;"));
+        const authority = loop.signals.additional.find((signal: any) => signal.address === loop.experiment.activation.address)?.id;
+        assert.ok(authority, "the project's activation is one of the loop's recorded signals");
+        const plant: SimulatorLoop = loop;
+        await vscode.commands.executeCommand("workbench.action.closeSidebar");
+        await vscode.commands.executeCommand("workbench.action.closeAuxiliaryBar");
+        const started = await runtimeLifecycleService.startLocalSimulator();
+        assert.strictEqual(started.ok, true, JSON.stringify(started));
+
+        // The heater rests hot before the test: 35 °C with 75 %, read from the runtime's own scan.
+        await pollValue("fresh hot state", () => processReading(plant),
+          reading => reading !== undefined && Math.abs(reading.pv - 35) < 1e-6 && reading.mv === 75, 15_000);
+        await chooseProjectExperiment(inner);
+        assert.match(await reviewProjectTest(inner), /30\.1 s/, "the review shows the declared 30.1 s duration");
+        await startProjectTest(inner);
+        assert.strictEqual(await waitForProjectTestEnd(inner, 90_000), PROJECT_TEST_COMPLETED);
+        // The engine kept the run: the page draws its recording, and the recording file in the project holds every scan the runtime recorded.
+        const answer = await projectTestAnswer(inner);
+        assert.strictEqual(answer.restoration, "restored", "the engine names the restoration its campaign confirmed");
+        const samples = answer.recordedSamples;
+        await waitForRecordedChart(inner, answer);
+        await vscode.commands.executeCommand("notifications.clearAll");
+        await sleep(300);
+        await capture("energy-balance");
+        assertKeptRecordingComplete(project, answer);
+        fs.writeFileSync(path.join(captures, "heater-energy-balance.json"), JSON.stringify({ recordingId: answer.recordingId, samples }, null, 2));
+
+        const active = samples.filter(sample => channel(sample, authority) === 1);
+        assert.ok(active.length >= 280, "the recording includes the project's activation");
+        const held = active.filter(sample => sample.appliedMv === 85);
+        assert.ok(held.length >= 298 && held.length <= 302, `expected a 30 s held 85% segment, got ${held.length} scans`);
+        const lastActive = active[active.length - 1];
+        const firstZero = samples.findIndex(sample => sample.appliedMv === 0 && sample.scan > lastActive.scan);
+        assert.ok(firstZero >= 0, "restoration must command zero after the held window");
+        assert.ok(samples.slice(firstZero).every(sample => sample.appliedMv === 0), "terminal restoration must remain at zero without reheating");
+        assert.ok(active[0].pv! >= 34.9 && active[0].pv! <= 35.1, "the held step starts from the hot operating point");
+        assert.ok(lastActive.pv! > 36.8 && lastActive.pv! < 37.1, "the held step ends near 37 °C");
+        const model = active.map(sample => channel(sample, "model"));
+        assert.ok(active.some((sample, index) => Math.abs(model[index] - sample.pv!) > 1e-4), "the Euler model must be recorded separately from the measured temperature");
+        assert.ok(active.every((sample, index) => Math.abs(model[index] - sample.pv!) < 0.08), "the Euler model and the measured temperature must agree within the declared teaching tolerance");
+      });
+    } finally {
+      await runtimeLifecycleService.stopRuntime();
+    }
   });
 });
-function aux(s:WorkflowResultSample,id:string){return s.additional?.find(x=>x.id===id)?.value;}

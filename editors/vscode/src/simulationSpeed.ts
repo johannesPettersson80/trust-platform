@@ -7,7 +7,6 @@ import { runtimeLifecycleService, type RuntimeLifecycleSnapshot } from "./runtim
 import {
   runtimeTargetFromStatus,
   simulationSpeed,
-  simulationTargetLabel,
   type SimulationSpeed,
 } from "./controlStudio/runtimeTarget";
 import {
@@ -43,9 +42,12 @@ const speedChanged = new vscode.EventEmitter<void>();
 /** Fires after the chosen speed is saved or applied, so the status bar and the sidebar show it at once. */
 export const onDidChangeSimulationSpeed = speedChanged.event;
 
-/** What one status read of a running runtime reports: whether it simulates every attached I/O, and its speeds. */
+/** What one status read of a running runtime reports: whether it simulates every attached I/O, its speeds, and the speed words
+ * and the behind flag the runtime gives for them (specification 35, B9.2). */
 export interface SimulatorStatusRead extends SimulationSpeed {
   readonly simulated: boolean;
+  readonly speedText: string;
+  readonly speedBehind: boolean;
 }
 
 /** A status read as announced: the runtime it came from, then what it reported. */
@@ -68,22 +70,6 @@ export function announceSimulationSpeedRead(read: SimulationSpeedRead): void {
 /** The latest status read of the local simulator, or undefined before one has been read. */
 export function latestSimulatorSpeedRead(): SimulationSpeedRead | undefined {
   return latestReads.get(SIMULATOR_RUNTIME_ID);
-}
-
-/**
- * The label updates one pinned runtime's status reads produce (specification 35, B9.2). A read posts the label only when its
- * text changes, and a read of any other runtime is ignored.
- */
-export function targetLabelUpdates(pinnedRuntimeId: string, initial: string | undefined,
-  post: (label: string) => void): (read: SimulationSpeedRead) => void {
-  let shown = initial;
-  return (read) => {
-    if (read.runtimeId !== pinnedRuntimeId) return;
-    const label = simulationTargetLabel({ simulated: read.simulated, timeScale: read.configured, achievedTimeScale: read.achieved });
-    if (label === shown) return;
-    shown = label;
-    post(label);
-  };
 }
 
 // ---- simulation.toml (pure: no VS Code API) ----
@@ -229,7 +215,12 @@ export async function readRuntimeSpeed(
       timeoutMs: STATUS_REQUEST_TIMEOUT_MS,
     });
     const target = runtimeTargetFromStatus(report);
-    return { simulated: target.simulated, ...simulationSpeed(target) };
+    return {
+      simulated: target.simulated,
+      ...simulationSpeed(target),
+      speedText: target.speedText,
+      speedBehind: target.speedBehind,
+    };
   } catch {
     return undefined;
   }
@@ -275,21 +266,27 @@ export async function selectedTarget(
   });
 }
 
+/** The speed the page shows: its configured speed and the words for it (specification 35, B9.2). */
+export interface ShownSimulatorSpeed extends SimulationSpeed {
+  readonly text: string;
+}
+
 /**
- * The speed to show for the simulator: the running runtime's own speeds, or the saved speed, which applies at the
- * next start when nothing runs.
+ * The speed to show for the simulator: the running runtime's own speeds and the words it gives for them, or the saved speed,
+ * which applies at the next start when nothing runs. A saved speed has no runtime to word it, so it is shown as its unit.
  */
 export async function shownSimulatorSpeed(
   snapshot: RuntimeLifecycleSnapshot,
   selected: Pick<SelectedRuntime, "kind" | "status">
-): Promise<SimulationSpeed> {
+): Promise<ShownSimulatorSpeed> {
   if (isRunningSimulator(selected)) {
     const live = await readSelectedSimulatorSpeed(snapshot);
     if (live) {
-      return live;
+      return { ...live, text: live.speedText };
     }
   }
-  return { configured: await savedSpeed() };
+  const configured = await savedSpeed();
+  return { configured, text: `×${configured}` };
 }
 
 // ---- project file and command ----

@@ -177,8 +177,6 @@ pub const CANDIDATE_RATE_ORDER: &str = "Control.PID rate minimum must not exceed
 pub const CANDIDATE_NOT_FINITE: &str = "Control.PID settings must be finite.";
 /// B4.3: requirements that are not all finite numbers.
 pub const TASK_NOT_FINITE: &str = "Enter finite task requirements.";
-/// B4.3: requirements that are not ordered.
-pub const TASK_ORDER: &str = "Use a nonzero target change, positive response time, a smaller settling allowance than the error limit, and a longer test duration.";
 /// B4.3 and A6.4: an Auto-entry tolerance that is not a finite nonnegative value.
 pub const TRANSFER_TOLERANCE: &str =
     "Auto-entry tolerance must be blank for automatic or a finite nonnegative value in output units.";
@@ -250,6 +248,17 @@ pub const TRACKING_GAIN_POSITIVE: &str =
 pub const MANUAL_NEEDS_SETTINGS: &str = "Enter the controller settings for manual tuning.";
 /// B4.2: settings entered with a method that takes none.
 pub const SETTINGS_NEED_MANUAL: &str = "Settings are entered only with the manual method.";
+/// B4.2: manual settings without the controller configuration that they take (the page's Automatic family).
+pub const MANUAL_NEEDS_CONTROLLER: &str =
+    "Choose a controller configuration before entering manual settings.";
+/// B4.2: pinned settings that name no family, when the request names no structure and the study holds neither a candidate nor
+/// pins of a family.
+pub const PINS_NEED_FAMILY: &str = "Choose a controller configuration before keeping settings.";
+/// B4.2 and A8.1: the tuning method the page chose, which the engine does not run.
+pub const METHOD_NOT_RUN: &str = "The engine does not run the tuning method the page chose.";
+/// B4.5: a manual preview whose settings are missing, or are not numbers by their symbols.
+pub const PREVIEW_NEEDS_SETTINGS: &str =
+    "The preview needs the controller settings, each by its symbol and as a number.";
 /// B4.5: the reason of entered settings, predicted on the model and not yet validated.
 pub const MANUAL_READY: &str =
     "Your settings, predicted on the selected model. Validate before applying.";
@@ -331,6 +340,16 @@ pub fn outside_bounds(symbol: &str, minimum: f64, maximum: f64, unit: &str, valu
         engineering(minimum, None),
         engineering(maximum, None),
         engineering(value, None)
+    )
+}
+
+/// The sentence of a manual setting whose entry no finite number reads (B4.5): its range, and that the entry is not a number.
+#[must_use]
+pub fn setting_not_a_number(symbol: &str, minimum: f64, maximum: f64, unit: &str) -> String {
+    format!(
+        "{symbol} must be between {} and {} {unit}; the entry is not a number.",
+        engineering(minimum, None),
+        engineering(maximum, None)
     )
 }
 

@@ -4,6 +4,7 @@
 use serde_json::{json, Value};
 
 use super::*;
+use crate::recording::context::RestorationResult;
 use crate::recording::fixtures;
 
 /// One raw sample at scan `scan` of the fixture loop, one second after the one before it. The process value rises with the
@@ -175,4 +176,70 @@ fn the_fit_of_an_opened_recording_is_an_observation_that_writes_nothing() {
         plan.duration_ms
     );
     assert!(plan.trajectory.is_empty(), "no point is written");
+}
+
+/// The experiment a saved result states of the run that made its recording, as the extension wrote it (B10.2): a completed
+/// setpoint step of the fixture loop.
+fn experiment_json() -> Value {
+    json!({
+        "kind": "setpoint_step", "affectedSignal": "LevelSP", "address": "%ML0", "requestedValue": 55,
+        "appliedValue": 55, "durationMs": 4000,
+        "trajectory": [{ "atMs": 0, "value": 55 }], "stopConditions": ["Abort"],
+        "minimum": 0, "maximum": 100, "approval": "Simulation confirmation", "status": "completed",
+        "stopReason": "duration_complete", "aborted": false,
+        "restoration": { "value": 50, "status": "confirmed" }
+    })
+}
+
+/// The plant a saved result states, as the extension wrote it for a Simulation result (B10.2).
+fn plant_json() -> Value {
+    json!({
+        "source": "Simulation", "id": "tank", "configurationRevision": "sha256:plant-1",
+        "configuration": { "id": "tank", "model": "first_order_dead_time" }, "model": "first_order_dead_time",
+        "effectiveSeed": "42", "uncertainties": [], "scheduledEvents": [], "actuator": "Not declared",
+        "validityRange": "PV 0…100 %; MV 0…100 %"
+    })
+}
+
+#[test]
+fn an_opened_recording_keeps_the_experiment_and_the_plant_its_file_states() {
+    let loop_definition = fixtures::loop_definition();
+    let mut result = saved_result();
+    result["experiment"] = experiment_json();
+    result["plant"] = plant_json();
+    let (_, file) =
+        opened_recording(&result.to_string(), &loop_definition).expect("the file is kept");
+    let context = file
+        .context
+        .clone()
+        .expect("the file states its experiment and its plant");
+    let [experiment] = context.experiments.as_slice() else {
+        panic!("one experiment: {context:?}");
+    };
+    assert_eq!(experiment.kind, ControlExperimentKind::SetpointStep);
+    assert_eq!(experiment.stop_reason.as_deref(), Some("duration_complete"));
+    assert_eq!(experiment.restoration.status, RestorationResult::Confirmed);
+    let plant = context.plant.expect("the plant");
+    assert_eq!(plant.id, "tank");
+    assert_eq!(plant.effective_seed.as_deref(), Some("42"));
+    let id = file.id().expect("a file with a context is written");
+    let (_, plain) =
+        opened_recording(&saved_result().to_string(), &loop_definition).expect("the file is kept");
+    assert_eq!(plain.context, None, "a file that states none keeps none");
+    assert_ne!(
+        plain.id().expect("identified"),
+        id,
+        "the context is part of the recording's content"
+    );
+}
+
+#[test]
+fn an_opened_file_with_a_context_it_cannot_read_is_still_kept() {
+    let loop_definition = fixtures::loop_definition();
+    let mut result = saved_result();
+    // The file states its experiment's status and nothing the engine could keep: the file is kept, and the context is not.
+    result["experiment"] = json!({ "status": "completed" });
+    let (_, file) =
+        opened_recording(&result.to_string(), &loop_definition).expect("the file is kept");
+    assert_eq!(file.context, None);
 }

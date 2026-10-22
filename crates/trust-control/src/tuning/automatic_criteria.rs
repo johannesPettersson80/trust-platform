@@ -89,6 +89,60 @@ pub fn validate_criteria(criteria: &AutomaticCriteria) -> Result<(), Refusal> {
     }
 }
 
+/// The value that a requirement key names in a record: the shared value of `referenceChange`, or a channel's value of
+/// `referenceChange:<channel>` (B4.3). `None` when the record leaves the key out, or the key names no value of the record (such as
+/// `tuningObjective`).
+#[must_use]
+fn requirement_value(requirements: &TuningRequirements, key: &str) -> Option<f64> {
+    let (name, channel) = match key.split_once(':') {
+        Some((name, channel)) => (name, Some(channel)),
+        None => (key, None),
+    };
+    match channel {
+        None => match name {
+            "referenceChange" => Some(requirements.reference_change),
+            "maximumError" => Some(requirements.maximum_error),
+            "settlingBand" => Some(requirements.settling_band),
+            "settlingTimeSeconds" => Some(requirements.settling_time_seconds),
+            "durationSeconds" => Some(requirements.duration_seconds),
+            _ => None,
+        },
+        Some(channel) => {
+            let output = requirements.channel_requirements.as_ref()?.get(channel)?;
+            match name {
+                "referenceChange" => Some(output.reference_change),
+                "maximumError" => Some(output.maximum_error),
+                "settlingBand" => Some(output.settling_band),
+                "settlingTimeSeconds" => Some(output.settling_time_seconds),
+                _ => None,
+            }
+        }
+    }
+}
+
+/// Keeps Automatic on each generated requirement that a change leaves as it was (B4.3): a requirement whose value the change gives a new
+/// value is no longer generated, and one that the new requirements leave out, or give the value they had, stays generated. The page sends
+/// the record as the study holds it, and the engine decides which values stay generated. A change with no previous record is left as it is.
+#[allow(clippy::float_cmp)] // A value is the same as before only when the engineer did not change it: the values are compared exactly (B4.3).
+pub fn keep_generated_fields(previous: &TuningRequirements, next: &mut TuningRequirements) {
+    let Some(before) = previous.automatic_criteria.as_ref() else {
+        return;
+    };
+    let current = &*next;
+    let fields: Vec<String> = before
+        .fields
+        .iter()
+        .filter(|key| {
+            requirement_value(current, key.as_str())
+                .is_none_or(|value| requirement_value(previous, key.as_str()) == Some(value))
+        })
+        .cloned()
+        .collect();
+    if let Some(after) = next.automatic_criteria.as_mut() {
+        after.fields = fields;
+    }
+}
+
 /// The values the engineer supplied (or that a stored record holds) for the test. A value that is absent is the policy's
 /// to fill; a value that is present is kept exactly (B4.3: "explicit values are never rounded or relaxed").
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -124,6 +178,7 @@ impl SuppliedRequirements {
     /// response is the declared one, or More robust for Automatic (B4.3).
     fn complete(&self) -> Option<TuningRequirements> {
         Some(TuningRequirements {
+            channel_requirements: None,
             reference_change: self.reference_change?,
             maximum_error: self.maximum_error?,
             settling_band: self.settling_band?,
@@ -239,6 +294,7 @@ pub fn fill_requirements(
     let (settling, duration) = timing(evidence, &supplied, excursions.slew_time, &mut fields)?;
     let objective = tuning_objective(&supplied, &mut fields);
     Ok(TuningRequirements {
+        channel_requirements: None,
         reference_change: change,
         maximum_error: error,
         settling_band: band,
@@ -730,3 +786,7 @@ mod tests {
 #[cfg(test)]
 #[path = "automatic_criteria_ported_tests.rs"]
 mod ported_tests;
+
+#[cfg(test)]
+#[path = "automatic_criteria_provenance_tests.rs"]
+mod provenance_tests;

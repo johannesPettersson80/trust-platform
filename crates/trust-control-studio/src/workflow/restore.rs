@@ -1,11 +1,12 @@
-//! Restore previous settings (specification 35, B6.4, B6.7, A6.2, A8.5, A8.6; annex E6.10, E7.5, E7.6, E11.4, E11.9, E11.10): the
-//! review of a Restore, which reads the runtime and writes nothing (§0.1b Confirmation), and the one Restore operation that every case
-//! uses: `controlStudio/restore`, the `restore` verb, and Apply's failure path. It starts from the journaled commissioning checkpoint and
-//! the runtime's current answers, as `rollback` of `interruptedCommissioningRecovery.ts` does: it ends the checkpoint's owned operations
-//! by their identities (never a replay), returns the loop to Manual when it is not there, rolls the parameter record back to the
-//! revision Apply found, stops and keeps a recording the checkpoint still holds, returns the loop to the mode Apply found it in, and ends
-//! the checkpoint once the runtime has confirmed each step. A step the runtime already confirmed is not repeated, and Restored is
-//! reported only after the runtime's own answers confirm it.
+//! Restore previous settings (specification 35, B6.4, B6.7, A6.2, A8.5, A8.6; annex E6.10, E7.5, E7.6, E9.3, E11.4, E11.9, E11.10):
+//! the retirement of a checkpoint whose runtime was replaced since Apply, which writes nothing to the runtime and keeps the checkpoint
+//! as history; the review of a Restore, which reads the runtime and writes nothing (§0.1b Confirmation); and the one Restore operation
+//! that every case uses: `controlStudio/restore`, the `restore` verb, and Apply's failure path. The operation starts from the journaled
+//! commissioning checkpoint and the runtime's current answers, as `rollback` of `interruptedCommissioningRecovery.ts` does: it ends the
+//! checkpoint's owned operations by their identities (never a replay), returns the loop to Manual when it is not there, rolls the
+//! parameter record back to the revision Apply found, stops and keeps a recording the checkpoint still holds, returns the loop to the
+//! mode Apply found it in, and ends the checkpoint once the runtime has confirmed each step. A step the runtime already confirmed is not
+//! repeated, and Restored is reported only after the runtime's own answers confirm it.
 //!
 //! Every decision is `trust_control::commissioning::checkpoint_restore`'s. This module reads the runtime, journals each identity before
 //! its request is sent (E11.2), sends the writes and keeps the order. From `interruptedCommissioningRecovery.ts` (`review`, `rollback`),
@@ -18,9 +19,10 @@ use std::collections::BTreeMap;
 
 use trust_control::commissioning::adapters::controller_adapter;
 use trust_control::commissioning::application::ApplySource;
+use trust_control::commissioning::application_offers::{apply_offered_after, primary_action};
 use trust_control::commissioning::application_records::{
     approval_block, restore_identity_parts, review_identity, ApplicationReview, RestoreOutcome,
-    ReviewedAction,
+    ReviewConfirmation, ReviewedAction,
 };
 use trust_control::commissioning::application_texts::review_changed;
 use trust_control::commissioning::checkpoint::{CheckpointStage, CommissioningCheckpoint};
@@ -35,6 +37,7 @@ use trust_control::commissioning::transfer_tracking::TransferTracking;
 use trust_control::experiment::{check_recording_owner_scope, RecordingRecoveryOwner};
 use trust_control::failure::{Failure, NextAction};
 use trust_control::loop_definition::LoopDefinition;
+use trust_control::messages::AnswerKind;
 use trust_control::recording::{EvidenceSource, RecordedRun, RecordingRequest};
 use trust_control::study::apply::ApplySection;
 use trust_control::study::Study;
@@ -60,9 +63,9 @@ struct Reviewed {
 ///
 /// # Errors
 /// The journal holds no checkpoint with settings to restore; the runtime cannot be reached or read; the runtime was restarted or its
-/// program reloaded since Apply, so Restore is unavailable and the checkpoint stays journaled as history (B6.4); the checkpoint is not
-/// the current controller's; another change replaced the settings Apply wrote; or another operation owns the parameter record or the
-/// transfer.
+/// program reloaded since Apply, so Restore is unavailable (B6.4; `controlStudio/restore` retires such a checkpoint before it asks for
+/// a review, [`retire_after_replacement`]); the checkpoint is not the current controller's; another change replaced the settings Apply
+/// wrote; or another operation owns the parameter record or the transfer.
 pub fn review_restore(context: &mut ApplyContext<'_>) -> Result<ApplicationReview, Failure> {
     // A loop without a controller law has no settings Apply could have written (C12).
     context.loop_definition.require_controller_law()?;
@@ -101,6 +104,65 @@ pub fn run_restore(
         context.physical_approved,
         &|text: &str| operation.progress(text),
     )
+}
+
+/// A Restore on a runtime that was replaced since Apply (B6.4, B6.7): the checkpoint it would start from, now kept as history, and its
+/// answer.
+pub struct Retirement {
+    /// The identifier of the retired checkpoint, which the study's receipt names when an Apply's receipt names it (A8.1, A8.5).
+    pub checkpoint: String,
+    /// The Restore's answer: not restored, with the sentence that says why and the offers that follow (B6.7, B7).
+    pub outcome: RestoreOutcome,
+}
+
+/// Retires the journaled checkpoint when the runtime was restarted, or its program reloaded, since Apply (B6.4, B6.7; annex E9.3: the
+/// program revision changes with the session epoch): nothing of the checkpoint can be restored on the new program, so the Restore says
+/// so at once, before any review. The checkpoint is journaled again as history ([`rules::retired_checkpoint`]): it grants nothing and
+/// holds no stage back, and a later Apply replaces it (A8.5). Nothing is written to the runtime, and the loop continues from a new
+/// validation: the outcome offers neither Restore, Keep in project nor Apply (B7). The engineer's Restore is the explicit confirmation
+/// that a replaced runtime needs (annex E11.7): it does not claim that the Apply completed, and it replays none of its writes. A runtime
+/// that is still the one Apply wrote to retires nothing, and the Restore is reviewed as usual.
+///
+/// # Errors
+/// The loop has no controller law (C12); the journal holds no checkpoint with settings to restore; the runtime cannot be reached or
+/// read; or the journal cannot be written.
+pub fn retire_after_replacement(
+    context: &mut ApplyContext<'_>,
+) -> Result<Option<Retirement>, Failure> {
+    let loop_definition = context.loop_definition;
+    loop_definition.require_controller_law()?;
+    let journal = SharedJournal::new(&mut *context.journal);
+    let checkpoint = rules::restorable(journal.checkpoint(), &loop_definition.id)?;
+    let mut client = RuntimeClient::connect(context.connection)?;
+    let source = target_of(&mut client)?;
+    let binding = runtime_binding_of(loop_definition)?;
+    let observed = ParameterTransactions::new(&mut client, binding, source).status()?;
+    let Err(replaced) = rules::check_runtime_identity(&checkpoint, &observed) else {
+        return Ok(None);
+    };
+    journal.write_checkpoint(&rules::retired_checkpoint(
+        &checkpoint,
+        &observed.program_revision,
+    ))?;
+    let apply_available = apply_offered_after(ReviewedAction::Restore);
+    Ok(Some(Retirement {
+        checkpoint: checkpoint.id,
+        outcome: RestoreOutcome {
+            kind: AnswerKind::new(),
+            restored: false,
+            // The whole sentence: what happened, that the checkpoint is kept as history, and that a new validation follows (B6.7).
+            reason: replaced.detail.unwrap_or(replaced.message),
+            mode: None,
+            parameters: observed,
+            recording: None,
+            restore_available: false,
+            keep_available: false,
+            apply_available,
+            primary_action: primary_action(apply_available, false, false),
+            // The stages read the study and the journal once the checkpoint is retired: `apply_action` adds them to its answer.
+            stages: None,
+        },
+    }))
 }
 
 /// The one Restore (B6.4; `rollback` of `interruptedCommissioningRecovery.ts`), which [`run_restore`] and Apply's failure path call, from
@@ -226,16 +288,22 @@ pub(crate) fn restore_with_approval(
         .recording_result
         .take()
         .filter(|_| checkpoint.recording.is_some());
+    // B6.4: the runtime confirmed the restoration and the checkpoint is cleared, so Restore is not offered again; B6.5: Keep in project
+    // is not offered after a Restore; B7: Apply is offered again by a validation that passes afterwards.
+    let apply_available = apply_offered_after(ReviewedAction::Restore);
     Ok(RestoreOutcome {
+        kind: AnswerKind::new(),
         restored: true,
         reason: rules::restored_reason(checkpoint.found_mode, reenterable, returned_to_auto),
         mode: rules::reported_mode(&checkpoint, &values),
         parameters,
         recording,
-        // B6.4: the runtime confirmed the restoration and the checkpoint is cleared, so Restore is not offered again; B6.5: Keep in
-        // project is not offered after a Restore.
         restore_available: false,
         keep_available: false,
+        apply_available,
+        primary_action: primary_action(apply_available, false, false),
+        // The stages read the study and the journal once the Restore has ended: `apply_action` adds them to its answer.
+        stages: None,
     })
 }
 
@@ -275,7 +343,9 @@ fn reviewed(
     let parameters = rules::reviewed_parameters(loop_definition, &checkpoint, &observed);
     // A2.5: the approval names the signals this Restore writes, with their limits, and its restoration (no observation, so no duration).
     let approval = approval_block(loop_definition, ReviewedAction::Restore, &parameters, None);
+    let physical = source == ApplySource::Physical;
     let review = ApplicationReview {
+        kind: AnswerKind::new(),
         action: ReviewedAction::Restore,
         identity: review_identity(&restore_identity_parts(
             &observed,
@@ -291,7 +361,8 @@ fn reviewed(
             checkpoint.found_mode,
             reenterable,
         ),
-        physical: source == ApplySource::Physical,
+        physical,
+        confirmation: ReviewConfirmation::of_target(physical),
         operating_point: None,
         approval,
     };

@@ -4,8 +4,9 @@
 //! `identification.ts`). The presentation claims no statistical confidence the fit has not established.
 //!
 //! The readable parts of a result are read from a stored presentation: the model type in plain words
-//! ([`identified_model_type_text`]) and one line of key numbers ([`identified_model_key_numbers`]). The `TypeScript` page
-//! composed both from the general model (`threePageModel.ts`); that copy goes when the page shows these.
+//! ([`identified_model_type_text`]), one line of key numbers ([`identified_model_key_numbers`]) and the equation split for a
+//! stacked fraction ([`identified_equation_fraction`]). An answer that shows a presentation gives it these words
+//! ([`IdentifiedModelPresentation::with_words`]), so the page lays them out and composes none of them.
 //!
 //! The model-structure comparison (`modelStructure`) is not computed here: the review that chose the structure attaches
 //! it (N2.10). The experiment, channel, output-fit and pole-zero fields that the presentation files of the extension add
@@ -21,6 +22,7 @@ use trust_control_math::sampling::statistics::lag_one_correlation;
 use crate::experiment::number_text::{js_number, js_to_precision};
 use crate::identification::evidence::{ModelFitEvidence, ModelFitPoint, OperatingRange};
 use crate::identification::plant::{IdentifiedModel, IdentifiedUncertainty, UncertaintyMethod};
+use crate::identification::recording_import::display_engineering_unit;
 use crate::identification::sensor_lag_comparison::SensorLagComparison;
 use crate::identification::step_response::{StepResponseAnalysis, StepResponseMeasurement};
 
@@ -109,6 +111,21 @@ pub enum StepResponseView {
     Measurement(Box<StepResponseMeasurement>),
 }
 
+/// The equation of an identified model split for display as a stacked fraction, `G(s) = numerator / denominator · e^(−delay)`
+/// (B3.8): the gain, the factors of the denominator and the delay of the exponent, each written to six significant digits. The
+/// page lays the three out and writes none of them.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EquationFraction {
+    /// The numerator: the gain, or the rate gain of an integrator.
+    pub numerator: String,
+    /// The denominator: `s` for an integrator, one factor `(τs + 1)` for each time constant, and `1` without one.
+    pub denominator: String,
+    /// The delay of the exponent, such as `12s` for `e^(−12s)`; absent without a dead time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delay: Option<String>,
+}
+
 /// An identified model as the engineer reviews it (B3.8; `IdentifiedModelPresentation`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -143,6 +160,31 @@ pub struct IdentifiedModelPresentation {
     pub validity_range: OperatingRange,
     /// The warnings of the fit evidence.
     pub warnings: Vec<String>,
+    /// The model type in plain words, such as "First-order model with delay" (B3.8). An answer gives it ([`Self::with_words`]); a
+    /// stored presentation holds none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_type: Option<String>,
+    /// One plain line of the key numbers, such as "Gain 0.21 °C per %, time constant 75 min, delay 12 s" (B3.8). An answer gives it;
+    /// a stored presentation holds none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_numbers: Option<String>,
+    /// The equation as a stacked fraction (B3.8). An answer gives it; a stored presentation holds none, and a presentation without a
+    /// gain has none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub equation_fraction: Option<EquationFraction>,
+}
+
+impl IdentifiedModelPresentation {
+    /// The presentation with the words an answer shows for it (B3.8): the model type, the key numbers and the equation's fraction,
+    /// each read from the presentation itself. A presentation is stored without them and given them when an answer carries it, so
+    /// that the page composes none of them.
+    #[must_use]
+    pub fn with_words(mut self) -> Self {
+        self.model_type = Some(identified_model_type_text(&self));
+        self.key_numbers = Some(identified_model_key_numbers(&self));
+        self.equation_fraction = identified_equation_fraction(&self);
+        self
+    }
 }
 
 /// The plant-model equation of a model with its coefficients to six significant digits (B3.8;
@@ -245,6 +287,9 @@ pub fn identified_model_presentation(
         model_structure: fit.model_structure.as_deref().cloned(),
         validity_range: fit.operating_range.clone(),
         warnings: fit.warnings.clone(),
+        model_type: None,
+        key_numbers: None,
+        equation_fraction: None,
     }
 }
 
@@ -276,7 +321,8 @@ pub fn identified_model_type_text(presentation: &IdentifiedModelPresentation) ->
 /// time constant 75 s, delay 12 s": the gain in output units per input unit, the rate gain of an integrator per second, each
 /// time constant and the dead time above zero. Every number has six significant digits (B9.5), and each duration is in s
 /// below two minutes, in min below two hours and in h from two hours. A unit that is empty or `1` reads as `1`, and a gain
-/// dimensionless on both sides has no unit. A part the presentation does not hold is left out. The line has no fit error.
+/// dimensionless on both sides has no unit. A unit is written as a student reads it (`degC` as `°C`). A part the presentation
+/// does not hold is left out. The line has no fit error.
 #[must_use]
 pub fn identified_model_key_numbers(presentation: &IdentifiedModelPresentation) -> String {
     let mut parts = Vec::new();
@@ -315,6 +361,39 @@ pub fn identified_model_key_numbers(presentation: &IdentifiedModelPresentation) 
     parts.join(", ")
 }
 
+/// The equation of a presented model split for a stacked fraction (B3.8): the gain over `s` for an integrator, over one factor
+/// `(τs + 1)` for each time constant, or over `1` without one, with the delay of the exponent when the dead time is above zero.
+/// Every number has six significant digits, as in [`identified_model_equation`]. `None` when the presentation holds no gain, and
+/// the equation text then stands alone.
+#[must_use]
+pub fn identified_equation_fraction(
+    presentation: &IdentifiedModelPresentation,
+) -> Option<EquationFraction> {
+    let gain = presentation
+        .parameters
+        .iter()
+        .find(|parameter| parameter.name == GAIN_PARAMETER)?;
+    let mut denominator = String::new();
+    if is_integrating(presentation) {
+        denominator.push('s');
+    } else {
+        for time_constant in presented_time_constants(presentation) {
+            denominator.push('(');
+            denominator.push_str(&engineering_coefficient(time_constant));
+            denominator.push_str("s + 1)");
+        }
+        if denominator.is_empty() {
+            denominator.push('1');
+        }
+    }
+    Some(EquationFraction {
+        numerator: engineering_coefficient(gain.value),
+        denominator,
+        delay: (presentation.delay_seconds > 0.0)
+            .then(|| format!("{}s", engineering_coefficient(presentation.delay_seconds))),
+    })
+}
+
 /// Whether a presented model integrates: its one pole is at zero.
 #[allow(clippy::float_cmp)] // The pole of an integrator is written as exactly zero.
 fn is_integrating(presentation: &IdentifiedModelPresentation) -> bool {
@@ -340,17 +419,18 @@ fn is_time_constant(name: &str) -> bool {
         })
 }
 
-/// The unit of a gain in words, `output per input` (for example "°C per %"), or `None` when both sides are dimensionless.
+/// The unit of a gain in words, `output per input` (for example "°C per %"), or `None` when both sides are dimensionless. Each
+/// side is written in the notation a student reads (`degC` as `°C`, [`display_engineering_unit`]); the stored unit is not rewritten.
 fn unit_phrase(units: &PresentationUnits) -> Option<String> {
-    let output = dimensioned(&units.output);
-    let input = dimensioned(&units.input);
+    let output = dimensioned(&units.output).map(display_engineering_unit);
+    let input = dimensioned(&units.input).map(display_engineering_unit);
     if output.is_none() && input.is_none() {
         return None;
     }
     Some(format!(
         "{} per {}",
-        output.unwrap_or("1"),
-        input.unwrap_or("1")
+        output.as_deref().unwrap_or("1"),
+        input.as_deref().unwrap_or("1")
     ))
 }
 

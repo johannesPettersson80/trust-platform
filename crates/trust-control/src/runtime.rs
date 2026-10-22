@@ -18,6 +18,10 @@ pub struct RuntimeConnection {
     /// The control token, when the runtime requires one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub token: Option<String>,
+    /// The runtime this endpoint belongs to, as the extension's selection names it (A2.7). A live request whose loop is bound to
+    /// another runtime is refused before it starts. The command line names no selection and leaves it empty.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_id: Option<String>,
 }
 
 impl fmt::Debug for RuntimeConnection {
@@ -26,6 +30,7 @@ impl fmt::Debug for RuntimeConnection {
             .debug_struct("RuntimeConnection")
             .field("endpoint", &self.endpoint)
             .field("token", &self.token.as_ref().map(|_| "<redacted>"))
+            .field("runtime_id", &self.runtime_id)
             .finish()
     }
 }
@@ -44,6 +49,10 @@ pub struct RuntimeStatus {
     /// The achieved speed; null until measured.
     #[serde(default)]
     pub simulation_achieved_time_scale: Option<f64>,
+    /// The speed words the runtime computes (specification 35, B9.2): "" at 1x, "×N" above 1x, and "×A of ×N" when the achieved
+    /// speed is behind. An answer without the field names a simulation without a speed.
+    #[serde(default)]
+    pub simulation_speed_text: String,
     /// The loaded program's revision.
     pub program_revision: String,
     /// The scheduled tasks.
@@ -124,6 +133,7 @@ mod tests {
         let connection = RuntimeConnection {
             endpoint: "tcp://127.0.0.1:9000".into(),
             token: Some("secret-token".into()),
+            runtime_id: None,
         };
         let printed = format!("{connection:?}");
         assert!(

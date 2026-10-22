@@ -1,7 +1,6 @@
 import { alarmScenario } from "../../hmiBuilder/agent/alarmScenario";
 import { operationTimeout } from "../../hmiBuilder/agent/lifetime";
 import { isLocalSimulator, executeSimulatorJourney, SimulatorJourney } from "../../hmiBuilder/agent/simulator";
-import { controllerBelongsToEquipment } from "../../hmiBuilder/editor/controlStudioHandoff";
 import * as assert from "assert";
 import { scenarioFrame } from "../../hmiBuilder/agent/scenarios";
 import type { Catalogue } from "../../hmiBuilder/editor/catalogue";
@@ -177,12 +176,6 @@ suite("HMI completed authoring contracts", () => {
       (result.outcomes as Array<{ outcome: string }>).map((item) => item.outcome),
       ["pending", "disconnected"],
     );
-  });
-  test("Control Studio handoff matches the actual equipment path boundary", () => {
-    assert.ok(controllerBelongsToEquipment("Main.LIC101", "main.lic101"), "a loop's own Control.PID");
-    assert.ok(controllerBelongsToEquipment("Main.LIC101.Controller", "main.lic101"));
-    assert.ok(!controllerBelongsToEquipment("Main.LIC1010.Controller", "Main.LIC101"));
-    assert.ok(!controllerBelongsToEquipment("Other.Controller", "Main.LIC101"));
   });
   test("synthetic extremes and command outcomes preserve source values and have no runtime transport", () => {
     const source = page(),

@@ -9,6 +9,7 @@ use trust_control::experiment::ExperimentSample;
 use trust_control::failure::Failure;
 use trust_control::identification::loop_sample::experiment_sample;
 use trust_control::loop_definition::LoopDefinition;
+use trust_control::recording::context::{ExperimentContext, PlantContext, RunContext};
 use trust_control::recording::evidence::RecordingEvidence;
 use trust_control::recording::{EvidenceSource, RecordedRun, RecordingFile};
 use trust_control::runtime::RuntimeConnection;
@@ -88,13 +89,18 @@ struct KeptRecording {
 
 /// The loop's working study as the place a run keeps its stopped recordings (`ports.retain`): each run becomes a recording
 /// file with the verdict that labels it (B10.3), written through `storage` before the runtime buffer is released (E4.7,
-/// E11.6). The study it holds is always the one the last keep wrote.
+/// E11.6). The study it holds is always the one the last keep wrote. The experiments the run noted as they ended, and the plant it
+/// noted, are kept in the file of the recording that follows (B10.2).
 pub struct StudyRetention<'a> {
     project_root: &'a Path,
     loop_id: &'a str,
     source: EvidenceSource,
     study: Study,
     kept: Vec<KeptRecording>,
+    /// The experiments noted since the last keep, in the order they ended.
+    experiments: Vec<ExperimentContext>,
+    /// The plant noted since the last keep.
+    plant: Option<PlantContext>,
 }
 
 impl<'a> StudyRetention<'a> {
@@ -112,6 +118,8 @@ impl<'a> StudyRetention<'a> {
             source,
             study,
             kept: Vec::new(),
+            experiments: Vec::new(),
+            plant: None,
         }
     }
 
@@ -133,13 +141,31 @@ impl<'a> StudyRetention<'a> {
 
 impl RecordingRetention for StudyRetention<'_> {
     fn retain(&mut self, run: &RecordedRun, evidence: &RecordingEvidence) -> Result<(), Failure> {
-        let file = RecordingFile::new(self.loop_id, self.source, run.clone(), evidence.clone());
+        let mut file = RecordingFile::new(self.loop_id, self.source, run.clone(), evidence.clone());
+        // The run's context goes with its recording (B10.2, B10.3). A part of it that breaks a rule of the file is left out: the
+        // recording is kept whatever its context says.
+        file.context = RunContext {
+            experiments: self.experiments.clone(),
+            plant: self.plant.clone(),
+        }
+        .checked(self.source);
         let file_id = file.id()?;
         self.study = storage::save_recording(self.project_root, &self.study, &file)?;
         self.kept.push(KeptRecording {
             recording_id: run.recording_id.clone(),
             file_id,
         });
+        // The notes belong to the recording that was kept. A keep that failed leaves them for its retry.
+        self.experiments.clear();
+        self.plant = None;
         Ok(())
+    }
+
+    fn note_experiment(&mut self, experiment: ExperimentContext) {
+        self.experiments.push(experiment);
+    }
+
+    fn note_plant(&mut self, plant: PlantContext) {
+        self.plant = Some(plant);
     }
 }

@@ -48,6 +48,11 @@ export interface RuntimeConnection {
    */
   endpoint: string;
   /**
+   * The runtime this endpoint belongs to, as the extension's selection names it (A2.7). A live request whose loop is bound to
+   * another runtime is refused before it starts. The command line names no selection and leaves it empty.
+   */
+  runtimeId?: string | null;
+  /**
    * The control token, when the runtime requires one.
    */
   token?: string | null;

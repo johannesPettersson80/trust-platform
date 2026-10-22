@@ -639,10 +639,12 @@ fn review_estimation(review: &IdentificationReview) -> &[IdentificationSample] {
     }
 }
 
-/// The qualification of a request: the data checks, and with step-response settings the bounded step analysis's.
+/// The qualification of a request: the data checks, and with step-response settings the bounded step analysis's. An integrating
+/// form has no fraction and no bounded step measurement (N2.3); its held step is checked by the integrator rule at the fit (N2.3a).
 fn qualification_of(request: &QualifyRequest) -> QualifiedIdentificationData {
     let mut qualification = qualify_identification_data(&request.samples, &request.excluded, false);
-    if let Some(settings) = &request.step_response_settings {
+    let measured = request.requested_kind != IdentificationModelSelection::Integrating;
+    if let Some(settings) = request.step_response_settings.as_ref().filter(|_| measured) {
         match bounded_step_measurement(request, settings) {
             Ok(measurement) => qualification.step_response = Some(measurement),
             Err(refusal) => {

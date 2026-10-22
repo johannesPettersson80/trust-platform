@@ -6,16 +6,18 @@
 use serde::Deserialize;
 
 use super::catalog::{own_measurement, CompiledCatalog, CompiledSymbol, CompiledTask, PID_TYPE};
+use super::form::setup_form_model;
 use super::loop_bindings::{
     binding, compiled, cyclic_task, explicit_experiment, loop_id, manual_output_type,
-    measured_signal, measurement_binding, real_type, stated_signal, with_revision, FormSignal,
-    MeasuredSignal,
+    measured_signal, measurement_binding, real_type, required_choice, stated_signal, with_revision,
+    FormSignal, MeasuredSignal,
 };
 use super::pid_bindings::{
     manual_output_tracking, pid_parameters, pid_states, startup_flag_is_bool, startup_reason,
     startup_state,
 };
 use super::texts::generators as texts;
+use super::texts::save;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
     Action, Controller, ControllerLaw, Design, Direction, Execution, ExperimentKind, Limits,
@@ -101,17 +103,10 @@ pub fn pid_loop_definition(
     scope: &LoopScope,
     draft: &PidLoopDraft,
 ) -> Result<LoopDefinition, Failure> {
+    let (process_variable, manipulated_variable) = check_choices(catalog, draft)?;
     let task = pid_task(catalog, draft)?;
-    let process_variable = stated_signal(&measured_signal(
-        &draft.process_variable,
-        "measurement",
-        Some("processVariable"),
-    )?);
-    let manipulated_variable = stated_signal(&measured_signal(
-        &draft.manipulated_variable,
-        "output",
-        Some("manipulatedVariable"),
-    )?);
+    let process_variable = stated_signal(&process_variable);
+    let manipulated_variable = stated_signal(&manipulated_variable);
     let setpoint = setpoint_signal(&draft.setpoint, &process_variable);
     let manual = compiled(catalog, &draft.manual_output)?;
     let startup = draft
@@ -192,6 +187,86 @@ pub fn pid_loop_definition(
         analysis_parameter_symbols: None,
         cascade: None,
     }))
+}
+
+/// The questions of a PID setup, checked in the order the form asks them (`loopSetupForm.ts`, `singleLoop`): the name, the controller, the
+/// parameter record, the measurement, the output, the setpoint, the Auto/Manual signal and the manual output. The measurement and the output
+/// are returned checked. A blank measurement that the controller reads from a value the program computes names that value (`hinted`).
+///
+/// # Errors
+/// A question is blank, or a signal is invalid (`measured_signal`).
+pub(super) fn check_choices(
+    catalog: &CompiledCatalog,
+    draft: &PidLoopDraft,
+) -> Result<(MeasuredSignal, MeasuredSignal), Failure> {
+    required_choice(&draft.name, save::name_needed(), "name")?;
+    required_choice(&draft.instance, texts::controller_needed(), "instance")?;
+    required_choice(
+        &draft.parameter_record,
+        texts::parameter_record_needed(),
+        "parameterRecord",
+    )?;
+    if draft.process_variable.symbol.trim().is_empty() {
+        return Err(blank_measurement(catalog, &draft.instance));
+    }
+    let process_variable = measured_signal(
+        &draft.process_variable,
+        "measurement",
+        Some("processVariable"),
+    )?;
+    let manipulated_variable = measured_signal(
+        &draft.manipulated_variable,
+        "output",
+        Some("manipulatedVariable"),
+    )?;
+    required_choice(&draft.setpoint.symbol, save::setpoint_needed(), "setpoint")?;
+    required_mode(catalog, &draft.mode.symbol, "mode")?;
+    required_choice(
+        &draft.manual_output,
+        save::manual_output_needed(),
+        "manualOutput",
+    )?;
+    Ok((process_variable, manipulated_variable))
+}
+
+/// The refusal of a blank measurement: the sentence, and when the controller reads a value the program computes, the sentence that names it.
+pub(super) fn blank_measurement(catalog: &CompiledCatalog, instance: &str) -> Failure {
+    let computed = setup_form_model(catalog)
+        .prefills
+        .iter()
+        .find(|prefill| prefill.instance == instance)
+        .and_then(|prefill| prefill.computed.as_ref())
+        .map(|computed| computed.process_value.clone());
+    let text = match computed {
+        Some(symbol) => format!(
+            "{}{}",
+            save::signal_symbol_needed("measurement"),
+            texts::computed_measurement_hint(&symbol)
+        ),
+        None => save::signal_symbol_needed("measurement"),
+    };
+    Failure::new(&text, Cause::Settings, NextAction::OpenLoopSetup).with_field("processVariable")
+}
+
+/// The Auto/Manual signal a setup asks for (`loopSetupForm.ts`, `explained`): when the program has no BOOL without an I/O address, Apply
+/// cannot switch any mode, and the sentence says so.
+///
+/// # Errors
+/// The signal is blank.
+pub(super) fn required_mode(
+    catalog: &CompiledCatalog,
+    symbol: &str,
+    field: &str,
+) -> Result<(), Failure> {
+    if !symbol.trim().is_empty() {
+        return Ok(());
+    }
+    let sentence = if setup_form_model(catalog).modes.is_empty() {
+        format!("{} {}", save::mode_needed(), texts::mode_needs_bool())
+    } else {
+        save::mode_needed().to_owned()
+    };
+    required_choice(symbol, &sentence, field)
 }
 
 /// The one cyclic task of the compiled `Control.PID` the draft names (`pidLoopGenerator.ts`, the first checks).
@@ -390,6 +465,14 @@ pub(super) fn pid_seeded_symbols(
 fn snapshot_age_ms(period_ms: f64) -> u64 {
     (5.0 * period_ms).max(500.0).ceil() as u64
 }
+
+#[cfg(test)]
+#[path = "pid_loop_record_tests.rs"]
+mod record_tests;
+
+#[cfg(test)]
+#[path = "pid_loop_test_support.rs"]
+mod test_support;
 
 #[cfg(test)]
 #[path = "pid_loop_tests.rs"]

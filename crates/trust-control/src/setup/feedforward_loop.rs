@@ -8,21 +8,24 @@
 
 use std::collections::BTreeSet;
 
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use serde_json::{json, Value};
 
 use super::catalog::{own_measurement, CompiledCatalog, CompiledSymbol, CompiledTask, PID_TYPE};
 use super::loop_bindings::{
-    binding, compiled, cyclic_task, explicit_experiment, loop_id, manual_output_type,
-    measured_signal, measurement_binding, real_type, state_type, stated_signal, stated_unit,
-    with_revision, FormSignal, MeasuredSignal,
+    binding, blank_when_null, compiled, cyclic_task, explicit_experiment, form_number, loop_id,
+    manual_output_type, measured_signal, measurement_binding, real_type, required_choice,
+    state_type, stated_signal, stated_unit, with_revision, FormSignal, MeasuredSignal,
 };
 use super::pid_bindings::{
     manual_output_tracking, pid_parameters, pid_states, startup_flag_is_bool, startup_reason,
     startup_state,
 };
-use super::pid_loop::{pid_seeded_symbols, setpoint_signal, ModeChoice, SignalChoice};
+use super::pid_loop::{
+    blank_measurement, pid_seeded_symbols, required_mode, setpoint_signal, ModeChoice, SignalChoice,
+};
 use super::texts::generators as texts;
+use super::texts::save;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
     Action, AuxiliaryRole, AuxiliarySignal, ChannelInput, ChannelOutput, Controller,
@@ -78,10 +81,14 @@ pub struct FeedforwardLoopDraft {
     pub manual_output: String,
     /// The measured disturbance the program's feedforward reads.
     pub disturbance: FormSignal,
-    /// The variable that Identify steps to move the disturbance: a simulation or test input the program only reads (C8, D-5).
+    /// The variable that Identify steps to move the disturbance: a simulation or test input the program only reads (C8, D-5); blank, or null,
+    /// when none is chosen.
+    #[serde(default, deserialize_with = "blank_when_null")]
     pub disturbance_command: String,
-    /// The disturbance's identification step, in its unit: positive and at most its span.
-    pub disturbance_step: f64,
+    /// The disturbance's identification step, in its unit: positive and at most its span. The form sends the text typed (`form_number`);
+    /// `check_choices` refuses a blank step, or one that no number reads, under its field.
+    #[serde(default, deserialize_with = "form_number")]
+    pub disturbance_step: Option<f64>,
     /// The feedforward's variables: the gain, and the lead, lag and filtered disturbance together or none.
     pub feedforward: FeedforwardVariables,
     /// The output's identification step; Identify chooses it when absent.
@@ -99,12 +106,20 @@ pub struct FeedforwardLoopDraft {
 pub struct FeedforwardVariables {
     /// The variable that holds the feedforward gain `K_ff`.
     pub gain: String,
-    /// The variable that holds the lead time `T_lead`.
+    /// The variable that holds the lead time `T_lead`; blank when none is chosen.
+    #[serde(default, deserialize_with = "optional_name")]
     pub lead: Option<String>,
-    /// The variable that holds the lag time `T_lag`.
+    /// The variable that holds the lag time `T_lag`; blank when none is chosen.
+    #[serde(default, deserialize_with = "optional_name")]
     pub lag: Option<String>,
-    /// The variable that holds the disturbance filtered through the lag, `z`.
+    /// The variable that holds the disturbance filtered through the lag, `z`; blank when none is chosen.
+    #[serde(default, deserialize_with = "optional_name")]
     pub filtered: Option<String>,
+}
+
+/// A variable the form leaves blank is absent, so "all or none" counts only the variables the engineer named.
+fn optional_name<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<String>, D::Error> {
+    Ok(Option::<String>::deserialize(deserializer)?.filter(|name| !name.trim().is_empty()))
 }
 
 /// The loop definition of a measured-disturbance feedforward, ready for Identify, Tune, Validate and Apply (`feedforwardLoopDefinition`).
@@ -118,6 +133,7 @@ pub fn feedforward_loop_definition(
     scope: &LoopScope,
     draft: &FeedforwardLoopDraft,
 ) -> Result<LoopDefinition, Failure> {
+    check_choices(catalog, draft)?;
     let task = feedforward_task(catalog, draft)?;
     check_variables(draft)?;
     let disturbance = measured_signal(
@@ -141,19 +157,7 @@ pub fn feedforward_loop_definition(
     let command = disturbance_command(catalog, &draft.disturbance_command)?;
     let states = feedforward_states(catalog, draft, &disturbance, &process, &manipulated)?;
     check_startup(catalog, draft, &process)?;
-    let application: Vec<InitializedState> = draft
-        .startup_flag
-        .as_deref()
-        .filter(|flag| !flag.is_empty())
-        .map(startup_state)
-        .into_iter()
-        .collect();
-    let project = ControllerProject::from_value(&project_block(
-        &feedforward_seed(draft),
-        &states,
-        &application,
-    ))
-    .map_err(|message| settings(&message))?;
+    let project = feedforward_project(draft, &states)?;
     let id = loop_id(&draft.name);
     Ok(with_revision(LoopDefinition {
         schema_version: LOOP_SCHEMA_VERSION,
@@ -216,6 +220,30 @@ pub fn feedforward_loop_definition(
     }))
 }
 
+/// The project block of a feedforward: the feedforward seed, its declared states, and the startup-done flag as an application state when the
+/// draft names one (C1, C8).
+///
+/// # Errors
+/// The block does not decode as a controller project.
+fn feedforward_project(
+    draft: &FeedforwardLoopDraft,
+    states: &[InitializedState],
+) -> Result<ControllerProject, Failure> {
+    let application: Vec<InitializedState> = draft
+        .startup_flag
+        .as_deref()
+        .filter(|flag| !flag.is_empty())
+        .map(startup_state)
+        .into_iter()
+        .collect();
+    ControllerProject::from_value(&project_block(
+        &feedforward_seed(draft),
+        states,
+        &application,
+    ))
+    .map_err(|message| settings(&message))
+}
+
 /// The one cyclic task of the compiled `Control.PID` the draft names (`feedforwardGenerator.ts`, the first checks).
 ///
 /// # Errors
@@ -240,28 +268,108 @@ fn feedforward_task<'a>(
     cyclic_task(controller)
 }
 
-/// The lead, lag and filtered variables are all named or all absent, and the variables are distinct from each other and from the loop's
-/// signals (C8). The disturbance command is not one of them: it is the disturbance itself, as the program reads it.
+/// The questions of a measured-disturbance setup, checked in the order the form asks them (`loopSetupForm.ts`): the name, the controller, the
+/// parameter record, the measurement, the output, the setpoint, the Auto/Manual signal and the manual output (the single loop), then the
+/// measured disturbance, the variable that moves it, its identification step, the feedforward gain, and the lead, lag and filtered
+/// variables. A blank measurement that the controller reads from a value the program computes names that value.
 ///
 /// # Errors
-/// The lead, lag and filtered variables are not all or none, or two of the variables are the same.
-fn check_variables(draft: &FeedforwardLoopDraft) -> Result<(), Failure> {
-    let optional = [
-        draft.feedforward.lead.as_deref(),
-        draft.feedforward.lag.as_deref(),
-        draft.feedforward.filtered.as_deref(),
-    ];
-    let named = optional.iter().filter(|symbol| symbol.is_some()).count();
-    if named != 0 && named != optional.len() {
-        return Err(settings(texts::feedforward_gain_group()));
+/// A question is blank, a signal is invalid (`measured_signal`), or the lead, lag and filtered variables are not all or none.
+fn check_choices(catalog: &CompiledCatalog, draft: &FeedforwardLoopDraft) -> Result<(), Failure> {
+    required_choice(&draft.name, save::name_needed(), "name")?;
+    required_choice(&draft.instance, texts::controller_needed(), "instance")?;
+    required_choice(
+        &draft.parameter_record,
+        texts::parameter_record_needed(),
+        "parameterRecord",
+    )?;
+    if draft.process_variable.symbol.trim().is_empty() {
+        return Err(blank_measurement(catalog, &draft.instance));
     }
+    measured_signal(
+        &draft.process_variable,
+        "measurement",
+        Some("processVariable"),
+    )?;
+    measured_signal(
+        &draft.manipulated_variable,
+        "output",
+        Some("manipulatedVariable"),
+    )?;
+    required_choice(&draft.setpoint.symbol, save::setpoint_needed(), "setpoint")?;
+    required_mode(catalog, &draft.mode.symbol, "mode")?;
+    required_choice(
+        &draft.manual_output,
+        save::manual_output_needed(),
+        "manualOutput",
+    )?;
+    measured_signal(
+        &draft.disturbance,
+        "measured disturbance",
+        Some("ff.disturbance"),
+    )?;
+    required_choice(
+        &draft.disturbance_command,
+        texts::disturbance_command_needed(),
+        "ff.disturbanceCommand",
+    )?;
+    if draft.disturbance_step.is_none_or(|step| !step.is_finite()) {
+        return Err(settings(texts::disturbance_step_needed()).with_field("ff.disturbanceStep"));
+    }
+    required_choice(
+        &draft.feedforward.gain,
+        texts::feedforward_gain_needed(),
+        "ff.gain",
+    )?;
+    check_lead_lag(draft)
+}
+
+/// The lead, lag and filtered variables are named together or not at all (C8). When some are named, the first one that is not is the field.
+///
+/// # Errors
+/// Some of the three are named and some are not.
+fn check_lead_lag(draft: &FeedforwardLoopDraft) -> Result<(), Failure> {
+    let variables = [
+        ("ff.lead", &draft.feedforward.lead),
+        ("ff.lag", &draft.feedforward.lag),
+        ("ff.filtered", &draft.feedforward.filtered),
+    ];
+    let named = variables
+        .iter()
+        .filter(|(_, value)| value.is_some())
+        .count();
+    if named == 0 || named == variables.len() {
+        return Ok(());
+    }
+    let missing = variables
+        .iter()
+        .find(|(_, value)| value.is_none())
+        .map_or("ff.lead", |&(field, _)| field);
+    Err(settings(texts::feedforward_gain_group()).with_field(missing))
+}
+
+/// The lead, lag and filtered variables are distinct from the other variables of the loop, and from each other (C8). The disturbance
+/// command is not one of them: it is the disturbance itself, as the program reads it. The lead, lag and filtered variables are named
+/// together or not at all, which `check_choices` checks first.
+///
+/// # Errors
+/// Two of the variables are the same.
+fn check_variables(draft: &FeedforwardLoopDraft) -> Result<(), Failure> {
     let mut owned = vec![
         draft.feedforward.gain.as_str(),
         draft.process_variable.symbol.as_str(),
         draft.manipulated_variable.symbol.as_str(),
         draft.disturbance.symbol.as_str(),
     ];
-    owned.extend(optional.into_iter().flatten());
+    owned.extend(
+        [
+            draft.feedforward.lead.as_deref(),
+            draft.feedforward.lag.as_deref(),
+            draft.feedforward.filtered.as_deref(),
+        ]
+        .into_iter()
+        .flatten(),
+    );
     let distinct: BTreeSet<String> = owned.iter().map(|symbol| symbol.to_uppercase()).collect();
     if distinct.len() != owned.len() {
         return Err(settings(texts::feedforward_variables_distinct()));
@@ -275,13 +383,13 @@ fn check_variables(draft: &FeedforwardLoopDraft) -> Result<(), Failure> {
 /// The step is not positive, or it is larger than the disturbance's span.
 fn check_step(draft: &FeedforwardLoopDraft, disturbance: &MeasuredSignal) -> Result<(), Failure> {
     let span = disturbance.maximum - disturbance.minimum;
-    if draft.disturbance_step > 0.0 && draft.disturbance_step <= span {
-        return Ok(());
+    match draft.disturbance_step {
+        Some(step) if step > 0.0 && step <= span => Ok(()),
+        _ => Err(settings(&texts::feedforward_step_span(
+            span,
+            &disturbance.unit,
+        ))),
     }
-    Err(settings(&texts::feedforward_step_span(
-        span,
-        &disturbance.unit,
-    )))
 }
 
 /// The variable that moves the measured disturbance must be a simulation or test input (C8, D-5): a REAL or LREAL variable that the
@@ -525,7 +633,7 @@ fn feedforward_channels(
                 manual_output_type: Some(manual_output_type(real_type(command)?)),
                 applied_signal_id: None,
                 actuator: actuator(disturbance.minimum, disturbance.maximum),
-                experiment_step: Some(draft.disturbance_step),
+                experiment_step: draft.disturbance_step,
             },
         ],
         outputs: vec![ChannelOutput {

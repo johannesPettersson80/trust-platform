@@ -153,6 +153,7 @@ mod tests {
                 connection: Some(RuntimeConnection {
                     endpoint: "tcp://127.0.0.1:1".to_string(),
                     token: None,
+                    runtime_id: None,
                 }),
                 review: Some("sha256:abc".to_string()),
                 physical_approved: false,

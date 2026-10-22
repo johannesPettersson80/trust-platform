@@ -170,6 +170,7 @@ fn tune_designs_on_a_supplied_model_whose_error_was_never_recorded() {
         previous: None,
         request: &request,
         relay: None,
+        pins: None,
     };
     check_before_start(&inputs)
         .expect("a supplied model is tuned: Tune's error check does not apply (B3.7)");

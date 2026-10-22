@@ -588,6 +588,18 @@ fn record_request(runtime_recording_id: &str) -> StoredRecordRequest {
 }
 
 #[test]
+fn a_section_that_is_not_a_relay_identification_holds_no_relay_record() {
+    // The check reads the section alone (method and request), so a study without a relay record reads no recording for it.
+    let estimation = recording_file(EvidenceSource::SimulatedPlant, 20.0);
+    let runtime_recording = estimation.run.recording_id.clone();
+    let without_request = provisional(&estimation);
+    let with_request =
+        provisional(&estimation).with_record_request(record_request(&runtime_recording));
+    assert!(!crate::study::tune::holds_relay_record(&without_request));
+    assert!(!crate::study::tune::holds_relay_record(&with_request));
+}
+
+#[test]
 fn a_kept_record_request_names_the_runtime_recording_of_the_estimation_file() {
     let estimation = recording_file(EvidenceSource::SimulatedPlant, 20.0);
     let runtime_recording = estimation.run.recording_id.clone();

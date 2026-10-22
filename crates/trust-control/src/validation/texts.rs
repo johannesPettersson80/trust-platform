@@ -13,13 +13,6 @@ pub fn task_requirements_missing() -> String {
     "Enter finite task requirements.".to_owned()
 }
 
-/// The task's target change, response time, settling allowance or duration are not usable together.
-#[must_use]
-pub fn task_requirements_out_of_range() -> String {
-    "Use a nonzero target change, positive response time, a smaller settling allowance than the error limit, and a longer test duration."
-        .to_owned()
-}
-
 /// The Auto-entry tolerance is neither blank for automatic nor a finite nonnegative value.
 #[must_use]
 pub fn transfer_tolerance_invalid() -> String {
@@ -189,6 +182,17 @@ pub fn scenario_overwrites_parameters(id: &str) -> String {
 #[must_use]
 pub fn scenario_events_off_grid(id: &str) -> String {
     format!("Scenario {id} events must fall on a declared task sample within the run.")
+}
+
+/// A scenario event is written between two task samples: its time is not a whole number of task periods. The engineer sees it as the
+/// scenarios change, before a validation runs (B4.3).
+#[must_use]
+pub fn scenario_event_between_samples(id: &str, at_ms: f64, period_ms: f64) -> String {
+    format!(
+        "Scenario {id} writes an event at {} ms, which is not a multiple of the {} ms task period.",
+        js_number(at_ms),
+        js_number(period_ms)
+    )
 }
 
 /// A scenario has duplicate requirement identities or more requirements than one run accepts.

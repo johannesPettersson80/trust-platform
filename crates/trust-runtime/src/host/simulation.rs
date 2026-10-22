@@ -20,6 +20,9 @@ use crate::Runtime;
 
 #[path = "simulation/plant.rs"]
 mod plant;
+/// The speed words and the target kind of a status answer (specification 35, A2.4 and B9.2).
+#[path = "simulation/speed.rs"]
+pub mod speed;
 pub(crate) use plant::SUPPORTED_MODEL_KINDS;
 use plant::{build_config as build_plant_config, PlantEventSection, PlantSection, PlantSystem};
 pub use plant::{PlantConfig, PlantSystemConfig};

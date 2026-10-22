@@ -1,7 +1,8 @@
-import { MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS } from "../controlStudioLimits";
-import { parseDurationSeconds } from "./durationField";
-
-/** The one-page loop setup form: shows the chosen structure's fields, names the first missing item and posts one draft. */
+/** The one-page loop setup form: shows the chosen structure's fields and posts that structure's draft as typed. The draft carries every
+ * field and every row of the structure, each number as the text typed: the engine reads the numbers, takes the fields the law or design
+ * needs, ignores the others and the blank rows, and answers its refusal, which the form shows under the field the refusal names (B1.3).
+ * The preselected choices, the rows drawn and the words shown are the engine's: the template renders them, and the form keeps none of
+ * its own. */
 export function initializeLoopSetupForm(root: HTMLElement, post: (message: unknown) => void): { showError(reason: string, field?: string): void } {
   const form = root.querySelector<HTMLFormElement>("[data-loop-setup]");
   const save = root.querySelector<HTMLButtonElement>("[data-setup-save]");
@@ -13,132 +14,99 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
   const value = (field: string): string => fields.get(field)?.value.trim() ?? "";
   const checked = (field: string): boolean => (fields.get(field) as HTMLInputElement | undefined)?.checked === true;
   const structure = (): string => value("structure");
+  // A refusal that names the startup-done flag opens its section; the section stays open until the structure changes.
+  let startupRefused = false;
+  // The words the engine answered, as the template rendered them on the form (B1.3).
+  const words = { trueMeans: form.dataset.trueMeans ?? "", notFound: form.dataset.notFound ?? "", notStated: form.dataset.notStated ?? "" };
+  /** The indexes of the rows the template drew, which the engine's limits set (B1.3). */
+  const rowIndexes = (selector: string, key: string): number[] => Array.from(root.querySelectorAll<HTMLElement>(selector), row => Number(row.dataset[key]));
 
-  const signal = (field: string, label: string): { value?: { symbol: string; unit: string; minimum: number; maximum: number }; missing?: string } => {
-    const symbol = value(field), unit = value(`${field}.unit`);
-    const minimum = value(`${field}.minimum`), maximum = value(`${field}.maximum`);
-    if (!symbol) return { missing: `Choose the ${label}.` };
-    if (!unit) return { missing: `Enter the ${label} unit.` };
-    if (!minimum || !maximum || !Number.isFinite(Number(minimum)) || !Number.isFinite(Number(maximum))) return { missing: `Enter the ${label} minimum and maximum.` };
-    if (Number(maximum) <= Number(minimum)) return { missing: `The ${label} maximum must be above its minimum.` };
-    return { value: { symbol, unit, minimum: Number(minimum), maximum: Number(maximum) } };
-  };
-  /** The draft for the chosen structure, or the first missing item in reading order. */
-  const draft = (): { draft?: Record<string, unknown>; missing?: string } => {
-    // The engine checks these drafts (C3 to C7, C9, C10, C4, C5): the form posts them as typed, and the engine's refusal is shown.
-    if (structure() === "state-feedback") return { draft: stateFeedbackDraft() };
-    if (structure() === "search") return { draft: searchDraft() };
-    if (structure() === "cascade") return { draft: cascadeDraft() };
-    if (structure() === "smith") return { draft: smithDraft() };
-    if (structure() === "schedule") return { draft: scheduleDraft() };
-    if (structure() === "onoff") return { draft: onOffDraft() };
-    if (structure() === "group") return groupDraft();
-    const name = value("name"), action = value("action") || "direct";
-    if (!name) return { missing: "Enter a loop name." };
-    if (structure() === "identify") {
-      const input = signal("identify.manipulatedVariable", "plant input"); if (input.missing) return input;
-      const output = signal("identify.processVariable", "measured output"); if (output.missing) return output;
-      // The project runs this experiment, so Studio cannot choose its length: the engineer says how long to record it (C12).
-      const seconds = parseDurationSeconds(value("identify.durationSeconds"));
-      if (seconds === undefined || seconds < MINIMUM_EXPERIMENT_DURATION_MS / 1_000 || seconds > MAXIMUM_EXPERIMENT_DURATION_MS / 1_000) {
-        return { missing: "Enter how long to record the project's experiment, from 1 s to 24 h (for example 15 min)." };
-      }
-      return { draft: { structure: "identify", name, manipulatedVariable: input.value, processVariable: output.value, experimentDurationSeconds: seconds } };
-    }
-    if (structure() === "own-law") {
-      const law = ownLawDraft(name, action, ownLaw()); if (!law.draft) return law;
-      return { draft: { structure: "own-law", ...law.draft } };
-    }
-    if (structure() === "trajectory-feedforward") {
-      // The program's PID law, with the planned trajectory it follows, the feedforward term it adds and the two feedforward gains (C11).
-      const law = ownLawDraft(name, action, "PID"); if (!law.draft) return law;
-      const rateGain = gainValue("traj.rateGain", "rate feedforward gain"); if (rateGain.missing) return rateGain;
-      const accelerationGain = gainValue("traj.accelerationGain", "acceleration feedforward gain"); if (accelerationGain.missing) return accelerationGain;
-      const planned = signal("traj.plannedTrajectory", "planned trajectory"); if (planned.missing) return planned;
-      if (!value("traj.feedforwardTerm")) return { missing: "Choose the variable holding the feedforward term." };
-      return { draft: { structure: "trajectory-feedforward", ownLaw: law.draft, rateGain: rateGain.value, accelerationGain: accelerationGain.value,
-        plannedTrajectory: planned.value, feedforwardTerm: value("traj.feedforwardTerm") } };
-    }
-    const loop = singleLoop(name, action); if (loop.missing) return loop;
-    if (structure() !== "feedforward") return loop;
-    // The measured disturbance and the program's feedforward variables (Specification 35 §17.12). The draft is the engine's
-    // FeedforwardLoopDraft (`parse_setup_draft` in setup/save.rs): the step is in the disturbance's unit, and the engine checks its range.
-    const disturbance = signal("ff.disturbance", "measured disturbance"); if (disturbance.missing) return disturbance;
-    if (!value("ff.disturbanceCommand")) return { missing: "Choose the variable Identify steps to move the disturbance." };
-    const step = Number(value("ff.disturbanceStep"));
-    if (!value("ff.disturbanceStep") || !Number.isFinite(step)) return { missing: "Enter the disturbance's identification step, in its unit." };
-    if (!value("ff.gain")) return { missing: "Choose the variable holding the feedforward gain." };
-    const leadLag = [["ff.lead", "lead time"], ["ff.lag", "lag time"], ["ff.filtered", "filtered disturbance the lag keeps"]] as const;
-    const absent = leadLag.find(([field]) => !value(field));
-    if (absent && leadLag.some(([field]) => value(field))) return { missing: `Choose the ${absent[1]} too, or no lead/lag at all.` };
-    return { draft: { ...loop.draft, structure: "feedforward", disturbance: disturbance.value, disturbanceCommand: value("ff.disturbanceCommand"),
-      disturbanceStep: step, feedforward: { gain: value("ff.gain"),
-        ...(absent ? {} : { lead: value("ff.lead"), lag: value("ff.lag"), filtered: value("ff.filtered") }) } } };
-  };
-
-  /** One library PID's fields, shared by the single loop and the feedforward structure. */
-  const singleLoop = (name: string, action: string): { draft?: Record<string, unknown>; missing?: string } => {
-    if (!value("instance")) return { missing: "Choose the controller." };
-    if (!value("parameterRecord")) return { missing: "Choose the parameter record." };
-    const pv = signal("processVariable", "measurement"); if (pv.missing) return hinted(pv, "", "processVariable");
-    const mv = signal("manipulatedVariable", "output"); if (mv.missing) return hinted(mv, "", "manipulatedVariable");
-    if (!value("setpoint")) return hinted({ missing: "Choose the setpoint." }, "", "setpoint");
-    if (!value("mode")) return { missing: "Choose the Auto/Manual signal." };
-    if (!value("manualOutput")) return hinted({ missing: "Choose the manual output." }, "", "manualOutput");
-    const startup = startupFlag(); if (startup.missing) return startup;
-    return { draft: { structure: "pid", name, ...(startup.value ? { startupFlag: startup.value } : {}), instance: value("instance"), action, parameterRecord: value("parameterRecord"),
-      processVariable: pv.value, manipulatedVariable: mv.value, setpoint: { symbol: value("setpoint") },
-      mode: { symbol: value("mode"), whenTrue: value("modeWhenTrue") || "Auto" }, manualOutput: value("manualOutput") } };
-  };
-
-  /** The number of states the chosen estimator model has: one estimate row each (C4). */
-  const estimatorStates = (): number => Number(root.querySelector<HTMLSelectElement>('[data-setup-field="feedback.estimatorModel"]')?.selectedOptions[0]?.dataset.states ?? 0);
-  /** A typed number as the engine reads it: blank or not a number is null, which the engine refuses (B1.3). */
-  const typedNumber = (field: string): number | null => {
-    const text = value(field), parsed = Number(text);
-    return text && Number.isFinite(parsed) ? parsed : null;
-  };
-  /** A signal as the engine reads it (`FormSignal`): its text as typed and its range as numbers. */
+  /** A text the engine reads as absent when it is blank: sent as null, never as "". */
+  const optionalText = (field: string): string | null => value(field) || null;
+  /** A signal as the engine reads it (`FormSignal`): its symbol, its unit and its range, each as typed; the engine reads the numbers. */
   const rawSignal = (field: string) => ({ symbol: value(field), unit: value(`${field}.unit`),
-    minimum: typedNumber(`${field}.minimum`), maximum: typedNumber(`${field}.maximum`) });
-  /** The startup-done flag, when the form asks for one (the program writes a value validation starts from) and the user chose one. */
-  const startupFor = (): Record<string, string> => seededWrite() !== undefined && value("startupFlag") ? { startupFlag: value("startupFlag") } : {};
-  /** The state-feedback draft as the engine reads it (`StateFeedbackLoopDraft`, C4): the form's values as typed, and no check of its own. */
-  const stateFeedbackDraft = (): Record<string, unknown> => {
-    const family = value("feedback.family") || "LQR";
-    const common = { structure: "state-feedback", name: value("name"), action: value("action") || "direct", family, instance: value("feedback.instance"),
-      manipulatedVariable: rawSignal("feedback.manipulatedVariable"), processVariable: rawSignal("feedback.processVariable"),
-      setpoint: { symbol: value("feedback.setpoint") }, referenceGain: value("feedback.referenceGain"),
-      mode: { symbol: value("feedback.mode"), whenTrue: value("feedback.modeWhenTrue") || "Auto" }, manualOutput: value("feedback.manualOutput"), ...startupFor() };
-    // LQG takes the estimator's model file, its measurement noise and one estimate per model state; the other designs take a measured gain (C4).
-    if (family === "LQG") return { ...common, estimator: { modelFile: value("feedback.estimatorModel"), measurementNoise: typedNumber("feedback.measurementNoise"), states: estimateRows() } };
-    return { ...common, gain: value("feedback.gain"), states: furtherOutputs() };
-  };
-  /** The further measured outputs, each with its range and the variable that holds its gain; a row without an output is not sent. */
-  const furtherOutputs = () => ["feedback.state.0", "feedback.state.1", "feedback.state.2"].filter(prefix => value(prefix))
-    .map(prefix => ({ signal: rawSignal(prefix), gain: value(`${prefix}.gain`) }));
-  /** One estimate per state of the model: the estimate's variable, its gain, its observer gain and its process-noise variance. */
-  const estimateRows = () => Array.from({ length: estimatorStates() }, (_, index) => {
-    const prefix = `feedback.estimate.${index}`;
-    return { estimate: value(prefix), gain: value(`${prefix}.gain`), observerGain: value(`${prefix}.observerGain`), processNoise: typedNumber(`${prefix}.processNoise`) };
-  });
-  /** The search draft as the engine reads it (`SearchLawLoopDraft`, C5): the coefficients' values as typed, for the engine to read. */
-  const searchDraft = (): Record<string, unknown> => ({ structure: "search", name: value("name"), action: value("action") || "direct",
-    family: value("search.family") || "MPC", instance: value("search.instance"), processVariable: rawSignal("search.processVariable"),
-    setpoint: { symbol: value("search.setpoint") }, manipulatedVariable: rawSignal("search.manipulatedVariable"),
-    mode: { symbol: value("search.mode"), whenTrue: value("search.modeWhenTrue") || "Auto" }, manualOutput: value("search.manualOutput"), ...startupFor(),
-    coefficients: [0, 1, 2, 3].filter(index => value(`search.coefficient.${index}`)).map(index => ({ symbol: value(`search.coefficient.${index}`),
-      unit: value(`search.coefficient.${index}.unit`), values: value(`search.coefficient.${index}.values`) })),
-    states: [0, 1, 2].filter(index => value(`search.state.${index}`)).map(index => ({ symbol: value(`search.state.${index}`),
-      unit: value(`search.state.${index}.unit`), start: value(`search.state.${index}.start`) || "zero" })) });
+    minimum: value(`${field}.minimum`), maximum: value(`${field}.maximum`) });
+  /** A gain variable of the program's own law as the engine reads it (`OwnLawGain`): its variable and the range Tune may choose, as typed. */
+  const gainOf = (field: string) => ({ symbol: value(field), minimum: value(`${field}.minimum`), maximum: value(`${field}.maximum`) });
   /** A controller's Auto/Manual signal as the engine reads it (`ModeChoice`): its path, and the mode its TRUE value means. */
-  const modeOf = (prefix: string) => ({ symbol: value(`${prefix}mode`), whenTrue: value(`${prefix}modeWhenTrue`) || "Auto" });
+  const modeOf = (prefix: string) => ({ symbol: value(`${prefix}mode`), whenTrue: value(`${prefix}modeWhenTrue`) });
+  /** The startup-done flag, when the user chose one. The engine decides whether the program needs it (C1 Setup). */
+  const startupFor = (): Record<string, string> => value("startupFlag") ? { startupFlag: value("startupFlag") } : {};
+  /** The chosen structure's draft, posted as typed: the engine checks it and answers the refusal. */
+  const draft = (): Record<string, unknown> => {
+    switch (structure()) {
+      case "state-feedback": return stateFeedbackDraft();
+      case "search": return searchDraft();
+      case "cascade": return cascadeDraft();
+      case "smith": return smithDraft();
+      case "schedule": return scheduleDraft();
+      case "onoff": return onOffDraft();
+      case "group": return groupDraft();
+      case "identify": return identifyDraft();
+      case "own-law": return { structure: "own-law", ...ownLawFields(ownLaw()) };
+      case "trajectory-feedforward": return trajectoryDraft();
+      case "feedforward": return feedforwardDraft();
+      default: return pidDraft();
+    }
+  };
+
+  /** The number of states the chosen estimator model has, which sets the estimate rows shown (C4): the engine's count for each model file. */
+  const estimatorStates = (): number => Number(root.querySelector<HTMLSelectElement>('[data-setup-field="feedback.estimatorModel"]')?.selectedOptions[0]?.dataset.states ?? 0);
+  /** The state-feedback draft as the engine reads it (`StateFeedbackLoopDraft`, C4): the form's values as typed, and no check of its own.
+   * It carries the measured gain and further outputs and the estimator for every design; the engine takes the ones the design uses. */
+  const stateFeedbackDraft = (): Record<string, unknown> => ({ structure: "state-feedback", name: value("name"), action: value("action"),
+    family: value("feedback.family"), instance: value("feedback.instance"),
+    manipulatedVariable: rawSignal("feedback.manipulatedVariable"), processVariable: rawSignal("feedback.processVariable"),
+    setpoint: { symbol: value("feedback.setpoint") }, gain: value("feedback.gain"), referenceGain: value("feedback.referenceGain"),
+    states: furtherOutputs(), estimator: { modelFile: value("feedback.estimatorModel"), measurementNoise: value("feedback.measurementNoise"), states: estimateRows() },
+    mode: modeOf("feedback."), manualOutput: value("feedback.manualOutput"), ...startupFor() });
+  /** Each further measured output row the template drew, with its range and the variable that holds its gain, as typed. */
+  const furtherOutputs = () => rowIndexes("[data-feedback-state]", "feedbackState").map(index => `feedback.state.${index}`)
+    .map(prefix => ({ signal: rawSignal(prefix), gain: value(`${prefix}.gain`) }));
+  /** Each estimate row the template drew: the estimate's variable, its gain, its observer gain and its process-noise variance, as typed. */
+  const estimateRows = () => rowIndexes("[data-estimate-state]", "estimateState").map(index => {
+    const prefix = `feedback.estimate.${index}`;
+    return { estimate: value(prefix), gain: value(`${prefix}.gain`), observerGain: value(`${prefix}.observerGain`), processNoise: value(`${prefix}.processNoise`) };
+  });
+  /** The search draft as the engine reads it (`SearchLawLoopDraft`, C5): every coefficient and kept-value row the template drew, as typed. */
+  const searchDraft = (): Record<string, unknown> => ({ structure: "search", name: value("name"), action: value("action"),
+    family: value("search.family"), instance: value("search.instance"), processVariable: rawSignal("search.processVariable"),
+    setpoint: { symbol: value("search.setpoint") }, manipulatedVariable: rawSignal("search.manipulatedVariable"),
+    mode: modeOf("search."), manualOutput: value("search.manualOutput"), ...startupFor(),
+    coefficients: rowIndexes("[data-search-coefficient]", "searchCoefficient").map(index => ({ symbol: value(`search.coefficient.${index}`),
+      unit: value(`search.coefficient.${index}.unit`), values: value(`search.coefficient.${index}.values`) })),
+    states: rowIndexes("[data-search-state]", "searchState").map(index => ({ symbol: value(`search.state.${index}`),
+      unit: value(`search.state.${index}.unit`), start: value(`search.state.${index}.start`) })) });
   /** The single loop's fields as the engine reads them (`PidLoopDraft`, and the structures that extend it: C9, C10), as typed. */
   const singleLoopFields = (): Record<string, unknown> => ({ instance: value("instance"), parameterRecord: value("parameterRecord"),
     processVariable: rawSignal("processVariable"), manipulatedVariable: rawSignal("manipulatedVariable"), setpoint: { symbol: value("setpoint") },
     mode: modeOf(""), manualOutput: value("manualOutput") });
+  /** One library PID as the engine reads it (`PidLoopDraft`, C1), as typed. */
+  const pidDraft = (): Record<string, unknown> => ({ structure: "pid", name: value("name"), action: value("action"), ...startupFor(), ...singleLoopFields() });
+  /** The identify-only draft as the engine reads it (`IdentifyLoopDraft`, C12): the two signals and the recording duration, as typed. The engine
+   * reads the duration's text (a number of seconds or words such as "15 min"). */
+  const identifyDraft = (): Record<string, unknown> => ({ structure: "identify", name: value("name"), manipulatedVariable: rawSignal("identify.manipulatedVariable"),
+    processVariable: rawSignal("identify.processVariable"), experimentDurationSeconds: optionalText("identify.durationSeconds") });
+  /** A program's own P, PI or PID law as the engine reads it (`OwnLawLoopDraft`, C2): its variables and gain ranges as typed. The draft
+   * carries the integral and derivative variables for every law; the engine takes the ones the law uses. */
+  const ownLawFields = (law: string): Record<string, unknown> => ({ name: value("name"), action: value("action"), law, instance: value("own.instance"),
+    processVariable: rawSignal("own.processVariable"), setpoint: { symbol: value("own.setpoint") }, manipulatedVariable: rawSignal("own.manipulatedVariable"),
+    mode: modeOf("own."), manualOutput: value("own.manualOutput"), proportionalGain: gainOf("own.proportionalGain"), ...startupFor(),
+    integralGain: gainOf("own.integralGain"), integralTerm: optionalText("own.integralTerm"),
+    derivativeGain: gainOf("own.derivativeGain"), derivativeState: optionalText("own.derivativeState"), derivativeOn: optionalText("own.derivativeOn") });
+  /** The trajectory feedforward as the engine reads it (`TrajectoryLoopDraft`, C11): the program's PID law, the two feedforward gains, the
+   * planned trajectory and the feedforward term, as typed. */
+  const trajectoryDraft = (): Record<string, unknown> => ({ structure: "trajectory-feedforward", ownLaw: ownLawFields(ownLaw()),
+    rateGain: gainOf("traj.rateGain"), accelerationGain: gainOf("traj.accelerationGain"), plannedTrajectory: rawSignal("traj.plannedTrajectory"),
+    feedforwardTerm: optionalText("traj.feedforwardTerm") });
+  /** The feedforward as the engine reads it (`FeedforwardLoopDraft`, C8): the PID's fields, the measured disturbance, its command and step, and the
+   * feedforward variables, as typed. */
+  const feedforwardDraft = (): Record<string, unknown> => ({ structure: "feedforward", name: value("name"), action: value("action"), ...startupFor(),
+    ...singleLoopFields(), disturbance: rawSignal("ff.disturbance"), disturbanceCommand: optionalText("ff.disturbanceCommand"),
+    disturbanceStep: value("ff.disturbanceStep"),
+    feedforward: { gain: value("ff.gain"), lead: optionalText("ff.lead"), lag: optionalText("ff.lag"), filtered: optionalText("ff.filtered") } });
   /** The cascade draft as the engine reads it (`CascadeLoopDraft`, C6): both controllers and their signals as typed. The outer has no manual output. */
-  const cascadeDraft = (): Record<string, unknown> => ({ structure: "cascade", name: value("name"), action: value("action") || "direct", ...startupFor(),
+  const cascadeDraft = (): Record<string, unknown> => ({ structure: "cascade", name: value("name"), action: value("action"), ...startupFor(),
     outer: { instance: value("outer.instance"), parameterRecord: value("outer.parameterRecord"), mode: modeOf("outer."),
       processVariable: rawSignal("outer.processVariable"), setpoint: { symbol: value("outer.setpoint") } },
     inner: { instance: value("inner.instance"), parameterRecord: value("inner.parameterRecord"), mode: modeOf("inner."),
@@ -146,115 +114,55 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
       manipulatedVariable: rawSignal("inner.manipulatedVariable") } });
   /** The Smith predictor's draft as the engine reads it (`SmithLoopDraft`, C9): the single loop, the model's variables and, when the
    * program uses the library block, its four variables together. */
-  const smithDraft = (): Record<string, unknown> => ({ structure: "smith", name: value("name"), action: value("action") || "direct", ...singleLoopFields(),
+  const smithDraft = (): Record<string, unknown> => ({ structure: "smith", name: value("name"), action: value("action"), ...singleLoopFields(),
     ...startupFor(), model: { gain: value("smith.gain"), timeConstant: value("smith.timeConstant"), delay: value("smith.delay"), correction: value("smith.correction") },
     ...(checked("smith.libraryBlock") ? { libraryBlock: { output: value("smith.block.output"), maximumCorrection: value("smith.block.maximumCorrection"),
       operatingInput: value("smith.block.operatingInput"), operatingOutput: value("smith.block.operatingOutput") } } : {}) });
-  /** The gain schedule's draft as the engine reads it (`ScheduleLoopDraft`, C10): the single loop, the scheduling variable and each point
-   * that has any entry. */
-  const scheduleDraft = (): Record<string, unknown> => ({ structure: "schedule", name: value("name"), action: value("action") || "direct", ...singleLoopFields(),
+  /** The gain schedule's draft as the engine reads it (`ScheduleLoopDraft`, C10): the single loop, the scheduling variable and every
+   * operating-point row the template drew, as typed; the engine takes the rows that have an entry. */
+  const scheduleDraft = (): Record<string, unknown> => ({ structure: "schedule", name: value("name"), action: value("action"), ...singleLoopFields(),
     ...startupFor(), scheduling: { symbol: value("schedule.variable"), unit: value("schedule.variable.unit") },
-    points: [0, 1, 2, 3].filter(index => ["name", "value", "tolerance", "proportionalGain", "integralGain"].some(part => value(`schedule.${index}.${part}`)))
-      .map(index => ({ name: value(`schedule.${index}.name`), value: typedNumber(`schedule.${index}.value`), tolerance: typedNumber(`schedule.${index}.tolerance`),
-        proportionalGain: value(`schedule.${index}.proportionalGain`), integralGain: value(`schedule.${index}.integralGain`) })) });
+    points: rowIndexes("[data-schedule-point]", "schedulePoint").map(index => ({ name: value(`schedule.${index}.name`), value: value(`schedule.${index}.value`),
+      tolerance: value(`schedule.${index}.tolerance`), proportionalGain: value(`schedule.${index}.proportionalGain`), integralGain: value(`schedule.${index}.integralGain`) })) });
   /** The ON/OFF controller's draft as the engine reads it (`OnOffLoopDraft`, C3): the switched output, its levels and its equipment limits as
-   * typed. A blank number is null, and a blank equipment time is never zero. */
-  const onOffDraft = (): Record<string, unknown> => ({ structure: "onoff", name: value("name"), action: value("action") || "direct", ...startupFor(),
+   * typed. The engine reads a blank level as the output's limit and a blank equipment time as not declared, never zero. */
+  const onOffDraft = (): Record<string, unknown> => ({ structure: "onoff", name: value("name"), action: value("action"), ...startupFor(),
     instance: value("onoff.instance"), processVariable: rawSignal("onoff.processVariable"), setpoint: { symbol: value("onoff.setpoint") },
     manipulatedVariable: rawSignal("onoff.manipulatedVariable"), mode: modeOf("onoff."), manualOutput: value("onoff.manualOutput"),
-    hysteresis: value("onoff.hysteresis"), bandConvention: value("onoff.bandConvention") || "half-band",
+    hysteresis: value("onoff.hysteresis"), bandConvention: value("onoff.bandConvention"),
     minimumOn: value("onoff.minimumOn"), minimumOff: value("onoff.minimumOff"), latch: value("onoff.latch"),
     ...(value("onoff.dwellTimer") ? { dwellTimer: value("onoff.dwellTimer") } : {}),
-    equipmentMinimumOnSeconds: typedNumber("onoff.equipmentMinimumOn"), equipmentMinimumOffSeconds: typedNumber("onoff.equipmentMinimumOff"),
-    lowOutput: typedNumber("onoff.lowOutput"), highOutput: typedNumber("onoff.highOutput"),
+    equipmentMinimumOnSeconds: value("onoff.equipmentMinimumOn"), equipmentMinimumOffSeconds: value("onoff.equipmentMinimumOff"),
+    lowOutput: value("onoff.lowOutput"), highOutput: value("onoff.highOutput"),
     ...(value("onoff.thresholdEquality") ? { thresholdEquality: value("onoff.thresholdEquality") } : {}) });
   /** The PID group's draft as the engine reads it (`GroupLoopDraft`, C7): the included members and the decoupler's variables, as typed.
    * The engine checks it, including the decoupler's rule that a member drives a plant input, not its controller's own output. */
-  const groupDraft = (): { draft?: Record<string, unknown>; missing?: string } => {
+  const groupDraft = (): Record<string, unknown> => {
     const prefixes = included(), decoupled = checked("group.decoupled");
     const members = prefixes.map(prefix => ({ instance: value(`${prefix}instance`), parameterRecord: value(`${prefix}parameterRecord`),
       processVariable: rawSignal(`${prefix}processVariable`), manipulatedVariable: rawSignal(`${prefix}manipulatedVariable`),
       setpoint: { symbol: value(`${prefix}setpoint`) }, manualOutput: value(`${prefix}manualOutput`) }));
     const decoupler = decoupled ? members.map((_, row) => members.map((_, column) => value(`group.decoupler.${row}.${column}`))) : undefined;
-    return { draft: { structure: "group", name: value("name"), action: value("action") || "direct", ...startupFor(),
-      mode: { symbol: value("group.mode"), whenTrue: value("group.modeWhenTrue") || "Auto" }, members, ...(decoupler ? { decoupler } : {}) } };
+    return { structure: "group", name: value("name"), action: value("action"), ...startupFor(),
+      mode: modeOf("group."), members, ...(decoupler ? { decoupler } : {}) };
   };
-  // A trajectory feedforward's program law is PID (C11); the other own-law setups take the chosen law.
-  const ownLaw = (): string => structure() === "trajectory-feedforward" ? "PID" : value("own.law") || "PI";
-  /** A program's own P, PI or PID law, with its variables, gain ranges and startup flag, as the own-law and trajectory setups ask for them. */
-  const ownLawDraft = (name: string, action: string, law: string): { draft?: Record<string, unknown>; missing?: string } => {
-    if (!value("own.instance")) return { missing: "Choose the instance that computes the law." };
-    const pv = signal("own.processVariable", "measurement"); if (pv.missing) return pv;
-    if (!value("own.setpoint")) return { missing: "Choose the setpoint." };
-    const mv = signal("own.manipulatedVariable", "output"); if (mv.missing) return mv;
-    if (!value("own.mode")) return { missing: "Choose the Auto/Manual signal." };
-    if (!value("own.manualOutput")) return { missing: "Choose the manual output." };
-    const integrating = law !== "P", differentiating = law === "PID";
-    const proportional = gainValue("own.proportionalGain", "proportional gain"); if (proportional.missing) return proportional;
-    const integral = integrating ? gainValue("own.integralGain", "integral gain") : {}; if (integral.missing) return integral;
-    if (integrating && !value("own.integralTerm")) return { missing: "Choose the variable holding the integral term." };
-    const derivative = differentiating ? gainValue("own.derivativeGain", "derivative gain") : {}; if (derivative.missing) return derivative;
-    if (differentiating && !value("own.derivativeState")) return { missing: "Choose the variable holding the previous value the derivative is taken from." };
-    if (differentiating && !value("own.derivativeOn")) return { missing: "Choose whether that previous value is the error or the measurement." };
-    const startup = startupFlag(); if (startup.missing) return startup;
-    return { draft: { name, action, ...(startup.value ? { startupFlag: startup.value } : {}), law,
-      instance: value("own.instance"), processVariable: pv.value, setpoint: { symbol: value("own.setpoint") }, manipulatedVariable: mv.value,
-      mode: { symbol: value("own.mode"), whenTrue: value("own.modeWhenTrue") || "Auto" }, manualOutput: value("own.manualOutput"),
-      proportionalGain: proportional.value, ...(integrating ? { integralGain: integral.value, integralTerm: value("own.integralTerm") } : {}),
-      ...(differentiating ? { derivativeGain: derivative.value, derivativeState: value("own.derivativeState"), derivativeOn: value("own.derivativeOn") } : {}) } };
+  /** The controller instances the chosen structure runs, as the form names their fields. The startup section asks for a flag when one of them needs it. */
+  const chosenInstances = (): string[] => {
+    const names = structure() === "cascade" ? ["outer.instance", "inner.instance"] : structure() === "group" ? included().map(prefix => `${prefix}instance`)
+      : structure() === "own-law" || structure() === "trajectory-feedforward" ? ["own.instance"] : structure() === "onoff" ? ["onoff.instance"]
+      : structure() === "state-feedback" ? ["feedback.instance"] : structure() === "search" ? ["search.instance"] : ["instance"];
+    return names.map(name => value(name));
   };
-  /** A gain variable of the program's own law with the range Tune may choose from. */
-  const gainValue = (field: string, label: string): { value?: { symbol: string; minimum: number; maximum: number }; missing?: string } => {
-    const symbol = value(field), minimum = value(`${field}.minimum`), maximum = value(`${field}.maximum`);
-    if (!symbol) return { missing: `Choose the variable holding the ${label}.` };
-    if (!minimum || !maximum || !Number.isFinite(Number(minimum)) || !Number.isFinite(Number(maximum))) return { missing: `Enter the ${label} minimum and maximum.` };
-    if (Number(maximum) <= Number(minimum)) return { missing: `The ${label} maximum must be above its minimum.` };
-    return { value: { symbol, minimum: Number(minimum), maximum: Number(maximum) } };
-  };
-  /** Validation starts the program from seeded values: the setpoint, manual outputs, modes, parameter records and PID states.
-   * Code that writes one of them itself, typically a startup branch, would replace it on the first scan. */
-  const listed = (kind: string) => new Set(Array.from(root.querySelectorAll(`[data-setup-writes] li[data-kind="${kind}"]`)).map(item => item.textContent ?? ""));
-  const writes = listed("write"), initializes = listed("initialize");
+  // A trajectory feedforward's program law is the one its section holds (C11, the engine's preselection); the other own-law setups take the chosen law.
+  const ownLaw = (): string => structure() === "trajectory-feedforward" ? value("traj.ownLaw") : value("own.law");
   const included = (): string[] => Array.from(root.querySelectorAll<HTMLInputElement>('[data-setup-field^="group."][data-setup-field$=".include"]'))
     .filter(box => box.checked).map(box => (box.dataset.setupField ?? "").replace(/include$/, ""));
-  const seededWrite = (): string | undefined => {
-    const cascade = structure() === "cascade", group = structure() === "group", onoff = structure() === "onoff", feedback = structure() === "state-feedback";
-    const own = structure() === "own-law" || structure() === "trajectory-feedforward", search = structure() === "search";
-    if (structure() === "identify") return undefined;
-    const prefixes = cascade ? ["outer.", "inner."] : group ? included() : onoff ? ["onoff."] : feedback ? ["feedback."] : own ? ["own."] : search ? ["search."] : [""];
-    const instance = prefixes.map(prefix => value(`${prefix}instance`)).find(name => initializes.has(name));
-    if (instance) return `The program initializes ${instance} in its own code.`;
-    // A switching controller's settings are seeded like a parameter record; its latch and dwell timer are its own running state,
-    // as the integral term is of a law the program computes itself.
-    const symbols = [...(cascade ? [value("outer.setpoint")] : group ? [value("group.mode"), ...prefixes.map(prefix => value(`${prefix}setpoint`))]
-      : onoff ? ["setpoint", "hysteresis", "minimumOn", "minimumOff"].map(field => value(`onoff.${field}`))
-      : feedback ? ["setpoint", "gain", "referenceGain", "state.0.gain", "state.1.gain", "state.2.gain"].map(field => value(`feedback.${field}`))
-      : own ? ["setpoint", "proportionalGain", ...(ownLaw() !== "P" ? ["integralGain"] : []), ...(ownLaw() === "PID" ? ["derivativeGain"] : [])]
-        .map(field => value(`own.${field}`))
-      : search ? [value("search.setpoint"), ...[0, 1, 2, 3].map(index => value(`search.coefficient.${index}`))] : [value("setpoint")]),
-      ...prefixes.flatMap(prefix => [value(`${prefix}manualOutput`), value(`${prefix}mode`)])].filter(Boolean);
-    // A gain schedule's program writes the PID's record from its table on every scan, by design.
-    const records = structure() === "schedule" ? [] : prefixes.map(prefix => value(`${prefix}parameterRecord`)).filter(Boolean);
-    const written = symbols.find(symbol => writes.has(symbol)) ?? [...writes].find(symbol => records.some(record => symbol.startsWith(`${record}.`)));
-    return written ? `The program writes ${written} in its own code.` : undefined;
-  };
-  const startupFlag = (): { value?: string; missing?: string } => {
-    const reason = seededWrite();
-    if (!reason) return {};
-    const flag = value("startupFlag");
-    return flag ? { value: flag } : { missing: `${reason} Choose the flag that marks its startup as done, so validation keeps the values it starts from.` };
-  };
-  /** When a field is still empty because the controller's own variable cannot serve, say why and what to choose. */
-  const hinted = <T extends { missing?: string }>(state: T, prefix: string, field: string): T => {
-    if (value(`${prefix}${field}`)) return state;
-    const prefill = prefills.get(value(`${prefix}instance`));
-    const computed = field === "processVariable" ? prefill?.computedProcessValue : undefined;
-    if (computed) return { ...state, missing: `${state.missing} The controller reads ${computed}, which the program computes, so a simulated `
-      + "measurement would be overwritten every scan; choose the measurement it is computed from." };
-    return state;
-  };
+  /** The controllers whose program needs the startup-done flag at their default settings: the engine's answer (C1 Setup). */
+  const flaggedInstances = new Set(Array.from(root.querySelectorAll<HTMLElement>("[data-setup-startup-instances] li")).map(item => item.textContent ?? ""));
   /** A chosen controller fills in what its own calls say, except fields the user has chosen. */
   const prefills = new Map(Array.from(root.querySelectorAll<HTMLElement>("[data-setup-prefills] li")).map(item => [item.dataset.instance ?? "", item.dataset]));
+  /** The loop name the engine starts from for each library PID (B1.3). */
+  const loopNames = new Map(Array.from(root.querySelectorAll<HTMLElement>("[data-setup-loop-names] li")).map(item => [item.dataset.instance ?? "", item.dataset.name ?? ""]));
   // The Auto/Manual signal, what its TRUE means and the startup-done flag come from the code too (Specification 35 §17.1).
   const prefilled: Record<string, readonly [string, string][]> = {
     "": [["parameterRecord", "parameterRecord"], ["manipulatedVariable", "manipulatedVariable"], ["setpoint", "setpoint"], ["processVariable", "processValue"], ["manualOutput", "manualOutput"],
@@ -277,6 +185,7 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
   form.addEventListener("change", event => {
     const target = event.target as HTMLElement | null, field = target?.dataset?.setupField;
     if (!target || !field) return;
+    if (field === "structure") startupRefused = false;
     if (field.endsWith("instance")) fillFrom(field.slice(0, -"instance".length));
     else if (target.tagName === "SELECT") target.dataset.edited = "true";
   });
@@ -297,17 +206,18 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
   const refreshFound = (): void => {
     for (const element of Array.from(root.querySelectorAll<HTMLElement>("[data-setup-found-value]"))) {
       const field = element.dataset.setupFoundValue ?? "";
-      const text = field === "mode" ? (chosenText("mode") ? `${chosenText("mode")} · TRUE means ${chosenText("modeWhenTrue") || "Auto"}` : "")
+      const text = field === "mode" ? (chosenText("mode") ? `${chosenText("mode")} · ${words.trueMeans} ${chosenText("modeWhenTrue")}` : "")
         : field === "task" ? tasks.get(value("instance")) ?? ""
         : chosenText(field);
-      element.textContent = text || (field === "task" ? "Not stated in the code" : "Not found in the code");
+      element.textContent = text || (field === "task" ? words.notStated : words.notFound);
     }
   };
   const nameField = fields.get("name") as HTMLInputElement | undefined;
   if (nameField) nameField.addEventListener("input", () => { nameField.dataset.auto = "false"; });
   const prefillName = (): void => {
-    if (!nameField || nameField.dataset.auto === "false" || !value("instance")) return;
-    nameField.value = value("instance").split(".").pop() ?? value("instance");
+    const offered = loopNames.get(value("instance"));
+    if (!nameField || nameField.dataset.auto === "false" || offered === undefined) return;
+    nameField.value = offered;
     nameField.dataset.auto = "true";
   };
   for (const button of Array.from(root.querySelectorAll<HTMLButtonElement>("[data-setup-change]"))) {
@@ -320,14 +230,20 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
     });
   }
 
-  /** The engine's refusal sits under the field it names (`Failure.field`); a refusal that names none replaces the completeness hint (B1.3). */
+  /** The engine's refusal sits under the field it names (`Failure.field`), or in the message area when it names none or the field is hidden (B1.3). */
   let refusal: HTMLElement | undefined;
   const clearRefusal = (): void => { refusal?.remove(); refusal = undefined; };
   const showRefusal = (reason: string, field = ""): void => {
     clearRefusal();
+    if (field === "startupFlag") {
+      startupRefused = true;
+      const startup = root.querySelector<HTMLElement>("[data-setup-startup]");
+      if (startup) startup.hidden = false;
+    }
     const element = fields.get(field);
-    message.textContent = element ? "" : reason;
-    if (!element) return;
+    const visible = element !== undefined && !element.closest("[hidden]");
+    message.textContent = visible ? "" : reason;
+    if (!element || !visible) return;
     refusal = root.ownerDocument.createElement("p");
     refusal.className = "studio-action-message";
     refusal.setAttribute("role", "alert");
@@ -336,6 +252,7 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
   };
   const render = (): void => {
     clearRefusal();
+    message.textContent = "";
     prefillName();
     refreshFound();
     for (const group of Array.from(root.querySelectorAll<HTMLElement>("[data-setup-range-group]"))) {
@@ -383,10 +300,10 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
       const [row, column] = (entry.dataset.decouplerEntry ?? "").split(".").map(Number);
       entry.hidden = !decoupled || row >= size || column >= size;
     });
-    // A further operating point appears once the previous one has a name.
+    // A further operating point appears once the previous one has a name. The points the engine always asks for are not optional (C10).
     root.querySelectorAll<HTMLElement>("[data-schedule-point]").forEach(row => {
       const index = Number(row.dataset.schedulePoint);
-      row.hidden = index > 1 && !value(`schedule.${index - 1}.name`) && !value(`schedule.${index}.name`);
+      row.hidden = row.hasAttribute("data-schedule-optional") && !value(`schedule.${index - 1}.name`) && !value(`schedule.${index}.name`);
     });
     // The Smith predictor's library block is asked together, and only when the program uses it (C9).
     const smithBlock = root.querySelector<HTMLElement>("[data-smith-block]");
@@ -396,25 +313,17 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
       const level = fields.get(field) as HTMLInputElement | undefined;
       if (level) level.placeholder = value(limit) || "output limit";
     }
+    // The startup-done section shows where the engine asks for a flag: a chosen controller that needs one, a refusal that names it, or a flag
+    // the user has already chosen (C1 Setup).
     const startup = root.querySelector<HTMLElement>("[data-setup-startup]");
-    if (startup) startup.hidden = seededWrite() === undefined;
-    const state = draft();
-    save.disabled = !state.draft;
-    message.textContent = explained(state.missing ?? "");
+    if (startup) startup.hidden = !(startupRefused || value("startupFlag") || chosenInstances().some(name => flaggedInstances.has(name)));
   };
-  /** An empty Auto/Manual list means every BOOL has an I/O address; say why, since Apply switches the mode directly. */
-  const explained = (missing: string): string => /Auto\/Manual signal/.test(missing)
-    && !Array.from(root.querySelectorAll<HTMLSelectElement>('select[data-setup-field$="mode"]')).some(select => Array.from(select.options).some(option => option.value))
-    ? `${missing} It must be a BOOL without an I/O address, because Apply switches it directly; declare one without AT.` : missing;
   form.addEventListener("input", render);
   form.addEventListener("change", render);
   root.querySelector("[data-setup-step-by-step]")?.addEventListener("click", () => post({ kind: "control-studio.setup.step-by-step" }));
-  save.addEventListener("click", () => {
-    const state = draft();
-    if (state.draft) post({ kind: "control-studio.setup.save", draft: state.draft });
-  });
+  save.addEventListener("click", () => post({ kind: "control-studio.setup.save", draft: draft() }));
   render();
   form.dataset.ready = "true";
-  // A refused save keeps the form and its values; the reason replaces the completeness hint, or sits under the field it names.
+  // A refused save keeps the form and its values; the reason sits under the field it names, or in the message area.
   return { showError: (reason, field) => showRefusal(reason, field) };
 }

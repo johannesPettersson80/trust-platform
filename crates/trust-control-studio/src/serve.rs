@@ -238,6 +238,7 @@ mod tests {
             progress: Some("Recording the plant".to_string()),
             result: None,
             failure: None,
+            message: None,
         });
         let sent = frames(&output);
         assert_eq!(sent.len(), 1);

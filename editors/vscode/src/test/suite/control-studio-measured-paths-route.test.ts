@@ -42,14 +42,13 @@ function fakeEngine(requests: Array<Record<string, unknown>>): ControlStudioEngi
 }
 
 /** Opens the loop on a route that serves it or not, then sends the page's measured-paths calculation; returns the engine's requests of it. */
-async function calculateOn(served: boolean, parkedModel: unknown): Promise<Array<Record<string, unknown>>> {
+async function calculateOn(served: boolean): Promise<Array<Record<string, unknown>>> {
   const requests: Array<Record<string, unknown>> = [];
   const route = createAnalyzeRoute({
     client: fakeEngine(requests),
     projectRoot: "/project",
     post: async () => undefined,
     served: () => served,
-    parkedModel: () => parkedModel,
     settled: async () => undefined,
   });
   await route.opened(LOOP, SCOPE, undefined);
@@ -60,15 +59,15 @@ async function calculateOn(served: boolean, parkedModel: unknown): Promise<Array
 
 suite("Control Studio measured paths route", () => {
   test("sends a served loop's measured paths to the engine with the page's windows and tolerance, and no TypeScript model", async () => {
-    const requests = await calculateOn(true, { selected: "parked-model" });
+    const requests = await calculateOn(true);
     const run = requests.find(request => request.tool === "measuredPaths");
     assert.deepStrictEqual(run, { projectRoot: "/project", runtimeId: "runtime-test", loopId: "loop-test", tool: "measuredPaths", inputs: INPUTS });
     assert.strictEqual(run !== undefined && "model" in run, false, "the engine takes the study's model of a served loop");
   });
 
-  test("sends a parked loop's measured paths with the TypeScript session's model (V7.17 debt)", async () => {
-    const requests = await calculateOn(false, { selected: "parked-model" });
+  test("sends a loop the engine does not serve its measured paths with no model: the TypeScript session's model is gone (W5-R)", async () => {
+    const requests = await calculateOn(false);
     const run = requests.find(request => request.tool === "measuredPaths");
-    assert.deepStrictEqual(run?.model, { selected: "parked-model" });
+    assert.strictEqual(run !== undefined && "model" in run, false, "the engine answers the loop's own refusal, not a model of the page");
   });
 });

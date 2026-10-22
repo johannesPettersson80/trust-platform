@@ -1,9 +1,9 @@
 {
-  "docs/diagrams/architecture/control-finite-search.puml": "2e8ed69a1372d294f3aee91758014da95b48b5a0751444a37967fcf437fda362",
-  "docs/diagrams/architecture/control-lesson01-sequence.puml": "eb5323ae1eca6ce879875607befbcdc90ddc58c9af51e10394b01d0d28514519",
+  "docs/diagrams/architecture/control-finite-search.puml": "20aab942ced7609d91afba0e430a04887932d500e9e6d297ea34bfaa4692eb0d",
+  "docs/diagrams/architecture/control-lesson01-sequence.puml": "b2516ecf7a3997a868f53eeaaec7c1d1a8e93d1eb132d461c07986c00eb5c9b2",
   "docs/diagrams/architecture/control-parameter-transactions.puml": "e5ce873bf7fcccaa8e983f4df76db05bfda77d0074bf96724093f1d83967afbf",
   "docs/diagrams/architecture/control-pid-library.puml": "35b8c7221faf868a7b46bbf606b0d4bde6dbed0dc09f20356189a0f5189e050f",
-  "docs/diagrams/architecture/control-studio.puml": "b82bebc36db51f16f69ed4b1c260872f183e3dccb6cdc116db69cfb6032bd323",
+  "docs/diagrams/architecture/control-studio.puml": "e76184877ba8ba8bc804655b5d826d93f52a1a52610c766cc8694c718e28a735",
   "docs/diagrams/architecture/control-symbolic-acquisition.puml": "c8668665908369ffa0daebe66b9aabc635cef5d5c5d985ef38e244500eaf73bc",
   "docs/diagrams/architecture/examples-project-landing.puml": "dc34879cdc7b862a0b32b7f81b8f35d8451298b701cd58545e0de27a57286956",
   "docs/diagrams/architecture/full-software-map-generated.puml": "2125dbe9ab8fc0391bcef916c9c86fa8584f9285a430c4161ebf7cf064246e25",
@@ -33,7 +33,7 @@
   "docs/diagrams/debug/debug-step-sequence.puml": "425cfe934e8cf514d6ea12a951a1cddb8a141df14008ad04bc65e5b79b277e66",
   "docs/diagrams/debug/debug-threads.puml": "4fed9498216aba135cca3439ac2efd5e92dbe58f77fb56307a670447a4775859",
   "docs/diagrams/hir/hir-semantics.puml": "5c942477ac4c5571b570a7315d2fa6a6a50838e5fe4176d264751480add2c71b",
-  "docs/diagrams/lsp/compiled-binding-sources.puml": "d5ed183989725384bc3880930eced3ec745f173fd9761a7103ca43a93f0adadd",
+  "docs/diagrams/lsp/compiled-binding-sources.puml": "d239446b9578abb6b71b07ac1ad450e4c89374464a284ae232787f28eb1909c5",
   "docs/diagrams/lsp/lsp-request-flow.puml": "6e01ac808f17c89bcf23d6bfab99f53b4de892672ff307e25d002435497358cd",
   "docs/diagrams/syntax/syntax-pipeline.puml": "6cd48f7f6c7b61b6164589441f0bd11bef30a1a4fd5cb0f4103f5bdcc2086b48"
 }

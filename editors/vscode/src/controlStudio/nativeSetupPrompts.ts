@@ -1,146 +1,98 @@
+import * as fs from "fs";
 import * as vscode from "vscode";
-import { SETUP_PHASE_NAMES, type SetupPromptContext, type SetupPromptPresenter, type SetupPromptResult } from "./setupPromptTypes";
+import type { SetupQuestion } from "./generated/SetupStepResult";
+import type { SetupPromptPresenter, SetupQuestionContext, SetupQuestionResult } from "./setupPromptTypes";
 
-const titleFor = (options: { title?: string }, context: SetupPromptContext): string =>
-  `${SETUP_PHASE_NAMES[context.phase]} · ${options.title ?? "Setup"}`;
+/*
+ * The step-by-step setup's questions as VS Code shows them (specification 35, B1.3). The engine names each question, its choices and its
+ * kind, and checks each answer. This presenter shows the question and the engine's refusal of the last answer, and returns the answer as the
+ * engineer gave it: the text typed, the value of the chosen item, or the text of the file chosen. It validates nothing.
+ */
 
-function disposeAll(control: vscode.QuickInput, subscriptions: vscode.Disposable[]): void {
+export const nativeSetupPrompts: SetupPromptPresenter = {
+  ask: (question, context) => {
+    if (question.kind === "choice") return pick(question, context);
+    if (question.kind === "file") return chooseFile(question, context);
+    return typeText(question, context);
+  },
+};
+
+const titleOf = (question: SetupQuestion): string => `${question.phaseName} · ${question.title}`;
+
+function disposeAll(control: { dispose(): void }, subscriptions: vscode.Disposable[]): void {
   for (const subscription of subscriptions) subscription.dispose();
   control.dispose();
 }
 
-function itemKey(item: string | vscode.QuickPickItem): string {
-  return typeof item === "string" ? item : `${item.label}\u0000${item.description ?? ""}`;
-}
-
-function sameItem(left: unknown, right: string | vscode.QuickPickItem): boolean {
-  if (left === right) return true;
-  if (typeof left === "string") return left === itemKey(right) || left === (typeof right === "string" ? right : right.label);
-  if (!left || typeof left !== "object") return false;
-  return itemKey(left as vscode.QuickPickItem) === itemKey(right);
-}
-
-function validationBlocks(validation: string | vscode.InputBoxValidationMessage | undefined): boolean {
-  if (typeof validation === "string") return validation.length > 0;
-  return validation?.severity === vscode.InputBoxValidationSeverity.Error;
-}
-
-function input(options: vscode.InputBoxOptions, context: SetupPromptContext): Promise<SetupPromptResult<string>> {
+/** A question that takes text: a name, a unit, a number or a rate limit. The refusal of the last answer shows under the box. */
+function typeText(question: SetupQuestion, context: SetupQuestionContext): Promise<SetupQuestionResult> {
   const control = vscode.window.createInputBox();
   const subscriptions: vscode.Disposable[] = [];
   let settled = false;
-  let validationAttempt = 0;
-  const settle = (result: SetupPromptResult<string>): void => {
-    if (settled) return;
-    settled = true;
-    disposeAll(control, subscriptions);
-    resolver(result);
-  };
-  let resolver!: (result: SetupPromptResult<string>) => void;
-  const result = new Promise<SetupPromptResult<string>>(resolve => { resolver = resolve; });
-
-  control.title = titleFor(options, context);
-  control.step = context.phase;
-  control.totalSteps = 4;
-  control.prompt = options.prompt;
-  control.placeholder = options.placeHolder;
-  control.password = options.password ?? false;
-  control.ignoreFocusOut = options.ignoreFocusOut ?? false;
-  control.value = typeof context.previous === "string" ? context.previous : options.value ?? "";
-  control.valueSelection = options.valueSelection;
-  control.buttons = context.canGoBack ? [vscode.QuickInputButtons.Back] : [];
-  const validate = async (value: string, accepting = false): Promise<void> => {
-    const attempt = ++validationAttempt;
-    if (accepting) control.busy = true;
-    try {
-      const validation = await options.validateInput?.(value) ?? undefined;
-      if (settled || attempt !== validationAttempt) return;
-      control.validationMessage = validation;
-      if (validationBlocks(validation)) {
-        return;
-      }
-      if (accepting) settle({ kind: "accepted", value });
-    } catch {
-      if (!settled && attempt === validationAttempt) control.validationMessage = "Enter a valid value.";
-    } finally {
-      if (!settled && attempt === validationAttempt) control.busy = false;
-    }
-  };
-  subscriptions.push(control.onDidChangeValue(value => {
-    control.busy = false;
-    control.validationMessage = undefined;
-    void validate(value);
-  }));
-  subscriptions.push(control.onDidAccept(() => { void validate(control.value, true); }));
-  subscriptions.push(control.onDidTriggerButton(button => {
-    if (button === vscode.QuickInputButtons.Back) {
-      ++validationAttempt;
-      settle({ kind: "back", value: control.value });
-    }
-  }));
-  subscriptions.push(control.onDidHide(() => settle({ kind: "cancelled" })));
-  control.show();
-  return result;
-}
-
-function pick<T extends string | vscode.QuickPickItem>(items: readonly T[], options: vscode.QuickPickOptions,
-  context: SetupPromptContext): Promise<SetupPromptResult<T | T[]>> {
-  type NativeItem = vscode.QuickPickItem & { value: T };
-  const nativeItems: NativeItem[] = items.map(item => ({
-    ...(typeof item === "string" ? { label: item } : item as vscode.QuickPickItem), value: item,
-  }));
-  const control = vscode.window.createQuickPick<NativeItem>();
-  const subscriptions: vscode.Disposable[] = [];
-  let settled = false;
-  let resolver!: (result: SetupPromptResult<T | T[]>) => void;
-  const result = new Promise<SetupPromptResult<T | T[]>>(resolve => { resolver = resolve; });
-  const settle = (value: SetupPromptResult<T | T[]>): void => {
+  let resolver!: (result: SetupQuestionResult) => void;
+  const result = new Promise<SetupQuestionResult>(resolve => { resolver = resolve; });
+  const settle = (value: SetupQuestionResult): void => {
     if (settled) return;
     settled = true;
     disposeAll(control, subscriptions);
     resolver(value);
   };
-
-  control.title = titleFor(options, context);
-  control.step = context.phase;
+  control.title = titleOf(question);
+  control.step = question.phase;
   control.totalSteps = 4;
-  control.placeholder = options.placeHolder;
-  control.canSelectMany = options.canPickMany ?? false;
-  control.matchOnDescription = options.matchOnDescription ?? false;
-  control.matchOnDetail = options.matchOnDetail ?? false;
-  control.ignoreFocusOut = options.ignoreFocusOut ?? false;
-  control.items = nativeItems;
-  const previous = context.previous;
-  if (control.canSelectMany) {
-    const selected = Array.isArray(previous) ? previous : [];
-    const restored = nativeItems.filter(item => selected.some(value => sameItem(value, item.value)));
-    control.selectedItems = restored;
-    control.activeItems = restored;
-  } else {
-    const selected = Array.isArray(previous) ? previous[0] : previous;
-    const item = nativeItems.find(candidate => sameItem(selected, candidate.value));
-    if (item) {
-      control.activeItems = [item];
-    }
-  }
+  control.prompt = question.prompt ?? undefined;
+  control.value = typeof context.previous === "string" ? context.previous : "";
+  control.validationMessage = context.refusal;
+  control.ignoreFocusOut = true;
   control.buttons = context.canGoBack ? [vscode.QuickInputButtons.Back] : [];
-  subscriptions.push(control.onDidAccept(() => {
-    const selected = [...control.selectedItems];
-    if (control.canSelectMany) settle({ kind: "accepted", value: selected.map(item => item.value) });
-    else if (selected[0]) settle({ kind: "accepted", value: selected[0].value });
-  }));
+  subscriptions.push(control.onDidAccept(() => settle({ kind: "answered", answer: control.value })));
   subscriptions.push(control.onDidTriggerButton(button => {
-    if (button === vscode.QuickInputButtons.Back) {
-      settle({ kind: "back", value: control.canSelectMany ? control.selectedItems.map(item => item.value) : control.selectedItems[0]?.value });
-    }
+    if (button === vscode.QuickInputButtons.Back) settle({ kind: "back", text: control.value });
   }));
   subscriptions.push(control.onDidHide(() => settle({ kind: "cancelled" })));
   control.show();
   return result;
 }
 
-export const nativeSetupPrompts: SetupPromptPresenter = {
-  input,
-  pick,
-  open: async options => vscode.window.showOpenDialog(options),
-};
+/** A question that takes one of the items the engine offers: the item's value is the answer. The refusal of the last answer is shown as a message. */
+function pick(question: SetupQuestion, context: SetupQuestionContext): Promise<SetupQuestionResult> {
+  const control = vscode.window.createQuickPick<vscode.QuickPickItem & { value: unknown }>();
+  const subscriptions: vscode.Disposable[] = [];
+  let settled = false;
+  let resolver!: (result: SetupQuestionResult) => void;
+  const result = new Promise<SetupQuestionResult>(resolve => { resolver = resolve; });
+  const settle = (value: SetupQuestionResult): void => {
+    if (settled) return;
+    settled = true;
+    disposeAll(control, subscriptions);
+    resolver(value);
+  };
+  const items = question.items.map(item => ({ label: item.label, description: item.description ?? undefined, value: item.value }));
+  control.title = titleOf(question);
+  control.step = question.phase;
+  control.totalSteps = 4;
+  control.items = items;
+  const previous = items.find(item => item.value === context.previous);
+  if (previous) control.activeItems = [previous];
+  control.buttons = context.canGoBack ? [vscode.QuickInputButtons.Back] : [];
+  if (context.refusal) void vscode.window.showErrorMessage(context.refusal);
+  subscriptions.push(control.onDidAccept(() => {
+    const selected = control.selectedItems[0];
+    if (selected) settle({ kind: "answered", answer: selected.value });
+  }));
+  subscriptions.push(control.onDidTriggerButton(button => {
+    if (button === vscode.QuickInputButtons.Back) settle({ kind: "back" });
+  }));
+  subscriptions.push(control.onDidHide(() => settle({ kind: "cancelled" })));
+  control.show();
+  return result;
+}
+
+/** The controller adapter mapping: the file the engineer picks is read, and the engine reads and checks its text. */
+async function chooseFile(question: SetupQuestion, context: SetupQuestionContext): Promise<SetupQuestionResult> {
+  if (context.refusal) void vscode.window.showErrorMessage(context.refusal);
+  const selected = await vscode.window.showOpenDialog({ title: titleOf(question), canSelectMany: false,
+    filters: { "Controller adapter JSON": ["json"] } });
+  if (!selected?.[0]) return { kind: "cancelled" };
+  return { kind: "answered", answer: await fs.promises.readFile(selected[0].fsPath, "utf8") };
+}

@@ -72,18 +72,26 @@ export function installEngineAnswerRecorder(d: Document): void {
   const answers: EngineAnswerRecord[] = [];
   win.__engineAnswers = answers;
   const flowStageOf: Record<string, string> = { identify: "Identify", tune: "Tune", validate: "Validate" };
-  /** The status of an Apply, Restore or Keep answer, by the fields the answer names itself with (`webview/engineApplication.ts`). */
+  /** The status of an Apply, Restore or Keep answer, by the kind the engine names it with (§0.1a, `webview/engineApplication.ts`). */
   const applicationStatus = (result: Record<string, any>): string => {
-    if (typeof result.action === "string" && Array.isArray(result.parameters)) return "review";
-    if (Array.isArray(result.files)) return "review";
-    if ("checkpointId" in result) {
-      const commissioning = result.result ?? {};
-      return commissioning.status === "passed" ? "applied" : commissioning.status === "cancelled" ? "cancelled" : "failed";
+    switch (result.kind) {
+      case "applicationReview":
+      case "keepReview":
+        return "review";
+      case "applyOutcome": {
+        const commissioning = result.result ?? {};
+        return commissioning.status === "passed" ? "applied" : commissioning.status === "cancelled" ? "cancelled" : "failed";
+      }
+      case "restoreOutcome":
+        return result.restored === true ? "commissioned" : "failed";
+      case "keepResult":
+        return "kept";
+      default:
+        return "failed";
     }
-    if ("restored" in result) return result.restored === true ? "commissioned" : "failed";
-    if ("kept" in result && "record" in result) return "kept";
-    return "failed";
   };
+  /** The status of an Identify answer, by the kind the engine names it with (§0.1a, `webview/engineStages.ts`). */
+  const identifyStatus: Record<string, string> = { identification: "model-ready", reset: "reset", projectTest: "completed", manualIdentification: "manual" };
   const project = (message: Record<string, any>): EngineAnswerRecord => {
     const kind = String(message.kind);
     const update = message.update as Record<string, any> | undefined;
@@ -105,9 +113,9 @@ export function installEngineAnswerRecorder(d: Document): void {
     const base = { kind, method, result: message.result };
     switch (method) {
       case "identify":
-        return typeof result.modelType === "string"
+        return result.kind === "identification"
           ? { ...base, status: "model-ready", provisional: result.provisional === true }
-          : { ...base, status: "reset" };
+          : { ...base, status: identifyStatus[String(result.kind)] ?? "unknown" };
       case "tune":
         return { ...base, status: "candidate", family: result.candidate?.structure, values: result.settings };
       case "preview":

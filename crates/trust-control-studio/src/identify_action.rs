@@ -14,55 +14,49 @@
 //!   restoration path, a lone recording owner by stopping and keeping its recording. Its final update is a [`CancelResult`].
 //!
 //! What needs no runtime is checked before anything starts: the loop opens, the loop's journal holds no operation (for
-//! `identify`, `openRecording` and `reset`), the engineer's acquisition settings, and the recording a refit names. `identify`
+//! `identify`, `openRecording` and `reset`), the method of an `identify` start is one the loop can run (the Method list's own
+//! decision, B3.2, B3.3), the engineer's acquisition settings, and the recording a refit names. `identify`
 //! and `resume` reach the runtime, so they are refused at once without a connection (E11.1). The review and the approval of an
-//! `identify` start need the runtime's sample, so they are checked inside its operation, and a refusal ends that operation
-//! (§0.1a). Every rule and refusal is trust-control's; the workflow makes the runtime calls, and the storage writes the files.
+//! `identify` start need the runtime's sample and, for a project step test, the hold the runtime applies (C12), so they are checked
+//! inside its operation, and a refusal ends that operation (§0.1a). Every rule and refusal is trust-control's; the workflow makes
+//! the runtime calls, and the storage writes the files.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use serde_json::{json, Value};
+use serde_json::Value;
 use trust_control::experiment::ControlExperimentKind;
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::acquisition_settings::{
-    configured_acquisition, AcquisitionSettings,
+    configured_acquisition, unreadable_duration_failure, AcquisitionMethod, AcquisitionSettings,
 };
-use trust_control::identification::automatic::AutomaticIdentificationResult;
 use trust_control::identification::campaign::{campaign_maximum_ms, require_campaign_limits};
-use trust_control::identification::campaign_review::{campaign_review, IdentifyReview};
+use trust_control::identification::campaign_review::campaign_settings;
 use trust_control::identification::connected_run::{
-    accepted_model_from_one_record, checked_acquisition_settings, live_write_refusal,
-    model_check_instead_of_model, model_not_from_one_record, not_journaled, qualification,
-    recording_not_kept, resumed_without_experiment, review_changed_refusal, runtime_required,
-    stored_fit_window, unfinished_operation_refusal, FitWindow, IDENTIFY_OPERATION,
+    checked_acquisition_settings, model_check_instead_of_model, not_journaled, qualification,
+    recording_not_kept, resumed_without_experiment, runtime_required, unfinished_operation_refusal,
 };
-use trust_control::identification::identify_result::{
-    identify_answer, identify_signals, project_test_result, study_evidence,
-};
+use trust_control::identification::identify_result::project_test_result;
+use trust_control::identification::method_offers::identify_method_offers;
+use trust_control::identification::policy::project_scripted;
+use trust_control::identification::project_test::{project_test_outcome, settings_released};
 use trust_control::identification::recorded_limits::{
     evaluate_recorded_limits, RecordedLimitsEvaluation,
 };
-use trust_control::identification::recording_import::archive::with_extra_channels;
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::messages::{
-    CancelResult, IdentifyAction, IdentifyRequest, OperationStarted, ResetResult,
+    AnswerKind, CampaignRestoration, CancelResult, IdentifyAction, IdentifyRequest,
+    OperationStarted, ResetResult,
 };
-use trust_control::recording::opened::opened_plan;
-use trust_control::recording::opened_channels::{
-    configured_recording_selection, opened_recording_catalog, selection_loop, workflow_units,
-    RecordingSignalCatalog, RecordingSignalSelection,
-};
-use trust_control::recording::{EvidenceSource, RecordingFile};
+use trust_control::recording::EvidenceSource;
 use trust_control::runtime::RuntimeConnection;
+use trust_control::simulator_start::runtime_not_running;
 use trust_control::stages::stage_availability;
-use trust_control::study::current_model::CurrentModel;
-use trust_control::study::identify::{
-    refit_refusal, IdentifyMethod, IdentifySection, IdentifySignals, StoredRecordRequest,
-};
+use trust_control::study::identify::IdentifyMethod;
 use trust_control::study::inputs::stage_evidence_of;
 use trust_control::study::Study;
 
+use crate::application_state::{refuse_while_restore_waits, ApplicationState};
 use crate::busy_loops::{LoopClaim, LoopClaims};
 use crate::commands::to_value;
 use crate::identify_adapters::{RuntimeSampler, StudyRetention};
@@ -72,10 +66,9 @@ use crate::journal::{Journal, JournalEntry};
 use crate::operation::{OperationContext, Operations};
 use crate::runtime_client::runtime_recording::PendingReleases;
 use crate::runtime_client::RuntimeClient;
-use crate::workflow::identify::run::{connected_record, fit_records};
 use crate::workflow::identify::{
     identify_plant, record_for_manual_check, IdentifyOutcome, IdentifyPorts,
-    IdentifyRequest as RunRequest, IdentifyResult as RunResult, LoopSampler, RunEvaluator,
+    IdentifyRequest as RunRequest, IdentifyResult as RunResult,
 };
 use crate::workflow::identify_recovery::{cancel_operation, resume_identification};
 use crate::{loops, storage};
@@ -84,10 +77,23 @@ use crate::{loops, storage};
 const IDENTIFY_COMMAND: &str = "identify";
 /// The command of the operation that cancels a loop's journaled identification (§0.1b, `cancel`).
 const CANCEL_COMMAND: &str = "cancel";
+/// The sentence of the Identify page's status line after a reset (A8.4, B9.9).
+const NEW_STUDY_TEXT: &str = "New identification study started.";
 
 /// The manual identification (the Recorded-data fit of B3.3, B3.6 and B3.7): its checks, fit, structure, acceptance and reopening.
 #[path = "identify_manual.rs"]
 pub(crate) mod identify_manual;
+
+/// The opened and imported recording paths (B3.6, B5.2, B10.4) and the keeping of a fitted model as the study's Identify section.
+#[path = "identify_recording.rs"]
+mod identify_recording;
+
+/// The review of a campaign and the check of a start against it (§0.1a, C12), which read the runtime.
+#[path = "identify_review.rs"]
+mod identify_review;
+
+use identify_recording::{import_recording_answer, keep_result, open_recording_answer, Fitted};
+use identify_review::{confirm_start, review};
 
 /// What an operation of the loop works with: owned, so that it moves to the operation's thread. The runtime connection is not
 /// part of it: an action that reaches the runtime passes its own connection (E11.1).
@@ -98,21 +104,6 @@ struct LoopWork {
     loop_definition: LoopDefinition,
 }
 
-/// A model fitted from one recording of the study, with how that recording was obtained.
-struct Fitted {
-    /// How the recording was obtained (B3.3, B3.6).
-    method: IdentifyMethod,
-    /// Where the recording's values come from (A9).
-    source: EvidenceSource,
-    /// The recording file the model was fitted on (A8.3).
-    recording_file_id: String,
-    /// The fit.
-    result: AutomaticIdentificationResult<RecordedLimitsEvaluation>,
-    /// The value of the scheduling variable that the run read when it started (C10 Identify, D-21); `None` when the loop has no
-    /// schedule, and when no run started with the fit (a resumed campaign, an opened recording).
-    scheduling_value: Option<f64>,
-}
-
 /// Answers `controlStudio/identify`. `identify`, `openRecording` and `resume` start an operation on `operations` and answer
 /// with its identifier at once; `reset` answers with the stages of the new working study. Each action first claims the loop
 /// in `claims` (one operation per loop at a time); an operation holds the claim until it ends, and a refused request lets it
@@ -120,7 +111,8 @@ struct Fitted {
 ///
 /// # Errors
 /// The loop cannot be opened, an operation of this engine works on it, or its journal cannot be read; `identify`,
-/// `openRecording` or `reset` while the loop's journal holds an operation; `identify` or `resume` without a runtime connection
+/// `openRecording` or `reset` while the loop's journal holds an operation; `identify` with a method the loop cannot run
+/// (`require_applicable_method`); `identify` or `resume` without a runtime connection
 /// (E11.1); acquisition settings that fail their checks or cannot configure the loop; a refit of a recording whose request the
 /// study does not keep; or the study cannot be read, or written by `reset`.
 pub fn answer(
@@ -135,6 +127,7 @@ pub fn answer(
         loop_id,
         storage_folder,
         connection,
+        runtime_mode,
         action,
     } = request;
     let project_root = PathBuf::from(project_root);
@@ -163,7 +156,11 @@ pub fn answer(
             physical_approved,
         } => {
             refuse_while_journaled(&journal)?;
-            let connection = connection.ok_or_else(runtime_required)?;
+            // A project test carries no settings: it runs the loop's declared experiment (C12).
+            let settings = campaign_settings(&work.loop_definition, settings)?;
+            require_applicable_method(&work.loop_definition, &settings)?;
+            let connection =
+                connection.ok_or_else(|| runtime_not_running(runtime_mode.as_deref()))?;
             let settings =
                 checked_acquisition_settings(&work.loop_definition, &to_value(&settings)?)?;
             // Settings that cannot configure the loop are refused before anything starts; the run configures it again.
@@ -202,12 +199,23 @@ pub fn answer(
         IdentifyAction::Reset => reset(&work, &journal),
         // The review answers at once, with its claim, and starts nothing (B3.2 to B3.4, C12).
         IdentifyAction::Review { settings } => {
-            review(&work.loop_definition, connection.as_ref(), &settings)
+            let settings = campaign_settings(&work.loop_definition, settings)?;
+            // The review does not check the other settings' ranges, but a time that no duration reads is refused under its field.
+            if settings.duration_seconds.is_nan() {
+                return Err(unreadable_duration_failure());
+            }
+            review(
+                &work.loop_definition,
+                connection.as_ref(),
+                runtime_mode.as_deref(),
+                &settings,
+            )
         }
-        // The check answers at once, with its claim: a file that passes is kept as a recording of the study (B3.6, B10.2, B10.4).
+        // The check answers at once, with its claim: a file that passes is kept as a recording of the study (B3.6, B10.2, B10.4). A
+        // checked recording is fitted at once too, and the answer names the fit (B3.6).
         IdentifyAction::ImportRecording { json } => {
             refuse_while_journaled(&journal)?;
-            identify_import::import_recording(&work.project_root, &work.loop_definition, &json)
+            import_recording_answer(operations, claim, work, &json)
         }
         // The model check answers at once, with its claim; a model that passes is kept as the study's model (B3.7, N4.1).
         IdentifyAction::ImportModel { json } => {
@@ -226,67 +234,6 @@ pub fn answer(
             identify_manual::answer(operations, claim, &journal, work, manual)
         }
     }
-}
-
-/// `openRecording` (B3.6, B5.2). `recording_id` names the recording; without it the study's last opened recording is fitted
-/// (`last_opened_recording`). An opened recording the study keeps is answered from the study when it pairs or needs a second
-/// recording; otherwise it is fitted from its own samples with the signals the engineer selected. Any other recording is fitted again
-/// from the request its Identify result keeps.
-fn open_recording_answer(
-    operations: &Operations,
-    claim: LoopClaim,
-    work: LoopWork,
-    recording_id: Option<String>,
-    inputs: Option<Vec<String>>,
-    outputs: Option<Vec<String>>,
-) -> Result<Value, Failure> {
-    let recording_id = match recording_id {
-        Some(recording_id) => recording_id,
-        None => last_opened_recording(&work)?,
-    };
-    if let Some(file) = opened_recording_of_study(&work, &recording_id)? {
-        let catalog = opened_catalog(&work.loop_definition, &file, inputs, outputs)?;
-        if let Some(answer) = identify_import::open_kept_recording(
-            &work.project_root,
-            &work.loop_definition,
-            &recording_id,
-            &file,
-            &catalog,
-        )? {
-            return Ok(answer);
-        }
-        let selection = catalog.selection;
-        return started(operations, claim, move |context| {
-            run_opened_fit(context, &work, &file, &selection)
-        });
-    }
-    let section = working_study(&work)?.section::<IdentifySection>()?;
-    section
-        .ok_or_else(|| refit_refusal(&recording_id))?
-        .refit_request(&recording_id)?;
-    started(operations, claim, move |context| {
-        run_refit(context, &work, &recording_id)
-    })
-}
-
-/// The recording `openRecording` fits when it names none: the study's last opened recording, the latest of the recordings the study
-/// lists whose file carries the opened marker (B3.6). A study that keeps none refuses, and the engineer opens a recording first.
-///
-/// # Errors
-/// The study keeps no opened recording, or a recording the study lists cannot be read.
-fn last_opened_recording(work: &LoopWork) -> Result<String, Failure> {
-    let study = working_study(work)?;
-    for id in study.recordings.iter().rev() {
-        let file = storage::read_recording(&work.project_root, &work.loop_definition.id, id)?;
-        if file.opened {
-            return Ok(id.clone());
-        }
-    }
-    Err(Failure::new(
-        "The study keeps no opened recording to fit. Open a recording first.",
-        Cause::Settings,
-        NextAction::None,
-    ))
 }
 
 /// The name of the operation an identification request starts, as a refusal names the operation that holds the loop (A8.5).
@@ -310,98 +257,23 @@ fn operation_name(action: &IdentifyAction) -> &'static str {
     }
 }
 
-/// The review of the campaign that `identify` would run with `settings` (§0.1a, B3.2 to B3.4, C12): the loop's live sample is read
-/// when a runtime is connected, so the mode Automatic chooses from is the controller's. Without a connection the sample is absent,
-/// and the review says what the campaign needs. It starts nothing and writes nothing.
-///
-/// # Errors
-/// The runtime cannot be reached for its sample; or the campaign's own checks refuse the settings (trust-control's
-/// `campaign_review`, with the next action it names).
-fn review(
-    loop_definition: &LoopDefinition,
-    connection: Option<&RuntimeConnection>,
-    settings: &AcquisitionSettings,
-) -> Result<Value, Failure> {
-    let sample = match connection {
-        Some(connection) => {
-            let source = runtime_source(connection)?;
-            RuntimeSampler::new(connection, loop_definition, source).sample()?
-        }
-        None => None,
-    };
-    to_value(&campaign_review(
-        loop_definition,
-        settings,
-        sample.as_ref(),
-    )?)
-}
-
-/// The engine's check of a start that `controlStudio/identify` runs inside its operation (§0.1a, A2.5, E11.8): the campaign the
-/// start would run now, on the live target, must be the one the engineer reviewed, and on a physical target the engineer must
-/// have approved it. A refused start writes nothing, and its operation ends with the refusal. The scheduling variable of a
-/// gain-scheduled loop is checked against its operating point in the same scan as the sample (C10 Identify, D-21); the value that
-/// it gives is returned for the identification to keep.
-///
-/// # Errors
-/// The runtime cannot be read for its sample; the campaign's own checks refuse the settings; [`start_refusal`] refuses the start; or
-/// the scheduling variable cannot be read or is outside the tolerance of its point ([`identify_schedule::scheduling_start`]).
-fn confirm_start(
-    loop_definition: &LoopDefinition,
-    connection: &RuntimeConnection,
-    settings: &AcquisitionSettings,
-    review: Option<&str>,
-    physical_approved: bool,
-) -> Result<Option<f64>, Failure> {
-    let source = runtime_source(connection)?;
-    let sampler = RuntimeSampler::new(connection, loop_definition, source);
-    let scan = sampler.scan()?;
-    let sample = scan.as_ref().and_then(|scan| sampler.sample_of(scan));
-    let reviewed = campaign_review(loop_definition, settings, sample.as_ref())?;
-    if let Some(refusal) = start_refusal(&reviewed, review, physical_approved) {
-        return Err(refusal);
-    }
-    let recorded = identify_schedule::value_in_scan(loop_definition, scan.as_ref());
-    identify_schedule::scheduling_start(loop_definition, recorded)
-}
-
-/// The refusal of a start, from the review the engineer saw and the approval the start carries (§0.1a, A2.5, E11.8). A review
-/// that names another identity than the campaign reviewed now is refused. On a physical target, which the reviewed campaign
-/// shows with an approval block, the start needs both the review and the engineer's approval; the approval covers that identity
-/// and nothing else. A start that names no review passes on a simulated target, where pressing the action is the confirmation.
-/// `None` when the start may run.
-fn start_refusal(
-    reviewed: &IdentifyReview,
-    review: Option<&str>,
-    physical_approved: bool,
-) -> Option<Failure> {
-    if review.is_some_and(|identity| identity != reviewed.identity) {
-        return Some(review_changed_refusal());
-    }
-    if physical_approved && review.is_some() {
-        return None;
-    }
-    let source = if reviewed.approval.is_some() {
-        EvidenceSource::PhysicalPlant
-    } else {
-        EvidenceSource::SimulatedPlant
-    };
-    live_write_refusal(source, IDENTIFY_OPERATION)
-}
-
 /// The identification stage of a run (B8): the live campaign of `controlStudio/identify` with `settings`, inside the run's own
 /// operation. It refuses what `identify` refuses while the loop's journal holds an operation (A8.5), and it claims nothing, because
-/// the run holds the loop. Its Cancel reaches the campaign through `context`.
+/// the run holds the loop. Its Cancel reaches the campaign through `context`. What needs no runtime is checked first, as `identify`
+/// checks it: a method the loop cannot run and a missing limit are named before the missing `connection` (E11.1), so a run on a
+/// stopped runtime still asks for the limits or names the method's prerequisite.
 ///
 /// # Errors
-/// The journal cannot be read or holds an unfinished operation (A8.5); the limits refuse the settings (B3.4 step 1); or the campaign
-/// fails, or the scheduling variable is refused (see `run_identify` and `identify_schedule::check_start`).
+/// The journal cannot be read or holds an unfinished operation (A8.5); the loop cannot run the settings' method
+/// ([`require_applicable_method`]); the limits refuse the settings (B3.4 step 1); there is no runtime `connection` (E11.1); or the
+/// campaign fails, or the scheduling variable is refused (see `run_identify` and `identify_schedule::check_start`).
 pub(crate) fn run_stage(
     context: &OperationContext,
     project_root: &Path,
     storage_folder: &Path,
     pending: &Arc<PendingReleases>,
     loop_definition: &LoopDefinition,
-    connection: &RuntimeConnection,
+    connection: Option<&RuntimeConnection>,
     settings: &AcquisitionSettings,
 ) -> Result<Value, Failure> {
     let journal = Journal::open(
@@ -410,11 +282,14 @@ pub(crate) fn run_stage(
         &loop_definition.id,
     )?;
     refuse_while_journaled(&journal)?;
+    require_applicable_method(loop_definition, settings)?;
     // The campaign's own limits are checked before anything starts (B3.4 step 1): a missing limit is the run's input to ask for.
     let configured =
         configured_acquisition(loop_definition, Some(settings)).map_err(|error| error.failure())?;
     require_campaign_limits(&configured)?;
     campaign_maximum_ms(&configured)?;
+    // The checks above need no runtime; the campaign does (E11.1).
+    let connection = connection.ok_or_else(runtime_required)?;
     let work = LoopWork {
         project_root: project_root.to_path_buf(),
         storage_folder: storage_folder.to_path_buf(),
@@ -556,7 +431,12 @@ fn run_identify(
             },
         )?;
         let file_id = kept_file(&retention, &outcome.recording_id)?;
-        return identify_manual::keep_project_test_recording(work, retention.study(), &file_id);
+        return identify_manual::keep_project_test_recording(
+            work,
+            retention.study(),
+            &file_id,
+            outcome.restoration,
+        );
     }
     let outcome = identify_plant(
         context,
@@ -574,8 +454,8 @@ fn run_identify(
 }
 
 /// Keeps what a live campaign gave (B3.4, C12): a fit is kept as the study's Identify section, with the campaign's restoration and the
-/// samples of its kept recording beside it. A project test whose fit its recording cannot support keeps the recording and no model,
-/// and finishes with the fit's refusal as its note.
+/// samples of its kept recording beside it, and for the project test of a project-scripted loop the sentence of its end. A project
+/// test whose fit its recording cannot support keeps the recording and no model, and finishes with the fit's refusal as its note.
 fn keep_campaign(
     work: &LoopWork,
     retention: &StudyRetention<'_>,
@@ -606,11 +486,18 @@ fn keep_campaign(
                     scheduling_value,
                 },
             )?;
-            // The facts of the campaign that the stored section does not keep: its restoration (C12) and the samples of the kept
-            // recording, which the page draws its recorded signals from (`control-studio.recording.evidence`).
+            // The facts of the campaign that the stored section does not keep: its restoration (C12), the sentence that says the
+            // confirmed restoration releases the experiment settings, the samples of the kept recording, which the page draws its
+            // recorded signals from (`control-studio.recording.evidence`), and the sentence of a project test's end.
             if let Some(fields) = answer.as_object_mut() {
                 fields.insert("restoration".into(), to_value(&restoration)?);
+                if let Some(note) = settings_released(restoration) {
+                    fields.insert("settingsReleased".into(), Value::String(note));
+                }
                 fields.insert("recordedSamples".into(), to_value(&recorded_samples)?);
+                if let Some(outcome) = test_outcome(&work.loop_definition, restoration) {
+                    fields.insert("testOutcome".into(), Value::String(outcome));
+                }
             }
             Ok(answer)
         }
@@ -618,16 +505,36 @@ fn keep_campaign(
             // A project test whose fit the recording cannot support keeps its recording and no model; its answer is the completed test,
             // with the refusal as its note (C12, B3.5).
             let refusal = fit_refusal.ok_or_else(model_check_instead_of_model)?;
-            to_value(&project_test_result(
+            let mut answer = project_test_result(
                 &work.loop_definition,
                 retention.study(),
                 &recording_file_id,
                 restoration,
                 recorded_samples,
                 refusal,
-            )?)
+            )?;
+            // The study's model is unchanged, so its validation may stay current: the Apply stage can start exactly when Apply is
+            // offered, as the loop's journal allows it (B7, B9.4).
+            let journal = Journal::open(
+                &work.storage_folder,
+                &work.loop_definition.project_id,
+                &work.loop_definition.id,
+            )?;
+            answer.stages =
+                ApplicationState::of(&journal, retention.study(), &answer.stage_evidence, false)?
+                    .stages(&answer.stage_evidence);
+            to_value(&answer)
         }
     }
+}
+
+/// The sentence of a project test's end (C12), for the campaign of a project-scripted loop, which is its project test; `None` for any
+/// other loop's campaign.
+fn test_outcome(
+    loop_definition: &LoopDefinition,
+    restoration: Option<CampaignRestoration>,
+) -> Option<String> {
+    project_scripted(loop_definition).map(|_| project_test_outcome(restoration))
 }
 
 /// The journaled campaign followed to its end (A8.5, A8.6), its model qualified for the loop as an identified model is, then
@@ -671,46 +578,6 @@ fn run_resume(
     )
 }
 
-/// The recording of the study's Identify result fitted again, without live excitation (B3.6): the kept file, checked against
-/// the section (B10.3), becomes the connected record of the request the section keeps, from the fit window that request was
-/// taken with; it meets the same limits check (B3.4 step 6), is fitted and qualified, and the section is kept again with the
-/// same request.
-fn run_refit(
-    context: &OperationContext,
-    work: &LoopWork,
-    recording_id: &str,
-) -> Result<Value, Failure> {
-    let loop_definition = &work.loop_definition;
-    let study = working_study(work)?;
-    let Some(stored) = storage::read_identify(&work.project_root, &study)? else {
-        return Err(refit_refusal(recording_id));
-    };
-    let request = &stored.section.refit_request(recording_id)?.request;
-    let evaluate: RunEvaluator<'_, RecordedLimitsEvaluation> = &evaluate_recorded_limits;
-    let record = connected_record(
-        loop_definition,
-        &stored.estimation.run,
-        None,
-        &request.experiment,
-        stored_fit_window(request),
-        evaluate,
-    )?;
-    let result = fit_records(loop_definition, context, std::slice::from_ref(&record))?;
-    qualification(loop_definition, &result)?;
-    keep_result(
-        work,
-        &study,
-        Fitted {
-            method: stored.section.method,
-            source: stored.section.source,
-            recording_file_id: stored.section.estimation_recording_id.clone(),
-            result,
-            // The refit fits the recording of the stored section, so the value its start read is the one it keeps.
-            scheduling_value: stored.section.scheduling_value,
-        },
-    )
-}
-
 /// The Cancel of the journaled operation `operation_id`, keeping its recording in `study` before the runtime buffer is released
 /// (E5.5, E11.6). Its result names the operation cancelled (§0.1b).
 fn run_cancel(
@@ -741,195 +608,61 @@ fn reset(work: &LoopWork, journal: &Journal) -> Result<Value, Failure> {
     refuse_while_journaled(journal)?;
     let fresh = storage::start_new_study(&work.project_root, &working_study(work)?)?;
     let evidence = stage_evidence_of(&work.loop_definition, &fresh)?;
+    // The new study keeps no Recorded-data fit: the answer carries the engine's start state, so the page shows it without asking (B3.3).
     to_value(&ResetResult {
+        kind: AnswerKind::new(),
+        status_sentence: NEW_STUDY_TEXT.to_owned(),
         stages: stage_availability(&evidence),
         stage_evidence: evidence,
+        manual_identification: Some(identify_manual::kept_state(work)),
     })
 }
 
-/// The recording `recording_id` of the study, when the study keeps it as an opened recording (B3.6): a recording the study lists,
-/// whose file carries the opened marker. `None` for any other recording.
+/// Refuses an action while the loop's journal holds an operation that runs or whose outcome is unconfirmed (A8.5). The parameter tool's
+/// reviews and writes are refused by it too, so a project test that is not restored keeps the experiment settings frozen (C12). An
+/// Apply's checkpoint that waits for its Restore is refused with the block's reason and the next action Restore (B6.4, B6.7): Identify,
+/// Open recording, Reset and the imports wait for it.
+pub(crate) fn refuse_while_journaled(journal: &Journal) -> Result<(), Failure> {
+    refuse_while_restore_waits(journal)?;
+    unfinished_operation_refusal(&journaled_ids(journal)).map_or(Ok(()), Err)
+}
+
+/// Refuses a start whose method the loop cannot run (B3.2, B3.3). The refusal is the sentence that the open answer's `identifyMethods`
+/// gives that method (`identify_method_offers`), with the next action Choose another method, so the page checks no method itself. A
+/// method with no offer, such as the observation an `Automatic` or a declared observation stands for, always runs.
 ///
 /// # Errors
-/// The study cannot be read, or a recording the study lists cannot be read.
-fn opened_recording_of_study(
-    work: &LoopWork,
-    recording_id: &str,
-) -> Result<Option<RecordingFile>, Failure> {
-    let study = working_study(work)?;
-    if !study.recordings.iter().any(|listed| listed == recording_id) {
-        return Ok(None);
-    }
-    let file = storage::read_recording(&work.project_root, &work.loop_definition.id, recording_id)?;
-    Ok(file.opened.then_some(file))
-}
-
-/// The fit of an opened recording the study keeps (B3.6, C12). Its samples are observed as `opened_plan` describes them: the
-/// file is an observation, so nothing is written to the plant. The fit meets the same limits check as a live recording (B3.4
-/// step 6), is fitted and qualified, and is kept with the recording's source. The Identify result keeps the observation it was
-/// fitted with, so refitting the recording reads the same plan.
-fn run_opened_fit(
-    context: &OperationContext,
-    work: &LoopWork,
-    file: &RecordingFile,
-    selection: &RecordingSignalSelection,
-) -> Result<Value, Failure> {
-    let loop_definition = &work.loop_definition;
-    // The study keeps the selection, so that reopening shows the signals the fit used (B3.6).
-    let study = identify_import::with_selection(working_study(work)?, selection)?;
-    let (input, output) = single_channel_selection(selection)?;
-    // The fit reads the selected plant input and measured output from the recording, as the view of the loop with those signals
-    // (B3.6). A selected output that the loop does not bind is an extra channel of the recording, which the record must carry too.
-    let view = selection_loop(loop_definition, &file.run, input, output)?;
-    let plan = opened_plan(file, loop_definition);
-    let window = FitWindow {
-        fit_from_seconds: 0.0,
-        baseline_end_seconds: 0.0,
-    };
-    let evaluate: RunEvaluator<'_, RecordedLimitsEvaluation> = &evaluate_recorded_limits;
-    let mut record = connected_record(loop_definition, &file.run, None, &plan, window, evaluate)?;
-    with_extra_channels(&mut record.run, file);
-    let result = fit_records(&view, context, std::slice::from_ref(&record))?;
-    // The model is qualified against the signals it was fitted to, which are the view's (B3.6).
-    qualification(&view, &result)?;
-    // The channels the fit read from the recording are kept beside the loop's signals (B3.6).
-    let read = IdentifySignals {
-        inputs: vec![input.to_string()],
-        outputs: vec![output.to_string()],
-        setpoint: None,
-    };
-    keep_fitted(
-        work,
-        &study,
-        Fitted {
-            method: IdentifyMethod::Opened(ControlExperimentKind::Observation),
-            source: file.source,
-            recording_file_id: file.id()?,
-            result,
-            // An opened recording starts no run, so no scheduling value was read for it.
-            scheduling_value: None,
-        },
-        Some(read),
-    )
-}
-
-/// The catalogue of an opened recording with the selection an `openRecording` names (B3.6): the plant input and measured output the
-/// engineer chose, and the loop's own for a signal the request leaves out. A name the recording does not hold is refused
-/// (`opened_recording_catalog`).
-fn opened_catalog(
+/// The loop cannot run the settings' method.
+fn require_applicable_method(
     loop_definition: &LoopDefinition,
-    file: &RecordingFile,
-    inputs: Option<Vec<String>>,
-    outputs: Option<Vec<String>>,
-) -> Result<RecordingSignalCatalog, Failure> {
-    let requested = if inputs.is_none() && outputs.is_none() {
-        None
-    } else {
-        let configured = configured_recording_selection(loop_definition);
-        Some(json!({
-            "inputs": inputs.unwrap_or(configured.inputs),
-            "outputs": outputs.unwrap_or(configured.outputs),
-        }))
+    settings: &AcquisitionSettings,
+) -> Result<(), Failure> {
+    let Some(word) = offered_word(loop_definition, settings.method) else {
+        return Ok(());
     };
-    opened_recording_catalog(
-        &workflow_units(loop_definition),
-        loop_definition,
-        std::slice::from_ref(&file.run),
-        requested.as_ref(),
-    )
-}
-
-/// The plant input and measured output a fit of one recording takes (B3.6): one of each. Several signals wait for the state model
-/// fit (V7), and a selection without either names nothing to fit.
-fn single_channel_selection(selection: &RecordingSignalSelection) -> Result<(&str, &str), Failure> {
-    match (selection.inputs.as_slice(), selection.outputs.as_slice()) {
-        ([input], [output]) => Ok((input.as_str(), output.as_str())),
-        ([], _) | (_, []) => Err(Failure::new(
-            "Choose the recording's plant inputs and measured outputs.",
+    let reason = identify_method_offers(loop_definition)
+        .into_iter()
+        .find(|offer| offer.value == word)
+        .and_then(|offer| offer.reason);
+    reason.map_or(Ok(()), |sentence| {
+        Err(Failure::new(
+            &sentence,
             Cause::Settings,
-            NextAction::None,
-        )),
-        _ => Err(Failure::new(
-            "Identify fits one plant input and one measured output of a recording; several signals wait for the state model fit (V7).",
-            Cause::Settings,
-            NextAction::None,
-        )),
-    }
-}
-
-/// Keeps the Identify section of `fitted` in `study` with the loop's own signals (A8.1, A8.3; B3.5): the provisional model, its
-/// presentation and the request its recording was taken with.
-fn keep_result(work: &LoopWork, study: &Study, fitted: Fitted) -> Result<Value, Failure> {
-    keep_fitted(work, study, fitted, None)
-}
-
-/// Keeps the Identify section of `fitted` in `study`: the provisional model, its presentation and the request its recording was
-/// taken with. Its signals are the loop's for the fit's experiment (A8.4, B3.2), and `read` names the recording channels the fit
-/// read the plant input and measured output from, when it read other ones (B3.6). A state-space fit of several channels keeps its
-/// model with its signals and no presentation (B10.2). Answers with the result the page shows and the stages after it.
-fn keep_fitted(
-    work: &LoopWork,
-    study: &Study,
-    fitted: Fitted,
-    read: Option<IdentifySignals>,
-) -> Result<Value, Failure> {
-    let Fitted {
-        method,
-        source,
-        recording_file_id,
-        result,
-        scheduling_value,
-    } = fitted;
-    let loop_definition = &work.loop_definition;
-    let (model, runs, presentation) = match result {
-        AutomaticIdentificationResult::Model {
-            model,
-            runs,
-            presentation,
-            ..
-        } => (model, runs, Some(presentation)),
-        AutomaticIdentificationResult::StateModel { model, runs, .. } => (model, runs, None),
-        AutomaticIdentificationResult::Accepted { .. } => {
-            return Err(accepted_model_from_one_record());
-        }
-    };
-    let [record] = runs.as_slice() else {
-        return Err(model_not_from_one_record());
-    };
-    let signals = identify_signals(loop_definition, experiment_kind(method));
-    let section = match presentation {
-        Some(presentation) => IdentifySection::new(
-            method,
-            source,
-            signals,
-            &recording_file_id,
-            None,
-            *model,
-            *presentation,
-        ),
-        None => {
-            IdentifySection::new_state_model(method, source, signals, &recording_file_id, *model)
-        }
-    }
-    .with_record_request(StoredRecordRequest {
-        project_revision: record.project_revision.clone(),
-        request: record.request.clone(),
+            NextAction::ChooseMethod,
+        ))
     })
-    .with_scheduling_value(scheduling_value);
-    let section = match read {
-        Some(read) => section.with_recorded_channels(read),
-        None => section,
-    };
-    let kept = storage::save_identify(&work.project_root, study, &section, &[])?;
-    let current = CurrentModel::identified(section);
-    let evidence = study_evidence(loop_definition, Some(&current), !kept.recordings.is_empty());
-    let answer = identify_answer(&kept, loop_definition, &current, evidence)?;
-    to_value(&answer)
 }
 
-/// Refuses an action while the loop's journal holds an operation that runs or whose outcome is unconfirmed (A8.5).
-fn refuse_while_journaled(journal: &Journal) -> Result<(), Failure> {
-    unfinished_operation_refusal(&journaled_ids(journal)).map_or(Ok(()), Err)
+/// The word the Method list offers `method` under: its own, or for `Configured` the method the loop's experiment declares. `None` for a
+/// `Configured` method of a loop that declares no experiment.
+fn offered_word(loop_definition: &LoopDefinition, method: AcquisitionMethod) -> Option<String> {
+    let word = match method {
+        AcquisitionMethod::Configured => {
+            serde_json::to_value(loop_definition.experiment.as_ref()?.kind)
+        }
+        explicit => serde_json::to_value(explicit),
+    };
+    word.ok()?.as_str().map(str::to_owned)
 }
 
 /// The runtime identities of the operations the loop's journal holds.
@@ -951,13 +684,6 @@ fn journaled_kind(journal: &Journal) -> Option<ControlExperimentKind> {
             None
         }
     })
-}
-
-/// The experiment a recording was taken with.
-fn experiment_kind(method: IdentifyMethod) -> ControlExperimentKind {
-    match method {
-        IdentifyMethod::Live(kind) | IdentifyMethod::Opened(kind) => kind,
-    }
 }
 
 /// What a run identifies with in production: the loop, its declared expected settling time (B1.4; the baseline window is a tenth
@@ -999,3 +725,15 @@ mod tests;
 #[cfg(test)]
 #[path = "identify_review_tests.rs"]
 mod review_tests;
+
+#[cfg(test)]
+#[path = "identify_method_tests.rs"]
+mod method_tests;
+
+#[cfg(test)]
+#[path = "identify_hold_tests.rs"]
+mod hold_tests;
+
+#[cfg(test)]
+#[path = "identify_project_test_tests.rs"]
+mod project_test_tests;

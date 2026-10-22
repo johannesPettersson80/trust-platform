@@ -1,108 +1,100 @@
-import type { ControlLoopDefinition } from "../loopDefinition";
-import type { AcquisitionSettings } from "../acquisitionSettings";
+import type { AcquisitionSettings, ExperimentLimits } from "../generated/OpenResult";
 import { displayEngineeringUnit } from "../chartContract";
 import { openCompactNumberEditor, type CompactEditorIssue } from "../../webview/compactEditor";
-import { loopSignal } from "../loopChannels";
-import { MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS } from "../controlStudioLimits";
 
-export interface StudioExperimentLimits {
-  durationSeconds?: number;
-  inputMinimum: number;
-  inputMaximum: number;
-  outputMinimum: number;
-  outputMaximum: number;
-  inputRanges?: Record<string, { minimum: number; maximum: number }>;
-  outputRanges?: Record<string, { minimum: number; maximum: number }>;
+/**
+ * One signal's range in the Limits editor. A bound is the number the engineer committed, or the text the engineer typed when it is no
+ * number, which the engine reads and refuses under the field of the range's maximum (specification 35, B3.2).
+ */
+export interface StudioRange {
+  symbol: string;
+  unit: string;
+  minimum: number | string;
+  maximum: number | string;
 }
 
-export function initialExperimentLimits(loop: ControlLoopDefinition): StudioExperimentLimits {
-  const inputs = loop.channels?.inputs.map(channel => loopSignal(loop, channel.signalId)) ?? [loop.signals.manipulatedVariable];
-  const outputs = loop.channels?.outputs.map(channel => loopSignal(loop, channel.signalId)) ?? [loop.signals.processVariable];
+/**
+ * The Limits editor's values (specification 35, B3.2): each plant input and measured output with the range the experiment may use, and the
+ * maximum duration. The starting values are the engine's limits (`experimentLimits` of the open answer, which holds the study's own
+ * record over the loop's declared defaults); the page edits a copy and sends it back. A duration is text: the engine's words for it
+ * (`durationWords`), or the text the page committed (`15 min`), which the engine reads and checks; it is absent while neither the loop nor the
+ * engineer has given one.
+ */
+export interface StudioExperimentLimits {
+  durationSeconds?: string;
+  inputs: StudioRange[];
+  outputs: StudioRange[];
+  /** The loop's declared amplitude and relay direction (B3.3): the engine's values, which the page carries and does not edit. */
+  amplitude: number;
+  relayDirection?: ExperimentLimits["relayDirection"];
+}
+
+/** The limits the engine gave, as the editor starts from them (B3.2). */
+export function limitsOf(held: ExperimentLimits): StudioExperimentLimits {
+  const range = ({ symbol, unit, minimum, maximum }: ExperimentLimits["inputs"][number]): StudioRange => ({ symbol, unit, minimum, maximum });
   return {
-    durationSeconds: loop.experiment?.durationSeconds,
-    inputMinimum: Math.max(loop.signals.manipulatedVariable.range.minimum, loop.limits.outputMinimum,
-      loop.channels?.inputs.find(channel => channel.signalId === "manipulatedVariable")?.actuator.minimum ?? -Infinity),
-    inputMaximum: Math.min(loop.signals.manipulatedVariable.range.maximum, loop.limits.outputMaximum,
-      loop.channels?.inputs.find(channel => channel.signalId === "manipulatedVariable")?.actuator.maximum ?? Infinity),
-    outputMinimum: loop.signals.processVariable.range.minimum,
-    outputMaximum: loop.signals.processVariable.range.maximum,
-    inputRanges: Object.fromEntries(inputs.map(signal => {
-      const channel = loop.channels?.inputs.find(candidate => loopSignal(loop, candidate.signalId).symbol === signal.symbol);
-      const minimum = Math.max(signal.range.minimum, channel?.actuator.minimum ?? -Infinity, signal.symbol === loop.signals.manipulatedVariable.symbol ? loop.limits.outputMinimum : -Infinity);
-      const maximum = Math.min(signal.range.maximum, channel?.actuator.maximum ?? Infinity, signal.symbol === loop.signals.manipulatedVariable.symbol ? loop.limits.outputMaximum : Infinity);
-      return [signal.symbol, { minimum, maximum }];
-    })),
-    outputRanges: Object.fromEntries(outputs.map(signal => [signal.symbol, { minimum: signal.range.minimum, maximum: signal.range.maximum }])),
+    // The engine's words for the duration read back as exactly the duration they show, so the editor shows them as they are and the page never
+    // rounds a number into the text it sends (B9.9).
+    durationSeconds: held.durationWords ?? undefined,
+    inputs: held.inputs.map(range),
+    outputs: held.outputs.map(range),
+    amplitude: held.amplitude,
+    relayDirection: held.relayDirection ?? undefined,
   };
 }
 
-/** Edit a copy; only Done commits the complete checked set. */
-export function editExperimentLimits(loop: ControlLoopDefinition, values: StudioExperimentLimits,
-  commit: (limits: StudioExperimentLimits) => void, waiting = false, cancelled?: () => void): void {
-  const input = loop.signals.manipulatedVariable, output = loop.signals.processVariable;
-  const inputs = loop.channels?.inputs.map(channel => loopSignal(loop, channel.signalId)) ?? [input];
-  const outputs = loop.channels?.outputs.map(channel => loopSignal(loop, channel.signalId)) ?? [output];
-  const multichannel = inputs.length > 1 || outputs.length > 1;
-  const inputRanges = multichannel ? values.inputRanges ?? { [input.symbol]: { minimum: values.inputMinimum, maximum: values.inputMaximum } } : { [input.symbol]: { minimum: values.inputMinimum, maximum: values.inputMaximum } };
-  const outputRanges = multichannel ? values.outputRanges ?? { [output.symbol]: { minimum: values.outputMinimum, maximum: values.outputMaximum } } : { [output.symbol]: { minimum: values.outputMinimum, maximum: values.outputMaximum } };
+/**
+ * Edit a copy; only Done commits the complete set. The engine checks every entry (B3.2): it refuses a range beyond the loop's declared
+ * limits, a bound that no number reads and a duration that no time reads, each under its field, so the editor checks none and commits
+ * what was typed. `refusal` is the engine's sentence for the last values, shown under its field: a refusal of a limit, or the sentence with
+ * which a run asked for a missing limit (B8, `needsMessage`). The editor writes no sentence of its own.
+ */
+export function editExperimentLimits(values: StudioExperimentLimits,
+  commit: (limits: StudioExperimentLimits) => void, cancelled?: () => void, refusal?: CompactEditorIssue): void {
+  const multichannel = values.inputs.length > 1 || values.outputs.length > 1;
   const fields = [
-    ...inputs.flatMap(signal => rangeFields("input", signal, inputRanges[signal.symbol] ?? boundedInputRange(loop, signal), multichannel, loop)),
-    ...outputs.flatMap(signal => rangeFields("output", signal, outputRanges[signal.symbol] ?? signal.range, multichannel, loop)),
-    { key: "durationSeconds", label: "Maximum duration", value: values.durationSeconds, minimum: MINIMUM_EXPERIMENT_DURATION_MS / 1_000, maximum: MAXIMUM_EXPERIMENT_DURATION_MS / 1_000, duration: true },
+    ...values.inputs.flatMap(signal => rangeFields("input", signal, multichannel)),
+    ...values.outputs.flatMap(signal => rangeFields("output", signal, multichannel)),
+    { key: "durationSeconds", label: "Maximum duration", value: values.durationSeconds, duration: true },
   ];
+  // The editor checks no range and no entry: the engine reads what was typed and refuses a value under its field (B3.2, `inputs_action.rs`).
   openCompactNumberEditor({ title: "Experiment limits", fieldAttribute: "data-studio-limit", cancelled,
-    initialIssue: waiting && values.durationSeconds === undefined ? { field: "durationSeconds", message: "Enter the maximum experiment duration." } : undefined, fields: [
-    ...fields,
-  ], validate: next => validateRanges(next, inputs, outputs),
-  commit: next => {
-    const committed: StudioExperimentLimits = {
-      ...values,
-      durationSeconds: next.durationSeconds,
-      inputMinimum: Number(next[fieldKey("inputMinimum", input.symbol, multichannel)]), inputMaximum: Number(next[fieldKey("inputMaximum", input.symbol, multichannel)]),
-      outputMinimum: Number(next[fieldKey("outputMinimum", output.symbol, multichannel)]), outputMaximum: Number(next[fieldKey("outputMaximum", output.symbol, multichannel)]),
-      ...(multichannel ? { inputRanges: Object.fromEntries(inputs.map(signal => [signal.symbol, { minimum: Number(next[fieldKey("inputMinimum", signal.symbol, true)]), maximum: Number(next[fieldKey("inputMaximum", signal.symbol, true)]) }])),
-        outputRanges: Object.fromEntries(outputs.map(signal => [signal.symbol, { minimum: Number(next[fieldKey("outputMinimum", signal.symbol, true)]), maximum: Number(next[fieldKey("outputMaximum", signal.symbol, true)]) }])) } : {}),
-    };
-    commit(committed);
-  } });
+    initialIssue: refusal, fields,
+    commit: next => {
+      commit({
+        ...values,
+        durationSeconds: String(next.durationSeconds),
+        inputs: values.inputs.map(signal => ({ ...signal, minimum: next[fieldKey("inputMinimum", signal.symbol, multichannel)],
+          maximum: next[fieldKey("inputMaximum", signal.symbol, multichannel)] })),
+        outputs: values.outputs.map(signal => ({ ...signal, minimum: next[fieldKey("outputMinimum", signal.symbol, multichannel)],
+          maximum: next[fieldKey("outputMaximum", signal.symbol, multichannel)] })),
+      });
+    } });
 }
 
-function rangeFields(kind: "input" | "output", signal: { symbol: string; unit: string; range: { minimum: number; maximum: number } }, range: { minimum: number; maximum: number }, multichannel: boolean, loop: ControlLoopDefinition) {
+/** The Minimum and Maximum fields of one signal's range. They carry no bounds of their own: the engine checks each value (B3.2). */
+function rangeFields(kind: "input" | "output", signal: StudioRange, multichannel: boolean) {
   const group = `${kind === "input" ? "Plant input" : "Measured output"} · ${signal.symbol} (${displayEngineeringUnit(signal.unit)})`;
-  const minimum = kind === "input" ? boundedInputRange(loop, signal).minimum : signal.range.minimum;
-  const maximum = kind === "input" ? boundedInputRange(loop, signal).maximum : signal.range.maximum;
   return [
-    { key: fieldKey(`${kind}Minimum`, signal.symbol, multichannel), label: "Minimum", group, signal: signal.symbol, unit: signal.unit, value: range.minimum, minimum, maximum },
-    { key: fieldKey(`${kind}Maximum`, signal.symbol, multichannel), label: "Maximum", group, signal: signal.symbol, unit: signal.unit, value: range.maximum, minimum, maximum },
+    { key: fieldKey(`${kind}Minimum`, signal.symbol, multichannel), label: "Minimum", group, signal: signal.symbol, value: signal.minimum },
+    { key: fieldKey(`${kind}Maximum`, signal.symbol, multichannel), label: "Maximum", group, signal: signal.symbol, value: signal.maximum },
   ];
-}
-
-/** Every range whose maximum does not exceed its minimum, so Done can mark them all at once. */
-function validateRanges(next: Readonly<Record<string, number>>, inputs: readonly { symbol: string }[], outputs: readonly { symbol: string }[]): CompactEditorIssue[] {
-  const multichannel = inputs.length > 1 || outputs.length > 1;
-  const issues: CompactEditorIssue[] = [];
-  for (const [kind, signals] of [["input", inputs], ["output", outputs]] as const) {
-    for (const signal of signals) {
-      const minimum = next[fieldKey(`${kind}Minimum`, signal.symbol, multichannel)], maximum = next[fieldKey(`${kind}Maximum`, signal.symbol, multichannel)];
-      if (minimum >= maximum) issues.push({ field: fieldKey(`${kind}Maximum`, signal.symbol, multichannel), message: "Maximum must be greater than minimum." });
-    }
-  }
-  return issues;
 }
 
 function fieldKey(prefix: string, symbol: string, multichannel: boolean): string { return multichannel ? `${prefix}:${symbol}` : prefix; }
-function boundedInputRange(loop: ControlLoopDefinition, signal: { symbol: string; range: { minimum: number; maximum: number } }) {
-  const channel = loop.channels?.inputs.find(candidate => loopSignal(loop, candidate.signalId).symbol === signal.symbol);
-  return { minimum: Math.max(signal.range.minimum, channel?.actuator.minimum ?? -Infinity, signal.symbol === loop.signals.manipulatedVariable.symbol ? loop.limits.outputMinimum : -Infinity),
-    maximum: Math.min(signal.range.maximum, channel?.actuator.maximum ?? Infinity, signal.symbol === loop.signals.manipulatedVariable.symbol ? loop.limits.outputMaximum : Infinity) };
+
+/**
+ * The request's acquisition settings for the limits the page holds (B3.2): the range of every plant input and measured output by its
+ * symbol, as the editor lists them, and the amplitude and relay direction the engine gave. The duration and every bound go as the editor
+ * holds them: the number, or the text typed, which the engine reads and checks. A duration that is not given goes as the blank text of its
+ * field, and the engine refuses it under the duration's field.
+ */
+export function acquisitionPreferences(method: AcquisitionSettings["method"], limits: StudioExperimentLimits): AcquisitionSettings {
+  return { method, durationSeconds: limits.durationSeconds ?? "", amplitude: limits.amplitude,
+    inputRanges: bySymbol(limits.inputs), outputRanges: bySymbol(limits.outputs),
+    ...(limits.relayDirection ? { relayDirection: limits.relayDirection } : {}) };
 }
 
-export function acquisitionPreferences(loop: ControlLoopDefinition, method: AcquisitionSettings["method"], limits: StudioExperimentLimits): AcquisitionSettings {
-  if (limits.durationSeconds === undefined) throw new Error("Set the maximum experiment duration in Limits before identification.");
-  return { method, durationSeconds: limits.durationSeconds, amplitude: loop.experiment?.amplitude ?? 0,
-    inputRange: { minimum: limits.inputMinimum, maximum: limits.inputMaximum },
-    outputRange: { minimum: limits.outputMinimum, maximum: limits.outputMaximum },
-    ...(limits.inputRanges && Object.keys(limits.inputRanges).length > 1 ? { inputRanges: limits.inputRanges } : {}),
-    ...(limits.outputRanges && Object.keys(limits.outputRanges).length > 1 ? { outputRanges: limits.outputRanges } : {}),
-    reuseRecordings: false, ...(loop.experiment?.relayDirection ? { relayDirection: loop.experiment.relayDirection } : {}) };
+function bySymbol(ranges: readonly StudioRange[]): Record<string, { minimum: number | string; maximum: number | string }> {
+  return Object.fromEntries(ranges.map(range => [range.symbol, { minimum: range.minimum, maximum: range.maximum }]));
 }

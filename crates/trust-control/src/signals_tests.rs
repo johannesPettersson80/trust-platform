@@ -256,3 +256,34 @@ fn a_mode_bit_address_is_its_own_address_and_a_symbol_has_none() {
     );
     assert_eq!(controller_mode_address(&loop_definition, "Main.Auto"), None);
 }
+
+#[test]
+fn a_request_keeps_the_identity_it_was_sent_with_when_the_caller_changes_what_it_was_made_from() {
+    // control-studio-symbolic-inspection: "keeps the request identity when an awaited transport caller mutates its input" (annex E3
+    // and E11.8). The request copies its revisions when it is made, so the answer is read against the identity that was sent even when
+    // the caller's own strings change while the answer is awaited.
+    let mut loop_revision = String::from("sha256:loop-snapshot");
+    let mut program_revision = String::from("sha256:program-snapshot");
+    let request = InspectionRequest::new(
+        loop_revision.as_str(),
+        Some(program_revision.as_str()),
+        bindings(),
+    )
+    .expect("valid");
+    loop_revision.push_str("-mutated");
+    program_revision.push_str("-mutated");
+    let Inspection::Available(sample) = request
+        .decode(&available(
+            "sha256:loop-snapshot",
+            "sha256:program-snapshot",
+        ))
+        .expect("the answer to the request that was sent")
+    else {
+        panic!("a scan was available");
+    };
+    assert_eq!(sample.loop_revision, "sha256:loop-snapshot");
+    assert_eq!(sample.program_revision, "sha256:program-snapshot");
+    request
+        .decode(&available(&loop_revision, &program_revision))
+        .expect_err("an answer to the changed identity is not the answer to this request");
+}

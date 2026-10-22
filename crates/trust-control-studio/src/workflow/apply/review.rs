@@ -283,8 +283,9 @@ pub(crate) fn materialize_values(
 }
 
 /// The identity of the study's validation (B5.4, A8.4): the review identity of its Validate section, so that any change of the model,
-/// the candidate, the requirements or the result gives another identity.
-fn validation_identity(validate: &ValidateSection) -> Result<String, Failure> {
+/// the candidate, the requirements or the result gives another identity. The Validate page's offers compare it with the validation a
+/// standing Apply applied (`application_state`, B7).
+pub(crate) fn validation_identity(validate: &ValidateSection) -> Result<String, Failure> {
     let value = serde_json::to_value(validate).map_err(|error| {
         Failure::new(
             &engine_texts::validation_unreadable(&error.to_string()),

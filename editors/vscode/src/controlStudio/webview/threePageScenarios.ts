@@ -1,20 +1,14 @@
-import { applyEventTimeLimit, initEngineerScenarioEditor, type EngineerScenarioEditorContext } from "./engineerScenarioEditor";
-import { latestScenarioCheck, validEngineerScenarios, type EngineerScenario } from "../scenarioContract";
-import { parseDurationSeconds } from "./durationField";
+import { initEngineerScenarioEditor } from "./engineerScenarioEditor";
 
 export interface ThreePageScenarioOptions {
   scenarioDefinitions: readonly Record<string, unknown>[];
-  processSymbol: string;
-  setpointSymbol?: string;
-  samplePeriodMs: number;
-  durationSeconds: number;
-  processMinimum?: number;
-  processMaximum?: number;
 }
 
 export interface ThreePageScenarioEditor {
-  read(): readonly Record<string, unknown>[] | undefined;
-  validate(): string | undefined;
+  /** The scenario list as the editor holds it, which a commit sends to the engine. */
+  read(): readonly Record<string, unknown>[];
+  /** Shows the engine's refusal of the scenario list, which it names under the `scenarios` field (B4.3). */
+  refuse(sentence: string): void;
 }
 
 /** Mounts the existing engineer scenario editor inside the Requirements dialog. */
@@ -25,7 +19,7 @@ export function mountThreePageScenarios(section: HTMLElement, options: ThreePage
   const heading = document.createElement("summary"); heading.textContent = "Scenarios";
   const raw = document.createElement("textarea"); raw.dataset.engineerScenarios = ""; raw.hidden = true; raw.value = JSON.stringify(options.scenarioDefinitions, null, 2);
   const list = document.createElement("div"); list.dataset.engineerScenarioList = "";
-  const error = document.createElement("p"); error.dataset.engineerScenarioError = ""; error.dataset.compactScenarioError = ""; error.hidden = true;
+  const error = document.createElement("p"); error.dataset.engineerScenarioError = ""; error.hidden = true;
   const add = document.createElement("button"); add.type = "button"; add.className = "trust-button"; add.textContent = "Add scenario"; add.dataset.engineerScenarioAdd = "";
   container.append(heading, raw, error, list, add);
   const form = section.querySelector<HTMLFormElement>("form");
@@ -35,33 +29,16 @@ export function mountThreePageScenarios(section: HTMLElement, options: ThreePage
   if (more) more.append(container);
   else if (actions) form!.insertBefore(container, actions);
   else section.append(container);
-  // The validation duration can change in the same dialog, so event-time limits follow its field.
-  const durationField = section.querySelector<HTMLInputElement>("[data-studio-requirement='durationSeconds']");
-  const context: EngineerScenarioEditorContext = {
-    processSymbol: options.processSymbol, setpointSymbol: options.setpointSymbol,
-    samplePeriodMs: options.samplePeriodMs, processMinimum: options.processMinimum, processMaximum: options.processMaximum,
-    get durationSeconds() {
-      const entered = durationField ? parseDurationSeconds(durationField.value) ?? Number.NaN : Number.NaN;
-      return durationField && durationField.value.trim() !== "" && Number.isFinite(entered) ? entered : options.durationSeconds;
-    },
-  };
-  initEngineerScenarioEditor(container, context);
-  durationField?.addEventListener("input", () => applyEventTimeLimit(container, context));
+  // The engine refuses a check that ends after the validation duration and an event off the task's samples when the list changes (B4.3).
+  initEngineerScenarioEditor(container);
+  // Only the editor writes the carrier text, always as the JSON of the list it holds.
+  const read = (): readonly Record<string, unknown>[] => JSON.parse(raw.value) as Record<string, unknown>[];
   return {
-    read: () => { try { const value: unknown = JSON.parse(raw.value); return Array.isArray(value) ? value as Record<string, unknown>[] : undefined; } catch { return undefined; } },
-    validate: () => {
-      const invalid = container.querySelector<HTMLInputElement | HTMLTextAreaElement>("input:invalid,textarea:invalid");
-      if (invalid) { for (let details = invalid.closest("details"); details; details = details.parentElement?.closest("details") ?? null) details.open = true; error.textContent = invalid.validationMessage || "Complete the highlighted scenario field."; error.hidden = false; invalid.focus(); return error.textContent; }
-      const parsed = (() => { try { return JSON.parse(raw.value) as unknown; } catch { return undefined; } })();
-      if (!validEngineerScenarios(parsed)) {
-        error.textContent = "Enter valid scenario definitions. Native validation will check requirements and effects before Tune."; error.hidden = false; return error.textContent;
-      }
-      const latest = latestScenarioCheck(parsed as EngineerScenario[]), duration = context.durationSeconds ?? 0;
-      if (latest && duration > 0 && latest.endSeconds > duration + 1e-9) {
-        error.textContent = `${latest.scenario} checks ${latest.requirement} until ${latest.endSeconds} s. Allow a validation duration of at least ${latest.endSeconds} s.`;
-        error.hidden = false; return error.textContent;
-      }
-      error.textContent = ""; error.hidden = true; return undefined;
+    read,
+    refuse: sentence => {
+      error.textContent = sentence; error.hidden = false;
+      // The sentence sits inside the Scenarios section and the dialog's collapsed More… section: they open so that the engineer sees it.
+      for (let details = error.closest("details"); details; details = details.parentElement?.closest("details") ?? null) details.open = true;
     },
   };
 }

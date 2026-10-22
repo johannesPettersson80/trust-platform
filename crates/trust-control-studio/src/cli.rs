@@ -16,6 +16,7 @@ mod output;
 mod restore;
 mod setup;
 mod tune;
+mod tune_output;
 mod validate;
 
 pub use application::ReviewArgs;
@@ -35,8 +36,8 @@ use trust_control::messages::{OpenRequest, TuneChoice, TuneMethod};
 use trust_control::tuning::structure::Structure;
 use trust_runtime_client::ControlEndpoint;
 
-use crate::commands;
 use crate::interrupt::Presses;
+use crate::open_action;
 use crate::serve;
 use crate::settings::{self, Environment, Platform};
 
@@ -77,7 +78,7 @@ pub enum Verb {
     /// Validates the loop's candidate (§0.1b; B5): the independent model check when the model is provisional, then the
     /// actual ST in isolated simulations, with each requirement's result. It never writes to the controller.
     Validate(ValidateArgs),
-    /// Sets up a new loop (§0.1b; B1.3): without --draft, what the compiled project offers; with --draft <file>, writes the
+    /// Sets up a new loop (§0.1b; B1.3): without `--draft`, what the compiled project offers; with `--draft <file>`, writes the
     /// confirmed loop definitions to control-loops/ (all or none) and prints their ids.
     Setup(SetupArgs),
     /// Applies the validated candidate (§0.1b; B6.1 to B6.3): without --review, prints the review and its identity; with it,
@@ -510,7 +511,7 @@ fn open(
     stderr: &mut dyn Write,
 ) -> Exit {
     let answer = places(&args.common, environment).and_then(|places| {
-        commands::open(&OpenRequest {
+        open_action::open(&OpenRequest {
             project_root: text_of(&places.project),
             runtime_id: SELECTED_RUNTIME.to_string(),
             loop_id: args.loop_id.clone(),

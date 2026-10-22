@@ -307,8 +307,15 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
    right with the session when there is no top bar, whatever `[top_bar]` turns on. It adds the
    speed when that is not 1× ("SIMULATION ×10"), and when the speed is above 1× and the achieved
    speed is more than 5 % below it, both ("SIMULATION ×7 of ×10"; specification 33, §6.1). The
-   live stream sends `{"simulation": {"enabled", "time_scale", "achieved_time_scale"}}` after the
-   session message and whenever it changes (§11.1). The badge is never hidden by a page setting.
+   runtime gives these words: it decides the speed and whether the achieved speed is behind
+   (specification 35, B9.2), and its status answer carries the same speed as the words
+   `simulation_speed_text` (annex E1.3). The live stream sends
+   `{"simulation": {"enabled", "time_scale", "achieved_time_scale", "speed_configured", "speed_achieved"}}`
+   after the session message and whenever it changes (§11.1). `speed_configured` is the configured
+   speed when it is above 1×, else `null`; `speed_achieved` is the achieved speed as text, to one
+   decimal rounded down, when it is behind, else `null`. The page shows those words and translates
+   only the phrase "{achieved} of {configured}" for its language. The badge is never hidden by a
+   page setting.
 9. **Popups.** A popup file `hmi/popups/<name>.toml` has `format`, `title`, `size` (its design
    size), optionally `pinnable = true`, and objects and pipes as a page has. An object opens it
    with `[object.click] popup = "<name>"`, and a page button goes to its page with

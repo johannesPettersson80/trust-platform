@@ -3,7 +3,8 @@
 //!
 //! The rules decide which signals an observation records and checks, which reference an Apply targets, the sample times
 //! and values of the run the requirements are checked on, and whether a stored observation is valid. The multichannel
-//! connection is left out: a loop with channel bindings is refused, as the Rust engine refuses it (a parked feature, V7).
+//! connection is left out except a PID group's reference targets (C7): any other loop with channel bindings is refused, as the Rust
+//! engine refuses it (a parked feature, V7).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -11,6 +12,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use super::initial_state::operating_output;
 use super::texts;
 use super::transfer::{rounded_transfer_value, TransferBinding, TransferMember};
 use crate::failure::{Cause, Failure, NextAction};
@@ -24,8 +26,9 @@ use crate::model::GeneralModel;
 use crate::recording::channels::ChannelQuality;
 use crate::validation::commissioning_assessment::CommissioningSample;
 use crate::validation::engineer_verification_plan::{
-    engineer_verification_plan, EngineerRequirements,
+    engineer_verification_plan, output_requirements_missing, output_task_of, EngineerRequirements,
 };
+use crate::validation::model_route::bound_channels;
 use crate::validation::run_validation::{check_requirement, RunRequirement};
 
 /// The source of the setpoint channel (`source` of `commissioningObservation`).
@@ -183,18 +186,23 @@ pub fn commissioning_observation(
     })
 }
 
-/// The reference targets of a loop without channel bindings: the setpoint at the output's operating point plus the reviewed
-/// reference change (`commissioningReferenceTargets`, B6.2). An open loop has none.
+/// The reference targets of a loop: for a loop without channel bindings, the setpoint at the output's operating point plus the reviewed
+/// reference change (`commissioningReferenceTargets`, B6.2); an open loop has none. A PID group's targets are those of every controlled
+/// output (C7).
 ///
 /// # Errors
-/// Returns a refusal when the loop has channel bindings, which the Rust engine does not run yet (V7), or when the model is not
-/// one input and one output.
+/// Returns a refusal when the loop has channel bindings that are not a PID group's, which the Rust engine does not run yet (V7); when a
+/// group's channels do not bind the model, or one of its controlled outputs has no requirements; or when a loop without channels has a
+/// model that is not one input and one output.
 pub fn commissioning_reference_targets(
     loop_definition: &LoopDefinition,
     model: &GeneralModel,
     task: &EngineerRequirements,
 ) -> Result<BTreeMap<String, f64>, Failure> {
     if loop_definition.channels.is_some() {
+        if loop_definition.controller.group.is_some() {
+            return channel_reference_targets(loop_definition, model, task);
+        }
         return Err(Failure::new(
             &texts::observe_channels_parked(),
             Cause::ControllerCapability,
@@ -220,6 +228,40 @@ pub fn commissioning_reference_targets(
         operating_output,
         task.reference_change,
     ))
+}
+
+/// The reference targets of a loop with channel bindings (`commissioningReferenceTargets`, B6.2, C7): for each output that has a
+/// setpoint, the setpoint at the output's operating point plus the reference change the output is held to. The output is held to its own
+/// record in the task, else to its channel's own requirements, else, for the loop's process variable, to the task itself, as Validate
+/// holds it (`output_task_of`), so that Apply and Validate aim at the same targets.
+///
+/// # Errors
+/// The channels do not bind the model (see `bound_channels`), or an output with a setpoint has no requirements to hold it to.
+fn channel_reference_targets(
+    loop_definition: &LoopDefinition,
+    model: &GeneralModel,
+    task: &EngineerRequirements,
+) -> Result<BTreeMap<String, f64>, Failure> {
+    let bound = bound_channels(loop_definition, model)?;
+    let process_variable = loop_definition.signals.process_variable.symbol.as_str();
+    let mut targets = BTreeMap::new();
+    for (index, output) in bound.outputs.iter().enumerate() {
+        let Some(reference) = output.reference else {
+            continue;
+        };
+        let required = output_task_of(
+            task,
+            &output.channel.id,
+            output.requirements,
+            output.signal.symbol == process_variable,
+        )
+        .ok_or_else(|| output_requirements_missing(&output.channel.id))?;
+        targets.insert(
+            reference.symbol.to_owned(),
+            operating_output(model, index) + required.reference_change,
+        );
+    }
+    Ok(targets)
 }
 
 /// Whether a model has exactly one input and one output, the only shape a loop without channel bindings connects.

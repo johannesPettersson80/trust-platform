@@ -184,9 +184,13 @@ fn loop_file(law: Value, initialization: Option<Value>) -> Value {
     let gain = |symbol: &str, unit: &str, convention: &str| json!({ "symbol": symbol, "iec_type": "LREAL", "unit": unit, "convention": convention, "minimum": -1e6, "maximum": 1e6 });
     let mut controller = json!({
         "instance": "Main", "type": "Control.PID", "revision": "sha256:pid-controller-1", "action": "direct",
-        "taskPeriodMs": 20, "modeSignal": "Main.Manual", "modeWhenTrue": "Manual", "law": law,
+        "taskPeriodMs": 20, "modeSignal": "Main.Manual", "modeWhenTrue": "Manual",
         "manualOutputSignal": "Main.ManualCommand", "manualOutputAddress": "%ML8", "manualOutputType": "LREAL"
     });
+    // A loop without a controller law leaves the key out: the engine refuses a null in a field it reads (B1.2).
+    if !law.is_null() {
+        controller["law"] = law;
+    }
     if let Some(initialization) = initialization {
         controller["design"] = json!("pid");
         controller["pidInitialization"] = initialization;

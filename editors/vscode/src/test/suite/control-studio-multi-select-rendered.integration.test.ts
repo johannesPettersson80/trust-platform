@@ -2,6 +2,7 @@ import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
+import { runtimeLifecycleService } from "../../runtimeLifecycle";
 import { attachControlStudio } from "./control-studio-rendered-harness";
 import { captureRenderedWorkbenchCdp, connectCdp, devToolsPort, evaluateInWebview, httpJson, pollValue, requiredEnvironment, type CdpConnection } from "./plant-rendered-harness";
 
@@ -54,6 +55,10 @@ suite("Control Studio shared signal multi-select rendered", () => {
         await inner("d.body.dispatchEvent(new d.defaultView.PointerEvent('pointerdown',{bubbles:true}));return 'closed';");
       }
 
+      // Identify is a live campaign: without a running target the engine refuses it at once (specification 35, B3.9), and the page is busy for an
+      // instant only. The engineer starts the local simulator first, so that Identify runs until Abort.
+      const started = await runtimeLifecycleService.startLocalSimulator();
+      assert.ok(started.ok, `The local simulator starts for the live identification: ${JSON.stringify(started)}`);
       await inner("d.querySelector('[data-engineer-find]').click();return 'busy';");
       await pollValue("Identify busy state", () => inner("return String(d.querySelector('[data-studio-three-page]').dataset.busy);"), value => value === "true", 5000);
       assert.strictEqual(await inner("return String([...d.querySelectorAll('[data-multi-select-trigger]')].every(x=>x.disabled));"), "true", "Both signal pickers disable while Identify runs");
@@ -63,6 +68,7 @@ suite("Control Studio shared signal multi-select rendered", () => {
       await captureRenderedWorkbenchCdp(connection, requiredEnvironment("TRUST_CONTROL_STUDIO_RENDERED_SCREENSHOT").replace(/\.png$/, "-picker-final.png"));
       connection.close();
       await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+      await runtimeLifecycleService.stopRuntime();
     }
   });
 });

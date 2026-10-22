@@ -104,8 +104,8 @@ fn paths_result(recording_id: &str) -> MeasuredPathsResult {
         unit: "degC".to_string(),
     };
     let window = |start_seconds: f64, end_seconds: f64| TimeWindow {
-        start_seconds,
-        end_seconds,
+        start_seconds: Some(start_seconds),
+        end_seconds: Some(end_seconds),
     };
     MeasuredPathsResult {
         recording_id: recording_id.to_string(),

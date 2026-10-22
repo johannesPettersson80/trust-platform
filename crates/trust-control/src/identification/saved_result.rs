@@ -1,9 +1,11 @@
 //! The decoder of a saved Control Studio result (`decodeWorkflowResult`, `workflowResult.ts`; specification 35, B10.2 and
-//! B10.4). The import reads a saved result or recording file through [`read_saved_result`]; the rules of the import are in
+//! B10.4). The import reads a saved result or recording file through `read_saved_result`; the rules of the import are in
 //! `recording_import`. The decoder checks every field it reads as the TypeScript decoder does: the schema version (3 and 4),
 //! the identity, the loop, the controller, the software, the units and the source, every raw sample, the selected intervals,
 //! the acquisition, the provenance of a copied recording (schema 4 only), the experiment and the plant for the fields the
-//! import reads, and the absence of credentials. Parts of the TypeScript decoder are not ported yet, and the decoder does not
+//! import reads, and the absence of credentials. The rest of the experiment and of the plant is kept by the file the import
+//! writes (`recording::context::saved_context`, B10.2), which leaves out a part it does not read and never refuses the file for
+//! it. Parts of the TypeScript decoder are not ported yet, and the decoder does not
 //! read them: the sections of later stages (the identification study beyond its step-response reference, the model, the
 //! controller candidates, the tuning comparison, the analyses, the commissioning and the engineer's study); the additional
 //! channels of a sample, which it keeps as written; and the optional `method`. The TypeScript decoder still checks those for

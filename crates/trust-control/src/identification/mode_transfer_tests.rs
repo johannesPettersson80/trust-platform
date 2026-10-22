@@ -15,9 +15,13 @@ use crate::commissioning::fixture_loops::{
 };
 use crate::commissioning::transfer::TransferMember;
 
-/// The status the runtime reports for `binding` (annex E6.3): the mode signal at `mode`, every state, guard and output at
-/// `value(symbol)`, and no transaction.
-fn status_of(binding: &TransferBinding, mode: bool, value: &dyn Fn(&str) -> f64) -> TransferStatus {
+/// The status the runtime reports for `binding` (annex E6.3): the mode signal at `mode`, every state, guard and output, and every
+/// further output of a PID group, at `value(symbol)`, and no transaction.
+pub(super) fn status_of(
+    binding: &TransferBinding,
+    mode: bool,
+    value: &dyn Fn(&str) -> f64,
+) -> TransferStatus {
     let mut values = BTreeMap::new();
     values.insert(binding.mode.symbol.clone(), TransferValue::Boolean(mode));
     for member in binding
@@ -25,6 +29,7 @@ fn status_of(binding: &TransferBinding, mode: bool, value: &dyn Fn(&str) -> f64)
         .iter()
         .chain(&binding.guards)
         .chain(std::iter::once(&binding.output))
+        .chain(&binding.additional_outputs)
     {
         values.insert(
             member.symbol.clone(),
@@ -44,7 +49,7 @@ fn status_of(binding: &TransferBinding, mode: bool, value: &dyn Fn(&str) -> f64)
 }
 
 /// The symbols of `members`, in order.
-fn symbols(members: &[TransferMember]) -> Vec<&str> {
+pub(super) fn symbols(members: &[TransferMember]) -> Vec<&str> {
     members
         .iter()
         .map(|member| member.symbol.as_str())
@@ -414,29 +419,42 @@ fn a_return_is_refused_on_a_changed_loop_or_program_naming_both_revisions() {
 #[test]
 fn restoring_the_found_manual_command_allows_the_change_it_makes() {
     // A6.2, E6.9: the output stands at 83 % after a setpoint step; writing the found command of 75 % back moves it by 8 points.
+    let binding = mode_binding(&parallel_pid_loop_without_actuator()).expect("a binding");
+    let standing = status_of(&binding, false, &|symbol| {
+        if symbol == "ValveMV" {
+            83.0
+        } else {
+            0.0
+        }
+    });
     let commands = CommandReturn {
-        binding: mode_binding(&parallel_pid_loop_without_actuator()).expect("a binding"),
+        binding: binding.clone(),
         values: BTreeMap::from([
             ("Main.SP".to_owned(), 35.0),
             ("Main.ManualMV".to_owned(), 75.0),
         ]),
-        command: Some("Main.ManualMV".to_owned()),
+        commands: vec![WrittenCommand {
+            command: "Main.ManualMV".to_owned(),
+            output: "ValveMV".to_owned(),
+        }],
     };
-    assert!((commands.allowance(1e-6, Some(83.0)) - 8.0).abs() <= 1e-12);
+    assert!((commands.allowance(1e-6, &standing) - 8.0).abs() <= 1e-12);
     assert!(
-        (commands.allowance(10.0, Some(83.0)) - 10.0).abs() <= 1e-12,
+        (commands.allowance(10.0, &standing) - 10.0).abs() <= 1e-12,
         "a larger mode allowance stays"
     );
+    let mut unread = standing.clone();
+    unread.values.remove("ValveMV");
     assert!(
-        (commands.allowance(1e-6, None) - 1e-6).abs() <= 1e-18,
+        (commands.allowance(1e-6, &unread) - 1e-6).abs() <= 1e-18,
         "an unread output allows the base"
     );
     let references_only = CommandReturn {
-        command: None,
+        commands: Vec::new(),
         ..commands
     };
     assert!(
-        (references_only.allowance(1e-6, Some(83.0)) - 1e-6).abs() <= 1e-18,
+        (references_only.allowance(1e-6, &standing) - 1e-6).abs() <= 1e-18,
         "only references are written back"
     );
 }

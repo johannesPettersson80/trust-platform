@@ -47,6 +47,16 @@ pub fn is_controller_family(family: &str) -> bool {
     CONTROLLER_FAMILIES.contains(&family)
 }
 
+/// Whether a loop's controller belongs to an equipment: the controller is the equipment's instance, or a member of it (its path
+/// starts with the equipment's path and a dot), compared without case. The HMI Builder's handoff opens the loops of a faceplate's
+/// equipment this way (`controllerBelongsToEquipment` of the handoff, before it moved to the engine).
+#[must_use]
+pub fn controller_belongs_to_equipment(controller: &str, equipment: &str) -> bool {
+    let controller = controller.to_lowercase();
+    let equipment = equipment.to_lowercase();
+    controller == equipment || controller.starts_with(&format!("{equipment}."))
+}
+
 /// The shape of a binding selection (`selection` in `threePageBindingRoute.ts`): one to sixteen identities on each side, each a
 /// non-empty text. A chosen family, when there is one, must be a controller family (`payload.family`).
 ///

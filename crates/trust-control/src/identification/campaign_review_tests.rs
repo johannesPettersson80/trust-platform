@@ -68,6 +68,7 @@ fn a_step_review_in_auto_names_the_setpoint_step_its_limits_and_its_duration() {
         &example(),
         &settings(AcquisitionMethod::Automatic, 30.0),
         Some(&auto_sample()),
+        None,
     )
     .expect("reviewed");
     assert_eq!(review.kind, ControlExperimentKind::SetpointStep);
@@ -107,6 +108,7 @@ fn a_closed_loop_review_without_a_live_mode_says_that_a_runtime_is_needed() {
         &example(),
         &settings(AcquisitionMethod::Automatic, 30.0),
         None,
+        None,
     )
     .expect_err("Automatic needs the controller's mode");
     assert_eq!(refused.cause, Cause::Runtime);
@@ -125,6 +127,7 @@ fn a_review_refuses_a_loop_whose_plant_input_limit_is_missing_and_names_the_limi
         &without_minimum,
         &settings(AcquisitionMethod::Automatic, 30.0),
         Some(&auto_sample()),
+        None,
     )
     .expect_err("the plant input limits are missing");
     assert_eq!(refused.cause, Cause::Settings);
@@ -160,6 +163,7 @@ fn a_project_scripted_review_names_the_activation_the_abort_and_the_baseline() {
     let review = campaign_review(
         &scripted,
         &settings(AcquisitionMethod::Automatic, 30.0),
+        None,
         None,
     )
     .expect("the project's scenario is reviewed without a live mode (C12)");
@@ -222,6 +226,7 @@ fn a_project_scripted_loop_without_an_activation_is_observation_only() {
         &observed,
         &settings(AcquisitionMethod::Automatic, 30.0),
         None,
+        None,
     )
     .expect("reviewed");
     assert_eq!(review.kind, ControlExperimentKind::Observation);
@@ -243,6 +248,7 @@ fn a_physical_review_names_the_signal_it_writes_with_its_limits_and_a_simulated_
         &loop_def,
         &settings(AcquisitionMethod::Automatic, 16.0),
         Some(&auto_sample()),
+        None,
     )
     .expect("the simulated review");
     assert_eq!(
@@ -255,6 +261,7 @@ fn a_physical_review_names_the_signal_it_writes_with_its_limits_and_a_simulated_
         &loop_def,
         &settings(AcquisitionMethod::Automatic, 16.0),
         Some(&physical_sample),
+        None,
     )
     .expect("the physical review");
     let approval = physical
@@ -314,6 +321,7 @@ fn the_physical_approval_of_a_project_test_names_its_activation_without_declared
         &scripted,
         &settings(AcquisitionMethod::Automatic, 30.0),
         Some(&physical_sample),
+        None,
     )
     .expect("the project's scenario is reviewed on the physical target");
     let approval = review.approval.expect("the approval block");
@@ -335,5 +343,186 @@ fn the_physical_approval_of_a_project_test_names_its_activation_without_declared
             .expect("the project's scenario")
             .stop_conditions,
         "the project's stop conditions are the ones the approval names"
+    );
+}
+
+// C12, Hold parameter: a project test whose loop declares a hold parameter is reviewed for the hold the runtime applies.
+
+/// Lesson 21 (a safe, informative experiment): a project-scripted open-loop test with a 5 s baseline, a declared maximum of 45.1 s and the
+/// hold parameter `P1.HoldSeconds`, 20 to 40 s, in a 100 ms loop.
+const LESSON_21: &str = include_str!(
+    "../../../../examples/control/05-experiments-identification-and-validation/21-safe-informative-experiment/control-loop.json"
+);
+
+fn lesson_21() -> LoopDefinition {
+    LoopDefinition::decode(LESSON_21).expect("the shipped lesson decodes")
+}
+
+#[test]
+fn a_project_test_is_reviewed_for_the_baseline_the_applied_hold_and_one_restoration_sample() {
+    let lesson = lesson_21();
+    let reviewed = |hold: f64| {
+        campaign_review(
+            &lesson,
+            &settings(AcquisitionMethod::Automatic, 45.1),
+            None,
+            Some(hold),
+        )
+        .expect("the hold is within its bounds, and the declared maximum records it")
+    };
+    let review = reviewed(30.0);
+    assert_eq!(
+        review.maximum_duration_seconds, 35.1,
+        "5 s + 30 s + 0.1 s, not the declared 45.1 s"
+    );
+    let project = review.project_scripted.expect("the project's scenario");
+    assert_eq!(project.baseline_seconds, Some(5.0));
+    assert_eq!(
+        project.stop_conditions[1], "35.1 s timeout",
+        "the review names the timeout the test's plan names (E5.5, C12)"
+    );
+    assert_eq!(reviewed(20.0).maximum_duration_seconds, 25.1);
+    assert_eq!(
+        reviewed(40.0).maximum_duration_seconds,
+        45.1,
+        "the longest permitted hold fills the declared maximum"
+    );
+}
+
+#[test]
+fn the_identity_of_a_project_test_names_the_recording_of_its_applied_hold() {
+    let lesson = lesson_21();
+    let identity = |hold: f64| {
+        campaign_review(
+            &lesson,
+            &settings(AcquisitionMethod::Automatic, 45.1),
+            None,
+            Some(hold),
+        )
+        .expect("reviewed")
+        .identity
+    };
+    assert_eq!(
+        identity(30.0),
+        identity(30.0),
+        "the same hold is the same campaign"
+    );
+    assert_ne!(
+        identity(30.0),
+        identity(40.0),
+        "a longer hold is another campaign, so a start that names the first is refused (E11.8)"
+    );
+}
+
+#[test]
+fn a_project_test_whose_hold_cannot_be_recorded_is_refused_by_its_review() {
+    let lesson = lesson_21();
+    let review = |seconds: f64, hold: Option<f64>| {
+        campaign_review(
+            &lesson,
+            &settings(AcquisitionMethod::Automatic, seconds),
+            None,
+            hold,
+        )
+    };
+    for hold in [None, Some(19.0), Some(41.0)] {
+        let refused = review(45.1, hold).expect_err("no hold within its declared bounds");
+        assert_eq!(
+            refused.message,
+            "Apply a P1.HoldSeconds value within 20–40 s before reviewing the project test.",
+            "{hold:?}"
+        );
+        assert_eq!(
+            (refused.cause, refused.next_action),
+            (Cause::Settings, NextAction::None),
+            "{hold:?}"
+        );
+    }
+    let refused = review(30.0, Some(30.0)).expect_err("35.1 s exceeds the maximum of 30 s");
+    assert_eq!(
+        refused.message,
+        "A 30 s hold needs 35.1 s, more than the declared 30 s maximum."
+    );
+    assert_eq!(
+        (refused.cause, refused.next_action),
+        (Cause::Settings, NextAction::OpenLimits)
+    );
+}
+
+#[test]
+fn a_physical_review_of_a_project_test_approves_the_recording_of_the_applied_hold() {
+    let mut physical_sample = auto_sample();
+    physical_sample.source = EvidenceSource::PhysicalPlant;
+    let review = campaign_review(
+        &lesson_21(),
+        &settings(AcquisitionMethod::Automatic, 45.1),
+        Some(&physical_sample),
+        Some(30.0),
+    )
+    .expect("the project's scenario is reviewed on the physical target");
+    let approval = review.approval.expect("the approval block");
+    assert_eq!(approval.duration_seconds, 35.1);
+    assert!(
+        approval
+            .stop_conditions
+            .contains(&"35.1 s timeout".to_owned()),
+        "{:?}",
+        approval.stop_conditions
+    );
+}
+
+#[test]
+fn a_loop_without_a_hold_parameter_is_reviewed_for_its_declared_duration_whatever_hold_is_given() {
+    let loop_def = example();
+    let review = |hold: Option<f64>| {
+        campaign_review(
+            &loop_def,
+            &settings(AcquisitionMethod::Automatic, 30.0),
+            Some(&auto_sample()),
+            hold,
+        )
+        .expect("reviewed")
+    };
+    assert_eq!(review(Some(30.0)).maximum_duration_seconds, 30.0);
+    assert_eq!(review(Some(30.0)), review(None));
+}
+
+// Specification 35, C12 (Activation): a project-scripted scenario without an activation binding is observation only, and the project
+// test states that in its plan; with one, the plan names the activation and the TRUE the authorized start writes. The words are the
+// engine's: a page that inferred them from a missing `activation` would not need this field, and a review that left it out would leave
+// the page without the Test signal row.
+#[test]
+fn project_test_form_states_observation_only_without_activation() {
+    let test_signal = |activated: bool| {
+        let scripted = example_with(|document| {
+            document["signals"]["manipulatedVariable"]["direction"] = json!("read");
+            document["experiment"]["execution"] = json!("project-scripted");
+            if activated {
+                document["experiment"]["activation"] = json!({
+                    "symbol": "P1.Experiment.Active",
+                    "address": "%QX0.0",
+                    "iecType": "BOOL",
+                    "direction": "write",
+                });
+            }
+        });
+        campaign_review(
+            &scripted,
+            &settings(AcquisitionMethod::Automatic, 30.0),
+            None,
+            None,
+        )
+        .expect("reviewed")
+        .project_scripted
+        .expect("the project's scenario")
+        .test_signal
+    };
+    assert_eq!(
+        test_signal(false).as_deref(),
+        Some("Observation only: no signal is written")
+    );
+    assert_eq!(
+        test_signal(true).as_deref(),
+        Some("P1.Experiment.Active · TRUE while the test runs")
     );
 }

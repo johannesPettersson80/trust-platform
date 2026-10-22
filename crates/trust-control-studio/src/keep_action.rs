@@ -11,14 +11,19 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use serde_json::Value;
+use trust_control::commissioning::application_offers::primary_action;
+use trust_control::commissioning::application_records::ReviewConfirmation;
 use trust_control::commissioning::keep_texts;
 use trust_control::failure::Failure;
 use trust_control::identification::connected_run::runtime_required;
 use trust_control::loop_definition::LoopDefinition;
-use trust_control::messages::{KeepFileChange, KeepRequest, KeepResult, KeepReviewAnswer};
+use trust_control::messages::{
+    AnswerKind, KeepFileChange, KeepRequest, KeepResult, KeepReviewAnswer,
+};
 use trust_control::runtime::RuntimeConnection;
-use trust_control::study::apply::{keep_unavailable, KeepReceipt};
+use trust_control::study::apply::{keep_unavailable, ApplySection, KeepReceipt};
 
+use crate::application_state::state_now;
 use crate::apply_action::{apply_section, record_section, started};
 use crate::busy_loops::LoopClaims;
 use crate::commands::to_value;
@@ -48,6 +53,7 @@ pub fn answer(
         project_root,
         runtime_id,
         loop_id,
+        storage_folder,
         connection,
         review,
         unsaved_files,
@@ -70,6 +76,7 @@ pub fn answer(
     let connection = connection.ok_or_else(runtime_required)?;
     let work = KeepWork {
         project_root,
+        storage_folder: PathBuf::from(storage_folder),
         loop_definition,
         connection,
         unsaved_files: unsaved_files.iter().map(PathBuf::from).collect(),
@@ -87,10 +94,12 @@ pub fn answer(
     }
 }
 
-/// What Keep works with (B6.5): the project and the loop, the runtime whose running values are kept, the files with unsaved changes
-/// in an editor, and the language tool. It is owned, so that the operation can move to its thread (A10.4).
+/// What Keep works with (B6.5): the project, the folder of the operation journals and the loop, the runtime whose running values are
+/// kept, the files with unsaved changes in an editor, and the language tool. It is owned, so that the operation can move to its thread
+/// (A10.4).
 struct KeepWork {
     project_root: PathBuf,
+    storage_folder: PathBuf,
     loop_definition: LoopDefinition,
     connection: RuntimeConnection,
     unsaved_files: Vec<PathBuf>,
@@ -137,23 +146,31 @@ fn run_keep_operation(work: &KeepWork, identity: &str) -> Result<Value, Failure>
         .ok_or_else(keep_unavailable)?
         .to_string();
     let outcome = work.confirm(identity)?;
-    let answer = keep_outcome_json(&outcome)?;
     let receipt = KeepReceipt {
         checkpoint,
-        record: outcome.record,
-        kept: outcome.kept,
-        unknown: outcome.unknown,
+        record: outcome.record.clone(),
+        kept: outcome.kept.clone(),
+        unknown: outcome.unknown.clone(),
     };
     record_section(&work.project_root, &work.loop_definition, |section| {
         section.keeps.push(receipt);
     })?;
-    Ok(answer)
+    // The offers follow the receipts as they stand now: the Keep's own receipt is in them (B6.5). Apply is as the engine offers it now
+    // (B7): a validation that passed after the Apply may hold the position.
+    let applied = apply_section(&work.project_root, &work.loop_definition)?;
+    let (application, _) = state_now(
+        &work.project_root,
+        &work.storage_folder,
+        &work.loop_definition,
+    )?;
+    keep_outcome_json(&outcome, &applied, application.offers.apply)
 }
 
-/// The review of a Keep as its answer (`KeepReviewAnswer`): the record, the values to keep, the fields and files it changes, and
-/// the identity that a confirmation gives back.
+/// The review of a Keep as its answer (`KeepReviewAnswer`): the record, the values to keep, the fields and files it changes, the
+/// sentence that describes what it writes, and the identity that a confirmation gives back.
 fn review_json(review: &KeepReview) -> Result<Value, Failure> {
     to_value(&KeepReviewAnswer {
+        kind: AnswerKind::new(),
         record: review.record.clone(),
         values: review.values.clone(),
         kept: review.kept.clone(),
@@ -167,14 +184,28 @@ fn review_json(review: &KeepReview) -> Result<Value, Failure> {
                 after: file.after.clone(),
             })
             .collect(),
+        description: keep_texts::review_description(&review.record),
         identity: review.identity.clone(),
+        confirmation: ReviewConfirmation::Explicit,
     })
 }
 
-/// What a confirmed Keep wrote, as its final result (`KeepResult`): the record, the fields kept, the fields without a setting, and
-/// the sentence that says what was kept, or that the project already had the values (`keep_texts::kept_reason`).
-fn keep_outcome_json(outcome: &KeepOutcome) -> Result<Value, Failure> {
+/// What a confirmed Keep wrote, as its final result (`KeepResult`): the record, the fields kept, the fields without a setting, the
+/// sentence that says what was kept, or that the project already had the values (`keep_texts::kept_reason`), whether Restore and
+/// Keep in project are offered now, from the study's receipts `applied`, the Keep's own among them (B6.5, B7), and the action that
+/// holds the Validate page's position, with Apply as the engine offers it now (`apply`, B7).
+fn keep_outcome_json(
+    outcome: &KeepOutcome,
+    applied: &ApplySection,
+    apply: bool,
+) -> Result<Value, Failure> {
+    let restore_available = applied.restore_available();
+    let keep_available = applied.keep_available();
     to_value(&KeepResult {
+        kind: AnswerKind::new(),
+        restore_available,
+        keep_available,
+        primary_action: primary_action(apply, restore_available, keep_available),
         record: outcome.record.clone(),
         kept: outcome.kept.clone(),
         unknown: outcome.unknown.clone(),

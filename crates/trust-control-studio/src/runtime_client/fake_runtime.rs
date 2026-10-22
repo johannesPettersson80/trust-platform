@@ -61,6 +61,7 @@ impl FakeRuntime {
         RuntimeConnection {
             endpoint: self.endpoint.clone(),
             token: token.map(str::to_string),
+            runtime_id: None,
         }
     }
 

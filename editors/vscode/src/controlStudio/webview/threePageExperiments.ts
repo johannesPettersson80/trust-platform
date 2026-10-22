@@ -1,20 +1,30 @@
-import { experimentStatusLabel } from "../failureMessages";
-import { plainReason } from "./studioFailure";
-import type { ControlExperimentPlan, ControlExperimentRuntimePhase } from "../experiment";
-import type { ControlLoopDefinition } from "../loopDefinition";
-import { displayEngineeringUnit, formatEngineeringNumber } from "../chartContract";
+import type { ParameterBinding, ProjectTestForm } from "../generated/OpenResult";
+import type { ParameterToolOffer } from "../generated/ParameterWorkAnswer";
+import { formatEngineeringNumber } from "../chartContract";
 import { ParameterFields } from "./parameterFields";
-import type { ParameterBinding } from "../parameterBinding";
+
+/** The answers of the project test the page receives: the phases of the engine route (`engine/routes/experimentRoute.ts`) and the kept recording. */
+type ExperimentPhase = "review" | "running" | "failed" | "recording" | "parameters" | "engine-ended";
 
 export type ThreePageExperimentPost = (kind: string, payload?: Record<string, unknown>) => void;
 type ExperimentPayload = Record<string, unknown>;
 type PendingAction = "review" | "approve" | "abort" | "parameter-inspect" | "parameter-review" | "parameter-apply" | undefined;
-type ParameterPhase = "idle" | "inspected" | "edited" | "reviewed" | "applied";
+type ToolStep = ParameterToolOffer["nextStep"];
+
+/** The words of the tool's step button for each step the engine offers (C12). */
+const STEP_LABELS: Record<ToolStep, string> = {
+  inspect: "Inspect experiment parameters",
+  review: "Review parameter values",
+  apply: "Apply reviewed values",
+  restore: "Restore previous value",
+};
 
 /**
- * Adapts the existing project Test owner to the connected Identify page.
- * Review, runtime writes, recording, restoration and terminal evidence remain
- * owned by the host; this class only owns contextual state and signal routing.
+ * The project test's section of the connected Identify page (specification 35, C12), with the parameter tool its form names. It shows
+ * the engine's answers and posts the engineer's requests; the engine decides every rule and words every outcome: the review and the
+ * identity its start names, the next action of a review that finds no runtime running, the sentences of the test's end, and the tool's
+ * offer, the step its button runs next and the actions it takes. This class keeps the identities the engine gave, the request in
+ * flight, and the selection of the signals the chart draws.
  */
 export class ThreePageExperiments {
   private readonly section: HTMLElement;
@@ -29,22 +39,24 @@ export class ThreePageExperiments {
   private readonly parameterFields?: ParameterFields;
   private readonly parameterBinding?: ParameterBinding;
   private readonly restoreButton?: HTMLButtonElement;
-  /** The parameter tool's step on the Tune page, which mirrors the Identify button's parameter step (C12). */
+  /** The parameter tool's own step button (C12); the Identify button stays the project test's. */
   private readonly parameterAction?: HTMLButtonElement;
-  private plan: ControlExperimentPlan | undefined;
   private experimentId: string | undefined;
   private pending: PendingAction = undefined;
-  private parameterPhase: ParameterPhase = "idle";
+  /**
+   * The engine's last offer of the parameter tool (C12): the step its button runs next and the actions the engine takes now. The open
+   * answer's form names the first one (`parameterOffer`); a form without a tool names none.
+   */
+  private offer: ParameterToolOffer | undefined;
+  /** The identity of the engine's last parameter review, which the confirmation names; none once an answer gives no review. */
   private parameterReviewId: string | undefined;
-  /** The engine's review of the project test and the identity its start is confirmed with (C12); none for a TypeScript plan. */
+  /** The engine's review of the project test and the identity its start is confirmed with (C12). */
   private reviewId: string | undefined;
   /** Set when the engine's review carries an approval block: the project test runs on a physical target (A2.5). */
   private reviewNeedsApproval = false;
-  /** Set once the engine answers that the manual parameter tool is unavailable for a served loop (B6.1). */
-  private parameterUnavailable = false;
   private selectedMethod = false;
 
-  constructor(private readonly root: HTMLElement, private readonly loop: ControlLoopDefinition,
+  constructor(private readonly root: HTMLElement, form: ProjectTestForm,
     private readonly post: ThreePageExperimentPost,
     /** The shared stage gate; Identify stays disabled while any page gate reports a block. */
     private readonly blocked: () => string | undefined = () => undefined) {
@@ -60,16 +72,18 @@ export class ThreePageExperiments {
     this.note.hidden = true;
     this.status.after(this.note);
     this.planView = section.querySelector<HTMLElement>("[data-three-page-experiment-plan]")!;
-    // The parameter tool sits with this test for experiment settings, and on the Tune page for a declared analysis (B6.1, C12).
-    // The whole page is searched, so either place is found.
+    // The engine's form names the parameter tool (B6.1, C12), and the page fills one slot for it: the experiment's settings inside the
+    // project test on the Identify page, or the declared analysis's parameters on the Tune page after the analysis it serves.
     this.parameterSection = root.querySelector<HTMLElement>("[data-three-page-experiment-parameters]") ?? undefined;
     this.parameterStatus = root.querySelector<HTMLElement>("[data-three-page-experiment-parameter-status]") ?? undefined;
     this.parameterValues = root.querySelector<HTMLTextAreaElement>("[data-three-page-experiment-parameter-values]") ?? undefined;
-    this.parameterBinding = parameterBindingOf(loop);
+    // The engine's form names the tool, the parameters it starts from and its first offer (B6.1, C12); a form without a binding has no tool.
+    this.parameterBinding = form.parameterBinding ?? undefined;
+    this.offer = form.parameterOffer ?? undefined;
     this.restoreButton = root.querySelector<HTMLButtonElement>("[data-three-page-experiment-restore]") ?? undefined;
     this.restoreButton?.addEventListener("click", () => this.reviewRestore());
     this.parameterAction = root.querySelector<HTMLButtonElement>("[data-three-page-experiment-parameter-action]") ?? undefined;
-    this.parameterAction?.addEventListener("click", () => this.tuneParameterStep());
+    this.parameterAction?.addEventListener("click", () => this.parameterStep());
     const parameterHost = root.querySelector<HTMLElement>("[data-three-page-experiment-parameter-fields]");
     if (parameterHost && this.parameterValues && this.parameterBinding) {
       this.parameterFields = new ParameterFields(parameterHost, this.parameterValues, () => this.editParameters());
@@ -88,37 +102,31 @@ export class ThreePageExperiments {
     this.render();
   }
 
-  synchronize(): void { this.render(); }
-
   get isSelected(): boolean { return this.selectedMethod; }
   get busy(): boolean { return this.pending !== undefined || this.experimentId !== undefined; }
-  get hasReviewedPlan(): boolean { return this.hasReview; }
-  /** A test the page can start: the TypeScript plan, or the engine's review of the project test. */
-  private get hasReview(): boolean { return this.plan !== undefined || this.reviewId !== undefined; }
-  /** The engine's review needs the engineer's approval of its block (A2.5); a TypeScript plan never does. */
+  /** A test the page can start: the engine's review of the project test. */
+  private get hasReview(): boolean { return this.reviewId !== undefined; }
+  /** The engine's review needs the engineer's approval of its block (A2.5). */
   private get approvalNeeded(): boolean { return this.reviewId !== undefined && this.reviewNeedsApproval; }
-  /** The parameter tool is offered unless the engine has said it is unavailable for the served loop (B6.1). */
-  private get parameterFlow(): boolean { return this.parameterBinding !== undefined && !this.parameterUnavailable; }
-  /** Experiment settings belong to the selected project test; an analysis's tool is on the Tune page, which needs no project test (C12). */
-  private get parameterOffered(): boolean { return this.parameterFlow && (this.parameterAction !== undefined || this.selectedMethod); }
+  /** The parameter tool is offered when the engine's form names it (B6.1, C12). */
+  private get parameterFlow(): boolean { return this.parameterBinding !== undefined; }
+  /** The Identify button's words while Project experiment is the method: the project test's own steps, review, start and Abort (C12). */
   get primaryActionLabel(): string {
     if (this.experimentId) return "Abort test";
     if (this.pending === "review") return "Reviewing…";
     if (this.pending === "approve") return "Starting…";
+    if (this.hasReview) return this.approvalNeeded ? "Approve" : "Confirm and start";
+    return "Review project test";
+  }
+  /** The words of the parameter tool's own step button (B6.1, C12): the step the engine offers next, or the request in flight. */
+  get parameterStepLabel(): string {
     if (this.pending === "parameter-inspect") return "Inspecting…";
     if (this.pending === "parameter-review") return "Reviewing values…";
     if (this.pending === "parameter-apply") return "Applying values…";
-    if (this.hasReview) return this.approvalNeeded ? "Approve" : "Confirm and start";
-    if (this.parameterFlow) {
-      if (this.parameterPhase === "reviewed") return "Apply reviewed values";
-      if (this.parameterPhase === "applied") return "Review project test";
-      if (this.parameterPhase === "inspected" || this.parameterPhase === "edited") return "Review parameter values";
-      return "Inspect experiment parameters";
-    }
-    return "Review project test";
+    return this.offer ? STEP_LABELS[this.offer.nextStep] : "";
   }
 
-  /** The existing Identify button delegates here when Project experiment is selected. */
+  /** The existing Identify button delegates here when Project experiment is selected: it reviews, starts or aborts the project test. */
   primaryAction(): boolean {
     if (!this.selectedMethod || this.pending) return false;
     if (this.experimentId) {
@@ -129,81 +137,42 @@ export class ThreePageExperiments {
       this.approve();
       return true;
     }
-    if (this.parameterFlow && this.parameterPhase !== "applied") return this.parameterStep();
     this.review();
     return true;
   }
 
-  /** The parameter tool's next step (B6.1): inspect, then review, then apply. The Identify button and the Tune page's step both take it. */
+  /** The parameter tool's step (B6.1, C12): the one the engine offers next. The button waits while the page's own request or test runs. */
   private parameterStep(): boolean {
-    if (this.parameterPhase === "idle") return this.inspectParameters();
-    if (this.parameterPhase === "reviewed") return this.applyParameters();
-    return this.reviewParameters();
-  }
-
-  /** The Tune page's step of an analysis's tool. The analysis leads to it without a selected project test, so no method is needed. */
-  private tuneParameterStep(): boolean {
-    if (this.pending || this.experimentId !== undefined || this.hasReview || !this.parameterFlow || this.parameterPhase === "applied") return false;
-    return this.parameterStep();
-  }
-
-  /** Lets the existing Identify button mirror this adapter's state and label. */
-  bindPrimaryButton(button: HTMLButtonElement): void {
-    button.addEventListener("click", event => {
-      event.preventDefault();
-      this.primaryAction();
-    });
-    this.renderPrimaryButton(button);
-  }
-
-  /** Unlocks a reviewed plan after the host has stopped the current operation. */
-  cancelReview(): void {
-    if (this.busy) return;
-    this.plan = undefined;
-    this.reviewId = undefined;
-    this.reviewNeedsApproval = false;
-    this.planView.hidden = true;
-    if (this.parameterBinding && this.parameterPhase === "applied") this.parameterPhase = "inspected";
-    this.status.textContent = "";
-    this.render();
-  }
-
-  receive(phase: ControlExperimentRuntimePhase | "review" | "failed" | "restoring" | "recording" | "parameters" | "engine-ended", rawPayload: unknown): void {
-    const payload = record(rawPayload) ? rawPayload : {};
-    if (phase === "recording") {
-      if (record(payload.experiment)) {
-        if (this.experimentId) return;
-        const restoration = payload.experiment.restoration?.status;
-        this.status.textContent = `${experimentStatusLabel(String(payload.experiment.status))} recording.${restoration === "confirmed" ? " Outputs restored." : restoration === "failed" ? " Restoration unconfirmed." : ""}`;
-        this.render();
-      }
-      this.publishRecording(phase, payload); return;
+    if (this.pending || this.experimentId !== undefined || !this.parameterFlow) return false;
+    switch (this.offer?.nextStep) {
+      case "inspect": return this.inspectParameters();
+      case "review": return this.reviewParameters();
+      case "apply": return this.applyParameters();
+      case "restore": return this.reviewRestore();
+      default: return false;
     }
+  }
+
+  receive(phase: ExperimentPhase, rawPayload: unknown): void {
+    const payload = record(rawPayload) ? rawPayload : {};
+    if (phase === "recording") { this.publishRecording(phase, payload); return; }
     if (phase === "parameters") { this.receiveParameters(payload); return; }
     this.pending = undefined;
     this.publishRecording(phase, payload);
     // A review, a start or a refused start begins again, so the note of a finished test is no longer its note.
     if (phase === "review" || phase === "running" || phase === "failed") this.showNote(undefined);
     if (phase === "review") {
-      if (payload.kind === "accepted" && isControlExperimentPlan(payload.plan)) {
-        this.reviewId = undefined;
-        this.plan = payload.plan;
-        this.status.textContent = payload.plan.requiresPhysicalApproval
-          ? "Project test reviewed. Physical approval remains with the host before confirmation."
-          : "";
-        this.renderPlan(payload.plan);
-      } else if (payload.kind === "reviewed" && typeof payload.planId === "string" && record(payload.review)) {
-        // The engine's review of the project test: it names what the start will run (specification 35, §0.1a and C12).
-        this.plan = undefined;
+      if (payload.kind === "reviewed" && typeof payload.planId === "string" && record(payload.review)) {
+        // The engine's review of the project test: it names what the start will run (specification 35, §0.1a and C12). On a physical
+        // target it carries the approval block, whose sentence the page shows.
         this.reviewId = payload.planId;
-        this.reviewNeedsApproval = record(payload.review.approval);
-        this.status.textContent = this.reviewNeedsApproval
-          ? "Physical target. Approve the reviewed test before it starts; nothing is written before your approval."
-          : "";
+        const approval = record(payload.review.approval) ? payload.review.approval : undefined;
+        this.reviewNeedsApproval = approval !== undefined;
+        this.status.textContent = text(approval?.message) ?? "";
         this.renderReview(payload.review);
       } else {
-        this.status.textContent = text(payload.reason) ?? "The project test could not be reviewed.";
-        this.plan = undefined;
+        // The engine's refusal, with its next action shown by the page's failure (a runtime that is not running names how to start it).
+        this.status.textContent = text(payload.reason) ?? "";
         this.reviewId = undefined;
         this.planView.hidden = true;
       }
@@ -222,48 +191,28 @@ export class ThreePageExperiments {
       this.render();
       return;
     }
-    if (phase === "awaiting_restoration" || phase === "restoring") {
-      this.status.textContent = "Restoring outputs…";
-      this.render();
-      return;
-    }
-    if (phase === "terminal") {
-      const status = text(payload.status) ?? "unknown";
-      const restoration = text(payload.restoration) ?? "unknown";
-      const restorable = restoration === "restored" || restoration === "not_required";
-      if (restorable) {
-        this.experimentId = undefined;
-        this.plan = undefined;
-        this.planView.hidden = true;
-        if (this.parameterBinding && this.parameterPhase === "applied") {
-          this.parameterPhase = "inspected";
-          this.parameterStatusText("The previous project test restored its declared values. Edit and review them before the next trial.");
-        }
-        this.status.textContent = `Project test ${status}.${restoration === "restored" ? " Outputs restored." : ""}`;
-      } else {
-        this.status.textContent = `Project test ${status}; restoration remains ${restoration}. Resolve the runtime state before starting another test.`;
+    if (phase === "engine-ended") {
+      // The engine ended the campaign it ran for the test: its Abort, its completion or its failure (specification 35, C12).
+      this.experimentId = undefined;
+      this.reviewId = undefined;
+      this.planView.hidden = true;
+      // The engine's sentence of the end: a finished test's outcome, the sentence of the cancellation, or the failure.
+      this.status.textContent = text(payload.reason) ?? "";
+      // A finished test whose fit refused names the refusal under its status; the page shows the engine's words only.
+      this.showNote(text(payload.note));
+      // After every test's end the engine says whether the test released the experiment settings (C12), in words (`settingsReleased`),
+      // which the tool shows, and names the tool's offer that follows, which the tool takes; an end without them leaves the tool as it was.
+      const released = text(payload.settingsReleased);
+      if (released && this.parameterBinding) this.parameterStatusText(released);
+      const offer = toolOffer(payload.offer);
+      if (offer && this.parameterBinding) {
+        this.offer = offer;
+        this.parameterReviewId = undefined;
       }
       this.render();
       return;
     }
-    if (phase === "engine-ended") {
-      // The engine ended the campaign it ran for the test: its Abort, its completion or its failure (specification 35, C12).
-      this.experimentId = undefined;
-      this.plan = undefined;
-      this.reviewId = undefined;
-      this.planView.hidden = true;
-      const reason = text(payload.reason);
-      // The engine names the restoration its finished campaign confirmed; the page shows that word and decides nothing more.
-      this.status.textContent = payload.status === "finished" ? `Project test completed.${payload.restoration === "restored" ? " Outputs restored." : ""}`
-        : payload.status === "cancelled" ? "Project test aborted."
-          : reason ?? (payload.status === "failed" ? "Project test failed." : "Project test ended.");
-      // A finished test whose fit refused names the refusal under its status; the page shows the engine's words only.
-      this.showNote(text(payload.note));
-      this.render();
-      return;
-    }
-    // Generic host failures preserve a TypeScript plan and the active experiment;
-    // the host recovery owner remains authoritative until a terminal phase.
+    // A host failure keeps the active experiment; the host recovery owner remains authoritative until the engine ends the test.
     if (phase === "failed") {
       // A refused start consumes the engine's review (E11.8): the page reviews the test again before it starts it.
       if (this.reviewId !== undefined) {
@@ -271,29 +220,27 @@ export class ThreePageExperiments {
         this.reviewNeedsApproval = false;
         this.planView.hidden = true;
       }
-      this.status.textContent = text(payload.reason) ?? "The project test could not be completed.";
+      this.status.textContent = text(payload.reason) ?? "";
       this.render();
     }
   }
 
   private review(): void {
-    // The engine checks the duration (A7: 1 s to 24 h) and names a missing one, so the page sends the declared duration as it is.
-    // Zero is the engine's value for a loop that declares none (`declared_settings`), and the engine refuses it with Limits.
+    // The project test is the loop's declared experiment, which the engine reviews; the page sends no settings of its own (C12).
     this.pending = "review";
     this.status.textContent = "Reviewing test…";
     this.render();
-    this.post("control-studio.experiment.review", {
-      kind: "observation",
-      amplitude: 0,
-      durationSeconds: this.loop.experiment?.durationSeconds ?? 0,
-      physicalTopologyReviewed: false,
-    });
+    this.post("control-studio.experiment.review");
   }
 
+  /**
+   * The tool's requests (C12): each names its request on the tool's button while it is in flight, and clears the tool's sentence, which
+   * the engine's answer, or the write's progress, then states.
+   */
   private inspectParameters(): boolean {
     if (!this.parameterBinding) return false;
     this.pending = "parameter-inspect";
-    this.parameterStatusText("Inspect the running simulator before editing the declared trial values.");
+    this.parameterStatusText("");
     this.render();
     this.post("control-studio.parameters.inspect");
     return true;
@@ -302,17 +249,17 @@ export class ThreePageExperiments {
   private reviewParameters(): boolean {
     if (!this.parameterBinding || !this.parameterValues) return false;
     this.pending = "parameter-review";
-    this.parameterStatusText("Reviewing the exact declared experiment values; the runtime has not changed.");
+    this.parameterStatusText("");
     this.render();
     this.post("control-studio.parameters.review", { json: this.parameterValues.value });
     return true;
   }
 
-  /** Reviews the values that the runtime retains from before the last write (C12, E7.5); the review is then applied as any review. */
+  /** Reviews the values that the runtime retains from before the last write (C12, E7.5); the review is then confirmed as any review. */
   private reviewRestore(): boolean {
     if (!this.parameterBinding || this.pending || this.experimentId) return false;
     this.pending = "parameter-review";
-    this.parameterStatusText("Reviewing the values from before the last write; the runtime has not changed.");
+    this.parameterStatusText("");
     this.render();
     this.post("control-studio.parameters.review-rollback");
     return true;
@@ -321,87 +268,58 @@ export class ThreePageExperiments {
   private applyParameters(): boolean {
     if (!this.parameterReviewId) return false;
     this.pending = "parameter-apply";
-    this.parameterStatusText("Applying the reviewed experiment values and waiting for task confirmation…");
+    this.parameterStatusText("");
     this.render();
     this.post("control-studio.parameters.apply", { reviewId: this.parameterReviewId, physicalApproved: false });
     return true;
   }
 
+  /** The engineer edits a value: the review the page holds no longer shows the values on screen, and the engine answers the edit (C12). */
   private editParameters(): void {
     if (!this.parameterBinding || this.pending || this.experimentId) return;
-    this.parameterPhase = "edited";
     this.parameterReviewId = undefined;
-    this.parameterStatusText("Values changed. Review the exact experiment settings before starting the project test.");
+    this.parameterStatusText("");
     this.post("control-studio.parameters.invalidate");
     this.render();
   }
 
+  /**
+   * An answer of the parameter tool (C12): the values and the binding it names, the engine's sentence, and the tool's offer with the
+   * identity its confirmation names when the answer is a review. A refusal carries no offer and leaves the tool as it was.
+   */
   private receiveParameters(payload: ExperimentPayload): void {
     if (!this.parameterBinding) return;
-    const pending = this.pending;
-    this.pending = undefined;
-    if (payload.status === "unavailable") {
-      // A served loop has no engine method for the manual parameter tool (B6.1): its controls are hidden and nothing is sent.
-      this.parameterUnavailable = true;
-      this.parameterReviewId = undefined;
-      this.parameterPhase = "idle";
-      this.render();
+    // The progress of the tool's write, in the engine's words (C12): the write is still in flight.
+    if (payload.status === "running") {
+      this.parameterStatusText(text(payload.reason) ?? "");
       return;
     }
+    this.pending = undefined;
     // The fields follow the binding that the engine names in its answer (C12). An answer without one, such as a review, keeps them.
-    if (isParameterBinding(payload.binding)) this.parameterFields?.configure(payload.binding);
-    if (payload.status === "inspected" || payload.status === "draft") {
-      const values = record(payload.values) ? payload.values : record(payload.observed) && record(payload.observed.values) ? payload.observed.values : undefined;
-      if (values && this.parameterValues) {
-        this.parameterValues.value = JSON.stringify(values, null, 2);
-        this.parameterFields?.sync();
-      }
-      this.parameterReviewId = undefined;
-      this.parameterPhase = "inspected";
-      this.parameterStatusText(text(payload.reason) ?? "Current experiment values loaded. Edit them, then review the exact change.");
-    } else if (payload.status === "reviewed") {
-      this.parameterReviewId = text(payload.reviewId);
-      this.parameterPhase = this.parameterReviewId ? "reviewed" : "edited";
-      this.parameterStatusText(this.parameterReviewId ? "Review the exact experiment values before applying them." : "The parameter review was incomplete; review again.");
-    } else if (payload.status === "applied") {
-      const observed = record(payload.values) ? payload.values : record(payload.observed) && record(payload.observed.values) ? payload.observed.values : undefined;
-      if (observed && this.parameterValues) {
-        this.parameterValues.value = JSON.stringify(observed, null, 2);
-        this.parameterFields?.sync();
-      }
-      this.parameterReviewId = undefined;
-      this.parameterPhase = "applied";
-      this.parameterStatusText("Reviewed experiment values applied and confirmed. Review the declared project test next.");
-    } else if (payload.status === "edited") {
-      this.parameterReviewId = undefined;
-      this.parameterPhase = "edited";
-      this.parameterStatusText(text(payload.reason) ?? "Values changed. Review again before applying.");
-    } else if (payload.status === "failed") {
-      this.parameterReviewId = undefined;
-      this.parameterPhase = pending === "parameter-inspect" ? "idle" : "edited";
-      this.parameterStatusText(text(payload.reason) ?? "The experiment parameter operation failed.");
+    const named = payload.binding as ParameterBinding | null | undefined;
+    if (named) this.parameterFields?.configure(named);
+    // The values the engine answered: the record it read, the values a review read, or the values a write confirmed.
+    if (record(payload.values) && this.parameterValues) {
+      this.parameterValues.value = JSON.stringify(payload.values, null, 2);
+      this.parameterFields?.sync();
     }
+    const offer = toolOffer(payload.offer);
+    if (offer) {
+      this.offer = offer;
+      this.parameterReviewId = text(payload.reviewId);
+    }
+    this.parameterStatusText(text(payload.reason) ?? "");
     this.render();
   }
 
   private approve(): void {
-    if (this.reviewId) {
-      // The engine's review is confirmed by its identity; the engine starts the campaign that it describes.
-      this.pending = "approve";
-      this.status.textContent = "Starting test…";
-      this.render();
-      // The start names the reviewed identity; on a physical target the press of Approve is the engineer's approval (A2.5).
-      this.post("control-studio.experiment.approve", { planId: this.reviewId, physicalApproved: this.approvalNeeded });
-      return;
-    }
-    if (!this.plan || this.plan.requiresPhysicalApproval) {
-      this.status.textContent = "The host must complete physical approval before this project test can start.";
-      return;
-    }
+    if (!this.reviewId) return;
+    // The engine's review is confirmed by its identity; the engine starts the campaign that it describes.
     this.pending = "approve";
     this.status.textContent = "Starting test…";
     this.render();
-    this.post("control-studio.experiment.approve", { planId: this.plan.id, physicalApproved: false });
+    // The start names the reviewed identity; on a physical target the press of Approve is the engineer's approval (A2.5).
+    this.post("control-studio.experiment.approve", { planId: this.reviewId, physicalApproved: this.approvalNeeded });
   }
 
   private abort(): void {
@@ -422,21 +340,13 @@ export class ThreePageExperiments {
       ? scripted.stopConditions.filter((stop): stop is string => typeof stop === "string") : [];
     const duration = typeof review.maximumDurationSeconds === "number" ? review.maximumDurationSeconds : undefined;
     this.planView.hidden = false;
-    this.setText("[data-three-page-experiment-bound]", activation ? `${text(activation.symbol) ?? ""} · TRUE while the test runs`
-      : "Observation only: no signal is written");
+    // The test signal in the engine's words: the activation the start writes TRUE, or that the test is observation only (C12).
+    this.setText("[data-three-page-experiment-bound]", text(scripted?.testSignal) ?? "");
     this.setText("[data-three-page-experiment-duration]", duration === undefined ? ""
       : `${formatEngineeringNumber(duration)} s${baseline === undefined ? "" : ` · ${formatEngineeringNumber(baseline)} s baseline`}`);
     this.setText("[data-three-page-experiment-restoration]", activation && restoration
-      ? `${text(activation.symbol) ?? ""} = ${formatValue(restoration.activationRestoredTo === true, "")}` : "");
+      ? `${text(activation.symbol) ?? ""} = ${restoration.activationRestoredTo === true ? "TRUE" : "FALSE"}` : "");
     this.setText("[data-three-page-experiment-stops]", stops.join(", "));
-  }
-
-  private renderPlan(plan: ControlExperimentPlan): void {
-    this.planView.hidden = false;
-    this.setText("[data-three-page-experiment-bound]", `${plan.affectedSignal} · ${formatValue(plan.from, plan.unit)} → ${formatValue(plan.to, plan.unit)}`);
-    this.setText("[data-three-page-experiment-duration]", `${formatEngineeringNumber(plan.durationMs / 1_000)} s`);
-    this.setText("[data-three-page-experiment-restoration]", `${plan.affectedSignal} = ${formatValue(plan.restorationValue, plan.unit)}`);
-    this.setText("[data-three-page-experiment-stops]", plan.stopConditions.join(", "));
   }
 
   private render(): void {
@@ -454,22 +364,19 @@ export class ThreePageExperiments {
     button.disabled = this.pending !== undefined || this.blocked() !== undefined;
   }
 
+  /** Draws the tool as the engine's offer says (C12); its controls wait while the page's own request or test runs. */
   private renderParameters(): void {
     if (!this.parameterSection) return;
-    this.parameterSection.hidden = !this.parameterOffered;
-    const editable = !this.pending && !this.experimentId && !this.hasReview &&
-      (this.parameterPhase === "inspected" || this.parameterPhase === "edited");
-    for (const input of Array.from(this.parameterSection.querySelectorAll<HTMLInputElement>("input"))) input.disabled = !editable;
-    if (this.restoreButton) {
-      this.restoreButton.hidden = this.parameterUnavailable;
-      this.restoreButton.disabled = this.pending !== undefined || this.experimentId !== undefined || this.hasReview || this.parameterPhase === "idle";
-    }
+    this.parameterSection.hidden = !this.parameterFlow;
+    const waiting = this.pending !== undefined || this.experimentId !== undefined;
+    const offers = (step: ToolStep): boolean => this.offer?.available.includes(step) === true;
+    for (const input of Array.from(this.parameterSection.querySelectorAll<HTMLInputElement>("input"))) input.disabled = waiting || !offers("review");
+    if (this.restoreButton) this.restoreButton.disabled = waiting || !offers("restore");
     if (this.parameterAction) {
-      // Its step is the Identify button's parameter step; the review and start of the project test stay on the Identify page.
-      const step = this.parameterOffered && !this.hasReview && this.experimentId === undefined && this.parameterPhase !== "applied";
-      this.parameterAction.hidden = !step;
-      this.parameterAction.textContent = this.primaryActionLabel;
-      this.parameterAction.disabled = this.pending !== undefined || this.blocked() !== undefined;
+      // Its step is the tool's own; the review and start of the project test stay on the Identify page.
+      this.parameterAction.hidden = !this.parameterFlow;
+      this.parameterAction.textContent = this.parameterStepLabel;
+      this.parameterAction.disabled = waiting || this.blocked() !== undefined;
     }
     if (this.parameterStatus) this.parameterStatus.hidden = false;
   }
@@ -503,43 +410,16 @@ export class ThreePageExperiments {
   }
 }
 
-/**
- * The binding the parameter section starts from (B6.1, C12): a project test's own declared parameters. For a declared analysis the
- * parameters are the ones the engine names in its answer, which the page configures its fields from; until an answer names them the
- * section lists none. Its mode is the loop's, which the section shows as the activation.
- */
-function parameterBindingOf(loop: ControlLoopDefinition): ParameterBinding | undefined {
-  const binding = loop.parameterBinding;
-  if (!binding) return undefined;
-  if (loop.parameterPurpose === "experiment") return binding;
-  if (!loop.analysisParameterSymbols) return undefined;
-  return { ...binding, parameters: [] };
-}
-
-function isControlExperimentPlan(value: unknown): value is ControlExperimentPlan {
-  if (!record(value) || typeof value.id !== "string" || typeof value.source !== "string" || typeof value.kind !== "string"
-    || typeof value.affectedSignal !== "string" || value.address !== undefined && typeof value.address !== "string" || typeof value.valueType !== "string"
-    || typeof value.unit !== "string" || !Number.isFinite(value.minimum) || !Number.isFinite(value.maximum)
-    || !Number.isFinite(value.durationMs) || !Number.isFinite(value.expectedScan)
-    || !Array.isArray(value.stopConditions) || typeof value.restorationValue !== "boolean" && typeof value.restorationValue !== "number"
-    || typeof value.requiresPhysicalApproval !== "boolean" || !Array.isArray(value.trajectory)) return false;
-  return ["simulation", "physical"].includes(value.source) && ["observation", "setpoint_step", "load_step", "mv_step", "mv_pulse", "relay", "prbs", "multisine", "output_step", "project_sequence"].includes(value.kind);
-}
-
-function formatValue(value: number | boolean, unit: string): string {
-  if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
-  return `${formatEngineeringNumber(value)}${unit ? ` ${displayEngineeringUnit(unit)}` : ""}`;
-}
-
 function record(value: unknown): value is Record<string, any> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function text(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? plainReason(value) : undefined;
+  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
-function isParameterBinding(value: unknown): value is ParameterBinding {
-  return record(value) && Array.isArray(value.parameters) && record(value.mode) &&
-    typeof value.mode.symbol === "string" && typeof value.mode.manual_value === "boolean";
+/** The engine's offer of the tool in an answer the route posted (C12), typed as the engine wrote it; undefined when the answer has none. */
+function toolOffer(value: unknown): ParameterToolOffer | undefined {
+  if (!record(value) || typeof value.nextStep !== "string" || !(value.nextStep in STEP_LABELS) || !Array.isArray(value.available)) return undefined;
+  return value as ParameterToolOffer;
 }

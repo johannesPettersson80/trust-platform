@@ -233,6 +233,8 @@ function localRuntimeGraph(model: NetworkCanvasModel): NCGraph {
     ...(speed === undefined ? {} : {
       simulationTimeScale: speed.configured,
       ...(speed.achieved === undefined ? {} : { simulationAchievedTimeScale: speed.achieved }),
+      // The speed words the runtime gives (specification 35, B9.2); the Mode row adds only the kind name before them.
+      simulationSpeedText: speed.speedText,
     }),
   };
   return {

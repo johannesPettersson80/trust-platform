@@ -1,8 +1,9 @@
 import * as assert from "assert";
 import { formatEngineeringNumber } from "../../controlStudio/chartContract";
-import type { ControlLoopDefinition } from "../../controlStudio/loopDefinition";
+import type { LoopDefinition } from "../../controlStudio/generated/OpenResult";
 import { tuneCandidatePayload } from "../../controlStudio/webview/engineTune";
-import { renderTunedController, renderValidationResults } from "../../controlStudio/webview/threePageResults";
+import { renderTunedController } from "../../controlStudio/webview/threePageResults";
+import { validateReceiver } from "../../controlStudio/webview/engineValidate";
 import { cascadeLoop, gainScheduleLoop, onOffLoop, pidGroupLoop, smithLibraryLoop, smithLoop } from "./control-studio-structure-loop-fixtures";
 
 /**
@@ -13,6 +14,9 @@ import { cascadeLoop, gainScheduleLoop, onOffLoop, pidGroupLoop, smithLibraryLoo
  */
 
 type Loop = Record<string, any>;
+
+/** The engine's words of a Tune answer for the gain names the structure tables show (`words.gainLabels`, TuneWords). */
+const STRUCTURE_WORDS = { gainLabels: { proportional: "Proportional gain (Kp)", integral: "Integral gain (Ki)", derivative: "Derivative gain (Kd)" } };
 
 /** Runs `check` with a fresh DOM as the global document, as the other page tests do; the body holds a tuning area and a validation table. */
 function withPage<T>(check: (body: any) => T): T {
@@ -29,8 +33,8 @@ function withPage<T>(check: (body: any) => T): T {
   }
 }
 
-function loopOf(build: () => Record<string, unknown>): ControlLoopDefinition {
-  return build() as unknown as ControlLoopDefinition;
+function loopOf(build: () => Record<string, unknown>): LoopDefinition {
+  return build() as unknown as LoopDefinition;
 }
 
 /** The text of each row's cells, in order. */
@@ -56,7 +60,7 @@ suite("Control Studio structure results on the Tune page", () => {
       [seed.outer.proportionalSymbol]: 1.2, [seed.outer.integralSymbol]: 0.3,
     };
     withPage(body => {
-      renderTunedController(body, loop as unknown as ControlLoopDefinition, { status: "candidate", family: "PI", values });
+      renderTunedController(body, loop as unknown as LoopDefinition, { status: "candidate", words: STRUCTURE_WORDS, family: "PI", values });
       assert.strictEqual(body.querySelector("p").textContent, "Cascade");
       const table = body.querySelector("[data-studio-cascade-design]");
       assert.ok(table, "the cascade's table is shown");
@@ -72,13 +76,25 @@ suite("Control Studio structure results on the Tune page", () => {
     });
   });
 
+  test("the gain names of a structure's table are the engine's words, not the page's copy", () => {
+    const loop: Loop = loopOf(cascadeLoop) as unknown as Loop;
+    const seed = loop.controller.project.seed as { inner: { proportionalSymbol: string; integralSymbol: string } };
+    const values = { [seed.inner.proportionalSymbol]: 2.5, [seed.inner.integralSymbol]: 0.8 };
+    const words = { gainLabels: { proportional: "Engine proportional term", integral: "Engine integral term", derivative: "Engine derivative term" } };
+    withPage(body => {
+      renderTunedController(body, loop as unknown as LoopDefinition, { status: "candidate", family: "PI", values, words });
+      const header = body.querySelector("[data-studio-cascade-design] thead").textContent;
+      assert.strictEqual(header, "ControllerEngine proportional termEngine integral term", "the header names the gains as the engine words them");
+    });
+  });
+
   test("a Smith predictor shows its PI and the model's gain, time constant and delay", () => {
     const loop = loopOf(smithLoop);
     const seed = (loop as unknown as Loop).controller.project.seed as { proportionalSymbol: string; integralSymbol: string;
       gainSymbol: string; timeConstantSymbol: string; delaySymbol: string };
     const values = { [seed.proportionalSymbol]: 3, [seed.integralSymbol]: 0.4, [seed.gainSymbol]: 0.2, [seed.timeConstantSymbol]: 5, [seed.delaySymbol]: 1 };
     withPage(body => {
-      renderTunedController(body, loop, { status: "candidate", family: "PI", values });
+      renderTunedController(body, loop, { status: "candidate", words: STRUCTURE_WORDS, family: "PI", values });
       assert.strictEqual(body.querySelector("p").textContent, "Smith predictor");
       const list = body.querySelector("[data-studio-smith-design]");
       assert.ok(list, "the predictor's section is shown");
@@ -96,7 +112,7 @@ suite("Control Studio structure results on the Tune page", () => {
     const values = { [seed.proportionalSymbol]: 3, [seed.integralSymbol]: 0.4, [seed.gainSymbol]: 0.2, [seed.timeConstantSymbol]: 5,
       [seed.delaySymbol]: 1, [seed.operatingInputSymbol]: 40, [seed.operatingOutputSymbol]: 22 };
     withPage(body => {
-      renderTunedController(body, loop, { status: "candidate", family: "PI", values });
+      renderTunedController(body, loop, { status: "candidate", words: STRUCTURE_WORDS, family: "PI", values });
       const terms = [...body.querySelector("[data-studio-smith-design]").querySelectorAll("dt")].map((term: any) => term.textContent);
       assert.deepStrictEqual(terms.slice(5), ["Operating input", "Operating output"]);
       const input = body.querySelector(`dd[data-studio-parameter="${seed.operatingInputSymbol}"]`);
@@ -109,7 +125,7 @@ suite("Control Studio structure results on the Tune page", () => {
     const block = (loop as unknown as Loop).controller.onOff;
     const values = { [block.hysteresisSymbol]: 0.8, [block.minimumOnTimeSymbol]: 20, [block.minimumOffTimeSymbol]: 30 };
     withPage(body => {
-      renderTunedController(body, loop, { status: "candidate", family: "", values });
+      renderTunedController(body, loop, { status: "candidate", words: STRUCTURE_WORDS, family: "", values });
       assert.strictEqual(body.querySelector("p").textContent, "ON/OFF controller");
       const list = body.querySelector("[data-studio-on-off-design]");
       assert.ok(list, "the switching section is shown");
@@ -128,10 +144,13 @@ suite("Control Studio structure results on the Tune page", () => {
     const loop = loopOf(pidGroupLoop);
     const declared = ((loop as unknown as Loop).controller.group.members as { instance: string; inputChannelId: string;
       outputChannelId: string; parameterSymbols: string[] }[]);
+    // The engine names each channel (GroupMemberDesign.inputName, outputName; GroupDecoupler.inputNames): the page resolves no signal from the loop.
     const members = declared.map((member, index) => ({
       instance: member.instance,
       inputChannelId: member.inputChannelId,
       outputChannelId: member.outputChannelId,
+      inputName: `input-name-${index}`,
+      outputName: `output-name-${index}`,
       relativeGain: 1.1,
       proportionalSymbol: gainSymbolOf(loop as unknown as Loop, member.parameterSymbols, "ProportionalGain"),
       integralSymbol: gainSymbolOf(loop as unknown as Loop, member.parameterSymbols, "IntegralGain"),
@@ -143,26 +162,39 @@ suite("Control Studio structure results on the Tune page", () => {
         applied: false,
         source: "SIMC",
         members,
-        decoupler: { matrix, inputChannelIds: members.map(member => member.inputChannelId), memberInstances: members.map(member => member.instance) },
+        decoupler: { matrix, inputChannelIds: members.map(member => member.inputChannelId), inputNames: members.map(member => member.inputName),
+          memberInstances: members.map(member => member.instance) },
         values: {},
       },
     };
     withPage(body => {
-      renderTunedController(body, loop, { status: "candidate", family: "", values: {}, design });
+      renderTunedController(body, loop, { status: "candidate", words: STRUCTURE_WORDS, family: "", values: {}, design });
       assert.strictEqual(body.querySelector("p").textContent, "PID group");
       const rows = cellTexts(body.querySelector("[data-studio-group-members]"));
       assert.strictEqual(rows.length, members.length, "one row for each member");
       rows.forEach((row, index) => {
         assert.strictEqual(row[0], members[index].instance);
-        assert.ok(row[1].includes(" → "), "the member is shown by its paired channels");
+        assert.strictEqual(row[1], `input-name-${index} → output-name-${index}`, "the member is shown by its paired channels, named as the engine names them");
         assert.ok(row[2].startsWith(formatEngineeringNumber(2 + index)), "the member's proportional gain is the answer's");
         assert.ok(row[3].startsWith(formatEngineeringNumber(0.5 + index)), "the member's integral gain is the answer's");
         assert.strictEqual(row[4], formatEngineeringNumber(1.1));
       });
       const decoupler = cellTexts(body.querySelector("[data-studio-group-decoupler]"));
       assert.strictEqual(decoupler.length, members.length, "one row for each plant input");
+      assert.strictEqual(decoupler[0][0], "input-name-0", "each row of D is named as the engine names the plant input");
       assert.strictEqual(decoupler[0][1], formatEngineeringNumber(1.1));
       assert.strictEqual(decoupler[0][2], formatEngineeringNumber(-0.34));
+    });
+    // A candidate the study kept before the engine named the channels names none: the channel identifiers stand, and the page looks nothing up.
+    const unnamed = {
+      group: { ...design.group, members: members.map(({ inputName: _input, outputName: _output, ...rest }) => rest),
+        decoupler: { matrix, inputChannelIds: members.map(member => member.inputChannelId), memberInstances: members.map(member => member.instance) } },
+    };
+    withPage(body => {
+      renderTunedController(body, loop, { status: "candidate", words: STRUCTURE_WORDS, family: "", values: {}, design: unnamed });
+      const rows = cellTexts(body.querySelector("[data-studio-group-members]"));
+      rows.forEach((row, index) => assert.strictEqual(row[1], `${members[index].inputChannelId} → ${members[index].outputChannelId}`));
+      assert.strictEqual(cellTexts(body.querySelector("[data-studio-group-decoupler]"))[0][0], members[0].inputChannelId);
     });
   });
 
@@ -178,7 +210,7 @@ suite("Control Studio structure results on the Tune page", () => {
       points: points.map(point => ({ ...point, proportionalGain: 1.4, integralGain: 0.2 })),
     };
     withPage(body => {
-      renderTunedController(body, loop, { status: "candidate", family: "PI", values: {}, design: { schedule } });
+      renderTunedController(body, loop, { status: "candidate", words: STRUCTURE_WORDS, family: "PI", values: {}, design: { schedule } });
       assert.strictEqual(body.querySelector("p").textContent, "Gain schedule");
       const sentence = body.querySelector("[data-studio-schedule-choice]");
       assert.strictEqual(sentence?.getAttribute("data-studio-schedule-choice"), "fixed");
@@ -200,7 +232,7 @@ suite("Control Studio structure results on the Tune page", () => {
       points: points.map((point, index) => ({ ...point, proportionalGain: 1.4 + index, integralGain: 0.2 + index })),
     };
     withPage(body => {
-      renderTunedController(body, loop, { status: "candidate", family: "PI", values: {}, design: { schedule } });
+      renderTunedController(body, loop, { status: "candidate", words: STRUCTURE_WORDS, family: "PI", values: {}, design: { schedule } });
       assert.strictEqual(body.querySelector("[data-studio-schedule-choice]")?.getAttribute("data-studio-schedule-choice"), "scheduled");
       const rows = cellTexts(body.querySelector("[data-studio-schedule-table]"));
       assert.strictEqual(rows.length, points.length, "one row for each operating point");
@@ -214,22 +246,18 @@ suite("Control Studio structure results on the Tune page", () => {
   });
 
   test("the Validate rows of a switching controller and of a Smith predictor show the engine's words", () => {
-    const evaluation = {
-      status: "Fail",
-      run: { samples: [] },
-      specification: [],
-      requirements: [
-        { id: "switching-transitions", kind: "switching-transitions", status: "Fail", value: 49.8, limit: 50, unit: "°C",
-          reason: "A change at 49.8 °C did not happen at its threshold (C3)." },
-        { id: "switching-band", kind: "switching-band", status: "Pass", reason: "The requested state stayed inside its band at every scan (C3)." },
-        { id: "switching-aborts", kind: "switching-abort", status: "Pass", value: 0, limit: 0, unit: "count",
-          reason: "No abort: every change of the applied output followed its requested state (C3)." },
-        { id: "smith-predictor", kind: "predictor-active", status: "Fail", value: 12.5, unit: "s",
-          reason: "The predictor's history is incomplete at 12.500 s, so the predictor is not active." },
-      ],
-    };
+    // The engine's table holds these rows (ValidateResult.table); the page writes each row's words and its verdict sentence as given.
     withPage(body => {
-      renderValidationResults(body, { status: "verified", scenarioResults: [{ id: "target-response", result: { evaluation } }] });
+      validateReceiver.result!(body, { applyAvailable: false, table: [
+        { title: "Switching at threshold", symbol: "", source: "", measured: "49.8 °C", limit: `threshold ${formatEngineeringNumber(50)} °C`, verdict: "fail",
+          verdictText: "Fail · A change at 49.8 °C did not happen at its threshold (C3).", verdictClass: "fail", requirement: "switching-transitions" },
+        { title: "Retained band", symbol: "", source: "", measured: "—", limit: "—", verdict: "pass",
+          verdictText: "Pass · The requested state stayed inside its band at every scan (C3).", verdictClass: "pass", requirement: "switching-band" },
+        { title: "Output aborts", symbol: "", source: "", measured: "0 count", limit: "≤ 0 count", verdict: "pass",
+          verdictText: "Pass · No abort: every change of the applied output followed its requested state (C3).", verdictClass: "pass", requirement: "switching-aborts" },
+        { title: "Predictor active", symbol: "", source: "", measured: `${formatEngineeringNumber(12.5)} s`, limit: "—", verdict: "fail",
+          verdictText: "Fail · The predictor's history is incomplete at 12.500 s, so the predictor is not active.", verdictClass: "fail", requirement: "smith-predictor" },
+      ] }, { receive: () => undefined } as any);
       const row = (id: string) => body.querySelector(`[data-studio-requirement="${id}"]`);
       const transitions = row("switching-transitions");
       assert.ok(transitions, "the transition row is shown");

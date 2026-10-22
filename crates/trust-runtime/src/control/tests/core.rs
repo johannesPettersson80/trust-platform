@@ -4817,6 +4817,23 @@ END_PROGRAM
             .and_then(serde_json::Value::as_str),
         Some("simulation clock scaled")
     );
+    // A simulation at speed 4 with no measured speed yet names its speed; no I/O is simulated here, so it is physical (A2.4).
+    assert_eq!(
+        result.get("simulated").and_then(serde_json::Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        result
+            .get("simulation_speed_text")
+            .and_then(serde_json::Value::as_str),
+        Some("\u{00D7}4")
+    );
+    assert_eq!(
+        result
+            .get("simulation_speed_behind")
+            .and_then(serde_json::Value::as_bool),
+        Some(false)
+    );
 
     let metrics = result.get("metrics").expect("metrics object");
     assert_eq!(

@@ -444,8 +444,20 @@ fn a_served_program_law_keeps_the_cascade_and_the_declared_analysis_parked() {
         .expect_err("a cascade is parked");
     assert_eq!(failure.cause, Cause::ControllerCapability);
     assert!(failure.message.contains("a cascade"), "{}", failure.message);
+    // A declared analysis the page accepts, in the loop's units (%): a malformed one is refused at open (`analysis_rules.rs`), so
+    // the parking is tested with a well-formed analysis.
     let mut analysis = project_loop(served_project("PI", true, false));
-    analysis["analysis"] = json!({ "tool": "rootLocus" });
+    analysis["analysis"] = json!({
+        "plant": {
+            "kind": "transfer-function", "numerator": [1.0], "denominator": [1.0, 1.0], "delaySeconds": 0.0,
+            "inputUnit": "%", "outputUnit": "%", "revision": "sha256:plant", "source": "provided", "validation": "unvalidated"
+        },
+        "controller": {
+            "numerator": [{ "parameter": "Kp" }], "denominator": [1.0],
+            "parameters": { "Kp": { "value": 1.0, "minimum": 0.0, "maximum": 100.0, "unit": "%/%" } }
+        },
+        "rootLocus": { "parameter": "Kp", "values": [1.0, 2.0], "selectedValue": 1.0 }
+    });
     let failure = decode(&analysis)
         .expect("decoded")
         .rust_engine_support()

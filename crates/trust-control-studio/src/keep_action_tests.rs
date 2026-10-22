@@ -10,6 +10,7 @@ use std::sync::Arc;
 use serde_json::{json, Value};
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::messages::{KeepRequest, OperationUpdate};
+use trust_control::study::apply::ApplySection;
 use trust_control::study::Study;
 
 use super::{keep_outcome_json, review_json};
@@ -48,10 +49,10 @@ fn example_project(name: &str, connection: Option<Value>) -> (PathBuf, LoopDefin
     (root, example, request)
 }
 
-/// The study of the example loop, with an Apply section made of one applied Apply whose result passed, and the `restorations` given.
+/// The Apply section of one applied Apply whose result passed, with the `restorations` and the `keeps` given.
 #[allow(clippy::needless_pass_by_value)] // A test fixture: it takes the JSON literals its callers write in place.
-fn store_applied_section(root: &Path, example: &LoopDefinition, restorations: Value) {
-    let section = json!({
+fn applied_section_json(restorations: Value, keeps: Value) -> Value {
+    json!({
         "applications": [{
             "checkpoint": "cp-1",
             "validationIdentity": "validation:1",
@@ -76,8 +77,13 @@ fn store_applied_section(root: &Path, example: &LoopDefinition, restorations: Va
             }
         }],
         "restorations": restorations,
-        "keeps": []
-    });
+        "keeps": keeps
+    })
+}
+
+/// The study of the example loop, with an Apply section made of one applied Apply whose result passed, and the `restorations` given.
+fn store_applied_section(root: &Path, example: &LoopDefinition, restorations: Value) {
+    let section = applied_section_json(restorations, json!([]));
     let mut study = Study::new(&example.id, &example.revision);
     study.sections.insert("apply".to_string(), section);
     storage::save_study(root, &study, &[]).expect("the study is saved");
@@ -162,9 +168,9 @@ fn a_keep_request_decodes_its_unsaved_files_and_language_tool_and_defaults_them(
     assert!(!defaults.physical_approved);
 }
 
-#[test]
-fn the_review_answer_names_the_record_the_values_the_fields_the_files_and_the_identity() {
-    let review = KeepReview {
+/// The review of a Keep of `Kp` of `Main.TIC101_Parameters`, which changes one file.
+fn review() -> KeepReview {
+    KeepReview {
         record: "Main.TIC101_Parameters".to_string(),
         values: BTreeMap::from([("Kp".to_string(), 2.5)]),
         kept: vec!["Kp".to_string()],
@@ -175,14 +181,35 @@ fn the_review_answer_names_the_record_the_values_the_fields_the_files_and_the_id
             after: "new text".to_string(),
         }],
         identity: "sha256:review".to_string(),
-    };
-    let answer = review_json(&review).expect("the review encodes");
+    }
+}
+
+#[test]
+fn the_review_answer_names_the_record_the_values_the_fields_the_files_and_the_identity() {
+    let answer = review_json(&review()).expect("the review encodes");
     assert_eq!(answer["record"], "Main.TIC101_Parameters");
     assert_eq!(answer["values"]["Kp"], 2.5);
     assert_eq!(answer["kept"][0], "Kp");
     assert_eq!(answer["files"][0]["path"], "/project/Main.st");
     assert_eq!(answer["files"][0]["after"], "new text");
     assert_eq!(answer["identity"], "sha256:review");
+    assert_eq!(
+        answer["confirmation"], "explicit",
+        "a Keep edits the project's files, so its review is always confirmed with its own button (B6.5)"
+    );
+}
+
+/// R3 (B6.5: "the values the loop's parameter record holds in the running PLC become the record's initial values in the project, so a
+/// restart or a new download keeps them"; A11.1: a sentence names the values involved): the Keep review carries the engine's sentence
+/// of what it writes, naming the record, as the Apply and Restore reviews carry their description. The wrong behaviour caught: a review
+/// without the sentence, so that the page writes a heading of its own (N8).
+#[test]
+fn a_keep_review_describes_what_it_writes() {
+    let answer = review_json(&review()).expect("the review encodes");
+    assert_eq!(
+        answer["description"],
+        "Keep in project writes these running values as the initial values of Main.TIC101_Parameters in the project, so a restart or a new download keeps them."
+    );
 }
 
 #[test]
@@ -192,7 +219,8 @@ fn the_outcome_answer_names_the_fields_kept_and_those_without_a_setting() {
         kept: vec!["Kp".to_string(), "Ki".to_string()],
         unknown: vec!["Kd".to_string()],
     };
-    let answer = keep_outcome_json(&outcome).expect("the result encodes");
+    let answer = keep_outcome_json(&outcome, &applied_section(json!([]), json!([])), false)
+        .expect("the result encodes");
     assert_eq!(answer["record"], "Main.TIC101_Parameters");
     assert_eq!(answer["kept"], json!(["Kp", "Ki"]));
     assert_eq!(answer["unknown"], json!(["Kd"]));
@@ -200,5 +228,60 @@ fn the_outcome_answer_names_the_fields_kept_and_those_without_a_setting() {
         answer["reason"],
         "Kept in the project: Kp, Ki of Main.TIC101_Parameters. A restart or a new download keeps them. The equipment has no setting for Kd; copy it into the PLC code by hand.",
         "the sentence of keepInProject.ts (B6.5)"
+    );
+}
+
+/// The Apply section of [`applied_section_json`], decoded as the study reads it.
+fn applied_section(restorations: Value, keeps: Value) -> ApplySection {
+    trust_control::json::decode_value(applied_section_json(restorations, keeps))
+        .expect("the section decodes")
+}
+
+/// B6.5 and B7: once the Keep's receipt is kept, the result offers Restore previous settings still, because the settings stand, and
+/// Keep in project no more, because these values are kept, and Restore previous settings then holds the position. The page shows the
+/// flags and the position and decides none of them. The wrong behaviour caught: a Keep result that leaves Keep in project in the
+/// position after the values are kept, or that takes the position from an Apply a newer validation offers.
+#[test]
+fn the_outcome_answer_offers_restore_and_not_keep_once_the_keep_is_kept() {
+    let outcome = KeepOutcome {
+        record: "Main.TIC101_Parameters".to_string(),
+        kept: vec!["Kp".to_string()],
+        unknown: Vec::new(),
+    };
+    let before = keep_outcome_json(&outcome, &applied_section(json!([]), json!([])), false)
+        .expect("the result encodes");
+    assert_eq!(before["restoreAvailable"], json!(true));
+    assert_eq!(
+        before["keepAvailable"],
+        json!(true),
+        "the receipts hold no Keep yet"
+    );
+    assert_eq!(
+        before["primaryAction"], "keep",
+        "Keep in project is offered after the Apply"
+    );
+    let receipts = json!([{
+        "checkpoint": "cp-1",
+        "record": "Main.TIC101_Parameters",
+        "kept": ["Kp"],
+        "unknown": []
+    }]);
+    let kept = keep_outcome_json(
+        &outcome,
+        &applied_section(json!([]), receipts.clone()),
+        false,
+    )
+    .expect("the result encodes");
+    assert_eq!(kept["restoreAvailable"], json!(true));
+    assert_eq!(kept["keepAvailable"], json!(false));
+    assert_eq!(
+        kept["primaryAction"], "restore",
+        "the settings stand, so Restore keeps the position (B7)"
+    );
+    let newer = keep_outcome_json(&outcome, &applied_section(json!([]), receipts), true)
+        .expect("the result encodes");
+    assert_eq!(
+        newer["primaryAction"], "apply",
+        "a validation that passed after the Apply holds the position (B7)"
     );
 }

@@ -413,6 +413,7 @@ mod tests {
 
     fn requirements() -> TuningRequirements {
         TuningRequirements {
+            channel_requirements: None,
             reference_change: 1.0,
             maximum_error: 0.1,
             settling_band: 0.02,

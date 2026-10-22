@@ -1,19 +1,8 @@
 import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
-
-import {
-  CONTROL_CHART_SIGNALS,
-  controlChartCsv,
-  displayedControlSamples,
-  frequencyPlotDescription,
-  normalizeChartWindow,
-  validateLogValues,
-  wrapPhaseDegrees,
-} from "../../controlStudio/chartContract";
 import * as chartContractModule from "../../controlStudio/chartContract";
-import { buildEngineeringPlotEvidence, engineeringPlotMessageEvidence } from "../../controlStudio/engineeringPlots";
-import { candidateFromControlPid, type ControlPidParameters } from "../../controlStudio/controllerCandidate";
+import type { PlotSignal } from "../../controlStudio/generated/OpenResult";
 import { responseChartSeries, responseChartTooltip } from "../../controlStudio/webview/threePageResponseSeries";
 import { rootLocusChartSeries } from "../../controlStudio/webview/rootLocusChart";
 import { sensitivitySeries } from "../../controlStudio/webview/sensitivityChart";
@@ -22,36 +11,19 @@ import { initialStateResponseRows, initialStateResponseSeries } from "../../cont
 import { poleMapGeometry } from "../../controlStudio/webview/complexPlaneGeometry";
 
 suite("Control Studio chart contract", () => {
-  test("a provisional structure comparison exposes paired fit, residuals and the original record without claiming validation data", () => {
-    const tabs = chartContractModule.controlStagePlots("Identify", { recording: true, model: true, structureComparison: true } as any);
-    assert.deepStrictEqual(tabs.map(tab => tab.id), ["fit", "residuals", "recorded-response"]);
-    assert.ok(tabs.every(tab => tab.available));
-  });
-  test("Identify exposes the retained response before fitting and keeps preview and recording views distinct", () => {
-    const before = chartContractModule.controlStagePlots("Identify", { recording: true });
-    assert.ok(before.some(plot => plot.id === "recorded-response" && plot.available),
-      "the selected recording must be inspectable before its model exists");
-    assert.ok(before.some(plot => plot.id === "fit" && !plot.available && !/accept/i.test(plot.reason ?? "")),
-      "a first fit must not tell the engineer to accept a nonexistent model");
-    assert.strictEqual(chartContractModule.controlPlotView("Identify", "recorded-response"), "response");
-    const after = chartContractModule.controlStagePlots("Identify", { recording: true, model: true });
-    assert.ok(after.some(plot => plot.id === "fit" && plot.available));
-    assert.ok(after.some(plot => plot.id === "recorded-response" && plot.available));
-  });
+
   const threePageTheme = { foreground: "black", muted: "gray", border: "gray", background: "white",
     sp: "green", pv: "blue", mv: "red", auxiliaryOrange: "orange", auxiliaryPurple: "purple", auxiliaryYellow: "gold" };
-  const threePageLoop = () => {
-    const signal = (symbol: string) => ({ symbol, address: "%ML0", iecType: "LREAL", direction: "read" as const,
-      unit: "%", range: { minimum: 0, maximum: 100 } });
-    return { signals: { setpoint: signal("P1.SP"), processVariable: signal("P1.PV"), manipulatedVariable: signal("P1.MV"),
-      additional: Array.from({ length: 9 }, (_, index) => ({ ...signal(`P1.State${index}`), id: `state-${index}`,
-        role: "state", channel: `state-${index}` })) } } as any;
-  };
-  const threePagePlot = (loop: any, ids: string[], prediction = false) => responseChartSeries(threePageTheme, loop,
+  // The signals the engine lists for the plots (`liveSides.plotSignals`): a setpoint, a measurement, an output and nine states.
+  const threePageSignals = (): Pick<PlotSignal, "id" | "kind">[] => [
+    { id: "sp", kind: "setpoint" }, { id: "pv", kind: "measurement" }, { id: "mv", kind: "appliedOutput" },
+    ...Array.from({ length: 9 }, (_, index) => ({ id: `state-${index}`, kind: "additional" as const }))];
+  const threePagePlot = (signals: Pick<PlotSignal, "id" | "kind">[], ids: string[], prediction = false) => responseChartSeries(threePageTheme, signals,
     [{ name: "Response", unit: "%", series: ids.map(signalId => ({ signalId, name: signalId, dashed: signalId === "sp",
       prediction, points: [[0, 1]] })) }]);
   const threePageIdentity = (series: ReturnType<typeof threePagePlot>[number]) =>
     `${(series.lineStyle as { color?: string }).color}/${series.lineStyle.type}`;
+
   test("the initial-state response draws the total as the wide primary line with its two parts over it in distinct auxiliary strokes", () => {
     const points = [{ timeSeconds: 0, zeroState: [9, 0], initialCondition: [9, 0.02], total: [9, 0.02] }, { timeSeconds: 1, zeroState: [9, 0.001], initialCondition: [9, 0.019], total: [9, 0.02] }];
     const colors = { total: "#0a84ff", zeroState: "#ff9f0a", initialCondition: "#bf5af2" };
@@ -82,28 +54,42 @@ suite("Control Studio chart contract", () => {
   });
 
   test("the three-page response plot keeps the primary strokes and each auxiliary identity across selections", () => {
-    const loop = threePageLoop();
-    const ids = ["sp", "pv", "mv", ...loop.signals.additional.map((signal: { id: string }) => signal.id)];
-    const all = threePagePlot(loop, ids);
+    const signals = threePageSignals();
+    const ids = signals.map(signal => signal.id);
+    const all = threePagePlot(signals, ids);
     assert.deepStrictEqual(all.slice(0, 3).map(threePageIdentity), ["green/dashed", "blue/solid", "red/solid"]);
-    assert.deepStrictEqual(threePagePlot(loop, ["pv", "state-4"]).map(threePageIdentity), [all[1], all[7]].map(threePageIdentity),
+    assert.deepStrictEqual(threePagePlot(signals, ["pv", "state-4"]).map(threePageIdentity), [all[1], all[7]].map(threePageIdentity),
       "signal selection must not reassign the remaining trace identities");
-    assert.strictEqual((threePagePlot(loop, ["pv"], true)[0].lineStyle as { color?: string }).color, "orange",
+    assert.strictEqual((threePagePlot(signals, ["pv"], true)[0].lineStyle as { color?: string }).color, "orange",
       "a model prediction keeps its prediction stroke");
   });
+
   test("the three-page response plot never draws two displayed signals alike", () => {
-    const loop = threePageLoop();
-    const ids = ["sp", "pv", "mv", ...loop.signals.additional.map((signal: { id: string }) => signal.id)];
-    const all = threePagePlot(loop, ids);
+    const signals = threePageSignals();
+    const ids = signals.map(signal => signal.id);
+    const all = threePagePlot(signals, ids);
     assert.strictEqual(new Set(all.map(threePageIdentity)).size, ids.length,
       `each displayed trace needs its own colour/style pair: ${all.map(threePageIdentity).join(", ")}`);
   });
+
+  test("the output the controller requested is drawn in an auxiliary stroke, as the engine's kind says", () => {
+    // A loop with an actuator lists the requested output (`requestedMv`) beside the applied one (`mv`). The engine gives it a kind of its own and the plot
+    // groups the kinds once: a page that coloured by a list of three fixed identifiers (sp, pv, mv) and named by another list of four would treat the same
+    // signal two ways.
+    const signals: Pick<PlotSignal, "id" | "kind">[] = [...threePageSignals().slice(0, 3), { id: "requestedMv", kind: "requestedOutput" }, { id: "state-0", kind: "additional" }];
+    const [applied, requested, state] = threePagePlot(signals, ["mv", "requestedMv", "state-0"]);
+    assert.strictEqual(threePageIdentity(applied), "red/solid", "the applied output keeps its own colour");
+    assert.ok(!["green", "blue", "red"].includes((requested.lineStyle as { color?: string }).color ?? ""), "the requested output takes an auxiliary colour");
+    assert.notStrictEqual(threePageIdentity(requested), threePageIdentity(state), "and a stroke of its own among the auxiliary signals");
+    assert.deepStrictEqual([applied, requested].map(series => (series as { step?: unknown }).step), ["end", undefined], "only the applied output is held between samples");
+  });
+
   test("the three-page response plot draws the applied output as held between samples", () => {
-    const loop = threePageLoop();
-    const [pv, mv] = threePagePlot(loop, ["pv", "mv"]);
+    const [pv, mv] = threePagePlot(threePageSignals(), ["pv", "mv"]);
     assert.strictEqual((mv as { step?: unknown }).step, "end", "the actuator keeps each command until the next update");
     assert.strictEqual((pv as { step?: unknown }).step, undefined, "a measurement is joined as sampled");
   });
+
   test("the three-page response tooltip shows engineering values inside the plot", () => {
     const tooltip = responseChartTooltip();
     const shown = (value: number) => (tooltip.valueFormatter ?? String)(value);
@@ -112,6 +98,7 @@ suite("Control Studio chart contract", () => {
     assert.strictEqual(shown(-2.405530441441469), "-2.41");
     assert.strictEqual(tooltip.confine, true, "the tooltip stays inside the plot area");
   });
+
   test("the three-page root locus draws the pole paths, labels the inspected gains and marks the selected candidate", () => {
     // The engine's root-locus answer for the shaft (RootLocusAnswer, analysis/declared.rs): the poles of s² + 8s + Kp = 0 at each
     // gain, the three swept gains and the 201 evenly spaced gains of the declared range over which the pole paths are drawn.
@@ -176,7 +163,6 @@ suite("Control Studio chart contract", () => {
     return { real: scale * (c - 5 * omega * q), imaginary: -scale * (q + 5 * omega * c) };
   });
 
-
   test("the Nyquist plot keeps equal units on both axes around the curve and −1", () => {
     for (const area of [{ width: 1250, height: 440 }, { width: 500, height: 440 }]) {
       const geometry = nyquistGeometry(delayedLoop, area);
@@ -237,64 +223,6 @@ suite("Control Studio chart contract", () => {
     }
   });
 
-  test("retains auxiliary identities and independent quality when reopening measured samples", () => {
-    const sample = { elapsedSeconds: 1, sp: 45, pv: 39, appliedMv: 100,
-      quality: "good" as const, events: [], additional: [
-        { id: "requested-power", channel: "heater", role: "state" as const, unit: "%", value: 125, quality: "good" as const },
-        { id: "stored-correction", channel: "heater", role: "state" as const, unit: "%", value: 113, quality: "forced" as const },
-      ] };
-    assert.deepStrictEqual(chartContractModule.restoredControlChartSamples([sample]), [{
-      elapsedSeconds: 1, sp: 45, pv: 39, mv: 100, quality: "good", events: [],
-      additional: sample.additional,
-    }], "saved auxiliary values, units and quality must reach the shared plot without replacing applied MV");
-  });
-  test("retains auxiliary extrema and quality gaps during display reduction", () => {
-    const samples = Array.from({ length: 21 }, (_, index) => ({
-      elapsedSeconds: index, sp: 45, pv: 39, mv: 100,
-      additional: [{ id: "request", channel: "heater", role: "state" as const, unit: "%",
-        value: index === 3 ? 125 : index === 11 ? null : 100,
-        quality: index === 7 ? "bad" as const : "good" as const }],
-    }));
-    const displayed = displayedControlSamples(samples, 3);
-    for (const index of [3, 7, 8, 11, 12]) assert.ok(displayed.some(sample => sample.elapsedSeconds === index),
-      `auxiliary extremum or quality/gap boundary ${index} must not disappear`);
-  });
-  test("exports auxiliary samples with unit and quality alongside primary measured values", () => {
-    const csv = controlChartCsv([{ elapsedSeconds: 1, sp: 45, pv: 39, mv: 100,
-      additional: [{ id: "request", channel: "heater", role: "state", unit: "%", value: 125, quality: "good" }],
-    } as Parameters<typeof controlChartCsv>[0][number]]);
-    assert.ok(csv.includes('"request (%)"'), "export must name the additional signal and its unit");
-    assert.ok(csv.includes('"request.quality"'), "export must retain additional quality");
-    assert.ok(csv.includes(',125,good'), "export must retain the unclipped request");
-  });
-  test("opens recording-only validation evidence on its measured response without requiring a candidate", () => {
-    const tabs = chartContractModule.controlStagePlots("Validate", { recording: true });
-    const selected = chartContractModule.selectControlPlot(tabs, "requirements");
-    assert.strictEqual(selected, "recorded-response");
-    assert.strictEqual(chartContractModule.controlPlotView("Validate", selected!), "response");
-    assert.deepStrictEqual(tabs.map(tab => tab.id), ["recorded-response", "signals"],
-      "a recording must not expose unavailable candidate-only plots");
-    assert.strictEqual(chartContractModule.controlStagePlots("Validate", {}).some(tab => tab.id === "recorded-response"), false);
-    assert.strictEqual(chartContractModule.selectControlPlot(
-      chartContractModule.controlStagePlots("Validate", { recording: true, candidate: true }), "requirements"), "requirements",
-    "qualified saved analysis keeps its selected view");
-  });
-  test("offers explicitly live validation inspection without manufacturing recorded evidence", () => {
-    const tabs = chartContractModule.controlStagePlots("Validate", { samples: true });
-    assert.deepStrictEqual(tabs.map(tab => tab.id), ["live-response"]);
-    assert.strictEqual(chartContractModule.selectControlPlot(tabs, "requirements"), "live-response");
-    assert.strictEqual(chartContractModule.controlPlotView("Validate", "live-response"), "response");
-    assert.ok(!tabs.some(tab => tab.id === "recorded-response"));
-  });
-  test("manual parameter tuning shows the measured response without an invented model prediction", () => {
-    const evidence = { samples: true, manualParameters: true };
-    assert.deepStrictEqual(chartContractModule.controlStagePlots("Tune", evidence).map(tab => tab.id), ["live-response"]);
-    assert.deepStrictEqual(chartContractModule.controlStagePlots("Tune", { ...evidence, recording: true }).map(tab => tab.id), ["recorded-response"]);
-    const modelTabs = chartContractModule.controlStagePlots("Tune", { ...evidence, model: true, candidate: true });
-    assert.ok(modelTabs.some(tab => tab.id === "bode" && tab.available));
-    assert.strictEqual(chartContractModule.controlPlotView("Tune", "live-response"), "response");
-  });
-
   test("formats engineering values compactly for bounded metric cards", () => {
     const format = (chartContractModule as unknown as {
       formatEngineeringNumber?: (value: unknown, fractionDigits?: number) => string;
@@ -313,41 +241,6 @@ suite("Control Studio chart contract", () => {
     assert.strictEqual(format?.(Number.NaN), "—");
   });
 
-  test("keeps revision identity available without filling the primary header", () => {
-    const compact = (chartContractModule as unknown as {
-      compactRevisionLabel?: (value: string) => string;
-    }).compactRevisionLabel;
-    assert.strictEqual(typeof compact, "function", "compact revision labels are not implemented");
-    assert.strictEqual(compact?.("sha256:1234567890abcdef"), "12345678…");
-    assert.strictEqual(compact?.("controller-2"), "controller-2");
-  });
-
-  test("uses a compact readable plot layout at 200 percent zoom", () => {
-    const layout = (chartContractModule as unknown as {
-      controlChartLayout?: (width: number) => unknown;
-    }).controlChartLayout;
-    assert.strictEqual(typeof layout, "function", "responsive Control Studio plot layout is not implemented");
-    assert.deepStrictEqual(layout?.(346), {
-      compact: true, grid: { left: 36, right: 36, top: 18, bottom: 34 },
-      showLegend: false, showAxisNames: false,
-    });
-    assert.deepStrictEqual(layout?.(900), {
-      compact: false, grid: { left: 58, right: 58, top: 38, bottom: 42 },
-      showLegend: true, showAxisNames: true,
-    });
-    const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const template = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "threePageTemplate.ts"), "utf8");
-    const styles = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "threePageStyles.ts"), "utf8");
-    assert.match(template, /data-studio-three-page/);
-    assert.match(template, /class="studio-response"[^>]*aria-label="Response plot"/);
-    assert.match(styles, /\.studio-chart \{ width: 100%; height: max\(280px/,
-      "the response plot must retain a bounded readable height");
-    assert.match(styles, /@media\(max-width: 650px\).*\.studio-chart \{ height: 320px; \}/s,
-      "narrow layouts must preserve a usable chart height");
-    assert.doesNotMatch(styles, /overflow-x: clip/,
-      "the current shell must keep the viewport available to its own scroll owner");
-  });
-
   test("keeps the approved response plot readable without legacy plot-editor controls", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
     const template = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "threePageTemplate.ts"), "utf8");
@@ -359,34 +252,6 @@ suite("Control Studio chart contract", () => {
     assert.match(styles, /data-binding-draft="true"/);
     assert.doesNotMatch(template, /plot-toolbar|plot-tools|data-design-exact|data-engineering-bode/,
       "the approved three-page shell does not expose legacy plot-editor controls");
-  });
-
-  test("disables direct chart actions when the selected plot has no evidence", () => {
-    const availability = (chartContractModule as unknown as {
-      directChartActionAvailability?: (plotAvailable: boolean) => Record<string, boolean>;
-    }).directChartActionAvailability;
-    assert.strictEqual(typeof availability, "function",
-      "direct chart actions need one availability contract owned by the selected plot");
-    assert.deepStrictEqual(availability?.(true), {
-      inspect: true, "zoom-out": true, "zoom-in": true,
-      reset: true, expand: true, "export-figure": true,
-    });
-    assert.deepStrictEqual(availability?.(false), {
-      inspect: false, "zoom-out": false, "zoom-in": false,
-      reset: false, expand: false, "export-figure": false,
-    });
-  });
-
-  test("does not present an empty saved-result history as an operation failure", () => {
-    const status = (chartContractModule as unknown as {
-      workflowResultStatusText?: (phase: string, reason?: unknown) => string | undefined;
-    }).workflowResultStatusText;
-    assert.strictEqual(typeof status, "function",
-      "saved-result history messages need an explicit neutral-versus-failure contract");
-    assert.strictEqual(status?.("history"), undefined,
-      "an empty history must preserve the neutral Validate empty state");
-    assert.strictEqual(status?.("failed", "Saved result is malformed."), "Saved result is malformed.");
-    assert.strictEqual(status?.("failed"), "The workflow result operation failed.");
   });
 
   test("keeps the current three-page actions gated until their prerequisite evidence exists", () => {
@@ -403,76 +268,6 @@ suite("Control Studio chart contract", () => {
       "Apply must remain gated until validation has passed");
     assert.match(workflow, /operation\.synchronize\(\); application\.synchronize\(\);/,
       "current Operation/Application gates must be synchronized after host updates");
-  });
-
-  test("derives controller-setting units from the bound process and output signals", () => {
-    const deriveUnits = (chartContractModule as unknown as {
-      pidEngineeringUnits?: (processUnit: string, outputUnit: string) => unknown;
-    }).pidEngineeringUnits;
-    assert.strictEqual(typeof deriveUnits, "function", "controller-setting unit derivation is not implemented");
-    assert.deepStrictEqual(deriveUnits?.("°C", "%"), {
-      proportional: "%/°C",
-      integral: "%/(°C·s)",
-      derivative: "%·s/°C",
-      output: "%",
-    });
-    assert.deepStrictEqual(deriveUnits?.("degC", "%"), {
-      proportional: "%/°C",
-      integral: "%/(°C·s)",
-      derivative: "%·s/°C",
-      output: "%",
-    });
-    assert.deepStrictEqual(deriveUnits?.("", ""), {
-      proportional: "normalized output/process",
-      integral: "normalized output/(process·s)",
-      derivative: "normalized output·s/process",
-      output: "normalized output",
-    });
-  });
-
-  test("summarizes the current plot with source, signals, values, and units", () => {
-    const summary = (chartContractModule as unknown as {
-      controlChartAccessibleSummary?: (
-        source: string, sample: { elapsedSeconds: number; sp: number; pv: number; mv: number },
-        processUnit: string, outputUnit: string
-      ) => string;
-    }).controlChartAccessibleSummary;
-    assert.strictEqual(typeof summary, "function", "accessible live-chart summary is not implemented");
-    assert.strictEqual(summary?.("Simulation", { elapsedSeconds: 4.25, sp: 5, pv: 4.3821, mv: 3.2678 }, "°C", "%"),
-      "Simulation control-loop time plot. Current at 4.25 s: SP 5 °C, PV 4.38 °C, MV 3.27 %.");
-  });
-
-  test("describes explicit open-loop values accessibly without a fictitious setpoint", () => {
-    const summary = (chartContractModule.controlChartAccessibleSummary as (...args: any[]) => string)(
-      "Simulation", { elapsedSeconds: 2, sp: null, pv: 35, mv: 85 }, "degC", "%", "open-loop");
-    assert.strictEqual(summary, "Simulation open-loop time plot. Current at 2 s: Measured output 35 °C, Applied input 85 %.");
-    const axes = (chartContractModule.controlChartAxisLabels as (...args: any[]) => unknown)("degC", "%", "open-loop");
-    assert.deepStrictEqual(axes, { process: "Measured output (°C)", output: "Applied input (%)",
-      description: "Measured output in °C; applied input in %" });
-  });
-
-  test("projects retained experiment and quality events in chronological order", () => {
-    const rows = (chartContractModule as unknown as {
-      controlChartEventRows?: (samples: readonly unknown[]) => unknown[];
-    }).controlChartEventRows;
-    assert.strictEqual(typeof rows, "function", "the Events plot has no retained-event projection");
-    assert.deepStrictEqual(rows?.([
-      { elapsedSeconds: 0, sp: 30, pv: 30, mv: 20, quality: "good",
-        events: [{ kind: "test-start", label: "Experiment approved" }] },
-      { elapsedSeconds: 5, sp: 30, pv: 30.4, mv: 30, quality: "uncertain" },
-      { elapsedSeconds: 40, sp: 30, pv: 32, mv: 20, quality: "good",
-        events: [{ kind: "test-end", label: "Restoration confirmed" }] },
-    ]), [
-      { timeSeconds: 0, kind: "test-start", label: "Experiment approved" },
-      { timeSeconds: 5, kind: "quality", label: "Data quality changed to uncertain" },
-      { timeSeconds: 40, kind: "test-end", label: "Restoration confirmed" },
-      { timeSeconds: 40, kind: "quality", label: "Data quality changed to good" },
-    ]);
-    assert.deepStrictEqual(rows?.([
-      { elapsedSeconds: 0, sp: 30, pv: 30, mv: 20, quality: "good",
-        events: [{ kind: "event", label: "recording_started" }] },
-    ]), [{ timeSeconds: 0, kind: "event", label: "Recording started" }],
-    "stored event identifiers must be presented as readable language");
   });
 
   test("keeps the current three-page plot owner separate from legacy Bode editor markup", () => {
@@ -492,314 +287,11 @@ suite("Control Studio chart contract", () => {
     assert.match(template, /data-studio-tuning-result/);
   });
 
-  test("keeps exact graphical gain parsing as a pure controller input boundary", () => {
-    const parseGraphicalGain = (chartContractModule as unknown as {
-      parseGraphicalGain?: (text: string, minimum: number, maximum: number) => unknown;
-    }).parseGraphicalGain;
-    assert.strictEqual(typeof parseGraphicalGain, "function", "exact graphical gain validation is not implemented");
-    assert.deepStrictEqual(parseGraphicalGain?.("4.25", 0.01, 20), { ok: true, value: 4.25 });
-    assert.deepStrictEqual(parseGraphicalGain?.("0", 0.01, 20), {
-      ok: false, reason: "Enter a finite value from 0.01 to 20.",
-    });
-    assert.deepStrictEqual(parseGraphicalGain?.("not-a-number", 0.01, 20), {
-      ok: false, reason: "Enter a finite value from 0.01 to 20.",
-    });
-  });
-
   test("keeps candidate settings in the Tune result area without legacy margin cards", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
     const template = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "threePageTemplate.ts"), "utf8");
     assert.match(template, /data-studio-tuning-result/);
     assert.doesNotMatch(template, /data-design-gain-margin|data-design-phase-margin/);
-  });
-
-  test("keeps stable SP, PV, and MV identity without relying on color", () => {
-    assert.deepStrictEqual(CONTROL_CHART_SIGNALS.map(({ id, name, axis }) => ({ id, name, axis })), [
-      { id: "sp", name: "SP", axis: 0 },
-      { id: "pv", name: "PV", axis: 0 },
-      { id: "mv", name: "MV", axis: 1 },
-      { id: "disturbance", name: "Disturbance", axis: 1 },
-      { id: "current", name: "Current", axis: 0 },
-      { id: "candidate", name: "Candidate", axis: 0 },
-      { id: "baseline", name: "Baseline", axis: 0 },
-      { id: "limit", name: "Limit", axis: 0 },
-    ]);
-    assert.deepStrictEqual(CONTROL_CHART_SIGNALS.map((signal) => signal.line), [
-      // SP is dashed (not solid) so it stays visible drawn on top of a coinciding solid
-      // PV trace instead of being hidden underneath it (finding V-08).
-      "dashed",
-      "solid",
-      "solid",
-      "dotted",
-      "solid",
-      "solid",
-      "dashed",
-      [8, 4, 2, 4]
-    ]);
-    assert.deepStrictEqual(CONTROL_CHART_SIGNALS.slice(0, 3).map((signal) => signal.symbol), [
-      "diamond", "circle", "rect"
-    ]);
-  });
-
-  test("clamps zoom and pan to a valid visible window", () => {
-    assert.deepStrictEqual(normalizeChartWindow(-20, 30), [0, 50]);
-    assert.deepStrictEqual(normalizeChartWindow(80, 130), [50, 100]);
-    assert.deepStrictEqual(normalizeChartWindow(50, 50), [50, 51]);
-  });
-
-  test("exports missing values as gaps instead of invented samples", () => {
-    assert.strictEqual(
-      controlChartCsv([{ elapsedSeconds: 1.5, sp: 10, pv: null, mv: 42 }]),
-      "elapsed_seconds,sp,pv,mv,quality,events\n1.5,10,,42,good,\"\""
-    );
-  });
-
-  test("restores the saved raw recording into the shared control plot", () => {
-    const restore = (chartContractModule as unknown as {
-      restoredControlChartSamples?: (samples: readonly unknown[]) => unknown;
-    }).restoredControlChartSamples;
-    assert.strictEqual(typeof restore, "function", "saved-result chart restoration is not implemented");
-    assert.deepStrictEqual(restore?.([{
-      elapsedSeconds: 1.25, sp: 5, pv: 4.2, mv: 12, quality: "forced",
-      events: ["recording_started", "setpoint_step"],
-    }]), [{
-      elapsedSeconds: 1.25, sp: 5, pv: 4.2, mv: 12, quality: "bad",
-      events: [{ kind: "event", label: "recording_started" }, { kind: "event", label: "setpoint_step" }],
-    }]);
-    assert.deepStrictEqual(restore?.([{
-      elapsedSeconds: 2, sp: 5, pv: 4.4, requestedMv: null, appliedMv: 12.5,
-      quality: "good", events: [],
-    }]), [{ elapsedSeconds: 2, sp: 5, pv: 4.4, mv: 12.5, quality: "good", events: [] }],
-    "schema-v3 recordings must plot the applied actuator output, not the optional request");
-  });
-
-  test("preserves gaps, extrema, quality changes, and events when reducing display data", () => {
-    const samples = [
-      { elapsedSeconds: 0, sp: 0, pv: 0, mv: 0, quality: "good" as const },
-      { elapsedSeconds: 1, sp: 1, pv: 8, mv: 1, quality: "good" as const },
-      { elapsedSeconds: 2, sp: 2, pv: null, mv: 2, quality: "stale" as const },
-      { elapsedSeconds: 3, sp: 3, pv: 9, mv: 3, quality: "good" as const, events: [{ kind: "mode-change" as const, label: "Auto" }] },
-      { elapsedSeconds: 4, sp: 4, pv: 1, mv: 4, quality: "good" as const },
-      { elapsedSeconds: 5, sp: 5, pv: 7, mv: 5, quality: "good" as const },
-    ];
-    const displayed = displayedControlSamples(samples, 3);
-    assert.ok(displayed.some((sample) => sample.pv === null));
-    assert.ok(displayed.some((sample) => sample.pv === 9));
-    assert.ok(displayed.some((sample) => sample.events?.[0].label === "Auto"));
-    assert.deepStrictEqual([
-      displayed[0].elapsedSeconds,
-      displayed[displayed.length - 1].elapsedSeconds,
-    ], [0, 5]);
-  });
-
-  test("rejects invalid logarithmic values and labels frequency conventions", () => {
-    assert.deepStrictEqual(validateLogValues([1, 0, -1, Number.NaN, 10]), {
-      values: [1, null, null, null, 10],
-      invalidIndices: [1, 2, 3],
-    });
-    assert.strictEqual(wrapPhaseDegrees(270, "-180..180"), -90);
-    assert.strictEqual(wrapPhaseDegrees(-90, "0..360"), 270);
-    assert.strictEqual(
-      frequencyPlotDescription("rad/s", "dB", "estimated"),
-      "Estimated frequency response; frequency in rad/s; amplitude in dB; phase in degrees"
-    );
-  });
-
-  test("exposes every stage plot directly and explains unavailable evidence", () => {
-    const plots = (chartContractModule as unknown as {
-      controlStagePlots?: (stage: string, evidence: Record<string, boolean>) =>
-        Array<{ id: string; available: boolean; reason?: string }>;
-    }).controlStagePlots;
-    assert.strictEqual(typeof plots, "function", "direct stage plot navigation is not implemented");
-    assert.deepStrictEqual(plots?.("Monitor", { samples: false }), [
-      { id: "response", available: true },
-      { id: "signals", available: true },
-      { id: "events", available: false, reason: "Start the runtime or open a retained recording first" },
-    ], "Monitor must open on an honest empty response plot, not jump to another tab while connecting");
-    assert.strictEqual(
-      plots?.("Monitor", { samples: false, recording: true })?.find((plot) => plot.id === "events")?.available,
-      true,
-      "reopened retained evidence must make its Events tab usable even without a live runtime sample"
-    );
-    assert.deepStrictEqual(plots?.("Tune", { model: true, candidate: false, mimo: false }), [
-      { id: "response", available: false, reason: "Generate or select a controller candidate first" },
-      { id: "bode", available: true },
-      { id: "root-locus", available: true },
-      { id: "nyquist", available: true },
-      { id: "nichols", available: false, reason: "Generate or select a controller candidate first" },
-      { id: "sensitivity", available: false, reason: "Generate or select a controller candidate first" },
-    ]);
-    assert.deepStrictEqual(plots?.("Identify", { model: true, candidate: true, mimo: true })?.map((plot) => plot.id), [
-      "fit", "residuals", "validation-data", "poles-zeros", "channel-responses", "rga",
-    ]);
-    const select = (chartContractModule as unknown as {
-      selectControlPlot?: (tabs: Array<{ id: string; available: boolean }>, selected?: string) => string | undefined;
-    }).selectControlPlot;
-    assert.strictEqual(typeof select, "function", "valid direct-plot fallback is not implemented");
-    assert.strictEqual(select?.(plots?.("Tune", { model: true, candidate: false }) ?? [], "response"), "bode");
-    const view = (chartContractModule as unknown as {
-      controlPlotView?: (stage: string, plot: string) => string;
-    }).controlPlotView;
-    assert.strictEqual(typeof view, "function", "direct plot-to-view routing is not implemented");
-    assert.strictEqual(view?.("Test", "experiment"), "response");
-    assert.strictEqual(view?.("Test", "limits"), "response");
-    assert.strictEqual(view?.("Tune", "response"), "engineering-response");
-    assert.strictEqual(view?.("Identify", "residuals"), "residuals");
-  });
-
-  test("uses aligned lanes instead of silently overlaying three unit groups", () => {
-    const layout = (chartContractModule as unknown as {
-      controlSignalLayout?: (signals: Array<{ id: string; unit: string }>) => unknown;
-    }).controlSignalLayout;
-    assert.strictEqual(typeof layout, "function", "unit-safe signal layout is not implemented");
-    assert.deepStrictEqual(layout?.([
-      { id: "sp", unit: "°C" }, { id: "pv", unit: "°C" },
-      { id: "mv", unit: "%" }, { id: "flow", unit: "L/min" },
-    ]), {
-      mode: "lanes",
-      groups: [
-        { unit: "°C", signalIds: ["sp", "pv"], axis: 0 },
-        { unit: "%", signalIds: ["mv"], axis: 0 },
-        { unit: "L/min", signalIds: ["flow"], axis: 0 },
-      ],
-    });
-  });
-
-  test("accepts only dimensionally complete named MIMO plot evidence", () => {
-    const decode = (chartContractModule as unknown as {
-      decodeMimoPlotEvidence?: (value: unknown) => unknown;
-    }).decodeMimoPlotEvidence;
-    assert.strictEqual(typeof decode, "function", "typed MIMO chart evidence is not implemented");
-    const evidence = {
-      schemaVersion: 1,
-      modelRevision: "model-2x2-v1",
-      evidenceRevision: "experiment-pair-v1",
-      inputs: [{ id: "reflux", name: "Reflux", unit: "pp" }, { id: "steam", name: "Steam", unit: "pp" }],
-      outputs: [{ id: "top", name: "Top purity", unit: "pp" }, { id: "bottom", name: "Bottom purity", unit: "pp" }],
-      channelResponses: [
-        { inputId: "reflux", outputId: "top", points: [[0, 0], [20, 0.8]] },
-        { inputId: "steam", outputId: "top", points: [[0, 0], [20, -0.4]] },
-        { inputId: "reflux", outputId: "bottom", points: [[0, 0], [20, -0.3]] },
-        { inputId: "steam", outputId: "bottom", points: [[0, 0], [20, 0.7]] },
-      ],
-      relativeGainArray: [[1.27, -0.27], [-0.27, 1.27]],
-      singularValues: [{ frequencyRadPerSecond: 0.1, values: [1.2, 0.5] }],
-    };
-    assert.deepStrictEqual(decode?.(evidence), evidence);
-    assert.strictEqual(decode?.({ ...evidence, relativeGainArray: [[1.27, -0.27]] }), undefined);
-    assert.strictEqual(decode?.({ ...evidence, channelResponses: evidence.channelResponses.slice(1) }), undefined);
-    assert.strictEqual(decode?.({ ...evidence,
-      channelResponses: [...evidence.channelResponses, evidence.channelResponses[0]] }), undefined);
-  });
-
-  test("keeps graphical edits undoable and pins only compatible designs", () => {
-    const contract = chartContractModule as unknown as {
-      createDesignHistory?: (candidate: unknown, boundary: string) => unknown;
-      commitDesignEdit?: (history: unknown, candidate: unknown, boundary: string) => unknown;
-      undoDesignEdit?: (history: unknown, boundary: string) => unknown;
-      redoDesignEdit?: (history: unknown, boundary: string) => unknown;
-      pinComparableDesign?: (pins: unknown[], candidate: unknown, context: unknown) => unknown[];
-    };
-    assert.strictEqual(typeof contract.createDesignHistory, "function", "candidate edit history is not implemented");
-    const initial = { revision: 1, proportionalGain: 1 };
-    const changed = { revision: 2, proportionalGain: 2 };
-    const boundary = "loop-a:model-1";
-    const committed = contract.commitDesignEdit?.(
-      contract.createDesignHistory?.(initial, boundary), changed, boundary
-    );
-    assert.deepStrictEqual((contract.undoDesignEdit?.(committed, boundary) as { current: unknown }).current, initial);
-    assert.deepStrictEqual((contract.redoDesignEdit?.(
-      contract.undoDesignEdit?.(committed, boundary), boundary
-    ) as { current: unknown }).current, changed);
-    assert.throws(() => contract.undoDesignEdit?.(committed, "loop-b:model-1"), /history boundary/i);
-
-    const context = { modelRevision: "model-1", evidenceRevision: "run-1", method: "qualified-v1" };
-    const pins = contract.pinComparableDesign?.([], changed, context) ?? [];
-    assert.strictEqual(pins.length, 1);
-    assert.throws(() => contract.pinComparableDesign?.(pins, initial,
-      { ...context, modelRevision: "model-2" }), /incompatible model revision/i);
-  });
-
-  test("restores one evidence-bound direct chart session", () => {
-    const decode = (chartContractModule as unknown as {
-      decodeControlChartSession?: (value: unknown, boundary: string) => unknown;
-    }).decodeControlChartSession;
-    assert.strictEqual(typeof decode, "function", "chart session restoration is not implemented");
-    const session = {
-      schemaVersion: 1,
-      boundary: "loop-a:model-1",
-      activeStage: "Tune",
-      selectedPlots: { Monitor: "response", Tune: "bode" },
-      selectedSignals: ["sp", "pv", "mv"],
-      window: [20, 70],
-      expanded: true,
-      candidateRevision: 3,
-      pinnedCandidateRevisions: [1, 2],
-    };
-    assert.deepStrictEqual(decode?.(session, session.boundary), session);
-    assert.strictEqual(decode?.(session, "loop-b:model-1"), undefined,
-      "a session from another loop or model must not be restored as current");
-    assert.strictEqual(decode?.({ ...session, selectedSignals: ["sp", "sp"] }, session.boundary), undefined,
-      "signal selection order must not contain duplicate channels");
-  });
-
-  test("predicts a loop whose gain stays below one and reports its phase margin as unbounded", () => {
-    // P with Kp·K = 0.75: |L(jω)| < 1 at every frequency, so there is no gain crossover. The response is well defined.
-    const model = { kind: "first_order" as const, gain: 1, timeConstantSeconds: 1, stable: true, normalizedError: 0.01 };
-    const parameters: ControlPidParameters = {
-      proportionalGain: 0.75, integralGain: 0, derivativeGain: 0.0375,
-      proportionalSetpointWeight: 1, derivativeSetpointWeight: 0, bias: 0,
-      outputMinimum: -20, outputMaximum: 20, rateMinimum: -1e6, rateMaximum: 1e6,
-      trackingTime: 1, antiWindup: "BackCalculation",
-    };
-    const candidate = candidateFromControlPid(parameters, "Constrained comparison");
-    let evidence: ReturnType<typeof buildEngineeringPlotEvidence> | undefined;
-    assert.doesNotThrow(() => { evidence = buildEngineeringPlotEvidence(model, candidate, candidate, undefined,
-      { cycleTimeSeconds: 0.02, durationSeconds: 4, referenceChange: 1 }); });
-    const final = evidence!.timeResponse[evidence!.timeResponse.length - 1].candidatePv;
-    assert.ok(Math.abs(final - 0.75 / 1.75) < 1e-3, `settles at Kp·K/(1 + Kp·K): ${final}`);
-    assert.strictEqual(evidence!.phaseMarginDegrees, Number.POSITIVE_INFINITY);
-    assert.strictEqual(engineeringPlotMessageEvidence(evidence!).phaseMarginDegrees, "unbounded", "infinity survives the message as unbounded");
-  });
-
-  test("predicts a slow process over hours at every controller period and keeps at most 5,000 evenly spaced points (A7, A4.5)", () => {
-    // A 75 min time constant over a 4 h test at a 100 ms task: 144,000 periods, more than the old 10,000-period cap.
-    const model = { kind: "first_order" as const, gain: 0.2, timeConstantSeconds: 4500, stable: true, normalizedError: 0.01 };
-    const parameters: ControlPidParameters = {
-      proportionalGain: 20, integralGain: 0.01, derivativeGain: 0,
-      proportionalSetpointWeight: 1, derivativeSetpointWeight: 0, bias: 0,
-      outputMinimum: -100, outputMaximum: 100, rateMinimum: -1e9, rateMaximum: 1e9,
-      trackingTime: 1, antiWindup: "BackCalculation",
-    };
-    const candidate = candidateFromControlPid(parameters, "Constrained comparison");
-    const evidence = buildEngineeringPlotEvidence(model, candidate, candidate, undefined,
-      { cycleTimeSeconds: 0.1, durationSeconds: 14400, referenceChange: 1 });
-    const points = evidence.timeResponse;
-    assert.ok(points.length <= 5001, `at most 5,000 points after the start: ${points.length}`);
-    assert.ok(Math.abs(points[points.length - 1].timeSeconds - 14400) < 1e-6, "the last period is kept");
-    const spacing = points[1].timeSeconds - points[0].timeSeconds;
-    assert.ok(points.every((point, index) => index === 0 || Math.abs(point.timeSeconds - points[index - 1].timeSeconds - spacing) < 1e-6
-      || index === points.length - 1), "the kept periods are evenly spaced");
-    assert.ok(Math.abs(points[points.length - 1].candidatePv - 1) < 0.02, `the integral action reaches the target: ${points[points.length - 1].candidatePv}`);
-    assert.strictEqual(evidence.uncertainty.points.length === 0 || evidence.uncertainty.points.length === points.length, true,
-      "the uncertainty band has one point per kept period");
-  });
-
-  test("keeps direct engineering evidence serializable for a compatible saved result", () => {
-    const model = { kind: "first_order" as const, gain: 1, timeConstantSeconds: 2, stable: true, normalizedError: 0.01 };
-    const parameters: ControlPidParameters = {
-      proportionalGain: 0.4, integralGain: 0.1, derivativeGain: 0,
-      proportionalSetpointWeight: 1, derivativeSetpointWeight: 0, bias: 0,
-      outputMinimum: 0, outputMaximum: 100, rateMinimum: -100, rateMaximum: 100,
-      trackingTime: 1, antiWindup: "BackCalculation",
-    };
-    const current = candidateFromControlPid(parameters, "Imported");
-    const candidate = candidateFromControlPid({ ...parameters, proportionalGain: 0.6 }, "Manual");
-    const evidence = buildEngineeringPlotEvidence(model, current, candidate);
-    const serialized = engineeringPlotMessageEvidence(evidence);
-    assert.ok(serialized.timeResponse.length > 0, "saved direct plot evidence must retain the response trace");
-    assert.ok(serialized.candidateOpenLoopBode.length > 0, "saved direct plot evidence must retain frequency evidence");
-    assert.strictEqual(serialized.evidence, "Model-predicted");
   });
 
   test("renders one response plot in the current three-page shell without legacy chart catalogues", () => {
@@ -813,8 +305,12 @@ suite("Control Studio chart contract", () => {
     assert.match(template, /data-control-studio-chart/);
     assert.match(template, /data-engineer-apply/);
     assert.match(workflow, /bindThreePageHostState/);
-    assert.match(workflow, /renderValidationResults/);
+    // The Validate answer reaches its receiver through the host state's engine messages (threePageHostState.ts, engineStages.ts), which
+    // also relays the offers the answer states to the Apply area.
+    assert.match(fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "threePageHostState.ts"), "utf8"), /receiveEngineMessage/);
+    const stages = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "engineStages.ts"), "utf8");
+    assert.match(stages, /\["validate", validateStage\]/);
+    assert.match(stages, /validateReceiver\.result\?\.\(root, result, ports\)/);
     assert.doesNotMatch(template, /plot-tools|data-control-plot-tabs|data-control-signals|data-design-handle|analysis-grid/);
   });
 });
-

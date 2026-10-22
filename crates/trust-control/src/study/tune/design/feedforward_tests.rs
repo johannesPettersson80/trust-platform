@@ -74,6 +74,7 @@ fn tune_gives_the_feedforward_from_both_paths_and_the_pi_on_the_output_path() {
         previous: None,
         request: &request,
         relay: None,
+        pins: None,
     };
     let outcome = tune_held(&inputs, Some(&task()), None).expect("the feedforward is designed");
     let candidate = outcome
@@ -112,6 +113,7 @@ fn the_answer_shows_both_paths_the_three_values_and_the_deviations_with_the_feed
         previous: None,
         request: &request,
         relay: None,
+        pins: None,
     };
     let outcome = tune_held(&inputs, Some(&task()), None).expect("the feedforward is designed");
     let answer = outcome
@@ -137,6 +139,39 @@ fn the_answer_shows_both_paths_the_three_values_and_the_deviations_with_the_feed
 }
 
 #[test]
+fn a_model_answer_states_each_gain_unit() {
+    // C8: the page showed the gains with units it composed from the loop's signals (and with none when two units were the same). The
+    // answer states them: the heater's output path gives degC per % (the water's temperature per the heater's output), its disturbance
+    // path degC per kW, and the feedforward gain K_ff is % per kW, the manipulated variable's unit per the disturbance's. The disturbance
+    // and the measurement are in kW and degC.
+    let loop_definition = lesson_84();
+    let model = current(heater_model());
+    let request = request(None);
+    let inputs = TuneInputs {
+        loop_definition: &loop_definition,
+        model: Some(&model),
+        previous: None,
+        request: &request,
+        relay: None,
+        pins: None,
+    };
+    let outcome = tune_held(&inputs, Some(&task()), None).expect("the feedforward is designed");
+    let answer = outcome
+        .result
+        .feedforward
+        .as_ref()
+        .expect("a feedforward answer");
+    assert_eq!(answer.output_path.gain_unit.as_deref(), Some("degC/%"));
+    assert_eq!(
+        answer.disturbance_path.gain_unit.as_deref(),
+        Some("degC/kW")
+    );
+    assert_eq!(answer.gain_unit.as_deref(), Some("%/kW"));
+    assert_eq!(answer.disturbance_unit.as_deref(), Some("kW"));
+    assert_eq!(answer.measurement_unit.as_deref(), Some("degC"));
+}
+
+#[test]
 fn a_named_method_is_refused_because_only_automatic_designs_a_feedforward() {
     let loop_definition = lesson_84();
     let model = current(heater_model());
@@ -147,8 +182,46 @@ fn a_named_method_is_refused_because_only_automatic_designs_a_feedforward() {
         previous: None,
         request: &request,
         relay: None,
+        pins: None,
     };
     let failure = tune_held(&inputs, Some(&task()), None)
         .expect_err("a named method does not design a feedforward");
     assert_eq!(text_of(&failure), texts::FEEDFORWARD_AUTOMATIC);
+}
+
+#[test]
+fn the_candidate_carries_the_margins_of_the_pi_on_the_output_path() {
+    // control-studio-feedforward: "a feedforward candidate carries the PI's margins on the output's path" (specification 35, C0 "Margins
+    // of linear candidates" and C8: the feedforward acts outside the loop, so the margins are those of the PI on the output path). A PI
+    // on 0.2/(8·s + 1) has no phase crossover: its gain margin is unbounded, its phase margin finite and its peak sensitivity at least one.
+    use trust_control_math::margins::MarginValue;
+    let loop_definition = lesson_84();
+    let model = current(heater_model());
+    let request = request(None);
+    let inputs = TuneInputs {
+        loop_definition: &loop_definition,
+        model: Some(&model),
+        previous: None,
+        request: &request,
+        relay: None,
+        pins: None,
+    };
+    let outcome = tune_held(&inputs, Some(&task()), None).expect("the feedforward is designed");
+    let margins = outcome
+        .result
+        .margins
+        .as_ref()
+        .expect("the candidate has margins on the output path");
+    assert_eq!(margins.gain_margin_db, MarginValue::Unbounded);
+    assert!(
+        matches!(margins.phase_margin_degrees, MarginValue::Finite(degrees) if degrees > 0.0),
+        "{:?}",
+        margins.phase_margin_degrees
+    );
+    assert!(
+        margins.peak_sensitivity >= 1.0 - 1e-9,
+        "{}",
+        margins.peak_sensitivity
+    );
+    assert_eq!(outcome.result.margins_unavailable, None);
 }

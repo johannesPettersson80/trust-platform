@@ -43,6 +43,7 @@ use crate::validation::configured_plant_verification::{isolated_plant_name, Veri
 use crate::validation::engineer_scenario_effects::requirements_failure;
 use crate::validation::engineer_verification_campaign::{declared_scenarios, CampaignCase};
 use crate::validation::engineer_verification_plan::{VerificationPlan, FIXED_PARAMETER_PREFIX};
+use crate::validation::failure_sentence::failed_requirement_sentence;
 use crate::validation::feedforward_case::measured_disturbance_case;
 use crate::validation::gain_schedule_case;
 use crate::validation::initialization_case::ENTRY_CASE_ID;
@@ -57,6 +58,7 @@ use crate::validation::run_validation::{
 };
 use crate::validation::scenario_contract::{valid_engineer_scenarios, EngineerScenario};
 use crate::validation::smith_case;
+use crate::validation::table_rows;
 use crate::validation::texts;
 
 mod answer;
@@ -228,12 +230,23 @@ impl ValidateSection {
             .entry_refusal
             .as_ref()
             .map(|message| Failure::new(message, Cause::ModelOrData, NextAction::None));
+        let labels = answer::labels();
+        let model_agreement = self.model_check.as_ref().map(answer::model_agreement);
+        let table = table_rows::rows(
+            &labels,
+            model_agreement.as_ref(),
+            &self.scenarios,
+            self.initialization.as_ref(),
+            self.status,
+        );
         ValidateResult {
             model_check: self.model_check.clone(),
             scenarios: self.scenarios.clone(),
             requirements: self.requirements.clone(),
             status: self.status,
             apply_available: self.apply_available,
+            // A reopened study's result carries no position: the open answer states the offers (A8.6, B7).
+            primary_action: None,
             // The study keeps no cause of a run, so a failure it holds is named without one (the cause is not shown on the page).
             failure: (!self.apply_available).then(|| {
                 failure_of(
@@ -249,11 +262,12 @@ impl ValidateSection {
             plant_reason: None,
             stages: stage_availability(&evidence),
             stage_evidence: evidence,
-            model_agreement: self.model_check.as_ref().map(answer::model_agreement),
+            model_agreement,
             initialization: self.initialization.clone(),
             disturbance_case: self.disturbance_case.clone(),
-            labels: answer::labels(),
+            labels,
             plot: None,
+            table,
         }
     }
 
@@ -661,18 +675,7 @@ pub fn validate_outcome(input: &ValidationInput<'_>) -> Result<ValidateOutcome, 
         .ok_or_else(|| Failure::new(JOBS_MISMATCH, Cause::Implementation, NextAction::None))?;
     let model_revision = input.model.identity().revision.clone();
     let campaign = campaign_outcomes(input, &model_revision)?;
-    let initialization = input
-        .entry
-        .as_ref()
-        .map(|entry| {
-            entry_outcome(
-                loop_definition,
-                entry,
-                &model_revision,
-                tune.requirements.automatic_criteria.as_ref(),
-            )
-        })
-        .transpose()?;
+    let initialization = initialization_of(input, &model_revision)?;
     let disturbance = disturbance_case_of(loop_definition, input.model, tune)?;
     let case = disturbance.as_ref();
     let status = overall_result(&campaign.scenarios, initialization.as_ref(), case);
@@ -724,10 +727,19 @@ pub fn validate_outcome(input: &ValidationInput<'_>) -> Result<ValidateOutcome, 
             refusal,
         ))
     };
+    let labels = answer::labels();
+    let model_agreement = model_check.as_ref().map(answer::model_agreement);
+    let table = table_rows::rows(
+        &labels,
+        model_agreement.as_ref(),
+        &campaign.scenarios,
+        initialization.as_ref(),
+        status,
+    );
     Ok(ValidateOutcome {
         section,
         result: ValidateResult {
-            model_agreement: model_check.as_ref().map(answer::model_agreement),
+            model_agreement,
             initialization,
             disturbance_case: disturbance,
             model_check,
@@ -735,15 +747,37 @@ pub fn validate_outcome(input: &ValidationInput<'_>) -> Result<ValidateOutcome, 
             requirements: tune.requirements.clone(),
             status,
             apply_available: eligible,
+            // `controlStudio/validate` states the position with the journal's checkpoint, which this composition does not read (B7).
+            primary_action: None,
             failure: failure.clone(),
             plant_reason: input.plant_reason.clone(),
             stages: stage_availability(&evidence),
             stage_evidence: evidence,
-            labels: answer::labels(),
+            labels,
             plot: campaign.plot,
+            table,
         },
         failure,
     })
+}
+
+/// The outcome of the entry check (B5.3), when the study ran or refused one.
+fn initialization_of(
+    input: &ValidationInput<'_>,
+    model_revision: &str,
+) -> Result<Option<InitializationOutcome>, Failure> {
+    input
+        .entry
+        .as_ref()
+        .map(|entry| {
+            entry_outcome(
+                input.loop_definition,
+                entry,
+                model_revision,
+                input.tune.requirements.automatic_criteria.as_ref(),
+            )
+        })
+        .transpose()
 }
 
 /// The jobs answer the campaign's cases one for one, and every run of the campaign ran on one program revision (B5.3).
@@ -1452,9 +1486,15 @@ fn candidate_requirements(
         .flat_map(|scenario| scenario.candidate.requirements.iter())
 }
 
+/// The text of the failure that a failed requirement ends Apply with (B5.5): the sentence that names its value and its limit in the
+/// loop's units, or its own reason when its result holds no number to name.
+fn failed_text(requirement: &RequirementOutcome) -> String {
+    failed_requirement_sentence(requirement).unwrap_or_else(|| requirement.reason.clone())
+}
+
 /// Why Apply is not available, with the next action that fixes it (B5.5). A model check that did not pass comes first (Identify),
-/// then a candidate requirement that failed (Tune). A requirement without evidence has no action of its own: the reason says
-/// what is missing.
+/// then a candidate requirement that failed (Tune), which the failure names with its value and its limit. A requirement without
+/// evidence has no action of its own: the reason says what is missing.
 fn failure_of(
     model_check: Option<&ModelCheck>,
     status: RequirementStatus,
@@ -1473,7 +1513,7 @@ fn failure_of(
         if let Some(failed) = candidate_requirements(scenarios)
             .find(|requirement| requirement.status == RequirementStatus::Fail)
         {
-            return Failure::new(&failed.reason, Cause::Settings, NextAction::Tune);
+            return Failure::new(&failed_text(failed), Cause::Settings, NextAction::Tune);
         }
         // A failed row of the entry case names the first output, the mode, the states or the bounds after Auto entry (B5.3).
         if let Some(failed) = entry_rows
@@ -1481,12 +1521,13 @@ fn failure_of(
             .find(|row| row.status == RequirementStatus::Fail)
         {
             return Failure::new(
-                &failed.reason,
+                &failed_text(failed),
                 Cause::Implementation,
                 NextAction::OpenLoopSetup,
             );
         }
         // A failed row of the measured-disturbance case: the feedforward's gain or its PI does not hold the error allowance (C8, B5.4).
+        // Its reason already names the largest deviation and the allowance, so it stays the failure's text.
         if let Some(failed) = case_rows
             .iter()
             .find(|row| row.status == RequirementStatus::Fail)

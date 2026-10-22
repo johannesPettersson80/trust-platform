@@ -1,16 +1,28 @@
-import type { StateDesignDraft, StateDesignPreferences } from "../stateDesignPreferences";
+import type { StateDesignDraft } from "../generated/InputsResult";
+import { openedOffers } from "./openedOffers";
 
-/** One field of the design form as the engine lists it: the draft's key and the label the engine gives it (C4, D-B12). */
+/** One option of a field that is a choice, with the engine's words for it (C4, D-B12). */
+export interface StateDesignChoiceView {
+  readonly value: string;
+  readonly label: string;
+}
+
+/**
+ * One field of the design form as the engine lists it: the draft's key and the label the engine gives it, and for a field that is a choice its
+ * options with their words and the option that stands now (C4, D-B12). The page lists the options as given and invents no default.
+ */
 export interface StateDesignFieldView {
   readonly field: string;
   readonly label: string;
+  readonly choices?: readonly StateDesignChoiceView[] | null;
+  readonly selected?: string | null;
 }
 
 /** The design form of a state-feedback law. The engine lists the fields; the page keeps the text the engineer typed. */
 export interface StateDesignEditor {
   /** Shows the fields the engine lists, in the answer's order; a field that stays listed keeps its control and its text. */
   setFields(fields: readonly StateDesignFieldView[]): void;
-  /** The text the engineer typed, for the study: every field the page holds, with the solver's choice when the form lists the solver. */
+  /** The text the engineer typed, for the study: every field the page holds, with the option each choice shows (the engineer's pick, else the one the engine says stands). */
   draft(): StateDesignDraft;
   /** Shows a draft the study holds, or the loop's declared values when there is none. */
   receive(draft?: StateDesignDraft): void;
@@ -22,11 +34,6 @@ export interface StateDesignEditor {
   clearErrors(): void;
 }
 
-const SOLVER_OPTIONS: ReadonlyArray<readonly [string, string]> = [
-  ["infinite", "Infinite-horizon / steady-state"],
-  ["finite", "Finite-horizon (fixed policy)"],
-];
-
 const NO_FORM: StateDesignEditor = {
   setFields: () => undefined,
   draft: () => ({}),
@@ -36,20 +43,9 @@ const NO_FORM: StateDesignEditor = {
   clearErrors: () => undefined,
 };
 
-/** The loop's declared design values as the text the fields show: each matrix or pole list as JSON. */
-function declaredText(value?: StateDesignPreferences): Record<string, string> {
-  const text: Record<string, string> = {};
-  if (value?.finiteHorizon) {
-    text.solverMode = "finite";
-    text.horizonSteps = String(value.finiteHorizon.steps);
-    text.terminalWeights = JSON.stringify(value.finiteHorizon.terminalWeights);
-  }
-  if (value?.desiredPoles) text.desiredPoles = JSON.stringify(value.desiredPoles);
-  if (value?.stateWeights) text.stateWeights = JSON.stringify(value.stateWeights);
-  if (value?.inputWeights) text.inputWeights = JSON.stringify(value.inputWeights);
-  if (value?.processNoise) text.processNoise = JSON.stringify(value.processNoise);
-  if (value?.measurementNoise) text.measurementNoise = JSON.stringify(value.measurementNoise);
-  return text;
+/** The text the fields show for the loop's declared design, as the engine gives it on open (`stateDeclaredText`, C4). */
+function declaredText(): Record<string, string> {
+  return { ...(openedOffers().stateDeclaredText ?? {}) };
 }
 
 /** The text of a draft, field by field, without the fields it leaves out. */
@@ -57,11 +53,6 @@ function textOf(draft: StateDesignDraft): Record<string, string> {
   const text: Record<string, string> = {};
   for (const [field, value] of Object.entries(draft)) if (typeof value === "string") text[field] = value;
   return text;
-}
-
-/** The solver's choice: a finite horizon only when the text says so. */
-function solverOf(text: Record<string, string>): string {
-  return text.solverMode === "finite" ? "finite" : "infinite";
 }
 
 /** The entry of a listed field: the horizon as a whole number, every other field as the text the engineer types. */
@@ -73,31 +64,34 @@ function entryOf(doc: Document, field: string): HTMLInputElement | HTMLTextAreaE
   return input;
 }
 
-/** The solver as the engine's two choices. */
-function solverSelect(doc: Document): HTMLSelectElement {
+/** A field that is a choice, as a select listing the engine's options with the engine's words. */
+function choiceSelect(doc: Document, choices: readonly StateDesignChoiceView[]): HTMLSelectElement {
   const select = doc.createElement("select");
   select.className = "trust-input";
   select.dataset.stateDesignMode = "true";
-  for (const [value, words] of SOLVER_OPTIONS) {
+  for (const { value, label } of choices) {
     const option = doc.createElement("option");
     option.value = value;
-    option.textContent = words;
+    option.textContent = label;
     select.append(option);
   }
   return select;
 }
 
 /**
- * Builds the design form of the Tune page. `declared` holds the loop's own design values, shown until the study holds a draft;
+ * Builds the design form of the Tune page. The loop's own design values, shown until the study holds a draft, are the engine's (`stateDeclaredText`);
  * `changed` runs after each edit, so that the study receives the text as the engineer typed it.
  */
-export function initializeThreePageStateDesign(root: HTMLElement, declared: StateDesignPreferences | undefined,
-  changed: () => void): StateDesignEditor {
+export function initializeThreePageStateDesign(root: HTMLElement, changed: () => void): StateDesignEditor {
   const host = root.querySelector<HTMLElement>("[data-studio-state-design]");
   if (!host) return NO_FORM;
   const doc = root.ownerDocument;
   /** The text as typed, by field: the draft the study receives. */
-  let text: Record<string, string> = declaredText(declared);
+  let text: Record<string, string> = declaredText();
+  /** The option the engine says stands for each field that is a choice, until the engineer picks another. */
+  const standing = new Map<string, string>();
+  /** The fields that are a choice: their control is a select. */
+  const choiceFields = new Set<string>();
   /** The control, its message and its wrapper of each field the form shows. */
   const controls = new Map<string, HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>();
   const messages = new Map<string, HTMLElement>();
@@ -119,7 +113,8 @@ export function initializeThreePageStateDesign(root: HTMLElement, declared: Stat
   };
 
   /** Creates a field's wrapper, which setFields places in the answer's order. */
-  const build = (field: string, label: string): HTMLElement => {
+  const build = (view: StateDesignFieldView): HTMLElement => {
+    const { field, label } = view;
     const wrapper = doc.createElement("label");
     wrapper.className = "studio-field";
     wrapper.textContent = label;
@@ -127,16 +122,18 @@ export function initializeThreePageStateDesign(root: HTMLElement, declared: Stat
     error.className = "trust-field__message trust-field__message--error";
     error.hidden = true;
     error.dataset.stateDesignError = field;
-    const solver = field === "solverMode";
-    const control = solver ? solverSelect(doc) : entryOf(doc, field);
+    const choices = view.choices ?? undefined;
+    const control = choices ? choiceSelect(doc, choices) : entryOf(doc, field);
+    if (choices) choiceFields.add(field);
+    if (view.selected) standing.set(field, view.selected);
     control.dataset.stateDesignField = field;
-    control.value = solver ? solverOf(text) : text[field] ?? "";
+    control.value = text[field] ?? standing.get(field) ?? "";
     const edit = (): void => {
       text[field] = control.value;
       clear(field);
       changed();
     };
-    control.addEventListener(solver ? "change" : "input", edit);
+    control.addEventListener(choices ? "change" : "input", edit);
     wrapper.append(control, error);
     controls.set(field, control);
     messages.set(field, error);
@@ -153,27 +150,40 @@ export function initializeThreePageStateDesign(root: HTMLElement, declared: Stat
         wrappers.delete(field);
         controls.delete(field);
         messages.delete(field);
+        choiceFields.delete(field);
+        standing.delete(field);
       }
       // A field keeps its wrapper and its control, and a wrapper moves only when the answer puts it elsewhere, so the control the
       // engineer changed keeps its focus.
       let previous: Element = head;
-      for (const { field, label } of fields) {
+      for (const view of fields) {
+        const { field, label } = view;
         const existing = wrappers.get(field);
-        const wrapper = existing ?? build(field, label);
+        const wrapper = existing ?? build(view);
         if (existing?.firstChild) existing.firstChild.textContent = label;
+        // The option that stands is the engine's until the engineer picks another: an answer that changes it moves a control the engineer left alone.
+        if (existing && view.selected) {
+          standing.set(field, view.selected);
+          const control = controls.get(field);
+          if (control && text[field] === undefined) control.value = view.selected;
+        }
         if (previous.nextElementSibling !== wrapper) host.insertBefore(wrapper, previous.nextElementSibling);
         previous = wrapper;
       }
     },
     draft() {
       const value: Record<string, string> = { ...text };
-      if (controls.has("solverMode")) value.solverMode = solverOf(text);
+      // A choice goes as the option its control shows: the engineer's pick, else the one the engine says stands.
+      for (const field of choiceFields) {
+        const control = controls.get(field);
+        if (control) value[field] = control.value;
+      }
       return value;
     },
     receive(draft) {
-      text = draft ? textOf(draft) : declaredText(declared);
+      text = draft ? textOf(draft) : declaredText();
       for (const [field, control] of controls) {
-        control.value = field === "solverMode" ? solverOf(text) : text[field] ?? "";
+        control.value = text[field] ?? standing.get(field) ?? "";
         clear(field);
       }
     },

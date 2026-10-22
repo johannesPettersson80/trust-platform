@@ -5,10 +5,7 @@ import * as path from "path";
 import { execFileSync } from "child_process";
 import { isDeepStrictEqual } from "util";
 import * as vscode from "vscode";
-import type { ControlLoopDefinition } from "../../controlStudio/loopDefinition";
-import { loopInspectionModeId } from "../../controlStudio/loopInspectionBindings";
-import { connectRuntimeParameters } from "../../controlStudio/runtimeParameterConnection";
-import type { SymbolicInspectionSample } from "../../controlStudio/symbolicInspection";
+import type { LoopDefinition } from "../../controlStudio/generated/OpenResult";
 import { attachControlStudio, engineAnswerRecorderScript } from "./control-studio-rendered-harness";
 import {
   captureRenderedWorkbenchCdp,
@@ -24,10 +21,12 @@ import {
 import { ExtensionHostResponsiveness, LONGEST_EXTENSION_HOST_BLOCK_MS } from "./extension-host-responsiveness";
 import {
   inspectAttachedLoop,
+  parameterValues,
   prepareAttachedProject,
   reserveLoopbackPort,
   runtimeBinary,
   startAttachedRuntime,
+  type AttachedSample,
 } from "./control-studio-attached-runtime";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -41,6 +40,8 @@ const HEATING_TIMEOUT_MS = 2 * HOUR_MS;
 const STEP_TIMEOUT_MS = 65 * 60_000;
 const TUNE_TIMEOUT_MS = 30 * 60_000;
 const SHORT_TIMEOUT_MS = 5 * 60_000;
+/** A control the page enables after an engine answer is waited for this long before the click fails. */
+const CLICK_TIMEOUT_MS = 60_000;
 /**
  * These statuses end a wait early, so a failed step fails at once instead of waiting out its timeout. On the engine route the page's
  * receivers name a refused or failed answer "failed" or "verification-failed", an operation that stopped "cancelled", and an
@@ -50,20 +51,6 @@ const FAILURE_STATUSES = ["failed", "verification-failed", "recovery-required", 
 /** The envelope that carries an engine method's answer to the page (webview/engineOpened.ts). */
 const ENGINE_RESULT = "control-studio.engine.result";
 const HEATING_PANEL = "overview/heating-panel";
-
-/**
- * Records the plots the webview receives, in the page; the journey reads them back with readEvents. The engine route draws its plots
- * through the page's `trust-control-studio-engineer` events, which carry no status: the identification's measured and predicted
- * response (webview/engineIdentify.ts showPlot), Tune's predicted response (engineTune.ts showTunePlots) and the Validate plot
- * (engineValidate.ts showValidationPlot). The engine's answers themselves are read from the engine answer recorder (readAnswersScript).
- */
-const OBSERVE = `d.defaultView.addEventListener('trust-control-studio-engineer', event => {
-  const p=event.detail;
-  d.defaultView.__journeyEvents.push({
-    identificationPresentation:p.identificationPresentation?{predictedResponse:p.identificationPresentation.predictedResponse.slice(0,3)}:undefined,
-    predictedPoints:p.plots?.timeResponse?.length,
-    validationPlot:p.validationPlot===undefined?undefined:p.validationPlot?.title??null});
-});`;
 
 /**
  * Reads the engine's answers recorded since `since` back from the page (control-studio-rendered-harness.ts), as small projections,
@@ -90,11 +77,6 @@ interface CommissioningTransfer {
   };
 }
 
-/** One plot event as the webview forwards it (OBSERVE). Only the field this journey reads is typed. */
-interface JourneyEvent {
-  readonly identificationPresentation?: { readonly predictedResponse: readonly unknown[] };
-}
-
 /** One engine answer as readAnswersScript projects it. Only the fields this journey reads are typed. */
 interface JourneyAnswer {
   readonly kind: string;
@@ -118,9 +100,8 @@ interface ExpectedAnswer {
   readonly status: string;
 }
 
-/** Where a step starts: the number of plot events and of engine answers the page holds before it. */
+/** Where a step starts: the number of engine answers the page holds before it. */
 interface JourneyMark {
-  readonly events: number;
   readonly answers: number;
 }
 
@@ -166,7 +147,7 @@ suite("Control Studio room heating acceptance", () => {
     const webPort = await reserveLoopbackPort();
     const endpoint = prepareAttachedProject(project, { webPort });
     const loopPath = path.join(project, "control-loops", "tank-temperature.json");
-    const loop = JSON.parse(fs.readFileSync(loopPath, "utf8")) as ControlLoopDefinition;
+    const loop = JSON.parse(fs.readFileSync(loopPath, "utf8")) as LoopDefinition;
     const rawStates = (JSON.parse(fs.readFileSync(loopPath, "utf8")) as RawLoop).controller.pidInitialization?.states ?? [];
     const runtimeBuild = execFileSync(runtimeBinary(), ["--version"], { encoding: "utf8" }).trim();
     const plant = plantNames(project);
@@ -174,7 +155,6 @@ suite("Control Studio room heating acceptance", () => {
     const journeyStart = Date.now();
     const runtime = await startAttachedRuntime(project, { timeScale: TIME_SCALE, label: "Room heating acceptance" });
     let connection: CdpConnection | undefined;
-    let readEvents: (() => Promise<string>) | undefined;
     let readAnswers: ((since: number) => Promise<string>) | undefined;
     let startAnswer: string | undefined;
     let heated: LoopReading | undefined;
@@ -198,21 +178,30 @@ suite("Control Studio room heating acceptance", () => {
       await vscode.commands.executeCommand("workbench.action.closeAuxiliaryBar");
       const session = await attachControlStudio(cdp, port, "", loop.id);
       const inner = (body: string) => evaluateInWebview(cdp, session, body);
-      readEvents = () => inner("return JSON.stringify(d.defaultView.__journeyEvents??[]);");
+      // The engine's answers reach the page as control-studio.engine.* messages: the recorder keeps them from here on.
+      await inner(engineAnswerRecorderScript());
       readAnswers = (since: number) => inner(readAnswersScript(since));
+      /**
+       * Clicks a control once it is visible and enabled. The engine enables a control on the answer that allows it, which the page
+       * shows a moment later, so the click waits for it; a wait that ends fails with the control's state and the latest engine answers.
+       */
       const click = async (selector: string) => {
-        const outcome = await inner(`const button=d.querySelector(${JSON.stringify(selector)});if(!button?.checkVisibility()||button.disabled)return JSON.stringify({page:d.querySelector('[data-engineer-stage-tab][aria-selected=true]')?.textContent,visible:button?.checkVisibility(),disabled:button?.disabled});button.click();return 'clicked';`);
-        if (outcome !== "clicked") assert.fail(`${selector} is visible and enabled: ${outcome}; latest engine answers ${JSON.stringify((JSON.parse(await readAnswers!(0)) as JourneyAnswer[]).slice(-3))}`
-          + (problems.length ? `\nEarlier failures:\n${problems.join("\n")}` : ""));
+        const script = `const button=d.querySelector(${JSON.stringify(selector)});if(!button?.checkVisibility()||button.disabled)return JSON.stringify({page:d.querySelector('[data-engineer-stage-tab][aria-selected=true]')?.textContent,visible:button?.checkVisibility(),disabled:button?.disabled});button.click();return 'clicked';`;
+        try {
+          await pollValue(`${selector} visible and enabled`, () => inner(script), (value) => value === "clicked", CLICK_TIMEOUT_MS);
+        } catch (error) {
+          assert.fail(`${(error as Error).message}; latest engine answers ${JSON.stringify((JSON.parse(await readAnswers!(0)) as JourneyAnswer[]).slice(-3))}`
+            + (problems.length ? `\nEarlier failures:\n${problems.join("\n")}` : ""));
+        }
       };
       const choose = async (selector: string, value: string) => {
         const chosen = await inner(`const select=d.querySelector(${JSON.stringify(selector)});if(!select)return 'NO_FIELD';select.value=${JSON.stringify(value)};select.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return select.value;`);
         assert.strictEqual(chosen, value, `${selector} offers the ${value} method`);
       };
       const mark = async (): Promise<JourneyMark> => {
-        const since = JSON.parse(await inner("return JSON.stringify({events:(d.defaultView.__journeyEvents??[]).length,answers:(d.defaultView.__engineAnswers??[]).length});")) as JourneyMark;
+        const answers = Number(await inner("return String((d.defaultView.__engineAnswers??[]).length);"));
         responsiveness.markPhase();
-        return since;
+        return { answers };
       };
       const capture = (name: string) => captureRenderedWorkbenchCdp(cdp, path.join(captures, `room-heating-${name}.png`));
       /**
@@ -253,14 +242,11 @@ suite("Control Studio room heating acceptance", () => {
       // engineShared.ts applyStageStatuses). The TypeScript route sets no status on the tabs, and its answers are not the ones read here.
       assert.notStrictEqual(await inner("return d.querySelector('[data-engineer-stage-tab=model]').dataset.status ?? '';"), "",
         "The engine serves TIC101's loop: the stage tabs show the engine's status");
-      const client = (await connectRuntimeParameters(loop)).client;
 
       // Identify with the Automatic method: a closed-loop setpoint step. TIC101 must stay in Auto. Identify plant is one run of the
       // automatic flow through Identify (engine/routes/runRoute.ts): its answer is the run's result, which holds the identification
       // the run made (RunResult.identification), and the page shows it on the Identify page (webview/engineRun.ts, engineIdentify.ts).
       await click("[data-engineer-stage-tab=model]");
-      await inner(`d.defaultView.__journeyEvents=[];${OBSERVE}return 'listen';`);
-      await inner(engineAnswerRecorderScript());
       await choose("[data-engineer-acquisition-method]", "automatic");
       await capture("01-identify");
       const identifySince = await mark();
@@ -271,9 +257,10 @@ suite("Control Studio room heating acceptance", () => {
       const shownModel = JSON.parse(await inner("const result=d.querySelector('[data-studio-model-result]');return JSON.stringify({visible:Boolean(result&&!result.hidden),type:d.querySelector('[data-studio-model-type]')?.textContent??'',equation:d.querySelector('[data-studio-model-equation]')?.textContent??''});")) as { visible: boolean; type: string; equation: string };
       check(shownModel.visible && shownModel.type === `${identified.modelType}${identified.provisional ? " · Provisional" : ""}` && shownModel.equation === identified.equation,
         `The Identify page shows the identified model: ${JSON.stringify(shownModel)}`);
-      const presented = (JSON.parse(await readEvents!()) as JourneyEvent[]).slice(identifySince.events);
-      check(presented.some((event) => (event.identificationPresentation?.predictedResponse.length ?? 0) > 2), "Identify shows the measured response");
       await pollValue("identification finished", () => inner("return d.querySelector('[data-studio-three-page]').dataset.busy;"), (value) => value === "false", 10000);
+      // The response chart draws the measured response beside the model's prediction; the page sets the chart's point count on each render.
+      const chart = JSON.parse(await inner("const chart=d.querySelector('[data-control-studio-chart]');return JSON.stringify({series:Number(chart.dataset.seriesCount??0),points:Number(chart.dataset.pointCount??0)});")) as { series: number; points: number };
+      check(chart.points > 2, `Identify shows the measured response on the response chart: ${JSON.stringify(chart)}`);
       check(await inner("return String(!!d.querySelector('dialog[open]'));") === "false", "Identification must not open Tune requirements");
       const afterIdentify = await inspectAttachedLoop(endpoint, loop);
       check(afterIdentify && controllerMode(loop, afterIdentify) === "Auto", "Identify with Automatic keeps TIC101 in Auto");
@@ -283,7 +270,7 @@ suite("Control Studio room heating acceptance", () => {
       // Tune with the Automatic method.
       await click("[data-engineer-stage-tab=tune]");
       await choose("[data-engineer-tuning-method]", "automatic");
-      const valuesBeforeTune = (await client.status()).values;
+      const valuesBeforeTune = await parameterValues(endpoint, loop);
       const tuneSince = await mark();
       await click("[data-engineer-tune]");
       const tuned = await waitFor("Tune", { method: "tune", status: "candidate" }, TUNE_TIMEOUT_MS, tuneSince);
@@ -306,11 +293,11 @@ suite("Control Studio room heating acceptance", () => {
       check(/^model /.test(plants[0] ?? ""), `Validate runs the isolated simulation against the qualified model: ${plants[0]}`);
       check(plants.length > 0 && plants.every((plant) => /^model /.test(plant)),
         `Every isolated run carries the qualified model as its plant: ${JSON.stringify(plants)}`);
-      check(isDeepStrictEqual((await client.status()).values, valuesBeforeTune), "Tuning and isolated validation do not apply runtime gains");
+      check(isDeepStrictEqual(await parameterValues(endpoint, loop), valuesBeforeTune), "Tuning and isolated validation do not apply runtime gains");
       const table = await inner("return d.querySelector('[data-studio-validation-result]').textContent ?? '';");
       // The engine's words (B5.4): the model check is the table's first row, named Model agreement; it states its error in percent of
       // the measured output's span, so it names no channel (validation/texts.rs MODEL_AGREEMENT, study/validate/answer.rs
-      // model_agreement). The requirement rows name the measurement by its role and unit (webview/engineValidate.ts channelText).
+      // model_agreement). The requirement rows name the measurement by its role and unit (validation/table_rows.rs channel_text).
       const firstRow = JSON.parse(await inner("const row=d.querySelector('[data-studio-validation-result] tbody tr');return JSON.stringify({id:row?.dataset.studioRequirement??'',title:row?.cells[0]?.textContent??''});")) as { id: string; title: string };
       check(firstRow.id === "model-check" && firstRow.title === "Model agreement", `B5.4: the results table starts with the model check, named Model agreement: ${JSON.stringify(firstRow)}`);
       check(/· Measurement \(°C\)/.test(table), `B9.9: the results table names the measurement by its role: ${table}`);
@@ -320,7 +307,7 @@ suite("Control Studio room heating acceptance", () => {
       // Apply, with observation: one Apply waits for the plant to rest at the validated point, then commissions. The engine names a
       // passed Apply "applied" (webview/engineApplication.ts applyOutcomePayload), and its commissioning result holds the transfers.
       assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-apply]').disabled);"), "false", "Apply is offered for the validated candidate");
-      const valuesBeforeApply = (await client.status()).values;
+      const valuesBeforeApply = await parameterValues(endpoint, loop);
       const applied = await reviewAndConfirm("Apply", "[data-engineer-apply]", "apply", "applied", STEP_TIMEOUT_MS);
       const stateTransfer = (applied.transfers ?? []).find((transfer) =>
         transfer.transaction?.applied_values?.["Main.TIC101.StateValue.NominalOutput"] !== undefined);
@@ -346,7 +333,7 @@ suite("Control Studio room heating acceptance", () => {
       // restoreOutcomePayload).
       const restored = await reviewAndConfirm("Restore previous settings", "[data-engineer-apply]", "restore", "commissioned", SHORT_TIMEOUT_MS);
       check(restored.applicationAction === "restore", `Restore answers as a restore: ${restored.applicationAction}`);
-      check(isDeepStrictEqual((await client.status()).values, valuesBeforeApply), "Restore returns the parameter values from before Apply");
+      check(isDeepStrictEqual(await parameterValues(endpoint, loop), valuesBeforeApply), "Restore returns the parameter values from before Apply");
       const afterRestore = await inspectAttachedLoop(endpoint, loop);
       check(afterRestore && controllerMode(loop, afterRestore) === "Auto",
         `Restore returns TIC101 to Auto, the mode it had before Apply (A6.2, B6.4): ${restored.answerReason}`);
@@ -375,10 +362,8 @@ suite("Control Studio room heating acceptance", () => {
       assert.deepStrictEqual(problems, [], `The journey reached Keep in project with these failures:\n${problems.join("\n")}`);
     } finally {
       const finishedAt = new Date().toISOString();
-      let events: unknown = [];
       let answers: unknown = [];
       try {
-        if (readEvents) events = JSON.parse(await readEvents());
         if (readAnswers) answers = JSON.parse(await readAnswers(0));
       } catch {
         // The owned editor may already have closed; the operations above still record the journey.
@@ -423,7 +408,6 @@ suite("Control Studio room heating acceptance", () => {
         },
         operations,
         problems,
-        events,
         answers,
       }, null, 2));
       connection?.close();
@@ -461,21 +445,19 @@ function plantNames(project: string): string[] {
   return [...text.matchAll(/^name\s*=\s*"([^"]*)"/gm)].map((match) => match[1]);
 }
 
-function valueOf(sample: SymbolicInspectionSample, id: string): number | null {
-  const index = sample.bindings.findIndex((binding) => binding.id === id);
-  return index < 0 ? null : sample.values[index] ?? null;
+function valueOf(sample: AttachedSample, id: string): number | null {
+  return sample.values[id] ?? null;
 }
 
-/** Auto or Manual, read from the loop's mode channel: the same channel Control Studio inspects. */
-function controllerMode(loop: ControlLoopDefinition, sample: SymbolicInspectionSample): string {
-  const modeId = loop.controller.modeSignal ? loopInspectionModeId(loop, sample.bindings, loop.controller.modeSignal) : undefined;
-  const value = valueOf(sample, modeId ?? "controllerMode");
+/** Auto or Manual, read from the loop's mode channel (controllerMode, journeyBindings) as the loop's modeWhenTrue names it. */
+function controllerMode(loop: LoopDefinition, sample: AttachedSample): string {
+  const value = valueOf(sample, "controllerMode");
   if (value !== 0 && value !== 1) return "unknown";
   const whenTrue = loop.controller.modeWhenTrue ?? "Auto";
   return value === 1 ? whenTrue : whenTrue === "Auto" ? "Manual" : "Auto";
 }
 
-function readLoop(loop: ControlLoopDefinition, sample: SymbolicInspectionSample): LoopReading {
+function readLoop(loop: LoopDefinition, sample: AttachedSample): LoopReading {
   return {
     mode: controllerMode(loop, sample),
     setpoint: valueOf(sample, "setpoint"),
@@ -487,7 +469,7 @@ function readLoop(loop: ControlLoopDefinition, sample: SymbolicInspectionSample)
 }
 
 /** Polls the runtime every 10 s until TIC101 is in Auto at the design setpoint and the tank is within the band. */
-async function waitForHeatedTank(endpoint: string, loop: ControlLoopDefinition): Promise<LoopReading> {
+async function waitForHeatedTank(endpoint: string, loop: LoopDefinition): Promise<LoopReading> {
   const deadline = Date.now() + HEATING_TIMEOUT_MS;
   let last: LoopReading | undefined;
   while (Date.now() < deadline) {

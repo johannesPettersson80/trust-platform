@@ -1,7 +1,7 @@
 import type { SearchAnswer } from "../generated/SearchAnswer";
 import type { SearchCandidate } from "../generated/SearchCandidate";
 import type { SearchTrial } from "../generated/SearchTrial";
-import type { ControlLoopDefinition } from "../loopDefinition";
+import type { LoopDefinition } from "../generated/OpenResult";
 import { displayEngineeringUnit, formatEngineeringNumber } from "../chartContract";
 
 /**
@@ -18,7 +18,7 @@ const BOUNDS_WORDS: Readonly<Record<string, string>> = { met: "Met", notMet: "No
  * engine's order. A row gives the trial's coefficient values, whether it was attempted (with its reason when it was refused), its bounds
  * outcome and J in its unit, and it marks the selected trial. The engine decides every value; the page only lays them out.
  */
-export function renderSearchResult(root: HTMLElement, loop: ControlLoopDefinition, search: SearchView): void {
+export function renderSearchResult(root: HTMLElement, loop: LoopDefinition, search: SearchView): void {
   const area = root.querySelector<HTMLElement>("[data-studio-tuning-result]")!;
   const owner = area.ownerDocument;
   const title = owner.createElement("p");
@@ -35,7 +35,7 @@ export function renderSearchResult(root: HTMLElement, loop: ControlLoopDefinitio
 }
 
 /** The trials as one table: a column per coefficient the trials set, then the attempt, the bounds outcome and J. */
-function trialTable(owner: Document, loop: ControlLoopDefinition, search: SearchView): HTMLTableElement {
+function trialTable(owner: Document, loop: LoopDefinition, search: SearchView): HTMLTableElement {
   const symbols = coefficientSymbols(search.trials);
   const table = owner.createElement("table");
   table.className = "trust-table";
@@ -95,7 +95,7 @@ function coefficientSymbols(trials: readonly SearchTrial[]): string[] {
 }
 
 /** A coefficient's name as the page shows it: its symbol, with the unit the loop declares for it. */
-function parameterLabel(loop: ControlLoopDefinition, symbol: string): string {
+function parameterLabel(loop: LoopDefinition, symbol: string): string {
   const unit = loop.parameterBinding?.parameters.find(parameter => parameter.symbol === symbol)?.unit;
   return unit ? `${symbol} (${displayEngineeringUnit(unit)})` : symbol;
 }

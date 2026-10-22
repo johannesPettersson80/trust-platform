@@ -16,7 +16,7 @@ use parking_lot::Mutex;
 use trust_control::commissioning::application::ApplySource;
 use trust_control::commissioning::checkpoint::{IdentificationModeCheckpoint, ModeTransferOwner};
 use trust_control::commissioning::commissioning_result::{TransferOwner, TransferStatus};
-use trust_control::commissioning::transfer::{TransferBinding, TransferValue};
+use trust_control::commissioning::transfer::TransferBinding;
 use trust_control::commissioning::transfer_protocol::check_transfer_status;
 use trust_control::commissioning::transfer_tracking::TransferTracking;
 use trust_control::failure::Failure;
@@ -161,15 +161,11 @@ impl<'a> IdentificationMode<'a> {
             &self.binding,
             &held.checkpoint.original,
         )?;
-        // A6.2, E6.9: restoring the found Manual command moves the output back by design, so that change is its allowance.
+        // A6.2, E6.9: restoring the found Manual commands moves each member's output back by design, so the largest of those
+        // changes is the allowance.
         let in_manual = read_status(&mut client, &self.binding)?;
-        let output_now = in_manual
-            .values
-            .get(&self.binding.output.symbol)
-            .copied()
-            .and_then(TransferValue::as_number);
         let base = mode_output_change(self.loop_definition, true, None, self.process_noise);
-        let tolerance = commands.allowance(base, output_now);
+        let tolerance = commands.allowance(base, &in_manual);
         let write = transfer_write(commands.values, true, tolerance, None);
         transfer(&mut client, self.journal, held, &commands.binding, &write)?;
         if found_in_auto(&self.binding, &held.checkpoint.original) {

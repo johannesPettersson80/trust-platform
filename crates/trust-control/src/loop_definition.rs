@@ -12,16 +12,25 @@ use serde_json::Value;
 
 use crate::failure::{Cause, Failure, NextAction};
 
+mod analysis_rules;
 mod bindings;
+mod channel_selection;
 mod channels;
 mod checks;
+mod contract_rules;
 mod controller;
+mod identification_policy;
 mod on_off;
 mod pid_group;
 mod project;
 mod schema_v1;
+mod structure_rules;
 mod texts;
 
+pub use channel_selection::{
+    channel_choices, check_selection, effective_loop, ChannelChoices, ChannelPick, ChannelRow,
+    ChannelSelection, SignalChoice,
+};
 pub use channels::{
     channel_signal, measured_disturbance, ChannelInput, ChannelOutput, ChannelRequirements,
     ChannelSignal, LoopChannels,
@@ -101,8 +110,9 @@ pub struct LoopDefinition {
     /// How Identify treats the plant; ported with Identify (stage V1).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub identification_policy: Option<Value>,
-    /// The declared validation scenarios; ported with Validate (stage V3).
+    /// The declared validation scenarios: a list, which Validate decodes and checks (stage V3).
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(schema_with = "crate::json::object_list_schema")]
     pub verification_scenarios: Option<Value>,
     /// The loop's channels: the model's inputs and outputs (specification 35, C7 and C8). The gate parks a loop with channels until
     /// their shapes are served (checklist V7).
@@ -192,11 +202,17 @@ impl LoopDefinition {
                     .unwrap_or(0),
             ));
         }
+        contract_rules::check(&value).map_err(LoopRejection::Malformed)?;
         let mut loop_definition: Self = crate::json::decode_value(value)
             .map_err(|error| LoopRejection::Malformed(error.to_string()))?;
         loop_definition
             .check_fields()
             .map_err(LoopRejection::Malformed)?;
+        if let Some(policy) = &loop_definition.identification_policy {
+            identification_policy::check(policy).map_err(LoopRejection::Malformed)?;
+        }
+        analysis_rules::check(&loop_definition).map_err(LoopRejection::Malformed)?;
+        structure_rules::check(&loop_definition).map_err(LoopRejection::Malformed)?;
         loop_definition.state_dimensionless_units();
         if let Some(channels) = &loop_definition.channels {
             channels
@@ -264,6 +280,30 @@ impl LoopDefinition {
         Ok(())
     }
 
+    /// Refuses a loop that declares more than one controller structure: a controller law with the program's own law, or any two of a
+    /// law, the program's own law, state feedback, an ON/OFF controller and a PID group (specification 35, C2). Control Studio
+    /// cannot tell which one tunes the loop, so the Rust engine's gate and the loop discovery both use this check.
+    ///
+    /// # Errors
+    /// The loop declares more than one controller structure.
+    pub fn require_one_controller_structure(&self) -> Result<(), Failure> {
+        if self.controller.law.is_some() && self.controller.project.is_some() {
+            return Err(Failure::new(
+                "This loop declares both a controller law and the program's own law, so Control Studio cannot tell which one tunes it.",
+                Cause::Implementation,
+                NextAction::OpenLoopSetup,
+            ));
+        }
+        if self.controller_structures() > 1 {
+            return Err(Failure::new(
+                "This loop declares more than one controller structure (a controller law, the program's own law, state feedback, an ON/OFF controller or a PID group), so Control Studio cannot tell which one tunes it.",
+                Cause::Implementation,
+                NextAction::OpenLoopSetup,
+            ));
+        }
+        Ok(())
+    }
+
     /// Whether the Rust engine runs this loop. A loop with a parked feature (checklist V7) stays on
     /// the `TypeScript` engine until that feature is ported. A loop without a controller law is not parked: it is an open-loop
     /// experiment or an observation loop (specification 35, C12), which the engine opens and identifies; the stages that need a
@@ -291,20 +331,7 @@ impl LoopDefinition {
         {
             return Err(parked_failure(&feature));
         }
-        if self.controller.law.is_some() && self.controller.project.is_some() {
-            return Err(Failure::new(
-                "This loop declares both a controller law and the program's own law, so Control Studio cannot tell which one tunes it.",
-                Cause::Implementation,
-                NextAction::OpenLoopSetup,
-            ));
-        }
-        if self.controller_structures() > 1 {
-            return Err(Failure::new(
-                "This loop declares more than one controller structure (a controller law, the program's own law, state feedback, an ON/OFF controller or a PID group), so Control Studio cannot tell which one tunes it.",
-                Cause::Implementation,
-                NextAction::OpenLoopSetup,
-            ));
-        }
+        self.require_one_controller_structure()?;
         if self.controller.law.is_none()
             && self.controller.project.is_none()
             && self.controller.state_feedback.is_none()
@@ -519,3 +546,11 @@ mod project_feedforward_tests;
 #[cfg(test)]
 #[path = "loop_definition/analysis_gate_tests.rs"]
 mod analysis_gate_tests;
+
+#[cfg(test)]
+#[path = "loop_definition/engine_support_tests.rs"]
+mod engine_support_tests;
+
+#[cfg(test)]
+#[path = "loop_definition/experiment_rules_tests.rs"]
+mod experiment_rules_tests;

@@ -235,6 +235,16 @@ fn applicable_fields(family: StateControllerFamily) -> &'static [DraftField] {
     }
 }
 
+/// One choice of a form field that is a choice, with its words: the value the draft holds and the label the form shows for it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FieldChoice {
+    /// The value the draft holds for this choice (`infinite` or `finite` for the solver policy).
+    pub value: String,
+    /// The label the form shows for the choice.
+    pub label: String,
+}
+
 /// One field of the design form that a family shows, with the label the page shows for it (the page's words, see `draft_label`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -243,6 +253,14 @@ pub struct FormField {
     pub field: DraftField,
     /// The label the form shows.
     pub label: String,
+    /// The choices of a field that is a choice, each with its words (the solver policy); absent for a field of text. The page lists the
+    /// options from these choices and keeps no label table of its own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub choices: Option<Vec<FieldChoice>>,
+    /// The value of the choice the form shows now, for a field that is a choice: `finite` while the stored solver policy is the finite
+    /// horizon, else `infinite`. Absent for a field of text. The page shows it and invents no default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selected: Option<String>,
 }
 
 /// The fields the design form shows for `family` under its solver policy (D-B12), in the order the page lists them: for LQR and
@@ -260,11 +278,31 @@ pub fn form_fields(family: StateControllerFamily, finite_horizon: bool) -> Vec<F
     }
     fields
         .into_iter()
-        .map(|field| FormField {
-            field,
-            label: texts::draft_label(field).to_string(),
-        })
+        .map(|field| form_field(field, finite_horizon))
         .collect()
+}
+
+/// A field of the form with its label and, for the solver policy, its two choices with their words and the one that stands now.
+fn form_field(field: DraftField, finite_horizon: bool) -> FormField {
+    let solver = field == DraftField::SolverMode;
+    let policy = if finite_horizon { "finite" } else { "infinite" };
+    FormField {
+        field,
+        label: texts::draft_label(field).to_string(),
+        choices: solver.then(|| {
+            vec![
+                FieldChoice {
+                    value: "infinite".to_owned(),
+                    label: texts::SOLVER_INFINITE_LABEL.to_owned(),
+                },
+                FieldChoice {
+                    value: "finite".to_owned(),
+                    label: texts::SOLVER_FINITE_LABEL.to_owned(),
+                },
+            ]
+        }),
+        selected: solver.then(|| policy.to_owned()),
+    }
 }
 
 /// The key that a stored preference uses for a matrix or pole field.

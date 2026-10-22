@@ -2,7 +2,6 @@ import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import { validateControlLoopDefinition } from "../../controlStudio/loopDefinition";
 import { attachControlStudio, attachWebview } from "./control-studio-rendered-harness";
 import { captureRenderedWorkbenchCdp, connectCdp, devToolsPort, evaluateInWebview, httpJson, pollValue, requiredEnvironment } from "./plant-rendered-harness";
 
@@ -39,7 +38,8 @@ suite("Control Studio state-feedback setup rendered", () => {
       await pollValue("Control Studio ready", () => evaluateInWebview(connection, studio, "return d.querySelector('[data-studio-three-page]')?.dataset.hostReady;"), value => value === "true", 10000);
       await shot("studio");
       const saved = JSON.parse(fs.readFileSync(path.join(project, "control-loops", "tank-2-level.json"), "utf8"));
-      assert.strictEqual(validateControlLoopDefinition(saved, { projectId: saved.projectId, runtimeId: saved.runtimeId }).kind, "accepted");
+      // The engine validates the saved loop when Control Studio opens it (the studio above is that open), so no TypeScript check repeats
+      // the validation (the deleted validateControlLoopDefinition).
       assert.deepStrictEqual(saved.controller.stateFeedback.gainSymbols, [["P1.K2", "P1.K1"]]);
     } finally {
       connection.close();

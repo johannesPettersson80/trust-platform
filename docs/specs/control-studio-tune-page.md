@@ -198,6 +198,12 @@ Prefill declared bindings. List the selected target's command and feedback
 channels with the corresponding **Plant signal** selector, using the signals
 chosen on Identify. For a PID group, show the owning PID's qualified instance
 name on each row. This is the same mapping for tuning, validation and Apply.
+The engine answers the editor's rows (`channelChoices` of `controlStudio/open`, and of `controlStudio/inputs` after a change): each
+model channel with its plant signal now, the signals of its side it may take, and the PID member that owns it. **Done** sends the
+selection with `controlStudio/inputs`; the engine checks it, keeps it in the study (A8.1) and answers the rows again. A selection the
+engine refuses stays in the action area with its sentence and the **Channels…** action; the study keeps the mapping it had. The action area
+is the Tune page's, whichever page the last operation ran on; sending the next selection clears the sentence, and the engine refuses that
+selection again if it must.
 
 Every selected plant input/output must have its required corresponding mapping.
 Preserve declared coupling/decoupling and channel order. Missing, ambiguous or
@@ -216,6 +222,7 @@ area and leave Apply unavailable. Unselected controllers remain untouched.
 **Tuning method** offers Automatic and the supported manual choices for the
 selected controller. Automatic chooses the applicable tuning method. An
 explicit method selection uses that method or reports why it cannot be used.
+For a `Control.PID`, a proportional law, or a program's parallel-PID or trajectory-feedforward law, the engine answers the methods it takes, SIMC, AMIGO and Manual in that order, with their titles (`methods` and `methodTitles` of `setupDiscover`); a state law takes State-space design alone; a finite search law, a feedforward, a Smith predictor, a cascade, a gain-scheduled loop, a switching controller and a PID group are designed by Automatic alone, so the engine answers an empty `methods` list and the page offers Automatic alone; and the relay rule is not offered, because it needs a qualified relay record of the study.
 
 Carry the selected instance and its declared parameter/state mapping through
 tuning, validation and Apply. The mapping identifies which controller settings
@@ -228,7 +235,7 @@ existing action area and leave application unavailable. Follow the existing
 here with its candidate and predicted response. The Validate tab only navigates;
 **Validate controller** explicitly starts validation there. In manual
 tuning, make the relevant controller settings editable in the same settings
-area. Do not introduce a separate settings dashboard.
+area. Do not introduce a separate settings dashboard. Manual settings need a controller configuration: with the family Automatic, Tune and a manual preview are refused with the sentence `Choose a controller configuration before entering manual settings.`
 
 Preserve settings the engineer has explicitly pinned. Opening Tune, selecting
 a controller or method, editing settings and calculating a result must not
@@ -244,9 +251,9 @@ For a state-feedback law (Part C, C4), **Tuning method** offers **State-space de
 
 - **Controller** lists the families the engine offers for the law (C4): for one plant input, state feedback and LQR, which share the law without an estimator; for several inputs, LQR alone; for an LQG law, LQG alone, because its estimator fixes the structure. The declared family is the recommended one, and the page marks it as the engine says. The engine answers the list, the recommended family, the parameter symbols of each family and the one method, **State-space design** (`state-space`), in the setup answer that the controller choice reads.
 - The **design form** shows the fields that the chosen family uses, with the labels the engine gives, in the page's own words: for LQR and LQG, **Solver policy** first, then **State weights (Q)** and **Input weights (R)**, and for LQG **Process noise covariance** and **Measurement noise covariance**. **Finite horizon steps** and **Terminal weights** appear only when the solver policy is **Finite-horizon (fixed policy)**; under **Infinite-horizon / steady-state** they are not shown. State feedback shows **Desired poles** alone. A field the family does not use is not shown.
-- The engine answers these fields before the first Tune, as `stateFields` (each a field key and its label) on the answers of `controlStudio/inputs` and `controlStudio/open`, from the family and the stored draft's solver policy. The same fields come with the Tune answer.
+- The engine answers these fields before the first Tune, as `stateFields` (each a field key and its label) on the answers of `controlStudio/inputs` and `controlStudio/open`, from the family and the stored draft's solver policy. The same fields come with the Tune answer. The solver policy is a choice: its field lists its options as `choices` (a `value` and the engine's `label` for each: `infinite`, **Infinite-horizon / steady-state**, and `finite`, **Finite-horizon (fixed policy)**) and names the option that stands as `selected` (`finite` while the stored policy is the finite horizon, else `infinite`). The page lists the options as given, shows the standing option until the engineer picks another, and sends the option its control shows with the draft; it keeps no list of options and no default.
 - A draft field that the form refuses shows the engine's sentence under that field. The refusal names the field's key (`field`: `desiredPoles`, `stateWeights`, `inputWeights`, `processNoise`, `measurementNoise`, `solverMode`, `horizonSteps` or `terminalWeights`), and a refusal of the whole form names none, so the page shows it at the form's head.
-- **Tune controller** shows the candidate's gains and reference gain under the loop's own symbols, the estimator gains for LQG, the closed-loop poles, and the margins where the engine gives them. For a finite horizon it shows the **Riccati stages**: the gain and the Riccati matrix of each step, with the horizon policy (`repeat-first-finite-gain`, or `pinned-fixed-gain` when a pin is set).
+- **Tune controller** shows the candidate's gains and reference gain under the loop's own symbols, the estimator gains for LQG, the closed-loop poles, and the margins where the engine gives them. For a finite horizon it shows the **Riccati stages**: the gain and the Riccati matrix of each step, with the horizon policy (`repeat-first-finite-gain`, or `pinned-fixed-gain` when a pin is set). The line that names the steps and the policy (**Finite horizon: 3 steps · Repeated first gain**, or **Pinned fixed gain**) and the heading of the stages (**Riccati stages**, or **Nominal Riccati stages** when a pin fixes the gains) are the engine's words (`words.horizonPolicy`, `words.horizonStages`), and the page keeps no table of policy words.
 - A pinned coefficient keeps its value, and the design then shows the poles of the pinned gains.
 
 ### Measured paths
@@ -259,7 +266,7 @@ For a state-feedback law (Part C, C4), **Tuning method** offers **State-space de
 - The answer shows, in order: the engine's summary sentences; **Measured gain matrix**, with one row for each output and one column for each input, every channel named by its symbol and unit, and every entry at one precision; **Relative Gain Array**, a closed disclosure below the gain matrix in the same layout; **Static decoupler**, a closed disclosure with one row for each input and one column for each output; the **pairing**, which names each output with its input and the relative gain of the pair, or shows the engine's sentence of its refusal; and **Calculation details**, a closed disclosure with the engine's detail sentences. The page computes none of these numbers and checks no entry.
 - A refused calculation shows the engine's sentence, whole when the engine says more than its first sentence, under the window table and the drift tolerance, which the sentence concerns. It shows no matrix as evidence.
 - Reopening the page shows the windows and the tolerance that the analysis used, and calculates it again (A8.6).
-- A parked loop keeps its TypeScript calculation, in the same section, until stage V7.17 (debt).
+- A loop the engine refuses shows the engine's refusal with its next action on the page, and no page calculates its measured paths (specification 35, §0.1a; stage V7.17).
 
 ## Result and plot
 
@@ -272,6 +279,8 @@ PI controller · Control.PID
 Proportional gain (Kp) = 5
 Integral gain (Ki) = 1
 ```
+
+The engine answers the words of the result: the margins it names in words (`unbounded` or `not observed in range`), the outcome sentence and the labels of the setting rows of a PID law, and the page shows them as given. The engine also answers the outcome sentence of each row of the constrained comparison (`outcomeText`).
 
 These values are illustrative. Display the declared parameter units alongside
 the real values. Show the parameters relevant to the actual

@@ -339,6 +339,48 @@ pub fn use_controller_output_description() -> &'static str {
     "No separate applied-action feedback is declared"
 }
 
+/// The words of a step-by-step setup that the compiled project cannot start: it holds no process-image signal (`configureLoop.ts`).
+#[must_use]
+pub fn no_signals() -> &'static str {
+    "No compiled process-image signals are available. Symbolic-only setup is not available yet."
+}
+
+/// The words of an answer that is not one the question offers (`setupStep`).
+#[must_use]
+pub fn not_among_offered() -> &'static str {
+    "Choose one of the answers the question offers."
+}
+
+/// The words of a session the engine cannot read: the setup starts again.
+#[must_use]
+pub fn session_unreadable() -> &'static str {
+    "The answers of this setup cannot be read any more. Start the setup again."
+}
+
+/// What a finished setup says its loop does with the program (the confirmation before the save, `configureLoop.ts`).
+#[must_use]
+pub fn proportional_summary() -> &'static str {
+    "This declares the existing proportional controller; it does not write the runtime or edit ST."
+}
+
+/// What a finished adapter setup says its loop does with the program (the confirmation before the save).
+#[must_use]
+pub fn adapter_summary() -> &'static str {
+    "This declares the existing controller and its typed adapter; it does not edit ST or write runtime values."
+}
+
+/// What a finished observation says its loop does with the program (the confirmation before the save).
+#[must_use]
+pub fn observation_summary() -> &'static str {
+    "This loop observes the existing program."
+}
+
+/// The confirmation a finished setup asks before it saves the loop: its name, its runtime, its signals and its sentence (`configureLoop.ts`).
+#[must_use]
+pub fn save_confirmation(name: &str, runtime_id: &str, signals: &str, sentence: &str) -> String {
+    format!("Save {name} for {runtime_id}? {signals} {sentence}")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -9,14 +9,13 @@ use trust_control_math::identify::ParameterInterval;
 
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{ControllerLaw, LoopDefinition};
-use crate::messages::TuneRequest;
 use crate::study::tune::{refused_as, settings_refused};
 use crate::tuning::candidate::{
     candidate_from_control_pid, AntiWindup, CandidateSource, ControlPidCandidate,
     ControlPidParameters, LawCandidate, DEFAULT_RATE_LIMIT_PER_S,
 };
 use crate::tuning::prediction::RecordShaping;
-use crate::tuning::settings_pins::{apply_pins, GainKey, MappedParameter};
+use crate::tuning::settings_pins::{apply_pins, ControllerSettingsPins, GainKey, MappedParameter};
 use crate::tuning::shortfall::OutputLimits;
 use crate::tuning::structure::{is_exactly_zero, ParallelGains, Structure};
 use crate::tuning::texts;
@@ -205,18 +204,15 @@ pub(crate) fn shaping_of_candidate(candidate: &LawCandidate) -> RecordShaping {
 /// The settings refusals of [`apply_pins`], as the settings cause with no next action.
 pub(crate) fn pinned_settings(
     loop_definition: &LoopDefinition,
-    request: &TuneRequest,
+    pins: Option<&ControllerSettingsPins>,
     mapped: &[MappedParameter],
 ) -> Result<BTreeMap<GainKey, f64>, Failure> {
-    let family = request
-        .pins
-        .as_ref()
-        .map_or(Structure::PI, |pins| pins.family);
+    let family = pins.map_or(Structure::PI, |pins| pins.family);
     apply_pins(
         &loop_definition.revision,
         family,
         &BTreeMap::new(),
-        request.pins.as_ref(),
+        pins,
         mapped,
     )
     .map_err(settings_refused())

@@ -3,7 +3,6 @@ import { healthColor, roleWord } from "./nodes";
 import { protocolColor, protocolName } from "./protocolMeta";
 import { t, tint } from "./theme";
 import { healthStatusLabel } from "./statusPresentation";
-import { simulationSpeedText, type SimulationSpeed } from "../../controlStudio/runtimeTarget";
 import { buildParams, Field, valuesFor } from "./SchemaFields";
 import { browseAction } from "./browseActions";
 import {
@@ -77,23 +76,17 @@ function normalizedConfiguredDetail(detail: string): string {
     .trim();
 }
 
-/** The simulator's speed as its runtime node carries it; undefined until the canvas data supplies it. */
-function simulationSpeedFromNode(d: Record<string, unknown>): SimulationSpeed | undefined {
-  const configured = d.simulationTimeScale;
-  if (typeof configured !== "number" || !Number.isFinite(configured) || configured < 1) return undefined;
-  const achieved = d.simulationAchievedTimeScale;
-  return typeof achieved === "number" && Number.isFinite(achieved) && achieved > 0
-    ? { configured, achieved }
-    : { configured };
+/** The simulator's speed words as its runtime node carries them (specification 35, B9.2); "" until the canvas data supplies them. */
+function simulationSpeedTextFromNode(d: Record<string, unknown>): string {
+  return typeof d.simulationSpeedText === "string" ? d.simulationSpeedText : "";
 }
 
-function runtimeModeLabel(mode: string, speed?: SimulationSpeed): string {
+function runtimeModeLabel(mode: string, speedText = ""): string {
   switch (mode.trim().toLowerCase()) {
     case "simulate":
     case "simulator": {
-      // A simulation that runs off real time says so (specification 35, B9.2): "Simulation ×10".
-      const text = speed ? simulationSpeedText(speed) : "";
-      return text ? `Simulation ${text}` : "Simulator";
+      // A simulation that runs off real time says so (specification 35, B9.2): "Simulation ×10". The words are the runtime's.
+      return speedText ? `Simulation ${speedText}` : "Simulator";
     }
     case "managed":
       return "Managed";
@@ -667,7 +660,7 @@ function SummaryView({
         rows.push(["State", stateSummary(str(d.lifecycleState) || health, str(d.detail))]);
         rows.push(["Run target", d.runTarget === true ? "Selected" : "Not selected"]);
         {
-          const mode = runtimeModeLabel(str(d.mode), simulationSpeedFromNode(d));
+          const mode = runtimeModeLabel(str(d.mode), simulationSpeedTextFromNode(d));
           if (mode) {
             rows.push(["Mode", mode]);
           }

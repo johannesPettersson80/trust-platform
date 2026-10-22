@@ -29,10 +29,11 @@ use std::time::{Duration, Instant};
 
 use trust_control::commissioning::application::ApplySource;
 use trust_control::commissioning::application_records::{
-    approval_block, ApplicationReview, ApplyOutcome, ReviewedAction,
+    approval_block, ApplicationReview, ApplyOutcome, ReviewConfirmation, ReviewedAction,
 };
 use trust_control::failure::Failure;
 use trust_control::loop_definition::LoopDefinition;
+use trust_control::messages::AnswerKind;
 use trust_control::runtime::RuntimeConnection;
 use trust_control::study::Study;
 
@@ -45,7 +46,7 @@ pub(crate) use ending::{
 };
 pub(crate) use journaling::{checkpoint_stage, CheckpointWriter};
 pub(crate) use law::law_target;
-pub(crate) use review::{candidate_gains, materialize_values, measured_noise};
+pub(crate) use review::{candidate_gains, materialize_values, measured_noise, validation_identity};
 
 use law::{LawSetup, LawStart};
 use review::{preconditions, prepare, reviewed_parameters, ApplyInputs, Clients, Prepared};
@@ -137,13 +138,16 @@ pub(crate) fn review_with(
         &parameters,
         Some(inputs.task.duration_seconds),
     );
+    let physical = source == ApplySource::Physical;
     Ok(ApplicationReview {
+        kind: AnswerKind::new(),
         action: ReviewedAction::Apply,
         identity,
         found_mode,
         parameters,
         description: start.description().to_owned(),
-        physical: source == ApplySource::Physical,
+        physical,
+        confirmation: ReviewConfirmation::of_target(physical),
         operating_point: inputs.model.identity().operating_point.clone(),
         approval,
     })

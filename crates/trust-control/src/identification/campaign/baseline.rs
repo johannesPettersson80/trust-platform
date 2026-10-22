@@ -214,8 +214,9 @@ fn last_points(points: &[TimedValue], count: usize) -> &[TimedValue] {
     &points[points.len().saturating_sub(count)..]
 }
 
-/// Half the range between the highest and the lowest value of a steady window (B3.4 step 2).
-fn half_range(values: &[f64]) -> f64 {
+/// Half the range between the highest and the lowest value of a steady window (B3.4 step 2), or of a project-scripted experiment's
+/// declared baseline (C12).
+pub(crate) fn half_range(values: &[f64]) -> f64 {
     let high = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     let low = values.iter().copied().fold(f64::INFINITY, f64::min);
     (high - low) / 2.0

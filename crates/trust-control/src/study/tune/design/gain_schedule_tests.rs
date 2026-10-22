@@ -179,6 +179,7 @@ fn point_model(gain: f64) -> CurrentModel {
 /// the Balanced response, as the single-loop design tests state them.
 fn requirements() -> TuningRequirements {
     TuningRequirements {
+        channel_requirements: None,
         reference_change: 1.0,
         maximum_error: 0.04,
         settling_band: 0.02,
@@ -229,6 +230,7 @@ fn members<'a>(
                 previous: None,
                 request,
                 relay: None,
+                pins: None,
             },
             held: Some(requirements),
             running: None,
@@ -356,6 +358,7 @@ fn a_scheduled_loop_is_refused_by_the_single_loop_design() {
         previous: None,
         request: &request,
         relay: None,
+        pins: None,
     };
     let refusal = run(&inputs, None, None).expect_err("a scheduled loop is tuned with its points");
     assert_eq!(

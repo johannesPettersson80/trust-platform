@@ -5,6 +5,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::commissioning::application_offers::PrimaryAction;
 use crate::failure::Failure;
 use crate::identification::connected_record::RunEvidence;
 use crate::identification::independent_validation::RequirementStatus;
@@ -92,8 +93,15 @@ pub struct ValidateResult {
     /// The overall result of the candidate (N8.5): Fail when a requirement fails, Inconclusive when one lacks evidence,
     /// and Pass otherwise.
     pub status: RequirementStatus,
-    /// Whether Apply is available: the model is qualified and the candidate passed every requirement (B5.4).
+    /// Whether Apply is available: the model is qualified and the candidate passed every requirement (B5.4). The answer of
+    /// `controlStudio/validate` states it by the one rule of every answer that offers Apply (B7, `application_offers::apply_offered`),
+    /// which also asks that no Apply's checkpoint is unresolved and that the newest Apply applied another validation.
     pub apply_available: bool,
+    /// The action that holds the Validate page's position after this result (B7; `application_offers::primary_action`), stated by the
+    /// answer of `controlStudio/validate`; absent when none is offered, and in the result a reopened study holds (A8.6), whose open
+    /// answer states the offers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub primary_action: Option<PrimaryAction>,
     /// Why Apply is not available, with the next action that fixes it (B5.5); absent when Apply is available.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub failure: Option<Failure>,
@@ -122,6 +130,39 @@ pub struct ValidateResult {
     /// The measured response of the target-response case for the plot (B5.4, B9.6); absent when the candidate's run has no sample.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub plot: Option<ValidationPlot>,
+    /// The rows of the table in the order the page shows them (B9.9): the independent model check first unless it fails, the failing
+    /// rows, the inconclusive rows, the passing rows, the row that counts the passing guards and the candidate's overall row. Absent
+    /// when there are none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub table: Vec<ValidateRow>,
+}
+
+/// One row of the Validate table (B9.9; the Validate page specification, "Results and plot"): the words the row shows, its measured
+/// and limit texts and its verdict, all decided by the engine. The page lays the rows out in the order of `ValidateResult::table`.
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidateRow {
+    /// The row's name: the scenario's and the run's words in front of the requirement's label, its Automatic mark, and its
+    /// channel's role with its unit, for example "Target response · Candidate · Maximum settling time · Automatic · Measurement (°C)".
+    pub title: String,
+    /// The channel's symbol, which the page shows on hover; empty when the row names none.
+    pub symbol: String,
+    /// The plant the check ran against, which the page shows under the title; empty when the row names none.
+    pub source: String,
+    /// The measured value or range with its unit, or "—" when the check has no good value.
+    pub measured: String,
+    /// The limit with its unit: "≤" or "≥" before a value, "= " before a single declared value, a declared range as "lowest–highest";
+    /// "—" when the row has none.
+    pub limit: String,
+    /// The engine's verdict word: Pass, Fail or Inconclusive (N8.4, N8.5).
+    pub verdict: String,
+    /// The verdict cell's words: the word alone for a pass, and the word, " · " and the reason for a verdict that is not a pass.
+    pub verdict_text: String,
+    /// The verdict's class, which the page styles from: "pass", "fail" or "inconclusive".
+    pub verdict_class: String,
+    /// The row's identity: the requirement's id, or for the row that counts the passing guards and for the overall row, the marker
+    /// the page keeps them by (`limit-and-controller-checks` and `overall`).
+    pub requirement: String,
 }
 
 /// The independent model check of a provisional model (B5.2; numerical annex N3.4): the frozen model's free-running prediction

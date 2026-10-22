@@ -1,38 +1,27 @@
-import type { ControlLoopDefinition } from "../loopDefinition";
-import type { WorkflowResultSample } from "../workflowResult";
+import type { PlotSignal, RecordedChartSample } from "../generated/OpenResult";
 
-/** One binding catalogue for live and retained experiment readings. */
-export function experimentSignalBindings(loop: ControlLoopDefinition) {
-  return [
-    ...(loop.signals.setpoint ? [{ ...loop.signals.setpoint, id: "sp" }] : []),
-    { ...loop.signals.processVariable, id: "pv" },
-    { ...(loop.signals.actuator ?? loop.signals.manipulatedVariable), id: "mv" },
-    ...(loop.signals.actuator ? [{ ...loop.signals.manipulatedVariable, id: "requestedMv" }] : []),
-    ...(loop.signals.additional ?? []),
-  ];
+/**
+ * What the chart reads of a kept recording's sample: its process time and the value each plotted signal takes, by the signal's
+ * identifier (`RecordedChartSample.plotted`, B9.6). The engine names each value by the identifier of `liveSides.plotSignals` and marks the
+ * gaps with null, so the page maps no signal onto a field of the sample and holds no rule of which value is drawn.
+ */
+export type ChartSample = Pick<RecordedChartSample, "elapsedSeconds" | "plotted">;
+
+/**
+ * The signal that names an identification experiment's recorded input trace: the engine's list gives the symbol each trace of a
+ * signal carries (`recordedAs`, else the signal's own symbol), so the page looks the trace's symbol up and resolves nothing.
+ */
+export function experimentInputBinding(signals: readonly PlotSignal[], traceSymbol: string): PlotSignal | undefined {
+  return signals.find(signal => (signal.recordedAs ?? signal.symbol) === traceSymbol);
 }
 
-/** The binding that names an identification experiment's recorded input trace. The recorded plant
- * input is the applied value, so a declared actuator names the manipulated variable's trace. */
-export function experimentInputBinding(loop: ControlLoopDefinition, traceId: string) {
-  const bindings = experimentSignalBindings(loop);
-  return loop.signals.actuator && traceId === loop.signals.manipulatedVariable.symbol
-    ? bindings.find(signal => signal.id === "mv") : bindings.find(signal => signal.symbol === traceId);
-}
-
-/** Preserve signal identity and units; invalid samples are gaps, never zero. */
-export function recordedSignalResponses(loop: ControlLoopDefinition, samples: readonly WorkflowResultSample[], selected: readonly string[]) {
-  const signals = experimentSignalBindings(loop).filter(signal => selected.includes(signal.id));
+/** One series for each selected signal of a kept recording, grouped by unit. A null value is a gap, never zero (B9.6, B10.3). */
+export function recordedSignalResponses(signals: readonly PlotSignal[], samples: readonly ChartSample[], selected: readonly string[]) {
   const groups = new Map<string, { name: string; unit: string; series: { name: string; signalId: string; dashed: boolean; points: (number | null)[][] }[] }>();
-  for (const signal of signals) {
-    const points = samples.map(sample => {
-      const additional = sample.additional?.find(value => value.id === signal.id);
-      const value = signal.id === "sp" ? sample.sp : signal.id === "pv" ? sample.pv : signal.id === "mv" ? sample.appliedMv : signal.id === "requestedMv" ? sample.requestedMv : additional?.value;
-      const quality = additional?.quality ?? sample.quality;
-      return [sample.elapsedSeconds, quality === "good" && typeof value === "number" && Number.isFinite(value) ? value : null];
-    });
+  for (const signal of signals.filter(item => selected.includes(item.id))) {
+    const points = samples.map(sample => [sample.elapsedSeconds, sample.plotted[signal.id] ?? null]);
     const group = groups.get(signal.unit) ?? { name: "", unit: signal.unit, series: [] };
-    group.series.push({ name: signal.symbol, signalId: signal.id, dashed: signal.id === "sp", points });
+    group.series.push({ name: signal.symbol, signalId: signal.id, dashed: signal.kind === "setpoint", points });
     group.name = group.series.length === 1 ? signal.symbol : "Response";
     groups.set(signal.unit, group);
   }

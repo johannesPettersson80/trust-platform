@@ -1,22 +1,25 @@
 import type { StudioPage } from "./threePageHostState";
 import { runLockedControls } from "./runLock";
-import { nextActionHasButton, plainReason, studioFailureOf, type StudioFailure, type StudioNextAction } from "./studioFailure";
+import { nextActionHasButton, studioFailureOf, type StudioFailure, type StudioNextAction } from "./studioFailure";
 
-export type StudioStart = "find" | "recording" | "tune" | "verify";
+export type StudioStart = "find" | "tune" | "verify";
 export type StudioPost = (kind: string, payload?: Record<string, unknown>) => void;
-const pages: Record<StudioStart, StudioPage> = { find: "model", recording: "model", tune: "tune", verify: "verify" };
+const pages: Record<StudioStart, StudioPage> = { find: "model", tune: "tune", verify: "verify" };
 const labels = { find: "Identify plant", tune: "Tune controller", verify: "Validate controller" };
 const PAGE_IDS: readonly StudioPage[] = ["model", "tune", "verify"];
 
-/** Displays one host-owned operation across all three pages. Navigation never starts work. */
+/**
+ * Displays one host-owned operation across all three pages. Navigation never starts work. The page holds the state of its own requests
+ * in flight (a Reset, a recording import, an operation) and the words of their progress. A stage's action is enabled from the engine's
+ * stage answer (`available` on the stage tab, B9.4) together with those requests and the gates of other modules, and a Reset is sent for
+ * the engine to take or refuse with its own sentence and next action.
+ */
 export class ThreePageOperation {
   busy = false;
   /** The engine is checking a recording the engineer opened (B3.6): the page stays busy until the engine answers, with no run's Abort. */
   importing = false;
   private follows = true;
   private resetting = false;
-  private hasModel = false;
-  private hasCandidate = false;
   private page: StudioPage = "model";
   private resetConfirm?: HTMLElement;
   private readonly pendingActions = new Map<StudioPage, StudioNextAction>();
@@ -28,7 +31,9 @@ export class ThreePageOperation {
     /** Performs a failure's typed next action on its own page; it never starts work by itself. */
     private readonly nextAction: (kind: string, page: StudioPage) => void = () => undefined,
     /** Re-renders the Apply button after this module's state changed: the application owns that button (threePageApplication.ts). */
-    private readonly changed: () => void = () => undefined) {
+    private readonly changed: () => void = () => undefined,
+    /** The words of the Identify button for the method chosen now: the project test's or the recorded-data fit's own words, else Identify plant. */
+    private readonly findLabel: () => string = () => labels.find) {
     for (const page of PAGE_IDS) {
       this.root.querySelector<HTMLElement>(`[data-studio-message="${page}"]`)?.addEventListener("click", event => {
         const target = event.target as HTMLElement | null;
@@ -50,37 +55,36 @@ export class ThreePageOperation {
     this.resetting = true; this.render();
     this.post("control-studio.study.reset");
   }
-  /** Reset discards the study, so the engineer confirms it in the page; window.confirm does not work in a webview. */
-  bindReset(button: HTMLButtonElement, blocked: () => boolean): void {
+  /**
+   * Reset starts a new working study and moves the current one, with its model, tuned controller and validation results, to the study's
+   * history (A8.4), so the engineer confirms it in the page; window.confirm does not work in a webview. The confirmed Reset is sent, and
+   * the engine refuses it while an operation runs or an Apply's checkpoint waits for its Restore, with its own sentence (B6.7). The button
+   * is one of the run-locked controls, so it is disabled only while a request of the page is in flight.
+   */
+  bindReset(button: HTMLButtonElement): void {
     const doc = this.root.ownerDocument;
     const row = doc.createElement("div");
     row.className = "studio-reset-confirm"; row.hidden = true; row.setAttribute("role", "group"); row.setAttribute("aria-label", "Confirm reset");
     const text = doc.createElement("span");
-    text.textContent = "Reset discards the model, the tuned controller and the validation results.";
+    text.textContent = "Reset starts a new study. The model, the tuned controller and the validation results move to the study's history.";
     const confirm = doc.createElement("button"); confirm.type = "button"; confirm.className = "trust-button"; confirm.textContent = "Reset study";
     const keep = doc.createElement("button"); keep.type = "button"; keep.className = "trust-button"; keep.textContent = "Keep";
     row.append(text, confirm, keep);
     button.after(row);
     this.resetConfirm = row;
-    const refused = (): boolean => {
-      if (!this.busy && !blocked()) return false;
-      this.notice("model", "Finish or abort the current operation before resetting the study.");
-      return true;
-    };
-    button.addEventListener("click", () => {
-      if (refused()) return;
-      row.hidden = false; keep.focus();
-    });
+    button.addEventListener("click", () => { row.hidden = false; keep.focus(); });
     keep.addEventListener("click", () => { row.hidden = true; button.focus(); });
-    confirm.addEventListener("click", () => { row.hidden = true; if (!refused()) this.reset(); });
+    confirm.addEventListener("click", () => { row.hidden = true; this.reset(); });
   }
-  /** The one rule for Identify, Tune and Validate: why an idle stage action must stay unavailable, or undefined when every gate agrees. */
+  /**
+   * Why an idle stage action must stay unavailable while a request of the page is pending or another gate holds it, or undefined when
+   * every gate agrees: a Reset in progress, or the reason of an external gate such as an incomplete plant mapping or a simulator start
+   * in progress. Which stage may start is the engine's (`available`, B9.4).
+   */
   stageBlock(): string | undefined {
     if (this.busy) return undefined; // Abort stays reachable while work runs.
     return this.resetting ? "Reset is in progress." : this.external();
   }
-  /** A plant model reached the page: Tune becomes available, still subject to every gate. */
-  modelArrived(): void { this.hasModel = true; this.render(); }
   navigated(): void { if (this.busy) this.follows = false; }
   start(from: StudioStart, payload: Record<string, unknown>): void {
     if (this.busy) { this.post("control-studio.flow.cancel"); this.notice(this.page, "Aborting…"); return; }
@@ -99,19 +103,7 @@ export class ThreePageOperation {
     if (payload.flowStage === "Identify") this.page = "model";
     if (payload.flowStage === "Tune") this.page = "tune";
     if (payload.flowStage === "Validate") this.page = "verify";
-    if (payload.stageEvidence && typeof payload.stageEvidence === "object") {
-      const evidence = payload.stageEvidence as Record<string, unknown>;
-      this.hasModel = evidence.hasModel === true;
-      this.hasCandidate = evidence.hasCandidate === true;
-    }
-    if (!payload.stageEvidence && (payload.model || status === "model-ready")) this.hasModel = payload.compatibleControllerRequired !== true;
-    if (status === "candidate") this.hasCandidate = true;
-    if (["model-ready", "candidate", "verified"].includes(status)) this.notice(this.page, "");
-    // An unavailable Tune shows why beside it; an available one needs no explanation.
-    if (status === "model-ready" || status === "unavailable") {
-      if (this.hasModel) this.notice("tune", "");
-      else this.show("tune", payload);
-    }
+    if (status === "candidate" || status === "verified") this.notice(this.page, "");
     if (status === "candidate" || status === "verified") this.notice("verify", "");
     // The engine's automatic flow sends its progress without a flow stage (`run`): it shows on the page the flow started on.
     if (status === "running" && (payload.flowStage || stage === "flow")) {
@@ -120,24 +112,26 @@ export class ThreePageOperation {
       // The host's own progress sentence, such as the settling time left, replaces the generic one when it sends one.
       this.notice(this.page, typeof payload.reason === "string" && payload.reason ? payload.reason : this.progress());
     }
-    if (status === "running" && payload.activity === "model-check") this.notice(this.page, "Checking model…");
     if (stage === "flow" && ["paused", "completed", "cancelled"].includes(status)) {
       this.busy = false;
       if (this.follows) this.select(this.page, true);
-      this.notice(this.page, status === "completed" ? "" : String(payload.reason ?? "Operation stopped."));
-    } else if (!payload.flowStage && ["failed", "verification-failed", "unavailable", "recovery-required"].includes(status)) {
+      // A pause or a cancellation shows the engine's sentence (`reason`); the page writes none.
+      this.notice(this.page, status !== "completed" && typeof payload.reason === "string" ? payload.reason : "");
+    } else if (!payload.flowStage && ["failed", "verification-failed"].includes(status)) {
       this.busy = false;
-      this.show(this.page, payload, "The operation could not finish.");
+      // A failure that names the page it belongs to (a refused Channels… selection belongs to Tune) shows there; any other on the operation's
+      // page. The sentence is the engine's failure; an answer without one, such as a Validate answer that offers no Apply, shows none.
+      this.show(PAGE_IDS.find(page => page === payload.page) ?? this.page, payload);
     }
-    if (status === "edited") { this.hasCandidate = false; if (this.hasModel) this.notice("verify", "Tune again to validate the changed settings."); }
-    if (status === "restored" && this.hasModel) this.notice("verify", "Tune again to validate new settings.");
+    // A change that left the validation not current (A8.4) says so on the Validate page, in the words the answer carries.
+    if (status === "edited" && typeof payload.reason === "string" && payload.reason) this.notice("verify", payload.reason);
     this.render();
     if (stage === "flow" && status === "paused" && typeof payload.missing === "string") this.missing(payload.missing);
   }
   /** A plain message in a page's action area. It replaces any failure shown there. */
   notice(page: StudioPage, message: string): void {
     const area = this.message(page);
-    area.textContent = plainReason(message); area.hidden = !message;
+    area.textContent = message; area.hidden = !message;
     this.clearFailure(page);
   }
   /** A failure: one sentence, its technical reason in place when the sentence is selected, and at most one button for its fix. */
@@ -161,10 +155,11 @@ export class ThreePageOperation {
       if (button) this.pendingActions.set(page, failure.nextAction); else this.pendingActions.delete(page);
     }
   }
-  private show(page: StudioPage, payload: Record<string, unknown>, fallback = ""): void {
+  /** Shows the engine's failure that `payload` carries on `page`, or clears the page's message when it carries none. */
+  private show(page: StudioPage, payload: Record<string, unknown>): void {
     const failure = studioFailureOf(payload);
     if (failure) this.failure(page, failure);
-    else this.notice(page, fallback);
+    else this.notice(page, "");
   }
   private clearFailure(page: StudioPage): void {
     const detail = this.detail(page);
@@ -177,19 +172,34 @@ export class ThreePageOperation {
   private detail(page: StudioPage): HTMLElement | null { return this.root.querySelector<HTMLElement>(`[data-studio-failure-detail="${page}"]`); }
   private failureAction(page: StudioPage): HTMLButtonElement | null { return this.root.querySelector<HTMLButtonElement>(`[data-studio-failure-action="${page}"]`); }
   private progress(): string { return this.page === "model" ? "Identifying plant…" : this.page === "tune" ? "Tuning controller…" : "Validating controller…"; }
+  /**
+   * Whether the engine says the stage's own action can start now (B9.4): the stage tab keeps the answer (`applyStageStatuses`). Tune and
+   * Validate start only once an answer says so. Identify, which a bound loop can always start, waits while an answer says it cannot, as
+   * while an Apply's checkpoint waits for its Restore (B6.4); before the engine's open answer nothing is sent from the page anyway.
+   */
+  private available(action: StudioStart): boolean {
+    const answer = this.root.querySelector<HTMLElement>(`[data-engineer-stage-tab="${pages[action]}"]`)?.dataset.available;
+    return action === "find" ? answer !== "false" : answer === "true";
+  }
   synchronize(): void { this.render(); }
   private render(): void {
     const blocked = this.stageBlock() !== undefined;
     for (const action of ["find", "tune", "verify"] as const) {
       const button = this.root.querySelector<HTMLButtonElement>(`[data-engineer-${action}]`)!;
-      button.textContent = this.busy ? "Abort" : labels[action];
-      button.disabled = blocked || !this.busy && (action === "tune" ? !this.hasModel : action === "verify" ? !this.hasCandidate : false);
+      // The Identify button's words belong to the method chosen (the project test's, the recorded-data fit's); an analysis chosen on
+      // Tune sets its own button, so the stage's gate does not apply to it.
+      button.textContent = this.busy ? "Abort" : action === "find" ? this.findLabel() : labels[action];
+      const analysis = action === "tune" && this.root.dataset.analysisSelected === "true";
+      const unavailable = !analysis && !this.available(action);
+      button.disabled = blocked || (!this.busy && unavailable);
     }
-    // The idle lock never re-enables an import that the bindings gate or another gate has closed.
-    for (const control of runLockedControls(this.root)) control.disabled = this.busy || this.importing || this.resetting || (blocked && control.matches("[data-identify-import]"));
+    // The idle lock never re-enables an import that the bindings gate or another gate has closed. The editors stay usable while an Apply's
+    // checkpoint waits for its Restore: the engine refuses a change of what the stages read, and Reset, with its reason (B6.4).
+    for (const control of runLockedControls(this.root)) {
+      control.disabled = this.busy || this.importing || this.resetting || (blocked && control.matches("[data-identify-import]"));
+    }
     if (this.resetConfirm && (this.busy || this.resetting)) this.resetConfirm.hidden = true;
     this.root.dataset.busy = String(this.busy || this.importing || this.resetting);
     this.changed();
   }
 }
-

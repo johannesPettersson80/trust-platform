@@ -141,6 +141,7 @@ pub fn runtime_connection(
     Ok(RuntimeConnection {
         endpoint,
         token: control_token(token_file, environment)?,
+        runtime_id: None,
     })
 }
 

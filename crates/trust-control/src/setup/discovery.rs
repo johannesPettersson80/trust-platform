@@ -10,22 +10,20 @@ use std::path::Path;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use super::catalog::{CatalogAnswer, CompiledCatalog, CompiledController, CompiledTask};
-use super::lqg_loop::MAXIMUM_ESTIMATOR_STATES;
+use super::declared_symbols::{declared_controller_symbol_types, declared_controller_symbols};
 use super::save::validation_reason_code;
 use super::texts::discovery as texts;
+use super::tune_method_offers::{family_settings_of, method_titles_of, named_methods_of};
 use crate::commissioning::adapters::controller_adapter;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::json::parse_text;
-use crate::loop_definition::{
-    AuxiliaryRole, LoopDefinition, LoopScope, ManualOutputType, Range, RealType,
-};
-use crate::model::{decode_general_model, GeneralModel};
-use crate::tuning::settings_pins::family_setting_symbols;
-use crate::tuning::state_controller::sampling::state_channels;
+use crate::loop_definition::{AuxiliaryRole, LoopDefinition, LoopScope, Range};
 use crate::tuning::structure::Structure;
+
+pub use super::estimator_model_files::{estimator_model_files, EstimatorModelFile, ModelFileText};
+pub use super::tune_method_offers::{study_tune_methods, TuneMethodOffer};
 
 /// The most loop files one discovery reads (B1.2; a product limit).
 pub const MAXIMUM_LOOP_FILES: usize = 128;
@@ -108,10 +106,20 @@ pub enum ControllerCompatibility {
             skip_serializing_if = "Option::is_none"
         )]
         recommended_family: Option<String>,
-        /// The tuning methods that the controller takes (C4): a state law takes the state-space design alone. Absent for a PID law,
-        /// whose methods the page lists itself.
+        /// The tuning methods that the controller takes (C4, B4.2): a state law takes the state-space design alone. A finite search and
+        /// the loops that Tune designs by Automatic alone (a feedforward, a Smith predictor, a cascade, a gain schedule, a switching
+        /// controller and a PID group) take none, an empty list. A `Control.PID`, a proportional law and a program's parallel-PID or
+        /// trajectory-feedforward law take SIMC, AMIGO and Manual, in that order. The field is absent when the answer names no method.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         methods: Option<Vec<crate::messages::TuneMethod>>,
+        /// The title of each method of `methods`, keyed by the method's word (`SIMC`, `AMIGO`, `manual`, `state-space`), as the engine
+        /// gives it (`TuneMethod::title`). Absent when there is no method.
+        #[serde(
+            default,
+            rename = "methodTitles",
+            skip_serializing_if = "Option::is_none"
+        )]
+        method_titles: Option<BTreeMap<String, String>>,
     },
     /// No adapter realizes the loop, and this is why.
     Rejected {
@@ -172,7 +180,7 @@ pub struct Discovery {
 }
 
 /// The choice a selector sends: one loop, its controller and every channel of both sides (B1.3).
-#[derive(Debug, Clone, PartialEq, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BindingSelection {
     /// The loop's id.
@@ -385,6 +393,10 @@ fn target_for_loop(
     loop_definition: LoopDefinition,
     catalog: &CatalogAnswer,
 ) -> Result<BindingTarget, String> {
+    // The engine's gate refuses a loop with two controller structures; discovery offers no such loop, with the gate's sentence.
+    loop_definition
+        .require_one_controller_structure()
+        .map_err(|failure| failure.message)?;
     let controller = check_controller(&loop_definition, &catalog.control)?;
     check_group_members(&loop_definition, &catalog.control)?;
     check_signals(&loop_definition, catalog)?;
@@ -644,9 +656,11 @@ pub(crate) fn adapter_compatibility(loop_definition: &LoopDefinition) -> Control
                 family_settings: BTreeMap::from([(project.family.clone(), symbols)]),
                 recommended_family: Some(project.family.clone()),
                 methods: Some(Vec::new()),
+                method_titles: None,
             };
         }
         let families = project.offered_families();
+        let methods = named_methods_of(loop_definition);
         return ControllerCompatibility::Accepted {
             families: families
                 .iter()
@@ -654,7 +668,8 @@ pub(crate) fn adapter_compatibility(loop_definition: &LoopDefinition) -> Control
                 .collect(),
             family_settings: family_settings_of(loop_definition, &families),
             recommended_family: None,
-            methods: None,
+            method_titles: method_titles_of(&methods),
+            methods: Some(methods),
         };
     }
     // A state-feedback law is offered as the families its inputs and estimator take, with the family it declares recommended and
@@ -665,6 +680,7 @@ pub(crate) fn adapter_compatibility(loop_definition: &LoopDefinition) -> Control
                 families: offer.families,
                 family_settings: offer.family_settings,
                 recommended_family: Some(offer.recommended),
+                method_titles: method_titles_of(&[crate::messages::TuneMethod::StateSpace]),
                 methods: Some(vec![crate::messages::TuneMethod::StateSpace]),
             },
             Err(Failure {
@@ -677,6 +693,7 @@ pub(crate) fn adapter_compatibility(loop_definition: &LoopDefinition) -> Control
     match controller_adapter(loop_definition) {
         Ok(adapter) => {
             let families = adapter.families();
+            let methods = named_methods_of(loop_definition);
             ControllerCompatibility::Accepted {
                 families: families
                     .iter()
@@ -684,7 +701,8 @@ pub(crate) fn adapter_compatibility(loop_definition: &LoopDefinition) -> Control
                     .collect(),
                 family_settings: family_settings_of(loop_definition, &families),
                 recommended_family: None,
-                methods: None,
+                method_titles: method_titles_of(&methods),
+                methods: Some(methods),
             }
         }
         Err(Failure {
@@ -692,128 +710,6 @@ pub(crate) fn adapter_compatibility(loop_definition: &LoopDefinition) -> Control
         }) => ControllerCompatibility::Rejected {
             reason: detail.unwrap_or(message),
         },
-    }
-}
-
-/// The parameter symbols that each offered family's manual settings and pins take, by the family's name (C0, C2): the same rule
-/// that Tune applies to the settings and pins it accepts (`family_setting_symbols`).
-fn family_settings_of(
-    loop_definition: &LoopDefinition,
-    families: &[Structure],
-) -> BTreeMap<String, Vec<String>> {
-    families
-        .iter()
-        .map(|structure| {
-            (
-                family_name(*structure).to_string(),
-                family_setting_symbols(loop_definition, *structure),
-            )
-        })
-        .collect()
-}
-
-/// The controller symbols a loop declares, as the `TypeScript` walk finds them (`declaredControllerSymbols`): every text under a key
-/// named `…symbol`, `…symbols` or `…Signal` that is dotted and not an address, except the record's own name and revision. The walk
-/// reads the parameter binding and the controller as the file declares them.
-fn declared_controller_symbols(loop_definition: &LoopDefinition) -> Vec<String> {
-    let mut symbols = Vec::new();
-    if let Some(binding) = &loop_definition.parameter_binding {
-        collect_symbols(&value_of(binding), "", &mut symbols);
-    }
-    collect_symbols(&value_of(&loop_definition.controller), "", &mut symbols);
-    symbols
-}
-
-fn collect_symbols(value: &Value, key: &str, symbols: &mut Vec<String>) {
-    match value {
-        Value::Array(items) => {
-            for item in items {
-                collect_symbols(item, key, symbols);
-            }
-        }
-        Value::Object(fields) => {
-            for (child_key, child) in fields {
-                collect_symbols(child, child_key, symbols);
-            }
-        }
-        Value::String(text) => {
-            let record_name = matches!(key, "parameterRecordSymbol" | "parameterRevisionSymbol");
-            if !record_name
-                && names_a_symbol(key)
-                && text.contains('.')
-                && !text.starts_with('%')
-                && !symbols.contains(text)
-            {
-                symbols.push(text.clone());
-            }
-        }
-        _ => {}
-    }
-}
-
-/// Whether a key names a symbol: `symbol`, `symbols` (in any case) or a `…Signal`.
-fn names_a_symbol(key: &str) -> bool {
-    let lower = key.to_ascii_lowercase();
-    lower.ends_with("symbol") || lower.ends_with("symbols") || key.ends_with("Signal")
-}
-
-/// The types the loop declares for its controller symbols (`declaredControllerSymbolTypes`). A later declaration of a symbol replaces
-/// the type of an earlier one and keeps its place: the parameters, the mode (BOOL), the manual output, then the states the
-/// initialization and the controller declare.
-fn declared_controller_symbol_types(loop_definition: &LoopDefinition) -> Vec<(String, String)> {
-    let mut types: Vec<(String, String)> = Vec::new();
-    if let Some(binding) = &loop_definition.parameter_binding {
-        for parameter in &binding.parameters {
-            set_type(&mut types, &parameter.symbol, real_name(parameter.iec_type));
-        }
-        set_type(&mut types, &binding.mode.symbol, "BOOL");
-    }
-    let controller = &loop_definition.controller;
-    if let (Some(symbol), Some(manual_type)) = (
-        &controller.manual_output_signal,
-        controller.manual_output_type,
-    ) {
-        set_type(&mut types, symbol, manual_output_name(manual_type));
-    }
-    walk_types(&value_of(&controller.pid_initialization), &mut types);
-    if let Some(state_feedback) = &controller.state_feedback {
-        walk_types(state_feedback, &mut types);
-    }
-    if let Some(on_off) = &controller.on_off {
-        walk_types(&on_off.to_value(), &mut types);
-    }
-    types
-}
-
-/// Reads every record of a declared structure that names a symbol and its IEC type, in either spelling.
-fn walk_types(value: &Value, types: &mut Vec<(String, String)>) {
-    match value {
-        Value::Array(items) => {
-            for item in items {
-                walk_types(item, types);
-            }
-        }
-        Value::Object(fields) => {
-            if let Some(symbol) = fields.get("symbol").and_then(Value::as_str) {
-                for key in ["iecType", "iec_type"] {
-                    if let Some(iec_type) = fields.get(key).and_then(Value::as_str) {
-                        set_type(types, symbol, iec_type);
-                    }
-                }
-            }
-            for child in fields.values() {
-                walk_types(child, types);
-            }
-        }
-        _ => {}
-    }
-}
-
-/// Sets the type of a symbol: a later declaration replaces an earlier one and keeps its place.
-fn set_type(types: &mut Vec<(String, String)>, symbol: &str, iec_type: &str) {
-    match types.iter_mut().find(|entry| entry.0 == symbol) {
-        Some(entry) => entry.1 = iec_type.to_string(),
-        None => types.push((symbol.to_string(), iec_type.to_string())),
     }
 }
 
@@ -851,28 +747,6 @@ fn check_channels(
     Ok(())
 }
 
-/// The JSON of a loop part. Every part here is a record of serde types, so it serializes.
-fn value_of<T: Serialize>(part: &T) -> Value {
-    serde_json::to_value(part).unwrap_or(Value::Null)
-}
-
-/// The IEC name of a real type.
-fn real_name(real: RealType) -> &'static str {
-    match real {
-        RealType::Real => "REAL",
-        RealType::Lreal => "LREAL",
-    }
-}
-
-/// The IEC name of a manual output's type.
-fn manual_output_name(manual: ManualOutputType) -> &'static str {
-    match manual {
-        ManualOutputType::Real => "REAL",
-        ManualOutputType::Lreal => "LREAL",
-        ManualOutputType::Bool => "BOOL",
-    }
-}
-
 /// The name of an auxiliary signal's role, as the file writes it.
 fn role_name(role: AuxiliaryRole) -> &'static str {
     match role {
@@ -888,59 +762,13 @@ fn role_name(role: AuxiliaryRole) -> &'static str {
 }
 
 /// The name of a structure as the setup page shows it.
-fn family_name(structure: Structure) -> &'static str {
+pub(super) fn family_name(structure: Structure) -> &'static str {
     match structure {
         Structure::P => "P",
         Structure::PI => "PI",
         Structure::PD => "PD",
         Structure::PID => "PID",
     }
-}
-
-/// A model file of the project as the engine read it: its project-relative name and what was read, under the bounds of a loop file.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ModelFileText {
-    /// The file's path relative to the project, with forward slashes: `lqg-model.json`, or `models/tanks.json`.
-    pub file_name: String,
-    /// What was read.
-    pub read: LoopFileRead,
-}
-
-/// A model file an LQG estimator can implement, with its number of states (C4 Setup; the form's `estimatorModels`).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct EstimatorModelFile {
-    /// The file's path relative to the project, with forward slashes.
-    pub file: String,
-    /// The model's number of states: at most three.
-    pub states: usize,
-}
-
-/// The model files an LQG estimator can implement, in the order they are given (C4 Setup; `estimatorModelFiles.ts`): a state-space
-/// model with one input, one output and at most three states. A file that is not read, or is not such a model, is left out.
-#[must_use]
-pub fn estimator_model_files(files: &[ModelFileText]) -> Vec<EstimatorModelFile> {
-    files.iter().filter_map(estimator_model_file).collect()
-}
-
-/// The entry of one model file, or `None` when the file cannot be an estimator's model (`estimatorModelFiles.ts`).
-fn estimator_model_file(file: &ModelFileText) -> Option<EstimatorModelFile> {
-    let LoopFileRead::Text(text) = &file.read else {
-        return None;
-    };
-    let value = parse_text(text).ok()?;
-    let model = decode_general_model(&value)?;
-    let identity = model.identity();
-    let state_space = !matches!(model, GeneralModel::TransferFunction { .. });
-    let states = state_channels(&model).len();
-    let fits = state_space
-        && identity.inputs.len() == 1
-        && identity.outputs.len() == 1
-        && states <= MAXIMUM_ESTIMATOR_STATES;
-    fits.then(|| EstimatorModelFile {
-        file: file.file_name.clone(),
-        states,
-    })
 }
 
 /// The side of a loop a selector offers.

@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 
 use super::catalog::{CompiledCatalog, CompiledController};
 use super::loop_bindings::{
-    binding, compiled, cyclic_task, explicit_experiment, loop_id, manual_output_type,
+    binding, compiled, cyclic_task, explicit_experiment, form_number, loop_id, manual_output_type,
     measured_signal, measurement_binding, real_type, state_type, with_revision, FormSignal,
     MeasuredSignal,
 };
@@ -55,10 +55,12 @@ pub struct EstimatorDraft {
     /// The project's model file the estimator implements, relative to the project.
     #[serde(default)]
     pub model_file: String,
-    /// The measurement-noise variance; absent when it is not a number.
-    #[serde(default)]
+    /// The measurement-noise variance, as the form's text reads it (`form_number`): absent when it is blank, NaN when no number
+    /// reads it.
+    #[serde(default, deserialize_with = "form_number")]
     pub measurement_noise: Option<f64>,
-    /// One row per state of the model file, in the model's order.
+    /// The rows the form draws, in the model's state order: the first one for each state of the model file is that state's, and the
+    /// rows after them are not read (C4).
     #[serde(default)]
     pub states: Vec<EstimatorState>,
 }
@@ -76,14 +78,16 @@ pub struct EstimatorState {
     /// The variable that holds the observer gain of this estimate.
     #[serde(default)]
     pub observer_gain: String,
-    /// The process-noise variance of this state; absent when it is not a number.
-    #[serde(default)]
+    /// The process-noise variance of this state, as the form's text reads it (`form_number`): absent when it is blank, NaN when no
+    /// number reads it.
+    #[serde(default, deserialize_with = "form_number")]
     pub process_noise: Option<f64>,
 }
 
 /// A state-feedback law as the setup form confirms it (`StateFeedbackLoopDraft` and the LQG draft of `loopSetupForm.ts`). Pole
-/// placement and LQR name their gain and further outputs; LQG names its estimator. The setup asks for no experiment step or duration,
-/// so both may be absent, and Identify chooses them (B3.3, B3.4).
+/// placement and LQR take their gain and further outputs; LQG takes its estimator. The form sends all three for every design, and each
+/// design reads only its own (B1.3). The setup asks for no experiment step or duration, so both may be absent, and Identify chooses them
+/// (B3.3, B3.4).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StateFeedbackLoopDraft {

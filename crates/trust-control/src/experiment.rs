@@ -20,7 +20,10 @@ pub mod start;
 pub mod status;
 mod trajectory;
 
-pub use duration::{experiment_recording_window_ms, project_step_recording_ms};
+pub use duration::{
+    applied_hold_recording_ms, declared_baseline_ms, experiment_recording_window_ms,
+    project_step_recording_ms, HoldRefusal,
+};
 pub use identification_record::{
     identification_record_for_role, identification_samples_from_runtime_recording,
     retained_identification_samples_from_runtime_recording, ExperimentIdentificationLedger,

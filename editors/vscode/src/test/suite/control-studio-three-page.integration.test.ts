@@ -4,7 +4,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { runtimeLifecycleService } from "../../runtimeLifecycle";
 import { attachControlStudio, engineAnswerRecorderScript, type EngineAnswerRecord } from "./control-studio-rendered-harness";
-import { recordingArchive } from "./control-studio-recording-flow.test";
+import { recordingArchive } from "./control-studio-recording-archive";
 import { captureRenderedWorkbenchCdp, connectCdp, devToolsPort, evaluateInWebview, httpJson, pollValue, requiredEnvironment } from "./plant-rendered-harness";
 import { formatDurationSeconds } from "../../controlStudio/webview/durationField";
 
@@ -74,6 +74,8 @@ suite("Control Studio three-page workflow", () => {
     if (process.env.TRUST_CONTROL_STUDIO_PROJECT_NATIVE !== "1") this.skip();
     this.timeout(90000);
     try { await withStudio(async inner => {
+      // The review needs the running Simulator; without it the engine answers with its Start simulator action (A2.8).
+      if (!(await runtimeLifecycleService.snapshot()).status.running) assert.ok((await runtimeLifecycleService.startLocalSimulator()).ok);
       await inner("const method=d.querySelector('[data-engineer-acquisition-method]');method.value='project';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));d.defaultView.__projectEvents=[];d.defaultView.addEventListener('message',event=>{if(event.data.kind==='control-studio.experiment.result')d.defaultView.__projectEvents.push(event.data);});d.querySelector('[data-engineer-find]').click();return 'review';");
       const reviewed = JSON.parse(await pollValue("native project review", () => inner("return JSON.stringify(d.defaultView.__projectEvents);"), value => JSON.parse(value).some((message: any) => message.phase === "review"), 45000));
       // The engine answers the review as `reviewed`, with its identity and the review the start will run (experimentRoute.ts:94).
@@ -87,9 +89,11 @@ suite("Control Studio three-page workflow", () => {
       assert.strictEqual(ended?.status, "finished", JSON.stringify(completed));
       assert.strictEqual(ended?.restoration, "restored", "The engine names the restoration its campaign confirmed");
       await pollValue("the page says the outputs are restored", () => inner("return d.querySelector('[data-three-page-experiment-status]')?.textContent ?? '';"), value => value === "Project test completed. Outputs restored.", 10000);
-      // The kept recording reaches the page in the identification the engine answers (`control-studio.engine.result`, method identify):
-      // its identifier, and one time per sample on the plot the chart draws (identify_result.rs, IdentifyPlot.timeSeconds).
-      const identified = JSON.parse(await pollValue("native project identification", () => inner("return JSON.stringify((d.defaultView.__engineAnswers||[]).filter(e=>e.kind==='control-studio.engine.result'&&e.method==='identify').map(e=>e.result));"), value => JSON.parse(value).length > 0, 10000))[0];
+      // The kept recording reaches the page in the identification the engine answers for the finished test (`control-studio.engine.result`,
+      // method identify, the answer that carries the kept recording's samples, C12): its identifier, and one time per sample on the plot the
+      // chart draws (identify_result.rs, IdentifyPlot.timeSeconds). The open answer's Recorded-data fit reaches the page as an identify
+      // answer too (A8.6, B3.3), so the test's answer is the last one that carries recorded samples.
+      const identified = JSON.parse(await pollValue("native project identification", () => inner("return JSON.stringify((d.defaultView.__engineAnswers||[]).filter(e=>e.kind==='control-studio.engine.result'&&e.method==='identify'&&e.result&&Array.isArray(e.result.recordedSamples)).map(e=>e.result));"), value => JSON.parse(value).length > 0, 10000)).pop();
       assert.ok(typeof identified.recordingId === "string" && identified.recordingId.length > 0, `The identification names the kept recording: ${JSON.stringify(identified).slice(0, 800)}`);
       // The recording's runtime scans reach the page (`recordedSamples`), whether or not its fit gave a model (C12).
       assert.ok((identified.recordedSamples?.length ?? 0) >= 10, "Retain runtime-scan data from the project sequence");
@@ -144,7 +148,14 @@ suite("Control Studio three-page workflow", () => {
       assert.strictEqual(await inner("return d.querySelector('[data-engineer-find]').textContent;"), "Review project test");
       // The engine runs the declared test and keeps its recording; the page draws the recorded signals from the engine's evidence
       // (`control-studio.recording.evidence`, enginePanelRoute.ts), not from a message the journey injects.
+      const simulatorRuns = (await runtimeLifecycleService.snapshot()).status.running;
       await inner("d.defaultView.__projectEvents=[];d.defaultView.addEventListener('message',event=>{if(event.data.kind==='control-studio.experiment.result'||event.data.kind==='control-studio.recording.evidence')d.defaultView.__projectEvents.push(event.data);});d.querySelector('[data-engineer-find]').click();return 'review';");
+      // On a stopped Simulator the engine answers the review with its next action Start simulator (A2.8, C12), which the page shows as the
+      // refusal's button; the engineer presses it, and the started Simulator continues the test with its review.
+      if (!simulatorRuns) {
+        await pollValue("the engine's Start simulator action", () => inner("const action=d.querySelector('[data-studio-failure-action=model]');return action&&action.checkVisibility()?action.textContent:'';"), value => value === "Start simulator", 45000);
+        await inner("d.querySelector('[data-studio-failure-action=model]').click();return 'start simulator';");
+      }
       await pollValue("the engine reviews the project test", () => inner("return d.querySelector('[data-engineer-find]').textContent;"), value => value === "Confirm and start", 45000);
       await inner("d.querySelector('[data-engineer-find]').click();return 'start';");
       await pollValue("the engine ends the project test", () => inner("return String(d.defaultView.__projectEvents.some(message=>message.phase==='engine-ended'));"), value => value === "true", 40000);
@@ -174,7 +185,7 @@ suite("Control Studio three-page workflow", () => {
       assert.strictEqual(await inner("return String(d.querySelector('[data-three-page-analysis-result]')?.checkVisibility());"), "true", messages);
       assert.strictEqual(await inner("const message=d.querySelector('[data-studio-message=tune]');return message?.checkVisibility()?message.textContent:'';"), "", "A completed declared analysis must not still demand a plant model");
       assert.strictEqual(vscode.debug.activeDebugSession, undefined);
-    }, { capture: "root-locus", loop: loop => { loop.analysis = {
+    }, { capture: "root-locus", loop: loop => { loop.topology = "open-loop"; delete loop.signals.setpoint; loop.controller.design = "project"; delete loop.controller.law; delete loop.controller.pidInitialization; loop.analysis = {
       plant: { kind: "transfer-function", numerator: [1], denominator: [1, 2, 0], delaySeconds: 0, inputUnit: "%", outputUnit: "°C", revision: "declared-root-model", source: "provided", validation: "validated" },
       controller: { numerator: [{ parameter: "Kp" }], denominator: [1], parameters: { Kp: { value: 2, minimum: 0, maximum: 10, unit: "%/°C" } } },
       rootLocus: { parameter: "Kp", selectedValue: 2, values: [0, 1, 2, 4, 8] },
@@ -226,7 +237,13 @@ suite("Control Studio three-page workflow", () => {
         scenarioOutcome("load-change", "Load change", "Inconclusive", [requirementOutcome("settling", "Maximum settling time", "Inconclusive", "s", interrupted)]),
       ], status: "Inconclusive", applyAvailable: false, failure: { message: interrupted, cause: "runtime", nextAction: "none" },
       stageEvidence: { ...VALIDATION_EVIDENCE, validationPassed: false },
-      stages: engineStages("complete", "complete", "needs-data"), labels: VALIDATE_LABELS }));
+      stages: engineStages("complete", "complete", "needs-data"), labels: VALIDATE_LABELS, table: [
+        validateTableRow({ title: "Load change · Current settings · Maximum settling time · Measurement (°C)", symbol: "P1.ProcessValue", source: "temperature-process", measured: "—", limit: "—", verdict: "Inconclusive", verdictText: `Inconclusive · ${interrupted}`, requirement: "settling" }),
+        validateTableRow({ title: "Load change · Candidate · Maximum settling time · Measurement (°C)", symbol: "P1.ProcessValue", source: "temperature-process", measured: "—", limit: "—", verdict: "Inconclusive", verdictText: `Inconclusive · ${interrupted}`, requirement: "settling" }),
+        validateTableRow({ title: "Target response · Current settings · Maximum settling time · Measurement (°C)", symbol: "P1.ProcessValue", source: "temperature-process", measured: "4 s", limit: "≤ 5 s", verdict: "Pass", verdictText: "Pass", requirement: "settling" }),
+        validateTableRow({ title: "Target response · Candidate · Maximum settling time · Measurement (°C)", symbol: "P1.ProcessValue", source: "temperature-process", measured: "4 s", limit: "≤ 5 s", verdict: "Pass", verdictText: "Pass", requirement: "settling" }),
+        validateTableRow({ title: "Candidate overall", measured: "—", limit: "—", verdict: "Inconclusive", verdictText: "Inconclusive", requirement: "overall" }),
+      ] }));
       assert.strictEqual(await inner("const empty=d.querySelector('[data-studio-chart-empty]');return String(!!empty&&!empty.hidden&&['Start the runtime to see live values','Waiting for the first samples'].includes(empty.textContent)&&d.querySelector('[data-control-studio-chart]').dataset.seriesCount==='0');"), "true", "A missing response shows one line in the plot area instead of empty axes");
       const table = await inner("return d.querySelector('[data-studio-validation-result]').textContent;");
       assert.match(table, /Maximum settling time/);
@@ -250,8 +267,8 @@ suite("Control Studio three-page workflow", () => {
       }
       assert.strictEqual(await inner("return String(!!d.querySelector('dialog[open]'));"), "false", "Opening recordings stays on Identify and never opens an empty Tune editor");
       // The engine answers Tune with the candidate's structure and settings (TuneResult; engineTune.ts tuneCandidatePayload gives the
-      // page the family, the values and the stage evidence). The controller families come from the bindings (threePageBindings.ts),
-      // not from the Tune answer. engineOpened.ts posts the candidate on the `engineer` stage, the stage the page's router takes for it.
+      // page the family, the values and the stage evidence). The controller families come from the engine's open answer (controllerOffer,
+      // threePageController.ts), not from the Tune answer. engineOpened.ts posts the candidate on the `engineer` stage, the stage the page's router takes for it.
       await inner(engineResult("tune", { candidate: { structure: "PI" },
         settings: { "P1.Parameters.ProportionalGain": 1.23456789012345, "P1.Parameters.IntegralGain": .5, "P1.Parameters.DerivativeGain": 0 },
         stageEvidence: { hasModel: true, hasCandidate: true, validationPassed: false },
@@ -272,8 +289,13 @@ suite("Control Studio three-page workflow", () => {
         assert.strictEqual(await inner("return d.querySelector('[data-studio-manual-value]').value;"), "2.123456789");
         assert.strictEqual(await inner("return String(!!d.querySelector('[data-studio-manual-pin]'));"), "false", "Manual settings have no Pin checkboxes");
         await inner("const input=d.querySelector('[data-studio-manual-value]');input.value='';input.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));d.querySelector('[data-engineer-tune]').click();return 'incomplete';");
-        assert.strictEqual(await inner("return d.querySelector('[data-studio-manual-value]').getAttribute('aria-invalid');"), "true");
-        assert.strictEqual(await inner("return d.querySelector('[data-studio-three-page]').dataset.busy??'false';"), "false", "An incomplete manual value does not start Tune");
+        // The page sends the entry as typed, and the engine refuses one that no number reads under the setting's own symbol (B4.2, B4.5), so the
+        // refusal and the marked row come with the engine's answer, which the check waits for.
+        const refused = await pollValue("the engine's refusal of the blank manual setting",
+          () => inner("return JSON.stringify((d.defaultView.__engineAnswers||[]).filter(answer=>answer.method==='tune'&&answer.status==='failed').map(answer=>({reason:answer.reason,field:answer.failure&&answer.failure.field})));"),
+          value => value !== "[]", 15000);
+        assert.strictEqual(await inner("return d.querySelector('[data-studio-manual-value]').getAttribute('aria-invalid');"), "true", `The page marks the row that the engine names: ${refused}`);
+        assert.strictEqual(await inner("return d.querySelector('[data-studio-three-page]').dataset.busy??'false';"), "false", "An incomplete manual value does not leave Tune running");
       }
       assert.deepStrictEqual(gaps, [], REPORTED_GAPS);
     }, { capture: "manual-settings", loop: loop => { loop.id += "-manual-fields"; loop.parameterBinding.loop_id = loop.id; } });
@@ -343,7 +365,9 @@ suite("Control Studio three-page workflow", () => {
     this.timeout(60000);
     await withStudio(async inner => {
       await inner("d.querySelector('[data-engineer-stage-tab=model]').click();d.querySelector('[data-engineer-find]').click();return 'identify';");
-      assert.strictEqual(await inner("return String(!!d.querySelector('dialog[open]'));"), "true", "Missing limits open before any live excitation");
+      // The engine's run asks for the missing limit as the input it needs (B8, `needs: limits`), before it requires a runtime, and the page
+      // opens Limits when that answer arrives: the dialog is awaited, not read at the press.
+      await pollValue("Missing limits open before any live excitation", () => inner("return String(!!d.querySelector('dialog[open]'));"), value => value === "true", 15000);
       assert.strictEqual(await inner("return d.querySelector('[data-studio-limit=durationSeconds]').value;"), "", "No arbitrary experiment duration is supplied");
       assert.strictEqual(await inner("return d.querySelector('[data-studio-limit=durationSeconds]').getAttribute('aria-invalid');"), "true", "The missing value is identified");
       assert.strictEqual(vscode.debug.activeDebugSession, undefined);
@@ -446,7 +470,12 @@ suite("Control Studio three-page workflow", () => {
       await inner(engineResult("validate", { scenarios: [scenarioOutcome("nominal", "Nominal", "Fail", checks)], status: "Fail", applyAvailable: false,
         stageEvidence: { ...VALIDATION_EVIDENCE, validationPassed: false },
         failure: { message: "The measured error exceeds the limit.", cause: "settings", nextAction: "tune", nextActionLabel: "Tune controller" },
-        stages: engineStages("complete", "complete", "failed"), labels: VALIDATE_LABELS, plot: MEASURED_RESPONSE }));
+        stages: engineStages("complete", "complete", "failed"), labels: VALIDATE_LABELS, plot: MEASURED_RESPONSE, table: [
+          validateTableRow({ title: "Current settings · Maximum steady-state error · Measurement (°C)", symbol: "P1.ProcessValue", source: "temperature-process", measured: "2 °C", limit: "≤ 1 °C", verdict: "Fail", verdictText: "Fail · The measured error exceeds the limit.", requirement: "tracking-error" }),
+          validateTableRow({ title: "Candidate · Maximum steady-state error · Measurement (°C)", symbol: "P1.ProcessValue", source: "temperature-process", measured: "2 °C", limit: "≤ 1 °C", verdict: "Fail", verdictText: "Fail · The measured error exceeds the limit.", requirement: "tracking-error" }),
+          validateTableRow({ title: "Ranges, states and transfer", measured: "64 checks", limit: "Within declared limits", verdict: "Pass", verdictText: "Pass", requirement: "limit-and-controller-checks" }),
+          validateTableRow({ title: "Candidate overall", measured: "—", limit: "—", verdict: "Fail", verdictText: "Fail", requirement: "overall" }),
+        ] }));
       await inner("d.querySelector('[data-engineer-stage-tab=verify]').click();return 'inspect results';");
       await reportedGap(gaps, "Validate order gap: failures are not shown first, because engineValidate.ts renderValidation draws the rows in the answer's order",
         async () => assert.strictEqual(await inner("return d.querySelector('[data-studio-validation-result] tbody tr').dataset.studioRequirement;"), "tracking-error", "Failures appear directly at the top of the results"));
@@ -474,7 +503,11 @@ suite("Control Studio three-page workflow", () => {
       await inner(engineResult("validate", { scenarios: [scenarioOutcome("target-response", "Target response", "Pass",
         [requirementOutcome("settling", "Maximum settling time", "Pass", "s", "Within the limit.", { value: 4, limit: 8 })])],
       status: "Pass", applyAvailable: true, stageEvidence: { ...VALIDATION_EVIDENCE, validationPassed: true },
-        stages: engineStages("complete", "complete", "complete"), labels: VALIDATE_LABELS }));
+        stages: engineStages("complete", "complete", "complete", true), labels: VALIDATE_LABELS, table: [
+          validateTableRow({ title: "Current settings · Maximum settling time · Measurement (°C)", symbol: "P1.ProcessValue", source: "temperature-process", measured: "4 s", limit: "≤ 8 s", verdict: "Pass", verdictText: "Pass", requirement: "settling" }),
+          validateTableRow({ title: "Candidate · Maximum settling time · Measurement (°C)", symbol: "P1.ProcessValue", source: "temperature-process", measured: "4 s", limit: "≤ 8 s", verdict: "Pass", verdictText: "Pass", requirement: "settling" }),
+          validateTableRow({ title: "Candidate overall", measured: "—", limit: "—", verdict: "Pass", verdictText: "Pass", requirement: "overall" }),
+        ] }));
       const before = Number(await inner(ENGINE_ANSWER_COUNT));
       await inner("d.querySelector('[data-engineer-stage-tab=verify]').click();return 'validate';");
       assert.strictEqual(await inner("d.querySelector('[data-engineer-apply]').click();return d.querySelector('[data-engineer-apply]').textContent;"), "Applying…");
@@ -498,6 +531,7 @@ suite("Control Studio three-page workflow", () => {
       // The engine's Tune answer: the candidate's structure and settings, its predicted measurement and the predicted measurement of the
       // current settings beside it (TuneResult; the traces `measurement` and `current-measurement`, TuneRole in crates/trust-control/src/messages.rs).
       await inner(engineResult("tune", { candidate: { structure: "PI" }, settings: { "P1.Parameters.ProportionalGain": 5, "P1.Parameters.IntegralGain": 1 },
+        outcome: { status: "meets" }, words: TUNE_WORDS,
         response: { timeSeconds: [0, 1, 2], traces: [{ role: "measurement", symbol: "P1.ProcessValue", unit: "°C", values: [20, 21, 21.8] },
           { role: "current-measurement", symbol: "P1.ProcessValue", unit: "°C", values: [20, 20.4, 20.9] }] },
         stageEvidence: { hasModel: true, hasCandidate: true, validationPassed: false },
@@ -515,7 +549,13 @@ suite("Control Studio three-page workflow", () => {
         requirementOutcome("nominal-settling", "Maximum settling time", "Pass", "s", "Within deadline.", { value: 4, limit: 8 })];
       await inner(engineResult("validate", { scenarios: [scenarioOutcome("nominal", "Nominal", "Pass", requirements)], status: "Pass", applyAvailable: true,
         stageEvidence: { ...VALIDATION_EVIDENCE, validationPassed: true },
-        stages: engineStages("complete", "complete", "complete"), labels: VALIDATE_LABELS, plot: MEASURED_RESPONSE }));
+        stages: engineStages("complete", "complete", "complete", true), labels: VALIDATE_LABELS, plot: MEASURED_RESPONSE, table: [
+          validateTableRow({ title: "Current settings · Maximum steady-state error · Measurement (°C)", symbol: "P1.ProcessValue", source: "temperature-process", measured: "0.02 °C", limit: "≤ 0.1 °C", verdict: "Pass", verdictText: "Pass", requirement: "nominal-error" }),
+          validateTableRow({ title: "Current settings · Maximum settling time · Measurement (°C)", symbol: "P1.ProcessValue", source: "temperature-process", measured: "4 s", limit: "≤ 8 s", verdict: "Pass", verdictText: "Pass", requirement: "nominal-settling" }),
+          validateTableRow({ title: "Candidate · Maximum steady-state error · Measurement (°C)", symbol: "P1.ProcessValue", source: "temperature-process", measured: "0.02 °C", limit: "≤ 0.1 °C", verdict: "Pass", verdictText: "Pass", requirement: "nominal-error" }),
+          validateTableRow({ title: "Candidate · Maximum settling time · Measurement (°C)", symbol: "P1.ProcessValue", source: "temperature-process", measured: "4 s", limit: "≤ 8 s", verdict: "Pass", verdictText: "Pass", requirement: "nominal-settling" }),
+          validateTableRow({ title: "Candidate overall", measured: "—", limit: "—", verdict: "Pass", verdictText: "Pass", requirement: "overall" }),
+        ] }));
       await inner("d.querySelector('[data-engineer-stage-tab=verify]').click();return 'inspect validation';");
       // The engine's table holds each scenario's Current settings run, then its Candidate run, each with both mandatory requirements, and
       // ends with the candidate's overall row (engineValidate.ts renderValidation): every row is checked, in order.
@@ -638,7 +678,9 @@ suite("Control Studio three-page workflow", () => {
       assert.strictEqual(await inner("return String(!!d.querySelector('dialog[open]'));"), "true", "Requirements opens its compact editor");
       assert.strictEqual(await inner("return d.querySelector('[data-studio-requirement=maximumError]').value;"), "", "Absent project requirements remain blank");
       await inner("d.querySelector('[data-studio-editor-done]').click();return 'submitted';");
-      assert.strictEqual(await inner("return String(!!d.querySelector('dialog [aria-invalid=true]'));"), "true", "Missing requirements are identified in the editor");
+      // Done sends the rows as typed and the engine refuses a blank one under its field (B4.3): the editor reopens with that refusal, so the
+      // marked field is awaited, not read at the press.
+      await pollValue("Missing requirements are identified in the editor", () => inner("return String(!!d.querySelector('dialog [aria-invalid=true]'));"), value => value === "true", 15000);
       await inner("for(const [key,value] of Object.entries({referenceChange:5,maximumError:1,settlingBand:0.2,settlingTimeSeconds:8,durationSeconds:16})){d.querySelector('[data-studio-requirement='+key+']').value=String(value);}d.querySelector('[data-studio-editor-done]').click();return 'saved';");
       assert.strictEqual(await inner("return String(!!d.querySelector('dialog[open]'));"), "false");
       await inner("d.querySelector('[data-studio-requirements]').click();return 'reopened';");
@@ -690,7 +732,7 @@ suite("Control Studio three-page workflow", () => {
       await inner("const input=d.querySelector('[data-studio-limit=durationSeconds]');input.value='12';input.dispatchEvent(new Event('input',{bubbles:true}));d.querySelector('[data-studio-editor-done]').click();return 'saved';");
       assert.strictEqual(await inner("return String(!!d.querySelector('dialog[open]'));"), "false");
       await inner("d.querySelector('[data-studio-limits]').click();return 'reopened';");
-      assert.strictEqual(await inner("return d.querySelector('[data-studio-limit=durationSeconds]').value;"), "12 s", "Done retains the edited duration");
+      assert.strictEqual(await inner("return d.querySelector('[data-studio-limit=durationSeconds]').value;"), "12", "Done retains the duration as it was typed (B9.9: an entry goes back and is shown as typed)");
       await captureRenderedWorkbenchCdp(connection, requiredEnvironment("TRUST_CONTROL_STUDIO_RENDERED_SCREENSHOT").replace(/\.png$/, "-limits.png"));
     } finally {
       connection.close();
@@ -766,10 +808,6 @@ export async function withStudio(exercise: (inner: (body: string) => Promise<str
   loop.id += `-rendered-${++fixtureSequence}`;
   if (loop.parameterBinding) loop.parameterBinding.loop_id = loop.id;
   options.loop?.(loop);
-  const decoded = require("../../controlStudio/loopDefinition").decodeControlLoopDefinition(loop);
-  assert.strictEqual(decoded.kind, "accepted", `The rendered fixture must be valid before opening: ${JSON.stringify(decoded)}`);
-  const validated = require("../../controlStudio/loopDefinition").validateControlLoopDefinition(loop, { projectId: loop.projectId, runtimeId: loop.runtimeId });
-  assert.strictEqual(validated.kind, "accepted", `The rendered fixture bindings must be valid: ${JSON.stringify(validated)}`);
   // A study is kept in the project beside its loop (A8.3), so the fixture's own loop is saved into the project like any other.
   fs.mkdirSync(path.join(project, "control-loops"), { recursive: true });
   fs.writeFileSync(path.join(project, "control-loops", `${loop.id.replace(/[^a-z0-9-]+/gi, "-")}.json`), `${JSON.stringify(loop, null, 2)}\n`);
@@ -845,6 +883,20 @@ const VALIDATE_LABELS = { currentSettings: "Current settings", candidate: "Candi
 /** The stage evidence the engine answers a Validate result with: the model and the candidate it validated (StageEvidence, B9.4). */
 const VALIDATION_EVIDENCE = { hasModel: true, hasCandidate: true, validationHasResult: true };
 
+/**
+ * The engine's words of a PI candidate's Tune answer (`TuneWords`, crates/trust-control/src/messages/tune_words.rs): its outcome sentence,
+ * one row for each setting it names with the row's label and its unit, as the loop's parameter binding names them, and the names of the
+ * three gains. The page draws the rows from these words and keeps no names or units of its own, so a row without its unit shows none.
+ */
+const TUNE_WORDS = {
+  outcome: "Meets the requirements",
+  settingLabels: [
+    { symbol: "P1.Parameters.ProportionalGain", label: "Proportional gain (Kp)", unit: "%/°C" },
+    { symbol: "P1.Parameters.IntegralGain", label: "Integral gain (Ki)", unit: "%/(°C*s)" },
+  ],
+  gainLabels: { proportional: "Proportional gain (Kp)", integral: "Integral gain (Ki)", derivative: "Derivative gain (Kd)" },
+};
+
 /** The engine's Validate plot of a candidate run whose measurement rose from 20 to 21 °C, with no current run (ValidationPlot). */
 const MEASURED_RESPONSE = { title: "Measured response", role: "Measurement", unit: "°C", tuned: { name: "Tuned", timeSeconds: [0, 1], values: [20, 21] } };
 
@@ -908,14 +960,22 @@ function engineResult(method: string, result: Record<string, unknown>): string {
 }
 
 /** The stage tabs' statuses as the engine answers them, each with its words (StageAvailability, crates/trust-control/src/stages.rs). */
-function engineStages(identify: StageStatus, tune: StageStatus, validate: StageStatus): Array<Record<string, string>> {
+function engineStages(identify: StageStatus, tune: StageStatus, validate: StageStatus, apply = false): Array<Record<string, string | boolean>> {
   const words: Record<StageStatus, string> = { ready: "Ready", "needs-data": "Needs data", complete: "Complete", failed: "Failed" };
-  return ([["Identify", identify], ["Tune", tune], ["Validate", validate]] as const).map(([stage, status]) => ({ stage, status, label: words[status] }));
+  // `available` is the engine's rule (`stage_available`, crates/trust-control/src/stages.rs): Identify always, Tune with a basis, Validate
+  // with a candidate. The fixtures' Tune is complete exactly when a candidate exists. The engine states the Apply stage in every answer
+  // that states the stages: it has no tab, and the Validate page's application area keeps whether Apply can start, which in every answer
+  // that states the offers is exactly when Apply is offered (`apply`, `application_offers::offered_stages`, B7, B9.4).
+  const available: Record<string, boolean> = { Identify: true, Tune: tune === "ready" || tune === "complete", Validate: tune === "complete" };
+  return [
+    ...([["Identify", identify], ["Tune", tune], ["Validate", validate]] as const).map(([stage, status]) => ({ stage, status, label: words[status], available: available[stage] })),
+    { stage: "Apply", status: apply ? "ready" : "needs-data", label: apply ? words.ready : words["needs-data"], available: apply },
+  ];
 }
 
 /** An Identify answer in the engine's words (IdentifyResult): the model type, the equation, the key numbers and the response plot. */
 function identifyResult(modelType: string, equation: string, keyNumbers: string, plot: Record<string, unknown>): Record<string, unknown> {
-  return { modelType, equation, keyNumbers, provisional: false, text: [modelType, equation, keyNumbers].join("\n"), plot,
+  return { kind: "identification", modelType, equation, keyNumbers, provisional: false, text: [modelType, equation, keyNumbers].join("\n"), plot,
     recordingId: "rec-rendered-fixture", stageEvidence: { hasModel: true, hasCandidate: false, validationPassed: false },
     stages: engineStages("complete", "ready", "ready") };
 }
@@ -930,4 +990,9 @@ function requirementOutcome(id: string, label: string, status: Verdict, unit: st
 function scenarioOutcome(id: string, label: string, status: Verdict, requirements: Array<Record<string, unknown>>): Record<string, unknown> {
   const run = (settings: string) => ({ runId: `rendered-${id}-${settings}`, projectRevision: "rendered-fixture", evidence: "ST-executed", status, requirements });
   return { id, plant: "temperature-process", label, current: run("current"), candidate: run("candidate") };
+}
+
+/** One row of the engine's Validate table as the engine writes it (ValidateRow, validate_answer.rs); its verdict class is the word in lower case. */
+function validateTableRow(row: Record<string, string>): Record<string, string> {
+  return { symbol: "", source: "", ...row, verdictClass: String(row.verdict).toLowerCase() };
 }

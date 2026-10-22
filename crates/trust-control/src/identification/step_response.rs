@@ -37,6 +37,17 @@ pub(crate) const DEFAULT_MAXIMUM_NORMALIZED_ERROR: f64 = 0.15;
 /// The refusal of settings that [`valid_step_response_settings`] does not admit.
 pub(crate) const INVALID_SETTINGS: &str = "Invalid step-response identification settings.";
 
+/// The side of the baseline on which the sustained onset is sought (N2.5): `above` when the mean of the hold's last tenth lies above the
+/// baseline mean, and when it does not differ from it (such a hold finds no onset), `below` when it lies below.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum OnsetSide {
+    /// The onset threshold lies above the baseline mean.
+    Above,
+    /// The onset threshold lies below the baseline mean.
+    Below,
+}
+
 /// A search grid of one parameter (N2.2, N2.4): the values `minimum + k·step` from the minimum up to the maximum.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -154,6 +165,10 @@ pub struct StepResponseAnalysis {
     pub detectable_onset_seconds: Option<f64>,
     /// The onset threshold `y0 ± h` (N2.5).
     pub onset_threshold: f64,
+    /// The side of the baseline the onset threshold lies on (N2.5), so that the page words the criterion without deriving it from the
+    /// windows. Absent in a record kept before the engine stated it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub onset_side: Option<OnsetSide>,
     /// The 63 % level `y0 + 0.632·K·Δu`.
     pub level63: f64,
     /// The best grid fit.
@@ -199,6 +214,10 @@ pub struct StepResponseMeasurement {
     pub detectable_onset_seconds: Option<f64>,
     /// The onset threshold `y0 ± h` (N2.5).
     pub onset_threshold: f64,
+    /// The side of the baseline the onset threshold lies on (N2.5), so that the page words the criterion without deriving it from the
+    /// windows. Absent in a record kept before the engine stated it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub onset_side: Option<OnsetSide>,
     /// The 63 % level `y0 + 0.632·(ȳ_final − y0)` of the measured change.
     pub level63: f64,
     /// The warnings the engineer reads: a timestamp shift.

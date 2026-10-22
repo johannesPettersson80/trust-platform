@@ -11,57 +11,48 @@ package "VS Code webview" {
   component "Identify\nplant inputs, measured outputs, method\nIdentify plant / Open recording / Limits\nmodel review: Identify plant / Reset study / Tune tab\nselected readings + response before identification\nmodel equation + applied input + measured/model response" as identify
   component "Tune\nactual controller instance or declared PID group\nmethod, Requirements, conditional Channels\nmanual/pinned settings + predicted response" as tune
   component "Validate\nmandatory results + measured response\nexplicit Apply / Restore previous settings" as validate
-  component "Existing monitor projection\nbounded selected-signal history + current legend values\nscoped readings; gaps and restart boundaries" as readings
+  component "Loop monitor (controlStudio/monitor)\nthe engine decides availability, staleness, quality, mode\nand the target label from one coherent scan, read on a background thread\nthe call answers at once with the last sample held; the page keeps a bounded history of the samples it is given" as readings
   component "Scoped host-state projection\noperation, binding and recovery state\npage navigation does not start work" as projection
   component "Contextual manual tools\nproject experiments, recorded fits, model analysis\nselected through existing methods\nshared model-comparison evidence and saved fit controls" as tools
-  component "Loop setup form\nstructure: PID, cascade, feedforward, Smith predictor, gain schedule, PID group, ON/OFF,\nstate feedback, own P, PI or PID, other law\n(coefficients searched), or identify only\nprefilled from compiled calls; names the first missing item" as setup_form
+  component "Loop setup form\nstructure: PID, cascade, feedforward, Smith predictor, gain schedule, PID group, ON/OFF,\nstate feedback, own P, PI or PID, other law\n(coefficients searched), or identify only\nstructures and choices come from setupDiscover; each draft is posted as typed;\nthe engine answers any refusal under its field" as setup_form
 }
 
 package "VS Code extension host" {
-  component "Panel message boundary\nproject, loop revision and editor session\ndeduplicated requests and current-scope checks" as panel
-  component "Engine panel route (engine/enginePanelRoute.ts)\nstarts one trust-control-studio serve per window\na loop the engine serves: each page request goes to the engine\nin the order the page made it (study inputs first), including\nOpen recording… (every method but Recorded-data fit) and Open model…,\nand the engine's answers, updates and opened study go to the page\nno rule of its own; presentation and wiring only" as engine_route
-  component "Compiled binding discovery\nexplicit configured loops, ST instances and PID group members\ncomplete signal/parameter/state mappings, compiled member checks" as bindings
-  component "Loop setup generators\ncompiled catalog: symbols, call links, writes\none loop definition per structure\nwrites control-loops/<name>.json, never overwrites" as setup
-  component "Automatic flow coordinator\nIdentify → model review\nexplicit Tune stops at candidate\nexplicit Validate checks model then controller\npause for missing inputs or failure" as flow
-  component "TypeScript session (until V7)\nEngineer workflow session: request guards, input invalidation and recovery\none explicit session state: model, candidate, requirements and retained outcomes\nfor parked loops, and for Recorded-data fit (the manual\nidentification of an opened file) until V7" as engineer
-  component "Engineer action owners\nIdentify, Tune, Validate, Apply/confirm,\nRestore and runtime review; each works only\nthrough the session host and its state" as actions
-  component "Study Reset\nidle/recovery guard; clear working results\npersist empty draft before refreshing view" as reset
-  component "Model and recording owners\nopened or retained recordings\nindependent identification data and selected model" as models
-  component "Automatic identification\nfresh applicable bounded acquisition\none live campaign + provisional model fit" as identification
-  component "Project experiment and recording lifecycle\nreviewed activation, runtime scan buffers\nterminal restoration and retained raw signals" as experiments
-  component "Analysis route (engine/routes/analyzeRoute.ts)\nevery loop's Tune analysis goes to controlStudio/analyze;\na parked loop sends its TypeScript-session model\nquick answers and operations, shown and restored as view state;\nno calculation of its own" as analysis
-  component "Automatic test criteria\nmodel timescale, recording noise and operating limits\npreserve explicit values; freeze before validation" as automatic_criteria
-  component "Controller adapters and tuning\nexisting Control.PID / declared project / state controllers\ncascade: inner first, outer through the closed inner loop\nfeedforward: PI on the output path, K_ff and lead/lag from both paths\nSmith predictor: model K, T, θ from the model; PI on the delay-free model\ndecoupler: D = K⁻¹·diag(K), each PI through it\nAutomatic: response chosen by its predicted requirements\nexplicit choices, parameter mapping and pins\nfinite Riccati stages with explicit fixed runtime policy" as tuning
-  component "Independent model check\nfresh live recording; frozen model coefficients\nper-channel agreement and retained qualification\nfailed prediction retained; acceptance remains blocked" as model_check
-  component "Verification campaign\nmandatory scenarios, initial states and constraints\nmissing scenarios remain Inconclusive" as campaign
-  component "Selected-model simulation\nCurrent/Tuned prediction: Control.PID calculated,\nswitching, state-feedback, project laws and PID groups run as ST on the model\nexplicit model-envelope scenarios" as prediction
-  component "Configured-plant validation\nCurrent/Tuned actual ST execution\nnominal campaign has no fitted-model override" as configured_validation
-  component "Reviewed application coordinator\nfresh review and single confirmation\nexplicit Apply or Restore only" as application
-  component "Commissioning and recovery\nwaits (bounded, cancellable) for the validated operating point\ncoherent parameters/state adoption; state-feedback entry allowance\nobserves the test in runtime time; monitoring and rollback" as commissioning
-  database "TypeScript session study store\ncontrol-studio/[loop id]/typescript-session/study.json: draft, history,\npage, mimo sections; its own recordings/ and history/ folders,\nbeside the engine's study, never in its files (A8.3, §0.1a)\natomic writes in a later turn; refused over the loop's storage limit\nchecked results are shared, never checked again (A10.7)" as persistence
-  database "VS Code workspace state\noperation journals only: identification campaign, recording\nowner, mode, commissioning checkpoints, experiment and apply\nrecovery, isolated-operation identity" as journals
-  component "Identification campaign (identificationCampaign.ts)\nprocess time from recording samples; the wall clock only paces\nand supervises connection loss\n1. recording starts first  2. steady baseline (settleDetection.ts)\n3. one step per plant input, held until settled; a single step\nis finished early, pulses and relays run their duration\n4. restoration confirmed by the runtime before the next step" as ident_campaign
-  component "Apply observation (applyObservation.ts)\nrecording starts before the validated target change;\nfollowed on process time; leaving the permitted range\nrestores the previous settings at once" as apply_obs
-  component "Project loop definitions\ncontrol-loops/<name>.json, never overwritten" as loop_files
+  component "Panel message boundary\nproject, loop revision and editor session\ndeduplicated requests and current-scope checks\nno session or study store of its own" as panel
+  component "Engine panel route (engine/enginePanelRoute.ts)\nstarts one trust-control-studio serve per window\nevery loop goes to the engine in the order the page made the requests (study inputs first),\nincluding Open recording… and Open model…, and the Recorded-data fit (identify manualEdit, manualQualify, manualFit)\nthe engine's answers, updates and opened study go to the page;\na loop the engine refuses shows its refusal and next action, and nothing else opens; presentation and wiring only" as engine_route
+  component "Setup and project routes (loopSetup/setupEngine.ts, loopSetupPanel.ts,\nthreePageBindingRoute.ts, engine/engineProjectLoops.ts)\nsend setupDiscover, setupSave and projectLoops with the drafts as typed;\nopen the engine's open request; the engine decides every choice, refusal and loop file" as setup_route
+  component "Analysis route (engine/routes/analyzeRoute.ts)\nevery loop's Tune analysis goes to controlStudio/analyze;\nquick answers and operations; the engine records the shown analysis\nand names the answers a change made stale; a refused loop shows its refusal; no calculation of its own" as analysis
+  component "Runtime lifecycle and endpoint (runtimeLifecycle.ts, runtimeStartAction.ts,\nengine/engineConnection.ts)\nexact simulator/project binding; start, cancellation and close ownership\npasses the engine the endpoint, the token and the selected runtime id" as connection
+  component "TypeScript: presentation and wiring only (V7.17)\nthe page shows the engine's answers: stage availability, Apply/Restore/Keep offers and confirmation, method offers,\nexperiment limits and duration words, manual setting rows, model words, plant summary, refusals under their fields,\noutcome and status sentences, answer kinds, signal roles and plot signals (liveSides, plotSignals)\nforwarding, held identities, sequencing, view state and VS Code dialogs stay here; no second copy of an engine rule\nthe TypeScript logic modules are gone: loop checks, identification, controller design and tuning, commissioning and apply,\nnumerics, setup generators and the parked features (V7); the page keeps no lock, check or default of its own" as ts_debt
 }
 
 package "Rust engine: process trust-control-studio (checklist rust-logic-migration.md: V0 foundation, V1 Identify, V2 Tune, V3 Validate, V4 Apply/Restore/Keep, V5 setup; serves the panel from V6)" {
+  component "Engine methods (spec 35 §0.1a, one JSON-RPC method each)\ncontrolStudio/open, projectLoops, setupDiscover, setupStep, setupSave, inputs, identify, preview,\nanalyze, tune, validate, run, apply, restore, keep, parameters, monitor, plantMonitor,\nsimulatorStart, simulatorStartResult, chartExport, page, status, export, cancel, update" as methods
+  component "Answers the page renders without a rule of its own (spec 35 §0.1a)\nopen: method offers, experiment limits, project test form, manual setting rows\nruntime status: the simulated flag and the speed words (simulated, speed text, behind)" as answers
   component "trust-control-math (domain-neutral library)\nlinalg, model (transfer function, state space),\ndiscretize (exact ZOH, Tustin, Euler), simulate, sampling,\nidentify: low-order step-response fits, relay cycles, scoring\nfrequency, margins, SIMC/AMIGO/λ and the half rule, pole placement,\nclosed-loop simulation, polynomials, notch\nnumbers in, typed results out; no product knowledge" as rust_math
-  component "trust-control (pure, no I/O)\nloop contract, signal reads (E3), recordings and their evidence (E4),\nexperiment plans and checks (E5), study container and sections,\nidentification rules: policy, campaign baseline and hold, review,\nmodel selection (N3.3), recorded limits (B3.4), provisional model;\ntuning rules: requirements, formulas, Automatic recommendation,\ndesign to requirements, candidates and pins, Control.PID prediction,\nmargins and robustness; study Tune section (A8.4);\nanalysis (B9.9): frequency, measured response, feedback and Nyquist, root locus,\nRouth, pole-zero, lead/lag, initial state, state structure, relative gain;\nopened recordings: archive reading, channel catalogue, independent pairs;\nvalidation rules: plan, scenarios, campaign, run assessment (N8),\nmodel check, plant decision, isolated-run records; Validate section;\ncommissioning rules (B6, A6, C0, C1): starting point, Auto-entry allowance,\ntransfer records and checks (E6), parameter transactions (E7), initialization,\nobservation, the one Restore from the checkpoint, Keep's edits; Apply section;\nsetup rules (B1): compiled catalog, form model, generators, save;\nfailures with next actions (A11); json: every decode with normalized numbers" as rust_control
-  component "trust-control-studio (engine crate and program)\nserve: JSON-RPC 2.0 on stdin/stdout, Content-Length frames\ncommand line (§0.1b): open, identify, tune, validate, apply, restore, keep, setup, cancel;\ntoken never an argument; apply/restore/keep: review, then --review <identity>\nmethods controlStudio/open | status | cancel | page | inputs | run | identify | tune | preview |\nvalidate | apply | restore | keep | setupDiscover | setupSave | analyze\nanalyze: the Tune page's tools for every loop, quick or as operations;\nidentify importRecording / importModel / openRecording: opened files and supplied models\nIdentify workflow: campaign driver, reconciliation, recovery\nTune: Automatic, SIMC, AMIGO, relay rule, manual settings;\ndesigns from the study model, never writes to the controller;\nthe relay rule reads its recording; preview stores nothing\nValidate: live model check (provisional model), then isolated\nactual-ST runs of current and candidate per scenario (E8.4), journaled\nApply: starting point wait, Manual staging, parameters, Auto entry, observed\ntarget change; a failure after the first write runs the one Restore\nIdentify: enters and returns the mode its method needs (A6.2)\nlong operations: operationId at once, controlStudio/update" as rust_commands
-  component "Runtime client (annex E1-E8) on trust-runtime-client\ncontrol endpoint client shared with trust-lsp inline values\nrequests checked before sending, answers before use\nrecording session; experiment start, status, finish, abort;\nisolated runs; transfers (E6) and parameter transactions (E7):\nowner retained before dispatch, a lost acknowledgement read by its identity" as rust_client
-  database "Rust study files\ncontrol-studio/[loop id]/study.json + recordings/\nformat 1; earlier formats move to history/\nrecordings keep their evidence verdict" as rust_studies
+  component "trust-control (pure, no I/O)\nloop contract, signal reads (E3), recordings and their evidence (E4),\nexperiment plans and checks (E5), study container and sections,\nstudy inputs merge and channel selection (A8.1);\nidentification rules: policy, campaign baseline and hold, review,\nmodel selection (N3.3), recorded limits (B3.4), provisional model;\ntuning rules: requirements, formulas, Automatic recommendation,\ndesign to requirements, candidates and pins, Control.PID prediction,\nmargins and robustness; finite search rules (C5); study Tune section (A8.4);\nanalysis (B9.9): frequency, measured response, feedback and Nyquist, root locus,\nRouth, pole-zero, lead/lag, initial state, state structure, relative gain;\nopened recordings: archive reading, channel catalogue, independent pairs;\nvalidation rules: plan, scenarios, campaign, run assessment (N8),\nmodel check, plant decision, isolated-run records; Validate section;\ncommissioning rules (B6, A6, C0, C1): starting point, Auto-entry allowance,\ntransfer records and checks (E6), parameter transactions (E7), initialization,\nobservation, the one Restore from the checkpoint, Keep's edits; Apply section;\nsetup rules (B1): compiled catalog, form model (defaults, limits, words), generators, save;\nloop monitor and target label (B2, A2.4, B9.2); export of results (B10.5);\nfailures with next actions (A11); json: every decode with normalized numbers" as rust_control
+  component "trust-control-studio (engine crate and program)\nserve: JSON-RPC 2.0 on stdin/stdout, Content-Length frames\ncommand line (§0.1b): open, identify, tune, validate, apply, restore, keep, setup, cancel;\ntoken never an argument; apply/restore/keep: review, then --review <identity>\nmethods (§0.1a): controlStudio/open | status | cancel | page | inputs | run | identify | tune | preview |\nvalidate | apply | restore | keep | setupDiscover | setupStep | setupSave | projectLoops | analyze | parameters | export | monitor |\nplantMonitor | simulatorStart | simulatorStartResult | chartExport\nanalyze: the Tune page's tools for every loop, quick or as operations;\nidentify importRecording / importModel / openRecording, Recorded-data fit (manualEdit, manualQualify, manualFit), reset;\ninputs: the study inputs merge and channel selection (A8.1); run: Identify, Tune, Validate in order, stops at Apply (B8);\nmonitor: the live sample and target label, read on a background thread (B2, B9.2);\nexport: the loop's results as JSON or CSV text, for the engineer to save (B10.5)\nIdentify workflow: campaign driver, reconciliation, recovery\nTune: Automatic, SIMC, AMIGO, relay rule, manual settings, state-space;\nthe finite search (C5) for a search law, one isolated run per trial;\ndesigns from the study model, never writes to the controller;\nthe relay rule reads its recording; preview stores nothing\nValidate: live model check (provisional model), then isolated\nactual-ST runs of current and candidate per scenario (E8.4), journaled\nApply: starting point wait, Manual staging, parameters, Auto entry, observed\ntarget change; a failure after the first write runs the one Restore\nIdentify: enters and returns the mode its method needs (A6.2)\nlong operations: operationId at once, controlStudio/update" as rust_commands
+  component "Identification campaign (workflow/identify_campaign.rs;\nrules in trust-control identification/campaign.rs and settle.rs)\n1. the plant input range and the review's approval block (B3.4 step 1)\n2. steady baseline (B3.4 step 2): the longer of 5 % of the maximum duration and, when declared, 10 % of the expected settling time, capped at 30 min, never under 20 samples;\n   waits at most the longest of 5 minutes, 20 % of the maximum duration and two baseline windows\n3. the step at the next execution of the loop's task (A3.5)\n4. hold until settled (B3.4 step 4)\n5. restoration: the runtime restores the plant input or setpoint and confirms it (A7); Identify does not wait for the process to return (B3.4 step 5)" as rust_campaign
+  component "Apply observation (workflow/apply_observation.rs;\nrule in trust-control commissioning/observation.rs)\nthe recording starts before the validated target change, and is followed in process time\nevery sample of each measured output is checked against its permitted range\na departure restores the previous settings at once (B6.3, B6.7)" as rust_observation
+  component "Validation (trust-control validation/; workflow/validate_model_check.rs)\nindependent model check (B5.2): a new live campaign with a different excitation; the frozen model's\nfree-running prediction compared with the recorded output over the whole response and its final 10 %;\na passing check qualifies the model; a failing check blocks Apply\nverification campaign: mandatory scenarios, initial states and constraints; missing scenarios remain Inconclusive\nselected-model prediction: Control.PID calculated, switching, state-feedback, project laws and PID groups run as ST on the model\nisolated actual-ST runs (B5.3): the configured simulated plant when it drives the loop's signals, otherwise the qualified model;\nthe result names each case's plant" as rust_validation
+  component "Commissioning, reviewed application and recovery\n(trust-control commissioning/; workflow/apply.rs, workflow/commissioning_journal.rs)\nwaits (bounded, cancellable) for the validated operating point; coherent parameter and state adoption;\nstate-feedback entry allowance (A6)\nfresh review and single confirmation; explicit Apply or Restore only" as rust_commissioning
+  component "Controller adapters and tuning (trust-control tuning/, tuning/structures.rs)\nexisting Control.PID / declared project / state controllers\ncascade: inner first, outer through the closed inner loop\nfeedforward: PI on the output path, K_ff and lead/lag from both paths\nSmith predictor: model K, T, θ from the model; PI on the delay-free model\ndecoupler: D = K⁻¹·diag(K), each PI through it\nAutomatic: response chosen by its predicted requirements\nautomatic test criteria (tuning/automatic_criteria.rs): model timescale, recording noise and operating limits;\nexplicit values kept; generated values frozen before validation\nexplicit choices, parameter mapping and pins\nfinite Riccati stages with explicit fixed runtime policy" as rust_tuning
+  component "Rust study files\ncontrol-studio/[loop id]/study.json + recordings/\nformat 1; earlier formats move to history/\nrecordings keep their evidence verdict; opened and retained recordings, selected model" as rust_studies
+  component "Runtime client (annex E1-E8) on trust-runtime-client\ncontrol endpoint client shared with trust-lsp inline values\nrequests checked before sending, answers before use\nrecording session; experiment start, status, finish, abort (the project test included);\nisolated runs (validation and finite-search trials); transfers (E6) and parameter transactions (E7):\nowner retained before dispatch, a lost acknowledgement read by its identity" as rust_client
   database "Operation journal (A8.3)\ntruST folder in the user's local state folder, one file per loop,\nshared by serve and the command line\nrecording owner, experiment and campaign\ncommissioning checkpoint, Identify mode change, isolated jobs\njournaled before dispatch; never a token" as rust_journal
+  database "Project loop definitions\ncontrol-loops/<name>.json, never overwritten\nsetupSave writes each new loop definition; projectLoops answers each folder's files" as rust_loop_files
 }
 
-package "Existing analysis and runtime services" {
-  component "Bounded numerical workers\nidentification and tuning of the TypeScript session" as workers
-  component "Runtime connection/lifecycle owner\nexact simulator/project binding\nexisting start, cancellation and close ownership" as connection
-  component "Native isolated execution\nactual selected ST controller\nconfigured plant or explicit prediction override" as isolated
+package "Existing runtime services" {
+  component "Native isolated execution (control.simulation.run.*)\nactual selected ST controller\nconfigured plant, or the study's selected model as simulation_override (C5, B5.3)" as isolated
   component "Runtime parameter/transfer transactions\ncomplete declared target binding\nobserved acknowledgement and recovery identities" as transactions
   component "Running ST controller and plant\nprimary journey: Control.PID\nexisting native simulated-plant adapters" as running
   component "Runtime experiment executor\ncontrol/experiment_handlers/executor.rs\nruns at the loop task's executions; observes each\nscan once; writes apply at the next task boundary" as runtime_executor
 }
+
+actor "Engineer, script or CI" as cli_user
+component "trust-lsp inline values\n(no Control Studio part)" as lsp_inline
+component "trust-lsp command (spec 14 §7.8)\nheadless project commands: hmiBindings (setup catalog),\ncontrolKeepParameters, hmiEquipment (Keep's edits)" as lsp_command
 
 identify --> shared_ui
 tune --> shared_ui
@@ -72,117 +63,65 @@ validate --> projection
 identify --> tools
 tune --> tools
 tools --> projection
+identify --> panel : Reset (the engine's identify reset)
 projection <--> panel : scoped messages and results
-panel --> bindings : discover/select explicit target
-panel --> flow : automatic operation
-panel --> application : explicit Apply/Restore
-panel --> engineer : edits and recovery
-panel --> experiments : scoped review/start/abort
+panel --> engine_route : every page request for a loop
+panel --> setup_route : discover, select, save; project loops
 panel --> analysis : read-only calculations
-experiments --> connection
-experiments --> journals : recording and recovery identities
-models --> analysis : a parked loop's selected model
+panel --> connection : runtime start and status
+panel --> readings : monitor sample and target label from the engine
+readings --> identify : initial response and current values
+setup_form <--> setup_route : draft / save or reason
+setup_route --> rust_commands : setupDiscover, setupSave, projectLoops
 analysis --> rust_commands : controlStudio/analyze
-panel <--> persistence : restore/save study
-panel <--> journals : ownership journals
 shared_ui --> panel : native response context menu / recording export
 panel --> shared_ui : current raw recording or immutable opened history
-experiments --> projection : new operation resets live chart once
-persistence --> projection : restore method, selected signals and retained trace
-flow --> identification : live or recorded identification
-flow --> engineer : Tune and Validate
-identification <--> models : retained records and selected model
-identification --> workers : fit one acquisition; provisional result
-identification --> experiments : connected live acquisition
-experiments --> running : bounded excitation + original-command restoration
-running --> identification : native scan buffer + original recording
-engineer <--> models : identical downstream model route
-engineer --> automatic_criteria : fill missing test settings
-automatic_criteria --> models : selected model and original recording
-automatic_criteria --> persistence : values and automatic origin
-engineer --> actions : one owner per requested action
-actions --> tuning : candidate and shared test criteria
-tuning --> workers : existing numerical methods
-actions --> model_check : explicit Validate for provisional model
-model_check --> identification : acquire independent record; no refit
-model_check --> workers : predict and compare frozen model
-model_check --> persistence : retain qualification and source records
-actions --> campaign : require model pass; freeze controller scenarios
-campaign --> prediction
-campaign --> configured_validation
-prediction --> isolated : explicit model override
-configured_validation --> isolated : configured plant
-application --> engineer : require current passed candidate
-actions --> commissioning : exact reviewed target
-commissioning --> transactions : adopt/restore complete binding
-commissioning --> journals : durable recovery ownership
-commissioning --> apply_obs : observe the applied response
-isolated --> journals : retain operation identity and outcomes
-transactions --> running : coherent parameter/state update
+connection --> engine_route : endpoint, token, runtime id (facts; no rule)
+engine_route --> rust_commands : serve: JSON-RPC 2.0 over stdio, methods of §0.1a
+engine_route --> projection : engine answers, updates and the opened study
+
+rust_control --> rust_math : numbers in, typed results out
+rust_commands --> rust_control : decode, check, decide
+rust_commands --> rust_campaign : Identify stage
+rust_commands --> rust_observation : Apply observation
+rust_commands --> rust_validation : Validate stage
+rust_commands --> rust_commissioning : Apply, Restore and Keep
+rust_commands --> rust_tuning : Tune designs
+rust_commands --> rust_client : status, inspect, record, experiment, isolated runs, parameters, transfers
+rust_commands <--> rust_studies : only writer
+rust_commands <--> rust_journal : journal before dispatch; reattach (A8.5)
+rust_commands --> rust_loop_files : setupSave writes; projectLoops reads
+rust_client --> running : control.signals.inspect, control.recording.*, control.experiment.*,\ncontrol.transfer.*, control.parameters.*
+rust_client --> isolated : control.simulation.run.start, status, cancel
+rust_client --> runtime_executor : control.experiment.start, status, finish, abort
+rust_commissioning --> transactions : adopt/restore complete binding
 isolated --> running : prepare bytecode, then bounded actual-ST scans
-identification --> connection
-tuning --> connection : declared project tuning when needed
-commissioning --> connection
-isolated --> connection
-transactions --> connection
+transactions --> running : coherent parameter/state update
+runtime_executor --> running : writes at the loop task's executions
+lsp_inline --> rust_client : trust-runtime-client
+cli_user --> rust_commands : trust-control-studio <verb>
+rust_commands --> lsp_command : setup catalog; Keep's edits, written by the engine
 
-setup_form <--> setup : draft / save or reason
-setup --> bindings : compiled catalog
-setup --> loop_files : new loop definitions
-tuning --> prediction : Automatic response check; program-law candidate
-panel --> readings : existing loop monitor snapshots
-readings --> identify : initial response and current values
-
-note bottom of flow
+note bottom of engine_route
   Identification stops on its model for review.
-  Tabs only navigate; Tune starts on request and stops at its candidate.\n  Validate starts the independent model check and controller campaign.
-  Reset clears the working model, results and chart history.
+  Tabs only navigate; Tune starts on request and stops at its candidate.
+  Validate starts the independent model check and controller campaign.
+  Reset moves the working study to history and starts a new one.
   Live selected-signal observation continues after Reset/reopen.
   The chart grows from current plant readings during acquisition.
   Model comparisons retain the matching experiment inputs.
-  Automatic continuation never dispatches Apply.
+  Automatic continuation (run) never dispatches Apply.
   All pages display the same host-owned study.
-  A loop the engine serves runs Identify, Tune, Validate, Apply, Restore
-  and Keep in trust-control-studio; the TypeScript session keeps parked
-  loops and the features the engine does not serve yet (V7).
+  Every loop runs in trust-control-studio, which answers each stage; a loop the
+  engine refuses shows its refusal and next action. No TypeScript session or
+  study store remains (V7.17).
 end note
 
-note bottom of transactions
-  A declared coherent multivariable adapter uses its complete binding.
-  Separate PID instances are never updated by an invented sequential group write.
-end note
-identify --> reset : Reset
-reset --> models : clear working model and recordings
-reset --> engineer : clear dependent design evidence
-reset --> panel : persist fresh draft
-identification --> ident_campaign : one live campaign
-ident_campaign --> experiments : start, hold, finish, restore
-ident_campaign --> journals : journal before each dispatch
-experiments --> runtime_executor : start, status, finish, abort
-runtime_executor --> running : writes at the loop task's executions
-apply_obs --> transactions : validated target change
-apply_obs --> journals : observation identity and recording
-
-actor "Engineer, script or CI" as cli_user
-component "trust-lsp inline values\n(no Control Studio part)" as lsp_inline
-cli_user --> rust_commands : trust-control-studio <verb>
-panel --> engine_route : a loop the engine serves (V6)
-engine_route --> rust_commands : serve: JSON-RPC 2.0 over stdio, methods of §0.1a
-engine_route --> projection : engine answers, updates and the opened study
-lsp_inline --> rust_client : trust-runtime-client
-rust_commands --> rust_control : decode, check, decide
-rust_control --> rust_math : numbers in, typed results out
-rust_commands --> rust_client : status, inspect, record, experiment
-rust_commands <--> rust_studies : only writer
-rust_commands <--> rust_journal : journal before dispatch; reattach (A8.5)
-rust_client --> running : control.signals.inspect, control.recording.*, control.experiment.*,\ncontrol.transfer.*, control.parameters.*, control.simulation.run.*
-component "trust-lsp command (spec 14 §7.8)\nheadless project commands: hmiBindings (setup catalog),\ncontrolKeepParameters, hmiEquipment (Keep's edits)" as lsp_command
-rust_commands --> lsp_command : setup catalog; Keep's edit, written by the engine
-
-note bottom of journals
+note bottom of rust_journal
   Closing the panel detaches this client only. A running identification
-  experiment and its recording stay with the runtime; the campaign journal
-  stays in workspace state; reopening reattaches and completes the campaign.
+  experiment and its recording stay with the runtime; the operation journal
+  stays in the user's local state folder (A8.3), and reopening reattaches and
+  completes the campaign.
   A client that still owns its experiment aborts it only on an explicit
   Cancel or after a failure, through the restoration path.
   Closing during an Apply's observation detaches it the same way: the runtime
@@ -193,12 +132,22 @@ note bottom of journals
   checkpoint and the runtime buffer is released.
 end note
 
-note bottom of persistence
-  A legacy study copy in workspace state moves into the project on open.
+note bottom of rust_studies
   Removed from Control Studio: Manual Record, model-based validation
   (validation.ts), automatic tune (automaticTune.ts), and the automatic
   matched anti-windup comparison (no panel entry point).
   Protocol: docs/specs/control-studio-runtime-protocol.md;
   numerics: docs/specs/control-studio-numerics.md (replacing the satellite specs).
+end note
+
+note bottom of transactions
+  A declared coherent multivariable adapter uses its complete binding.
+  Separate PID instances are never updated by an invented sequential group write.
+end note
+
+note bottom of ts_debt
+  Not a session and not a store: the engine answers every served method,
+  and the page renders its answers (AGENTS.md: all logic is in Rust).
+  scripts/list_control_studio_files.py lists what the product reaches.
 end note
 @enduml

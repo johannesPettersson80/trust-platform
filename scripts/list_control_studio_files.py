@@ -16,7 +16,8 @@ type-only import does. A type-only import still breaks the build when its file i
 importer changes.
 
 Reference edges: imports and re-exports (`import type` and `export type` included), dynamic `import()` and `require()`, and
-file names in string literals such as `"identificationWorker.js"`, which start worker scripts by path.
+file names in string literals such as `"identificationWorker.js"`, which start worker scripts by path. An `import("…")` in a type
+position (after `:`, `as`, `typeof`, `<`, `|`, `&`, `keyof`, or on the right of `type Name =`) is only a type: it is `type`, not `rt`.
 
 The stage of each file comes from the checklist's Appendix B, read with `--checklist`. Its default is the checklist under
 `docs/internal/testing/checklists/`, which git ignores and only the primary checkout holds.
@@ -46,6 +47,10 @@ STATUS_ORDER = {"core": 0, "parked": 1, "unreached": 2}
 FROM_RE = re.compile(r"""(?m)^[ \t]*(import|export)\s+(type\s+)?([^;'"]*?)\s*from\s*["']([^"']+)["']""")
 SIDE_EFFECT_RE = re.compile(r"""(?m)^[ \t]*import\s+["']([^"']+)["']""")
 DYNAMIC_RE = re.compile(r"""\bimport\(\s*["']([^"']+)["']\s*\)""")
+# The text before an `import("…")` that makes it a type: `: import(…)`, `as import(…)`, `typeof import(…)`, `<import(…)`,
+# `| import(…)`, `& import(…)`, `keyof import(…)` and `type Name = import(…)`.
+TYPE_POSITION_RE = re.compile(r"(?:\bas|\btypeof|\bkeyof|:|<|\||&)\s*$")
+TYPE_ALIAS_RE = re.compile(r"\btype\s+[\w$]+\s*(?:<[^>]*>)?\s*=\s*$")
 REQUIRE_RE = re.compile(r"""\brequire\(\s*["']([^"']+)["']\s*\)""")
 JS_NAME_RE = re.compile(r"""["'`]([^"'`\n]+?)\.js["'`]""")
 STAGE_RE = re.compile(r"^#### (V\d+|stays) ")
@@ -79,8 +84,9 @@ def is_type_only(type_keyword: str, clause: str) -> bool:
 
 
 def resolve(spec: str, origin: Path, known: dict[Path, str]) -> Path | None:
-    """The source file a relative specifier names; None for a package, a file outside the sources, or a stylesheet."""
-    if not spec.startswith(".") or Path(spec).suffix not in CODE_SUFFIXES:
+    """The source file a relative specifier names; None for a package or a file outside the sources. A dotted name such as
+    `./suite.integration.test` names `suite.integration.test.ts`, so the suffix alone does not decide."""
+    if not spec.startswith("."):
         return None
     base = Path(os.path.normpath(origin.parent / spec))
     candidates = []
@@ -136,7 +142,11 @@ def references(text: str) -> list[tuple[str, str]]:
     for _, type_keyword, clause, spec in FROM_RE.findall(text):
         found.append((spec, "type" if is_type_only(type_keyword, clause) else "rt"))
     found += [(spec, "rt") for spec in SIDE_EFFECT_RE.findall(text)]
-    found += [(spec, "rt") for spec in DYNAMIC_RE.findall(text) + REQUIRE_RE.findall(text)]
+    for match in DYNAMIC_RE.finditer(text):
+        before = text[max(0, match.start() - 200):match.start()]
+        is_type = TYPE_POSITION_RE.search(before) or TYPE_ALIAS_RE.search(before)
+        found.append((match.group(1), "type" if is_type else "rt"))
+    found += [(spec, "rt") for spec in REQUIRE_RE.findall(text)]
     return found
 
 

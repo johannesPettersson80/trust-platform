@@ -526,3 +526,47 @@ fn a_sample_without_its_runtime_time_has_no_process_time_and_is_refused() {
     );
     assert_eq!(first_time, None);
 }
+
+#[test]
+fn the_request_is_kept_apart_from_the_applied_output_and_none_is_made_up_without_an_actuator() {
+    // control-studio-validate-apply: "retains requested and applied output separately without inventing a request" (B10.3: requested MV
+    // and applied MV are separate nullable fields; requested MV is null when it is not observed and is never copied from applied MV).
+    use super::requested_mv;
+    let loop_definition = loop_definition();
+    let mut with_actuator = loop_definition.clone();
+    with_actuator.signals.actuator = Some(
+        serde_json::from_value::<LoopSignal>(json!({
+            "symbol": "Valve.Position", "address": "%IL4", "iecType": "LREAL",
+            "direction": "read", "unit": "%", "range": { "minimum": 0.0, "maximum": 100.0 }
+        }))
+        .expect("the fixture actuator decodes"),
+    );
+    let mut bindings = three_signals();
+    bindings.push(binding("actuator", "%IL4", "LREAL"));
+    let recorded = run(
+        bindings,
+        vec![sample(
+            1,
+            Some(0),
+            &[Some(50.0), Some(48.0), Some(32.0), Some(31.5)],
+            &[Quality::Good; 4],
+        )],
+    );
+    let first: &RecordedSample = &recorded.samples[0];
+    assert_eq!(
+        requested_mv(&recorded, &loop_definition, first),
+        None,
+        "without an actuator nothing separate was requested, and the applied output is not copied into a request"
+    );
+    assert_eq!(applied_mv(&recorded, &loop_definition, first), Some(32.0));
+    assert_eq!(
+        requested_mv(&recorded, &with_actuator, first),
+        Some(32.0),
+        "with an actuator the command is the request"
+    );
+    assert_eq!(
+        applied_mv(&recorded, &with_actuator, first),
+        Some(31.5),
+        "and the actuator's position is what was applied"
+    );
+}

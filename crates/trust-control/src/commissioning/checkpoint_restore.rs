@@ -17,7 +17,9 @@
 //! 6. write the Auto entry of [`restore_auto_entry`], when it is `Some`.
 //!
 //! The review checks, in order, [`restorable`], [`check_runtime_identity`], [`check_checkpoint_identity`],
-//! [`check_restore_available`], [`check_reviewed_parameters`] and [`check_transfer_owner`]. The sentences are in [`texts`].
+//! [`check_restore_available`], [`check_reviewed_parameters`] and [`check_transfer_owner`]. A Restore on a runtime that
+//! [`check_runtime_identity`] finds replaced is answered before any review: the checkpoint is kept as history
+//! ([`retired_checkpoint`]), and nothing is written to the runtime. The sentences are in [`texts`].
 
 use std::collections::BTreeMap;
 
@@ -97,6 +99,22 @@ pub fn check_runtime_identity(
         Cause::Runtime,
         NextAction::Validate,
     ))
+}
+
+/// The record that a checkpoint becomes when [`check_runtime_identity`] finds the runtime restarted, or its program reloaded, since
+/// Apply (B6.4, B6.7): nothing of it can be restored, so it is kept as history. It is retired, so it grants nothing and holds no stage
+/// back (A8.5), and it names the program revision the replacement runs (`replacement_program`). The Restore journals it in place of
+/// the checkpoint and writes nothing to the runtime; a later Apply replaces it.
+#[must_use]
+pub fn retired_checkpoint(
+    checkpoint: &CommissioningCheckpoint,
+    replacement_program: &str,
+) -> CommissioningCheckpoint {
+    CommissioningCheckpoint {
+        stage: CheckpointStage::Retired,
+        replacement_program_revision: Some(replacement_program.to_owned()),
+        ..checkpoint.clone()
+    }
 }
 
 /// Checks that the checkpoint belongs to the current controller (`review`, interruptedCommissioningRecovery.ts; B6.4): it was written for

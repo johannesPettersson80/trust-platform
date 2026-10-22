@@ -1,10 +1,9 @@
 import type { Failure } from "../../generated/Failure";
 import type { OperationUpdate } from "../../generated/OperationUpdate";
-import type { LoopMessageScope } from "../../messages";
 import type { ControlStudioEngine, EngineAnswer } from "../engineClient";
-import { record, scopeFields, unclassifiedFailure, type EngineLoop } from "../engineRouteContext";
+import { record, scopeFields, unclassifiedFailure, type EngineLoop, type EngineScope } from "../engineRouteContext";
 import type { AnalysisEnvelope, AnalysisInputs } from "../../generated/AnalyzeAnswer";
-import type { AnalysisTool, AnalyzeRequest } from "../../generated/AnalyzeRequest";
+import type { AnalysisTool, AnalyzeRequest, HeldAnswer } from "../../generated/AnalyzeRequest";
 import type { AnalysisPage } from "../../generated/PageRequest";
 
 /** The analysis route's ports on the panel's engine route. */
@@ -16,8 +15,6 @@ export interface AnalyzeRouteOptions {
   readonly post: (message: Record<string, unknown>) => Promise<void>;
   /** Whether the engine serves the loop: then the engine takes the study's selected model. */
   readonly served: () => boolean;
-  /** The selected model the TypeScript session holds: a loop the engine does not serve analyses with it (C12, V7). */
-  readonly parkedModel: () => unknown;
   /** Waits until the study inputs the page changed are recorded, in the order the page made them (the inputs route). */
   readonly settled: () => Promise<void>;
 }
@@ -28,14 +25,12 @@ export interface AnalyzeRoute {
    * Takes the loop the panel opened: answers the tools that apply to it, then restores the analysis the page last showed, which
    * the page calculates again (A8.6, B9.9).
    */
-  opened(loop: EngineLoop, scope: LoopMessageScope, shown: AnalysisPage | undefined): Promise<void>;
+  opened(loop: EngineLoop, scope: EngineScope, shown: AnalysisPage | undefined): Promise<void>;
   /** Routes one `control-studio.analysis.*` message of the page. True when the message was consumed. */
-  handle(message: Record<string, unknown>, scope: LoopMessageScope): Promise<boolean>;
+  handle(message: Record<string, unknown>, scope: EngineScope): Promise<boolean>;
   /** Takes an analysis operation the engine kept running when the panel opened the loop (A8.6); its updates reach the page again. */
-  adopt(operationId: string, scope: LoopMessageScope, update: OperationUpdate): void;
-  /** The analysis the Tune page shows, which `controlStudio/page` records with the page (B9.9). */
-  shownPage(): AnalysisPage | undefined;
-  /** Forgets the loop, the shown analysis and the running operation: the panel opens another loop, or closes. */
+  adopt(operationId: string, scope: EngineScope, update: OperationUpdate): void;
+  /** Forgets the loop and the running operation: the panel opens another loop, or closes. */
   reset(): void;
 }
 
@@ -53,8 +48,6 @@ export function createAnalyzeRoute(options: AnalyzeRouteOptions): AnalyzeRoute {
   const { client } = options;
   /** The loop the panel opened; none while the panel shows no loop. */
   let opened: EngineLoop | undefined;
-  /** The analysis the Tune page shows: its tool and the inputs the page holds for it. */
-  let shown: AnalysisPage | undefined;
   /** The analysis operation the engine runs for the page; Cancel stops it. */
   let running: string | undefined;
   /** The subscription to the running operation's updates. */
@@ -79,19 +72,17 @@ export function createAnalyzeRoute(options: AnalyzeRouteOptions): AnalyzeRoute {
     }
   }
 
-  /** The request for the loop. A loop the engine does not serve carries the TypeScript session's model; a served loop's is the study's. */
+  /** The request for the loop: the engine analyses the study's model, which is the only model it holds for the loop. */
   function requestFor(current: EngineLoop, extra: Partial<AnalyzeRequest>): AnalyzeRequest {
-    const model = options.served() ? undefined : record(options.parkedModel());
     return {
       projectRoot: options.projectRoot,
       runtimeId: current.runtimeId,
       loopId: current.id,
       ...extra,
-      ...(model ? { model } : {}),
     };
   }
 
-  const send = (scope: LoopMessageScope, kind: string, fields: Record<string, unknown>): Promise<void> =>
+  const send = (scope: EngineScope, kind: string, fields: Record<string, unknown>): Promise<void> =>
     options.post({ ...scopeFields(scope), kind, ...fields });
 
   /**
@@ -100,7 +91,7 @@ export function createAnalyzeRoute(options: AnalyzeRouteOptions): AnalyzeRoute {
    * replayed. The operation's state is therefore asked for once the subscription stands (`controlStudio/status`; the engine records a
    * final state before it sends it): an operation that has already ended reaches the page as its final update.
    */
-  function follow(operationId: string, scope: LoopMessageScope): void {
+  function follow(operationId: string, scope: EngineScope): void {
     stopWatching();
     running = operationId;
     watch = client.onUpdate(operationId, (update: OperationUpdate) => relayUpdate(operationId, scope, update));
@@ -110,55 +101,48 @@ export function createAnalyzeRoute(options: AnalyzeRouteOptions): AnalyzeRoute {
   }
 
   /** Sends the page one update of the operation the route follows; its final update ends the follow. */
-  function relayUpdate(operationId: string, scope: LoopMessageScope, update: OperationUpdate): void {
+  function relayUpdate(operationId: string, scope: EngineScope, update: OperationUpdate): void {
     if (running !== operationId) return;
     if (update.state !== "running") stopWatching();
     void send(scope, KIND.update, updateFields(operationId, update));
-    // The calculation ended with the inputs the engine read: the page shows them again when the panel reopens (A8.6, B9.9).
-    if (update.state === "finished" && update.result && opened) {
-      shown = answeredAnalysis(update.result as unknown as AnalysisEnvelope);
-      void recordPage(opened, scope);
-    }
   }
 
-  async function refresh(current: EngineLoop, scope: LoopMessageScope): Promise<void> {
-    const reply = await attempt(() => client.analyze(requestFor(current, {})));
+  async function refresh(current: EngineLoop, scope: EngineScope, held?: HeldAnswer[]): Promise<void> {
+    const reply = await attempt(() => client.analyze(requestFor(current, held ? { held } : {})));
+    // A loop the engine refuses offers no tool: the engine answers the list empty, and the refusal is the open answer's (B9.9).
     if ("failure" in reply) {
-      // The engine does not run the program's own law of a parked loop (until V7): the loop offers no tool here, and the refusal is
-      // the TypeScript route's, not a failure the page shows (B9.9).
-      if (reply.failure.cause === "controller-capability") await send(scope, KIND.tools, { tools: [] });
-      else await send(scope, KIND.tools, { failure: reply.failure });
+      await send(scope, KIND.tools, { failure: reply.failure });
       return;
     }
-    const tools = record(reply.result)?.tools;
-    if (Array.isArray(tools)) await send(scope, KIND.tools, { tools });
+    const answered = record(reply.result);
+    const tools = answered?.tools;
+    // The engine lists the held answers that are no longer current for the model (B9.9); the route forwards the list and decides none.
+    const stale = answered?.stale;
+    if (Array.isArray(tools)) await send(scope, KIND.tools, { tools, ...(Array.isArray(stale) ? { stale } : {}) });
     else await send(scope, KIND.failure, { method: "tools", failure: unclassifiedFailure(UNEXPECTED_ANSWER) });
   }
 
-  /** Records the page the Tune page shows, with its analysis when one is shown (`controlStudio/page`, B9.9). */
-  async function recordPage(current: EngineLoop, scope: LoopMessageScope): Promise<void> {
+  /**
+   * Records the analysis the Tune page shows with the page (`controlStudio/page`, B9.9), as the page names it; none when it shows none.
+   * The engine records the analysis a calculation answers by itself, with the inputs it read: this route stores nothing of its own.
+   */
+  async function show(current: EngineLoop, scope: EngineScope, payload: Record<string, unknown>): Promise<void> {
     if (!options.served()) return;
+    const analysis = analysisPageOf(payload);
     const reply = await attempt(() => client.page({
       loopId: current.id,
       page: "Tune",
       projectRoot: options.projectRoot,
       runtimeId: current.runtimeId,
-      ...(shown ? { analysis: shown } : {}),
+      ...(analysis ? { analysis } : {}),
     }));
     if ("failure" in reply) await send(scope, KIND.failure, { method: "page", failure: reply.failure });
   }
 
-  async function show(current: EngineLoop, scope: LoopMessageScope, payload: Record<string, unknown>): Promise<void> {
-    const tool = typeof payload.tool === "string" ? (payload.tool as AnalysisTool) : undefined;
-    shown = tool ? { tool, inputs: (record(payload.inputs) ?? {}) as AnalysisInputs } : undefined;
-    await recordPage(current, scope);
-  }
-
-  async function run(current: EngineLoop, scope: LoopMessageScope, payload: Record<string, unknown>): Promise<void> {
+  async function run(current: EngineLoop, scope: EngineScope, payload: Record<string, unknown>): Promise<void> {
     if (typeof payload.tool !== "string") return;
     const tool = payload.tool as AnalysisTool;
     const inputs = (record(payload.inputs) ?? {}) as AnalysisInputs;
-    shown = { tool, inputs };
     const reply = await attempt(() => client.analyze(requestFor(current, { tool, inputs })));
     if ("failure" in reply) {
       await send(scope, KIND.answer, { tool, failure: reply.failure });
@@ -173,18 +157,14 @@ export function createAnalyzeRoute(options: AnalyzeRouteOptions): AnalyzeRoute {
       follow(operationId, scope);
       await posted;
     } else if (typeof record(answer)?.tool === "string") {
-      const envelope = answer as AnalysisEnvelope;
-      // The inputs the engine read are the ones the page records and shows again (A8.6), not the ones it sent.
-      shown = answeredAnalysis(envelope);
-      await send(scope, KIND.answer, { envelope });
+      await send(scope, KIND.answer, { envelope: answer as AnalysisEnvelope });
     } else {
       // The tool is named, so that the page ends the calculation it waits for (the refusal clears its pending run).
       await send(scope, KIND.failure, { method: "run", tool, failure: unclassifiedFailure(UNEXPECTED_ANSWER) });
     }
-    await recordPage(current, scope);
   }
 
-  async function cancel(scope: LoopMessageScope): Promise<void> {
+  async function cancel(scope: EngineScope): Promise<void> {
     const operationId = running;
     if (!operationId) return;
     const reply = await attempt(() => client.cancel({ operationId }));
@@ -194,7 +174,6 @@ export function createAnalyzeRoute(options: AnalyzeRouteOptions): AnalyzeRoute {
   return {
     async opened(loop, scope, restored) {
       opened = loop;
-      shown = restored;
       await refresh(loop, scope);
       if (restored) await send(scope, KIND.restore, { tool: restored.tool, inputs: restored.inputs });
     },
@@ -203,9 +182,12 @@ export function createAnalyzeRoute(options: AnalyzeRouteOptions): AnalyzeRoute {
       const current = opened;
       if (!current) return false;
       switch (message.kind) {
-        case "control-studio.analysis.tools":
-          await refresh(current, scope);
+        case "control-studio.analysis.tools": {
+          // The page names the answers it holds with the revision of the model each was calculated for; the engine says which are stale.
+          const held = record(message.payload)?.held;
+          await refresh(current, scope, Array.isArray(held) ? held as HeldAnswer[] : undefined);
           return true;
+        }
         case "control-studio.analysis.run":
           await run(current, scope, record(message.payload) ?? {});
           return true;
@@ -225,11 +207,8 @@ export function createAnalyzeRoute(options: AnalyzeRouteOptions): AnalyzeRoute {
       void send(scope, KIND.update, updateFields(operationId, update));
     },
 
-    shownPage: () => shown,
-
     reset() {
       opened = undefined;
-      shown = undefined;
       stopWatching();
     },
   };
@@ -238,18 +217,23 @@ export function createAnalyzeRoute(options: AnalyzeRouteOptions): AnalyzeRoute {
 const UNEXPECTED_ANSWER = "The engine answered the analysis with a result the page does not show.";
 const NO_ANSWER = "The engine did not answer the analysis.";
 
-/** The analysis the page shows for a calculation: its tool, with the inputs the engine read for it (`AnalysisPage`, B9.9). */
-function answeredAnalysis(envelope: AnalysisEnvelope): AnalysisPage {
-  return { tool: envelope.tool, inputs: envelope.inputs };
+/**
+ * The analysis the page names as the one it shows, for `controlStudio/page` (B9.9): its tool and the inputs it holds for it, or none when it
+ * shows none. The page's navigation and its tool selection both name it this way.
+ */
+export function analysisPageOf(value: unknown): AnalysisPage | undefined {
+  const named = record(value);
+  return typeof named?.tool === "string" ? { tool: named.tool as AnalysisTool, inputs: (record(named.inputs) ?? {}) as AnalysisInputs } : undefined;
 }
 
-/** The page's fields of one operation update: its state, its progress, and its calculation or failure once it ends. */
+/** The page's fields of one operation update: its state, its progress, and its calculation, failure or cancellation sentence once it ends. */
 function updateFields(operationId: string, update: OperationUpdate): Record<string, unknown> {
   const failure: Failure | undefined = update.failure ?? undefined;
   return {
     operationId,
     state: update.state,
     ...(update.progress ? { progress: update.progress } : {}),
+    ...(update.message ? { message: update.message } : {}),
     ...(update.state === "finished" && update.result ? { envelope: update.result as unknown as AnalysisEnvelope } : {}),
     ...(failure ? { failure } : {}),
   };

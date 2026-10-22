@@ -1,32 +1,22 @@
-import type * as vscode from "vscode";
+import type { SetupQuestion } from "./generated/SetupStepResult";
 
-export type SetupPhase = 1 | 2 | 3 | 4;
-export const SETUP_PHASE_NAMES: Record<SetupPhase, string> = {
-  1: "Loop and signals", 2: "Units and bounds",
-  3: "Controller and experiment", 4: "Channels and actuators",
-};
-export interface SetupPromptContext {
-  phase: SetupPhase;
-  canGoBack: boolean;
-  previous?: unknown;
+/**
+ * What the engineer did at one question of the step-by-step setup: the answer to send back to the engine, Back to the question before, or
+ * Cancel of the whole setup (which writes nothing). The engine reads every answer; the presenter only collects it.
+ */
+export type SetupQuestionResult =
+  | { readonly kind: "answered"; readonly answer: unknown }
+  | { readonly kind: "back"; readonly text?: unknown }
+  | { readonly kind: "cancelled" };
+
+/** What the page shows for one question: the answer the engineer gave it before, the engine's refusal of the last answer, and whether Back is offered. */
+export interface SetupQuestionContext {
+  readonly previous?: unknown;
+  readonly refusal?: string;
+  readonly canGoBack: boolean;
 }
-export type SetupPromptResult<T> = { kind: "accepted"; value: T }
-  | { kind: "cancelled" } | { kind: "back"; value?: T };
 
-/** Native prompt presentation is separate from answer history and loop construction. */
+/** The native presentation of the engine's questions. It shows each question as the engine names it and returns the answer as typed or chosen. */
 export interface SetupPromptPresenter {
-  input(options: vscode.InputBoxOptions, context: SetupPromptContext): Promise<SetupPromptResult<string>>;
-  pick<T extends string | vscode.QuickPickItem>(items: readonly T[], options: vscode.QuickPickOptions,
-    context: SetupPromptContext): Promise<SetupPromptResult<T | T[]>>;
-  open(options: vscode.OpenDialogOptions): Promise<vscode.Uri[] | undefined>;
-}
-
-/** The same prompt port is passed to existing controller/channel setup owners. */
-export interface SetupDialogs {
-  showInputBox(options?: vscode.InputBoxOptions): PromiseLike<string | undefined>;
-  showQuickPick<T extends vscode.QuickPickItem>(items: readonly T[], options: vscode.QuickPickOptions & { canPickMany: true }): PromiseLike<T[] | undefined>;
-  showQuickPick<T extends vscode.QuickPickItem>(items: readonly T[], options?: vscode.QuickPickOptions): PromiseLike<T | undefined>;
-  showQuickPick(items: readonly string[], options: vscode.QuickPickOptions & { canPickMany: true }): PromiseLike<string[] | undefined>;
-  showQuickPick(items: readonly string[], options?: vscode.QuickPickOptions): PromiseLike<string | undefined>;
-  showOpenDialog(options: vscode.OpenDialogOptions): PromiseLike<vscode.Uri[] | undefined>;
+  ask(question: SetupQuestion, context: SetupQuestionContext): Promise<SetupQuestionResult>;
 }

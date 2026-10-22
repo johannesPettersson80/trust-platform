@@ -92,6 +92,16 @@ impl ApplySection {
         (application.settings_applied && !closed).then_some(application)
     }
 
+    /// The identity of the validation that the newest Apply applied (A8.1, A8.4), whatever became of its settings since: they may stand,
+    /// or a Restore may have returned the previous settings or retired its checkpoint. Apply is not offered again for that validation
+    /// (B7, `application_offers::newest_applied_validation`). `None` before the first Apply's receipt.
+    #[must_use]
+    pub fn newest_validation(&self) -> Option<&str> {
+        self.applications
+            .last()
+            .map(|application| application.validation_identity.as_str())
+    }
+
     /// Whether Restore previous settings is offered (B6.4): the newest Apply's settings are applied. A Restore that the runtime has
     /// not confirmed leaves it offered, so the engineer restores again (B6.7).
     #[must_use]
@@ -121,8 +131,11 @@ impl ApplySection {
         self.keep_checkpoint().is_some()
     }
 
-    /// Whether an Apply of the section made the checkpoint `checkpoint`.
-    fn names_an_apply(&self, checkpoint: &str) -> bool {
+    /// Whether an Apply of the section made the checkpoint `checkpoint`: a Restore or a Keep receipt may name only such a checkpoint
+    /// (A8.5). An Apply that was interrupted before its receipt was kept made a checkpoint that no receipt names, and the loop's journal
+    /// is then the checkpoint's only record.
+    #[must_use]
+    pub fn names_an_apply(&self, checkpoint: &str) -> bool {
         self.applications
             .iter()
             .any(|application| application.checkpoint == checkpoint)

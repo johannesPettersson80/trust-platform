@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::identification::refusal::Refusal;
 use crate::loop_definition::{ControllerLaw, LoopDefinition, ParameterBinding, RealType};
 use crate::tuning::cascade_candidate::{cascade_mapped_parameters, served_cascade};
-use crate::tuning::project_candidate::served_seed;
+use crate::tuning::project_candidate::{served_seed, served_trajectory};
 use crate::tuning::project_seed::ParallelPidSeed;
 use crate::tuning::proportional::GainBounds;
 use crate::tuning::structure::{is_exactly_zero, Structure};
@@ -77,6 +77,40 @@ pub struct ControllerSettingsPins {
     pub family: Structure,
     /// The pinned value of each symbol.
     pub values: BTreeMap<String, f64>,
+}
+
+/// The pins a request of `controlStudio/tune` or `controlStudio/preview` names (B4.2): the loop revision they belong to and each
+/// pinned symbol's value. The family is not named by the page: the study gives it (`study::tune::resolve_pins`), so a request holds
+/// no family of its own.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PinnedSettings {
+    /// The revision of the loop the pins belong to.
+    pub loop_revision: String,
+    /// The pinned value of each symbol.
+    pub values: BTreeMap<String, f64>,
+}
+
+impl PinnedSettings {
+    /// The pins with the family they are set for (B4.2): the family the request or the study gives.
+    #[must_use]
+    pub fn with_family(&self, family: Structure) -> ControllerSettingsPins {
+        ControllerSettingsPins {
+            loop_revision: self.loop_revision.clone(),
+            family,
+            values: self.values.clone(),
+        }
+    }
+}
+
+impl From<&ControllerSettingsPins> for PinnedSettings {
+    /// The request's form of pins the study holds: their loop revision and values, without their family.
+    fn from(pins: &ControllerSettingsPins) -> Self {
+        Self {
+            loop_revision: pins.loop_revision.clone(),
+            values: pins.values.clone(),
+        }
+    }
 }
 
 /// Decodes a pin record (`decodeControllerSettingsPins`): a non-empty loop revision, a family, at most 64 finite values
@@ -362,10 +396,30 @@ pub fn family_setting_symbols(loop_definition: &LoopDefinition, family: Structur
             Vec::new()
         };
     }
-    required_keys(family, &mapped_parameters(loop_definition))
+    let mut symbols: Vec<String> = required_keys(family, &mapped_parameters(loop_definition))
         .into_iter()
         .map(|parameter| parameter.symbol.clone())
-        .collect()
+        .collect();
+    // A trajectory-following law's manual entry also takes its rate and acceleration feedforward gains (C11), when the binding holds them.
+    if let Some(trajectory) = served_trajectory(loop_definition) {
+        let bound = loop_definition
+            .parameter_binding
+            .as_ref()
+            .map(|binding| &binding.parameters);
+        symbols.extend(
+            [&trajectory.rate_symbol, &trajectory.acceleration_symbol]
+                .into_iter()
+                .filter(|symbol| {
+                    bound.is_some_and(|parameters| {
+                        parameters
+                            .iter()
+                            .any(|parameter| parameter.symbol == **symbol)
+                    })
+                })
+                .cloned(),
+        );
+    }
+    symbols
 }
 
 #[cfg(test)]

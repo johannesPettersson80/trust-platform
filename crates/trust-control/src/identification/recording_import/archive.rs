@@ -302,6 +302,7 @@ fn shared_channels(runs: &[ArchivedRun]) -> Vec<CatalogChannel> {
         .map(|channel| CatalogChannel {
             id: channel.id.clone(),
             unit: channel.unit.clone(),
+            label: None,
         })
         .collect()
 }

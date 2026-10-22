@@ -16,6 +16,16 @@ export interface SetupDiscoverRequest {
    */
   languageTool?: string | null;
   /**
+   * The loop the panel shows (B1.2, B3.6). A request that names it and no `mapping` is answered with the choices of that loop's own
+   * mapping as `mapping`: the other loops that bind the same plant signals. Absent for a listing without a panel.
+   */
+  loopId?: string | null;
+  /**
+   * The plant signals that the binding selectors name, with the loop the panel shows (B1.2, B3.6): the engine answers the mapping as
+   * `mapping`. Absent for a listing and for a selection.
+   */
+  mapping?: MappingRequest | null;
+  /**
    * The project's folder.
    */
   projectRoot: string;
@@ -28,6 +38,42 @@ export interface SetupDiscoverRequest {
    * answers the loop's file; absent for a listing (B1.3).
    */
   selection?: BindingSelection | null;
+}
+/**
+ * The mapping the page sends with a binding request (B1.2, B3.6): the loop the panel shows, the plant inputs and the measured outputs
+ * that the selectors name by symbol, and, while a recording is shown, the selection that the recording holds.
+ */
+export interface MappingRequest {
+  /**
+   * The plant inputs that the inputs selector names, by symbol.
+   */
+  inputs: string[];
+  /**
+   * The loop the panel shows.
+   */
+  loopId: string;
+  /**
+   * The measured outputs that the outputs selector names, by symbol.
+   */
+  outputs: string[];
+  /**
+   * The selection of the opened recording, while a recording is shown (B3.6); absent for a live mapping.
+   */
+  recordingSelection?: RecordingSignalSelection | null;
+}
+/**
+ * The selected plant inputs and measured outputs of a recording, by channel name (`RecordingSignalSelection`). The study keeps
+ * the engineer's selection in its inputs, so it is read back the same way (B3.6).
+ */
+export interface RecordingSignalSelection {
+  /**
+   * The plant inputs, in order.
+   */
+  inputs: string[];
+  /**
+   * The measured outputs, in order.
+   */
+  outputs: string[];
 }
 /**
  * The choice a selector sends: one loop, its controller and every channel of both sides (B1.3).

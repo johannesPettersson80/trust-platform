@@ -53,6 +53,7 @@ fn predictor(model: &IdentifiedModel) -> SelectedModelPredictor<'_> {
 /// A unit setpoint change with 0.04 of allowed error and a band of 0.02, settled by 40 s of an 80 s test.
 fn requirements() -> TuningRequirements {
     TuningRequirements {
+        channel_requirements: None,
         reference_change: 1.0,
         maximum_error: 0.04,
         settling_band: 0.02,

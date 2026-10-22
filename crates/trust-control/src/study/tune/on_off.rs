@@ -1,12 +1,12 @@
 //! The Tune of a switching controller (specification 35, C3 and B4): the settings designed on the study's current model, the answer that a
 //! run gives and a reopened study gives from the section it keeps, and the section itself. The rules of the settings are the design's
-//! ([`super::design::on_off`]); this module reads the study and gives the outcome. The candidate is unapplied (B4.1): Validate runs it on
+//! (`super::design::on_off`); this module reads the study and gives the outcome. The candidate is unapplied (B4.1): Validate runs it on
 //! the actual Structured Text, and Apply writes it.
 
 use std::collections::BTreeMap;
 
 use crate::failure::{Cause, Failure, NextAction};
-use crate::messages::{CandidateOutcome, TuneGainUnits, TuneResult};
+use crate::messages::{AnswerKind, CandidateOutcome, TuneGainUnits, TuneResult};
 use crate::stages::{stage_availability, StageEvidence};
 use crate::study::tune::design::on_off::design;
 use crate::study::tune::{
@@ -65,7 +65,7 @@ pub(crate) fn check_on_off(inputs: &TuneInputs<'_>) -> Result<(), Failure> {
 /// (C3, B4.1 to B4.6). The checks before the start run first.
 ///
 /// # Errors
-/// The checks before the start; the study holds no requirements; or the design's own refusal (see [`design`]).
+/// The checks before the start; the study holds no requirements; or the design's own refusal (see `design`).
 pub fn run(
     inputs: &TuneInputs<'_>,
     held: Option<&TuningRequirements>,
@@ -120,6 +120,7 @@ pub(crate) fn answer(
     evidence: StageEvidence,
 ) -> TuneResult {
     TuneResult {
+        kind: AnswerKind::new(),
         feedforward: None,
         state: None,
         candidate: None,
@@ -153,5 +154,6 @@ pub(crate) fn answer(
         stages: stage_availability(&evidence),
         stage_evidence: evidence,
         schedule: None,
+        words: None,
     }
 }

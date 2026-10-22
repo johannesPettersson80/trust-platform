@@ -10,9 +10,9 @@ use super::baseline::{BaselineStep, BaselineSummary, BaselineTracker};
 use super::hold::{hold_state, HoldState, HoldStep, HoldTracker};
 use super::journal::{CampaignPhase, IdentificationCampaignJournal, NO_RUNNING_EXPERIMENT_TEXT};
 use super::{
-    baseline_budget_ms, campaign_maximum_ms, campaign_recording_ms, experiment_stop_failure,
-    format_duration, format_rate, require_campaign_limits, restoration_confirmed, silence_limit_ms,
-    FollowSample, Silence, Watch, SILENT_RUNTIME_TEXT,
+    baseline_budget_ms, campaign_maximum_ms, campaign_recording_ms, campaign_settling_ms,
+    experiment_stop_failure, format_duration, format_rate, require_campaign_limits,
+    restoration_confirmed, silence_limit_ms, FollowSample, Silence, Watch, SILENT_RUNTIME_TEXT,
 };
 use crate::experiment::{ControlExperimentPlan, RecordingRecoveryOwner, RestorationState};
 use crate::failure::{Cause, Failure, NextAction};
@@ -158,6 +158,11 @@ fn the_maximum_duration_is_the_declared_one_within_the_limits() {
         whole_text(&refusal),
         "Set the maximum experiment duration in Limits before identification."
     );
+    assert_eq!(
+        refusal.field.as_deref(),
+        Some("durationSeconds"),
+        "a missing duration names the duration's field"
+    );
     let mut short = tank_loop();
     if let Some(experiment) = short.experiment.as_mut() {
         experiment.duration_seconds = Some(0.5);
@@ -166,6 +171,11 @@ fn the_maximum_duration_is_the_declared_one_within_the_limits() {
     assert_eq!(
         whole_text(&refusal),
         "The maximum experiment duration must be between 1 s and 24 h."
+    );
+    assert_eq!(
+        refusal.field.as_deref(),
+        Some("durationSeconds"),
+        "a duration outside its limits names the duration's field"
     );
 }
 
@@ -187,6 +197,92 @@ fn the_baseline_budget_and_the_recording_follow_the_maximum_duration() {
     assert_eq!(
         campaign_recording_ms(&tank_loop(), None).expect("recording"),
         900_000
+    );
+}
+
+/// The tank as a project-scripted test of Lesson 61's shape (C12): the project owns its scenario, which holds a 2 s baseline with the
+/// activation off and ends 92.1 s after the plan starts.
+fn project_tank() -> LoopDefinition {
+    let mut value = serde_json::to_value(tank_loop()).expect("the tank encodes");
+    value["experiment"] = json!({
+        "execution": "project-scripted", "kind": "observation", "amplitude": 0,
+        "durationSeconds": 92.1, "seed": 1, "baselineSeconds": 2,
+        "activation": { "symbol": "P1.Run", "address": "%MX64.0", "iecType": "BOOL", "direction": "write" }
+    });
+    serde_json::from_value(value).expect("the project test decodes")
+}
+
+#[test]
+fn a_project_test_plans_its_declared_duration_for_its_recording_and_no_wait() {
+    // A campaign records its wait for a steady baseline, at least five minutes, and then the maximum duration (B3.4).
+    let mut campaign = tank_loop();
+    if let Some(experiment) = campaign.experiment.as_mut() {
+        experiment.duration_seconds = Some(92.1);
+    }
+    assert_eq!(
+        campaign_recording_ms(&campaign, None).expect("recording"),
+        392_100,
+        "300 s of wait and 92.1 s of step"
+    );
+    // A project test waits for none (C12): its recording starts with its plan and covers the declared 92.1 s. The runtime ends a
+    // recording before the sample at its planned duration, and the restoration sample is the last instant of the declared duration,
+    // so the plan adds the 10 s restoration margin of a Test recording.
+    assert_eq!(
+        campaign_recording_ms(&project_tank(), None).expect("recording"),
+        102_100
+    );
+    assert_eq!(
+        campaign_recording_ms(&project_tank(), Some(40.0)).expect("recording"),
+        102_100,
+        "a declared settling time lengthens no wait"
+    );
+    // A project test that declares no baseline waits for the steady baseline a campaign waits for (B3.4 step 2), so that its fit has an
+    // operating point, and its recording plans that wait.
+    let mut without_baseline = project_tank();
+    if let Some(experiment) = without_baseline.experiment.as_mut() {
+        experiment.baseline_seconds = None;
+    }
+    assert_eq!(
+        campaign_recording_ms(&without_baseline, None).expect("recording"),
+        392_100,
+        "300 s of wait and 92.1 s of test"
+    );
+}
+
+#[test]
+fn a_project_test_takes_no_settling_time_for_its_record_period_and_its_silence_limit() {
+    // A campaign that steps the plant follows the process: a tenth of its maximum duration unless the study declares the settling time.
+    assert_eq!(
+        campaign_settling_ms(&tank_loop(), 600_000, None),
+        Some(60_000)
+    );
+    assert_eq!(
+        campaign_settling_ms(&tank_loop(), 600_000, Some(12.5)),
+        Some(12_500)
+    );
+    // A project test records every execution of its hold (C12).
+    assert_eq!(campaign_settling_ms(&project_tank(), 92_100, None), None);
+    assert_eq!(
+        campaign_settling_ms(&project_tank(), 92_100, Some(12.5)),
+        None
+    );
+    // So its silence limit counts one execution per sample, where a campaign of the same maximum and a declared settling time of
+    // 2000 s records every 100th execution and allows three of those intervals (A7, A4.2).
+    let mut campaign = tank_loop();
+    let mut project = project_tank();
+    for loop_definition in [&mut campaign, &mut project] {
+        if let Some(experiment) = loop_definition.experiment.as_mut() {
+            experiment.duration_seconds = Some(3_000.0);
+        }
+    }
+    assert_eq!(
+        silence_limit_ms(&campaign, Some(2_000.0)).expect("a 10 s record period"),
+        30_000
+    );
+    assert_eq!(
+        silence_limit_ms(&project, Some(2_000.0)).expect("a 0.1 s record period"),
+        5_000,
+        "three executions of a 100 ms task are under the 5 s floor"
     );
 }
 

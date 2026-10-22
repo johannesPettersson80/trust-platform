@@ -7,7 +7,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use serde_json::Value;
+use serde_json::{Number, Value};
 
 use crate::commissioning::initial_state::{operating_input, operating_output};
 use crate::commissioning::project_law::additional_mode_values;
@@ -22,13 +22,19 @@ use crate::limits::{
     ISOLATED_SIMULATION_DURATION_LIMIT_MS, ISOLATED_SIMULATION_SAMPLE_LIMIT,
     ISOLATED_SIMULATION_SCAN_LIMIT,
 };
-use crate::loop_definition::{ChannelSignal, LoopDefinition, Parameter, RealType};
+use crate::loop_definition::{
+    ChannelRequirements, ChannelSignal, LoopDefinition, Parameter, RealType,
+};
 use crate::model::general::js_text;
 use crate::model::simulation::ActuatorKind;
 use crate::model::GeneralModel;
+use crate::setup::loop_bindings::duration_seconds_of_text;
 use crate::tuning::automatic_criteria::{validate_criteria, AutomaticCriteria};
 use crate::tuning::objective::{TuningMethod, TuningObjective};
-use crate::tuning::requirements::{response_deadline_seconds, TuningRequirements};
+use crate::tuning::output_requirements::OutputRequirements;
+use crate::tuning::requirements::{
+    response_deadline_seconds, RequirementRefusal, TuningRequirements,
+};
 use crate::tuning::settings_pins::single_precision;
 use crate::validation::gain_schedule_case;
 use crate::validation::isolated_run_sampling::{isolated_record_every, scan_count};
@@ -69,14 +75,19 @@ pub struct VerificationPlan {
 }
 
 /// Decodes the task requirements of a verification (`TypeScript` `engineerRequirements`): the five required values as finite
-/// numbers, the optional values with their own sentences, and the checks of the requirement record
-/// ([`TuningRequirements::validate`]). Keys that the record does not hold are not read.
+/// numbers (the validation duration may be the text the page typed, read by [`duration_as_seconds`]), the optional values with their
+/// own sentences, and the checks of the requirement record ([`TuningRequirements::validate`]). Keys that the record does not hold are
+/// not read.
 ///
 /// # Errors
 /// Returns a [`Failure`] with the sentence of the first value that is missing, mistyped or out of its range.
 pub fn engineer_requirements(value: &Value) -> Result<EngineerRequirements, Failure> {
     let object = value.as_object().ok_or_else(requirements_missing)?;
     let number = |key: &str| object.get(key).and_then(Value::as_f64);
+    let duration = object
+        .get("durationSeconds")
+        .map(duration_as_seconds)
+        .transpose()?;
     let (
         Some(reference_change),
         Some(maximum_error),
@@ -88,11 +99,15 @@ pub fn engineer_requirements(value: &Value) -> Result<EngineerRequirements, Fail
         number("maximumError"),
         number("settlingBand"),
         number("settlingTimeSeconds"),
-        number("durationSeconds"),
+        duration.as_ref().and_then(Value::as_f64),
     )
     else {
         return Err(requirements_missing());
     };
+    let channel_requirements = object
+        .get("channelRequirements")
+        .map(channel_requirements_of)
+        .transpose()?;
     let bounds = texts::disturbance_noise_bounds_invalid();
     let requirements = TuningRequirements {
         reference_change,
@@ -116,10 +131,11 @@ pub fn engineer_requirements(value: &Value) -> Result<EngineerRequirements, Fail
         tuning_method: tuning_method(object.get("tuningMethod"))?,
         tuning_objective: tuning_objective(object.get("tuningObjective"))?,
         automatic_criteria: automatic_criteria(object.get("automaticCriteria"))?,
+        channel_requirements,
     };
     requirements
-        .validate()
-        .map_err(|refusal| invalid_requirement(&refusal.0))?;
+        .check()
+        .map_err(RequirementRefusal::into_failure)?;
     Ok(requirements)
 }
 
@@ -230,7 +246,7 @@ pub fn engineer_verification_plan(
             step_ms,
             duration_ms,
             observed.len(),
-            task.settling_time_seconds,
+            task.slowest_settling_time_seconds(),
         )
     };
     Ok(VerificationPlan {
@@ -252,6 +268,42 @@ fn invalid_requirement(text: &str) -> Failure {
 /// The task requirements are missing or not finite.
 fn requirements_missing() -> Failure {
     invalid_requirement(&texts::task_requirements_missing())
+}
+
+/// The sentence of a validation duration that no time reads (the requirements page's `durationSeconds`).
+const VALIDATION_DURATION_TEXT: &str =
+    "The validation duration must be a time such as 90 s, 15 min or 1 h 30 min.";
+
+/// A validation duration as the number of seconds it names: a text that `duration_seconds_of_text` reads becomes its number, and any
+/// other value is kept as it is, so that a missing or mistyped value is refused by its caller. A text that no duration reads is
+/// refused under the field `durationSeconds`, which the requirements page marks.
+///
+/// # Errors
+/// Returns a [`Failure`] with the sentence of the unreadable text and the field it names.
+pub fn duration_as_seconds(value: &Value) -> Result<Value, Failure> {
+    match value {
+        Value::String(text) => duration_seconds_of_text(text)
+            .and_then(Number::from_f64)
+            .map(Value::Number)
+            .ok_or_else(|| {
+                invalid_requirement(VALIDATION_DURATION_TEXT).with_field("durationSeconds")
+            }),
+        other => Ok(other.clone()),
+    }
+}
+
+/// The sentence of a controlled output's requirements that are not a record of numbers (`channelRequirements`).
+const CHANNEL_REQUIREMENTS_INVALID: &str =
+    "The control requirements of a controlled output are not valid.";
+
+/// The requirements of each controlled output (`channelRequirements`), decoded as the record holds them. Their values are checked
+/// with the record ([`TuningRequirements::check`]).
+///
+/// # Errors
+/// Returns a [`Failure`] with the sentence of the requirements when an output's record is not a record of numbers.
+fn channel_requirements_of(value: &Value) -> Result<BTreeMap<String, OutputRequirements>, Failure> {
+    serde_json::from_value(value.clone())
+        .map_err(|_| invalid_requirement(CHANNEL_REQUIREMENTS_INVALID))
 }
 
 /// The loop has no parameter binding or no setpoint, so no plan can be made.
@@ -390,7 +442,7 @@ fn task_period_ms(loop_definition: &LoopDefinition) -> Result<f64, Failure> {
 /// Returns a [`Failure`] when the run is longer than the limit or does not run past the deadline.
 fn run_duration_ms(task: &EngineerRequirements, period_ms: f64) -> Result<f64, Failure> {
     let duration = (task.duration_seconds * 1_000.0 / period_ms).ceil() * period_ms;
-    let deadline = response_deadline_seconds(task.settling_time_seconds, period_ms);
+    let deadline = response_deadline_seconds(task.slowest_settling_time_seconds(), period_ms);
     if whole_ms(duration) > ISOLATED_SIMULATION_DURATION_LIMIT_MS || deadline >= duration / 1_000.0
     {
         return Err(Failure::new(
@@ -515,28 +567,42 @@ fn output_requirements(
     Ok(requirements)
 }
 
-/// The task an output is held to: the channel's own requirements when it declares them, else the task itself for the loop's process
-/// variable (`TypeScript` `output.requirements ?? (output.signal.symbol === processVariable.symbol ? task : undefined)`). A channel's own
-/// requirements carry no overshoot limit.
+/// The task an output is held to (B4.3, C7): its own record in the task's `channelRequirements`, else the channel's own requirements, else,
+/// for the loop's process variable, the task itself (`TypeScript` `output.requirements ?? (output.signal.symbol === processVariable.symbol
+/// ? task : undefined)`).
 fn output_task(
     output: &BoundOutput<'_>,
     loop_definition: &LoopDefinition,
     task: &EngineerRequirements,
 ) -> Option<EngineerRequirements> {
-    match output.requirements {
-        Some(own) => Some(EngineerRequirements {
-            reference_change: own.reference_change,
-            maximum_error: own.maximum_error,
-            settling_band: own.settling_band,
-            settling_time_seconds: own.settling_time_seconds,
-            maximum_overshoot_percent: None,
-            ..task.clone()
-        }),
-        None if output.signal.symbol
-            == loop_definition.signals.process_variable.symbol.as_str() =>
-        {
-            Some(task.clone())
-        }
+    let process_variable =
+        output.signal.symbol == loop_definition.signals.process_variable.symbol.as_str();
+    output_task_of(
+        task,
+        &output.channel.id,
+        output.requirements,
+        process_variable,
+    )
+}
+
+/// The task that the output `channel` of a loop is held to, in the order of [`output_task`]. A channel's own requirements carry no
+/// overshoot limit. `None` when the output declares none, which the caller refuses (`output_requirements_missing`).
+pub(crate) fn output_task_of(
+    task: &EngineerRequirements,
+    channel: &str,
+    own: Option<ChannelRequirements>,
+    process_variable: bool,
+) -> Option<EngineerRequirements> {
+    if let Some(entry) = task
+        .channel_requirements
+        .as_ref()
+        .and_then(|channels| channels.get(channel))
+    {
+        return Some(task.for_output(entry));
+    }
+    match own {
+        Some(own) => Some(task.for_output(&OutputRequirements::of_channel(own))),
+        None if process_variable => Some(task.clone()),
         None => None,
     }
 }
@@ -790,6 +856,14 @@ fn record_every(step_ms: u64, duration_ms: u64, observed: usize, settling_second
 fn whole_ms(value: f64) -> u64 {
     value as u64
 }
+
+#[cfg(test)]
+#[path = "engineer_verification_plan_task_tests.rs"]
+mod task_tests;
+
+#[cfg(test)]
+#[path = "engineer_verification_plan_test_support.rs"]
+mod test_support;
 
 #[cfg(test)]
 #[path = "engineer_verification_plan_tests.rs"]

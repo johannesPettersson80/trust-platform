@@ -12,7 +12,7 @@ use std::path::Path;
 
 use serde_json::{json, Value};
 use trust_control::commissioning::adapters::controller_adapter;
-use trust_control::commissioning::application_records::ApplyOutcome;
+use trust_control::commissioning::application_records::{ApplyOutcome, ReviewConfirmation};
 use trust_control::commissioning::application_texts::{physical_approval_needed, review_changed};
 use trust_control::commissioning::apply_texts::checkpoint_unresolved;
 use trust_control::commissioning::checkpoint::{CheckpointStage, CommissioningCheckpoint};
@@ -169,6 +169,10 @@ fn a_pid_loop_found_in_manual_is_applied_and_keeps_its_settings() {
             outcome.keep_available
         ),
         (false, true, true)
+    );
+    assert!(
+        !outcome.apply_available,
+        "the settings stand, so Restore holds the position and Apply is not offered until a validation passes again (B7)"
     );
     {
         let world = plant.world();
@@ -695,6 +699,7 @@ fn a_physical_target_is_reviewed_and_its_confirmation_needs_the_approval() {
     let refused = in_context(&loop_definition, &plant, &folder, |context| {
         let review = review_with(context, &inputs).expect("a physical target is reviewed");
         assert!(review.physical);
+        assert_eq!(review.confirmation, ReviewConfirmation::Approval);
         let clock = || 0_u64;
         run_confirmed(
             context,
@@ -709,6 +714,28 @@ fn a_physical_target_is_reviewed_and_its_confirmation_needs_the_approval() {
     assert_eq!(plant.world().log, [] as [&str; 0]);
     assert!(journaled(&loop_definition, &folder).is_none());
     let _ = std::fs::remove_dir_all(&folder);
+}
+
+/// A2.4, A2.5, B9.3: the review says how it is confirmed, so the page decides nothing from the target's kind: the press of Apply
+/// confirms it on a simulated target, and the engineer's approval on a physical one.
+#[test]
+fn a_review_says_whether_the_press_or_the_approval_confirms_it() {
+    for (physical, name, expected) in [
+        (false, "confirmation-simulated", ReviewConfirmation::Press),
+        (true, "confirmation-physical", ReviewConfirmation::Approval),
+    ] {
+        let loop_definition = pid_loop();
+        let plant = Plant::start(&loop_definition, false, Response::FollowsTarget);
+        plant.world().physical = physical;
+        let folder = scratch(name);
+        let inputs = inputs(&gains(0.5), 0.0);
+        let review = in_context(&loop_definition, &plant, &folder, |context| {
+            review_with(context, &inputs)
+        })
+        .expect("the target is reviewed");
+        assert_eq!((review.physical, review.confirmation), (physical, expected));
+        let _ = std::fs::remove_dir_all(&folder);
+    }
 }
 
 /// B6.2 (TS control-studio-commissioning-starting-point, "waits outside the settling band with its progress, and Abort ends the wait

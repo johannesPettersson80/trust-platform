@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 
-import { formatDurationSeconds, parseDurationSeconds } from "../controlStudio/webview/durationField";
+import { formatDurationSeconds } from "../controlStudio/webview/durationField";
 
 export interface CompactNumberField {
   key: string;
@@ -9,14 +9,15 @@ export interface CompactNumberField {
   signal?: string;
   /** The text shown in the Signal column, for example a role name; the symbol stays the hover text. */
   signalLabel?: string;
-  value?: number;
-  minimum?: number;
-  maximum?: number;
-  unit?: string;
+  /**
+   * A number, or the text of a value: the engine's words for a duration, or what the engineer typed. A text is shown as it is, and a number
+   * of a duration in its largest unit.
+   */
+  value?: number | string;
   /** A blank optional field is left out of the committed values; its placeholder names what applies instead. */
   optional?: boolean;
   placeholder?: string;
-  /** A duration in seconds: typed as "90 s", "15 min", "1 h 30 min" or plain seconds, and shown in its largest unit. */
+  /** A duration: typed as "90 s", "15 min", "1 h 30 min" or plain seconds. The engine reads the text and checks its range. */
   duration?: boolean;
   /** Shown only inside the editor's collapsed More… section. */
   more?: boolean;
@@ -27,7 +28,10 @@ export interface CompactEditorIssue {
   message: string;
 }
 
-/** A small labelled editor using shared truST controls and native dialog focus handling. Done reports every invalid field at once. */
+/**
+ * A small labelled editor using shared truST controls and native dialog focus handling. Done commits what was typed: a number for an entry
+ * that reads as one, and the text for any other, which the engine reads and refuses under its field (`initialIssue` shows that refusal).
+ */
 export function openCompactNumberEditor(options: {
   title: string;
   fields: readonly CompactNumberField[];
@@ -36,11 +40,10 @@ export function openCompactNumberEditor(options: {
   /** Requirements only: false hides the Signal column for a loop with one output. */
   showSignals?: boolean;
   moreLabel?: string;
+  /** The engine's refusal of the last values, shown under the field it names. */
   initialIssue?: CompactEditorIssue;
   cancelled?: () => void;
-  validate?: (values: Readonly<Record<string, number>>) => CompactEditorIssue | readonly CompactEditorIssue[] | undefined;
-  beforeCommit?: () => string | undefined;
-  commit: (values: Readonly<Record<string, number>>) => void;
+  commit: (values: Readonly<Record<string, number | string>>) => void;
 }): HTMLDialogElement {
   document.querySelector("[data-trust-compact-editor]")?.remove();
   const opener = document.activeElement;
@@ -58,7 +61,7 @@ export function openCompactNumberEditor(options: {
   const inputs = new Map<string, HTMLInputElement>();
   const notices = new Map<string, HTMLElement>();
   const groups = new Map<string, HTMLElement>();
-  /** A duration keeps its number while its text is unchanged, so display rounding never edits a stored value. */
+  /** A duration given as a number keeps it while its text is unchanged, so the rounding of the display never edits a stored value. */
   const originals = new Map<string, { text: string; seconds: number }>();
   if (options.rowLayout === "requirements") {
     form.classList.add("trust-compact-editor-requirements");
@@ -90,13 +93,13 @@ export function openCompactNumberEditor(options: {
     if (field.duration) {
       input.type = "text";
       input.placeholder = field.placeholder ?? "90 s, 15 min or 1 h 30 min";
-      if (field.value !== undefined) { input.value = formatDurationSeconds(field.value); originals.set(field.key, { text: input.value, seconds: field.value }); }
+      if (typeof field.value === "number") { input.value = formatDurationSeconds(field.value); originals.set(field.key, { text: input.value, seconds: field.value }); }
+      // A text is shown as it is: the engine's words, or what the engineer typed, which goes back as typed.
+      else if (field.value !== undefined) input.value = String(field.value);
     } else {
       input.type = "number"; input.step = "any";
       if (field.placeholder) input.placeholder = field.placeholder;
       if (field.value !== undefined) input.value = String(field.value);
-      if (field.minimum !== undefined) input.min = String(field.minimum);
-      if (field.maximum !== undefined) input.max = String(field.maximum);
     }
     input.id = `${heading.id}-${field.key}`; label.htmlFor = input.id;
     input.setAttribute(options.fieldAttribute, field.key);
@@ -136,48 +139,31 @@ export function openCompactNumberEditor(options: {
       input.removeAttribute("aria-invalid"); input.classList.remove("trust-input--error"); notices.get(key)!.hidden = true;
     }
   };
-  /** Every invalid field is marked; focus goes to the first one in reading order. */
-  const report = (issues: readonly CompactEditorIssue[]): void => {
-    for (const issue of issues) mark(issue.field, issue.message);
-    if (issues.length) inputs.get(issues[0].field)?.focus();
-  };
-  const issueList = (value: CompactEditorIssue | readonly CompactEditorIssue[] | undefined): readonly CompactEditorIssue[] =>
-    value === undefined ? [] : "field" in value ? [value] : value;
   form.addEventListener("submit", event => {
     event.preventDefault();
     clearMarks();
-    const values: Record<string, number> = {};
-    const issues: CompactEditorIssue[] = [];
+    const values: Record<string, number | string> = {};
     for (const field of options.fields) {
       const input = inputs.get(field.key)!;
       const text = input.value.trim();
       if (field.optional && !text) continue;
       if (field.duration) {
+        // The typed text goes to the engine, which reads it and refuses one it cannot read, a blank one included, under this field.
         const original = originals.get(field.key);
-        const seconds = original && text === original.text ? original.seconds : parseDurationSeconds(text);
-        if (seconds === undefined || !Number.isFinite(seconds)) { issues.push({ field: field.key, message: "Enter a duration such as 90 s, 15 min or 1 h 30 min." }); continue; }
-        if (field.minimum !== undefined && seconds < field.minimum) { issues.push({ field: field.key, message: `Use ${formatDurationSeconds(field.minimum)} or more.` }); continue; }
-        if (field.maximum !== undefined && seconds > field.maximum) { issues.push({ field: field.key, message: `Use ${formatDurationSeconds(field.maximum)} or less.` }); continue; }
-        values[field.key] = seconds;
+        values[field.key] = original && text === original.text ? original.seconds : text;
         continue;
       }
-      if (!text || !Number.isFinite(input.valueAsNumber)) { issues.push({ field: field.key, message: `Enter ${field.label.toLowerCase()}.` }); continue; }
-      const value = input.valueAsNumber;
-      if (field.minimum !== undefined && value < field.minimum) { issues.push({ field: field.key, message: `Use ${field.minimum} or greater.` }); continue; }
-      if (field.maximum !== undefined && value > field.maximum) { issues.push({ field: field.key, message: `Use ${field.maximum} or less.` }); continue; }
-      values[field.key] = value;
+      // A number input holds no text it cannot read, so an entry that is no number is blank: the engine refuses the empty text under its field.
+      values[field.key] = text && Number.isFinite(input.valueAsNumber) ? input.valueAsNumber : text;
     }
-    if (issues.length) { report(issues); return; }
-    // Relations between fields are checked once every single field is valid, so each reported problem is a real one.
-    const crossIssues = issueList(options.validate?.(values));
-    if (crossIssues.length) { report(crossIssues); return; }
-    const scenarioIssue = options.beforeCommit?.();
-    if (scenarioIssue) { const notice = form.querySelector<HTMLElement>("[data-compact-scenario-error]"); if (notice) { notice.textContent = scenarioIssue; notice.hidden = false; } return; }
     options.commit(values); committed = true; dialog.close();
   });
   cancel.addEventListener("click", () => dialog.close());
   dialog.addEventListener("close", () => { if (!committed) options.cancelled?.(); dialog.remove(); if (opener instanceof HTMLElement && opener.isConnected) opener.focus(); });
   dialog.showModal();
-  if (options.initialIssue) report([options.initialIssue]);
+  if (options.initialIssue) {
+    mark(options.initialIssue.field, options.initialIssue.message);
+    inputs.get(options.initialIssue.field)?.focus();
+  }
   return dialog;
 }

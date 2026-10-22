@@ -18,6 +18,7 @@ use crate::setup::catalog::{decode_catalog_answer, CompiledCatalog};
 use crate::setup::loop_bindings::FormSignal;
 use crate::setup::pid_bindings::startup_state;
 use crate::setup::pid_loop::{ModeChoice, SignalChoice};
+use crate::setup::save::{parse_setup_draft, plan_setup_save};
 
 fn scope() -> LoopScope {
     LoopScope {
@@ -561,5 +562,143 @@ fn the_mode_and_the_manual_output_are_bound_as_the_engineer_chose() {
     assert_eq!(
         loop_definition.signals.manipulated_variable.direction,
         crate::loop_definition::Direction::Write
+    );
+}
+
+#[test]
+fn a_blank_question_of_an_own_law_setup_is_refused_under_its_field() {
+    // The form asks the questions in order; each blank one is refused with its sentence under the field it names (B1.3, C2).
+    let refused = |draft: OwnLawLoopDraft| {
+        own_law_loop_definition(&oven(), &scope(), &draft).expect_err("refused")
+    };
+    let blank_gain = refused(OwnLawLoopDraft {
+        proportional_gain: gain("", 0.0, 20.0),
+        ..pi_draft()
+    });
+    assert_eq!(
+        blank_gain.message,
+        "Choose the variable holding the proportional gain."
+    );
+    assert_eq!(blank_gain.field.as_deref(), Some("own.proportionalGain"));
+    let blank_setpoint = refused(OwnLawLoopDraft {
+        setpoint: SignalChoice {
+            symbol: String::new(),
+            unit: None,
+            minimum: None,
+            maximum: None,
+        },
+        ..pi_draft()
+    });
+    assert_eq!(blank_setpoint.message, "Choose the setpoint.");
+    assert_eq!(blank_setpoint.field.as_deref(), Some("own.setpoint"));
+    let blank_instance = refused(OwnLawLoopDraft {
+        instance: String::new(),
+        ..pi_draft()
+    });
+    assert_eq!(
+        blank_instance.message,
+        "Choose the instance that computes the law."
+    );
+    assert_eq!(blank_instance.field.as_deref(), Some("own.instance"));
+}
+
+#[test]
+fn a_bound_the_form_sends_blank_is_refused_under_that_bound() {
+    // A blank bound is posted as null, which reads as no number; the refusal names the bound (`gainValue`, `loopSetupForm.ts`).
+    let blank: OwnLawGain =
+        serde_json::from_value(json!({ "symbol": "P1.Kp", "minimum": null, "maximum": 20.0 }))
+            .expect("the gain decodes");
+    let refusal = own_law_loop_definition(
+        &oven(),
+        &scope(),
+        &OwnLawLoopDraft {
+            proportional_gain: blank,
+            ..pi_draft()
+        },
+    )
+    .expect_err("a blank minimum is refused");
+    assert_eq!(
+        refusal.message,
+        "Enter the proportional gain minimum and maximum."
+    );
+    assert_eq!(
+        refusal.field.as_deref(),
+        Some("own.proportionalGain.minimum")
+    );
+}
+
+/// The draft of the oven's own `law` as the setup form posts it (B1.3): every field of the own-law section, the ranges typed as text,
+/// the integral variables and the startup flag, and the derivative variables of `derivative`, whatever the law.
+fn posted_own_law(law: &str, derivative: &Value) -> Value {
+    json!({
+        "structure": "own-law", "name": "Oven", "action": "direct", "law": law, "instance": "P1",
+        "processVariable": { "symbol": "P1.OvenC", "unit": "degC", "minimum": "0", "maximum": "300" },
+        "setpoint": { "symbol": "P1.SetpointC" },
+        "manipulatedVariable": { "symbol": "P1.HeaterPct", "unit": "%", "minimum": "0", "maximum": "100" },
+        "mode": { "symbol": "P1.AutoMode", "whenTrue": "Auto" }, "manualOutput": "P1.ManualPct",
+        "proportionalGain": { "symbol": "P1.Kp", "minimum": "0", "maximum": "20" }, "startupFlag": "P1.Started",
+        "integralGain": { "symbol": "P1.Ki", "minimum": "0", "maximum": "2" }, "integralTerm": "P1.Integral",
+        "derivativeGain": derivative["gain"], "derivativeState": derivative["state"], "derivativeOn": derivative["on"]
+    })
+}
+
+/// R2 (B1.3: the form posts every field it shows, and the engine takes the fields that the law needs and ignores the others; C2): the
+/// oven's P law, posted with the integral variables of the PI it was before and a blank derivative row, binds the proportional gain alone
+/// and starts no law state; its PI, posted with a complete derivative row (`P1.Kd` from 0 to 50, the previous error, on the error), binds
+/// the proportional and integral gains with their typed ranges, 0 to 20 and 0 to 2, and seeds no derivative. The wrong behaviour caught:
+/// a law that refuses, binds or seeds a gain or term it does not compute, now that the page no longer leaves those fields out.
+#[test]
+fn setup_draft_ignores_gains_the_law_does_not_take() {
+    let planned = |draft: &Value| {
+        let draft = parse_setup_draft(draft).expect("the posted draft decodes");
+        let mut planned = plan_setup_save(&oven(), &scope(), &draft).expect("the loop is planned");
+        planned.remove(0).loop_definition
+    };
+    let gains = |loop_definition: &LoopDefinition| -> Vec<(String, f64, f64)> {
+        loop_definition
+            .parameter_binding
+            .as_ref()
+            .expect("the gains are bound")
+            .parameters
+            .iter()
+            .map(|parameter| {
+                (
+                    parameter.symbol.clone(),
+                    parameter.minimum,
+                    parameter.maximum,
+                )
+            })
+            .collect()
+    };
+
+    let blank_derivative = json!({ "gain": { "symbol": "", "minimum": "", "maximum": "" }, "state": null, "on": null });
+    let p = planned(&posted_own_law("P", &blank_derivative));
+    let project = project_of(&p);
+    assert_eq!(
+        project["seed"],
+        json!({ "kind": "parallel-pid", "family": "P", "proportionalSymbol": "P1.Kp" })
+    );
+    assert_eq!(gains(&p), vec![("P1.Kp".to_string(), 0.0, 20.0)]);
+    assert_eq!(
+        project["initialization"]["states"],
+        json!([]),
+        "a P law starts no integral term"
+    );
+
+    let derivative = json!({
+        "gain": { "symbol": "P1.Kd", "minimum": "0", "maximum": "50" }, "state": "P1.PreviousErrorC", "on": "error"
+    });
+    let pi = planned(&posted_own_law("PI", &derivative));
+    assert_eq!(
+        project_of(&pi)["seed"],
+        json!({ "kind": "parallel-pid", "family": "PI", "proportionalSymbol": "P1.Kp", "integralSymbol": "P1.Ki" })
+    );
+    assert_eq!(
+        gains(&pi),
+        vec![
+            ("P1.Kp".to_string(), 0.0, 20.0),
+            ("P1.Ki".to_string(), 0.0, 2.0)
+        ],
+        "a PI law binds no derivative gain"
     );
 }

@@ -24,6 +24,7 @@ pub mod current_model;
 pub mod general_model_persistence;
 pub mod identify;
 pub mod inputs;
+pub mod inputs_change;
 pub mod manual_identification;
 pub mod run_plan;
 pub mod tune;
@@ -156,6 +157,11 @@ impl Study {
             ));
         }
         Ok(Some(section))
+    }
+
+    /// Removes the study's section `S`, when it has one: a result that a change invalidates goes with it (A8.4).
+    pub fn remove_section<S: StudySection>(&mut self) {
+        self.sections.remove(S::KEY);
     }
 
     /// Keeps `section` as the study's section `S`, replacing an earlier one, and lists the recordings it refers to.
@@ -342,6 +348,20 @@ mod tests {
             text,
             "the same study gives the same text"
         );
+    }
+
+    #[test]
+    fn a_removed_section_is_gone_and_removing_an_absent_one_changes_nothing() {
+        use crate::study::inputs::InputsSection;
+        let mut study = Study::new("loop:tank", "sha256:abc");
+        study
+            .set_section(&InputsSection::default())
+            .expect("the inputs are kept");
+        study.remove_section::<InputsSection>();
+        assert_eq!(study.section::<InputsSection>().expect("read"), None);
+        let before = study.clone();
+        study.remove_section::<InputsSection>();
+        assert_eq!(study, before);
     }
 
     #[test]

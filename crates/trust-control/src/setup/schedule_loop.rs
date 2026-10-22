@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 
 use super::catalog::{CompiledCatalog, CompiledSymbol, CompiledTask, PID_TYPE};
 use super::loop_bindings::{
-    binding, compiled, cyclic_task, explicit_experiment, loop_id, manual_output_type,
+    binding, compiled, cyclic_task, explicit_experiment, form_number, loop_id, manual_output_type,
     measured_signal, measurement_binding, real_type, stated_signal, with_revision, FormSignal,
     MeasuredSignal,
 };
@@ -43,17 +43,20 @@ const WALL_BUDGET_MS: u64 = 60_000;
 /// The requirement that Tune ranks the schedule's candidates by (C2, C10).
 const REQUIREMENT: &str = "target-error";
 
-/// One operating point as the setup form confirmed it (`SchedulePointDraft`, C10 Setup).
+/// One operating-point row as the setup form sends it (`SchedulePointDraft`, C10 Setup). The form sends every row it draws, and a row
+/// with no entry is no point (B1.3).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SchedulePointDraft {
     /// The point's name.
     pub name: String,
-    /// The point's value of the scheduling variable, in its unit; absent when the form leaves it blank.
-    #[serde(default)]
+    /// The point's value of the scheduling variable, in its unit, as the form's text reads it (`form_number`): absent when the form
+    /// leaves it blank, NaN when no number reads it.
+    #[serde(default, deserialize_with = "form_number")]
     pub value: Option<f64>,
-    /// The tolerance on that value, in the scheduling variable's unit (D-21); absent when the form leaves it blank.
-    #[serde(default)]
+    /// The tolerance on that value, in the scheduling variable's unit (D-21), as the form's text reads it: absent when the form leaves
+    /// it blank, NaN when no number reads it.
+    #[serde(default, deserialize_with = "form_number")]
     pub tolerance: Option<f64>,
     /// The program's proportional gain variable for the point.
     pub proportional_gain: String,
@@ -96,7 +99,7 @@ pub struct ScheduleLoopDraft {
     pub mode: ModeChoice,
     /// The manual output.
     pub manual_output: String,
-    /// The operating points, in the order of their values: two to four.
+    /// The operating-point rows the form draws, in the order of their values; the rows that have an entry are the points, two to four.
     pub points: Vec<SchedulePointDraft>,
     /// The identification experiment's output step; Identify chooses it when absent.
     pub experiment_step: Option<f64>,
@@ -132,6 +135,7 @@ pub fn schedule_loop_definitions(
     scope: &LoopScope,
     draft: &ScheduleLoopDraft,
 ) -> Result<Vec<LoopDefinition>, Failure> {
+    let draft = &with_entered_points(draft);
     let task = schedule_task(catalog, draft)?;
     check_points(draft)?;
     check_variables(catalog, draft)?;
@@ -236,18 +240,36 @@ fn check_points(draft: &ScheduleLoopDraft) -> Result<(), Failure> {
     Ok(())
 }
 
-/// The value and the tolerance of an operating point, which the form may leave blank: each blank one is refused with its sentence (C10
-/// Setup). The form sends no row number, so the sentence names the operating point rather than a field.
+/// The draft with only the operating-point rows that have an entry (B1.3, C10 Setup): the form sends every row it draws, and a row whose
+/// name, value, tolerance and gain variables are all blank is no point.
+fn with_entered_points(draft: &ScheduleLoopDraft) -> ScheduleLoopDraft {
+    let entered = |point: &&SchedulePointDraft| {
+        !point.name.trim().is_empty()
+            || point.value.is_some()
+            || point.tolerance.is_some()
+            || !point.proportional_gain.trim().is_empty()
+            || !point.integral_gain.trim().is_empty()
+    };
+    ScheduleLoopDraft {
+        points: draft.points.iter().filter(entered).cloned().collect(),
+        ..draft.clone()
+    }
+}
+
+/// The value and the tolerance of an operating point, which the form may leave blank or type as text that no number reads: each such
+/// one is refused with its sentence (C10 Setup), which names the operating point.
 ///
 /// # Errors
-/// The point has no value, or no tolerance.
+/// The point has no value, or no tolerance, that is a number.
 fn point_numbers(point: &SchedulePointDraft) -> Result<(f64, f64), Failure> {
     let name = point.name.trim();
     let value = point
         .value
+        .filter(|value| value.is_finite())
         .ok_or_else(|| refuse(&texts::schedule_value_needed(name)))?;
     let tolerance = point
         .tolerance
+        .filter(|tolerance| tolerance.is_finite())
         .ok_or_else(|| refuse(&texts::schedule_tolerance_needed(name)))?;
     Ok((value, tolerance))
 }

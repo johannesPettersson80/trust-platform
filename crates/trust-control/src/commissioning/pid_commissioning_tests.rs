@@ -657,3 +657,30 @@ fn the_declared_structure_takes_its_own_label_and_tracking_kind() {
         "parallel-pid-v1"
     );
 }
+
+#[test]
+fn a_failure_and_its_recovery_are_two_sentences_with_a_full_stop_between_them() {
+    // TS control-studio-controller-choice-persistence, "reports a failed Apply and its recovery as separate sentences" (A6.3, B6.7): the
+    // failure keeps its words and gains a full stop when it has none, and the outcome of the recovery follows as its own sentence.
+    use crate::commissioning::texts::{
+        prop_commission_recovery_unconfirmed, recovery_confirmed_reason, recovery_with_outcome,
+    };
+    assert_eq!(
+        recovery_with_outcome(
+            "first controller output P1.AppliedPowerPct violates reviewed transfer tolerance",
+            &recovery_confirmed_reason("manual"),
+        ),
+        "first controller output P1.AppliedPowerPct violates reviewed transfer tolerance. Recovery confirmed in Manual; previous controller parameters restored."
+    );
+    assert_eq!(
+        recovery_confirmed_reason("auto"),
+        "Recovery confirmed in Auto; previous controller parameters restored."
+    );
+    assert_eq!(
+        recovery_with_outcome(
+            "The process did not settle.",
+            &prop_commission_recovery_unconfirmed("timeout"),
+        ),
+        "The process did not settle. Recovery unconfirmed: timeout"
+    );
+}

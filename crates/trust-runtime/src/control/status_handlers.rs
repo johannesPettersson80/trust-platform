@@ -1,6 +1,7 @@
 use std::sync::atomic::Ordering;
 
 use crate::io::{IoDriverHealth, IoDriverStatus};
+use crate::simulation::speed::speed_facts;
 use serde_json::json;
 
 use super::types::{runtime_event_to_json, HistorianAlertsParams, HistorianQueryParams};
@@ -65,6 +66,14 @@ pub(super) fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
     // Runtime settings are the single source of truth for selected backend mode/source.
     let execution_backend = settings.execution_backend.as_str();
     let execution_backend_source = settings.execution_backend_source.as_str();
+    // The target kind and the speed words come from one function, so every surface names the speed alike (specification 35, B9.2).
+    let only_io = state.debug.simulation_only_io().unwrap_or(false);
+    let speed = speed_facts(
+        simulation.enabled,
+        only_io,
+        simulation.time_scale,
+        metrics.simulation_achieved_time_scale,
+    );
     ControlResponse::ok(
         id,
         json!({
@@ -79,9 +88,12 @@ pub(super) fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
             "execution_backend_source": execution_backend_source,
             "simulation_mode": simulation.mode_label.as_str(),
             "simulation_enabled": simulation.enabled,
-            "simulation_only_io": state.debug.simulation_only_io().unwrap_or(false),
+            "simulation_only_io": only_io,
+            "simulated": speed.simulated,
             "simulation_time_scale": simulation.time_scale,
             "simulation_achieved_time_scale": metrics.simulation_achieved_time_scale,
+            "simulation_speed_text": speed.speed_text(),
+            "simulation_speed_behind": speed.speed_behind(),
             "simulation_warning": simulation.warning.as_str(),
             "cycle_interval_ms": settings.cycle_interval.as_millis(),
             "tasks": tasks,

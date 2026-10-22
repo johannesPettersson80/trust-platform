@@ -128,11 +128,12 @@ impl DebugAdapter {
         }
     }
 
-    /// Reports the simulation facts of the program that was just loaded to the control server (specification 35,
-    /// A2.4). A reload can attach or detach a physical driver.
-    pub(super) fn sync_control_simulation(&self) {
+    /// Reports the program that was just loaded to the control server (specification 35, A2.3 and A2.4): its tasks, the
+    /// cycle that the runner takes from them, and its simulation facts. A reload can change the tasks and attach or detach a
+    /// physical driver.
+    pub(super) fn sync_control_program(&self) {
         if let Some(server) = self.control_server.as_ref() {
-            server.refresh_simulation(self.session.simulation_facts());
+            server.refresh_program(self.session.as_ref());
         }
     }
 

@@ -93,7 +93,7 @@ fn draft() -> FeedforwardLoopDraft {
         manual_output: "P1.ManualPct".to_string(),
         disturbance: signal("P1.LoadKw", "kW", 0.0, 50.0),
         disturbance_command: "P1.LoadKw".to_string(),
-        disturbance_step: 10.0,
+        disturbance_step: Some(10.0),
         feedforward: FeedforwardVariables {
             gain: "P1.FeedforwardGain".to_string(),
             lead: Some("P1.LeadS".to_string()),
@@ -218,13 +218,63 @@ fn a_lead_without_its_lag_and_filtered_disturbance_is_refused_and_so_is_a_step_b
     );
 
     let mut too_large = draft();
-    too_large.disturbance_step = 60.0;
+    too_large.disturbance_step = Some(60.0);
     let refusal = feedforward_loop_definition(&heater(), &scope(), &too_large)
         .expect_err("the step is larger than the span");
     assert_eq!(
         refusal.message,
         "The disturbance step must be positive and at most 50 kW."
     );
+}
+
+#[test]
+fn the_blank_questions_of_a_feedforward_setup_are_refused_under_their_fields() {
+    // The form asks the questions in order; each blank one is refused with its sentence and the field the page shows it under (B1.3).
+    let mut no_step = draft();
+    no_step.disturbance_step = None;
+    let refusal = feedforward_loop_definition(&heater(), &scope(), &no_step)
+        .expect_err("a blank step is refused");
+    assert_eq!(
+        refusal.message,
+        "Enter the disturbance's identification step, in its unit."
+    );
+    assert_eq!(refusal.field.as_deref(), Some("ff.disturbanceStep"));
+
+    let mut no_command = draft();
+    no_command.disturbance_command = String::new();
+    let refusal = feedforward_loop_definition(&heater(), &scope(), &no_command)
+        .expect_err("a blank command is refused");
+    assert_eq!(
+        refusal.message,
+        "Choose the variable Identify steps to move the disturbance."
+    );
+    assert_eq!(refusal.field.as_deref(), Some("ff.disturbanceCommand"));
+
+    let mut no_gain = draft();
+    no_gain.feedforward.gain = String::new();
+    let refusal = feedforward_loop_definition(&heater(), &scope(), &no_gain)
+        .expect_err("a blank feedforward gain is refused");
+    assert_eq!(
+        refusal.message,
+        "Choose the variable holding the feedforward gain."
+    );
+    assert_eq!(refusal.field.as_deref(), Some("ff.gain"));
+
+    let mut no_filtered = draft();
+    no_filtered.feedforward.filtered = None;
+    let refusal = feedforward_loop_definition(&heater(), &scope(), &no_filtered)
+        .expect_err("the lead, lag and filtered disturbance are all or none");
+    assert_eq!(refusal.field.as_deref(), Some("ff.filtered"));
+}
+
+#[test]
+fn a_blank_measurement_is_refused_under_its_field() {
+    let mut blank = draft();
+    blank.process_variable = signal("", "degC", 0.0, 80.0);
+    let refusal = feedforward_loop_definition(&heater(), &scope(), &blank)
+        .expect_err("a blank measurement is refused");
+    assert_eq!(refusal.message, "Choose the measurement.");
+    assert_eq!(refusal.field.as_deref(), Some("processVariable"));
 }
 
 #[test]

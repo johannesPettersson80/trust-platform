@@ -82,13 +82,7 @@ fn preview_is_a_method_of_the_engine_and_a_malformed_request_is_refused_as_inval
         "settings": { "Kp": 2.5 },
     });
     with_method["method"] = json!("simc");
-    let not_numbers = json!({
-        "projectRoot": "/x",
-        "runtimeId": "simulator",
-        "loopId": "tank",
-        "settings": { "Kp": "two" },
-    });
-    for request in [json!({ "projectRoot": "/x" }), with_method, not_numbers] {
+    for request in [json!({ "projectRoot": "/x" }), with_method] {
         let reply = studio
             .execute(PREVIEW, &[request])
             .expect("the engine answers its own method");
@@ -146,9 +140,8 @@ fn preview_of_a_loop_the_project_does_not_declare_is_refused_to_open_the_loop_se
     assert!(!project.study_file().exists(), "a refusal writes nothing");
 }
 
-/// B4.5: a preview decodes with or without its connection, and the Tune request that it evaluates carries the connection it names.
 #[test]
-fn a_preview_request_decodes_with_or_without_its_connection_and_carries_it_to_tune() {
+fn a_preview_request_decodes_with_or_without_its_connection_and_names_no_structure_or_pins() {
     let plain: PreviewRequest = trust_control::json::decode_value(json!({
         "projectRoot": "/x",
         "runtimeId": "simulator",
@@ -157,7 +150,7 @@ fn a_preview_request_decodes_with_or_without_its_connection_and_carries_it_to_tu
     }))
     .expect("a preview request without a connection");
     assert_eq!(plain.connection, None);
-    assert_eq!(plain.tune_request().connection, None);
+    assert_eq!(plain.settings, Some(json!({ "Kp": 2.5 })));
     let connected: PreviewRequest = trust_control::json::decode_value(json!({
         "projectRoot": "/x",
         "runtimeId": "simulator",
@@ -167,5 +160,35 @@ fn a_preview_request_decodes_with_or_without_its_connection_and_carries_it_to_tu
     }))
     .expect("a preview request with a connection");
     assert!(connected.connection.is_some(), "{connected:?}");
-    assert_eq!(connected.tune_request().connection, connected.connection);
+    // The structure and the pins are the study's own (B4.2, B4.5), so a request that names them is refused.
+    let named = trust_control::json::decode_value::<PreviewRequest>(json!({
+        "projectRoot": "/x",
+        "runtimeId": "simulator",
+        "loopId": "tank",
+        "settings": { "Kp": 2.5 },
+        "structure": "PI",
+    }));
+    assert!(named.is_err(), "the structure is read from the study");
+}
+
+#[test]
+fn a_preview_without_settings_or_with_settings_that_are_not_numbers_is_refused_with_the_engine_sentence(
+) {
+    let project = Project::new("preview-settings");
+    let studio = ControlStudio::new(Arc::new(Ignore));
+    let missing = project.arguments();
+    let mut not_numbers = project.arguments();
+    not_numbers["settings"] = json!({ "Kp": "two" });
+    for request in [missing, not_numbers] {
+        let reply = studio
+            .execute(PREVIEW, &[request])
+            .expect("the engine answers its own method");
+        assert_eq!(
+            reply["failure"]["message"],
+            "The preview needs the controller settings, each by its symbol and as a number.",
+            "{reply}"
+        );
+        assert!(reply.get("result").is_none(), "{reply}");
+    }
+    assert!(nothing_started(studio.operations()), "nothing was started");
 }

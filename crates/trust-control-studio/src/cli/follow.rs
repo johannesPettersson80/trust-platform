@@ -174,6 +174,7 @@ mod tests {
             progress: None,
             result: None,
             failure: None,
+            message: None,
         }
     }
 

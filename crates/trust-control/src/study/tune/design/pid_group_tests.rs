@@ -6,13 +6,16 @@
 
 use serde_json::{json, Value};
 
-use super::run;
+use super::{group_failure, run};
+use crate::failure::{Cause, NextAction};
+use crate::identification::refusal::Refusal;
 use crate::loop_definition::LoopDefinition;
 use crate::messages::{CandidateOutcome, TuneRequest};
 use crate::study::current_model::{CurrentModel, CurrentModelSource};
 use crate::study::tune::TuneInputs;
 use crate::tuning::requirements::TuningRequirements;
 use crate::tuning::structures::fixtures::{decoupler_zones_model, zones_model};
+use crate::tuning::structures::pid_group::GroupRefusal;
 
 /// The loop of a two-member group: each member's gains are its own record's three symbols, and the program's seed is `seed`.
 fn group_loop(family: &str, seed: &Value, members: &[(&str, &str, &str, &str)]) -> LoopDefinition {
@@ -145,6 +148,7 @@ fn a_decoupled_group_writes_every_member_gain_and_every_decoupler_entry_from_d_e
         previous: None,
         request: &request,
         relay: None,
+        pins: None,
     };
     let outcome = run(&inputs, Some(&requirements())).expect("the decoupled group is designed");
 
@@ -216,6 +220,7 @@ fn a_paired_group_designs_each_member_on_its_own_path_with_no_decoupler() {
         previous: None,
         request: &request,
         relay: None,
+        pins: None,
     };
     let outcome = run(&inputs, Some(&requirements())).expect("the paired group is designed");
     let group = outcome.result.group.expect("the answer names the group");
@@ -239,6 +244,175 @@ fn a_paired_group_designs_each_member_on_its_own_path_with_no_decoupler() {
 }
 
 #[test]
+fn a_groups_answer_names_each_channel_by_the_signal_the_loop_binds_to_it() {
+    // L19: the page named a member's channels by looking the channel up in the loop's channels and signals (and fell back to the channel
+    // identifier). The answer names them, so the page resolves nothing. The decoupled zones bind their heaters to the manipulated variable
+    // `P1.Heater1Pct` and their zones to the process variable `P1.Zone1C`; the paired zones' channels `u1` to `y2` are bound to no signal
+    // the loop declares, so each is named by its identifier.
+    let current = |model| CurrentModel {
+        source: CurrentModelSource::Supplied,
+        model,
+        identify: None,
+    };
+    let request = request(&json!({}));
+    let decoupled = decoupled_loop();
+    let model = current(decoupler_zones_model());
+    let outcome = run(
+        &TuneInputs {
+            loop_definition: &decoupled,
+            model: Some(&model),
+            previous: None,
+            request: &request,
+            relay: None,
+            pins: None,
+        },
+        Some(&requirements()),
+    )
+    .expect("the decoupled group is designed");
+    let group = outcome.result.group.expect("the answer names the group");
+    let named: Vec<(Option<&str>, Option<&str>)> = group
+        .members
+        .iter()
+        .map(|member| (member.input_name.as_deref(), member.output_name.as_deref()))
+        .collect();
+    assert_eq!(
+        named,
+        [
+            (Some("P1.Heater1Pct"), Some("P1.Zone1C")),
+            (Some("P1.Heater1Pct"), Some("P1.Zone1C")),
+        ]
+    );
+    assert_eq!(
+        group.decoupler.and_then(|decoupler| decoupler.input_names),
+        Some(vec!["P1.Heater1Pct".to_owned(), "P1.Heater1Pct".to_owned()]),
+        "the rows of D are named as the members' inputs are"
+    );
+
+    let paired = paired_loop();
+    let model = current(zones_model());
+    let outcome = run(
+        &TuneInputs {
+            loop_definition: &paired,
+            model: Some(&model),
+            previous: None,
+            request: &request,
+            relay: None,
+            pins: None,
+        },
+        Some(&requirements()),
+    )
+    .expect("the paired group is designed");
+    let group = outcome.result.group.expect("the answer names the group");
+    assert_eq!(
+        (
+            group.members[0].input_name.as_deref(),
+            group.members[1].output_name.as_deref()
+        ),
+        (Some("u1"), Some("y2")),
+        "a channel the loop binds to no signal is named by its identifier"
+    );
+}
+
+/// The zones' requirements with the second output's own record: its settling time is `settling_time_seconds`, and the record's own
+/// values, the first output's, keep 40 s (B4.3, C7).
+fn requirements_with_second_output(settling_time_seconds: f64) -> TuningRequirements {
+    serde_json::from_value(json!({
+        "referenceChange": 1.0, "maximumError": 0.3, "settlingBand": 0.1,
+        "settlingTimeSeconds": 40.0, "durationSeconds": 80.0,
+        "channelRequirements": {
+            "y2": {
+                "referenceChange": 1.0, "maximumError": 0.3, "settlingBand": 0.1,
+                "settlingTimeSeconds": settling_time_seconds
+            }
+        }
+    }))
+    .expect("the requirements with the second output's own record")
+}
+
+#[test]
+fn a_paired_member_is_designed_to_its_own_settling_time_and_the_first_keeps_the_record() {
+    // C7, step 3: on the zones' path (τ = 7.97 s, no delay), Robust's λ = 4τ/3 leaves 0.24 of the change at 15 s, outside the 0.1 band,
+    // so Robust misses; Balanced's λ = 2τ/3 leaves 0.06, inside it. Member two is then Balanced: its Kp = τ/(K·λ) is twice Robust's, and
+    // its Ti = τ in both. Member one keeps the record's 40 s, which Robust meets.
+    let loop_definition = paired_loop();
+    let current = CurrentModel {
+        source: CurrentModelSource::Supplied,
+        model: zones_model(),
+        identify: None,
+    };
+    let request = request(&json!({}));
+    let inputs = TuneInputs {
+        loop_definition: &loop_definition,
+        model: Some(&current),
+        previous: None,
+        request: &request,
+        relay: None,
+        pins: None,
+    };
+    let shared = run(&inputs, Some(&requirements()))
+        .expect("the group designed on the record")
+        .result
+        .group
+        .expect("the answer names the group");
+    let own = run(&inputs, Some(&requirements_with_second_output(15.0)))
+        .expect("the group designed on the second output's own record");
+    let own_group = own.result.group.expect("the answer names the group");
+
+    assert_eq!(
+        own_group.members[0], shared.members[0],
+        "member one holds to the record"
+    );
+    let robust = &shared.members[1];
+    let balanced = &own_group.members[1];
+    let proportional_ratio = balanced.gains.proportional_gain / robust.gains.proportional_gain;
+    let integral_ratio = balanced.gains.integral_gain / robust.gains.integral_gain;
+    // The two-point read of the path finds a delay of the order of 1e-7 s, not exactly zero, and Kp = τ/(K·(λ + θ)): the ratio is
+    // two to within that read, about 1e-8.
+    assert!(
+        (proportional_ratio - 2.0).abs() < 1e-6,
+        "Balanced's Kp is twice Robust's: {proportional_ratio}"
+    );
+    assert!(
+        (integral_ratio - 2.0).abs() < 1e-6,
+        "Balanced's Ki is twice Robust's: {integral_ratio}"
+    );
+    assert_eq!(balanced.gains.derivative_gain, 0.0);
+    // The values Apply writes are the members' designs.
+    assert_eq!(
+        own_group.values["P1.Zone2Parameters.ProportionalGain"],
+        balanced.gains.proportional_gain
+    );
+}
+
+#[test]
+fn a_member_that_no_simc_response_meets_is_refused_and_its_poles_are_not_placed() {
+    // One second is faster than the zones' Fast response (λ = τ/3 = 2.7 s), so no SIMC response meets member two's record. Automatic
+    // would place poles for it (C1), but a group member is a SIMC PI (C7), so Tune refuses the group with the shortfall.
+    let loop_definition = paired_loop();
+    let current = CurrentModel {
+        source: CurrentModelSource::Supplied,
+        model: zones_model(),
+        identify: None,
+    };
+    let request = request(&json!({}));
+    let inputs = TuneInputs {
+        loop_definition: &loop_definition,
+        model: Some(&current),
+        previous: None,
+        request: &request,
+        relay: None,
+        pins: None,
+    };
+    let failure = run(&inputs, Some(&requirements_with_second_output(1.0)))
+        .expect_err("no SIMC response meets member two's record");
+    let text = failure.detail.unwrap_or(failure.message);
+    assert!(
+        text.contains("cannot meet the requirements on the model"),
+        "{text}"
+    );
+}
+
+#[test]
 fn a_group_takes_only_automatic_and_no_pins() {
     let loop_definition = decoupled_loop();
     let current = CurrentModel {
@@ -253,6 +427,7 @@ fn a_group_takes_only_automatic_and_no_pins() {
         previous: None,
         request: &named,
         relay: None,
+        pins: None,
     };
     let refusal = run(&inputs, Some(&requirements())).expect_err("a named method is refused");
     // The refusal has two sentences: `Failure::new` keeps the first as `message` and the whole text as `detail`.
@@ -284,6 +459,7 @@ fn a_group_without_its_seed_is_refused_by_name() {
         previous: None,
         request: &request,
         relay: None,
+        pins: None,
     };
     let refusal = run(&inputs, Some(&requirements())).expect_err("the group needs its seed");
     assert!(
@@ -309,6 +485,7 @@ fn the_isolated_run_of_a_decoupled_group_writes_its_ten_values_each_under_its_ow
         previous: None,
         request: &request,
         relay: None,
+        pins: None,
     };
     let outcome = run(&inputs, Some(&requirements())).expect("the decoupled group is designed");
     let group = outcome.result.group.expect("the answer names the group");
@@ -333,5 +510,24 @@ fn the_isolated_run_of_a_decoupled_group_writes_its_ten_values_each_under_its_ow
         (derivative.minimum, derivative.maximum),
         (-1_000_000.0, 1_000_000.0),
         "the binding's bounds"
+    );
+}
+
+#[test]
+fn a_members_requirements_open_requirements_and_the_model_opens_loop_setup() {
+    // C7, step 3: a member whose PI cannot meet its own requirements is the engineer's requirements to change, as in a cascade; the
+    // model, the pairing and the decoupler are the loop setup's.
+    let requirements = group_failure(GroupRefusal::Requirements(Refusal::new(
+        "member two misses",
+    )));
+    assert_eq!(
+        (requirements.cause, requirements.next_action),
+        (Cause::TaskInfeasible, NextAction::OpenRequirements)
+    );
+    assert_eq!(requirements.message, "member two misses");
+    let model = group_failure(GroupRefusal::Model(Refusal::new("the pairing conflicts")));
+    assert_eq!(
+        (model.cause, model.next_action),
+        (Cause::ModelOrData, NextAction::OpenLoopSetup)
     );
 }

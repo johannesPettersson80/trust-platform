@@ -4,6 +4,12 @@
  */
 
 /**
+ * The action that holds the Validate page's position (B7; the Validate page specification: Apply and Restore never compete as primary
+ * actions): `apply` puts Apply in the position, `restore` puts Restore previous settings there, and `keep` makes Keep in project the
+ * page's primary action while Restore previous settings keeps the position beside it.
+ */
+export type PrimaryAction = "apply" | "restore" | "keep";
+/**
  * A named formula method (N5.2 to N5.5). Automatic is not a method here: it chooses among them (N5.11).
  */
 export type TuningMethod = "SIMC" | "AMIGO";
@@ -21,7 +27,9 @@ export type TuningObjective = "fast" | "balanced" | "robust";
  */
 export interface ValidateResult {
   /**
-   * Whether Apply is available: the model is qualified and the candidate passed every requirement (B5.4).
+   * Whether Apply is available: the model is qualified and the candidate passed every requirement (B5.4). The answer of
+   * `controlStudio/validate` states it by the one rule of every answer that offers Apply (B7, `application_offers::apply_offered`),
+   * which also asks that no Apply's checkpoint is unresolved and that the newest Apply applied another validation.
    */
   applyAvailable: boolean;
   /**
@@ -56,6 +64,12 @@ export interface ValidateResult {
    * The measured response of the target-response case for the plot (B5.4, B9.6); absent when the candidate's run has no sample.
    */
   plot?: ValidationPlot | null;
+  /**
+   * The action that holds the Validate page's position after this result (B7; `application_offers::primary_action`), stated by the
+   * answer of `controlStudio/validate`; absent when none is offered, and in the result a reopened study holds (A8.6), whose open
+   * answer states the offers.
+   */
+  primaryAction?: PrimaryAction | null;
   requirements: TuningRequirements;
   /**
    * Each scenario of the campaign in its order, the target-response case first: the current settings' run and the
@@ -72,6 +86,12 @@ export interface ValidateResult {
    * and Pass otherwise.
    */
   status: "Pass" | "Fail" | "Inconclusive";
+  /**
+   * The rows of the table in the order the page shows them (B9.9): the independent model check first unless it fails, the failing
+   * rows, the inconclusive rows, the passing rows, the row that counts the passing guards and the candidate's overall row. Absent
+   * when there are none.
+   */
+  table?: ValidateRow[];
   [k: string]: unknown;
 }
 /**
@@ -220,6 +240,7 @@ export interface Failure {
    */
   nextAction:
     | "connect-runtime"
+    | "start-simulator"
     | "open-loop-setup"
     | "open-limits"
     | "open-requirements"
@@ -390,13 +411,23 @@ export interface TuningRequirements {
    */
   automaticCriteria?: AutomaticCriteria | null;
   /**
+   * The requirements of each controlled output of a loop with several, by the output's model channel identifier (B4.3, C7). Each
+   * is checked by the rules of this record, and its refusals name the output's channel. The record's own values are the first
+   * output's copy, which the engine writes when it assembles the record from the rows typed for each output (`study::inputs_change`);
+   * absent for a loop with one controlled output.
+   */
+  channelRequirements?: {
+    [k: string]: OutputRequirements;
+  } | null;
+  /**
    * The constant input disturbance of the load trial, in the output's unit; absent when none is declared (N5.12(b)).
    */
   constantInputDisturbance?: number | null;
   /**
-   * The validation duration in seconds: longer than the settling time, and within the runtime limit (A7).
+   * The validation duration in seconds: longer than the settling time, and within the runtime limit (A7). It is read as the settling
+   * time is.
    */
-  durationSeconds: number;
+  durationSeconds: number | string;
   /**
    * The fraction of gain uncertainty of the scenarios, between zero and one.
    */
@@ -422,9 +453,10 @@ export interface TuningRequirements {
    */
   settlingBand: number;
   /**
-   * The settling-time deadline in seconds, positive.
+   * The settling-time deadline in seconds, positive. The page sends the time the engineer typed (`90 s`, `1 h 30 min`) or a number of
+   * seconds; a time no duration reads is NaN and is refused under its field.
    */
-  settlingTimeSeconds: number;
+  settlingTimeSeconds: number | string;
   /**
    * The Auto-entry tolerance in output units, zero or more (A6.4).
    */
@@ -451,6 +483,33 @@ export interface AutomaticCriteria {
    * The revision of the model the values were generated from.
    */
   modelRevision: string;
+}
+/**
+ * The requirements that one controlled output holds to (B4.3, C7): the setpoint change of its own test, the error limit, the settling
+ * band, the time by which it settles, and its overshoot limit when it declares one. The record's `channelRequirements` holds one of these
+ * for each controlled output of a loop with several.
+ */
+export interface OutputRequirements {
+  /**
+   * The largest error allowed after the settling time, in the output's unit.
+   */
+  maximumError: number;
+  /**
+   * The overshoot limit in percent of the setpoint change; absent declares no limit.
+   */
+  maximumOvershootPercent?: number | null;
+  /**
+   * The setpoint change of the output's own test, in its unit. Never zero.
+   */
+  referenceChange: number;
+  /**
+   * The settling band around the final value, in the output's unit. Smaller than `maximum_error`.
+   */
+  settlingBand: number;
+  /**
+   * The settling-time deadline of the output in seconds, positive. The page sends the time the engineer typed or a number of seconds.
+   */
+  settlingTimeSeconds: number | string;
 }
 /**
  * One scenario of the campaign (B5.3): the current settings' run and the candidate's, on the same plant. The runs are the
@@ -576,15 +635,27 @@ export interface StageEvidence {
 }
 /**
  * One stage's status, with the words the panel shows. A stage that is Not applicable also names the reason, which the page
- * shows in place of its actions (C12).
+ * shows in place of its actions (C12), and so does a stage that an Apply's checkpoint holds (B6.4, B6.7) and a stage that cannot
+ * start yet for want of what it works on (B9.4). `available` says whether the stage's own action can start now (B9.4).
  */
 export interface StageAvailability {
+  /**
+   * Whether the stage's own action can start now (B9.4). The page enables the action exactly then, and holds no copy of the
+   * rule. A bound loop can always Monitor, Test and Identify. Tune needs a model, a declared analysis or manual controller
+   * parameters; Validate needs a candidate; Apply needs a candidate whose current validation passed ([`apply_available`]), and in
+   * an answer that states the Validate page's offers, Apply offered (B7, `application_offers::offered_stages`). A stage that is
+   * Not applicable never starts (C12), and while an Apply's checkpoint waits for its Restore only Monitor starts
+   * ([`blocked_stage_availability`]).
+   */
+  available: boolean;
   /**
    * The status in words.
    */
   label: string;
   /**
-   * Why the stage does not apply, when its status is Not applicable.
+   * Why the stage does not apply, when its status is Not applicable (C12), or why its action waits, while an Apply's checkpoint
+   * waits for its Restore (B6.4, B6.7) and while the study lacks what the stage works on: a model for Tune, a candidate for
+   * Validate (B9.4). The page shows it on the stage's page.
    */
   reason?: string | null;
   /**
@@ -595,5 +666,51 @@ export interface StageAvailability {
    * Its status.
    */
   status: "ready" | "needs-data" | "in-progress" | "complete" | "warning" | "failed" | "not-applicable";
+  [k: string]: unknown;
+}
+/**
+ * One row of the Validate table (B9.9; the Validate page specification, "Results and plot"): the words the row shows, its measured
+ * and limit texts and its verdict, all decided by the engine. The page lays the rows out in the order of `ValidateResult::table`.
+ */
+export interface ValidateRow {
+  /**
+   * The limit with its unit: "≤" or "≥" before a value, "= " before a single declared value, a declared range as "lowest–highest";
+   * "—" when the row has none.
+   */
+  limit: string;
+  /**
+   * The measured value or range with its unit, or "—" when the check has no good value.
+   */
+  measured: string;
+  /**
+   * The row's identity: the requirement's id, or for the row that counts the passing guards and for the overall row, the marker
+   * the page keeps them by (`limit-and-controller-checks` and `overall`).
+   */
+  requirement: string;
+  /**
+   * The plant the check ran against, which the page shows under the title; empty when the row names none.
+   */
+  source: string;
+  /**
+   * The channel's symbol, which the page shows on hover; empty when the row names none.
+   */
+  symbol: string;
+  /**
+   * The row's name: the scenario's and the run's words in front of the requirement's label, its Automatic mark, and its
+   * channel's role with its unit, for example "Target response · Candidate · Maximum settling time · Automatic · Measurement (°C)".
+   */
+  title: string;
+  /**
+   * The engine's verdict word: Pass, Fail or Inconclusive (N8.4, N8.5).
+   */
+  verdict: string;
+  /**
+   * The verdict's class, which the page styles from: "pass", "fail" or "inconclusive".
+   */
+  verdictClass: string;
+  /**
+   * The verdict cell's words: the word alone for a pass, and the word, " · " and the reason for a verdict that is not a pass.
+   */
+  verdictText: string;
   [k: string]: unknown;
 }

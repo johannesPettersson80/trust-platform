@@ -244,3 +244,38 @@ fn the_program_that_owns_the_input_runs_in_exactly_one_task() {
         .expect_err("two tasks are refused");
     assert_eq!(text_of(&failure), "P1 must run in exactly one cyclic task.");
 }
+
+#[test]
+fn the_form_sends_the_recording_duration_as_typed_text_or_a_number() {
+    // The form posts the duration as typed: unit words such as "15 min" or "1 h 30 min", a plain number of seconds, or null when blank (C12).
+    let draft = |duration: Value| -> IdentifyLoopDraft {
+        serde_json::from_value(json!({
+            "name": "Jacket response",
+            "manipulatedVariable": { "symbol": "P1.HeaterPct", "unit": "%", "minimum": 0.0, "maximum": 100.0 },
+            "processVariable": { "symbol": "P1.JacketC", "unit": "degC", "minimum": 0.0, "maximum": 90.0 },
+            "experimentDurationSeconds": duration
+        }))
+        .expect("the draft decodes")
+    };
+    assert_eq!(
+        draft(json!("15 min")).experiment_duration_seconds,
+        Some(900.0)
+    );
+    assert_eq!(
+        draft(json!("1 h 30 min")).experiment_duration_seconds,
+        Some(5_400.0)
+    );
+    assert_eq!(draft(json!("900")).experiment_duration_seconds, Some(900.0));
+    assert_eq!(draft(json!(90)).experiment_duration_seconds, Some(90.0));
+    assert_eq!(draft(Value::Null).experiment_duration_seconds, None);
+    assert_eq!(draft(json!("soon")).experiment_duration_seconds, None);
+}
+
+#[test]
+fn a_duration_the_form_sends_as_text_is_refused_under_its_field_when_it_is_not_a_duration() {
+    let mut unreadable = jacket_draft();
+    unreadable.experiment_duration_seconds = None;
+    let refusal = identify_loop_definition(&plant_catalog(), &scope(), &unreadable)
+        .expect_err("a missing duration is refused");
+    assert_eq!(refusal.field.as_deref(), Some("identify.durationSeconds"));
+}

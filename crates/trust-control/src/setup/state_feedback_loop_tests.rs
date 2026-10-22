@@ -374,3 +374,25 @@ fn a_program_that_writes_a_seeded_value_needs_the_startup_flag_the_draft_names()
     );
     assert_eq!(record["initialization"]["states"][0]["initial"], json!(1.0));
 }
+
+/// B1.3 and C4: the form posts the estimator and every further-output row it draws for every design. An LQR draft that carries an
+/// estimator with blank rows, and two blank further-output rows after tank 1's, writes the loop of the draft without them: LQR takes its
+/// measured gain and further outputs, and a row without an output is no further output. The wrong behaviour caught: a design that reads
+/// the estimator of LQG, or refuses a blank row the page draws.
+#[test]
+fn an_lqr_draft_ignores_the_estimator_and_the_blank_rows_it_is_sent() {
+    let blank_output =
+        json!({ "signal": { "symbol": "", "unit": "", "minimum": "", "maximum": "" }, "gain": "" });
+    let blank_estimate =
+        json!({ "estimate": "", "gain": "", "observerGain": "", "processNoise": "" });
+    let posted = edited(|value| {
+        let states = value["states"].as_array_mut().expect("the further outputs");
+        states.push(blank_output.clone());
+        states.push(blank_output.clone());
+        value["estimator"] = json!({
+            "modelFile": "", "measurementNoise": "",
+            "states": [blank_estimate.clone(), blank_estimate.clone(), blank_estimate.clone()]
+        });
+    });
+    assert_eq!(write(posted), write(lqr_json()));
+}

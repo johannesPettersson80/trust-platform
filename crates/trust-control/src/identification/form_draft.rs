@@ -121,8 +121,8 @@ fn exclusion_failure(field: &str) -> Failure {
     Failure::new(EXCLUSION_REFUSAL, Cause::Settings, NextAction::None).with_field(field)
 }
 
-/// The form a new identification starts with: the automatic model, every field blank, and the held-step analysis off. The
-/// page's first form is sent with its first request; this stands in until then.
+/// A form with nothing typed: the automatic model, every field blank, and the held-step analysis off. [`default_form`] is the form
+/// a new identification starts with.
 #[must_use]
 pub fn blank_form() -> IdentificationFormDraft {
     IdentificationFormDraft {
@@ -136,6 +136,46 @@ pub fn blank_form() -> IdentificationFormDraft {
         excluded_start: String::new(),
         excluded_end: String::new(),
     }
+}
+
+/// The numbers a new identification's form starts from, by field (B3.3): the text of every key of [`IDENTIFICATION_FORM_KEYS`] and
+/// [`IDENTIFICATION_COMPARISON_FORM_KEYS`], in process units. The fixed windows are 5 s, the window limits and the lattice steps
+/// are those of the held-step analysis (N2.2 to N2.6), the delay grid runs from 0 to 2 s and the time-constant grid from 0.1 to
+/// 20 s in steps of 0.1 s, the additional lag from 0.1 to 10 s, and the model error limits are 0.2 and 0.1.
+const FORM_DEFAULTS: [(&str, &str); 21] = [
+    ("baselineDurationSeconds", "5"),
+    ("finalDurationSeconds", "5"),
+    ("maximumWindowRange", "0.1"),
+    ("maximumWindowSlopePerSecond", "0.01"),
+    ("measurementBound", "0.05"),
+    ("onsetThreshold", "0.15"),
+    ("onsetSamples", "3"),
+    ("baselineStep", "0.01"),
+    ("gainStep", "0.001"),
+    ("timestampShiftSeconds", "0"),
+    ("delay.minimum", "0"),
+    ("delay.maximum", "2"),
+    ("delay.step", "0.1"),
+    ("timeConstant.minimum", "0.1"),
+    ("timeConstant.maximum", "20"),
+    ("timeConstant.step", "0.1"),
+    ("sensorTimeConstant.minimum", "0.1"),
+    ("sensorTimeConstant.maximum", "10"),
+    ("sensorTimeConstant.step", "0.1"),
+    ("modelAdequacy.maximumAbsoluteResidual", "0.2"),
+    ("modelAdequacy.maximumFinalError", "0.1"),
+];
+
+/// The form a new identification starts with (B3.3): the automatic model, the held-step analysis off, no excluded interval, and
+/// every field at its default number. The answer to the Recorded-data fit carries it until the engineer changes a field, and the
+/// page shows exactly these numbers; it keeps none of its own.
+#[must_use]
+pub fn default_form() -> IdentificationFormDraft {
+    let mut form = blank_form();
+    for (key, text) in FORM_DEFAULTS {
+        form.values.insert(key.to_string(), text.to_string());
+    }
+    form
 }
 
 /// The held-step settings the engineer typed, read as the Identify page read them (`readStepResponseSettings`): `None` while
@@ -186,6 +226,37 @@ pub fn held_step_settings_of(
         .with_field(&problem.field)),
         None => Ok(Some(settings)),
     }
+}
+
+/// The refusal of a held step whose model the held step does not allow; the form's `model` field names it (N2.3, N2.3a).
+const HELD_STEP_MODEL_REFUSAL: &str =
+    "A held step fits a first-order-with-delay, an integrating or a two-lag model.";
+
+/// Whether a held step allows `model`: the first-order-with-delay and two-lag forms, which the bounded step analysis fits (N2.4,
+/// N2.10), and the integrating form, which has no fraction and is checked by the integrator rule at its fit (N2.3, N2.3a).
+#[must_use]
+pub fn held_step_allows(model: IdentificationModelSelection) -> bool {
+    matches!(
+        model,
+        IdentificationModelSelection::Fopdt
+            | IdentificationModelSelection::Integrating
+            | IdentificationModelSelection::Sopdt
+    )
+}
+
+/// Refuses a held step whose model it does not allow, naming the `model` field, before anything is stored. A form without a held
+/// step allows every model.
+///
+/// # Errors
+/// The form is a held step, and its model is not one that a held step allows.
+pub fn check_held_step_model(draft: &IdentificationFormDraft) -> Result<(), Failure> {
+    if draft.held_step && !held_step_allows(draft.model) {
+        return Err(
+            Failure::new(HELD_STEP_MODEL_REFUSAL, Cause::Settings, NextAction::None)
+                .with_field("model"),
+        );
+    }
+    Ok(())
 }
 
 /// The excluded interval the engineer typed, read as the Identify page read it (`readExcludedIntervals`): none while the

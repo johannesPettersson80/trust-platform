@@ -8,15 +8,16 @@ use std::collections::BTreeMap;
 
 use super::engineer_verification_campaign::CampaignCase;
 use super::engineer_verification_plan::{
-    engineer_verification_plan, output_requirements_missing, EngineerRequirements,
+    engineer_verification_plan, output_requirements_missing, output_task_of, EngineerRequirements,
 };
 use super::isolated_run_protocol::IsolatedParameterOverride;
 use super::run_requests::override_of;
 use super::texts;
 use crate::failure::{Cause, Failure, NextAction};
-use crate::loop_definition::{ChannelRequirements, LoopDefinition};
+use crate::loop_definition::LoopDefinition;
 use crate::model::GeneralModel;
 use crate::tuning::group_candidate::GroupCandidate;
+use crate::tuning::output_requirements::OutputRequirements;
 
 /// The identity prefix of a case that excites one controlled output alone (`independentReferenceScenarios`); the output's model channel
 /// identifier follows it.
@@ -46,7 +47,8 @@ pub(crate) fn overrides(
 
 /// The cases that excite each controlled output of a PID group alone (specification 35, C7; `independentReferenceScenarios`): one case
 /// for each output with a setpoint, identified `independent-reference:<model channel id>`, when the group has two or more of them. In
-/// that case the output's own setpoint steps by its reference change (its own requirement, or the loop's for the process variable).
+/// that case the output's own setpoint steps by its reference change (its own record, its loop's requirement, or the task for the process
+/// variable).
 /// Every other controlled output keeps its requirements with a reference change of zero, so its setpoint holds at its operating value
 /// and its settling and error checks still apply. A loop without a group has no such case.
 ///
@@ -85,7 +87,7 @@ pub(crate) fn independent_reference_cases(
         .collect()
 }
 
-/// The case that excites the output `active` alone: the plan of the excited loop, with that plan's requirements.
+/// The case that excites the output `active` alone: the plan of the loop, held to the task that excites that output alone.
 ///
 /// # Errors
 /// As [`independent_reference_cases`].
@@ -97,8 +99,9 @@ fn excited_case(
     controller_initial: &BTreeMap<String, f64>,
     active: &str,
 ) -> Result<CampaignCase, Failure> {
-    let excited = excite_only(loop_definition, task, active)?;
-    let plan = engineer_verification_plan(&excited, model, task, values, controller_initial)?;
+    let held = excite_only(loop_definition, task, active)?;
+    let plan =
+        engineer_verification_plan(loop_definition, model, &held, values, controller_initial)?;
     Ok(CampaignCase {
         id: format!("{INDEPENDENT_REFERENCE_PREFIX}{active}"),
         requirements: plan.requirements.clone(),
@@ -109,47 +112,46 @@ fn excited_case(
     })
 }
 
-/// The loop of the case that excites `active` alone (`independentReferenceScenarios`): every other controlled output keeps the
-/// requirements it holds to, with a reference change of zero. The active output keeps the loop as it declares it.
+/// The task of the case that excites `active` alone (`independentReferenceScenarios`): every other controlled output keeps the
+/// requirements it holds to (its own record, else its loop's, else the task for the process variable), with a reference change of zero,
+/// so its setpoint holds at its operating value. The active output keeps its own requirements.
 ///
 /// # Errors
-/// A held output has no requirements of its own and is not the process variable (see `output_requirements_missing`).
+/// A held output has no requirements to hold it to (see `output_requirements_missing`).
 fn excite_only(
     loop_definition: &LoopDefinition,
     task: &EngineerRequirements,
     active: &str,
-) -> Result<LoopDefinition, Failure> {
-    let mut excited = loop_definition.clone();
-    let outputs = excited
+) -> Result<EngineerRequirements, Failure> {
+    let mut held_channels = task.channel_requirements.clone().unwrap_or_default();
+    let outputs = loop_definition
         .channels
-        .iter_mut()
-        .flat_map(|channels| channels.outputs.iter_mut());
+        .iter()
+        .flat_map(|channels| channels.outputs.iter());
     for output in outputs {
         if output.setpoint_signal_id.is_none() || output.model_channel_id == active {
             continue;
         }
-        let own = match output.requirements {
-            Some(own) => own,
-            None if output.signal_id == "processVariable" => task_requirements(task),
-            None => return Err(output_requirements_missing(&output.model_channel_id)),
-        };
-        output.requirements = Some(ChannelRequirements {
-            reference_change: 0.0,
-            ..own
-        });
+        let process_variable = output.signal_id == "processVariable";
+        let own = output_task_of(
+            task,
+            &output.model_channel_id,
+            output.requirements,
+            process_variable,
+        )
+        .ok_or_else(|| output_requirements_missing(&output.model_channel_id))?;
+        held_channels.insert(
+            output.model_channel_id.clone(),
+            OutputRequirements {
+                reference_change: 0.0,
+                ..OutputRequirements::of_record(&own)
+            },
+        );
     }
-    Ok(excited)
-}
-
-/// The loop's task as an output's requirements: its reference change, error, settling band and settling time. A channel's own
-/// requirements carry no overshoot limit, so none is taken from the task.
-fn task_requirements(task: &EngineerRequirements) -> ChannelRequirements {
-    ChannelRequirements {
-        reference_change: task.reference_change,
-        maximum_error: task.maximum_error,
-        settling_band: task.settling_band,
-        settling_time_seconds: task.settling_time_seconds,
-    }
+    Ok(EngineerRequirements {
+        channel_requirements: Some(held_channels),
+        ..task.clone()
+    })
 }
 
 #[cfg(test)]

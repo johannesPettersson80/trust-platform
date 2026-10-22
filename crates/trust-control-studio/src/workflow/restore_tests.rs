@@ -315,6 +315,11 @@ fn a_control_pid_loop_found_in_auto_returns_to_auto_after_an_engine_restart_with
     assert_eq!(review.action, ReviewedAction::Restore);
     assert_eq!(review.found_mode, Some(FoundMode::Auto));
     assert!(!review.physical, "a simulated target");
+    assert_eq!(
+        review.confirmation,
+        ReviewConfirmation::Press,
+        "the press of Restore confirms it on a simulated target (A2.5)"
+    );
     assert!(
         review.identity.starts_with("sha256:"),
         "{}",
@@ -433,6 +438,10 @@ fn a_pid_loop_found_in_auto_returns_to_auto_once_its_previous_settings_are_back(
         !outcome.restore_available && !outcome.keep_available,
         "a confirmed Restore offers neither Restore nor Keep in project (B6.4, B6.5)"
     );
+    assert!(
+        !outcome.apply_available,
+        "Apply is offered again only by a validation that passes after the Restore (B7)"
+    );
     assert_eq!(journaled(&folder, &setup), None);
 }
 
@@ -449,27 +458,39 @@ fn an_opened_loop_offers_restore_only_while_the_journal_holds_the_checkpoint() {
     journal_checkpoint(&folder, &setup);
     let (fake, _world) = World::applied(&setup, true).serve();
     let journal = open_journal(&folder, &setup);
-    let offers = crate::commands::apply_offers(
-        journal.entries(),
-        &trust_control::study::apply::ApplySection::default(),
-    );
+    let offers = opened_offers(&journal);
     assert!(offers.restore, "the journaled checkpoint offers Restore");
     assert!(!offers.keep, "no receipt kept, so no Keep in project");
     assert!(
-        !offers.observation_resumable,
+        !offers.resume,
         "a checkpoint without a recording has no observation to follow"
     );
     drop(journal);
     restore(&fake, &folder, &setup).expect("the runtime confirms the Restore");
     let journal = open_journal(&folder, &setup);
-    let offers = crate::commands::apply_offers(
-        journal.entries(),
-        &trust_control::study::apply::ApplySection::default(),
-    );
+    let offers = opened_offers(&journal);
     assert!(
         !offers.restore,
         "the confirmed Restore cleared the checkpoint"
     );
+}
+
+/// The offers an opened loop states for `journal` with no Apply receipt and no passed validation, as `controlStudio/open` reads them
+/// (`application_state`, A8.6).
+fn opened_offers(
+    journal: &Journal,
+) -> trust_control::commissioning::application_offers::ApplicationOffers {
+    use trust_control::commissioning::application_offers::{
+        newest_applied_validation, ApplicationOffers, JournaledApply,
+    };
+    let checkpoint = crate::application_state::journaled_checkpoint(journal);
+    let journaled = JournaledApply::of(checkpoint, false);
+    ApplicationOffers::of(
+        journaled,
+        None,
+        newest_applied_validation(checkpoint, None),
+        false,
+    )
 }
 
 /// A2.5 and B9.3: the Restore's review names each signal it returns with the limits the loop declares for it, names its restoration and
@@ -512,7 +533,8 @@ fn a_restore_review_names_each_signal_with_its_declared_limits_and_no_duration()
 }
 
 /// B6.4, B6.7: a Restore that the runtime refuses answers no outcome, so no availability is shown for it, and the checkpoint stays
-/// journaled for another try.
+/// journaled for another try. The refusal is another operation's pending parameter transaction: a runtime replaced since Apply retires
+/// the checkpoint instead (B6.4; `application_state_tests`, `a_restore_after_a_runtime_restart_retires_the_checkpoint_as_history`).
 #[test]
 fn a_refused_restore_answers_no_outcome_and_keeps_the_checkpoint_for_another_try() {
     let setup = setup(
@@ -523,10 +545,11 @@ fn a_refused_restore_answers_no_outcome_and_keeps_the_checkpoint_for_another_try
     let folder = Folder::new("unconfirmed");
     journal_checkpoint(&folder, &setup);
     let mut world = World::applied(&setup, true);
-    world.program = "program-2".to_owned();
+    world.parameter_state = "pending";
+    world.parameter_transaction = Some("someone-else".to_owned());
     let (fake, _world) = world.serve();
     review(&fake, &folder, &setup, &empty_study(&setup))
-        .expect_err("Restore is unavailable after a runtime change");
+        .expect_err("another operation holds the parameter record");
     assert!(
         journaled(&folder, &setup).is_some(),
         "the checkpoint stays journaled for another try (B6.7)"
@@ -644,8 +667,10 @@ fn a_checkpoint_without_its_found_mode_is_restored_in_manual_and_says_the_mode_i
 }
 
 /// B6.4 (`reviewInterruptedRollback`, engineerActions/recovery.ts): the runtime runs program-2 now, not the program-1 Apply wrote to. The
-/// review refuses, naming both programs, with a new validation as the next action; the confirmation refuses the same way; nothing is
-/// written, and the checkpoint stays journaled as history.
+/// workflow's review refuses, naming both programs, with a new validation as the next action, and its run refuses the same way; neither
+/// writes anything, the journal included. `controlStudio/restore` retires such a checkpoint before it asks for either
+/// (`retire_after_replacement`; `application_state_tests`, `a_restore_after_a_runtime_restart_retires_the_checkpoint_as_history`), so
+/// these refusals are the guard of a runtime replaced in between.
 #[test]
 fn a_runtime_restarted_since_apply_makes_restore_unavailable_and_keeps_the_checkpoint_journaled() {
     let setup = setup(Kind::Pid, Some(FoundMode::Auto), CheckpointStage::Completed);
@@ -681,7 +706,7 @@ fn a_runtime_restarted_since_apply_makes_restore_unavailable_and_keeps_the_check
     assert_eq!(
         journaled(&folder, &setup).map(|checkpoint| (checkpoint.id, checkpoint.stage)),
         Some(("checkpoint-1".to_owned(), CheckpointStage::Completed)),
-        "the checkpoint stays journaled as history"
+        "the review and the run leave the journal as it was"
     );
 }
 
@@ -965,6 +990,11 @@ fn a_physical_target_without_approval_refuses_the_restore_before_anything_is_wri
     let (fake, _world) = world.serve();
     let review = review(&fake, &folder, &setup, &empty_study(&setup)).expect("the review holds");
     assert!(review.physical, "the review shows the physical target");
+    assert_eq!(
+        review.confirmation,
+        ReviewConfirmation::Approval,
+        "the engineer's approval is part of the confirmation (A2.5)"
+    );
     assert_eq!(
         restore(&fake, &folder, &setup),
         Err(physical_approval_needed())

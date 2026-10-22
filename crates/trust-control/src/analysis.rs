@@ -4,8 +4,10 @@
 //! `trust_control_math`.
 
 pub mod budget;
+pub mod currency;
 pub mod declared;
 pub mod declared_tools;
+pub mod entries;
 pub mod feedback_declared;
 pub mod feedback_margins;
 pub mod feedback_tool;

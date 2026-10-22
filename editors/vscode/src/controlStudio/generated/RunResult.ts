@@ -25,6 +25,16 @@ export interface RunResult {
    * The input the engineer must give (B8); absent when the run went through to its stage.
    */
   needs?: RunNeeds | null;
+  /**
+   * The form field that `needsMessage` concerns, when it concerns one: the Limits editor shows the sentence under that field
+   * (`durationSeconds` for a missing maximum duration, B3.2).
+   */
+  needsField?: string | null;
+  /**
+   * The sentence that asks for the input in `needs`: the engine's own wording of what is missing (B8, B3.2). The page shows it and
+   * writes none of its own. Absent where `needs` is.
+   */
+  needsMessage?: string | null;
   stageEvidence: StageEvidence;
   /**
    * The status of every stage after the run.
@@ -86,15 +96,27 @@ export interface StageEvidence {
 }
 /**
  * One stage's status, with the words the panel shows. A stage that is Not applicable also names the reason, which the page
- * shows in place of its actions (C12).
+ * shows in place of its actions (C12), and so does a stage that an Apply's checkpoint holds (B6.4, B6.7) and a stage that cannot
+ * start yet for want of what it works on (B9.4). `available` says whether the stage's own action can start now (B9.4).
  */
 export interface StageAvailability {
+  /**
+   * Whether the stage's own action can start now (B9.4). The page enables the action exactly then, and holds no copy of the
+   * rule. A bound loop can always Monitor, Test and Identify. Tune needs a model, a declared analysis or manual controller
+   * parameters; Validate needs a candidate; Apply needs a candidate whose current validation passed ([`apply_available`]), and in
+   * an answer that states the Validate page's offers, Apply offered (B7, `application_offers::offered_stages`). A stage that is
+   * Not applicable never starts (C12), and while an Apply's checkpoint waits for its Restore only Monitor starts
+   * ([`blocked_stage_availability`]).
+   */
+  available: boolean;
   /**
    * The status in words.
    */
   label: string;
   /**
-   * Why the stage does not apply, when its status is Not applicable.
+   * Why the stage does not apply, when its status is Not applicable (C12), or why its action waits, while an Apply's checkpoint
+   * waits for its Restore (B6.4, B6.7) and while the study lacks what the stage works on: a model for Tune, a candidate for
+   * Validate (B9.4). The page shows it on the stage's page.
    */
   reason?: string | null;
   /**

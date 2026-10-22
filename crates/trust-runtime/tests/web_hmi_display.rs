@@ -173,7 +173,7 @@ fn the_stream_reports_simulation_off_when_the_runtime_runs_no_simulation() {
     let mut socket = open_stream(&running.base, "?page=overview").expect("the stream opens");
     assert_eq!(
         next_simulation(&mut socket, |_| true),
-        json!({ "enabled": false, "time_scale": 1, "achieved_time_scale": null })
+        json!({ "enabled": false, "time_scale": 1, "achieved_time_scale": null, "speed_configured": null, "speed_achieved": null })
     );
 }
 
@@ -186,7 +186,7 @@ fn the_stream_reports_the_simulation_speed_and_each_change_to_it_while_it_runs()
     let mut socket = open_stream(&running.base, "?page=overview").expect("the stream opens");
     assert_eq!(
         next_simulation(&mut socket, |_| true),
-        json!({ "enabled": true, "time_scale": 7, "achieved_time_scale": 6.5 })
+        json!({ "enabled": true, "time_scale": 7, "achieved_time_scale": 6.5, "speed_configured": 7, "speed_achieved": "6.5" })
     );
     // A change to the running simulation reaches the page at its next update (§6.1, item 5). The
     // achieved speed is set first, so no message can show the new speed with the old one.
@@ -195,7 +195,7 @@ fn the_stream_reports_the_simulation_speed_and_each_change_to_it_while_it_runs()
     assert_eq!(
         next_simulation(&mut socket, |simulation| simulation["time_scale"]
             == json!(10)),
-        json!({ "enabled": true, "time_scale": 10, "achieved_time_scale": 9.8 })
+        json!({ "enabled": true, "time_scale": 10, "achieved_time_scale": 9.8, "speed_configured": 10, "speed_achieved": null })
     );
 }
 

@@ -58,11 +58,14 @@ fn status(values: BTreeMap<String, f64>, active_revision: &str) -> ParameterStat
     }
 }
 
-/// The refusal of a loop file whose mapping or binding is changed by `change`.
+/// The refusal of a loop file whose mapping or binding is changed by `change`. The loop is read as its fields alone: the open-time rules
+/// of the mapping (`analysis_rules.rs`) refuse such a file before any write, so this pins the write's own check.
 fn refused_after(change: impl FnOnce(&mut Value)) -> Failure {
     let mut value = lesson_45();
     change(&mut value);
-    writable_parameters(&loop_of(&value)).expect_err("the change is refused")
+    let changed: LoopDefinition =
+        serde_json::from_value(value).expect("the changed loop's fields decode");
+    writable_parameters(&changed).expect_err("the change is refused")
 }
 
 #[test]

@@ -5143,7 +5143,6 @@
     "konva": "^9.3.22",
     "lucide-react": "^0.575.0",
     "markdown-it": "15.0.2",
-    "ml-matrix": "6.15.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "vscode-jsonrpc": "8.2.0",

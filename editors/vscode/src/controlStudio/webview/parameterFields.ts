@@ -1,5 +1,8 @@
-import type { ParameterBinding } from "../parameterBinding";
+import type { ParameterBinding } from "../generated/OpenResult";
 import { displayEngineeringUnit } from "../unitDisplay";
+
+/** The part of the engine's parameter record (`ParameterBinding`) that the fields are built from: the declared numeric fields. */
+export interface ParameterFieldsSource { readonly parameters: readonly ParameterBinding["parameters"][number][] }
 
 export function parameterFieldLabel(symbol: string): string {
   const leaf = symbol.split(".").pop() ?? symbol;
@@ -8,12 +11,12 @@ export function parameterFieldLabel(symbol: string): string {
 
 /** Projects the existing reviewed JSON record into ordinary numeric controls. */
 export class ParameterFields {
-  private binding: ParameterBinding | undefined;
+  private binding: ParameterFieldsSource | undefined;
   private readonly inputs = new Map<string, HTMLInputElement>();
   constructor(private readonly host: HTMLElement, private readonly values: HTMLTextAreaElement,
     private readonly changed: () => void) {}
 
-  configure(binding: ParameterBinding): void {
+  configure(binding: ParameterFieldsSource): void {
     if (JSON.stringify(binding) === JSON.stringify(this.binding)) return;
     this.binding = binding;
     this.inputs.clear(); this.host.replaceChildren();
@@ -52,12 +55,4 @@ export class ParameterFields {
     } catch { /* Keep incomplete JSON available for correction and host rejection. */ }
   }
 
-  describe(reason: string): string {
-    for (const parameter of this.binding?.parameters ?? []) {
-      if (reason === `${parameter.symbol} is outside its declared bounds after IEC rounding.`) {
-        return `${parameterFieldLabel(parameter.symbol)} must be between ${parameter.minimum} and ${parameter.maximum}.`;
-      }
-    }
-    return reason;
-  }
 }

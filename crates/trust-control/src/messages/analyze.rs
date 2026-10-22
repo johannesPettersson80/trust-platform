@@ -8,7 +8,7 @@
 #![allow(clippy::module_name_repetitions)]
 
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use trust_control_math::linalg::ComplexValue;
 use trust_control_math::simulate::TimeResponsePoint;
@@ -18,6 +18,8 @@ use crate::analysis::lead_lag::{LeadLagMode, LeadLagResult};
 use crate::analysis::measured_paths::{MeasuredPathsResult, SettledTrial};
 use crate::failure::Failure;
 use crate::model::{GeneralStateStructure, ModelTimeSettings, ResponseConnection};
+use crate::setup::duration_words::duration_words;
+use crate::setup::loop_bindings::duration_seconds_of_text;
 
 use super::analyze_declared::{
     FeedbackAnswer, MeasuredFrequencyAnswer, RootLocusAnswer, RouthAnswer,
@@ -117,7 +119,12 @@ pub struct AnalysisInputs {
     pub settled_trials: Option<Vec<SettledTrial>>,
     /// `measuredPaths`: the largest change that an input which was not stepped may make during a trial, in its unit: finite and
     /// nonnegative. Absent, the check is not made.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::analysis::measured_paths::number_of_entry",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(schema_with = "crate::json::optional_number_or_text_schema")]
     pub maximum_unexcited_input_drift: Option<f64>,
     /// `leadLag`: the compensator.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -128,11 +135,24 @@ pub struct AnalysisInputs {
     /// `leadLag`: the phase in degrees for a lead, or the low-frequency gain ratio for a lag.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<f64>,
-    /// `initialState`: the output step in seconds, above 0.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// `initialState`: the output step in seconds, above 0. An answer writes it as the engine's words (`2 min 30 s`), which the engine
+    /// reads back as the same duration; a request gives seconds or the text the engineer typed.
+    #[serde(
+        default,
+        deserialize_with = "duration_of_entry",
+        serialize_with = "duration_as_words",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(schema_with = "crate::json::optional_number_or_text_schema")]
     pub step_seconds: Option<f64>,
-    /// `initialState`: the duration in seconds, a whole number of steps.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// `initialState`: the duration in seconds, a whole number of steps. An answer writes it as the engine's words, as `step_seconds`.
+    #[serde(
+        default,
+        deserialize_with = "duration_of_entry",
+        serialize_with = "duration_as_words",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(schema_with = "crate::json::optional_number_or_text_schema")]
     pub duration_seconds: Option<f64>,
     /// `initialState`: the initial state, one value per state.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -143,6 +163,43 @@ pub struct AnalysisInputs {
     /// `initialState`: open loop, or through the feedback with a controller.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub connection: Option<ResponseConnection>,
+}
+
+/// A duration an analysis input takes: a number of seconds, or the text the page typed (`15 min`, `1 h 30 min`), which
+/// `duration_seconds_of_text` reads as the identify form does. A blank entry is absent, so the engine's default applies. An entry
+/// that is no duration is kept as `NaN`, which no JSON number is: the checker refuses it under the input's name
+/// (`analysis/initial_state.rs`), so a typed time never falls back to the default.
+fn duration_of_entry<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<f64>, D::Error> {
+    Ok(match Option::<Value>::deserialize(deserializer)? {
+        None | Some(Value::Null) => None,
+        Some(Value::Number(number)) => number.as_f64(),
+        Some(Value::String(text)) if text.trim().is_empty() => None,
+        Some(Value::String(text)) => Some(duration_seconds_of_text(&text).unwrap_or(f64::NAN)),
+        Some(_) => Some(f64::NAN),
+    })
+}
+
+/// A duration an answer shows, written as the engine's words (`duration_words`, B9.9): the page shows the text and sends back what the
+/// engineer typed, so it keeps no formatter of its own. An entry the engine could not read as a duration (`NaN`) has no words and is
+/// written as no value, as a number that is not finite always was.
+#[allow(clippy::ref_option)] // serde's `serialize_with` hands over a reference to the field, which is an `Option`.
+fn duration_as_words<S: Serializer>(value: &Option<f64>, serializer: S) -> Result<S::Ok, S::Error> {
+    match value {
+        Some(seconds) if seconds.is_finite() => serializer.serialize_str(&duration_words(*seconds)),
+        _ => serializer.serialize_none(),
+    }
+}
+
+/// An answer of a tool that the page holds (B9.9): the tool, and the revision of the model it was calculated for, which is the
+/// envelope's `model`. The page sends them with its request for the tools, and the engine says which of them are no longer current.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct HeldAnswer {
+    /// The tool the answer is of.
+    pub tool: AnalysisTool,
+    /// The revision of the model the answer was calculated for; absent for an answer that names none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
 }
 
 /// The arguments of `controlStudio/analyze` (§0.1a). `tool` absent asks for the tools that apply; `model` and `controller` are
@@ -169,10 +226,15 @@ pub struct AnalyzeRequest {
     /// when absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub controller: Option<Value>,
+    /// The answers the page holds, for a request without a `tool` (B9.9): the engine says which of them are no longer current for the
+    /// model it analyses now, as `stale` in its list of tools. The page keeps no rule of its own for when an answer is out of date.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub held: Option<Vec<HeldAnswer>>,
 }
 
 /// The page the engineer views with an analysis tool (§0.1a, `controlStudio/page`; A8.1): the tool shown and its inputs, so that
-/// reopening shows them again.
+/// reopening shows them again. The engine records it itself with each calculation it answers, with the inputs it read and the model
+/// it used (B9.9).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AnalysisPage {
@@ -181,6 +243,11 @@ pub struct AnalysisPage {
     /// Its inputs, as the engineer entered them.
     #[serde(default)]
     pub inputs: AnalysisInputs,
+    /// The revision of the model the engine calculated the tool for, which the engine records with the analysis it answers (B9.9): it
+    /// says whether the analysis is still current when the study's model changes (`stale` of an inputs answer). Absent while the tool
+    /// is only selected, and in a record the page sends, whose revision the engine keeps for the same tool.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_revision: Option<String>,
 }
 
 /// One tool that applies to the model and the loop, as the page offers it (B9.9).
@@ -273,6 +340,10 @@ pub enum AnalyzeAnswer {
     Tools {
         /// The offers, in the order the page lists them.
         tools: Vec<ToolOffer>,
+        /// The tools of the answers the request listed as held that are no longer current for the model analysed now (B9.9): the page
+        /// drops those answers. Absent when every held answer is current, and when the request held none.
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        stale: Vec<AnalysisTool>,
     },
     /// A calculation that was answered at once, qualified or refused.
     Calculation(Box<AnalysisEnvelope>),
@@ -491,3 +562,7 @@ pub struct RelativeGainAnswer {
     /// The sentences for the details disclosure.
     pub details: Vec<String>,
 }
+
+#[cfg(test)]
+#[path = "analyze_tests.rs"]
+mod tests;

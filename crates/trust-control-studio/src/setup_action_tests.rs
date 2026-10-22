@@ -7,7 +7,8 @@ use std::path::PathBuf;
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::setup::save::PlannedLoop;
 
-use super::{project_id, write_all_or_none};
+use super::{claim_binding, project_id, write_all_or_none};
+use crate::busy_loops::LoopClaims;
 
 /// A loop file of the project that the engine's examples ship with: a valid loop of the contract.
 const EXAMPLE: &str = include_str!("../../../examples/control-pid-commissioning/control-loop.json");
@@ -87,4 +88,25 @@ fn a_saved_loop_file_decodes_and_a_second_save_never_overwrites_it() {
     let after = fs::read_to_string(root.join("control-loops/a.json")).expect("the file is read");
     assert_eq!(before, after, "the refused save changes nothing");
     let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn a_binding_change_is_refused_while_an_operation_of_the_engine_works_on_its_loop() {
+    let claims = LoopClaims::default();
+    let loop_definition = LoopDefinition::decode(EXAMPLE).expect("the example loop");
+    let running = claims
+        .claim(
+            &loop_definition.project_id,
+            &loop_definition.id,
+            "Identify plant",
+        )
+        .expect("a free loop");
+    let refusal =
+        claim_binding(&claims, &loop_definition).expect_err("a busy loop refuses the change");
+    assert_eq!(
+        refusal.message,
+        "Identify plant is running in this engine on this loop."
+    );
+    drop(running);
+    let _again = claim_binding(&claims, &loop_definition).expect("the loop is free again");
 }

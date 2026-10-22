@@ -344,3 +344,58 @@ fn a_rollback_restores_the_retained_values_under_the_retained_revision() {
         "a rollback carries no values of its own"
     );
 }
+
+#[test]
+fn a_retained_apply_the_runtime_rejected_is_resolved_as_rejected_without_a_second_write() {
+    // TS control-studio-three-page-host-recovery, "marks observed applied and rejected results resolved with their application action"
+    // (E11.4, E11.7). The applied half is the reconciliation above. A retained apply whose record the runtime rejected is resolved too:
+    // the owner is cleared, the answer carries the rejection's reason in the words of an apply, and nothing is written again.
+    let accepted = Arc::new(Mutex::new(None::<String>));
+    let served = Arc::clone(&accepted);
+    let fake = FakeRuntime::start(move |request| match request["type"].as_str()? {
+        "status" => Some(answer(request, json!({ "tasks": [] }))),
+        "control.parameters.status" => {
+            let accepted = served.lock().expect("the accepted identifier");
+            let reply = match accepted.as_deref() {
+                None => record("program:1", "active:1", 1.0, None, "idle", None),
+                Some(id) => {
+                    let mut rejected =
+                        record("program:1", "active:1", 1.0, None, "rejected", Some(id));
+                    rejected["reason"] = json!("rejected by runtime");
+                    rejected
+                }
+            };
+            Some(answer(request, reply))
+        }
+        _ => Some(refusal(
+            request,
+            "invalid_parameter_request",
+            "An unexpected request.",
+        )),
+    });
+    let mut client = RuntimeClient::connect(&fake.connection(Some(TOKEN))).expect("connected");
+    let mut transactions =
+        ParameterTransactions::new(&mut client, binding(), ApplySource::Simulation);
+    let review = transactions
+        .review(&gain_of_half())
+        .expect("the value is reviewed");
+    // The retained apply reached the runtime, which rejected it: the record carries the review's identity and the unchanged values.
+    *accepted.lock().expect("the accepted identifier") = Some(review.transaction_id.clone());
+
+    let reconciliation = reconcile_parameter_operation(&mut transactions, &review, None)
+        .expect("the record resolves the retained operation");
+    match reconciliation {
+        ParameterReconciliation::Rejected { observed, reason } => {
+            assert_eq!(observed.status, RecordState::Rejected);
+            assert_eq!(
+                reason,
+                "Retained apply was rejected by the current runtime: rejected by runtime"
+            );
+        }
+        other => panic!("expected a rejection, got {other:?}"),
+    }
+    assert!(
+        fake.requests_of("control.parameters.apply").is_empty(),
+        "a retained operation is never written again"
+    );
+}

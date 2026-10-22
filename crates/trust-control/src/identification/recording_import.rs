@@ -4,7 +4,7 @@
 //!
 //! The rules here are the checks of an import: the size limit, the acquisition and its steady record period, the
 //! provenance (an aborted experiment or other units are refused), the display of units, and the routing of the scoped
-//! import message. [`check_import`] reads a saved result through [`read_saved_result`] (`decodeWorkflowResult`, B10.4), then
+//! import message. `check_import` reads a saved result through `read_saved_result` (`decodeWorkflowResult`, B10.4), then
 //! applies those checks. The decoder lives in `saved_result`, with the limits of what it reads and the TypeScript decoder
 //! sections it does not port yet. A step-response reference is refused here. Fitting an imported file and keeping it in the
 //! study are not ported yet.

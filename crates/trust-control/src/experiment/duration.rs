@@ -23,10 +23,57 @@ pub(super) fn project_duration_ms(
 /// The hold of a project step test, checked against the parameter's bounds and the declared maximum duration
 /// (`projectHoldRecording`). `None` when the loop declares no hold parameter.
 fn project_hold(input: &PlanInput<'_>, experiment: &Experiment) -> Result<Option<f64>, String> {
+    hold_recording_ms(input.loop_definition, experiment, input.hold_seconds)
+        .map_err(|refusal| refusal.sentence().to_owned())
+}
+
+/// Why the applied hold of a project step test is refused (C12, Hold parameter). The plan, the Identify review and the run refuse it with
+/// the same sentence; the review and the run also type the next action by the kind.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HoldRefusal {
+    /// No finite hold was read, or it lies outside the declared bounds of its parameter: the engineer applies a value within them.
+    NotApplied(String),
+    /// The recording the hold needs is longer than the declared maximum duration: the engineer applies a shorter hold, or Limits
+    /// declares a longer maximum.
+    ExceedsMaximum(String),
+}
+
+impl HoldRefusal {
+    /// The sentence the engineer reads.
+    #[must_use]
+    pub fn sentence(&self) -> &str {
+        match self {
+            Self::NotApplied(sentence) | Self::ExceedsMaximum(sentence) => sentence,
+        }
+    }
+}
+
+/// The recording that holds a project step test from the hold the runtime applies, in ms (C12, Hold parameter): the baseline, every
+/// scan of the hold and one restoration sample ([`project_step_recording_ms`]). `None` when the loop declares no hold parameter, and
+/// then the declared duration stands. The plan, the Identify review and the connected run all take the hold's recording from here.
+///
+/// # Errors
+/// The hold is missing or not finite, or outside the declared bounds of its parameter ([`HoldRefusal::NotApplied`]); or its recording
+/// is longer than the declared maximum duration ([`HoldRefusal::ExceedsMaximum`]).
+pub fn applied_hold_recording_ms(
+    loop_definition: &LoopDefinition,
+    hold_seconds: Option<f64>,
+) -> Result<Option<f64>, HoldRefusal> {
+    match &loop_definition.experiment {
+        Some(experiment) => hold_recording_ms(loop_definition, experiment, hold_seconds),
+        None => Ok(None),
+    }
+}
+
+/// The recording of the hold `hold_seconds` of `experiment`, checked against its parameter's bounds and the declared maximum duration.
+fn hold_recording_ms(
+    loop_definition: &LoopDefinition,
+    experiment: &Experiment,
+    hold_seconds: Option<f64>,
+) -> Result<Option<f64>, HoldRefusal> {
     let Some(symbol) = non_empty(experiment.hold_parameter.as_deref()) else {
         return Ok(None);
     };
-    let loop_definition = input.loop_definition;
     let parameter = loop_definition
         .parameter_binding
         .as_ref()
@@ -36,7 +83,7 @@ fn project_hold(input: &PlanInput<'_>, experiment: &Experiment) -> Result<Option
                 .iter()
                 .find(|parameter| parameter.symbol == symbol)
         });
-    let hold = input.hold_seconds.filter(|hold| hold.is_finite());
+    let hold = hold_seconds.filter(|hold| hold.is_finite());
     let within = match (parameter, hold) {
         (Some(parameter), Some(hold)) => hold >= parameter.minimum && hold <= parameter.maximum,
         _ => false,
@@ -52,24 +99,38 @@ fn project_hold(input: &PlanInput<'_>, experiment: &Experiment) -> Result<Option
                 )
             },
         );
-        return Err(format!(
+        return Err(HoldRefusal::NotApplied(format!(
             "Apply a {symbol} value within {range} s before reviewing the project test."
-        ));
+        )));
     };
     let duration_ms = project_step_recording_ms(loop_definition, hold);
     // A missing declared duration has no maximum to exceed; Identify names it before it records (B3.4 step 1).
     if let Some(declared_seconds) = experiment.duration_seconds {
         let declared_ms = (declared_seconds * 1000.0).round();
         if duration_ms > declared_ms {
-            return Err(format!(
+            return Err(HoldRefusal::ExceedsMaximum(format!(
                 "A {} s hold needs {} s, more than the declared {} s maximum.",
                 js_number(hold),
                 js_number(duration_ms / 1000.0),
                 js_number(declared_seconds)
-            ));
+            )));
         }
     }
     Ok(Some(duration_ms))
+}
+
+/// The baseline a project-scripted experiment records before its activation, in ms: the declared seconds rounded up to whole
+/// periods of the loop's samples, as the plan holds the activation off for it (C12, Baseline). Zero when the loop declares none.
+/// The plan refuses a baseline that is negative or not a number, so a refused baseline never reaches a recording.
+#[must_use]
+pub fn declared_baseline_ms(loop_definition: &LoopDefinition) -> f64 {
+    let period = loop_definition.observed_sample_timing.nominal_period_ms;
+    let baseline_seconds = loop_definition
+        .experiment
+        .as_ref()
+        .and_then(|experiment| experiment.baseline_seconds)
+        .unwrap_or(0.0);
+    (baseline_seconds * 1000.0 / period).ceil() * period
 }
 
 /// The duration of the recording that holds a project step test, in ms: its baseline, every scan of the applied
@@ -77,14 +138,8 @@ fn project_hold(input: &PlanInput<'_>, experiment: &Experiment) -> Result<Option
 #[must_use]
 pub fn project_step_recording_ms(loop_definition: &LoopDefinition, hold_seconds: f64) -> f64 {
     let period = loop_definition.observed_sample_timing.nominal_period_ms;
-    let baseline_seconds = loop_definition
-        .experiment
-        .as_ref()
-        .and_then(|experiment| experiment.baseline_seconds)
-        .unwrap_or(0.0);
-    let baseline_ms = (baseline_seconds * 1000.0 / period).ceil() * period;
     let hold_ms = (hold_seconds * 1000.0 / period - 1e-9).ceil() * period;
-    baseline_ms + hold_ms + period
+    declared_baseline_ms(loop_definition) + hold_ms + period
 }
 
 /// The runtime window of a Test recording, in whole milliseconds: its planned duration plus a restoration margin of at least

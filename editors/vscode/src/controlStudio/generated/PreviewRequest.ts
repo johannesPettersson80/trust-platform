@@ -4,12 +4,6 @@
  */
 
 /**
- * Which terms a controller keeps (C0, "Families and zero terms"). A term the family does not use is written as an
- * explicit zero, so the structure follows from the gains that are not zero.
- */
-export type Structure = "P" | "PI" | "PD" | "PID";
-
-/**
  * The arguments of `controlStudio/preview` (specification 35, §0.1a; B4.5): the loop and the settings the engineer enters.
  * It answers at once with the predicted response of those settings, and stores nothing. With a connection it also reads the
  * running controller's settings for the comparison (B4.5).
@@ -25,10 +19,6 @@ export interface PreviewRequest {
    */
   loopId: string;
   /**
-   * The settings the engineer pinned (B4.2).
-   */
-  pins?: ControllerSettingsPins | null;
-  /**
    * The project folder.
    */
   projectRoot: string;
@@ -37,15 +27,12 @@ export interface PreviewRequest {
    */
   runtimeId: string;
   /**
-   * The settings the engineer enters: the record symbol of each setting and its value.
+   * The settings the engineer enters: the record symbol of each setting and its value. The study's structure and pins are read by
+   * the engine (B4.2, B4.5); a missing value, or one that is not a number, is refused.
    */
-  settings: {
-    [k: string]: number;
+  settings?: {
+    [k: string]: unknown;
   };
-  /**
-   * The structure the engineer fixed; absent takes the structure the entered gains give (C0).
-   */
-  structure?: Structure | null;
 }
 /**
  * Where the bound runtime listens and its control token, as the extension's runtime lifecycle
@@ -57,27 +44,12 @@ export interface RuntimeConnection {
    */
   endpoint: string;
   /**
+   * The runtime this endpoint belongs to, as the extension's selection names it (A2.7). A live request whose loop is bound to
+   * another runtime is refused before it starts. The command line names no selection and leaves it empty.
+   */
+  runtimeId?: string | null;
+  /**
    * The control token, when the runtime requires one.
    */
   token?: string | null;
-}
-/**
- * The pins a user set on the settings of a controller (`ControllerSettingsPins`): the loop they belong to, the family
- * they were set for, and each pinned symbol's value.
- */
-export interface ControllerSettingsPins {
-  /**
-   * The family the pins were set for.
-   */
-  family: "P" | "PI" | "PD" | "PID";
-  /**
-   * The revision of the loop the pins belong to.
-   */
-  loopRevision: string;
-  /**
-   * The pinned value of each symbol.
-   */
-  values: {
-    [k: string]: number;
-  };
 }

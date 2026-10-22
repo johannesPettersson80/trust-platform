@@ -116,14 +116,18 @@ fn plant_result(loop_definition: &LoopDefinition, count: u32) -> Value {
 #[test]
 fn import_recording_keeps_a_checked_file_as_an_opened_recording_of_the_study() {
     let project = Project::new("import-kept");
-    let (studio, _updates) = engine();
+    let (studio, updates) = engine();
     let file = plant_result(&project.loop_definition(), 60).to_string();
     let answer = identify(
         &studio,
         project.request(json!({ "action": "importRecording", "json": file })),
     );
     assert_eq!(answer["status"], "checked", "{answer}");
+    // §0.1a: the answer names its kind, which the page shows the kept recording by.
+    assert_eq!(answer["kind"], "importedRecording", "{answer}");
     assert_eq!(answer["source"], "Simulation", "{answer}");
+    // The fit the import names ends before the test reads the study, and before the project folder is removed.
+    let _import_fit = final_update(&updates);
     let recording_id = answer["recordingId"]
         .as_str()
         .expect("the kept recording")
@@ -143,7 +147,51 @@ fn import_recording_keeps_a_checked_file_as_an_opened_recording_of_the_study() {
         [recording_id.as_str()],
         "the study lists the recording"
     );
-    assert!(nothing_started(&studio), "an import starts no operation");
+    assert!(
+        answer["operationId"].is_string(),
+        "a checked recording is fitted at once, and the answer names the fit (B3.6): {answer}"
+    );
+}
+
+#[test]
+fn a_checked_recording_is_fitted_by_the_answer_of_its_import_and_the_fit_is_kept() {
+    let project = Project::new("import-fits-at-once");
+    let (studio, updates) = engine();
+    let loop_definition = project.loop_definition();
+    let answer = identify(
+        &studio,
+        project.request(json!({
+            "action": "importRecording",
+            "json": plant_result(&loop_definition, 240).to_string()
+        })),
+    );
+    assert_eq!(answer["status"], "checked", "{answer}");
+    let recording_id = answer["recordingId"]
+        .as_str()
+        .expect("the kept recording")
+        .to_string();
+    let operation_id = answer["operationId"]
+        .as_str()
+        .expect("the import names the fit it started")
+        .to_string();
+    let update = final_update(&updates);
+    assert_eq!(update.operation_id, operation_id, "{answer}");
+    assert_eq!(
+        update.state,
+        OperationState::Finished,
+        "{:?}",
+        update.failure
+    );
+    let result = update.result.expect("the fit of the recording");
+    assert_eq!(result["recordingId"], recording_id.as_str(), "{result}");
+    let stored = storage::read_identify(&project.root, &project.working_study())
+        .expect("the study reads")
+        .expect("the fit is kept");
+    assert_eq!(
+        stored.section.signals.outputs,
+        ["P1.ProcessValue".to_string()],
+        "the fit reads the loop's own measured output"
+    );
 }
 
 #[test]
@@ -182,6 +230,8 @@ fn an_opened_recording_is_fitted_from_its_own_samples_and_reopening_shows_the_fi
         .as_str()
         .expect("the kept recording")
         .to_string();
+    // The engine fits the checked recording within the import (B3.6); the fit ends before the page's own fit can start.
+    let _import_fit = final_update(&updates);
     let started = identify(&studio, project.request(open_recording(&recording_id)));
     assert!(started["operationId"].is_string(), "{started}");
     let update = final_update(&updates);
@@ -640,7 +690,7 @@ fn a_second_file_with_one_archived_run_pairs_with_the_kept_run_of_the_first_and_
 #[test]
 fn a_single_recording_answers_its_channels_and_the_study_keeps_the_selection() {
     let project = Project::new("import-catalogue");
-    let (studio, _updates) = engine();
+    let (studio, updates) = engine();
     let answer = identify(
         &studio,
         project.request(json!({
@@ -649,6 +699,8 @@ fn a_single_recording_answers_its_channels_and_the_study_keeps_the_selection() {
         })),
     );
     assert_eq!(answer["status"], "checked", "{answer}");
+    // The fit the import names ends before the test reads the study, and before the project folder is removed.
+    let _import_fit = final_update(&updates);
     assert_eq!(
         answer["recordingCatalog"]["selection"],
         json!({ "inputs": ["P1.ManipulatedValue"], "outputs": ["P1.ProcessValue"] }),
@@ -695,6 +747,8 @@ fn open_recording_fits_the_selected_signals_and_refuses_a_channel_the_recording_
         .as_str()
         .expect("the kept recording")
         .to_string();
+    // The engine fits the checked recording within the import (B3.6); the fit ends before the page's own fit can start.
+    let _import_fit = final_update(&updates);
     let started = identify(
         &studio,
         project.request(json!({

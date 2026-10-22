@@ -31,8 +31,9 @@ pub struct InputStep {
     pub own_method: Option<IdentificationMethod>,
 }
 
-/// The steps of a loop's plant inputs, in input order (`connectedIdentificationChannels`). A loop with one plant input is stepped as
-/// it is. A loop with several inputs has one step per input, each planned on the loop with that input's identification step
+/// The steps of a loop's plant inputs, in input order (`connectedIdentificationChannels`). A loop with one plant input, and a
+/// project-scripted loop whatever its inputs (C12), is stepped as it is. A loop with several inputs has one step per input, each planned
+/// on the loop with that input's identification step
 /// (`experimentStep`) and its own seed. An input other than the manipulated variable is stepped through its Manual command, whose
 /// address is the one the runtime's I/O list `io` gives for its name; a command without an address is stepped by name (§17.1).
 ///
@@ -267,8 +268,12 @@ fn own_step_of(loop_definition: &LoopDefinition, input: &ChannelInput) -> Option
     input.experiment_step
 }
 
-/// The plant inputs of a loop that steps several of them (`input_steps`), or `None` for a loop with one.
+/// The plant inputs of a loop that steps several of them (`input_steps`), or `None` for a loop with one. A project-scripted loop steps
+/// none of them: the project's scenario moves every input, and Control Studio writes no excitation of its own (C12).
 fn several_inputs(loop_definition: &LoopDefinition) -> Option<&[ChannelInput]> {
+    if project_scripted(loop_definition).is_some() {
+        return None;
+    }
     loop_definition
         .channels
         .as_ref()

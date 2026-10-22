@@ -3,6 +3,14 @@
 
 use std::fmt::Write as _;
 
+/// What a Keep writes, as its review says it (B6.5): the running values become the initial values of `record` in the project.
+#[must_use]
+pub fn review_description(record: &str) -> String {
+    format!(
+        "Keep in project writes these running values as the initial values of {record} in the project, so a restart or a new download keeps them."
+    )
+}
+
 /// The loop binds no parameter record (`keepAppliedParameters`, keepInProject.ts; B6.5).
 #[must_use]
 pub fn no_record() -> String {

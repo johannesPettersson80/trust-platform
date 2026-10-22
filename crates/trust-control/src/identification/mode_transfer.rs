@@ -9,21 +9,29 @@
 //! The controller's own states track Manual in its Structured Text, so a mode transfer carries them as they are: the tracking is
 //! `declared-state-v1` without alignment, every state but the references and commands is bounded, and only the guarded mode and
 //! command writes grant authority (A6.3, A6.4).
+//!
+//! A PID group (C7) changes mode as one transaction, through its own binding: that binding holds the setpoint and the Manual command
+//! of every member as states, and the output of every member. Its tracking therefore names every other member's setpoint with its
+//! process value and Manual command with the output it holds, which the runtime requires of a group (annex E6.4, `additional_references`,
+//! `additional_commands` and `additional_measurements`); the return writes back every member's setpoint and Manual command, with
+//! the change each makes to its own output as its allowance, and gives every setpoint its reference step.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::texts;
-use crate::commissioning::actuator_feedback::transfer_target_allowance;
+use crate::commissioning::actuator_feedback::{transfer_output_basis, transfer_target_allowance};
 use crate::commissioning::adapters::controller_adapter;
-use crate::commissioning::channel_mapping::declared_channels;
+use crate::commissioning::channel_mapping::{declared_channels, DeclaredChannels};
 use crate::commissioning::checkpoint::IdentificationModeCheckpoint;
 use crate::commissioning::commissioning_result::TransferStatus;
-use crate::commissioning::declared_initialization::{declared_states, DeclaredStateTracking};
+use crate::commissioning::declared_initialization::{
+    declared_states, further_channels, DeclaredStateTracking, FurtherChannels,
+};
 use crate::commissioning::entry_allowance::{noise_aware_transfer_tolerance, AllowanceTerms};
 use crate::commissioning::found_mode::{found_mode_of, FoundMode};
 use crate::commissioning::project_law::gain_symbols;
 use crate::commissioning::proportional_commissioning::binding_failure;
-use crate::commissioning::transfer::{TransferBinding, TransferValue};
+use crate::commissioning::transfer::{TransferBinding, TransferMember, TransferValue};
 use crate::commissioning::transfer_tracking::{DeclaredStateKind, TransferTracking};
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::LoopDefinition;
@@ -38,9 +46,14 @@ const COMMANDS_LOOP_SUFFIX: &str = ":commands";
 /// The smallest output change a mode transfer allows (`1e-6`).
 const MINIMUM_OUTPUT_CHANGE: f64 = 1e-6;
 
+/// The headroom of the change an additional output is allowed, as a factor: the runtime scales the tolerance of an additional output
+/// by the ratio of the output spans in floating point (annex E6.9), which can leave it a few units in the last place below the exact
+/// change that the write-back must be allowed, and the runtime refuses an output change above its tolerance.
+const ADDITIONAL_OUTPUT_HEADROOM: f64 = 1.0 + 4.0 * f64::EPSILON;
+
 /// The binding of Identify's mode transfer (`binding` of `ConnectedIdentificationMode`): the transfer binding of the loop's
 /// controller adapter (A6.3, C0), on a transfer loop of its own, the adapter's loop identifier followed by
-/// `:identification-mode`.
+/// `:identification-mode`. A PID group's adapter binds every member (C7).
 ///
 /// # Errors
 /// The loop's controller has no adapter, or the adapter's binding does not fit the loop (see `ControllerAdapter::transfer_binding`).
@@ -95,24 +108,29 @@ pub fn mode_states(
 /// binding initialized at the value `status` reports and bounded, since the program moves it in every scan. A Manual command
 /// that the program copies from the output (§17.1) is bounded as well, before a transfer to Manual and after one to Auto.
 ///
+/// A PID group's other members are further channels of the record (C7), as in the commissioning profile's tracking
+/// (`further_channels`): each other member's setpoint with its process value, its Manual command with the output it holds, and
+/// every member's process value. Those setpoints and Manual commands are states of the group's binding but not initialized ones,
+/// since the runtime accepts the record only when the initialized states, the two leading states and the further setpoints and
+/// commands are every state of the binding once, and only a loop's own Manual command may be bounded (`validate_declared_states`).
+///
 /// # Errors
-/// The loop's channels do not fit (see `declared_channels`), or a state's value does not fit its member (see [`mode_states`]).
+/// The loop's channels do not fit (see `declared_channels` and `further_channels`), or a state's value does not fit its member
+/// (see [`mode_states`]).
 pub fn mode_tracking(
     loop_definition: &LoopDefinition,
     binding: &TransferBinding,
     status: &TransferStatus,
 ) -> Result<TransferTracking, Failure> {
     let channels = declared_channels(loop_definition)?;
-    let controls = [
-        channels.reference.symbol.as_str(),
-        channels.command.symbol.as_str(),
-    ];
+    let further = further_channels(loop_definition)?;
     let observed_states = mode_states(binding, status)?;
     let dynamic: Vec<String> = binding
         .states
         .iter()
-        .map(|member| member.symbol.clone())
-        .filter(|symbol| !controls.contains(&symbol.as_str()))
+        .map(|member| member.symbol.as_str())
+        .filter(|symbol| !is_control(&channels, &further, symbol))
+        .map(str::to_owned)
         .collect();
     let initialization_values = dynamic
         .iter()
@@ -135,14 +153,39 @@ pub fn mode_tracking(
         initialization_formulas: None,
         initialization_values,
         bounded_state_symbols,
-        additional_references: Vec::new(),
-        additional_measurements: channels
-            .measurements()
-            .into_iter()
-            .map(|member| member.symbol)
-            .collect(),
-        additional_commands: Vec::new(),
+        additional_references: further.references,
+        additional_measurements: further.measurements,
+        additional_commands: further.commands,
     }))
+}
+
+/// Whether `symbol` is a setpoint or a Manual command of the loop's transfer: the loop's own, or one of a PID group's other members
+/// (C7). The transfer writes these as references and commands; every other state of its binding is the controller's own.
+fn is_control(channels: &DeclaredChannels, further: &FurtherChannels, symbol: &str) -> bool {
+    symbol == channels.reference.symbol
+        || symbol == channels.command.symbol
+        || further
+            .references
+            .iter()
+            .any(|channel| channel.reference_symbol == symbol)
+        || further
+            .commands
+            .iter()
+            .any(|channel| channel.manual_command_symbol == symbol)
+}
+
+/// The state of `binding` named `symbol`: a PID group's further setpoint or Manual command (C7), which the binding holds beside the
+/// loop's own.
+///
+/// # Errors
+/// The binding has no such state, so it is not the binding of the loop (see `binding_failure`).
+fn state_of(binding: &TransferBinding, symbol: &str) -> Result<TransferMember, Failure> {
+    binding
+        .states
+        .iter()
+        .find(|member| member.symbol == symbol)
+        .cloned()
+        .ok_or_else(binding_failure)
 }
 
 /// The output change a mode transfer allows at its first execution (`maximum_output_change`, annex E6.9; `transfer` of
@@ -226,6 +269,16 @@ fn observed_number(observed: &TransferStatus, symbol: &str) -> f64 {
     }
 }
 
+/// A Manual command that a mode return writes back, with the output it holds in Manual.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WrittenCommand {
+    /// The Manual command, one of the states of [`CommandReturn::binding`].
+    pub command: String,
+    /// The output the command holds: the transfer's own output for the loop's Manual command, a PID group's further output for
+    /// another member's (C7).
+    pub output: String,
+}
+
 /// The transfer that writes the loop's references and commands back to their values when Identify found the loop, in Manual,
 /// before the loop returns to Auto (`commandBinding` of `restore`, A6.2).
 #[derive(Debug, Clone, PartialEq)]
@@ -234,50 +287,99 @@ pub struct CommandReturn {
     pub binding: TransferBinding,
     /// The value of each of those states when Identify found the loop.
     pub values: BTreeMap<String, f64>,
-    /// The Manual command among those states, when it is written back.
-    pub command: Option<String>,
+    /// The Manual commands among those states that are written back, each with the output it holds: the loop's own first, when it
+    /// is written back, then a PID group's other members' (C7).
+    pub commands: Vec<WrittenCommand>,
 }
 
 impl CommandReturn {
     /// The allowed output change of the write-back (A6.2, annex E6.9): the larger of the mode change's own allowance `base`
-    /// and the change the restored Manual command makes, from the output `output_now` that the runtime holds before the
-    /// write. Returning the plant input to where Identify found it is the restoration itself, so it is the reviewed tolerance
-    /// of that transfer; a write-back without the Manual command, or an output that is not read, allows `base`.
+    /// and the change the restored Manual commands make, from the outputs that `now` reports before the write. Returning the plant
+    /// inputs to where Identify found them is the restoration itself, so it is the reviewed tolerance of that transfer. The runtime
+    /// scales the tolerance of an additional output by the ratio of the output spans (E6.9), so the change of a PID group's other
+    /// member counts in the span of the transfer's own output (C7). A write-back without Manual commands, or an output that `now`
+    /// does not report, allows `base`.
     #[must_use]
-    pub fn allowance(&self, base: f64, output_now: Option<f64>) -> f64 {
-        let moved = self
-            .command
-            .as_ref()
-            .and_then(|symbol| self.values.get(symbol))
-            .zip(output_now)
-            .map_or(0.0, |(back, now)| (back - now).abs());
-        base.max(moved)
+    pub fn allowance(&self, base: f64, now: &TransferStatus) -> f64 {
+        self.commands
+            .iter()
+            .filter_map(|written| self.change_of(written, now))
+            .fold(base, f64::max)
+    }
+
+    /// The change that writing back `written` makes to the output it holds: the distance from the output `now` reports to the
+    /// command's value. For an additional output it is taken in the span of the transfer's own output, times the ratio of the
+    /// spans and [`ADDITIONAL_OUTPUT_HEADROOM`]. `None` when the command has no value, the output is not reported as a number, or an
+    /// additional output has no span.
+    fn change_of(&self, written: &WrittenCommand, now: &TransferStatus) -> Option<f64> {
+        let back = *self.values.get(&written.command)?;
+        let held = now.values.get(&written.output).copied()?.as_number()?;
+        let change = (back - held).abs();
+        if written.output == self.binding.output.symbol {
+            // The runtime compares the output of the transfer with its tolerance as it is.
+            return Some(change);
+        }
+        let output = self
+            .binding
+            .additional_outputs
+            .iter()
+            .find(|member| member.symbol == written.output)?;
+        let span = self.span_of(output)?;
+        let primary_span = self.span_of(&self.binding.output)?;
+        (span > 0.0).then(|| change * (primary_span / span) * ADDITIONAL_OUTPUT_HEADROOM)
+    }
+
+    /// The width of the range that an output's value is checked against: its feedback guard's when it is tracked, its own otherwise
+    /// (`transfer_output_basis`). `None` when the binding lacks the feedback guard.
+    fn span_of(&self, output: &TransferMember) -> Option<f64> {
+        let basis = transfer_output_basis(&self.binding, output)?;
+        Some(basis.maximum - basis.minimum)
     }
 }
 
 /// The references and commands a mode return writes back in Manual (`restore` of `ConnectedIdentificationMode`, A6.2): the
 /// loop's reference, and its Manual command unless the loop returns to Auto and the program copies the output into the Manual
 /// command there (§17.1), since that copy only holds the output of the moment the mode was changed, and writing it back would
-/// move the output. Their binding is the mode binding on the transfer loop `:commands`, with these states and, as guards, the
-/// parameters of the loop's record and the feedback guard of each tracked output, so that the binding names every guard its
-/// tracked outputs need (annex E6.2). The values are those `original` reports, rounded as their members are typed.
+/// move the output. A PID group writes back the setpoint and the Manual command of every other member as well (C7), after the
+/// loop's own, all of them in the group's binding. Their binding is the mode binding on the transfer loop `:commands`, with these
+/// states and, as guards, the parameters of the loop's record and the feedback guard of each tracked output, so that the binding
+/// names every guard its tracked outputs need (annex E6.2). The values are those `original` reports, rounded as their members are
+/// typed.
 ///
 /// The `TypeScript` keeps only the parameter guards, so a loop with a measured actuator would name a feedback guard the binding
 /// does not hold, which the runtime refuses (E6.2); the feedback guard is kept here.
 ///
 /// # Errors
-/// The loop's channels do not fit (see `declared_channels`), or an original value does not fit its member.
+/// The loop's channels do not fit (see `declared_channels` and `further_channels`), the binding lacks a further member's setpoint
+/// or Manual command, or an original value does not fit its member.
 pub fn command_return(
     loop_definition: &LoopDefinition,
     binding: &TransferBinding,
     original: &TransferStatus,
 ) -> Result<CommandReturn, Failure> {
     let channels = declared_channels(loop_definition)?;
+    let further = further_channels(loop_definition)?;
     let follows = loop_definition.controller.manual_output_follows_output == Some(true);
     let mut states = vec![channels.reference.clone()];
-    let writes_command = !(found_in_auto(binding, original) && follows);
-    if writes_command {
+    for channel in &further.references {
+        states.push(state_of(binding, &channel.reference_symbol)?);
+    }
+    let mut written = Vec::new();
+    // The loop declares that its program copies the output into its own Manual command, and no other: a PID group's other
+    // members' commands are always written back.
+    if !(found_in_auto(binding, original) && follows) {
         states.push(channels.command.clone());
+        written.push(WrittenCommand {
+            command: channels.command.symbol.clone(),
+            output: binding.output.symbol.clone(),
+        });
+    }
+    for channel in &further.commands {
+        states.push(state_of(binding, &channel.manual_command_symbol)?);
+        written.push(WrittenCommand {
+            command: channel.manual_command_symbol.clone(),
+            output: channel.output_symbol.clone(),
+        });
     }
     let parameters: BTreeSet<&str> = loop_definition
         .parameter_binding
@@ -298,17 +400,17 @@ pub fn command_return(
         })
         .cloned()
         .collect();
-    let commands = TransferBinding {
+    let returned = TransferBinding {
         loop_id: format!("{}{COMMANDS_LOOP_SUFFIX}", binding.loop_id),
         states,
         guards,
         ..binding.clone()
     };
-    let values = declared_states(&commands, &original.values)?;
+    let values = declared_states(&returned, &original.values)?;
     Ok(CommandReturn {
-        binding: commands,
+        binding: returned,
         values,
-        command: writes_command.then(|| channels.command.symbol.clone()),
+        commands: written,
     })
 }
 
@@ -327,11 +429,13 @@ pub struct ReferenceReturn {
 /// The reference step of a mode return, after the loop entered Auto again (C1, A6.2): a program that sets its reference from the
 /// measurement in Manual overwrites the reference written back there at its next scan, so the loop enters Auto at the measurement.
 /// A reference that `current` no longer holds at its value in `original` then returns in Auto, as a target change: every state at
-/// the value `current` reports and the reference at its found value, rounded as its member is typed. `None` when the loop holds its
-/// reference.
+/// the value `current` reports and each such reference at its found value, rounded as its member is typed. A PID group has a
+/// reference for every member (C7), and one step returns every reference the group no longer holds. `None` when the loop holds
+/// every reference.
 ///
 /// # Errors
-/// The loop's channels do not fit (see `declared_channels`), a value does not fit its member, or the binding has no output basis.
+/// The loop's channels do not fit (see `declared_channels` and `further_channels`), the binding lacks a further member's setpoint,
+/// a value does not fit its member, or the binding has no output basis.
 pub fn reference_return(
     loop_definition: &LoopDefinition,
     binding: &TransferBinding,
@@ -339,20 +443,32 @@ pub fn reference_return(
     current: &TransferStatus,
 ) -> Result<Option<ReferenceReturn>, Failure> {
     let channels = declared_channels(loop_definition)?;
-    let reference = TransferBinding {
-        states: vec![channels.reference.clone()],
-        ..binding.clone()
-    };
-    let found = declared_states(&reference, &original.values)?;
+    let further = further_channels(loop_definition)?;
+    let mut references = vec![channels.reference.clone()];
+    for channel in &further.references {
+        references.push(state_of(binding, &channel.reference_symbol)?);
+    }
+    let found = declared_states(
+        &TransferBinding {
+            states: references.clone(),
+            ..binding.clone()
+        },
+        &original.values,
+    )?;
     let mut values = mode_states(binding, current)?;
-    let symbol = &channels.reference.symbol;
-    let Some(back) = found.get(symbol).copied() else {
-        return Ok(None);
-    };
-    if values.get(symbol).copied() == Some(back) {
+    let mut moved = false;
+    for reference in &references {
+        let Some(back) = found.get(&reference.symbol).copied() else {
+            continue;
+        };
+        if values.get(&reference.symbol).copied() != Some(back) {
+            values.insert(reference.symbol.clone(), back);
+            moved = true;
+        }
+    }
+    if !moved {
         return Ok(None);
     }
-    values.insert(symbol.clone(), back);
     Ok(Some(ReferenceReturn {
         values,
         tracking: mode_tracking(loop_definition, binding, current)?,
@@ -404,3 +520,7 @@ pub fn check_mode_program(
 #[cfg(test)]
 #[path = "mode_transfer_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "mode_transfer_group_tests.rs"]
+mod group_tests;

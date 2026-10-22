@@ -57,12 +57,16 @@ suite("Control Studio approved three-page theme review", () => {
 
           await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();return 'tune';");
 
-          // The controller families come from the engine's binding list on open (threePageBindings.ts), not from the Tune answer.
+          // The controller families and their settings come from the engine's open answer (controllerOffer, threePageController.ts), not from the Tune answer.
           await inner(engineResult("tune", TUNED));
           await assertViewport(inner, "[data-engineer-tune]", "Tune action");
           await captureRenderedWorkbenchCdp(connection, `${prefix}-tune.png`);
           await inner("const method=d.querySelector('[data-engineer-tuning-method]');method.value='manual';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'manual';");
           await assertViewport(inner, "[data-studio-manual-value]", "Manual controller setting");
+          // The PI candidate shows the rows of its proportional and integral gains, which the open answer's controller names for PI (C2).
+          const manualSymbols = JSON.parse(await inner("return JSON.stringify([...d.querySelectorAll('[data-studio-manual-value]')].map(field=>field.dataset.studioManualValue));")) as string[];
+          assert.ok(manualSymbols.includes("P1.Parameters.ProportionalGain") && manualSymbols.includes("P1.Parameters.IntegralGain"),
+            `${theme}: the PI candidate's manual rows are ${manualSymbols.join(", ")}`);
           await captureRenderedWorkbenchCdp(connection, `${prefix}-manual-settings.png`);
 
           await inner("d.querySelector('[data-studio-requirements]').click();return 'requirements';");
@@ -97,12 +101,16 @@ type StageStatus = "complete" | "ready" | "needs-data";
 const STAGE_LABELS: Record<StageStatus, string> = { complete: "Complete", ready: "Ready", "needs-data": "Needs data" };
 
 /** The status of the page's three stages in an engine answer, with the engine's words (crates/trust-control/src/stages.rs). */
-function stages(identify: StageStatus, tune: StageStatus, validate: StageStatus): { stage: string; status: StageStatus; label: string }[] {
-  return ([["Identify", identify], ["Tune", tune], ["Validate", validate]] as const).map(([stage, status]) => ({ stage, status, label: STAGE_LABELS[status] }));
+function stages(identify: StageStatus, tune: StageStatus, validate: StageStatus): { stage: string; status: StageStatus; label: string; available: boolean }[] {
+  // `available` is the engine's rule (`stage_available`, crates/trust-control/src/stages.rs): Identify always, Tune with a basis, Validate
+  // with a candidate. The fixtures' Tune is complete exactly when a candidate exists.
+  const available: Record<string, boolean> = { Identify: true, Tune: tune === "ready" || tune === "complete", Validate: tune === "complete" };
+  return ([["Identify", identify], ["Tune", tune], ["Validate", validate]] as const).map(([stage, status]) => ({ stage, status, label: STAGE_LABELS[status], available: available[stage] }));
 }
 
 /** The fixture's identification as the engine answers it (IdentifyResult, crates/trust-control/src/messages.rs): 2 e^(-0.5s) / (4s + 1). */
 const IDENTIFIED = {
+  kind: "identification",
   modelType: "First-order model with delay",
   equation: "G(s) = 2 e^(-0.5s) / (4s + 1)",
   keyNumbers: "Gain 2 °C per %, time constant 4 s, delay 0.5 s",
@@ -120,6 +128,7 @@ const IDENTIFIED = {
 
 /** The fixture's PI candidate as the engine answers Tune (TuneResult): the fields the page shows (webview/engineTune.ts). */
 const TUNED = {
+  kind: "tuneResult",
   candidate: { applied: false, structure: "PI" },
   settings: { "P1.Parameters.ProportionalGain": 2, "P1.Parameters.IntegralGain": 0.5 },
   methodTitle: "Automatic",
@@ -147,6 +156,12 @@ const VALIDATED = {
   stages: stages("complete", "complete", "complete"),
   labels: { currentSettings: "Current settings", candidate: "Candidate", candidateOverall: "Candidate overall", automatic: "Automatic" },
   plot: { title: "Measured response", role: "Measurement", unit: "°C", tuned: { name: "Tuned", timeSeconds: [0, 1], values: [20, 21] } },
+  // The engine's table for the passed run: the current settings' and the candidate's rows, then the overall row (ValidateRow).
+  table: [
+    { title: "Current settings · Maximum steady-state error · Measurement (°C)", symbol: "P1.ProcessValue", source: "model theme-model", measured: "0.02 °C", limit: "≤ 0.1 °C", verdict: "Pass", verdictText: "Pass", verdictClass: "pass", requirement: "error" },
+    { title: "Candidate · Maximum steady-state error · Measurement (°C)", symbol: "P1.ProcessValue", source: "model theme-model", measured: "0.02 °C", limit: "≤ 0.1 °C", verdict: "Pass", verdictText: "Pass", verdictClass: "pass", requirement: "error" },
+    { title: "Candidate overall", symbol: "", source: "", measured: "—", limit: "—", verdict: "Pass", verdictText: "Pass", verdictClass: "pass", requirement: "overall" },
+  ],
 };
 
 /** Posts one engine answer to the page as the host does (engine/enginePanelRoute.ts): `control-studio.engine.result` in the loop's scope. */
@@ -155,8 +170,16 @@ function engineResult(method: string, result: Record<string, unknown>): string {
 }
 
 async function assertViewport(inner: (body: string) => Promise<string>, selector: string, label: string): Promise<void> {
-  const result = JSON.parse(await inner(`const e=d.querySelector(${JSON.stringify(selector)});if(!e)return JSON.stringify({missing:true});e.scrollIntoView({block:'nearest',behavior:'instant'});await new Promise(resolve=>d.defaultView.requestAnimationFrame(()=>d.defaultView.requestAnimationFrame(resolve)));const r=e.getBoundingClientRect();return JSON.stringify({missing:false,width:r.width,height:r.height,top:r.top,bottom:r.bottom,viewport:d.defaultView.innerHeight});`));
+  // The page lays itself out again when an engine answer arrives (a stage's reason line, for one), so the check scrolls the element into
+  // view and measures until the layout has settled: an element that can never fit inside the viewport still fails.
+  const measure = async (): Promise<{ missing: boolean; width: number; height: number; top: number; bottom: number; viewport: number }> => JSON.parse(await inner(`const e=d.querySelector(${JSON.stringify(selector)});if(!e)return JSON.stringify({missing:true});e.scrollIntoView({block:'nearest',behavior:'instant'});await new Promise(resolve=>d.defaultView.requestAnimationFrame(()=>d.defaultView.requestAnimationFrame(resolve)));const r=e.getBoundingClientRect();return JSON.stringify({missing:false,width:r.width,height:r.height,top:r.top,bottom:r.bottom,viewport:d.defaultView.innerHeight});`));
+  const inside = (r: { top: number; bottom: number; viewport: number }): boolean => r.top >= -0.5 && r.bottom <= r.viewport + 0.5;
+  let result = await measure();
+  for (let attempt = 0; attempt < 12 && !result.missing && !inside(result); attempt += 1) {
+    await new Promise(resolve => setTimeout(resolve, 150));
+    result = await measure();
+  }
   assert.strictEqual(result.missing, false, `${label} must be rendered`);
   assert.ok(result.width > 0 && result.height > 0, `${label} must have visible dimensions`);
-  assert.ok(result.top >= -0.5 && result.bottom <= result.viewport + 0.5, `${label} must remain within the workbench viewport: ${JSON.stringify(result)}`);
+  assert.ok(inside(result), `${label} must remain within the workbench viewport: ${JSON.stringify(result)}`);
 }

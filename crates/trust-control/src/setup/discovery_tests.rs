@@ -10,53 +10,24 @@ use std::collections::BTreeMap;
 use serde_json::{json, Value};
 
 use super::{
-    adapter_compatibility, control_loops_unreadable, discover_bindings, estimator_model_files,
-    family_name, in_scope, refused, select_binding, target_for_loop, BindingSelection,
-    BindingTarget, ControllerCompatibility, Discovery, EstimatorModelFile, LoopFileRead,
-    LoopFileText, ModelFileText, MAXIMUM_LOOP_BYTES, MAXIMUM_LOOP_FILES,
+    adapter_compatibility, control_loops_unreadable, discover_bindings, family_name, in_scope,
+    refused, select_binding, target_for_loop, BindingSelection, BindingTarget,
+    ControllerCompatibility, Discovery, LoopFileRead, LoopFileText, MAXIMUM_LOOP_BYTES,
+    MAXIMUM_LOOP_FILES,
 };
 use crate::failure::{Cause, NextAction};
 use crate::loop_definition::{
-    AntiWindup, AntiWindupMethod, ControllerLaw, LoopDefinition, LoopScope, ModeBinding, Parameter,
-    ParameterBinding, RealType,
+    ControllerLaw, LoopScope, ModeBinding, Parameter, ParameterBinding, RealType,
 };
 use crate::setup::binding_route::answer_selection;
 use crate::setup::catalog::{
     CatalogAnswer, CompiledCatalog, CompiledController, CompiledSignal, CompiledSymbol,
     CompiledTask,
 };
+use crate::setup::discovery_test_support::{
+    loop_json, loop_of, simc_amigo_manual, simc_amigo_manual_titles, tank_json, CONTROLLER, RUNTIME,
+};
 use crate::tuning::structure::Structure;
-
-const RUNTIME: &str = "runtime:local";
-const CONTROLLER: &str = "Main.TankController";
-
-/// A loop file of one tank: the setpoint, the measurement and the output, each with its address, and no parameter record.
-fn loop_json(id: &str, project: &str, runtime: &str) -> Value {
-    json!({
-        "schemaVersion": 2, "id": id, "name": "Tank level", "revision": "sha256:loop-1",
-        "projectId": project, "runtimeId": runtime,
-        "controller": { "instance": CONTROLLER, "type": "Control.PID", "revision": "sha256:controller-1",
-            "action": "direct", "taskPeriodMs": 10 },
-        "signals": {
-            "setpoint": { "symbol": "Main.SP", "address": "%ML0", "iecType": "LREAL", "direction": "read",
-                "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
-            "processVariable": { "symbol": "Main.PV", "address": "%IL0", "iecType": "LREAL", "direction": "read",
-                "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
-            "manipulatedVariable": { "symbol": "Main.MV", "address": "%QL0", "iecType": "LREAL", "direction": "write",
-                "unit": "%", "range": { "minimum": 0, "maximum": 100 } }
-        },
-        "limits": { "outputMinimum": 0, "outputMaximum": 100 },
-        "observedSampleTiming": { "nominalPeriodMs": 10 }
-    })
-}
-
-fn tank_json(id: &str) -> Value {
-    loop_json(id, "project:sha256:abc", RUNTIME)
-}
-
-fn loop_of(value: &Value) -> LoopDefinition {
-    LoopDefinition::decode(&value.to_string()).expect("the fixture is a complete loop definition")
-}
 
 fn symbol(name: &str, iec_type: &str) -> CompiledSymbol {
     CompiledSymbol {
@@ -436,6 +407,40 @@ fn a_loop_that_uses_channels_is_refused_by_name_until_the_rust_engine_runs_them(
 }
 
 #[test]
+fn a_loop_that_declares_a_law_and_the_programs_own_law_is_refused_with_the_gates_sentence() {
+    // The engine's gate refuses two controller structures (specification 35, C2). Discovery offers no such loop, and says the gate's
+    // sentence, because it calls the gate's check.
+    let mut value = tank_json("loop:tank");
+    value["controller"]["design"] = json!("project");
+    value["controller"]["project"] = json!({
+        "family": "PI", "convention": "project-owned-native-controller",
+        "initialization": { "kind": "declared-state-v1", "states": [] },
+        "seed": { "kind": "parallel-pid", "family": "PI", "proportionalSymbol": "Main.Kp", "integralSymbol": "Main.Ki" },
+        "axes": [], "objective": { "requirementId": "target-error", "direction": "minimize" },
+        "maximumCandidates": 4, "maximumCycles": 50000, "wallBudgetMs": 60000
+    });
+    // The program's own law writes its settings through the loop's parameter binding (a complete loop declares one).
+    value["parameterBinding"] = json!({
+        "loop_id": "loop:tank", "task_name": "MainTask",
+        "parameters": [
+            { "symbol": "Main.Kp", "iec_type": "LREAL", "unit": "%/%", "convention": "proportional gain", "minimum": 0, "maximum": 100 },
+            { "symbol": "Main.Ki", "iec_type": "LREAL", "unit": "%/(%*s)", "convention": "integral gain", "minimum": 0, "maximum": 100 }
+        ],
+        "mode": { "symbol": "Main.Auto", "manual_value": false }
+    });
+    let mut both = loop_of(&value);
+    both.controller.law = Some(ControllerLaw::Proportional {
+        gain_symbol: "Main.Kp".to_string(),
+    });
+    let refusal = target_for_loop("/project/control-loop.json", both, &catalog())
+        .expect_err("a loop with a law and the program's own law is refused");
+    assert_eq!(
+        refusal,
+        "This loop declares both a controller law and the program's own law, so Control Studio cannot tell which one tunes it."
+    );
+}
+
+#[test]
 fn a_pid_group_member_that_the_compiled_program_lacks_is_refused_with_its_name() {
     // hostBindingDiscovery.ts: "Compiled PID group member … is unavailable in the declared task." (C7; the group is read as declared).
     let mut loop_definition = loop_of(&tank_json("loop:tank"));
@@ -522,6 +527,7 @@ fn a_loop_with_no_parameter_record_or_law_is_unconfigured_and_a_refused_adapter_
 #[test]
 fn a_served_program_law_is_accepted_with_the_families_its_seed_names() {
     // C2 Setup: P always, and PI where the seed names the integral variable; the engine serves the shape and offers these families.
+    // C4: the program's own law takes SIMC, AMIGO and Manual, as a PID law does, and the page offers exactly the methods it is given.
     let mut value = tank_json("loop:tank");
     value["controller"]["design"] = json!("project");
     value["controller"]["project"] = json!({
@@ -543,7 +549,8 @@ fn a_served_program_law_is_accepted_with_the_families_its_seed_names() {
         adapter_compatibility(&loop_of(&value)),
         ControllerCompatibility::Accepted {
             recommended_family: None,
-            methods: None,
+            methods: Some(simc_amigo_manual()),
+            method_titles: Some(simc_amigo_manual_titles()),
             families: vec!["P".to_string(), "PI".to_string()],
             family_settings: BTreeMap::from([
                 ("P".to_string(), vec!["Main.Kp".to_string()]),
@@ -559,6 +566,7 @@ fn a_served_program_law_is_accepted_with_the_families_its_seed_names() {
 #[test]
 fn a_served_pid_seed_names_the_settings_each_of_its_families_takes() {
     // C2 Setup and C0: a PID seed offers P, PI, PD and PID, and each family's manual settings and pins take its own variables.
+    // C4: the program's own PID takes SIMC, AMIGO and Manual, as a PID law does.
     let mut value = tank_json("loop:tank");
     value["controller"]["design"] = json!("project");
     value["controller"]["project"] = json!({
@@ -583,7 +591,8 @@ fn a_served_pid_seed_names_the_settings_each_of_its_families_takes() {
         adapter_compatibility(&loop_of(&value)),
         ControllerCompatibility::Accepted {
             recommended_family: None,
-            methods: None,
+            methods: Some(simc_amigo_manual()),
+            method_titles: Some(simc_amigo_manual_titles()),
             families: vec!["P".into(), "PI".into(), "PD".into(), "PID".into()],
             family_settings: BTreeMap::from([
                 ("P".to_string(), vec![kp()]),
@@ -609,6 +618,7 @@ fn the_compatibility_of_a_loop_serializes_with_its_kind_and_families() {
         serde_json::to_value(ControllerCompatibility::Accepted {
             recommended_family: None,
             methods: None,
+            method_titles: None,
             families: vec!["P".to_string(), "PID".to_string()],
             family_settings: BTreeMap::from([
                 ("P".to_string(), vec!["Main.Kp".to_string()]),
@@ -869,189 +879,6 @@ fn the_engine_answers_a_selection_with_the_loop_it_names_or_with_the_refusal_tha
     assert_eq!(
         (unrealized.cause, unrealized.next_action),
         (Cause::ControllerCapability, NextAction::ChooseMethod)
-    );
-}
-
-/// The symbols of a list, sorted, as the page compares a family's settings.
-fn sorted_symbols(symbols: &[&str]) -> Vec<String> {
-    let mut sorted: Vec<String> = symbols.iter().map(|symbol| (*symbol).to_owned()).collect();
-    sorted.sort();
-    sorted
-}
-
-/// The families of an accepted loop and their settings, each list sorted (`setupDiscover`'s `familySettings`).
-fn sorted_family_settings(loop_definition: &LoopDefinition) -> BTreeMap<String, Vec<String>> {
-    match adapter_compatibility(loop_definition) {
-        ControllerCompatibility::Accepted {
-            family_settings, ..
-        } => family_settings
-            .into_iter()
-            .map(|(family, mut symbols)| {
-                symbols.sort();
-                (family, symbols)
-            })
-            .collect(),
-        other => panic!("a Control.PID loop is accepted, not {other:?}"),
-    }
-}
-
-#[test]
-fn a_control_pid_loop_names_the_settings_each_family_takes_as_the_page_did() {
-    // The page's rule before the engine named the settings (manualTuneSettings.ts): Kp for every family; Ki for PI and PID; Kd for PD
-    // and PID; the tracking gain and β for PI and PID; γ for PD and PID; Tf for every family where the law declares it.
-    const KP: &str = "P1.Parameters.ProportionalGain";
-    const KI: &str = "P1.Parameters.IntegralGain";
-    const KD: &str = "P1.Parameters.DerivativeGain";
-    const BETA: &str = "P1.Parameters.ProportionalSetpointWeight";
-    const GAMMA: &str = "P1.Parameters.DerivativeSetpointWeight";
-    const TF: &str = "P1.Parameters.MeasurementFilterTime";
-    const TRACKING: &str = "P1.Parameters.TrackingTime";
-    let mut loop_definition = LoopDefinition::decode(include_str!(
-        "../../../../examples/control-pid-commissioning/control-loop.json"
-    ))
-    .expect("the commissioning example's loop");
-
-    // The shipped law declares Kp, Ki and Kd only.
-    assert_eq!(
-        sorted_family_settings(&loop_definition),
-        BTreeMap::from([
-            ("P".to_owned(), sorted_symbols(&[KP])),
-            ("PI".to_owned(), sorted_symbols(&[KP, KI])),
-            ("PD".to_owned(), sorted_symbols(&[KP, KD])),
-            ("PID".to_owned(), sorted_symbols(&[KP, KI, KD])),
-        ]),
-        "the shipped PID lessons keep the page's settings"
-    );
-
-    // Every optional field declared and bound: each one appears under the families that take it, and Tf under every family.
-    if let Some(ControllerLaw::Pid(pid)) = &mut loop_definition.controller.law {
-        pid.proportional_setpoint_weight_symbol = Some(BETA.to_owned());
-        pid.derivative_setpoint_weight_symbol = Some(GAMMA.to_owned());
-        pid.measurement_filter_time_symbol = Some(TF.to_owned());
-        pid.anti_windup = Some(AntiWindup {
-            method: AntiWindupMethod::BackCalculation,
-            tracking_gain_symbol: TRACKING.to_owned(),
-        });
-    }
-    if let Some(binding) = &mut loop_definition.parameter_binding {
-        binding.parameters.push(Parameter {
-            symbol: TF.to_owned(),
-            iec_type: RealType::Real,
-            unit: "s".to_owned(),
-            convention: "Control.PID MeasurementFilterTime".to_owned(),
-            minimum: 0.0,
-            maximum: 10.0,
-        });
-    }
-    assert_eq!(
-        sorted_family_settings(&loop_definition),
-        BTreeMap::from([
-            ("P".to_owned(), sorted_symbols(&[KP, TF])),
-            (
-                "PI".to_owned(),
-                sorted_symbols(&[KP, KI, BETA, TF, TRACKING])
-            ),
-            ("PD".to_owned(), sorted_symbols(&[KP, KD, GAMMA, TF])),
-            (
-                "PID".to_owned(),
-                sorted_symbols(&[KP, KI, KD, BETA, GAMMA, TF, TRACKING])
-            ),
-        ]),
-        "each optional field is named by the families that take it"
-    );
-}
-
-/// A discrete state-space model text with `states` states and `inputs` inputs and one output, as a project's model file holds it.
-fn model_text(states: usize, inputs: usize) -> String {
-    let channel = |id: String| json!({ "id": id, "unit": "m", "operatingRange": { "minimum": -1.0, "maximum": 1.0 } });
-    let a: Vec<Vec<f64>> = (0..states)
-        .map(|row| {
-            (0..states)
-                .map(|column| if row == column { 0.5 } else { 0.0 })
-                .collect()
-        })
-        .collect();
-    let b: Vec<Vec<f64>> = (0..states).map(|_| vec![0.1; inputs]).collect();
-    json!({
-        "kind": "discrete-state-space", "revision": "model", "source": "provided",
-        "validation": "validated", "evidence": ["lesson"], "delaySeconds": 0, "sampleTimeSeconds": 1,
-        "inputs": (0..inputs).map(|index| channel(format!("u{index}"))).collect::<Vec<Value>>(),
-        "outputs": [channel("y".to_owned())],
-        "states": (0..states).map(|index| channel(format!("x{index}"))).collect::<Vec<Value>>(),
-        "a": a, "b": b, "c": [vec![1.0; states]], "d": [vec![0.0; inputs]],
-        "operatingPoint": { "inputs": vec![0.0; inputs], "outputs": [0.0] },
-    })
-    .to_string()
-}
-
-#[test]
-fn the_estimator_model_files_are_state_space_models_with_one_input_one_output_and_three_states_or_fewer(
-) {
-    // estimatorModelFiles.ts: a state-space model with one input, one output and at most three states, in the order the files are given.
-    // A file that is not a model, has two inputs or three states too many, or cannot be read is left out.
-    let files = vec![
-        ModelFileText {
-            file_name: "lqg-model.json".to_owned(),
-            read: LoopFileRead::Text(model_text(2, 1)),
-        },
-        ModelFileText {
-            file_name: "notes.json".to_owned(),
-            read: LoopFileRead::Text(json!({ "title": "not a model" }).to_string()),
-        },
-        ModelFileText {
-            file_name: "two-inputs.json".to_owned(),
-            read: LoopFileRead::Text(model_text(2, 2)),
-        },
-        ModelFileText {
-            file_name: "four-states.json".to_owned(),
-            read: LoopFileRead::Text(model_text(4, 1)),
-        },
-        ModelFileText {
-            file_name: "unread.json".to_owned(),
-            read: LoopFileRead::Unreadable,
-        },
-        ModelFileText {
-            file_name: "models/tanks.json".to_owned(),
-            read: LoopFileRead::Text(model_text(3, 1)),
-        },
-    ];
-    assert_eq!(
-        estimator_model_files(&files),
-        vec![
-            EstimatorModelFile {
-                file: "lqg-model.json".to_owned(),
-                states: 2
-            },
-            EstimatorModelFile {
-                file: "models/tanks.json".to_owned(),
-                states: 3
-            },
-        ]
-    );
-}
-
-/// Lesson 89's finite search (C5) is offered as its declared family with its coefficient variables, recommended, and with no named
-/// method: Automatic runs its search.
-#[test]
-fn a_search_law_is_offered_as_its_declared_family_with_automatic_alone() {
-    let lesson_89 = include_str!(
-        "../../../../editors/vscode/media/examples/control/07-classical-stability-and-frequency-design/89-mechanical-resonance/control-loop.json"
-    );
-    let loop_definition = LoopDefinition::decode(lesson_89).expect("lesson 89's loop decodes");
-    assert_eq!(
-        adapter_compatibility(&loop_definition),
-        ControllerCompatibility::Accepted {
-            families: vec!["PID".to_string()],
-            family_settings: BTreeMap::from([(
-                "PID".to_string(),
-                vec![
-                    "P1.NotchFrequencyHz".to_string(),
-                    "P1.NotchQuality".to_string()
-                ]
-            )]),
-            recommended_family: Some("PID".to_string()),
-            methods: Some(Vec::new()),
-        }
     );
 }
 

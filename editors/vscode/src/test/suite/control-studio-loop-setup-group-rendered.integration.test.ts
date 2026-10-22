@@ -2,7 +2,6 @@ import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import { validateControlLoopDefinition } from "../../controlStudio/loopDefinition";
 import { attachControlStudio, attachWebview } from "./control-studio-rendered-harness";
 import { captureRenderedWorkbenchCdp, connectCdp, devToolsPort, evaluateInWebview, httpJson, pollValue, requiredEnvironment } from "./plant-rendered-harness";
 
@@ -44,7 +43,6 @@ suite("Control Studio PID group setup rendered", () => {
       await pollValue("Control Studio ready", () => evaluateInWebview(connection, studio, "return d.querySelector('[data-studio-three-page]')?.dataset.hostReady;"), value => value === "true", 10000);
       await shot("studio");
       const saved = JSON.parse(fs.readFileSync(path.join(project, "control-loops", "zone-temperatures.json"), "utf8"));
-      assert.strictEqual(validateControlLoopDefinition(saved, { projectId: saved.projectId, runtimeId: saved.runtimeId }).kind, "accepted");
       assert.deepStrictEqual(saved.controller.group.members.map((member: { instance: string }) => member.instance), ["P1.Zone1", "P1.Zone2"]);
       assert.deepStrictEqual(saved.controller.project.seed, { kind: "decentralized-pid", family: "PI" });
     } finally {

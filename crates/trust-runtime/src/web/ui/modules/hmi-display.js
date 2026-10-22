@@ -663,17 +663,13 @@
     speed.hidden = text2 === "";
   }
   function simulationSpeed(status) {
-    const configured = status.time_scale;
-    if (!Number.isFinite(configured) || configured <= 1) return "";
-    const achieved = status.achieved_time_scale;
-    if (typeof achieved === "number" && achieved < 0.95 * configured) {
-      return say("{achieved} of {configured}", { achieved: `\xD7${tenthsDown(achieved)}`, configured: `\xD7${configured}` });
+    const configured = status.speed_configured;
+    if (typeof configured !== "number") return "";
+    const achieved = status.speed_achieved;
+    if (typeof achieved === "string") {
+      return say("{achieved} of {configured}", { achieved: `\xD7${achieved}`, configured: `\xD7${configured}` });
     }
     return `\xD7${configured}`;
-  }
-  function tenthsDown(value) {
-    const tenths = Math.floor(value * 10 + 1e-9);
-    return tenths % 10 === 0 ? String(tenths / 10) : (tenths / 10).toFixed(1);
   }
   function buildLanguage(document2, choice, layer, signal) {
     const box = document2.createElement("div");

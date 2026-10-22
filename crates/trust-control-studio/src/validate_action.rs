@@ -56,6 +56,7 @@ use trust_control::validation::plant_choice::model_replacement;
 use trust_control::validation::run_requests::law_coefficients;
 use trust_control::validation::run_requests::{isolated_run_request, RunRequestInput, RunSettings};
 
+use crate::application_state::{refuse_while_restore_waits, ApplicationState};
 use crate::busy_loops::{LoopClaim, LoopClaims};
 use crate::commands::to_value;
 use crate::identify_adapters::{RuntimeSampler, StudyRetention};
@@ -196,13 +197,25 @@ fn run_validate(
     // The failure that stops Apply (B5.5) is not part of the operation's update, whose result is this whole answer.
     let ValidateOutcome {
         section,
-        result,
+        mut result,
         failure: _,
     } = outcome;
     // The study is read again for the write, so that a page the engineer chose while the runs ran is kept (A8.1).
     let mut study = working_study(work)?;
     study.set_section(&section)?;
     storage::save_study(&work.project_root, &study, &[])?;
+    // The Validate page's offers after this result (B5.4, B7): Apply by the one rule of every answer that states it, with the journal's
+    // checkpoint and the validation the study now keeps, the action that holds the position, and the Apply stage, which can start exactly
+    // when Apply is offered.
+    let journal = Journal::open(
+        &work.storage_folder,
+        &loop_definition.project_id,
+        &loop_definition.id,
+    )?;
+    let application = ApplicationState::of(&journal, &study, &result.stage_evidence, false)?;
+    result.apply_available = application.offers.apply;
+    result.primary_action = application.primary_action();
+    result.stages = application.stages(&result.stage_evidence);
     to_value(&result)
 }
 
@@ -950,8 +963,10 @@ fn study_changed() -> Failure {
     )
 }
 
-/// Refuses an operation while the loop's journal holds one that runs or whose outcome is unconfirmed (A8.5).
+/// Refuses an operation while the loop's journal holds one that runs or whose outcome is unconfirmed (A8.5). An Apply's checkpoint that
+/// waits for its Restore is refused with the block's reason and the next action Restore (B6.4, B6.7).
 fn refuse_while_journaled(journal: &Journal) -> Result<(), Failure> {
+    refuse_while_restore_waits(journal)?;
     let ids: Vec<&str> = journal
         .entries()
         .iter()

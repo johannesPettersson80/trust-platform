@@ -1,21 +1,23 @@
-import type { ControlLoopDefinition } from "../loopDefinition";
+import type { PlotSignal } from "../generated/OpenResult";
 import { auxiliaryTraceStyle, chartTheme, engineeringLine, formatChartValue } from "./chartPrimitives";
+import { isAuxiliary } from "./plotSignalKinds";
 import type { SignalResponseGroup } from "./threePageLiveSignals";
-import { experimentSignalBindings } from "./threePageRecordedSignals";
 
-/** One chart series per displayed trace; each response group owns its own axis pair. An auxiliary
- * trace's stroke comes from its position among the loop's declared auxiliary signals, so it does
- * not change when the selection changes. The applied output is held between updates, so it is drawn
- * as steps. */
-export function responseChartSeries(theme: ReturnType<typeof chartTheme>, loop: ControlLoopDefinition | null,
+/** One chart series per displayed trace; each response group owns its own axis pair. A trace's colour follows the kind the engine gives its
+ * signal (`liveSides.plotSignals`, `PlotSignal.kind`): the setpoint, the measurement and the applied output keep a colour each, and every
+ * other signal an auxiliary stroke from its position among the signals the engine lists, so it does not change when the selection changes.
+ * The applied output is held between updates, so it is drawn as steps. */
+export function responseChartSeries(theme: ReturnType<typeof chartTheme>, signals: readonly Pick<PlotSignal, "id" | "kind">[],
   groups: readonly SignalResponseGroup[]) {
-  const auxiliaryIds = loop ? experimentSignalBindings(loop).map(signal => signal.id).filter(id => !["sp", "pv", "mv"].includes(id)) : [];
+  const auxiliaryIds = signals.filter(isAuxiliary).map(signal => signal.id);
   return groups.flatMap((group, index) => group.series.map(item => {
     const id = item.signalId;
-    const auxiliary = !item.prediction && id && id !== "sp" && id !== "pv" && id !== "mv" ? auxiliaryTraceStyle(theme, auxiliaryIds.indexOf(id)) : undefined;
-    const color = item.prediction ? theme.auxiliaryOrange : id === "sp" || id === "pv" || id === "mv" ? theme[id] : auxiliary?.color;
+    const signal = signals.find(listed => listed.id === id);
+    const auxiliary = !item.prediction && id && signal && isAuxiliary(signal) ? auxiliaryTraceStyle(theme, auxiliaryIds.indexOf(id)) : undefined;
+    const fixed = signal?.kind === "setpoint" ? theme.sp : signal?.kind === "measurement" ? theme.pv : signal?.kind === "appliedOutput" ? theme.mv : undefined;
+    const color = item.prediction ? theme.auxiliaryOrange : fixed ?? auxiliary?.color;
     const line = engineeringLine(item.name, index, item.points, auxiliary?.type ?? (item.dashed ? "dashed" : "solid"));
-    return { ...line, xAxisIndex: index, ...(id ? { id } : {}), ...(id === "mv" ? { step: "end" as const } : {}),
+    return { ...line, xAxisIndex: index, ...(id ? { id } : {}), ...(signal?.kind === "appliedOutput" ? { step: "end" as const } : {}),
       ...(color ? { itemStyle: { color }, lineStyle: { ...line.lineStyle, color } } : {}) };
   }));
 }

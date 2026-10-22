@@ -1,16 +1,16 @@
 import type { Failure } from "../generated/Failure";
-import type { PlotSeries, RequirementOutcome, ValidateResult, ValidationPlot, ValueRange } from "../generated/ValidateResult";
-import { displayEngineeringUnit, formatEngineeringNumber } from "../chartContract";
+import type { PlotSeries, ValidateResult, ValidateRow, ValidationPlot } from "../generated/ValidateResult";
 import type { EngineHostPorts } from "./engineOpened";
 import { record } from "./engineShared";
 import type { EngineStageReceiver } from "./engineStages";
 import type { SignalResponseGroup } from "./threePageLiveSignals";
 
 /**
- * Shows the engine's Validate answer on the Validate page (specification 35, B5.4, B9.6, B9.9). The engine decides every verdict,
- * label, value, range and plot; this module lays the answer's rows out in the table, formats numbers with their units, draws the
- * engine's plot on the chart, and passes the engine's Apply answer to the page's stage state, which gates Apply and shows a refusal
- * with its next action (B5.5).
+ * Shows the engine's Validate answer on the Validate page (specification 35, B5.4, B9.6, B9.9). The engine decides every row, word,
+ * value, verdict and plot, and it puts the rows in their order and counts the passing guards. This module writes the answer's rows
+ * into the table in that order, draws the engine's plot on the chart, passes the engine's Apply answer to the page's stage state (which
+ * gates Apply and shows a refusal with its next action, B5.5), and hides the table when a stage change leaves the validation no longer
+ * current (A8.4). It computes none of the words, numbers or verdicts.
  */
 export const validateReceiver: EngineStageReceiver = {
   /**
@@ -29,6 +29,7 @@ export const validateReceiver: EngineStageReceiver = {
 /** One Validate result: its table, its plot and Apply's answer, which the page's engineer stage state takes. */
 function showResult(root: HTMLElement, result: Record<string, unknown>, ports: EngineHostPorts): void {
   const answer = result as unknown as ValidateResult;
+  followStageChanges(root);
   renderValidation(root, answer);
   showValidationPlot(root, answer.plot);
   relayApplyAnswer(answer, ports);
@@ -55,145 +56,38 @@ function pageFailure(failure: Failure): Record<string, unknown> {
   };
 }
 
-/** The verdicts in the order the table shows them: failures first, then inconclusive rows, then passing rows (B9.9). */
-const VERDICT_ORDER: Record<RequirementOutcome["status"], number> = { Fail: 0, Inconclusive: 1, Pass: 2 };
-
 /**
- * A requirement row of the table, with the words its run is named by (the scenario and the run), if any. The independent model
- * check is the first row of the table unless it fails (B5.4), so it is marked; `rank` puts it first.
- */
-interface RequirementEntry {
-  readonly requirement: RequirementOutcome;
-  readonly prefix: string;
-  readonly modelAgreement: boolean;
-}
-
-/**
- * The rows of the requirement table (B5.2 to B5.4, B9.9): the independent model check, each scenario's current settings and candidate
- * runs, and the Manual-to-Auto entry of an Auto commissioning. Each requirement shows its label, its channel by role, its measured
- * value or range, its limit or declared bounds and its source. The model check stays first unless it fails; the other rows that fail
- * come first, then the inconclusive ones, then the passing ones, each group in the engine's order. The passing guards (`guard`) are
- * counted in one row beneath them, and the candidate's overall result closes the table. The words come from the engine's `labels`;
- * the verdicts and the guard flags are the engine's.
+ * The table's rows (B9.9): the engine's rows in the order it gives them, one `<tr>` each. The engine names each row, writes its
+ * measured value, limit and verdict, puts the failing rows first, counts the passing guards in one row and closes the table with the
+ * candidate's overall row. The table is hidden when the answer has no rows.
  */
 function renderValidation(root: HTMLElement, answer: ValidateResult): void {
   const table = root.querySelector<HTMLTableElement>("[data-studio-validation-result]");
   if (!table) return;
   const doc = root.ownerDocument;
-  const labels = answer.labels;
-  const scenarios = Array.isArray(answer.scenarios) ? answer.scenarios : [];
-  const entries: RequirementEntry[] = [];
-  if (answer.modelAgreement) entries.push({ requirement: answer.modelAgreement, prefix: "", modelAgreement: true });
-  for (const scenario of scenarios) {
-    const scenarioPrefix = scenarios.length > 1 ? `${scenario.label} · ` : "";
-    for (const [run, runName] of [[scenario.current, labels.currentSettings], [scenario.candidate, labels.candidate]] as const) {
-      for (const requirement of run.requirements) entries.push({ requirement, prefix: `${scenarioPrefix}${runName} · `, modelAgreement: false });
-    }
-  }
-  // The Manual-to-Auto rows carry the engine's words for the case, as a scenario's rows carry their run's words (B9.9).
-  const initialization = answer.initialization;
-  for (const requirement of initialization?.requirements ?? []) entries.push({ requirement, prefix: `${initialization?.label ?? ""} · `, modelAgreement: false });
-  const passingGuards = entries.filter(({ requirement }) => isPassingGuard(requirement)).length;
-  const rows = entries
-    .filter(({ requirement }) => !isPassingGuard(requirement))
-    .sort((left, right) => rank(left) - rank(right))
-    .map(({ requirement, prefix }) => requirementRow(doc, prefix, requirement, labels.automatic));
-  if (passingGuards > 0) rows.push(guardRow(doc, labels.guards, labels.guardsLimit, passingGuards));
-  if (scenarios.length > 0) rows.push(overallRow(doc, labels.candidateOverall, answer.status));
+  const rows = (answer.table ?? []).map(row => validateRow(doc, row));
   table.tBodies[0].replaceChildren(...rows);
   table.hidden = rows.length === 0;
   showPlantReason(root, table, answer.plantReason);
 }
 
-/** A generated check that passed: the engine counts it in the guard row, not in a row of its own (B9.9). */
-function isPassingGuard(requirement: RequirementOutcome): boolean {
-  return requirement.guard === true && requirement.status === "Pass";
-}
-
-/** The place of a row in the table: the model check first unless it fails, then the verdicts in `VERDICT_ORDER`. */
-function rank(entry: RequirementEntry): number {
-  return entry.modelAgreement && entry.requirement.status !== "Fail" ? -1 : VERDICT_ORDER[entry.requirement.status];
-}
-
 /**
- * The passing guards as one row (B9.9): the engine's words for the row, the number of checks it counts, and Pass. The row has no
- * channel and no single limit; its limit column is the engine's words that the counted checks stayed within their declared limits.
+ * One row as the engine gives it (B9.9). Its title is the engine's name for the row, with the plant it ran against shown under the title
+ * (B5.4); the symbol is the hover text, and the row keeps the engine's identity for it (`data-studio-requirement`).
  */
-function guardRow(doc: Document, label: string, limit: string, count: number): HTMLTableRowElement {
-  const row = doc.createElement("tr");
-  row.dataset.studioRequirement = "limit-and-controller-checks";
-  row.append(cell(doc, label), cell(doc, `${count} ${count === 1 ? "check" : "checks"}`), cell(doc, limit), verdictCell(doc, "Pass"));
-  return row;
-}
-
-/**
- * One requirement as a row. Its title is its name, marked Automatic when Automatic generated its limit (B4.3, B5.4), with its
- * channel named by its role and unit; its source, the plant it ran against, is shown under the title (B5.4).
- */
-function requirementRow(doc: Document, prefix: string, requirement: RequirementOutcome, automaticWord: string): HTMLTableRowElement {
-  const row = doc.createElement("tr");
-  row.dataset.studioRequirement = requirement.id;
+function validateRow(doc: Document, row: ValidateRow): HTMLTableRowElement {
+  const element = doc.createElement("tr");
+  element.dataset.studioRequirement = row.requirement;
   // The full symbol is the hover text; the row names the channel by its role (B9.9).
-  row.title = requirement.channel.symbol;
-  const mark = requirement.automatic ? ` · ${automaticWord}` : "";
-  const title = cell(doc, `${prefix}${requirement.label}${mark}${channelText(requirement)}`);
-  if (requirement.source) {
+  element.title = row.symbol;
+  const title = cell(doc, row.title);
+  if (row.source) {
     const source = doc.createElement("small");
-    source.textContent = requirement.source;
+    source.textContent = row.source;
     title.append(doc.createElement("br"), source);
   }
-  row.append(title, cell(doc, measuredText(requirement)), cell(doc, limitText(requirement)), verdictCell(doc, requirement.status, requirement.reason));
-  return row;
-}
-
-/** The overall row: the candidate's result, which decides Apply (N8.5, B5.4); it has no measured value and no limit. */
-function overallRow(doc: Document, label: string, status: ValidateResult["status"]): HTMLTableRowElement {
-  const row = doc.createElement("tr");
-  row.dataset.studioRequirement = "overall";
-  row.append(cell(doc, label), cell(doc, "—"), cell(doc, "—"), verdictCell(doc, status));
-  return row;
-}
-
-/** The channel's role with its unit in parentheses, for example "Measurement (°C)"; the symbol is never shown (B9.9). */
-function channelText(requirement: RequirementOutcome): string {
-  const { role, unit } = requirement.channel;
-  return role ? ` · ${role}${unitParentheses(unit)}` : "";
-}
-
-/**
- * The measured value of a check. An operating-range or state-range check shows the measured range of its channel, from the
- * lowest to the highest good value (B5.4); "—" when no good value was measured.
- */
-function measuredText(requirement: RequirementOutcome): string {
-  const unit = unitSuffix(requirement.unit);
-  if (requirement.measuredRange) return rangeText(requirement.measuredRange, unit);
-  if (requirement.limitRange) return "—";
-  return typeof requirement.value === "number" ? `${formatEngineeringNumber(requirement.value)}${unit}` : "—";
-}
-
-/** The limit of a check: its declared bounds for an operating-range or state-range check (B5.4), or else its one-sided limit. */
-function limitText(requirement: RequirementOutcome): string {
-  const unit = unitSuffix(requirement.unit);
-  const bounds = requirement.limitRange;
-  if (bounds) return `${bounds.minimum === bounds.maximum ? "= " : ""}${rangeText(bounds, unit)}`;
-  if (typeof requirement.limit !== "number") return "—";
-  const side = requirement.limitSide === "atLeast" ? "≥" : "≤";
-  return `${side} ${formatEngineeringNumber(requirement.limit)}${unit}`;
-}
-
-/** A range as one number when its ends are equal, and as "lowest–highest" otherwise, with its unit. */
-function rangeText(range: ValueRange, unit: string): string {
-  return range.minimum === range.maximum
-    ? `${formatEngineeringNumber(range.minimum)}${unit}`
-    : `${formatEngineeringNumber(range.minimum)}–${formatEngineeringNumber(range.maximum)}${unit}`;
-}
-
-function unitSuffix(unit: string): string {
-  return unit.trim() && unit.trim() !== "1" ? ` ${displayEngineeringUnit(unit)}` : "";
-}
-
-function unitParentheses(unit: string): string {
-  return unit.trim() && unit.trim() !== "1" ? ` (${displayEngineeringUnit(unit)})` : "";
+  element.append(title, cell(doc, row.measured), cell(doc, row.limit), verdictCell(doc, row.verdictText, row.verdictClass));
+  return element;
 }
 
 function cell(doc: Document, text: string): HTMLTableCellElement {
@@ -202,15 +96,46 @@ function cell(doc: Document, text: string): HTMLTableCellElement {
   return element;
 }
 
-/** A verdict keeps its word as the text, with the engine's reason when it is not a pass; the icon and colour come from the verdict attribute. */
-function verdictCell(doc: Document, status: string, reason?: string): HTMLTableCellElement {
-  const element = cell(doc, status !== "Pass" && reason ? `${status} · ${reason}` : status);
-  const verdict = status.toLowerCase();
-  if (verdict === "pass" || verdict === "fail" || verdict === "inconclusive") {
+/** A verdict keeps the engine's words as the text; the icon and colour come from the engine's verdict class, which the page styles. */
+function verdictCell(doc: Document, text: string, verdictClass: string): HTMLTableCellElement {
+  const element = cell(doc, text);
+  if (verdictClass === "pass" || verdictClass === "fail" || verdictClass === "inconclusive") {
     element.classList.add("studio-verdict");
-    element.dataset.verdict = verdict;
+    element.dataset.verdict = verdictClass;
   }
   return element;
+}
+
+/** The roots whose stage changes the Validate table already follows, so that each page adds one listener (see `followStageChanges`). */
+const followedRoots = new WeakSet<HTMLElement>();
+
+/**
+ * Follows the page's stage changes (`trust-control-studio-engineer`, threePageHostState.ts dispatches every engineer payload as it
+ * reaches the page). A payload whose stage evidence holds no current validation result hides the table and drops its rows; a reset drops
+ * the plant reason with them (A8.4). The engine's evidence says whether a result is current (`validationHasResult`), and the page decides
+ * nothing. The listener is added when the first result is shown, because the table holds rows only after a result.
+ */
+function followStageChanges(root: HTMLElement): void {
+  const view = root.ownerDocument.defaultView;
+  if (!view || followedRoots.has(root)) return;
+  followedRoots.add(root);
+  view.addEventListener("trust-control-studio-engineer", event => {
+    const payload = record((event as CustomEvent).detail);
+    if (payload) gateValidation(root, payload);
+  });
+}
+
+function gateValidation(root: HTMLElement, payload: Record<string, unknown>): void {
+  const reset = payload.status === "reset";
+  // A change the engine says invalidated the validation, or evidence that names no current result, hides the table; a payload with neither leaves it as it is.
+  const invalidated = payload.validationInvalidated === true || record(payload.stageEvidence)?.validationHasResult === false;
+  if (!reset && !invalidated) return;
+  const table = root.querySelector<HTMLTableElement>("[data-studio-validation-result]");
+  if (!table) return;
+  table.tBodies[0].replaceChildren();
+  table.hidden = true;
+  // A reset drops the plant reason with the results it explained (A8.4).
+  if (reset) root.querySelector<HTMLElement>("[data-studio-plant-reason]")?.remove();
 }
 
 /** Why the model replaced the configured plant for every case (B5.3), in the engine's words, above the table's scroll region. */

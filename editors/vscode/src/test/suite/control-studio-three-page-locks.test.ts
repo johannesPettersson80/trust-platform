@@ -6,7 +6,7 @@ import { editControlRequirements } from "../../controlStudio/webview/threePageRe
 import { runLockedControls } from "../../controlStudio/webview/runLock";
 import { ThreePageOperation } from "../../controlStudio/webview/threePageOperation";
 import { ThreePageApplication } from "../../controlStudio/webview/threePageApplication";
-import { ThreePageRecovery } from "../../controlStudio/webview/threePageRecovery";
+import { applyStageStatuses } from "../../controlStudio/webview/engineShared";
 import { ThreePageBindings } from "../../controlStudio/webview/threePageBindings";
 import { ThreePageController } from "../../controlStudio/webview/threePageController";
 import { ThreePageIdentification } from "../../controlStudio/webview/threePageIdentification";
@@ -101,6 +101,12 @@ function submitRequirements(window: any): void {
 
 const RUN_LOCKED = ["textarea", "[data-engineer-channels]", "[data-studio-limits]", "[data-studio-requirements]", "[data-studio-reset-chart]", "[data-identify-import]", "[data-engineer-acquisition-method]"];
 
+/** The engine's reason of the block of an Apply's checkpoint that waits for its Restore (trust-control `checkpoint_block::UNRESOLVED_APPLY`). */
+const BLOCK_REASON = "An Apply or a Restore of this loop stopped before the runtime confirmed its end. Restore previous settings first: until the runtime confirms it, the loop's other actions wait.";
+
+/** The offers of a Validate answer that offers Apply, as the Validate stage relays them to the Apply area (B5.4, B7). */
+const OFFERED = { status: "offers", engineOutcome: { applyAvailable: true, primaryAction: "apply" } };
+
 suite("Control Studio three-page locks and confirmations", () => {
   test("cancelling the Requirements editor that Tune opened never lets a later manual save start Tune", () => {
     withPage("", (_root, window) => {
@@ -149,10 +155,13 @@ suite("Control Studio three-page locks and confirmations", () => {
   });
 
   test("an Apply run locks the same controls while its stage Abort stays enabled", () => {
-    withPage(STAGE_MARKUP, root => {
+    // The Apply area keeps the Apply stage of the engine's last answer (engineShared.ts `applyStageStatuses`).
+    withPage(`${STAGE_MARKUP}<div data-studio-application></div>`, root => {
       const posts: Post[] = [];
       const application = new ThreePageApplication(root, (kind, payload) => posts.push({ kind, payload }), () => false, () => undefined);
-      application.receive({ status: "verified" });
+      // A Validate answer that offers Apply: its Apply stage can start (B7, B9.4), and its offers name Apply.
+      applyStageStatuses(root, [{ stage: "Apply", status: "ready", label: "Ready", available: true }]);
+      application.receive(OFFERED);
       control<HTMLButtonElement>(root, "[data-engineer-apply]").click();
       assert.deepStrictEqual(posts.map(post => post.kind), ["control-studio.application.apply"]);
       for (const selector of RUN_LOCKED) assert.strictEqual(disabled(root, selector), true, `${selector} is locked while Apply runs`);
@@ -161,13 +170,49 @@ suite("Control Studio three-page locks and confirmations", () => {
     });
   });
 
-  test("recovery locks the same controls and restores their earlier state once the operation is reconciled", () => {
-    withPage(STAGE_MARKUP, root => {
-      const recovery = new ThreePageRecovery(root, () => undefined, () => false);
-      recovery.receive({ status: "recovery-required", cancellationUnconfirmed: true, reason: "Reconnect the original simulator and confirm cancellation." });
-      for (const selector of RUN_LOCKED) assert.strictEqual(disabled(root, selector), true, `${selector} is locked during recovery`);
-      recovery.receive({ status: "failed", recoveryResolved: true, reason: "No operation was replayed." });
-      for (const selector of RUN_LOCKED) assert.strictEqual(disabled(root, selector), false, `${selector} is restored after reconciliation`);
+  test("the engine's block holds the stage actions and names its reason on their pages, while Restore holds the position", () => {
+    // B6.4, B6.7: while an Apply's checkpoint waits for its Restore, the engine's stage statuses hold the stages that write and name the
+    // reason, and its offers put Restore previous settings in the position. The page renders both. The editors of what the stages read and
+    // Reset stay usable: the engine refuses a change of the study inputs and a Reset with the block's reason (B6.4), so the page holds no
+    // lock of its own. The confirmed Restore's stages end the block.
+    const markup = `${STAGE_MARKUP}
+      <button data-engineer-stage-tab="model">Identify</button><button data-engineer-stage-tab="tune">Tune</button><button data-engineer-stage-tab="verify">Validate</button>
+      <section data-studio-page="model"></section><section data-studio-page="tune"></section><section data-studio-page="verify"><div data-studio-application></div></section>`;
+    withPage(markup, root => {
+      const posts: Post[] = [];
+      const post = (kind: string, payload?: Record<string, unknown>) => { posts.push({ kind, payload }); };
+      const operation = new ThreePageOperation(root, post, () => undefined, () => undefined);
+      const application = new ThreePageApplication(root, post, () => operation.busy, () => undefined);
+      const held = (stage: string, status: string) => ({ stage, status, label: status, available: false, reason: BLOCK_REASON });
+      applyStageStatuses(root, [held("Identify", "complete"), held("Tune", "complete"), held("Validate", "complete"), held("Apply", "ready")]);
+      application.receive({ status: "opened", applyObservationResumable: false,
+        engineOutcome: { applyAvailable: false, restoreAvailable: true, keepAvailable: false, primaryAction: "restore" } });
+      operation.synchronize();
+      assert.deepStrictEqual([disabled(root, "[data-engineer-find]"), disabled(root, "[data-engineer-tune]"), disabled(root, "[data-engineer-verify]")],
+        [true, true, true], "each stage the engine holds cannot start");
+      for (const page of ["model", "tune", "verify"]) {
+        const section = control<HTMLElement>(root, `[data-studio-page="${page}"]`);
+        assert.strictEqual(section.querySelector<HTMLElement>(":scope > [data-engineer-stage-reason]")?.textContent, BLOCK_REASON, page);
+        assert.strictEqual(section.hasAttribute("inert"), false, `${page} stays usable, so Restore stays in reach`);
+      }
+      const apply = control<HTMLButtonElement>(root, "[data-engineer-apply]");
+      assert.deepStrictEqual([apply.textContent, apply.disabled], ["Restore previous settings", false]);
+      for (const selector of RUN_LOCKED) {
+        assert.strictEqual(disabled(root, selector), false, `${selector} stays usable: the engine refuses its change while the checkpoint waits`);
+      }
+      apply.click();
+      assert.deepStrictEqual(posts.map(sent => sent.kind), ["control-studio.application.restore"], "Restore asks the engine for its review");
+      // The confirmed Restore answers the stages without the block, and offers nothing (B6.4, B7).
+      application.receive({ status: "commissioned", applicationAction: "restore", reason: "Restored.",
+        engineOutcome: { applyAvailable: false, restoreAvailable: false, keepAvailable: false } });
+      const free = (stage: string, status: string, available: boolean) => ({ stage, status, label: status, available });
+      applyStageStatuses(root, [free("Identify", "complete", true), free("Tune", "complete", true), free("Validate", "complete", true), free("Apply", "ready", true)]);
+      operation.synchronize();
+      assert.deepStrictEqual([disabled(root, "[data-engineer-find]"), disabled(root, "[data-engineer-tune]"), disabled(root, "[data-engineer-verify]")],
+        [false, false, false]);
+      assert.strictEqual(root.querySelector("[data-engineer-stage-reason]"), null, "the block's reason leaves every page");
+      for (const selector of RUN_LOCKED) assert.strictEqual(disabled(root, selector), false, `${selector} is free again`);
+      assert.deepStrictEqual([apply.textContent, apply.disabled], ["Apply", true], "nothing is offered until a validation passes again");
     });
   });
 
@@ -183,12 +228,15 @@ suite("Control Studio three-page locks and confirmations", () => {
       const post = (kind: string, payload: Record<string, unknown> = {}) => posts.push({ kind, payload });
       let bindingsBlock: string | undefined;
       const operation = new ThreePageOperation(root, post, () => undefined, () => undefined, () => bindingsBlock);
-      const controller = new ThreePageController(root, loop, post);
-      const bindings = new (ThreePageBindings as any)(root, loop, controller, post, () => undefined,
+      // The controller selector binds its own listeners on the page; the bindings no longer take it.
+      const _controller = new ThreePageController(root, loop, post);
+      const bindings = new (ThreePageBindings as any)(root, loop, post, () => undefined,
         (valid: boolean, reason?: string) => { bindingsBlock = valid ? undefined : reason; operation.synchronize(); });
-      const identification = new ThreePageIdentification(root, post, undefined, () => operation.stageBlock());
+      const identification = new ThreePageIdentification(root, post, () => operation.stageBlock());
       const experiments = new ThreePageExperiments(root, {} as any, post, () => operation.stageBlock());
-      bindings.receive({ status: "bindings", targets: [target(loop, loop.id)] });
+      // The engine answers each mapping the selectors name (B1.2, B3.6): the current loop's mapping first.
+      const mapping = (outcome: string, sentence = "", blocksRun = false) => ({ outcome, changed: false, blocksRun, sentence, options: [] });
+      bindings.receive({ status: "bindings", targets: [target(loop, loop.id)], mapping: mapping("current") });
       assert.strictEqual(disabled(root, "[data-engineer-find]"), false, "a complete mapping allows Identify");
 
       const input = control<HTMLSelectElement>(root, "[data-studio-inputs]");
@@ -198,6 +246,7 @@ suite("Control Studio three-page locks and confirmations", () => {
       Array.from(input.options).forEach(option => { option.selected = option === other; });
       output.options[0].selected = true;
       input.dispatchEvent(new window.Event("change", { bubbles: true }));
+      bindings.receive({ status: "bindings", targets: [target(loop, loop.id)], mapping: mapping("unmatched", "Choose the complete input and output mapping of a configured loop.", true) });
       assert.strictEqual(bindings.canRun, false, "the selected plant mapping matches no configured loop");
       assert.strictEqual(disabled(root, "[data-engineer-find]"), true, "an incomplete mapping blocks Identify");
 
@@ -212,22 +261,24 @@ suite("Control Studio three-page locks and confirmations", () => {
 
       Array.from(input.options).forEach(option => { option.selected = option.value === loop.signals.manipulatedVariable.symbol; });
       input.dispatchEvent(new window.Event("change", { bubbles: true }));
+      bindings.receive({ status: "bindings", targets: [target(loop, loop.id)], mapping: mapping("current") });
       assert.strictEqual(bindings.canRun, true);
       assert.strictEqual(disabled(root, "[data-engineer-find]"), false, "a complete mapping releases Identify");
     });
   });
 
-  test("Reset discards nothing until the engineer confirms it in the page", () => {
+  test("Reset changes nothing until the engineer confirms it in the page", () => {
     withPage(STAGE_MARKUP, root => {
       const posts: Post[] = [];
       const operation = new ThreePageOperation(root, (kind, payload) => posts.push({ kind, payload }), () => undefined, () => undefined);
       const reset = control<HTMLButtonElement>(root, "[data-studio-reset-chart]");
-      operation.bindReset(reset, () => false);
+      operation.bindReset(reset);
       const row = control<HTMLElement>(root, ".studio-reset-confirm");
       assert.strictEqual(row.hidden, true, "the confirmation starts closed");
       reset.click();
       assert.strictEqual(row.hidden, false, "Reset opens the confirmation");
-      assert.match(row.textContent ?? "", /Reset discards the model, the tuned controller and the validation results\./);
+      assert.match(row.textContent ?? "", /Reset starts a new study\. The model, the tuned controller and the validation results move to the study's history\./,
+        "the confirmation says what Reset does (A8.4): the study moves to history, it is not discarded");
       assert.deepStrictEqual(posts, [], "opening the confirmation posts nothing");
       buttonNamed(row, "Keep").click();
       assert.strictEqual(row.hidden, true, "Keep closes the confirmation");
@@ -239,16 +290,25 @@ suite("Control Studio three-page locks and confirmations", () => {
     });
   });
 
-  test("Reset is refused while the study is blocked, and the page says why", () => {
-    withPage(STAGE_MARKUP, root => {
+  test("a confirmed Reset is sent whatever the page holds, and the engine's refusal is shown with its next action", () => {
+    // The engine refuses Reset while an operation runs or an Apply's checkpoint waits (B6.7); the page writes no refusal of its own.
+    const markup = `${STAGE_MARKUP}<p data-studio-failure-detail="model" hidden></p><button data-studio-failure-action="model" hidden></button>`;
+    withPage(markup, root => {
       const posts: Post[] = [];
       const operation = new ThreePageOperation(root, (kind, payload) => posts.push({ kind, payload }), () => undefined, () => undefined);
       const reset = control<HTMLButtonElement>(root, "[data-studio-reset-chart]");
-      operation.bindReset(reset, () => true);
+      operation.bindReset(reset);
       reset.click();
-      assert.strictEqual(control<HTMLElement>(root, ".studio-reset-confirm").hidden, true, "no confirmation opens");
-      assert.strictEqual(control<HTMLElement>(root, "[data-studio-message=\"model\"]").textContent, "Finish or abort the current operation before resetting the study.");
-      assert.deepStrictEqual(posts, []);
+      buttonNamed(control(root, ".studio-reset-confirm"), "Reset study").click();
+      assert.deepStrictEqual(posts, [{ kind: "control-studio.study.reset", payload: undefined }], "the page refuses nothing itself");
+      assert.strictEqual(reset.disabled, true, "the button waits while the page's own Reset is in flight");
+      operation.receive("flow", { status: "failed", failure: { message: "An Apply or a Restore of this loop stopped before the runtime confirmed its end.",
+        detail: BLOCK_REASON, nextAction: { kind: "restore", label: "Restore previous settings" } } });
+      assert.strictEqual(control<HTMLElement>(root, "[data-studio-message=\"model\"]").textContent,
+        "An Apply or a Restore of this loop stopped before the runtime confirmed its end.", "the engine's sentence");
+      const action = control<HTMLButtonElement>(root, "[data-studio-failure-action=\"model\"]");
+      assert.deepStrictEqual([action.hidden, action.textContent], [false, "Restore previous settings"], "the engine's next action is a control");
+      assert.strictEqual(reset.disabled, false, "the refused Reset has ended, so the button is free again");
     });
   });
 });

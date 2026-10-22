@@ -70,6 +70,7 @@ fn tuned() -> TuneSection {
         previous: None,
         request: &request,
         relay: None,
+        pins: None,
     };
     tune_held(&inputs, Some(&task()), None)
         .expect("the feedforward is designed")

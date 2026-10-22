@@ -96,6 +96,17 @@ pub struct ModelFitEvidence {
     pub model_structure: Option<Box<SensorLagComparison>>,
 }
 
+impl ModelFitEvidence {
+    /// The largest absolute residual over the fitted samples, in output units (B3.3); absent when the fit holds no sample.
+    #[must_use]
+    pub fn maximum_absolute_residual(&self) -> Option<f64> {
+        self.points
+            .iter()
+            .map(|point| point.residual.abs())
+            .reduce(f64::max)
+    }
+}
+
 /// The fitted response of a held step (A10.3, N2.3, N2.6; `heldStepEvidence`): its size, how long it was held, and
 /// the fraction of its fitted final change it reached. The fit evidence reports the fraction; the physical refusals of
 /// `plant` judge the size against the noise and the fraction against 63 %.

@@ -215,3 +215,34 @@ fn a_draft_is_decoded_only_when_its_fields_are_known_text_within_the_limit() {
     let too_long = "a".repeat(MAXIMUM_DRAFT_UNITS + 1);
     assert!(decode_state_design_draft(&json!({ "stateWeights": too_long })).is_none());
 }
+
+#[test]
+fn every_offered_choice_carries_its_words() {
+    // B4.2, C4: the solver policy is a choice between two solutions, and the form lists them from the engine's words, so each choice says
+    // what it is called and which one stands. A choice without words would be listed blank, and a form that knows no standing choice
+    // would show an invented default.
+    let solver = |finite: bool| {
+        serde_json::to_value(form_fields(StateControllerFamily::Lqr, finite).remove(0))
+            .expect("the field encodes")
+    };
+    let choices = json!([
+        { "value": "infinite", "label": "Infinite-horizon / steady-state" },
+        { "value": "finite", "label": "Finite-horizon (fixed policy)" },
+    ]);
+    assert_eq!(
+        solver(false),
+        json!({ "field": "solverMode", "label": "Solver policy", "choices": choices, "selected": "infinite" })
+    );
+    assert_eq!(
+        solver(true),
+        json!({ "field": "solverMode", "label": "Solver policy", "choices": choices, "selected": "finite" }),
+        "a stored finite horizon is the choice that stands"
+    );
+    // A field of text offers no choice and names none that stands.
+    let weights = serde_json::to_value(form_fields(StateControllerFamily::Lqr, false).remove(1))
+        .expect("the field encodes");
+    assert_eq!(
+        weights,
+        json!({ "field": "stateWeights", "label": "State weights (Q)" })
+    );
+}

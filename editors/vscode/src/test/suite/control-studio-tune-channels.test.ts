@@ -2,92 +2,30 @@ import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import { connectedModelChannels, validateLoopChannelBindings, type LoopChannels } from "../../controlStudio/loopChannels";
 import { attachControlStudio } from "./control-studio-rendered-harness";
-import { pidLoop } from "./control-studio-pid-fixtures";
 import { captureRenderedWorkbenchCdp, connectCdp, devToolsPort, evaluateInWebview, httpJson, pollValue, requiredEnvironment } from "./plant-rendered-harness";
 
+/**
+ * The shipped two-input, two-output loop (lesson 61, the coupled vessels): its inputs are the manipulated variable and a second heater, its
+ * outputs the process variable and a second vessel temperature, and it names no controller law (C12). The engine serves a two-input channel
+ * mapping on a loop without a law, and its own tests open this very loop for it (`live_sides_tests.rs`, `requirement_outputs_tests.rs`); a
+ * PID law with two inputs is refused. The engine opens the loops that the project declares, so the journey saves it there.
+ */
 function mimoLoop(): any {
-  const loop = pidLoop(); loop.schemaVersion = 2;
-  loop.signals = { ...loop.signals, additional: [
-    { id: "mv-secondary", channel: "secondary", role: "MV", symbol: "Main.MV2", address: "%QL8", iecType: "LREAL", direction: "write", unit: "V", range: { minimum: -20, maximum: 20 } },
-    { id: "pv-secondary", channel: "secondary", role: "PV", symbol: "Main.PV2", address: "%IL8", iecType: "LREAL", direction: "read", unit: "m", range: { minimum: -20, maximum: 20 } },
-    { id: "sp-secondary", channel: "secondary", role: "SP", symbol: "Main.SP2", address: "%ML8", iecType: "LREAL", direction: "read", unit: "m", range: { minimum: -20, maximum: 20 } },
-  ] };
-  loop.channels = {
-    inputs: [
-      { modelChannelId: "u1", signalId: "manipulatedVariable", actuator: { kind: "continuous", minimum: -20, maximum: 20 } },
-      { modelChannelId: "u2", signalId: "mv-secondary", actuator: { kind: "continuous", minimum: -20, maximum: 20 } },
-    ],
-    outputs: [
-      { modelChannelId: "y1", signalId: "processVariable", setpointSignalId: "setpoint" },
-      { modelChannelId: "y2", signalId: "pv-secondary", setpointSignalId: "sp-secondary" },
-    ],
-  } satisfies LoopChannels;
-  loop.id = "control-studio-mimo"; loop.revision = `${loop.revision}-mimo`; loop.parameterBinding.loop_id = loop.id;
-  return loop;
+  return JSON.parse(fs.readFileSync(path.resolve(__dirname, "../../../../../examples/control/10-multivariable-control/61-mimo-paths/control-loop.json"), "utf8"));
 }
 
-function model() {
-  return { kind: "discrete-state-space", revision: "mimo-model", source: "fitted", validation: "validated", evidence: ["fit"],
-    inputs: [{ id: "u1", unit: "V", operatingRange: { minimum: -20, maximum: 20 } }, { id: "u2", unit: "V", operatingRange: { minimum: -20, maximum: 20 } }],
-    outputs: [{ id: "y1", unit: "m", operatingRange: { minimum: -20, maximum: 20 } }, { id: "y2", unit: "m", operatingRange: { minimum: -20, maximum: 20 } }],
-    states: [{ id: "x1", unit: "m", operatingRange: { minimum: -20, maximum: 20 } }],
-    a: [[0.5]], b: [[0.2, 0.1]], c: [[1], [1]], d: [[0, 0], [0, 0]], delaySeconds: 0, sampleTimeSeconds: 0.1,
-    operatingPoint: { inputs: [0, 0], outputs: [0, 0] } };
+/** The symbol of the loop signal that a channel binds, by the signal's identifier. */
+function symbolOf(loop: any, signalId: string): string {
+  const signal = signalId === "manipulatedVariable" ? loop.signals.manipulatedVariable : signalId === "processVariable" ? loop.signals.processVariable
+    : loop.signals.additional.find((item: any) => item.id === signalId);
+  return signal.symbol;
 }
 
 suite("Control Studio Tune channel mapping", () => {
-  test("retains an identified MIMO model while requiring a compatible controller on Tune", () => {
-    const { EngineerWorkflowSession } = require("../../controlStudio/engineerWorkflowSession");
-    const selected = model(), loop = mimoLoop();
-    const engine = new EngineerWorkflowSession(loop, () => selected, () => {});
-    try {
-      const result = engine.modelChanged();
-      assert.strictEqual(result.status, "model-ready");
-      assert.strictEqual(result.model, selected);
-      assert.strictEqual(result.compatibleControllerRequired, true);
-      assert.strictEqual(result.stageEvidence.hasCandidate, false);
-    } finally { engine.dispose(); }
-  });
-  test("retains an explicit mapping in the same study and rejects modified actuator authority", async () => {
-    const { EngineerWorkflowSession } = require("../../controlStudio/engineerWorkflowSession");
-    const loop = mimoLoop(), source = structuredClone(loop);
-    const engine = new EngineerWorkflowSession(loop, () => undefined, () => undefined);
-    const scope = { projectId: loop.projectId, editorSessionId: "channel-edit", loopId: loop.id, loopRevision: loop.revision };
-    const draft = structuredClone(loop.channels);
-    draft.inputs[0].signalId = "mv-secondary"; draft.inputs[1].signalId = "manipulatedVariable";
-    const posts: any[] = [];
-    const edit = (mapping: unknown) => engine.handle({ schemaVersion: 1, kind: "control-studio.engineer.invalidate",
-      messageId: String(posts.length), ...scope, expectedLoopRevision: scope.loopRevision, payload: { channelMapping: mapping } }, scope,
-      async (payload: unknown) => { posts.push(payload); });
-    try {
-      await edit(draft);
-      assert.deepStrictEqual(engine.snapshotStudy()?.channelMapping, draft);
-      assert.deepStrictEqual(loop, source, "Mapping changes do not mutate the declared safety limits");
-      const invalid = structuredClone(draft); invalid.inputs[0].actuator.maximum = 1000;
-      await edit(invalid);
-      assert.strictEqual(posts[posts.length - 1].status, "failed");
-      assert.deepStrictEqual(engine.snapshotStudy().channelMapping, draft, "Invalid mapping leaves the accepted draft intact");
-    } finally { engine.dispose(); }
-  });
-  test("validates a complete two-channel MV/PV/SP mapping and preserves model order", () => {
-    const loop = mimoLoop();
-    validateLoopChannelBindings(loop);
-    const connected = connectedModelChannels(loop, model() as any);
-    assert.deepStrictEqual(connected.inputs.map(channel => channel.signal.symbol), ["Main.MV", "Main.MV2"]);
-    assert.deepStrictEqual(connected.outputs.map(channel => channel.signal.symbol), ["Main.PV", "Main.PV2"]);
-    assert.deepStrictEqual(connected.outputs.map(channel => channel.reference?.symbol), ["Main.SP", "Main.SP2"]);
-  });
-
-  test("rejects incomplete, duplicate, wrong-role and incompatible-unit mapping drafts", () => {
-    const loop = mimoLoop();
-    assert.throws(() => connectedModelChannels({ ...loop, channels: { ...loop.channels, inputs: loop.channels.inputs.slice(0, 1) } }, model() as any), /Invalid|exactly one|channel/i);
-    assert.throws(() => validateLoopChannelBindings({ ...loop, channels: { ...loop.channels, inputs: loop.channels.inputs.map((input: any) => ({ ...input, signalId: "manipulatedVariable" })) } }), /assigned to multiple|duplicate|Invalid/i);
-    assert.throws(() => validateLoopChannelBindings({ ...loop, channels: { ...loop.channels, outputs: loop.channels.outputs.map((output: any) => ({ ...output, signalId: "manipulatedVariable" })) } }), /role|PV|Invalid/i);
-    assert.throws(() => validateLoopChannelBindings({ ...loop, channels: { ...loop.channels, outputs: loop.channels.outputs.map((output: any) => ({ ...output, setpointSignalId: "mv-secondary" })) } }), /unit|setpoint|Invalid/i);
-  });
-
+  // The mapping that the engine keeps and refuses is pinned by Rust (`loop_definition/channel_selection_tests.rs`: a swap is accepted and
+  // the stages read it, a foreign or repeated signal is refused, the declared loop keeps its bindings). The TypeScript session that
+  // held the mapping before the cut is gone, so its two tests of the mapping's study went with it.
   test("renders Channels… only for MIMO Tune targets and exposes exact declared signals", async function () {
     if (process.env.TRUST_CONTROL_STUDIO_THREE_PAGE !== "1") this.skip();
     this.timeout(60000);
@@ -99,22 +37,29 @@ suite("Control Studio Tune channel mapping", () => {
       await vscode.commands.executeCommand("trust-lsp.controlStudio.open", { schemaVersion: 1, source: "ConfiguredLoop",
         scope: { projectId: siso.projectId, runtimeId: siso.runtimeId }, loopDefinition: siso });
       const sisoSession = await attachControlStudio(connection, port, "", siso.id);
-      const sisoText = await evaluateInWebview(connection, sisoSession, "return d.querySelector('[data-engineer-workflow]').textContent;");
-      assert.ok(!sisoText.includes("Channels…"), "SISO Tune must not expose a multivariable Channels editor");
+      // The engine offers Channels… with its open answer, so the page is asked once the engine has answered.
+      await pollValue("SISO Control Studio", () => evaluateInWebview(connection, sisoSession, "return d.querySelector('[data-studio-three-page]')?.dataset.hostReady;"), value => value === "true", 15000);
+      await evaluateInWebview(connection, sisoSession, "d.querySelector('[data-engineer-stage-tab=tune]').click();return 'tune';");
+      const sisoChannels = await evaluateInWebview(connection, sisoSession, "return String([...d.querySelectorAll('[data-engineer-channels]')].some(button => button.checkVisibility()));");
+      assert.strictEqual(sisoChannels, "false", "SISO Tune must not expose a multivariable Channels editor");
       await vscode.commands.executeCommand("workbench.action.closeAllEditors");
 
       const loop = mimoLoop();
+      fs.mkdirSync(path.join(project, "control-loops"), { recursive: true });
+      fs.writeFileSync(path.join(project, "control-loops", `${loop.id}.json`), `${JSON.stringify(loop, null, 2)}\n`);
       await vscode.commands.executeCommand("trust-lsp.controlStudio.open", { schemaVersion: 1, source: "ConfiguredLoop",
         scope: { projectId: loop.projectId, runtimeId: loop.runtimeId }, loopDefinition: loop });
       const session = await attachControlStudio(connection, port, siso.id, loop.id);
       const inner = (body: string) => evaluateInWebview(connection, session, body);
-      await pollValue("MIMO Tune handlers", () => inner("return d.querySelector('[data-studio-three-page]')?.dataset.ready;"), value => value === "true", 10000);
+      await pollValue("MIMO Control Studio", () => inner("return d.querySelector('[data-studio-three-page]')?.dataset.hostReady;"), value => value === "true", 15000);
       await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();return 'tune';");
-      assert.strictEqual(await inner("return String(Boolean(d.querySelector('[data-engineer-channels]')));"), "true");
+      assert.strictEqual(await inner("return String(Boolean(d.querySelector('[data-engineer-channels]')?.checkVisibility()));"), "true", "the engine offers Channels… for a two-input loop");
       await inner("d.querySelector('[data-engineer-channels]').click();return 'channels';");
       assert.strictEqual(await inner("return String(Boolean(d.querySelector('[data-studio-channel-mapping]')));"), "true");
       const labels = await inner("return JSON.stringify(Array.from(d.querySelectorAll('[data-studio-channel-mapping] select option')).map(o=>o.textContent.trim()));");
-      assert.match(labels, /Main\.MV|Main\.MV2|Main\.PV|Main\.PV2|Main\.SP|Main\.SP2/);
+      for (const channel of [...loop.channels.inputs, ...loop.channels.outputs]) {
+        assert.ok(labels.includes(symbolOf(loop, channel.signalId)), `the editor offers the declared signal ${symbolOf(loop, channel.signalId)}: ${labels}`);
+      }
       await captureRenderedWorkbenchCdp(connection,
         requiredEnvironment("TRUST_CONTROL_STUDIO_RENDERED_SCREENSHOT").replace(/\.png$/, "-channels.png"));
       assert.strictEqual(await inner(`const field=d.querySelector('[data-studio-channel-field]');
@@ -123,11 +68,20 @@ suite("Control Studio Tune channel mapping", () => {
       "Channel selectors must render the shared dropdown arrow");
       await inner(`const fields=d.querySelectorAll('[data-studio-channel-field]');fields[0].value=fields[1].value;
         d.querySelector('[data-studio-editor-done]').click();return 'duplicate';`);
-      assert.strictEqual(await inner(`const field=d.querySelector('[data-studio-channel-field]');return String(field.getAttribute('aria-invalid')==='true'&&field.closest('fieldset').querySelector('[role=alert]').checkVisibility());`), "true",
-      "A duplicate command mapping identifies the affected command row");
+      // The engine checks the selection and refuses a duplicate with its sentence, which the Tune page shows in its action area with the Channels… action
+      // (the Tune page annex); the Identify page's area, where an earlier operation would have put it, stays empty.
+      await pollValue("the engine refuses a duplicate command mapping", () => inner("return d.querySelector('[data-studio-message=tune]').textContent;"),
+        value => value.includes("already assigned to another channel"), 15000);
+      assert.strictEqual(await inner("return d.querySelector('[data-studio-failure-action=tune]').textContent;"), "Channels…");
+      assert.strictEqual(await inner("return d.querySelector('[data-studio-message=model]').textContent;"), "", "the refusal is not on the Identify page");
       await captureRenderedWorkbenchCdp(connection,
         requiredEnvironment("TRUST_CONTROL_STUDIO_RENDERED_SCREENSHOT").replace(/\.png$/, "-channels-error.png"));
-      await inner("d.querySelector('[data-studio-editor-cancel]').click();d.querySelector('[data-engineer-channels]').click();return 'cancel and reopen';");
+      // Done closed the editor when it sent the selection (Tune page specification, Channels…): the engine refused it and the study keeps the
+      // mapping it had, so Channels… opens on the declared mapping again. Cancel then closes the editor and changes nothing.
+      await inner("d.querySelector('[data-engineer-channels]').click();return 'reopen';");
+      assert.strictEqual(await inner("return d.querySelector('[data-studio-channel-field]').value;"), "manipulatedVariable", "The refused selection leaves the declared mapping");
+      await inner(`const fields=d.querySelectorAll('[data-studio-channel-field]');fields[0].value=fields[1].value;
+        d.querySelector('[data-studio-editor-cancel]').click();d.querySelector('[data-engineer-channels]').click();return 'cancel and reopen';`);
       assert.strictEqual(await inner("return d.querySelector('[data-studio-channel-field]').value;"), "manipulatedVariable", "Cancel leaves the declared mapping unchanged");
     } finally {
       connection.close();

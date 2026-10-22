@@ -1,7 +1,7 @@
 //! Tests of the Manual-to-Auto entry case in the Validate composition (specification 35, B5.3, B5.4, B5.5 and B9.9): the case joins the
-//! campaign rule, a failing first output fails the validation with the reason of its row, a validation that runs no case answers none,
-//! every row is a guard, and a loop whose Auto entry cannot be planned still validates its other cases and answers its case
-//! Inconclusive with the refusal. The fixtures are the campaign tests' own.
+//! campaign rule, a failing first output fails the validation naming the range it took and its bounds, a validation that runs no case
+//! answers none, every row is a guard, and a loop whose Auto entry cannot be planned still validates its other cases and answers its
+//! case Inconclusive with the refusal. The fixtures are the campaign tests' own.
 
 use std::collections::BTreeMap;
 
@@ -229,7 +229,7 @@ fn the_entry_case_joins_the_campaign_rule_so_apply_needs_it_to_pass() {
 }
 
 #[test]
-fn a_failing_first_output_fails_the_validation_with_the_reason_of_its_row() {
+fn a_failing_first_output_fails_the_validation_naming_the_range_it_took_and_its_bounds() {
     // The output is 5 V over the window of the first output, outside its 0.9 V to 1.1 V allowance.
     let entry = completed(record(&[
         (0.0, 1.0),
@@ -259,10 +259,10 @@ fn a_failing_first_output_fails_the_validation_with_the_reason_of_its_row() {
     let failure = outcome
         .failure
         .expect("Apply is not available, so the failure says why");
-    assert!(
-        failure.message.contains(&failed.reason),
-        "the failure carries the reason of the failed row: {}",
-        failure.message
+    // The first output is a check of declared bounds, so the failure names the range the output took and the bounds it broke (B5.5).
+    assert_eq!(
+        failure.message, "First output after Auto entry: 5 V is outside the declared 0.9–1.1 V.",
+        "the failure names the range the first output took and the bounds it broke (B5.5)"
     );
     assert_eq!(failure.cause, Cause::Implementation);
     assert_eq!(failure.next_action, NextAction::OpenLoopSetup);

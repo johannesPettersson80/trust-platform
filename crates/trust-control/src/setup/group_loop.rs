@@ -31,7 +31,7 @@ use crate::loop_definition::{
 use crate::model::{ActuatorCapabilities, ActuatorKind};
 
 /// The fewest members a group has (`pidGroupGenerator.ts`).
-const MINIMUM_MEMBERS: usize = 2;
+pub(super) const MINIMUM_MEMBERS: usize = 2;
 
 /// The gain fields of a member's parameter record, in the order the group's parameters follow (`pidGroupLoopDefinition`).
 const GAIN_FIELDS: [&str; 3] = ["ProportionalGain", "IntegralGain", "DerivativeGain"];

@@ -12,6 +12,115 @@ export type ModeWhenTrue = "Auto" | "Manual";
  * settings the engineer enters. Absent in a request, the method is Automatic (B4.2).
  */
 export type TuneMethod = "SIMC" | "AMIGO" | "relay" | "manual" | "state-space";
+/**
+ * The manual output's type.
+ */
+export type ManualOutputType = "REAL" | "LREAL" | "BOOL";
+/**
+ * Who designs the controller.
+ */
+export type Design = "pid" | "project";
+/**
+ * The controller's equation and the parameters that hold its gains.
+ */
+export type ControllerLaw =
+  | {
+      /**
+       * The parameter holding Kp.
+       */
+      gainSymbol: string;
+      kind: "proportional";
+      [k: string]: unknown;
+    }
+  | {
+      /**
+       * Back-calculation anti-windup.
+       */
+      antiWindup?: AntiWindup | null;
+      /**
+       * The record field holding Kd.
+       */
+      derivativeGainSymbol: string;
+      /**
+       * The record field γ in D = Kd·(γ·dSP/dt − dPV/dt), in [0, 1].
+       */
+      derivativeSetpointWeightSymbol?: string | null;
+      /**
+       * The record field holding Ki.
+       */
+      integralGainSymbol: string;
+      kind: "pid";
+      /**
+       * The setting Tf of the measurement filter, in s.
+       */
+      measurementFilterTimeSymbol?: string | null;
+      /**
+       * The record the controller is configured from.
+       */
+      parameterRecordSymbol: string;
+      /**
+       * An optional counter the project bumps when it adopts a new record.
+       */
+      parameterRevisionSymbol?: string | null;
+      /**
+       * The record field holding Kp.
+       */
+      proportionalGainSymbol: string;
+      /**
+       * The record field β in P = Kp·(β·SP − PV), in [0, 1].
+       */
+      proportionalSetpointWeightSymbol?: string | null;
+    };
+/**
+ * The controller states an Auto entry initializes (specification 35, A6.3).
+ */
+export type PidInitialization =
+  | {
+      /**
+       * γ of the law.
+       */
+      derivativeSetpointWeight: number;
+      derivativeState: StateReference;
+      integralState: StateReference1;
+      kind: "parallel-pid-v1";
+      /**
+       * The oldest snapshot an Auto entry may use, in ms.
+       */
+      maximumSnapshotAgeMs: number;
+      /**
+       * β of the law.
+       */
+      proportionalSetpointWeight: number;
+      [k: string]: unknown;
+    }
+  | {
+      /**
+       * Further states of the owning program the entry sets.
+       */
+      applicationStates?: InitializedState[] | null;
+      kind: "control-pid-v1";
+      /**
+       * The oldest snapshot an Auto entry may use, in ms.
+       */
+      maximumSnapshotAgeMs: number;
+      /**
+       * The seven states.
+       */
+      states: InitializedState[];
+      [k: string]: unknown;
+    };
+/**
+ * A relay's first direction.
+ */
+export type RelayDirection = "positive" | "negative";
+/**
+ * What the bound parameters are for.
+ */
+export type ParameterPurpose = "controller" | "experiment";
+/**
+ * The loop's topology.
+ */
+export type Topology = "closed-loop" | "open-loop";
 
 /**
  * The answer to a discovery: the form's model, the discovered loops and the refusals (B1.2, B1.3).
@@ -27,6 +136,10 @@ export interface SetupDiscoverResult {
    */
   loops: LoopSummary[];
   /**
+   * The engine's answer to the request's mapping (B1.2, B3.6); absent when the request names none.
+   */
+  mapping?: MappingAnswer | null;
+  /**
    * The loop files that are refused, and why.
    */
   rejected: Rejection[];
@@ -34,6 +147,10 @@ export interface SetupDiscoverResult {
    * The file of the loop the request's selection names, when the engine accepts the selection (B1.3); absent otherwise.
    */
   selectedFile?: string | null;
+  /**
+   * The open request of the loop the selection names (B1.3, §0.1a), when the engine accepts the selection; absent otherwise.
+   */
+  selectedRequest?: ConfiguredLoopRequest | null;
   [k: string]: unknown;
 }
 /**
@@ -66,6 +183,9 @@ export interface SetupFormModel {
    * The outer and inner PID of a cascade: the first pair the program shows.
    */
   cascade?: CascadePair | null;
+  choices: SetupFormChoices;
+  decoupler: DecouplerShape;
+  defaults: SetupFormDefaults;
   /**
    * The library PIDs whose Initialize the program calls.
    */
@@ -74,6 +194,12 @@ export interface SetupFormModel {
    * The program and function block instances, other than library PIDs, that run in one cyclic task.
    */
   instances: string[];
+  labels: SetupFormLabels;
+  limits: SetupFormLimits;
+  /**
+   * The loop name the form starts from for each library PID, in the order of `pids` (B1.3).
+   */
+  loopNames: OfferedLoopName[];
   /**
    * The REAL and LREAL signals a simulated plant can write as a measurement: inputs, program variables without an address that
    * the program only reads, and the measurement each library PID holds.
@@ -104,14 +230,31 @@ export interface SetupFormModel {
    */
   records: string[];
   /**
+   * The operating-point rows of the gain schedule's form, in the order the form draws them (B1.3, C10): one for each point a schedule
+   * may have, each saying whether the setup asks for it. The form draws these rows and keeps no count or flag of its own.
+   */
+  schedulePoints: SchedulePointRow[];
+  /**
    * The REAL and LREAL signals a loop can use as an output or a setpoint, addressed or not; a PID's own records and states are
    * not signals.
    */
   signals: string[];
   /**
+   * The PID instances whose program needs the startup-done flag at the settings the form starts from (C1 Setup): the program calls the
+   * PID's Initialize, or writes a value the setup seeds with the prefilled setpoint, manual output, mode or parameter record. The page
+   * shows the flag for a chosen instance in this list; a refusal that names the flag shows it whatever the list says.
+   */
+  startupFlagInstances: string[];
+  /**
    * The structure the program shows: `cascade`, `group`, `pid` or `identify`.
    */
   structure: string;
+  /**
+   * The structures the setup page offers, in the order it lists them: those a library PID's program can use, then, when the program has
+   * an instance of its own, the structures that run on it, and identify last (`loopSetupTemplate.ts`, B1.3).
+   */
+  structures: string[];
+  wording: SetupFormWording;
   /**
    * The symbols the program assigns, as the compiler reports them, in the order it reports them.
    */
@@ -130,6 +273,216 @@ export interface CascadePair {
    * The outer PID.
    */
   outer: string;
+  [k: string]: unknown;
+}
+/**
+ * The values each choice of the form offers, in the order the page lists them (B1.3); the words of each value are `labels`.
+ */
+export interface SetupFormChoices {
+  /**
+   * The controller actions (`action`).
+   */
+  actions: string[];
+  /**
+   * The hysteresis bands of an ON/OFF controller (`bandConvention`).
+   */
+  bandConventions: string[];
+  /**
+   * Where a program's own PID law takes its derivative (`derivativeOn`).
+   */
+  derivativeOn: string[];
+  /**
+   * Where a kept value of a finite search starts (`start`).
+   */
+  keptStarts: string[];
+  /**
+   * What an Auto/Manual signal's TRUE value means (`modeWhenTrue`).
+   */
+  modeWhenTrue: string[];
+  /**
+   * The laws of a program's own controller (`law`).
+   */
+  ownLaws: string[];
+  /**
+   * The laws a finite search may name (`family` of the search structure).
+   */
+  searchFamilies: string[];
+  /**
+   * The designs of state feedback (`family` of the state-feedback structure).
+   */
+  stateFamilies: string[];
+  /**
+   * The threshold-equality policies of an ON/OFF controller (`thresholdEquality`).
+   */
+  thresholdEqualities: string[];
+  [k: string]: unknown;
+}
+/**
+ * The shape of the static decoupler a PID group may declare (B1.3, C7): one row for each plant input and one column for each member.
+ * The members are the program's library PIDs, so the matrix is square in them. The form draws one entry for each cell.
+ */
+export interface DecouplerShape {
+  /**
+   * The columns of the matrix: one for each member.
+   */
+  columns: number;
+  /**
+   * The rows of the matrix: one for each plant input.
+   */
+  rows: number;
+  [k: string]: unknown;
+}
+/**
+ * The choices the form preselects when the engineer has not chosen one (B1.3): the page shows them and keeps no default of its own.
+ */
+export interface SetupFormDefaults {
+  /**
+   * The controller action the form preselects (B1.3): `direct`.
+   */
+  action: string;
+  /**
+   * The band convention of an ON/OFF controller the form preselects (C3): `half-band`.
+   */
+  bandConvention: string;
+  /**
+   * What an Auto/Manual signal's TRUE value means when the engineer does not choose it (B1.3): `Auto`.
+   */
+  modeWhenTrue: string;
+  /**
+   * The law an own-law setup preselects (C2): `PI`.
+   */
+  ownLaw: string;
+  /**
+   * The law family the form preselects for a finite search (C5): `MPC`.
+   */
+  searchFamily: string;
+  /**
+   * Where a kept value of a finite search starts when the engineer does not choose it (C5): `zero`.
+   */
+  searchKeptStart: string;
+  /**
+   * The state-feedback design the form preselects (C4): `LQR`.
+   */
+  stateFamily: string;
+  /**
+   * The structure the form preselects: the one the program shows, so a program with several library PIDs preselects `group`.
+   */
+  structure: string;
+  /**
+   * The threshold-equality policy of an ON/OFF controller the form preselects (C3, D-10): `at-or-beyond`.
+   */
+  thresholdEquality: string;
+  /**
+   * The law a trajectory feedforward's program computes, which the form does not offer to change (C11): `PID`.
+   */
+  trajectoryOwnLaw: string;
+  [k: string]: unknown;
+}
+/**
+ * The words of each value the form offers (B1.3): for `structures` and for each list of `choices`, the words the page shows for
+ * each of its values, keyed by the value. The page shows these words and keeps none of its own.
+ */
+export interface SetupFormLabels {
+  /**
+   * The words of the controller actions.
+   */
+  actions: {
+    [k: string]: string;
+  };
+  /**
+   * The words of the hysteresis bands of an ON/OFF controller.
+   */
+  bandConventions: {
+    [k: string]: string;
+  };
+  /**
+   * The words of where a program's own PID law takes its derivative.
+   */
+  derivativeOn: {
+    [k: string]: string;
+  };
+  /**
+   * The words of where a kept value of a finite search starts.
+   */
+  keptStarts: {
+    [k: string]: string;
+  };
+  /**
+   * The words of what an Auto/Manual signal's TRUE value means.
+   */
+  modeWhenTrue: {
+    [k: string]: string;
+  };
+  /**
+   * The words of the laws of a program's own controller.
+   */
+  ownLaws: {
+    [k: string]: string;
+  };
+  /**
+   * The words of the laws a finite search may name.
+   */
+  searchFamilies: {
+    [k: string]: string;
+  };
+  /**
+   * The words of the designs of state feedback.
+   */
+  stateFamilies: {
+    [k: string]: string;
+  };
+  /**
+   * The words of each structure the program offers (`structures`).
+   */
+  structures: {
+    [k: string]: string;
+  };
+  /**
+   * The words of the threshold-equality policies of an ON/OFF controller.
+   */
+  thresholdEqualities: {
+    [k: string]: string;
+  };
+  [k: string]: unknown;
+}
+/**
+ * The row counts the form draws and the setup accepts (B1.3): the generators' own limits.
+ */
+export interface SetupFormLimits {
+  /**
+   * The states of an LQG estimator's model, one estimate row each (C4).
+   */
+  estimatorStates: number;
+  /**
+   * The further measured outputs a state-feedback law takes (C4).
+   */
+  furtherOutputs: number;
+  /**
+   * The fewest members of a PID group (C7). A group has no most members: its decoupler has one row and one column per member.
+   */
+  groupMembersMinimum: number;
+  /**
+   * The coefficients a finite search varies (C5).
+   */
+  searchCoefficients: number;
+  /**
+   * The values a finite search keeps from scan to scan (C5).
+   */
+  searchKeptValues: number;
+  [k: string]: unknown;
+}
+/**
+ * The loop name the form starts from for a library PID (B1.3): the last segment of its instance's path. The engineer may type another.
+ */
+export interface OfferedLoopName {
+  /**
+   * The PID's instance.
+   */
+  instance: string;
+  /**
+   * The loop name the form starts from.
+   */
+  name: string;
   [k: string]: unknown;
 }
 /**
@@ -268,6 +621,35 @@ export interface ComputedPrefill {
   [k: string]: unknown;
 }
 /**
+ * One operating-point row of the gain schedule's form (B1.3, C10).
+ */
+export interface SchedulePointRow {
+  /**
+   * Whether the setup asks for this point. A schedule has two to four points: the form always shows the first two, and offers each
+   * further one once the point before it has a name.
+   */
+  required: boolean;
+  [k: string]: unknown;
+}
+/**
+ * The words the form shows around a value (B1.3).
+ */
+export interface SetupFormWording {
+  /**
+   * The line a found value shows when the code states none.
+   */
+  notFound: string;
+  /**
+   * The line a task shows when the code states none.
+   */
+  notStated: string;
+  /**
+   * What an Auto/Manual signal's TRUE value means: the label before the mode that the signal's TRUE value chooses.
+   */
+  trueMeans: string;
+  [k: string]: unknown;
+}
+/**
  * One discovered loop, as the setup page lists it (B1.2).
  */
 export interface LoopSummary {
@@ -298,8 +680,17 @@ export interface LoopSummary {
         };
         kind: "accepted";
         /**
-         * The tuning methods that the controller takes (C4): a state law takes the state-space design alone. Absent for a PID law,
-         * whose methods the page lists itself.
+         * The title of each method of `methods`, keyed by the method's word (`SIMC`, `AMIGO`, `manual`, `state-space`), as the engine
+         * gives it (`TuneMethod::title`). Absent when there is no method.
+         */
+        methodTitles?: {
+          [k: string]: string;
+        } | null;
+        /**
+         * The tuning methods that the controller takes (C4, B4.2): a state law takes the state-space design alone. A finite search and
+         * the loops that Tune designs by Automatic alone (a feedforward, a Smith predictor, a cascade, a gain schedule, a switching
+         * controller and a PID group) take none, an empty list. A `Control.PID`, a proportional law and a program's parallel-PID or
+         * trajectory-feedforward law take SIMC, AMIGO and Manual, in that order. The field is absent when the answer names no method.
          */
         methods?: TuneMethod[] | null;
         /**
@@ -405,6 +796,98 @@ export interface Range {
   minimum: number;
 }
 /**
+ * The engine's answer to a mapping request (B1.2, B3.6).
+ */
+export interface MappingAnswer {
+  /**
+   * Whether the mapping stops the work until the engineer chooses a controller (B3.6): the ambiguous and the unmatched outcomes.
+   * The page gates its actions on this and keeps no rule of its own.
+   */
+  blocksRun: boolean;
+  /**
+   * Whether the recording's selection differs from the selected one; false outside a recording.
+   */
+  changed: boolean;
+  /**
+   * The controller choices of the mapping, other than the loop the panel shows (B3.6).
+   */
+  options: MappingOption[];
+  /**
+   * What the mapping is.
+   */
+  outcome: "current" | "other" | "ambiguous" | "unmatched" | "recorded";
+  /**
+   * The loop that the page chooses for the `other` outcome; absent otherwise.
+   */
+  selection?: BindingSelection1 | null;
+  /**
+   * The sentence the page shows for an ambiguous or unmatched mapping; empty otherwise.
+   */
+  sentence: string;
+  [k: string]: unknown;
+}
+/**
+ * One controller choice of a mapping (B3.6): a family that a loop's adapter realizes, with the selection that opens the loop.
+ */
+export interface MappingOption {
+  /**
+   * The family that the loop's adapter realizes.
+   */
+  family: string;
+  /**
+   * The label the selector shows: the controller's instance and the family.
+   */
+  label: string;
+  /**
+   * The loop's id.
+   */
+  loopId: string;
+  selection: BindingSelection;
+  [k: string]: unknown;
+}
+/**
+ * The selection that names the loop, its controller and its channels (B1.3).
+ */
+export interface BindingSelection {
+  /**
+   * The controller instance the loop runs in.
+   */
+  controllerInstance: string;
+  /**
+   * The input identities, every declared input once.
+   */
+  inputIds: string[];
+  /**
+   * The loop's id.
+   */
+  loopId: string;
+  /**
+   * The output identities, every declared output once.
+   */
+  outputIds: string[];
+}
+/**
+ * The choice a selector sends: one loop, its controller and every channel of both sides (B1.3).
+ */
+export interface BindingSelection1 {
+  /**
+   * The controller instance the loop runs in.
+   */
+  controllerInstance: string;
+  /**
+   * The input identities, every declared input once.
+   */
+  inputIds: string[];
+  /**
+   * The loop's id.
+   */
+  loopId: string;
+  /**
+   * The output identities, every declared output once.
+   */
+  outputIds: string[];
+}
+/**
  * A loop file, or the whole project, that the discovery refuses, and why (B1.2: a missing or invalid definition is explained).
  */
 export interface Rejection {
@@ -416,5 +899,933 @@ export interface Rejection {
    * Why it is refused.
    */
   reason: string;
+  [k: string]: unknown;
+}
+/**
+ * A configured loop as the page's open request names it (B1.3, §0.1a). The engine checked the loop and builds the request, so the
+ * page opens the loop from the answer and never reads the loop file.
+ */
+export interface ConfiguredLoopRequest {
+  loopDefinition: LoopDefinition;
+  /**
+   * The request's version, 1.
+   */
+  schemaVersion: number;
+  scope: LoopRequestScope;
+  /**
+   * Where the loop comes from: `ConfiguredLoop`, a loop file of the project.
+   */
+  source: string;
+  [k: string]: unknown;
+}
+/**
+ * The loop, as the engine checked it.
+ */
+export interface LoopDefinition {
+  /**
+   * A declared control analysis (N7.6). A C12 observation or open-loop loop is served with it; any other loop parks on it (stage V7).
+   */
+  analysis?: {
+    [k: string]: unknown;
+  };
+  /**
+   * The analysis's parameters mapped to program symbols. Control Studio writes only the mapped symbols, within the analysis
+   * bounds (B6.1, C12); a loop that is not a C12 observation or open-loop loop parks on it (stage V7).
+   */
+  analysisParameterSymbols?: {
+    [k: string]: unknown;
+  };
+  /**
+   * Parked (stage V7): the loop's place in a cascade.
+   */
+  cascade?: {
+    [k: string]: unknown;
+  };
+  /**
+   * The loop's channels: the model's inputs and outputs (specification 35, C7 and C8). The gate parks a loop with channels until
+   * their shapes are served (checklist V7).
+   */
+  channels?: LoopChannels | null;
+  controller: Controller;
+  /**
+   * The loop's identification experiment.
+   */
+  experiment?: Experiment | null;
+  /**
+   * The loop's identifier, stable across edits.
+   */
+  id: string;
+  /**
+   * How Identify treats the plant; ported with Identify (stage V1).
+   */
+  identificationPolicy?: {
+    [k: string]: unknown;
+  };
+  limits: Limits;
+  /**
+   * The loop's name as the engineer reads it.
+   */
+  name: string;
+  observedSampleTiming: SampleTiming;
+  /**
+   * The operating point's name.
+   */
+  operatingPoint?: string | null;
+  /**
+   * The controller's parameter record, as `control.parameters.*` writes it.
+   */
+  parameterBinding?: ParameterBinding | null;
+  /**
+   * What the bound parameters are for.
+   */
+  parameterPurpose?: ParameterPurpose | null;
+  /**
+   * The simulated plant the loop is tuned against.
+   */
+  plantId?: string | null;
+  /**
+   * The project the loop belongs to.
+   */
+  projectId: string;
+  /**
+   * The content revision, `sha256:…`.
+   */
+  revision: string;
+  /**
+   * The runtime the loop is bound to.
+   */
+  runtimeId: string;
+  /**
+   * Always [`LOOP_SCHEMA_VERSION`].
+   */
+  schemaVersion: number;
+  signals: Signals;
+  /**
+   * Closed loop (the default) or open loop.
+   */
+  topology?: Topology | null;
+  /**
+   * The declared validation scenarios: a list, which Validate decodes and checks (stage V3).
+   */
+  verificationScenarios?: {
+    [k: string]: unknown;
+  }[];
+}
+/**
+ * The loop's channels: the model's inputs and outputs, and the state deviations of the selected model.
+ */
+export interface LoopChannels {
+  /**
+   * The state deviations in the selected model's declared coordinates: at most 32 and finite.
+   */
+  initialState?: number[] | null;
+  /**
+   * The model's inputs, in order: one to sixteen.
+   */
+  inputs: ChannelInput[];
+  /**
+   * The model's outputs, in order: one to sixteen.
+   */
+  outputs: ChannelOutput[];
+  [k: string]: unknown;
+}
+/**
+ * One model input: the loop signal it drives or reads, its Manual command and its actuator.
+ */
+export interface ChannelInput {
+  actuator: ActuatorCapabilities;
+  /**
+   * The identifier of the loop signal that reports the actuator's applied value, when it is not the default one.
+   */
+  appliedSignalId?: string | null;
+  /**
+   * The input's own identification step, in its unit: positive and within the actuator's span (specification 35, §17.9).
+   */
+  experimentStep?: number | null;
+  /**
+   * The Manual command the input is stepped through, when it has one.
+   */
+  manualOutputSignal?: string | null;
+  /**
+   * The type of the Manual command.
+   */
+  manualOutputType?: ManualOutputType | null;
+  /**
+   * The input's identifier in the model.
+   */
+  modelChannelId: string;
+  /**
+   * The identifier of the loop signal the input is bound to.
+   */
+  signalId: string;
+  [k: string]: unknown;
+}
+/**
+ * The input's actuator: its kind, its range and its rate or minimum-time limits.
+ */
+export interface ActuatorCapabilities {
+  /**
+   * The kind of the actuator.
+   */
+  kind: "continuous" | "on-off";
+  /**
+   * The largest value in the actuator's range.
+   */
+  maximum: number;
+  /**
+   * The smallest value in the actuator's range.
+   */
+  minimum: number;
+  /**
+   * The shortest time an on-off actuator stays off, in seconds.
+   */
+  minimumOffSeconds?: number | null;
+  /**
+   * The shortest time an on-off actuator stays on, in seconds.
+   */
+  minimumOnSeconds?: number | null;
+  /**
+   * The largest fall per second, when limited.
+   */
+  rateDownPerS?: number | null;
+  /**
+   * The largest rise per second, when limited.
+   */
+  rateUpPerS?: number | null;
+  [k: string]: unknown;
+}
+/**
+ * One model output: the loop signal it measures, its setpoint and its own requirements.
+ */
+export interface ChannelOutput {
+  /**
+   * The output's identifier in the model.
+   */
+  modelChannelId: string;
+  /**
+   * The output's own requirements, in place of the loop's, when it has them: they need a setpoint.
+   */
+  requirements?: ChannelRequirements | null;
+  /**
+   * The identifier of the loop signal that holds the output's setpoint, when it has one.
+   */
+  setpointSignalId?: string | null;
+  /**
+   * The identifier of the loop signal the output is bound to.
+   */
+  signalId: string;
+  [k: string]: unknown;
+}
+/**
+ * A measurement's own requirements: the setpoint change of its own test, the largest error allowed at its settling time, the
+ * band around its final value, and the time by which it settles.
+ */
+export interface ChannelRequirements {
+  /**
+   * The largest error allowed at the settling time; positive.
+   */
+  maximumError: number;
+  /**
+   * The setpoint change of the measurement's own test.
+   */
+  referenceChange: number;
+  /**
+   * The band around the final value; positive and below the largest error.
+   */
+  settlingBand: number;
+  /**
+   * The time by which the response settles, in seconds; positive.
+   */
+  settlingTimeSeconds: number;
+  [k: string]: unknown;
+}
+/**
+ * The controller that runs the loop.
+ */
+export interface Controller {
+  /**
+   * Direct: the output rises while the measurement is below the setpoint.
+   */
+  action: "direct" | "reverse";
+  /**
+   * Who designs the controller: Control Studio's PID designer (the default) or the project.
+   */
+  design?: Design | null;
+  /**
+   * A PID group (C7): its `Control.PID` members and their channels. [`PidControllerGroup`] checks the declaration against the loop's
+   * channels; the group's design, Validate and Apply are the engine's (stage V7, wave 4).
+   */
+  group?: PidControllerGroup | null;
+  /**
+   * The controller's instance path, for example `Main.TIC101`.
+   */
+  instance: string;
+  /**
+   * The controller's equation and the parameters that hold its gains.
+   */
+  law?: ControllerLaw | null;
+  /**
+   * The manual output's address; absent for a variable without one, which is written by name.
+   */
+  manualOutputAddress?: string | null;
+  /**
+   * The program copies the output into the manual output outside Manual (§17.1).
+   */
+  manualOutputFollowsOutput?: boolean | null;
+  /**
+   * The manual output's variable.
+   */
+  manualOutputSignal?: string | null;
+  /**
+   * The manual output's type.
+   */
+  manualOutputType?: ManualOutputType | null;
+  /**
+   * The mode signal.
+   */
+  modeSignal?: string | null;
+  /**
+   * The mode the mode signal's TRUE value means.
+   */
+  modeWhenTrue?: ModeWhenTrue | null;
+  /**
+   * The switching controller (C3): its three settings, its band, its output levels and its retained states. [`OnOffController`]
+   * decodes and checks it; the gate serves it with its ON/OFF channel shape.
+   */
+  onOff?: {
+    [k: string]: unknown;
+  };
+  /**
+   * The controller states an Auto entry initializes.
+   */
+  pidInitialization?: PidInitialization | null;
+  /**
+   * The program's own law (C2): its family, its states, its seed and its search settings. [`ControllerProject`] decodes and
+   * checks it; the engine serves the `parallel-pid` shape and refuses the rest by name.
+   */
+  project?: {
+    [k: string]: unknown;
+  };
+  /**
+   * The controller's content revision, `sha256:…`.
+   */
+  revision: string;
+  /**
+   * Parked (stage V7): a state-feedback law.
+   */
+  stateFeedback?: {
+    [k: string]: unknown;
+  };
+  /**
+   * The period of the task that executes the controller, in ms.
+   */
+  taskPeriodMs: number;
+  /**
+   * The tracking signal.
+   */
+  trackingSignal?: string | null;
+  /**
+   * The controller's type, for example `Control.PID`.
+   */
+  type: string;
+}
+/**
+ * A PID group (C7): its members, each a `Control.PID` on one input and one output channel of the loop.
+ */
+export interface PidControllerGroup {
+  /**
+   * The members, in the order that the loop's channels follow.
+   */
+  members: PidGroupMember[];
+}
+/**
+ * One member of a PID group (C7): its instance, its input and output channel, the group's shared mode and its gain variables.
+ */
+export interface PidGroupMember {
+  /**
+   * The member's retained states that its program owns, when the declaration names them.
+   */
+  applicationStateSymbols?: string[] | null;
+  /**
+   * The identifier of the model input that the member drives.
+   */
+  inputChannelId: string;
+  /**
+   * The member's instance path, for example `P1.Zone1`.
+   */
+  instance: string;
+  /**
+   * The group's shared Auto/Manual signal, which every member names (C7 Setup).
+   */
+  modeSymbol: string;
+  /**
+   * The identifier of the model output that the member measures.
+   */
+  outputChannelId: string;
+  /**
+   * The member's gain variables: the proportional, integral and derivative gains of its parameter record, by their paths.
+   */
+  parameterSymbols: string[];
+  /**
+   * Always `Control.PID`.
+   */
+  type: string;
+}
+/**
+ * Back-calculation anti-windup.
+ */
+export interface AntiWindup {
+  /**
+   * Always back-calculation.
+   */
+  method: "back-calculation";
+  /**
+   * The record field holding the tracking gain, in 1/s.
+   */
+  trackingGainSymbol: string;
+}
+/**
+ * The derivative history.
+ */
+export interface StateReference {
+  /**
+   * `REAL` or `LREAL`.
+   */
+  iecType: "REAL" | "LREAL";
+  /**
+   * The state's largest value.
+   */
+  maximum: number;
+  /**
+   * The state's smallest value.
+   */
+  minimum: number;
+  /**
+   * The state's path.
+   */
+  symbol: string;
+  /**
+   * The state's unit.
+   */
+  unit: string;
+}
+/**
+ * The integral state.
+ */
+export interface StateReference1 {
+  /**
+   * `REAL` or `LREAL`.
+   */
+  iecType: "REAL" | "LREAL";
+  /**
+   * The state's largest value.
+   */
+  maximum: number;
+  /**
+   * The state's smallest value.
+   */
+  minimum: number;
+  /**
+   * The state's path.
+   */
+  symbol: string;
+  /**
+   * The state's unit.
+   */
+  unit: string;
+}
+/**
+ * A declared controller state with its initial value.
+ */
+export interface InitializedState {
+  /**
+   * `REAL`, `LREAL` or `BOOL`.
+   */
+  iec_type: "REAL" | "LREAL" | "BOOL";
+  /**
+   * Where the initial value comes from.
+   */
+  initial:
+    | number
+    | (
+        | {
+            /**
+             * The input's index.
+             */
+            index: number;
+            source: "model-input";
+            [k: string]: unknown;
+          }
+        | {
+            /**
+             * The output's index.
+             */
+            index: number;
+            source: "model-output";
+            [k: string]: unknown;
+          }
+        | {
+            /**
+             * The state's index.
+             */
+            index: number;
+            source: "model-state";
+            [k: string]: unknown;
+          }
+        | {
+            /**
+             * The input's index.
+             */
+            index: number;
+            source: "model-input-is";
+            /**
+             * The value.
+             */
+            value: number;
+            [k: string]: unknown;
+          }
+        | {
+            /**
+             * The parameter holding the gain.
+             */
+            gainSymbol: string;
+            /**
+             * The output's index.
+             */
+            index: number;
+            /**
+             * The input's index.
+             */
+            inputIndex: number;
+            source: "pid-integral";
+            /**
+             * A fixed weight.
+             */
+            weight?: number | null;
+            /**
+             * The parameter holding the weight.
+             */
+            weightSymbol?: string | null;
+            [k: string]: unknown;
+          }
+        | {
+            /**
+             * The output's index.
+             */
+            index: number;
+            source: "weighted-error";
+            /**
+             * A fixed weight.
+             */
+            weight?: number | null;
+            /**
+             * The parameter holding the weight.
+             */
+            weightSymbol?: string | null;
+            [k: string]: unknown;
+          }
+        | {
+            /**
+             * The parameter holding the gain.
+             */
+            gainSymbol: string;
+            /**
+             * The input's index.
+             */
+            index: number;
+            source: "scaled-model-input";
+            [k: string]: unknown;
+          }
+        | {
+            /**
+             * The row.
+             */
+            index: number;
+            /**
+             * The decoupler's matrix, as parameter paths.
+             */
+            matrixSymbols: string[][];
+            source: "decoupled-output";
+            [k: string]: unknown;
+          }
+        | {
+            /**
+             * The parameters holding the denominator.
+             *
+             * @minItems 2
+             * @maxItems 2
+             */
+            denominatorSymbols: [string, string];
+            /**
+             * The output's index.
+             */
+            index: number;
+            source: "notch-history";
+            [k: string]: unknown;
+          }
+      );
+  /**
+   * The state's largest value.
+   */
+  maximum: number;
+  /**
+   * The state's smallest value.
+   */
+  minimum: number;
+  /**
+   * What the controller's first scan may do to the state.
+   */
+  postScan: "unchanged" | "bounded";
+  /**
+   * The state's path.
+   */
+  symbol: string;
+  /**
+   * The state's unit; `1` for a BOOL.
+   */
+  unit: string;
+}
+/**
+ * The loop's identification experiment.
+ */
+export interface Experiment {
+  /**
+   * A project experiment's abort variable.
+   */
+  abort?: Activation | null;
+  /**
+   * A project experiment's activation variable.
+   */
+  activation?: Activation | null;
+  /**
+   * The step's or relay's amplitude; 0 for an observation.
+   */
+  amplitude: number;
+  /**
+   * A project experiment's baseline before its activation, in s.
+   */
+  baselineSeconds?: number | null;
+  /**
+   * The experiment's duration, in s, when the file sets it. Identify names it while it is missing (B3.4 step 1).
+   */
+  durationSeconds?: number | null;
+  /**
+   * Who runs the experiment.
+   */
+  execution: "control-studio" | "project-scripted";
+  /**
+   * The experiment parameter, in s, whose applied value sets how long a project step is held.
+   */
+  holdParameter?: string | null;
+  /**
+   * The experiment's kind.
+   */
+  kind: "observation" | "setpoint_step" | "load_step" | "mv_step" | "mv_pulse" | "relay" | "prbs" | "multisine";
+  /**
+   * A relay's first direction.
+   */
+  relayDirection?: RelayDirection | null;
+  /**
+   * The seed of a pseudo-random excitation, 1 to 2³² − 1.
+   */
+  seed: number;
+}
+/**
+ * A BOOL variable Control Studio writes to activate or abort a project experiment.
+ */
+export interface Activation {
+  /**
+   * The variable's address.
+   */
+  address: string;
+  /**
+   * The value that asserts an abort.
+   */
+  assertedValue?: boolean | null;
+  /**
+   * Always written.
+   */
+  direction: "read" | "write";
+  /**
+   * Always `BOOL`.
+   */
+  iecType: string;
+  /**
+   * The variable's path.
+   */
+  symbol: string;
+}
+/**
+ * The output's limits.
+ */
+export interface Limits {
+  /**
+   * The expected settling time, in s, when the loop declares one. The baseline window and the record period follow it
+   * (B3.4 step 2, A4.2); when present it is positive.
+   */
+  expectedSettlingSeconds?: number | null;
+  /**
+   * The largest output, when the file sets it.
+   */
+  outputMaximum?: number | null;
+  /**
+   * The smallest output, when the file sets it.
+   */
+  outputMinimum?: number | null;
+  /**
+   * The largest fall of the output, per second.
+   */
+  rateDownPerS?: number | null;
+  /**
+   * The largest rise of the output, per second.
+   */
+  rateUpPerS?: number | null;
+}
+/**
+ * How often the loop's values are observed.
+ */
+export interface SampleTiming {
+  /**
+   * The largest jitter, in ms.
+   */
+  maximumJitterMs?: number | null;
+  /**
+   * The nominal period, in ms.
+   */
+  nominalPeriodMs: number;
+}
+/**
+ * The controller's parameter record, as `control.parameters.*` writes it (protocol annex, E7.1).
+ */
+export interface ParameterBinding {
+  /**
+   * The loop the binding belongs to.
+   */
+  loop_id: string;
+  mode: ModeBinding;
+  /**
+   * The record's numeric fields.
+   */
+  parameters: Parameter[];
+  /**
+   * The task that owns the record.
+   */
+  task_name: string;
+}
+/**
+ * The mode variable, and its Manual value.
+ */
+export interface ModeBinding {
+  /**
+   * The value that means Manual.
+   */
+  manual_value: boolean;
+  /**
+   * The mode variable's path.
+   */
+  symbol: string;
+}
+/**
+ * One numeric field of the parameter record.
+ */
+export interface Parameter {
+  /**
+   * What the field means, for example `proportional gain`.
+   */
+  convention: string;
+  /**
+   * `REAL` or `LREAL`.
+   */
+  iec_type: "REAL" | "LREAL";
+  /**
+   * The largest value Tune may choose.
+   */
+  maximum: number;
+  /**
+   * The smallest value Tune may choose.
+   */
+  minimum: number;
+  /**
+   * The field's path.
+   */
+  symbol: string;
+  /**
+   * The field's unit.
+   */
+  unit: string;
+}
+/**
+ * The loop's signals.
+ */
+export interface Signals {
+  /**
+   * The actuator's measured position.
+   */
+  actuator?: LoopSignal | null;
+  /**
+   * Further signals of the loop.
+   */
+  additional?: AuxiliarySignal[] | null;
+  manipulatedVariable: LoopSignal1;
+  processVariable: LoopSignal2;
+  /**
+   * The setpoint; absent in an open loop.
+   */
+  setpoint?: LoopSignal | null;
+}
+/**
+ * One signal of the loop.
+ */
+export interface LoopSignal {
+  /**
+   * The variable's address; absent for a program variable without one (§17.1).
+   */
+  address?: string | null;
+  /**
+   * Whether Control Studio reads or writes it.
+   */
+  direction: "read" | "write";
+  /**
+   * The variable's IEC type.
+   */
+  iecType: string;
+  range: Range1;
+  /**
+   * The variable's path.
+   */
+  symbol: string;
+  /**
+   * The signal's unit; empty means dimensionless.
+   */
+  unit: string;
+}
+/**
+ * The signal's range.
+ */
+export interface Range1 {
+  /**
+   * The largest value.
+   */
+  maximum: number;
+  /**
+   * The smallest value.
+   */
+  minimum: number;
+}
+/**
+ * A further signal of the loop, in a channel and with a role.
+ */
+export interface AuxiliarySignal {
+  /**
+   * The variable's address.
+   */
+  address?: string | null;
+  /**
+   * The channel it belongs to.
+   */
+  channel: string;
+  /**
+   * Whether Control Studio reads or writes it.
+   */
+  direction: "read" | "write";
+  /**
+   * The signal's identifier in the loop.
+   */
+  id: string;
+  /**
+   * The variable's IEC type.
+   */
+  iecType: string;
+  range: Range2;
+  /**
+   * Its role in the channel.
+   */
+  role: "SP" | "PV" | "MV" | "actuator" | "disturbance" | "state" | "quality" | "schedule";
+  /**
+   * The variable's path.
+   */
+  symbol: string;
+  /**
+   * The signal's unit.
+   */
+  unit: string;
+}
+/**
+ * The signal's range.
+ */
+export interface Range2 {
+  /**
+   * The largest value.
+   */
+  maximum: number;
+  /**
+   * The smallest value.
+   */
+  minimum: number;
+}
+/**
+ * One signal of the loop.
+ */
+export interface LoopSignal1 {
+  /**
+   * The variable's address; absent for a program variable without one (§17.1).
+   */
+  address?: string | null;
+  /**
+   * Whether Control Studio reads or writes it.
+   */
+  direction: "read" | "write";
+  /**
+   * The variable's IEC type.
+   */
+  iecType: string;
+  range: Range1;
+  /**
+   * The variable's path.
+   */
+  symbol: string;
+  /**
+   * The signal's unit; empty means dimensionless.
+   */
+  unit: string;
+}
+/**
+ * One signal of the loop.
+ */
+export interface LoopSignal2 {
+  /**
+   * The variable's address; absent for a program variable without one (§17.1).
+   */
+  address?: string | null;
+  /**
+   * Whether Control Studio reads or writes it.
+   */
+  direction: "read" | "write";
+  /**
+   * The variable's IEC type.
+   */
+  iecType: string;
+  range: Range1;
+  /**
+   * The variable's path.
+   */
+  symbol: string;
+  /**
+   * The signal's unit; empty means dimensionless.
+   */
+  unit: string;
+}
+/**
+ * The project and runtime of the loop.
+ */
+export interface LoopRequestScope {
+  /**
+   * The project's identifier: `project:` and the SHA-256 digest of the project's folder address.
+   */
+  projectId: string;
+  /**
+   * The runtime the loop is bound to.
+   */
+  runtimeId: string;
   [k: string]: unknown;
 }

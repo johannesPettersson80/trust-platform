@@ -4,14 +4,18 @@
 //! (`study::manual_identification`) and the page's view (`identification::workflow::manual_answer`). This module reads the recording
 //! files, replays the saved workflow from them, keeps its state in the study and answers the page's view.
 
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
 use serde_json::Value;
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::acquisition_settings::AcquisitionMethod;
 use trust_control::identification::form_draft::{
-    blank_form, excluded_intervals_of, held_step_settings_of, valid_form_draft,
-    IdentificationFormDraft,
+    check_held_step_model, default_form, excluded_intervals_of, held_step_settings_of,
+    valid_form_draft, IdentificationFormDraft,
 };
 use trust_control::identification::policy::project_scripted;
+use trust_control::identification::project_test::project_test_outcome;
 use trust_control::identification::refusal::Refusal;
 use trust_control::identification::sensor_lag_comparison::StructureChoice;
 use trust_control::identification::state::{
@@ -21,22 +25,23 @@ use trust_control::identification::state::{
 use trust_control::identification::workflow::{IdentificationWorkflow, QualifyRequest};
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::messages::IdentifyAction;
-use trust_control::messages::ManualIdentificationAnswer;
+use trust_control::messages::{CampaignRestoration, ManualIdentificationAnswer, ManualStatus};
 use trust_control::recording::opened::opened_recording;
 use trust_control::recording::RecordingFile;
-use trust_control::stages::stage_availability;
-use trust_control::study::inputs::stage_evidence_of;
 use trust_control::study::manual_identification::{
     accepted_manual_section, error_limit_of, manual_input, ManualIdentificationSection,
     ManualRecording,
 };
 use trust_control::study::{Study, StudySection};
 
+use super::identify_recording::last_opened_recording_if_any;
 use super::{refuse_while_journaled, started, working_study, LoopWork};
+use crate::application_state::state_now;
 use crate::busy_loops::LoopClaim;
 use crate::commands::to_value;
 use crate::journal::Journal;
 use crate::operation::{OperationContext, Operations};
+use crate::runtime_client::runtime_recording::PendingReleases;
 use crate::storage;
 
 /// The refusal of a fit, an edit or a check that needs a recording to have been checked first (the page's "Qualify" sentence).
@@ -46,6 +51,8 @@ const NOT_ACCEPTABLE: &str =
     "Independent validation or model-structure evidence is not qualified for acceptance.";
 /// The refusal of a form that the decoder refuses.
 const FORM_MALFORMED: &str = "The identification form is malformed.";
+/// The refusal of a check that names no recording while the study keeps no opened recording either (B3.6).
+const NO_RECORDING_TO_CHECK: &str = "Open a recording before checking it.";
 /// The refusal of an acceptance whose section names no estimation or validation recording.
 const NO_RECORDING: &str = "The manual identification names no recording to accept.";
 /// The sentence a project test's answer carries while the manual identification awaits its independent recording (B3.3).
@@ -67,7 +74,9 @@ pub(super) fn answer(
     }
     match action {
         IdentifyAction::ManualEdit { form } => edit(&work, form),
-        IdentifyAction::ManualQualify { recording_id, form } => qualify(&work, &recording_id, form),
+        IdentifyAction::ManualQualify { recording_id, form } => {
+            qualify(&work, recording_id.as_deref(), form)
+        }
         IdentifyAction::ManualFit => started(operations, claim, move |context| fit(context, &work)),
         IdentifyAction::ManualChooseStructure { choice } => choose(&work, choice),
         IdentifyAction::ManualAccept => accept(&work),
@@ -94,24 +103,33 @@ pub(super) fn edit(work: &LoopWork, form: IdentificationFormDraft) -> Result<Val
 
 /// `qualify`: checks the recording the study keeps with the page's form (B3.3, B3.6). The form's held-step settings and excluded
 /// interval are read as the page read them, and the recording becomes the estimation, or the validation recording after a preview.
+/// A check that names no recording reads the study's last opened recording, as `openRecording` does; a study that keeps none has
+/// nothing to check.
 pub(super) fn qualify(
     work: &LoopWork,
-    recording_id: &str,
+    recording_id: Option<&str>,
     form: IdentificationFormDraft,
 ) -> Result<Value, Failure> {
+    let recording_id = match recording_id {
+        Some(recording_id) => recording_id.to_owned(),
+        None => last_opened_recording_if_any(work)?.ok_or_else(|| {
+            Failure::new(NO_RECORDING_TO_CHECK, Cause::Settings, NextAction::None)
+        })?,
+    };
     check_form(&form)?;
     let study = working_study(work)?;
-    if !study.recordings.iter().any(|listed| listed == recording_id) {
+    if !study.recordings.contains(&recording_id) {
         return Err(refused(&Refusal::new(format!(
             "The study keeps no recording {recording_id}."
         ))));
     }
     let section = section_of(&study)?;
-    let file = storage::read_recording(&work.project_root, &work.loop_definition.id, recording_id)?;
+    let file =
+        storage::read_recording(&work.project_root, &work.loop_definition.id, &recording_id)?;
     let request = request_of(
         work,
         &form,
-        recording_id,
+        &recording_id,
         &file,
         limit_of(work, section.as_ref()),
     )?;
@@ -130,7 +148,7 @@ pub(super) fn import(work: &LoopWork, json: &str) -> Result<Value, Failure> {
     let study = storage::save_recording(&work.project_root, &study, &file)?;
     let recording_id = file.id()?;
     let section = section_of(&study)?;
-    let form = form_or_blank(section.as_ref());
+    let form = form_or_default(section.as_ref());
     let request = request_of(
         work,
         &form,
@@ -145,15 +163,17 @@ pub(super) fn import(work: &LoopWork, json: &str) -> Result<Value, Failure> {
 
 /// The project test the manual identification awaits (B3.3, C12): its recording, which the run kept, becomes the manual identification's
 /// independent recording and is selected for the validation role. The test's own model is not kept, so the current model stays as it is,
-/// and the answer names the recording and says that the model is not refitted.
+/// and the answer names the recording, says that the model is not refitted, and says how the test ended, from the `restoration` its
+/// campaign confirmed.
 pub(super) fn keep_project_test_recording(
     work: &LoopWork,
     study: &Study,
     recording_id: &str,
+    restoration: Option<CampaignRestoration>,
 ) -> Result<Value, Failure> {
     let file = storage::read_recording(&work.project_root, &work.loop_definition.id, recording_id)?;
     let section = require_section(study)?;
-    let form = form_or_blank(Some(&section));
+    let form = form_or_default(Some(&section));
     let request = request_of(
         work,
         &form,
@@ -168,6 +188,7 @@ pub(super) fn keep_project_test_recording(
     storage::save_study(&work.project_root, &study, &[])?;
     let mut answer = answer_of(work, &workflow, Some(form))?;
     answer.message = Some(PROJECT_TEST_NOTE.to_string());
+    answer.test_outcome = Some(project_test_outcome(restoration));
     to_value(&answer)
 }
 
@@ -226,11 +247,11 @@ fn request_of(
     })
 }
 
-/// The section's form, or the blank form a new identification starts with.
-fn form_or_blank(section: Option<&ManualIdentificationSection>) -> IdentificationFormDraft {
+/// The section's form, or the default form a new identification starts with (B3.3).
+fn form_or_default(section: Option<&ManualIdentificationSection>) -> IdentificationFormDraft {
     section
         .and_then(|section| section.form.clone())
-        .unwrap_or_else(blank_form)
+        .unwrap_or_else(default_form)
 }
 
 /// `fit`, as an operation that a Cancel stops (B3.3): the first fit gives the provisional model, the second scores it on the
@@ -310,12 +331,47 @@ pub(super) fn accept(work: &LoopWork) -> Result<Value, Failure> {
 }
 
 /// `restore` (A8.6): replays the saved manual identification from the recording files and answers the page's view. Nothing is written.
+/// The answer carries the form the study keeps, or the default form of a study that keeps none, so the page shows the engine's numbers
+/// (B3.3).
 pub(super) fn restore(work: &LoopWork) -> Result<Value, Failure> {
+    to_value(&restored(work)?)
+}
+
+/// The Recorded-data fit the study keeps, as the page shows it (A8.6, B3.3), for the answers that carry it: the saved stage replayed
+/// from the kept recordings, or the default form of a study that keeps none. A saved stage that cannot be replayed (a recording the
+/// study lists is gone, say) is answered as a failed stage that says why and offers to open a recording, so that an open answer never
+/// fails for it and the sentence is not lost. Nothing is written.
+pub(super) fn kept_state(work: &LoopWork) -> ManualIdentificationAnswer {
+    restored(work).unwrap_or_else(|failure| {
+        let workflow = IdentificationWorkflow::new(error_limit_of(&work.loop_definition));
+        let mut answer = workflow.manual_answer(&work.loop_definition, Some(default_form()));
+        let sentence = failure.detail.unwrap_or(failure.message);
+        answer.status = ManualStatus::Failed;
+        answer.reason = Some(sentence.clone());
+        answer.message = Some(sentence);
+        answer
+    })
+}
+
+/// [`kept_state`] of the loop in `project_root`, for `controlStudio/open`, which holds no operation's work.
+pub(crate) fn kept_state_of(
+    project_root: &Path,
+    loop_definition: &LoopDefinition,
+) -> ManualIdentificationAnswer {
+    kept_state(&LoopWork {
+        project_root: project_root.to_path_buf(),
+        storage_folder: PathBuf::new(),
+        pending: Arc::new(PendingReleases::new()),
+        loop_definition: loop_definition.clone(),
+    })
+}
+
+/// The saved manual identification replayed from the recording files, as the page's view.
+fn restored(work: &LoopWork) -> Result<ManualIdentificationAnswer, Failure> {
     let study = working_study(work)?;
     let section = section_of(&study)?;
     let workflow = replayed(work, section.as_ref())?;
-    let form = section.and_then(|section| section.form);
-    to_value(&answer_of(work, &workflow, form)?)
+    answer_of(work, &workflow, Some(form_or_default(section.as_ref())))
 }
 
 /// The manual section of the study, if it keeps one.
@@ -438,16 +494,21 @@ fn keep(
 }
 
 /// The page's view of the workflow (`manual_answer`), with the form the page holds. The stage evidence is read from the study as it
-/// is saved now, and the stages are computed from it as the open answer computes them, so that the page's gates follow the study: an
-/// accepted model is the current model, and Tune is then available (B3.7, A8.4).
+/// is saved now, and the stages are computed from it and the loop's journal as the open answer computes them, so that the page's gates
+/// follow the study: an accepted model is the current model, and Tune is then available (B3.7, A8.4), and the Apply stage can start
+/// exactly when Apply is offered (B7).
 fn answer_of(
     work: &LoopWork,
     workflow: &IdentificationWorkflow,
     form: Option<IdentificationFormDraft>,
 ) -> Result<ManualIdentificationAnswer, Failure> {
     let mut answer = workflow.manual_answer(&work.loop_definition, form);
-    let evidence = stage_evidence_of(&work.loop_definition, &working_study(work)?)?;
-    answer.stages = Some(stage_availability(&evidence));
+    let (application, evidence) = state_now(
+        &work.project_root,
+        &work.storage_folder,
+        &work.loop_definition,
+    )?;
+    answer.stages = Some(application.stages(&evidence));
     answer.stage_evidence = Some(evidence);
     Ok(answer)
 }
@@ -461,23 +522,30 @@ fn stop_if(cancelled: &dyn Fn() -> bool) -> Result<(), Failure> {
     }
 }
 
-/// Refuses a form the decoder refuses, before anything is read or written.
+/// Refuses a form the decoder refuses, or a held step with a model it does not allow (N2.3a), before anything is read or written.
 fn check_form(form: &IdentificationFormDraft) -> Result<(), Failure> {
-    if valid_form_draft(form) {
-        Ok(())
-    } else {
-        Err(Failure::new(
+    if !valid_form_draft(form) {
+        return Err(Failure::new(
             FORM_MALFORMED,
             Cause::Settings,
             NextAction::None,
-        ))
+        ));
     }
+    check_held_step_model(form)
 }
 
 /// A refusal of the identification's rules, as a failure of the data it checks (`identify_import::refused`).
 fn refused(refusal: &Refusal) -> Failure {
     Failure::new(&refusal.0, Cause::ModelOrData, NextAction::None)
 }
+
+#[cfg(test)]
+#[path = "identify_manual_recording_tests.rs"]
+mod recording_tests;
+
+#[cfg(test)]
+#[path = "identify_manual_test_support.rs"]
+mod test_support;
 
 #[cfg(test)]
 #[path = "identify_manual_tests.rs"]

@@ -1,9 +1,10 @@
-import type { DeclaredRootLocusResult } from "../declaredAnalysis";
+import type { DeclaredRootLocusResult } from "../generated/AnalyzeAnswer";
 import { formatEngineeringNumber } from "../chartContract";
 
 export interface RootLocusColors { path: string; inspected: string; selected: string; foreground: string }
-export type RootLocusSource = Pick<DeclaredRootLocusResult, "parameter" | "selectedValue" | "branches" | "path"> & { parameterUnit?: string };
 type Gain = { gain: number; poles: readonly { real: number; imaginary: number }[] };
+/** The engine's root-locus answer, as far as the chart reads it (`DeclaredRootLocusResult`): the swept gains and, when it has one, the drawn path. */
+export type RootLocusSource = Pick<DeclaredRootLocusResult, "parameter" | "selectedValue"> & { branches: readonly Gain[]; path?: readonly Gain[]; parameterUnit?: string };
 
 /** Joins each pole to the nearest pole at the next gain, so that every branch of the locus is one path of
  * [real, imaginary, gain] points. A change in the number of poles starts new branches. */

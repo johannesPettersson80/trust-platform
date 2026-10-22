@@ -1,7 +1,8 @@
 //! The reviewed verbs `apply`, `restore` and `keep` (specification 35, §0.1b): each sends its method through `ControlStudio::execute`, the
 //! entry that `serve` uses, so every rule, refusal and confirmation is the method's. Without `--review` the method answers the review,
 //! which the verb prints and which writes nothing. With `--review <identity>` the method starts the operation, which the verb follows to
-//! its end. A refusal comes at once. A finished result is status 0 only when it is a success, such as an Apply whose result passed.
+//! its end. A refusal comes at once, and so does the end of a Restore on a runtime that was replaced since Apply (B6.4), with or
+//! without `--review`. A finished result is status 0 only when it is a success, such as an Apply whose result passed.
 
 use std::io::Write;
 
@@ -126,6 +127,13 @@ pub(super) fn run<R: Serialize>(
         // A refusal comes at once: no review was made and no operation started (B6.7).
         let exit = json_answer_of(&answer, verb.as_json, verb.result_text, stdout, stderr);
         return settle(exit, presses.count());
+    }
+    if answer.pointer("/result/restored").is_some() {
+        // A Restore on a runtime that was replaced since Apply ends at once (B6.4): its answer is the Restore's result, which says
+        // that nothing was restored and that the checkpoint is kept as history; no review was made and no operation started.
+        let exit = json_answer_of(&answer, verb.as_json, verb.result_text, stdout, stderr);
+        let succeeded = (verb.succeeded)(&answer["result"]);
+        return settle(finished_status(exit, succeeded), presses.count());
     }
     if verb.reviewing {
         let exit = json_answer_of(&answer, verb.as_json, verb.review_text, stdout, stderr);

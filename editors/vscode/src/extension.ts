@@ -209,12 +209,7 @@ export async function activate(context: vscode.ExtensionContext) {
   registerTrustHome(context);
   registerIoPanel(context);
   registerNetworkCanvasPanel(context, { getClient: () => client });
-  registerControlStudioPanel(context, async (rootUri) => {
-    if (!client) return { ok: false, error: "The language server is not ready. Retry after the project has compiled." };
-    return client.sendRequest("workspace/executeCommand", {
-      command: "trust-lsp.hmiBindings", arguments: [{ root_uri: rootUri }],
-    });
-  });
+  registerControlStudioPanel(context);
   try {
     registerLanguageModelTools(context, { getClient: () => client });
   } catch (error) {

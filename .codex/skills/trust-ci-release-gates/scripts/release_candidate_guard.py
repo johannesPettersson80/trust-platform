@@ -42,6 +42,7 @@ BASE_REQUIRED_COMMANDS = (
     "remote_supply_chain",
     "remote_architecture_safety",
     "remote_clippy",
+    "remote_docs",
     "remote_reclaim_before_test_all",
     "remote_test_all",
     "remote_mp001_parity",
@@ -396,11 +397,16 @@ def collect_failures(args: argparse.Namespace) -> int:
             return 2
         pr = json.loads(result.stdout)
         checks = pr.get("statusCheckRollup") or []
-        if not any(command_state(row) in PENDING_STATES for row in checks):
+        pending = [str(row.get("name")) for row in checks if command_state(row) in PENDING_STATES]
+        # Right after a push GitHub may not have registered any check for the new head yet;
+        # an empty rollup is not a completed run.
+        if checks and not pending:
             break
         if not args.wait or time.monotonic() >= deadline:
-            pending = [str(row.get("name")) for row in checks if command_state(row) in PENDING_STATES]
-            print(f"checks are still pending: {', '.join(sorted(pending))}", file=sys.stderr)
+            if checks:
+                print(f"checks are still pending: {', '.join(sorted(pending))}", file=sys.stderr)
+            else:
+                print("no status checks are registered for the PR head yet", file=sys.stderr)
             return 3
         time.sleep(args.interval)
 
@@ -501,6 +507,8 @@ def parser() -> argparse.ArgumentParser:
     )
     prepare_parser.add_argument("--remote-host", default="trust-builder")
     prepare_parser.add_argument("--remote-worktree", required=True)
+    prepare_parser.add_argument("--remote-tool-path", default=None)
+    prepare_parser.add_argument("--remote-cargo-home", default=None)
     prepare_parser.add_argument(
         "--remote-target",
         default="/home/johannes/.cache/codex-targets/trust-platform-gate",

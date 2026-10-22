@@ -3,7 +3,8 @@
 //! in (specification 35, A8.3).
 //!
 //! A recording file holds the recorded run exactly as the runtime returned it, with the loop it
-//! belongs to and its evidence source (A9). Its identifier is derived from its content, so the same
+//! belongs to, its evidence source (A9) and, when the run states them, the experiments it wrote and the
+//! plant it ran against ([`context`], B10.2). Its identifier is derived from its content, so the same
 //! recording always maps to the same file and a recording file is never rewritten.
 
 use std::fmt::Write as _;
@@ -21,6 +22,7 @@ use crate::signals::{Quality, SignalBinding};
 use crate::study::canonical_json;
 
 pub mod channels;
+pub mod context;
 pub mod even_sampling;
 pub mod evidence;
 pub mod opened;
@@ -323,6 +325,12 @@ pub struct RecordingFile {
     /// Absent, it is not written, so the identifiers of existing files stay as they are.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model_revision: Option<String>,
+    /// The context of the run that made the recording (B10.2, B10.3): the experiments it wrote, each with how it ended, and the
+    /// simulated plant it ran against. A recording from an aborted test keeps its stop reason and its restoration here. Absent
+    /// where the run has none to state, and in a file written before it was recorded; it is then not written, so the identifiers
+    /// of existing files stay as they are.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<context::RunContext>,
 }
 
 impl RecordingFile {
@@ -343,6 +351,7 @@ impl RecordingFile {
             evidence,
             opened: false,
             model_revision: None,
+            context: None,
         }
     }
 
@@ -360,7 +369,8 @@ impl RecordingFile {
     }
 
     /// The verdict only lowers what the runtime claims: a file that calls a recording complete while its acquisition is
-    /// incomplete contradicts itself (E4.5), and is neither written nor read.
+    /// incomplete contradicts itself (E4.5), and is neither written nor read. The same holds for a context that breaks a rule of
+    /// its own or contradicts the file's evidence source (B10.2, B10.4, A9).
     fn check(&self) -> Result<(), Failure> {
         if self.evidence.completeness == Completeness::Complete
             && self.run.acquisition.completeness != Completeness::Complete
@@ -370,6 +380,9 @@ impl RecordingFile {
                 Cause::Settings,
                 NextAction::None,
             ));
+        }
+        if let Some(run_context) = &self.context {
+            run_context.check(self.source)?;
         }
         Ok(())
     }

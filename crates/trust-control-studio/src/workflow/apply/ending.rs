@@ -3,7 +3,10 @@
 //! the one Restore at once (B6.4, V4 decision 4), and the outcome says whether Restore and Keep are offered. The rules of the ending are
 //! trust-control's (`settle`, `settle_run`); this module performs the calls they need and reads the journal.
 
-use trust_control::commissioning::application_records::{ApplyOutcome, RestoreOutcome};
+use trust_control::commissioning::application_offers::{apply_offered_after, primary_action};
+use trust_control::commissioning::application_records::{
+    ApplyOutcome, RestoreOutcome, ReviewedAction,
+};
 use trust_control::commissioning::checkpoint::CheckpointStage;
 use trust_control::commissioning::commissioning_result::{
     CommissioningResult, CommissioningStatus,
@@ -12,6 +15,7 @@ use trust_control::commissioning::parameter_status::ParameterStatus;
 use trust_control::commissioning::proportional_commissioning::Recovery;
 use trust_control::failure::Failure;
 use trust_control::loop_definition::LoopDefinition;
+use trust_control::messages::AnswerKind;
 use trust_control::recording::RecordedRun;
 use trust_control::runtime::RuntimeConnection;
 
@@ -123,10 +127,10 @@ pub(crate) fn release_kept(
 }
 
 /// The outcome of an Apply (B6.3, B6.5, B6.7): the result, whether the one Restore confirmed the previous settings, what is offered
-/// next, and the checkpoint and validation that the Apply's receipt names (A8.1, A8.5), taken from the checkpoint this Apply journaled,
-/// also when a confirmed Restore has cleared it since. Restore is offered while the checkpoint stays journaled and not retired: the
-/// settings are applied (stage `completed`), or a Restore was not confirmed and is offered again. Keep in project is offered only for
-/// applied settings whose run was not cancelled.
+/// next and the action that holds the position then (B7), and the checkpoint and validation that the Apply's receipt names (A8.1,
+/// A8.5), taken from the checkpoint this Apply journaled, also when a confirmed Restore has cleared it since. Restore is offered while
+/// the checkpoint stays journaled and not retired: the settings are applied (stage `completed`), or a Restore was not confirmed and is
+/// offered again. Keep in project is offered only for applied settings whose run was not cancelled.
 #[must_use]
 pub(crate) fn outcome_of(
     result: CommissioningResult,
@@ -144,9 +148,16 @@ pub(crate) fn outcome_of(
     let restore_available = journaled
         .as_ref()
         .is_some_and(|checkpoint| checkpoint.stage != CheckpointStage::Retired);
+    let keep_available = completed && result.status != CommissioningStatus::Cancelled;
+    let apply_available = apply_offered_after(ReviewedAction::Apply);
     ApplyOutcome {
-        keep_available: completed && result.status != CommissioningStatus::Cancelled,
+        kind: AnswerKind::new(),
+        keep_available,
         restore_available,
+        apply_available,
+        primary_action: primary_action(apply_available, restore_available, keep_available),
+        // The stages read the study and the journal once the run has ended: `apply_action` adds them to its answer.
+        stages: None,
         restored,
         result,
         checkpoint_id: written.id,

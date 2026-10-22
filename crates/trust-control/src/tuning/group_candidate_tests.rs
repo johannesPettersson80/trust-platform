@@ -119,6 +119,7 @@ fn a_candidate_is_stored_and_read_back_unchanged_and_names_no_unknown_field() {
         decoupler: Some(GroupDecoupler {
             matrix: vec![vec![1.1, -0.4], vec![-0.4, 1.1]],
             input_channel_ids: vec!["u1".to_owned(), "u2".to_owned()],
+            input_names: None,
             member_instances: vec!["P1.Zone1".to_owned(), "P1.Zone2".to_owned()],
             block: None,
         }),

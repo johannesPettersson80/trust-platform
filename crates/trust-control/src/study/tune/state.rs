@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use super::{check_pins, check_settings, stage_evidence, TuneInputs, TuneOutcome, TuneSection};
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::LoopDefinition;
-use crate::messages::{CandidateOutcome, TuneGainUnits, TuneMethod, TuneResult};
+use crate::messages::{AnswerKind, CandidateOutcome, TuneGainUnits, TuneMethod, TuneResult};
 use crate::model::GeneralModel;
 use crate::stages::{stage_availability, StageEvidence};
 use crate::tuning::candidate_margins::{state_feedback_margins, CandidateMargins};
@@ -70,7 +70,7 @@ pub(crate) fn check_state(inputs: &TuneInputs<'_>) -> Result<(), Failure> {
     }
     loop_definition.rust_engine_support()?;
     check_settings(inputs.request)?;
-    check_pins(loop_definition, inputs.request)
+    check_pins(loop_definition, inputs)
 }
 
 /// Designs the state-feedback law of the request on the study's current model (C4, N5.14) with the study's state-design choices
@@ -159,6 +159,7 @@ pub fn answer(
 ) -> TuneResult {
     let (margins, margins_unavailable) = state_margins(loop_definition, model, design);
     TuneResult {
+        kind: AnswerKind::new(),
         group: None,
         feedforward: None,
         state: Some(StateAnswer::of(design)),
@@ -192,6 +193,7 @@ pub fn answer(
         stages: stage_availability(&evidence),
         stage_evidence: evidence,
         schedule: None,
+        words: None,
     }
 }
 
@@ -212,6 +214,31 @@ pub fn state_fields(
         .and_then(|input| input.draft.as_ref())
         .is_some_and(|draft| draft.solver_mode.as_deref() == Some("finite"));
     Some(form_fields(family, finite_horizon))
+}
+
+/// The text that the design form shows for the loop's declared design when the study holds no draft (C4, `declaredText`): each declared
+/// matrix or pole list as JSON. The form's solver mode and horizon belong to a draft, not to the declaration, so only these five fields
+/// are given. Empty for a loop without a state law.
+#[must_use]
+pub fn declared_design_text(loop_definition: &LoopDefinition) -> BTreeMap<String, String> {
+    let Some(design) = loop_definition.controller.state_feedback.as_ref() else {
+        return BTreeMap::new();
+    };
+    [
+        "desiredPoles",
+        "stateWeights",
+        "inputWeights",
+        "processNoise",
+        "measurementNoise",
+    ]
+    .into_iter()
+    .filter_map(|field| {
+        design
+            .get(field)
+            .filter(|value| !value.is_null())
+            .map(|value| (field.to_owned(), value.to_string()))
+    })
+    .collect()
 }
 
 /// The family the loop declares for its state-feedback law (C4).

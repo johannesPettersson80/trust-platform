@@ -1,8 +1,9 @@
 //! The connected run (`ConnectedIdentification` of `connectedIdentification.ts`; specification 35, A6.2, A8.5, B3.4 and C7, C8; runtime
 //! protocol annex E11.2 to E11.6 and E11.9): the sample and the method, the mode the method needs, the recording and its journal, the
-//! steady baseline, the steps of the loop's plant inputs in that one recording (each journaled before its start is sent once, held until
-//! it settles, and restored), the kept recording and its record, the fit, the settling that ends an owned experiment and clears the
-//! journal once nothing of the run is left running, and then the return of the loop to the mode it was found in.
+//! steady baseline (a project test that declares a baseline waits for none: its recording starts with its plan, C12), the steps of the
+//! loop's plant inputs in that one recording (each journaled before its start is sent once, held until it settles, and restored), the
+//! kept recording and its record, the fit, the settling that ends an owned experiment and clears the journal once nothing of the run is
+//! left running, and then the return of the loop to the mode it was found in.
 //!
 //! The helpers marked `pub(crate)` are the steps a resumed campaign shares (`connectedIdentificationRecovery.ts`).
 
@@ -20,28 +21,33 @@ use trust_control::identification::automatic::AutomaticIdentificationResult;
 use trust_control::identification::campaign::baseline::BaselineSummary;
 use trust_control::identification::campaign::journal::IdentificationCampaignJournal;
 use trust_control::identification::campaign::{
-    campaign_maximum_ms, campaign_recording_ms, require_campaign_limits, POLL_MILLISECONDS,
+    campaign_maximum_ms, campaign_recording_ms, campaign_settling_ms, require_campaign_limits,
+    POLL_MILLISECONDS,
 };
 use trust_control::identification::connected_record::{
     connected_identification_record, RuntimeVerificationResult,
 };
 use trust_control::identification::connected_run::{
-    campaign_method, campaign_refusal, ended_and_restored, evaluation_refusal, experiment_recovery,
-    fit_failure, fit_window, hold_end, hold_refusal, identification_cancelled, input_steps,
-    is_provisional, offers_setpoint_step, own_steps_check, recording_settling_ms,
-    restoration_allowance_ms, several_channels, start_outcome, start_reconciliation, step_hold_ms,
-    step_plan, step_sample, stopped_hold_outcome, FitWindow, HoldEnd, InputStep, StartOutcome,
-    StartReconciliation, CHECKING_TEXT, FITTING_TEXT, IDENTIFYING_TEXT, RESTORATION_POLLS,
+    campaign_hold_ms, campaign_method, campaign_refusal, ended_and_restored, evaluation_refusal,
+    experiment_recovery, fit_failure, hold_end, hold_refusal, identification_cancelled,
+    input_steps, is_provisional, offers_setpoint_step, own_steps_check, restoration_allowance_ms,
+    several_channels, start_outcome, start_reconciliation, step_hold_ms, step_plan, step_sample,
+    stopped_hold_outcome, FitWindow, HoldEnd, InputStep, StartOutcome, StartReconciliation,
+    CHECKING_TEXT, FITTING_TEXT, IDENTIFYING_TEXT, RESTORATION_POLLS,
 };
 use trust_control::identification::identify_result::recorded_chart_samples;
 use trust_control::identification::independent_validation::RunEvaluation;
 use trust_control::identification::mode::{needs_mode_change, unreadable_mode_refusal};
 use trust_control::identification::multichannel_fit::fit_multichannel_model;
 use trust_control::identification::policy::{identification_method, IdentificationMethod};
+use trust_control::identification::project_baseline::{
+    campaign_fit_window, declared_baseline, declared_baseline_noise,
+};
 use trust_control::identification::recorded_model::{fit_recorded_model, RecordedFitError};
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::messages::{CampaignRestoration, RecordedChartSample};
-use trust_control::recording::RecordedRun;
+use trust_control::recording::context::ExperimentContext;
+use trust_control::recording::{EvidenceSource, RecordedRun};
 
 use super::{
     IdentifyOutcome, IdentifyRecording, IdentifyRequest, IdentifyResult, IdentifyRuntime,
@@ -88,13 +94,14 @@ pub(crate) struct Schedule<'b> {
     pub(crate) method: IdentificationMethod,
     /// Whether the steps are the independent model check's.
     pub(crate) validation: bool,
-    /// The steady baseline the steps are judged against.
+    /// The steady baseline the steps are judged against; a project test that declares a baseline carries that one instead (C12).
     pub(crate) baseline: &'b BaselineSummary,
     /// The largest duration of the campaign, in ms.
     pub(crate) maximum_ms: u64,
     /// The duration of the recording, in ms.
     pub(crate) recording_ms: u64,
-    /// Where the steady baseline ends, in process time of the recording.
+    /// Where the steady baseline ends, in process time of the recording: the maximum duration counts from here. A project test that
+    /// declares a baseline waits for no steady baseline, so it is the recording's start (C12).
     pub(crate) baseline_end_seconds: f64,
 }
 
@@ -126,6 +133,10 @@ struct Run<'a, T: IdentifyRuntime, S, K, C, P, E> {
     recorded_samples: Vec<RecordedChartSample>,
     /// The fit's refusal of a project test (C12), in full: the note the test keeps. None when the fit gave a model.
     fit_refusal: Option<String>,
+    /// The value the runtime applied to the loop's hold parameter when the campaign began, which a project step test's plan records (C12,
+    /// Hold parameter). None for a loop that declares none. A continuation of a journaled campaign plans no hold of its own: a project
+    /// step test is one observation (C12), so no input follows its journaled step.
+    hold_seconds: Option<f64>,
 }
 
 /// Runs one connected identification, or records the independent model check, and then settles (`run`, `recordValidation`).
@@ -156,6 +167,7 @@ where
         restoration: None,
         recorded_samples: Vec::new(),
         fit_refusal: None,
+        hold_seconds: None,
     }
     .execute(purpose)
 }
@@ -196,6 +208,7 @@ where
                 self.ports.journal,
             )?);
         }
+        self.note_run_plant(sample.as_ref());
         let worked = self.work(method, purpose, sample.as_ref());
         // The settling runs whatever the work gave; its own failure replaces the work's (`conclude`'s `finally`).
         self.settle()?;
@@ -214,6 +227,18 @@ where
             recorded_samples: std::mem::take(&mut self.recorded_samples),
             fit_refusal: self.fit_refusal.take(),
         })
+    }
+
+    /// Notes the simulated plant the run ran against with the retention, when the live sample comes from a simulated target and the
+    /// runtime proves which configuration the loop's plant runs under (B10.2). A plant the runtime cannot prove is left out, and
+    /// never refuses the run.
+    fn note_run_plant(&mut self, sample: Option<&ExperimentSample>) {
+        let loop_definition = self.request.loop_definition;
+        if sample.is_some_and(|sample| sample.source == EvidenceSource::SimulatedPlant) {
+            if let Some(plant) = self.ports.runtime.plant_context(loop_definition) {
+                self.ports.retention.note_plant(plant);
+            }
+        }
     }
 
     /// The acquisition, then the fit or the recorded model check.
@@ -279,6 +304,8 @@ where
         if let Some(refusal) = campaign_refusal(loop_definition, method, sample) {
             return Err(refusal);
         }
+        // The hold of a project step test is read, and refused as its review refuses it, before anything is recorded (C12).
+        self.hold_seconds = self.applied_hold()?;
         // The plant inputs are read before anything is recorded, as `connectedIdentificationChannels` reads them (C7, C8).
         let steps = input_steps(loop_definition, &self.io_list()?)?;
         let recording_ms =
@@ -289,6 +316,7 @@ where
         let kept = retain_recording(&mut recording, self.ports.retention);
         let (run, _released) = self.held(recording, kept)?;
         self.recorded_samples = recorded_chart_samples(loop_definition, &run);
+        self.note_declared_noise();
         campaign_record(
             loop_definition,
             &run,
@@ -314,6 +342,26 @@ where
         }
     }
 
+    /// The noise that the first output of a return to Auto is allowed to move by, from the samples of a project test's declared
+    /// baseline (A6.4, N1.3, C12): the test waited for no steady baseline, so its kept recording gives the noise. A test that declares
+    /// no baseline gives none, and a campaign took its noise from the steady baseline it waited for.
+    fn note_declared_noise(&mut self) {
+        let noise = declared_baseline_noise(self.request.loop_definition, &self.recorded_samples);
+        if let (Some(mode), Some(noise)) = (self.mode.as_mut(), noise) {
+            mode.set_process_noise(noise);
+        }
+    }
+
+    /// The value the runtime applies to the loop's hold parameter (C12, Hold parameter): a project step test records its baseline, that
+    /// hold and one restoration sample. It is refused as the test's review refuses it: unreadable, outside the parameter's bounds, or
+    /// recorded longer than the declared maximum duration. `None` for a loop that declares no hold parameter, which reads nothing.
+    fn applied_hold(&self) -> Result<Option<f64>, Failure> {
+        let loop_definition = self.request.loop_definition;
+        let hold = self.ports.runtime.applied_hold_seconds(loop_definition)?;
+        campaign_hold_ms(loop_definition, hold)?;
+        Ok(hold)
+    }
+
     /// Starts the recording the campaign follows, with its owner journaled before the start is sent (E11.2). A start whose
     /// acknowledgement was lost keeps its owner, and its recording stays here for the settling to keep (E11.4).
     fn start_recording(
@@ -321,13 +369,18 @@ where
         recording_ms: u64,
         maximum_ms: u64,
     ) -> Result<T::Recording, Failure> {
+        // A project test records every execution of its hold (C12): the record period follows the process only for a campaign that steps
+        // the plant, whose settling time is not known (A4.2). The project's own scenario is not stepped by the campaign, and its
+        // recording is read at every scan.
+        let expected_settling_ms = campaign_settling_ms(
+            self.request.loop_definition,
+            maximum_ms,
+            self.request.expected_settling_seconds,
+        );
         let plan = RecordingStartPlan {
             recording_id: new_recording_id(),
             planned_duration_ms: recording_ms,
-            expected_settling_ms: recording_settling_ms(
-                maximum_ms,
-                self.request.expected_settling_seconds,
-            ),
+            expected_settling_ms,
         };
         self.journaled.push(plan.recording_id.clone());
         let started = self.ports.runtime.start_recording(
@@ -382,12 +435,20 @@ where
             offers_setpoint_step(loop_definition, sample),
             self.request.expected_settling_seconds,
         );
-        let baseline = campaign.baseline(maximum_ms)?;
-        let baseline_end_seconds = campaign.seconds();
-        // The baseline's half range is the measured noise that a return to Auto allows its first output to move by (A6.4).
-        if let Some(mode) = self.mode.as_mut() {
-            mode.set_process_noise(baseline.half_range);
-        }
+        // A project test that declares a baseline waits for no steady baseline (C12): its recording starts with its plan, which holds the
+        // activation off for that baseline, and its maximum duration, which includes it, counts from the recording's start. A project
+        // test that declares none waits for the steady baseline as a campaign does, so that its fit has an operating point.
+        let (baseline, baseline_end_seconds) =
+            if let Some(declared) = declared_baseline(loop_definition, sample) {
+                (declared, 0.0)
+            } else {
+                let baseline = campaign.baseline(maximum_ms)?;
+                // The baseline's half range is the measured noise that a return to Auto allows its first output to move by (A6.4).
+                if let Some(mode) = self.mode.as_mut() {
+                    mode.set_process_noise(baseline.half_range);
+                }
+                (baseline, campaign.seconds())
+            };
         self.check_cancelled()?;
         let schedule = Schedule {
             steps,
@@ -401,7 +462,7 @@ where
         let plans = self.step_inputs(&mut campaign, &owner, &schedule, 0, Vec::new())?;
         Ok(Step {
             plans,
-            window: fit_window(baseline_end_seconds, baseline.window_seconds),
+            window: campaign_fit_window(loop_definition, baseline_end_seconds, &baseline),
         })
     }
 
@@ -439,6 +500,11 @@ where
             };
             self.dispatch(&plan, owner, schedule, &progress)?;
             let state = campaign.hold(&plan, schedule.baseline, step_seconds)?;
+            // Whatever the hold ended with, the experiment's context is noted for the recording that is kept next: a recording from an
+            // aborted test keeps its stop reason and its restoration (B10.2, B10.3).
+            if let Some(context) = ExperimentContext::of(&plan, &state) {
+                self.ports.retention.note_experiment(context);
+            }
             match hold_end(&state) {
                 HoldEnd::Unrestored(failure) => return Err(failure),
                 HoldEnd::Stopped(failure) => {
@@ -480,6 +546,7 @@ where
             schedule.baseline,
             hold_ms,
             schedule.validation,
+            self.hold_seconds,
         )?;
         plan.id = new_experiment_id();
         Ok(plan)
@@ -582,12 +649,19 @@ where
             return;
         }
         let mut experiment = self.ports.runtime.experiment();
-        let restored = experiment.abort(&plan.id).is_ok()
-            && matches!(
-                confirm_restored(&mut experiment, self.ports.clock, &plan.id),
-                Ok(true)
-            );
-        if restored {
+        let ended = if experiment.abort(&plan.id).is_ok() {
+            confirmed_status(&mut experiment, self.ports.clock, &plan.id)
+                .ok()
+                .flatten()
+        } else {
+            None
+        };
+        if let Some(status) = ended {
+            // The experiment this run ended itself is noted as it ended, for the recording that is kept next: a test that a failure
+            // aborted keeps its stop reason and its restoration (B10.2, B10.3).
+            if let Some(context) = ExperimentContext::of(plan, &status) {
+                self.ports.retention.note_experiment(context);
+            }
             self.active = None;
         }
     }
@@ -648,6 +722,7 @@ where
         restoration: None,
         recorded_samples: Vec::new(),
         fit_refusal: None,
+        hold_seconds: None,
     };
     let plans = run.step_inputs(campaign, owner, schedule, first, stepped);
     let still_active = run.active.is_some();
@@ -790,22 +865,24 @@ pub(crate) fn hold_restoration(state: &Value) -> Option<CampaignRestoration> {
 }
 
 /// Polls until the experiment has ended and its original command is restored, within [`RESTORATION_POLLS`] reads one poll
-/// apart (`confirmRestored`). Returns whether it was confirmed.
+/// apart (`confirmRestored`). Gives the status that confirmed it: the runtime's last status of the experiment, which says how it
+/// ended (B10.2). `None` when the restoration was not confirmed within the polls.
 ///
 /// # Errors
 /// A status read fails.
-pub(crate) fn confirm_restored(
+pub(crate) fn confirmed_status(
     experiment: &mut impl ExperimentClient,
     clock: &impl CampaignClock,
     experiment_id: &str,
-) -> Result<bool, Failure> {
+) -> Result<Option<Value>, Failure> {
     for _ in 0..RESTORATION_POLLS {
-        if ended_and_restored(&experiment.status(experiment_id)?) {
-            return Ok(true);
+        let status = experiment.status(experiment_id)?;
+        if ended_and_restored(&status) {
+            return Ok(Some(status));
         }
         clock.wait(POLL_MILLISECONDS);
     }
-    Ok(false)
+    Ok(None)
 }
 
 /// Clears the journal entries of the given runtime identities (`ports.clear()`).

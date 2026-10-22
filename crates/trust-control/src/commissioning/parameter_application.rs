@@ -1,9 +1,9 @@
 //! Parameter transactions of Control Studio, the client's rules (specification 35, B6.1 and B6.4; annex E7).
 //!
-//! The decisions of a parameter binding's check, of a record's check, of a review, of the Apply and rollback requests, of the
-//! confirmation that the runtime's record gives, and of a cancel. The client is `parameterApplication.ts`; the binding check is
-//! from `parameterBinding.ts`. The session that keeps one review (`parameter_session`) and the reviewed Apply or Restore sequence
-//! (`reviewed_application`) are sibling modules.
+//! The decisions of a parameter binding's check, of a record's check, of the text a review is typed as, of a review, of the Apply and
+//! rollback requests, of the confirmation that the runtime's record gives and the sentence of a confirmed write, and of a cancel. The
+//! client is `parameterApplication.ts`; the binding check is from `parameterBinding.ts`. The engine's `controlStudio/parameters`
+//! command (`trust-control-studio`, `analysis_parameters_action`) applies these decisions.
 //!
 //! Each decision takes the runtime's answer as data that has already been read, and returns the request or the verdict. The
 //! runtime calls, the status polls and their timers, and the transaction identifiers are transport: the caller performs them in
@@ -15,6 +15,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::failure::{Cause, Failure, NextAction};
+use crate::json;
 use crate::loop_definition::RealType;
 
 use super::parameter_status::{same_parameter_values, ParameterStatus, RecordState};
@@ -24,6 +25,8 @@ use super::texts;
 const MAXIMUM_PARAMETERS: usize = 64;
 /// The longest label of a binding, in UTF-16 units.
 const MAXIMUM_LABEL_UNITS: usize = 1_024;
+/// The longest review text, in UTF-16 units (64 kB).
+pub(super) const MAXIMUM_REVIEW_UNITS: usize = 65_536;
 
 /// Where a parameter write goes: a simulated target, or a physical one whose writes need the engineer's approval (E7.3, E10.2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -239,6 +242,37 @@ impl ParameterReview {
     pub fn is_rollback(&self) -> bool {
         matches!(self.kind, ReviewKind::Rollback { .. })
     }
+}
+
+/// The values that the text a review names holds (`review`): JSON of at most 64 kB (in UTF-16 units), read as an object of numbers
+/// by symbol. The page sends the text as the engineer typed it, and this is where it is read and refused (specification 35, C12).
+///
+/// # Errors
+/// The text is missing or longer than 64 kB, is not JSON, or is not an object of numbers.
+pub fn values_of_text(review_json: Option<&str>) -> Result<BTreeMap<String, f64>, Failure> {
+    let text = review_json
+        .filter(|text| text.encode_utf16().count() <= MAXIMUM_REVIEW_UNITS)
+        .ok_or_else(|| {
+            Failure::new(
+                &texts::parameter_json_too_long(),
+                Cause::Settings,
+                NextAction::None,
+            )
+        })?;
+    let parsed = json::parse_text(text).map_err(|_| {
+        Failure::new(
+            &texts::parameter_json_invalid(),
+            Cause::Settings,
+            NextAction::None,
+        )
+    })?;
+    json::decode_value(parsed).map_err(|_| {
+        Failure::new(
+            &texts::parameter_review_values_invalid(),
+            Cause::Settings,
+            NextAction::None,
+        )
+    })
 }
 
 /// The values of a review, checked and rounded before the runtime is read (`review`, first part): exactly the declared symbols,
@@ -592,6 +626,17 @@ pub fn confirmation_timeout(review: &ParameterReview) -> Failure {
         Cause::Runtime,
         next_action,
     )
+}
+
+/// The sentence of a confirmed write (specification 35, C12; E7.4, E7.5): a rollback reports the restored values, and an Apply reports
+/// the reviewed values, each observed after the owning task executed.
+#[must_use]
+pub fn applied_reason(rollback: bool) -> String {
+    if rollback {
+        texts::parameter_applied_rollback()
+    } else {
+        texts::parameter_applied_apply()
+    }
 }
 
 /// The owner of a parameter operation that a cancel names: its transaction identifier and the revisions it was queued under

@@ -26,12 +26,8 @@ import {
   onDidChangeSimulationSpeed,
   readSelectedSimulatorSpeed,
   SPEED_REFRESH_INTERVAL_MS,
+  type SimulatorStatusRead,
 } from "./simulationSpeed";
-import {
-  simulationSpeedBehind,
-  simulationSpeedText,
-  type SimulationSpeed,
-} from "./controlStudio/runtimeTarget";
 
 /** What the status bar shows: its text, whether a simulator runs under the selected target, and whether its speed is behind. */
 export interface StatusBarView {
@@ -177,22 +173,23 @@ async function statusText(
   if (speed) announceSimulationSpeedRead({ runtimeId: selected.id, ...speed });
   else if (selected.id === SIMULATOR_RUNTIME_ID && !isRunningSimulator(selected) && latestSimulatorSpeedRead()?.configured !== 1) {
     // A stopped simulator runs at no speed: its labels drop the speed and keep "Simulation" (specification 35, B9.2).
-    announceSimulationSpeedRead({ runtimeId: selected.id, simulated: true, configured: 1 });
+    announceSimulationSpeedRead({ runtimeId: selected.id, simulated: true, configured: 1, speedText: "", speedBehind: false });
   }
   return selectedStatusView(selected, speed);
 }
 
-/** The selected target's status, with the simulator's speed while it runs (specification 35, B9.2: "Simulator ×10"). */
-export function selectedStatusView(selected: SelectedRuntime, speed?: SimulationSpeed): StatusBarView {
+/** The selected target's status, with the simulator's speed while it runs (specification 35, B9.2: "Simulator ×10"). The words
+ * and the behind flag are the runtime's. */
+export function selectedStatusView(selected: SelectedRuntime, speed?: Pick<SimulatorStatusRead, "speedText" | "speedBehind">): StatusBarView {
   const running = isRunningSimulator(selected);
   if (!running || speed === undefined) {
     return { text: selectedStatusText(selected), simulatorRunning: running, speedBehind: false };
   }
-  const text = simulationSpeedText(speed);
+  const text = speed.speedText;
   return {
     text: `$(circle-filled) truST: ${statusTargetLabel(selected)}${text ? ` ${text}` : ""} running`,
     simulatorRunning: true,
-    speedBehind: simulationSpeedBehind(speed),
+    speedBehind: speed.speedBehind,
   };
 }
 

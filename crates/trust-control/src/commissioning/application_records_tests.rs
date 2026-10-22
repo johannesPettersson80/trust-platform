@@ -415,12 +415,14 @@ fn an_apply_and_a_restore_of_the_same_runtime_have_different_identities() {
     assert_ne!(review_identity(&apply), review_identity(&restore));
 }
 
-/// §0.1b `apply` and B6.1: the review shows the action, its identity, the mode, each parameter's running and next value, the
-/// description, whether the target is physical and the validated operating point, under exactly these `camelCase` keys; an
+/// §0.1b `apply` and B6.1: the review shows its kind (§0.1a), the action, its identity, the mode, each parameter's running and next
+/// value, the description, whether the target is physical and the validated operating point, under exactly these `camelCase` keys; an
 /// unknown mode or a missing operating point is `null`, never left out.
 #[test]
+#[allow(clippy::too_many_lines)] // The review's keys are written out in full by hand, so a renamed or a missing key is caught.
 fn the_review_serializes_with_exactly_its_camel_case_keys() {
     let review = ApplicationReview {
+        kind: AnswerKind::new(),
         action: ReviewedAction::Restore,
         identity: "sha256:review".to_owned(),
         found_mode: None,
@@ -432,6 +434,7 @@ fn the_review_serializes_with_exactly_its_camel_case_keys() {
         }],
         description: "Restore the previous settings.".to_owned(),
         physical: false,
+        confirmation: ReviewConfirmation::Press,
         operating_point: None,
         approval: ApprovalBlock {
             loop_id: "Main.Heater".to_owned(),
@@ -454,19 +457,23 @@ fn the_review_serializes_with_exactly_its_camel_case_keys() {
         BTreeSet::from([
             "action",
             "approval",
+            "confirmation",
             "description",
             "foundMode",
             "identity",
+            "kind",
             "operatingPoint",
             "parameters",
             "physical",
         ])
     );
+    assert_eq!(value["kind"], "applicationReview");
     assert_eq!(value["action"], "restore");
     assert_eq!(value["identity"], "sha256:review");
     assert_eq!(value["foundMode"], Value::Null);
     assert_eq!(value["description"], "Restore the previous settings.");
     assert_eq!(value["physical"], json!(false));
+    assert_eq!(value["confirmation"], "press");
     assert_eq!(value["operatingPoint"], Value::Null);
     let parameter = &value["parameters"][0];
     assert_eq!(
@@ -499,6 +506,7 @@ fn the_review_serializes_with_exactly_its_camel_case_keys() {
         action: ReviewedAction::Apply,
         found_mode: Some(FoundMode::Auto),
         physical: true,
+        confirmation: ReviewConfirmation::Approval,
         operating_point: Some(ReviewedOperatingPoint {
             inputs: vec![40.0],
             outputs: vec![2.0],
@@ -509,6 +517,7 @@ fn the_review_serializes_with_exactly_its_camel_case_keys() {
     assert_eq!(value["action"], "apply");
     assert_eq!(value["foundMode"], "auto");
     assert_eq!(value["physical"], json!(true));
+    assert_eq!(value["confirmation"], "approval");
     assert_eq!(
         keys(&value["operatingPoint"]),
         BTreeSet::from(["inputs", "outputs"])
@@ -517,17 +526,21 @@ fn the_review_serializes_with_exactly_its_camel_case_keys() {
     assert_eq!(value["operatingPoint"]["outputs"][0], 2.0);
 }
 
-/// B6.3, B6.4, B6.5 and A8.1: Apply's final result carries the commissioning result, what the engineer may do next, and the
-/// checkpoint and validation it was applied under; Restore's carries whether the runtime confirmed it, why, the mode, the
-/// parameter record, whose fields keep the names of annex E7.2, and the recording it kept as evidence, named only when one was
+/// B6.3, B6.4, B6.5 and A8.1: Apply's final result carries its kind (§0.1a), the commissioning result, what the engineer may do next,
+/// and the checkpoint and validation it was applied under; Restore's carries its kind, whether the runtime confirmed it, why, the mode,
+/// the parameter record, whose fields keep the names of annex E7.2, and the recording it kept as evidence, named only when one was
 /// held (E11.6).
 #[test]
 fn the_outcomes_serialize_with_exactly_their_camel_case_keys() {
     let applied = ApplyOutcome {
+        kind: AnswerKind::new(),
         result: failed_result(),
         restored: false,
         restore_available: true,
         keep_available: true,
+        apply_available: false,
+        primary_action: Some(PrimaryAction::Keep),
+        stages: None,
         checkpoint_id: "checkpoint:1".to_owned(),
         validation_identity: "validation:1".to_owned(),
     };
@@ -535,23 +548,31 @@ fn the_outcomes_serialize_with_exactly_their_camel_case_keys() {
     assert_eq!(
         keys(&value),
         BTreeSet::from([
+            "applyAvailable",
             "checkpointId",
             "keepAvailable",
+            "kind",
+            "primaryAction",
             "restoreAvailable",
             "restored",
             "result",
             "validationIdentity",
-        ])
+        ]),
+        "the workflow's own outcome names no stages: the method adds them"
     );
+    assert_eq!(value["kind"], "applyOutcome");
+    assert_eq!(value["primaryAction"], "keep");
     assert_eq!(value["result"]["status"], "failed");
     assert_eq!(value["result"]["foundMode"], "auto");
     assert_eq!(value["restored"], json!(false));
     assert_eq!(value["restoreAvailable"], json!(true));
     assert_eq!(value["keepAvailable"], json!(true));
+    assert_eq!(value["applyAvailable"], json!(false));
     assert_eq!(value["checkpointId"], "checkpoint:1");
     assert_eq!(value["validationIdentity"], "validation:1");
 
     let confirmed = RestoreOutcome {
+        kind: AnswerKind::new(),
         restored: true,
         reason: "The previous settings are restored.".to_owned(),
         mode: Some(FoundMode::Auto),
@@ -559,23 +580,30 @@ fn the_outcomes_serialize_with_exactly_their_camel_case_keys() {
         recording: None,
         restore_available: false,
         keep_available: false,
+        apply_available: false,
+        primary_action: None,
+        stages: None,
     };
     let value = serde_json::to_value(&confirmed).expect("the outcome serializes");
     assert_eq!(
         keys(&value),
         BTreeSet::from([
+            "applyAvailable",
             "keepAvailable",
+            "kind",
             "mode",
             "parameters",
             "reason",
             "restoreAvailable",
             "restored",
         ]),
-        "no recording was held, so none is named"
+        "no recording was held, so none is named, and nothing offered names no position"
     );
+    assert_eq!(value["kind"], "restoreOutcome");
     assert_eq!(value["restored"], json!(true));
     assert_eq!(value["restoreAvailable"], json!(false));
     assert_eq!(value["keepAvailable"], json!(false));
+    assert_eq!(value["applyAvailable"], json!(false));
     assert_eq!(value["reason"], "The previous settings are restored.");
     assert_eq!(value["mode"], "auto");
     assert_eq!(value["parameters"]["program_revision"], "program:1");
@@ -593,7 +621,9 @@ fn the_outcomes_serialize_with_exactly_their_camel_case_keys() {
     assert_eq!(
         keys(&value),
         BTreeSet::from([
+            "applyAvailable",
             "keepAvailable",
+            "kind",
             "mode",
             "parameters",
             "reason",
@@ -603,6 +633,32 @@ fn the_outcomes_serialize_with_exactly_their_camel_case_keys() {
         ])
     );
     assert_eq!(value["recording"]["recording_id"], "rec-fixture");
+}
+
+/// A2.4, A2.5, B6.5 and B9.3: a write to a physical target is confirmed with the engineer's approval and one to a simulated target
+/// by the press of the action, which the review says in a word; a Keep in project is confirmed with its own button on any target.
+#[test]
+fn a_review_says_how_it_is_confirmed_by_the_kind_of_target() {
+    assert_eq!(
+        ReviewConfirmation::of_target(false),
+        ReviewConfirmation::Press
+    );
+    assert_eq!(
+        ReviewConfirmation::of_target(true),
+        ReviewConfirmation::Approval
+    );
+    let words: Vec<Value> = [
+        ReviewConfirmation::Press,
+        ReviewConfirmation::Approval,
+        ReviewConfirmation::Explicit,
+    ]
+    .iter()
+    .map(|confirmation| serde_json::to_value(confirmation).expect("the word serializes"))
+    .collect();
+    assert_eq!(
+        words,
+        [json!("press"), json!("approval"), json!("explicit")]
+    );
 }
 
 /// A2.5 and B9.3: the approval names each signal the review writes with its declared limits, the observation's duration, the stop

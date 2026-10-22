@@ -14,6 +14,7 @@ use std::time::Instant;
 
 use serde_json::Value;
 use trust_control::analysis::budget::{Budget, ANALYSIS_BUDGET, BUDGET_EXCEEDED};
+use trust_control::analysis::currency::{reads_study_model, stale_answers};
 use trust_control::analysis::declared::{DeclaredControlAnalysis, SavedDeclaredAnalysis};
 use trust_control::analysis::declared_tools;
 use trust_control::analysis::feedback_tool;
@@ -30,8 +31,8 @@ use trust_control::analysis::tool::{self, Facts};
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::messages::{
-    AnalysisEnvelope, AnalysisInputs, AnalysisResult, AnalysisTool, AnalyzeAnswer, AnalyzeRequest,
-    ModelRevision,
+    AnalysisEnvelope, AnalysisInputs, AnalysisPage, AnalysisResult, AnalysisTool, AnalyzeAnswer,
+    AnalyzeRequest, ModelRevision,
 };
 use trust_control::model::{decode_general_model, GeneralModel, ResponseConnection};
 use trust_control::recording::RecordedRun;
@@ -77,17 +78,30 @@ pub fn answer(
                 (Some(loop_definition), resolved, claim_key)
             }
             // Only the parked refusal falls back, and only for a request that carries a model: the loop file names the identity that
-            // an operation claims (`loops::parked_identity`). Any other failure of opening the loop is answered as it is.
+            // an operation claims (`loops::parked_identity`). Any other failure of opening the loop is answered as it is, except that
+            // the list of tools for a loop the engine refuses offers none: the refusal is the open answer's (B9.9).
             Err(failure) => match loops::parked_identity(&project_root, &request.loop_id) {
                 Some(claim_key) if request.model.is_some() => {
                     (None, resolve_without_loop(request)?, claim_key)
+                }
+                _ if request.tool.is_none() && failure.cause == Cause::ControllerCapability => {
+                    return to_value(&AnalyzeAnswer::Tools {
+                        tools: Vec::new(),
+                        stale: Vec::new(),
+                    });
                 }
                 _ => return Err(failure),
             },
         };
     let Some(tool) = request.tool else {
+        // The answers the page holds that no longer belong to the model analysed now are listed, so the page drops them (B9.9).
+        let model = resolved
+            .model
+            .as_ref()
+            .map(|model| model.identity().revision.as_str());
         return to_value(&AnalyzeAnswer::Tools {
             tools: tool::offers(&resolved.facts()),
+            stale: stale_answers(request.held.as_deref().unwrap_or_default(), model),
         });
     };
     if !tool::applies(tool, &resolved.facts()) {
@@ -99,14 +113,15 @@ pub fn answer(
     check_inputs(tool, &inputs, resolved.model.as_ref(), controller_given)?;
     let definition = definition_for(tool, &inputs, &resolved)?;
     let model_revision = resolved.model.as_ref().map(revision_of);
+    // The calculation is the study's own, whose analysis the engine records as the one the page shows (B9.9), when the request names
+    // no model and no controller of its own and the loop has a study.
+    let records_shown = resolved.served && request.model.is_none() && request.controller.is_none();
     let controller_revision = if uses_controller(tool, &inputs) {
         resolved.controller.as_ref().map(revision_of)
     } else {
         None
     };
     if tool::presentation(tool).operation {
-        let (project_id, loop_id) = claim_key;
-        let claim = claims.claim(&project_id, &loop_id, tool::presentation(tool).label)?;
         let work = Work {
             project_root,
             loop_definition,
@@ -114,25 +129,28 @@ pub fn answer(
             tool,
             inputs,
             defaults,
+            records_shown,
             model: resolved.model,
             model_revision,
             controller_revision,
             definition,
             declared: resolved.declared,
         };
-        let started = operations.start(ANALYZE_COMMAND, move |context| {
-            let worked = run(context, &work);
-            drop(claim);
-            worked
-        });
-        return to_value(&AnalyzeAnswer::Started {
-            operation_id: started.operation_id,
-        });
+        return start_operation(operations, claims, claim_key, work);
     }
     let outcome = match resolved.model.as_ref() {
         Some(model) => quick(tool, model, &inputs),
         None => Err(tool::no_model()),
     };
+    if records_shown {
+        record_shown(
+            &project_root,
+            loop_definition.as_ref(),
+            tool,
+            &inputs,
+            model_revision.as_ref(),
+        )?;
+    }
     to_value(&AnalyzeAnswer::Calculation(Box::new(envelope(
         tool,
         inputs,
@@ -141,6 +159,28 @@ pub fn answer(
         controller_revision,
         outcome,
     ))))
+}
+
+/// Starts the operation of a tool that runs under the budget of A7, holding the loop's claim until it ends (A8.5), and answers its identifier
+/// at once.
+///
+/// # Errors
+/// An operation of this engine works on the loop already.
+fn start_operation(
+    operations: &Operations,
+    claims: &LoopClaims,
+    (project_id, loop_id): (String, String),
+    work: Work,
+) -> Result<Value, Failure> {
+    let claim = claims.claim(&project_id, &loop_id, tool::presentation(work.tool).label)?;
+    let started = operations.start(ANALYZE_COMMAND, move |context| {
+        let worked = run(context, &work);
+        drop(claim);
+        worked
+    });
+    to_value(&AnalyzeAnswer::Started {
+        operation_id: started.operation_id,
+    })
 }
 
 /// The model and the controller of a request for a loop that cannot be opened: the request's own, with no loop, no declared analysis
@@ -282,14 +322,7 @@ fn model_of(value: &Value, what: &str) -> Result<GeneralModel, Failure> {
 
 /// The failure of a tool that does not apply: no model at hand names the Identify action, anything else names the method.
 fn refused(tool: AnalysisTool, facts: &Facts<'_>) -> Failure {
-    let needs_model = !matches!(
-        tool,
-        AnalysisTool::RootLocus
-            | AnalysisTool::Routh
-            | AnalysisTool::MeasuredFrequency
-            | AnalysisTool::MeasuredPaths
-    );
-    if facts.model.is_none() && needs_model {
+    if facts.model.is_none() && reads_study_model(tool) {
         tool::no_model()
     } else {
         tool::not_applicable(tool)
@@ -379,6 +412,8 @@ struct Work {
     tool: AnalysisTool,
     inputs: AnalysisInputs,
     defaults: AnalysisInputs,
+    /// Whether the engine records the calculation as the analysis the page shows (B9.9): the study's own, for a loop it serves.
+    records_shown: bool,
     model: Option<GeneralModel>,
     model_revision: Option<ModelRevision>,
     controller_revision: Option<ModelRevision>,
@@ -406,6 +441,15 @@ fn run(context: &OperationContext, work: &Work) -> Result<Value, Failure> {
         Err(failure) if failure.message == BUDGET_EXCEEDED => return Err(failure),
         Err(failure) => Err(failure),
     };
+    if work.records_shown {
+        record_shown(
+            &work.project_root,
+            work.loop_definition.as_ref(),
+            work.tool,
+            &work.inputs,
+            work.model_revision.as_ref(),
+        )?;
+    }
     to_value(&envelope(
         work.tool,
         work.inputs.clone(),
@@ -532,6 +576,33 @@ fn keep(work: &Work, result: &AnalysisResult) -> Result<(), Failure> {
     )?;
     analysis_records::keep(&mut study, &loop_definition.revision, kept)?;
     storage::save_study(&work.project_root, &study, &[])
+}
+
+/// Records the analysis a calculation answered as the one the Tune page shows (B9.9, A8.1): the tool, the inputs the engine read for it and
+/// the revision of the model it was calculated for, so that reopening shows it again and the engine can say when it is no longer current
+/// (`stale` of an inputs answer). The page's own request (`controlStudio/page`) keeps that revision for the same tool. A loop the engine
+/// does not open (`None`) has no study and records nothing.
+///
+/// # Errors
+/// The study cannot be read or written.
+fn record_shown(
+    project_root: &Path,
+    loop_definition: Option<&LoopDefinition>,
+    tool: AnalysisTool,
+    inputs: &AnalysisInputs,
+    model: Option<&ModelRevision>,
+) -> Result<(), Failure> {
+    let Some(loop_definition) = loop_definition else {
+        return Ok(());
+    };
+    let mut study =
+        storage::open_study(project_root, &loop_definition.id, &loop_definition.revision)?;
+    study.analysis = Some(AnalysisPage {
+        tool,
+        inputs: inputs.clone(),
+        model_revision: model.map(|model| model.revision.clone()),
+    });
+    storage::save_study(project_root, &study, &[])
 }
 
 /// The record of a kept result, with the definition it was calculated from; `None` for a result that the study does not keep (C17).

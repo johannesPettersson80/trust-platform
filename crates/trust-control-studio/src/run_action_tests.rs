@@ -8,6 +8,9 @@ use std::time::Duration;
 
 use serde_json::{json, Value};
 use trust_control::failure::{Cause, NextAction};
+use trust_control::identification::acquisition_settings::{AcquisitionMethod, AcquisitionSettings};
+use trust_control::identification::method_applicability::MethodRefusal;
+use trust_control::identification::texts::method_refusal_text;
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::messages::{
     InputsRequest, OperationState, OperationUpdate, RunRequest, RunResult, TuneMethod,
@@ -111,7 +114,10 @@ fn the_manual_method_without_its_settings_ends_the_run_before_any_stage_with_the
             project_root: project.root.display().to_string(),
             runtime_id: project.loop_definition.runtime_id.clone(),
             loop_id: project.loop_definition.id.clone(),
-            inputs: manual,
+            inputs: Some(manual),
+            change: None,
+            channel_selection: None,
+            storage_folder: Some(project.root.join("storage").display().to_string()),
         },
     )
     .expect("recorded");
@@ -128,6 +134,17 @@ fn the_manual_method_without_its_settings_ends_the_run_before_any_stage_with_the
     );
     let result = update.result.expect("the run's result");
     assert_eq!(result["needs"], json!("manual-settings"), "{result}");
+    // B8: the engine asks for the settings in its own sentence; the page writes none (the manual settings are asked for before any stage
+    // runs, so no refusal carries the sentence).
+    assert_eq!(
+        result["needsMessage"],
+        json!("Enter the manual settings to tune the controller."),
+        "{result}"
+    );
+    assert!(
+        result.get("needsField").is_none(),
+        "no form field concerns the manual settings: {result}"
+    );
     let study = storage::open_study(
         &project.root,
         &project.loop_definition.id,
@@ -176,6 +193,106 @@ fn a_loop_without_its_experiment_duration_ends_the_run_at_identify_with_the_limi
 }
 
 #[test]
+fn a_run_on_a_stopped_runtime_still_asks_for_the_limits_before_it_requires_the_runtime() {
+    let mut document: Value = serde_json::from_str(EXAMPLE).expect("the example document");
+    document["experiment"]
+        .as_object_mut()
+        .expect("the experiment")
+        .remove("durationSeconds");
+    let project = Project::new("run-limits-stopped", &document.to_string());
+    let studio = ControlStudio::new(Arc::new(Ignore));
+    // No connection: the page sends none while no runtime runs (E11.1).
+    let update = run_to_end(&studio, &project.run_request("identify", None));
+    assert_eq!(
+        update.state,
+        OperationState::Finished,
+        "a missing limit is the run's input to ask for, whether or not a runtime runs: {update:?}"
+    );
+    let result = update.result.expect("the run's result");
+    assert_eq!(result["needs"], json!("limits"), "{result}");
+}
+
+#[test]
+fn a_run_that_needs_limits_answers_the_sentence_the_editor_shows() {
+    // B8, B3.2: a loop without a maximum duration asks for it in the engine's own sentence, and names the duration's field, so the Limits
+    // editor shows that sentence under that field and the page writes none. A bare code would leave the page to word the request (it wrote
+    // "Enter the maximum experiment duration." itself), and a sentence without the field would leave it to guess which row to mark.
+    let mut document: Value = serde_json::from_str(EXAMPLE).expect("the example document");
+    document["experiment"]
+        .as_object_mut()
+        .expect("the experiment")
+        .remove("durationSeconds");
+    let project = Project::new("run-limits-words", &document.to_string());
+    let studio = ControlStudio::new(Arc::new(Ignore));
+    let update = run_to_end(&studio, &project.run_request("identify", None));
+    assert_eq!(update.state, OperationState::Finished, "{update:?}");
+    let result = update.result.expect("the run's result");
+    assert_eq!(result["needs"], json!("limits"), "{result}");
+    assert_eq!(
+        result["needsMessage"],
+        json!("Set the maximum experiment duration in Limits before identification."),
+        "{result}"
+    );
+    assert_eq!(result["needsField"], json!("durationSeconds"), "{result}");
+}
+
+#[test]
+fn a_recorded_method_the_loop_cannot_run_is_refused_before_the_runtime_is_required() {
+    // The loop declares no Manual command, so the open-loop step cannot run (B3.2); the study records the engineer's choice of it.
+    let mut document: Value = serde_json::from_str(EXAMPLE).expect("the example document");
+    let controller = document["controller"]
+        .as_object_mut()
+        .expect("the controller");
+    for key in [
+        "manualOutputSignal",
+        "manualOutputAddress",
+        "manualOutputType",
+    ] {
+        controller.remove(key);
+    }
+    let project = Project::new("run-method-stopped", &document.to_string());
+    let step = InputsSection {
+        acquisition: Some(AcquisitionSettings {
+            method: AcquisitionMethod::MvStep,
+            duration_seconds: 16.0,
+            amplitude: 0.0,
+            setpoint_signal_id: None,
+            relay_direction: None,
+            reuse_recordings: false,
+            input_range: None,
+            output_range: None,
+            input_ranges: None,
+            output_ranges: None,
+        }),
+        ..InputsSection::default()
+    };
+    inputs_action::answer(
+        &LoopClaims::default(),
+        InputsRequest {
+            project_root: project.root.display().to_string(),
+            runtime_id: project.loop_definition.runtime_id.clone(),
+            loop_id: project.loop_definition.id.clone(),
+            inputs: Some(step),
+            change: None,
+            channel_selection: None,
+            storage_folder: Some(project.root.join("storage").display().to_string()),
+        },
+    )
+    .expect("recorded");
+    let studio = ControlStudio::new(Arc::new(Ignore));
+    let update = run_to_end(&studio, &project.run_request("identify", None));
+    assert_eq!(update.state, OperationState::Failed, "{update:?}");
+    let failure = update.failure.expect("the run's failure");
+    assert_eq!(
+        failure.message,
+        method_refusal_text(MethodRefusal::OpenLoopBindings),
+        "the refusal is the sentence the Method list gives the method, not the missing runtime"
+    );
+    assert_eq!(failure.cause, Cause::Settings);
+    assert_eq!(failure.next_action, NextAction::ChooseMethod);
+}
+
+#[test]
 fn the_answer_carries_the_identification_the_run_made_and_the_evidence_the_page_gates_on() {
     let answer = RunResult {
         stages: Vec::new(),
@@ -185,6 +302,8 @@ fn the_answer_carries_the_identification_the_run_made_and_the_evidence_the_page_
         },
         identification: Some(json!({ "modelType": "first-order" })),
         needs: None,
+        needs_message: None,
+        needs_field: None,
     };
     let value = serde_json::to_value(&answer).expect("the answer");
     assert_eq!(
@@ -199,6 +318,8 @@ fn the_answer_carries_the_identification_the_run_made_and_the_evidence_the_page_
         "{value}"
     );
     assert!(value.get("needs").is_none(), "{value}");
+    assert!(value.get("needsMessage").is_none(), "{value}");
+    assert!(value.get("needsField").is_none(), "{value}");
 }
 
 #[test]

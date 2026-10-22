@@ -6,10 +6,11 @@ import { open } from "./control-studio-loop-setup-form-harness";
  * own-law setup does, the planned trajectory, the feedforward term the program adds, and the two feedforward gains. The engine decides
  * the rules and writes the loop; these tests prove what the page shows and posts.
  */
+const trajectorySignals = ["P1.AngleRad", "P1.ManualTorqueNm", "P1.ReferenceRad", "P1.SetpointRad", "P1.TorqueNm"];
 const trajectoryModel = {
-  structure: "identify", pids: [], prefills: [], records: [], initializes: [], instances: ["P1"],
-  addressedReal: ["P1.AngleRad", "P1.ManualTorqueNm", "P1.ReferenceRad", "P1.SetpointRad", "P1.TorqueNm"],
-  booleans: ["P1.AutoMode", "P1.Started"],
+  structure: "identify", pids: [], prefills: [], loopNames: [], records: [], initializes: [], instances: ["P1"],
+  addressedReal: trajectorySignals, measurements: trajectorySignals, signals: trajectorySignals,
+  booleans: ["P1.AutoMode", "P1.Started"], modes: ["P1.AutoMode", "P1.Started"],
   reals: ["P1.AccelerationGain", "P1.AngleRad", "P1.FeedForward", "P1.Integral", "P1.Kd", "P1.Ki", "P1.Kp", "P1.ManualTorqueNm",
     "P1.PreviousAngleRad", "P1.RateGain", "P1.ReferenceRad", "P1.SetpointRad", "P1.TorqueNm"],
   writes: ["P1.TorqueNm"],
@@ -31,22 +32,23 @@ const trajectoryFill: [string, string][] = [["structure", "trajectory-feedforwar
   ["traj.accelerationGain", "P1.AccelerationGain"], ["traj.accelerationGain.minimum", "0"], ["traj.accelerationGain.maximum", "10"],
   ["traj.feedforwardTerm", "P1.FeedForward"]];
 
-/** The draft the trajectory structure posts for the fill above: the PID law as the own-law draft, then the trajectory's variables. */
+/** The draft the trajectory structure posts for the fill above: the PID law as the own-law draft, then the trajectory's variables, every
+ * number as the text typed (B1.3). */
 const trajectoryDraft = {
   structure: "trajectory-feedforward",
   ownLaw: {
     name: "Axis", action: "direct", law: "PID", instance: "P1",
-    processVariable: { symbol: "P1.AngleRad", unit: "rad", minimum: -2, maximum: 2 },
+    processVariable: { symbol: "P1.AngleRad", unit: "rad", minimum: "-2", maximum: "2" },
     setpoint: { symbol: "P1.SetpointRad" },
-    manipulatedVariable: { symbol: "P1.TorqueNm", unit: "N·m", minimum: -20, maximum: 20 },
+    manipulatedVariable: { symbol: "P1.TorqueNm", unit: "N·m", minimum: "-20", maximum: "20" },
     mode: { symbol: "P1.AutoMode", whenTrue: "Auto" }, manualOutput: "P1.ManualTorqueNm",
-    proportionalGain: { symbol: "P1.Kp", minimum: 0, maximum: 100 },
-    integralGain: { symbol: "P1.Ki", minimum: 0, maximum: 100 }, integralTerm: "P1.Integral",
-    derivativeGain: { symbol: "P1.Kd", minimum: 0, maximum: 100 }, derivativeState: "P1.PreviousAngleRad", derivativeOn: "measurement",
+    proportionalGain: { symbol: "P1.Kp", minimum: "0", maximum: "100" },
+    integralGain: { symbol: "P1.Ki", minimum: "0", maximum: "100" }, integralTerm: "P1.Integral",
+    derivativeGain: { symbol: "P1.Kd", minimum: "0", maximum: "100" }, derivativeState: "P1.PreviousAngleRad", derivativeOn: "measurement",
   },
-  rateGain: { symbol: "P1.RateGain", minimum: 0, maximum: 10 },
-  accelerationGain: { symbol: "P1.AccelerationGain", minimum: 0, maximum: 10 },
-  plannedTrajectory: { symbol: "P1.ReferenceRad", unit: "rad", minimum: -2, maximum: 2 },
+  rateGain: { symbol: "P1.RateGain", minimum: "0", maximum: "10" },
+  accelerationGain: { symbol: "P1.AccelerationGain", minimum: "0", maximum: "10" },
+  plannedTrajectory: { symbol: "P1.ReferenceRad", unit: "rad", minimum: "-2", maximum: "2" },
   feedforwardTerm: "P1.FeedForward",
 };
 
@@ -91,19 +93,18 @@ suite("Control Studio trajectory feedforward setup form", () => {
     } finally { view.close(); }
   });
 
-  test("names the planned trajectory when it is missing, and holds the save", () => {
+  test("posts a missing planned trajectory blank, so the engine names it", () => {
     const view = open(trajectoryModel);
     try {
       view.set("structure", "trajectory-feedforward");
       for (const [field, value] of trajectoryFill.filter(([field]) => !field.startsWith("traj.plannedTrajectory"))) view.set(field, value);
-      const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
-      assert.strictEqual(save.disabled, true, "the save waits for the planned trajectory");
-      assert.match(view.root.querySelector("[data-setup-message]")!.textContent ?? "", /planned trajectory/);
-      assert.deepStrictEqual(view.posts, [], "nothing is posted before the setup is complete");
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      assert.deepStrictEqual(view.posts[0].draft.plannedTrajectory, { symbol: "", unit: "", minimum: "", maximum: "" },
+        "the planned trajectory is posted as typed, blank; the engine refuses the draft and names it");
     } finally { view.close(); }
   });
 
-  test("names the rate feedforward gain when its range is missing, and holds the save", function () {
+  test("posts the rate feedforward gain's missing range blank, so the engine names it", function () {
     // The fill is about thirty-seven edits through JSDOM, each re-rendering the form, so this synchronous test needs the budget that
     // control-studio-decoupler.test.ts also sets for its fill (Mocha fails a synchronous test that runs longer than its timeout).
     this.timeout(10000);
@@ -111,9 +112,9 @@ suite("Control Studio trajectory feedforward setup form", () => {
     try {
       view.set("structure", "trajectory-feedforward");
       for (const [field, value] of trajectoryFill.filter(([field]) => field !== "traj.rateGain.minimum")) view.set(field, value);
-      assert.strictEqual(view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.disabled, true, "the save waits for the rate feedforward gain's range");
-      assert.match(view.root.querySelector("[data-setup-message]")!.textContent ?? "", /rate feedforward gain minimum and maximum/);
-      assert.deepStrictEqual(view.posts, [], "nothing is posted while the setup is incomplete");
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      assert.strictEqual(view.posts[0].draft.rateGain.minimum, "", "the missing minimum of the range is posted as the blank text typed, and the engine names it");
+      assert.strictEqual(view.posts[0].draft.rateGain.maximum, "10", "the range that is set is posted as the text typed, for the engine to read");
     } finally { view.close(); }
   });
 });

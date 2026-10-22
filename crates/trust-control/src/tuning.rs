@@ -19,6 +19,7 @@ pub mod group_candidate;
 pub mod method_description;
 pub mod objective;
 pub mod on_off_candidate;
+pub mod output_requirements;
 pub mod path_support;
 pub mod placement;
 pub mod plant;

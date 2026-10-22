@@ -213,10 +213,29 @@ export type Structure = "P" | "PI" | "PD" | "PID";
 
 /**
  * The arguments of `controlStudio/inputs` (specification 35, §0.1a; A8.1, A8.4): the inputs the study records, as the editors
- * change them. The study is written and nothing runs; a loop with an operation that runs refuses the change (B8).
+ * change them. The study is written and nothing runs; a loop with an operation that runs refuses the change (B8), and so does a loop
+ * whose Apply's checkpoint waits for its Restore (B6.4).
  */
 export interface InputsRequest {
-  inputs: InputsSection;
+  /**
+   * One change of the page, with the page's keys: `acquisitionSettings`, `family`, `tuningPreferences`, `pinnedValues`, and the
+   * requirements record that `referenceChange` marks (with its `scenarioDefinitions`), or that the rows typed for each controlled
+   * output (`outputRequirements`) mark: the engine assembles the record from them (B4.3). The engine merges it into the study's
+   * inputs (A8.1, A8.4) and answers the inputs the study then holds. The channel mapping and the binding changes name no input.
+   */
+  change?: {
+    [k: string]: unknown;
+  } | null;
+  /**
+   * The channel selection of a multichannel loop (the Tune page's **Channels…**, A8.1): the plant signal of every declared channel.
+   * Absent leaves the study's selection as it is; a present one is checked against the loop's declared channels and replaces it.
+   */
+  channelSelection?: ChannelSelection | null;
+  /**
+   * The inputs the study records from now on, as a whole: an absent input is not yet given. The request names either these
+   * inputs or one `change`, not both.
+   */
+  inputs?: InputsSection | null;
   /**
    * The loop of the study.
    */
@@ -229,9 +248,42 @@ export interface InputsRequest {
    * The runtime selected in VS Code or on the command line; a loop of another runtime is refused, as `open` refuses it.
    */
   runtimeId: string;
+  /**
+   * The folder of the operation journals (A8.3), where the engine reads whether an Apply's checkpoint waits for its Restore, which
+   * refuses the change (B6.4). Absent or empty, the engine reads its own journal folder, the one the command line uses.
+   */
+  storageFolder?: string | null;
 }
 /**
- * The inputs the study records from now on, as a whole: an absent input is not yet given.
+ * The engineer's selection of plant signals for the model channels, by side (A8.1). Each side names every declared channel once.
+ * The engine keeps it as the study's channel mapping, and `controlStudio/inputs` records it.
+ */
+export interface ChannelSelection {
+  /**
+   * The model inputs: one pick for each declared input.
+   */
+  inputs: ChannelPick[];
+  /**
+   * The model outputs: one pick for each declared output.
+   */
+  outputs: ChannelPick[];
+}
+/**
+ * The plant signal one model channel is bound to.
+ */
+export interface ChannelPick {
+  /**
+   * The model channel's identifier.
+   */
+  modelChannelId: string;
+  /**
+   * The identifier of the loop signal the channel is bound to.
+   */
+  signalId: string;
+}
+/**
+ * The inputs a study records, kept under the key `inputs` (A8.1). Every input is optional: an absent one is not yet given,
+ * so the stage uses its own default (Automatic for the method, the loop's declared limits for the acquisition).
  */
 export interface InputsSection {
   /**
@@ -296,41 +348,45 @@ export interface AcquisitionSettings {
    */
   amplitude: number;
   /**
-   * The duration of the experiment in seconds, from one second to 24 hours.
+   * The duration of the experiment in seconds, from one second to 24 hours. The page sends the time it typed (`15 min`), which
+   * `duration_of_setting` reads as seconds; a time that no duration reads is refused under the duration's field.
    */
-  durationSeconds: number;
+  durationSeconds: number | string;
   /**
-   * The range of the manipulated variable the experiment may use.
+   * The range of the manipulated variable the experiment may use, in the form of a record written before ranges were kept by
+   * signal. It reads as the range `input_ranges` names for the manipulated variable, which takes precedence. The page sends
+   * `input_ranges` alone (B3.2).
    */
-  inputRange?: Range | null;
+  inputRange?: RangeSetting | null;
   /**
-   * The ranges of further input signals, by symbol: at most sixteen.
+   * The range of each plant input the experiment may use, by symbol: at most sixteen.
    */
   inputRanges?: {
-    [k: string]: Range;
+    [k: string]: RangeSetting;
   } | null;
   /**
    * The method of the experiment.
    */
   method: "configured" | "automatic" | "mv_step" | "mv_pulse" | "setpoint_step" | "relay" | "prbs" | "multisine";
   /**
-   * The range of the measured output the experiment may use.
+   * The range of the measured output the experiment may use, in the earlier form of `input_range`: it reads as the range
+   * `output_ranges` names for the process variable, which takes precedence.
    */
-  outputRange?: Range | null;
+  outputRange?: RangeSetting | null;
   /**
-   * The ranges of further output signals, by symbol: at most sixteen.
+   * The range of each measured output the experiment may use, by symbol: at most sixteen.
    */
   outputRanges?: {
-    [k: string]: Range;
+    [k: string]: RangeSetting;
   } | null;
   /**
    * The first direction of a relay experiment.
    */
   relayDirection?: RelayDirection | null;
   /**
-   * Whether the experiment may reuse a recording of the same loop.
+   * Whether the experiment may reuse a recording of the same loop. Absent means it may not, which is what every request asks.
    */
-  reuseRecordings: boolean;
+  reuseRecordings?: boolean;
   /**
    * The declared signal a setpoint step moves, when the loop has no setpoint of its own.
    */
@@ -338,17 +394,19 @@ export interface AcquisitionSettings {
   [k: string]: unknown;
 }
 /**
- * A signal's range.
+ * A range the settings give: the lowest and the highest value the experiment may use. The page sends each bound as the number or the
+ * text the engineer typed (`"20"`), which `number_of_bound` reads. A bound that no finite number reads, blank text included, is
+ * NaN, which no JSON number is, so the checks refuse the range under its field (B3.2, `check_settings`).
  */
-export interface Range {
+export interface RangeSetting {
   /**
-   * The largest value.
+   * The highest value.
    */
-  maximum: number;
+  maximum: number | string;
   /**
-   * The smallest value.
+   * The lowest value.
    */
-  minimum: number;
+  minimum: number | string;
 }
 /**
  * The pins a user set on the settings of a controller (`ControllerSettingsPins`): the loop they belong to, the family
@@ -395,13 +453,23 @@ export interface TuningRequirements {
    */
   automaticCriteria?: AutomaticCriteria | null;
   /**
+   * The requirements of each controlled output of a loop with several, by the output's model channel identifier (B4.3, C7). Each
+   * is checked by the rules of this record, and its refusals name the output's channel. The record's own values are the first
+   * output's copy, which the engine writes when it assembles the record from the rows typed for each output (`study::inputs_change`);
+   * absent for a loop with one controlled output.
+   */
+  channelRequirements?: {
+    [k: string]: OutputRequirements;
+  } | null;
+  /**
    * The constant input disturbance of the load trial, in the output's unit; absent when none is declared (N5.12(b)).
    */
   constantInputDisturbance?: number | null;
   /**
-   * The validation duration in seconds: longer than the settling time, and within the runtime limit (A7).
+   * The validation duration in seconds: longer than the settling time, and within the runtime limit (A7). It is read as the settling
+   * time is.
    */
-  durationSeconds: number;
+  durationSeconds: number | string;
   /**
    * The fraction of gain uncertainty of the scenarios, between zero and one.
    */
@@ -427,9 +495,10 @@ export interface TuningRequirements {
    */
   settlingBand: number;
   /**
-   * The settling-time deadline in seconds, positive.
+   * The settling-time deadline in seconds, positive. The page sends the time the engineer typed (`90 s`, `1 h 30 min`) or a number of
+   * seconds; a time no duration reads is NaN and is refused under its field.
    */
-  settlingTimeSeconds: number;
+  settlingTimeSeconds: number | string;
   /**
    * The Auto-entry tolerance in output units, zero or more (A6.4).
    */
@@ -456,6 +525,33 @@ export interface AutomaticCriteria {
    * The revision of the model the values were generated from.
    */
   modelRevision: string;
+}
+/**
+ * The requirements that one controlled output holds to (B4.3, C7): the setpoint change of its own test, the error limit, the settling
+ * band, the time by which it settles, and its overshoot limit when it declares one. The record's `channelRequirements` holds one of these
+ * for each controlled output of a loop with several.
+ */
+export interface OutputRequirements {
+  /**
+   * The largest error allowed after the settling time, in the output's unit.
+   */
+  maximumError: number;
+  /**
+   * The overshoot limit in percent of the setpoint change; absent declares no limit.
+   */
+  maximumOvershootPercent?: number | null;
+  /**
+   * The setpoint change of the output's own test, in its unit. Never zero.
+   */
+  referenceChange: number;
+  /**
+   * The settling band around the final value, in the output's unit. Smaller than `maximum_error`.
+   */
+  settlingBand: number;
+  /**
+   * The settling-time deadline of the output in seconds, positive. The page sends the time the engineer typed or a number of seconds.
+   */
+  settlingTimeSeconds: number | string;
 }
 /**
  * One scenario of a verification campaign (`TypeScript` `EngineerScenario`): the values it starts from, the timed events

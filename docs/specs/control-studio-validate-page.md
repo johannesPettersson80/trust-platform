@@ -84,6 +84,7 @@ directly in their rows. Do not hide a failure in a details panel. A row names
 what it measures: an error measured from a reference other than the loop's
 setpoint, such as a planned trajectory, is named after that reference's declared
 signal ("Maximum error from planned angle"), not a steady-state error.
+The engine answers the table's rows, their words and their verdict classes, and the page shows them as answered.
 
 Settling time, overshoot and steady-state error in the layout below are
 examples. The actual table must contain all required checks for the selected
@@ -107,7 +108,15 @@ Before results exist, omit empty result rows and placeholder reports.
 **Apply** becomes available only when every mandatory requirement passes for
 the current candidate. Changes to the model, selected controller, settings or
 requirements invalidate the old result for application and require validation
-again. Failed, incomplete or stale validation must not enable Apply.
+again. Failed, incomplete or stale validation must not enable Apply. The engine's stage
+evidence says whether a validation result is still current (`validationHasResult`, A8.4): the
+page hides the result table of an answer whose evidence holds none, and keeps no list of
+statuses of its own. Whether Apply, Restore previous settings and Keep in project are offered,
+and which of them holds this position (`primaryAction`), is the engine's statement in each answer
+that changes it ([Specification 35 B7](35-vscode-control-studio.md#b7-after-apply)), and the page
+shows it. The page enables Apply from the engine's Apply stage of the answer it received last, which
+in every answer that states the offers can start exactly when Apply is offered, and which an answer
+that leaves no validation current makes unavailable (Specification 35 B9.4); it combines no two answers.
 
 Pressing **Apply** writes the exact validated settings directly to the actual
 controller instance selected in Tune, using its declared parameter/state
@@ -156,13 +165,20 @@ selected group coherently.
 Disable the button while restoring and show **Restoring…**. Report **Restored**
 only after runtime confirmation. If the active revision or target changed,
 explain why restoration is unavailable instead of overwriting another change.
-Apply and Restore never appear as competing primary actions. A new candidate
-must pass validation before this action can offer Apply for that candidate.
+Apply and Restore never appear as competing primary actions: the engine names the action
+that holds the position (`primaryAction`, Specification 35 B7). A new candidate
+must pass validation before this action can offer Apply for that candidate. While an
+Apply or a Restore that stopped before the runtime confirmed its end waits for its Restore,
+the position holds **Restore previous settings**, and the engine's reason for the block is
+shown at the top of each page it holds (Specification 35 B6.4).
 
 Autosave preserves the study and confirmed application history without adding
 Save/Open controls here. Apply writes active runtime parameters; it does not
 rewrite the ST program or silently change startup/retain settings. After a
 runtime restart, inspect actual values and follow the shared restart rules.
+When the runtime was restarted or its program reloaded since Apply, Restore shows the
+engine's sentence that nothing of the checkpoint can be restored, the checkpoint is kept
+as history, and the block of the stages ends (Specification 35 B6.4).
 An old application receipt is not evidence that its values remain active.
 Reopening must never automatically apply saved gains, replay controller state
 or repeat an unacknowledged write.

@@ -20,14 +20,27 @@ use trust_control::loop_definition::{
 };
 use trust_control::messages::{OperationState, OperationUpdate, TuneChoice, TuneRequest};
 use trust_control::runtime::RuntimeConnection;
+use trust_control::tuning::texts;
 
 use super::{answer, running_settings, with_declared_response};
 use crate::busy_loops::LoopClaims;
-use crate::commands::{ControlStudio, IDENTIFY, METHODS, OPEN, TUNE};
+use crate::commands::{ControlStudio, IDENTIFY, INPUTS, METHODS, OPEN, TUNE};
 use crate::operation::{Operations, UpdateSink};
 
 /// The example project's loop file.
 const EXAMPLE: &str = include_str!("../../../examples/control-pid-commissioning/control-loop.json");
+/// The state-feedback loop of lesson 68 (C4): a state law, whose pins are its design's.
+const STATE_LOOP: &str = include_str!(
+    "../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/control-loop.json"
+);
+
+/// Lesson 69's LQR project (C4): a state law over a finite horizon, and the supplied model its README imports.
+const LQR_LOOP: &str = include_str!(
+    "../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/69-lqr/control-loop.json"
+);
+const LQR_MODEL: &str = include_str!(
+    "../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/69-lqr/provided-model.json"
+);
 
 /// The sink of an engine whose operations nobody follows: no operation starts in these tests.
 struct Ignore;
@@ -171,6 +184,7 @@ fn a_tune_request_decodes_with_or_without_its_connection() {
         Some(RuntimeConnection {
             endpoint: "tcp://127.0.0.1:9".to_string(),
             token: Some("control-token".to_string()),
+            runtime_id: None,
         })
     );
 }
@@ -184,6 +198,7 @@ fn the_running_settings_are_read_through_a_connection_and_a_failed_read_gives_no
     let unreachable = RuntimeConnection {
         endpoint: "tcp://127.0.0.1:1".to_string(),
         token: None,
+        runtime_id: None,
     };
     assert_eq!(
         running_settings(Some(&unreachable), &project.loop_definition),
@@ -223,6 +238,55 @@ fn tune_without_a_model_is_refused_at_once_with_identify_and_lets_the_loop_go() 
     let _free = claims
         .claim(&loop_definition.project_id, &loop_definition.id, "Tune")
         .expect("the refused request let the loop go");
+}
+
+/// B4.2: pins that name no family are refused for want of one, with the page's sentence under the family field. The family is the
+/// structure the request names, else the study's candidate's, else the study's recorded pins'; this study holds none of them. The
+/// refusal starts no operation and writes nothing.
+#[test]
+fn pins_that_name_no_family_are_refused_for_want_of_one_and_start_nothing() {
+    let project = Project::new("pins-no-family");
+    let operations = Operations::new(Arc::new(Ignore));
+    let claims = LoopClaims::default();
+    let mut arguments = project.request();
+    arguments["pins"] = json!({
+        "loopRevision": project.loop_definition.revision,
+        "values": { "Main.Kp": 2.0 },
+    });
+    let request: TuneRequest =
+        trust_control::json::decode_value(arguments).expect("a Tune request with pins");
+    let refused = answer(&operations, &claims, request).expect_err("the pins name no family");
+    assert_eq!(refused.message, texts::PINS_NEED_FAMILY, "{refused:?}");
+    assert_eq!(refused.field.as_deref(), Some("family"), "{refused:?}");
+    assert!(nothing_started(&operations), "no operation was started");
+    assert!(!project.has_study(), "a refusal writes nothing");
+}
+
+/// C4: a state law's pins are its design's, so the request's pins are not resolved for it. A state-space Tune with pins that name no
+/// family is refused as the same Tune without them, and never for want of a family.
+#[test]
+fn a_state_laws_request_pins_are_ignored_and_never_refused_for_want_of_a_family() {
+    let project = Project::with_loop("state-pins", STATE_LOOP);
+    let operations = Operations::new(Arc::new(Ignore));
+    let claims = LoopClaims::default();
+    let mut plain = project.request();
+    plain["method"] = json!("state-space");
+    let plain: TuneRequest =
+        trust_control::json::decode_value(plain).expect("a state-space Tune request");
+    let refused = answer(&operations, &claims, plain).expect_err("the study holds no model");
+    let mut arguments = project.request();
+    arguments["method"] = json!("state-space");
+    arguments["pins"] = json!({
+        "loopRevision": project.loop_definition.revision,
+        "values": { "Main.Kp": 2.0 },
+    });
+    let pinned: TuneRequest =
+        trust_control::json::decode_value(arguments).expect("a state-space Tune request with pins");
+    let ignored = answer(&operations, &claims, pinned).expect_err("the study holds no model");
+    assert_eq!(ignored.message, refused.message, "{ignored:?}");
+    assert_eq!(ignored.field, refused.field, "{ignored:?}");
+    assert_ne!(ignored.message, texts::PINS_NEED_FAMILY, "{ignored:?}");
+    assert!(nothing_started(&operations), "no operation was started");
 }
 
 /// A8.5: one operation per loop at a time in one engine. A request for Tune on a loop that another operation of the engine
@@ -536,4 +600,136 @@ fn tune_with_the_pi_and_the_p_method_answers_the_family_symbols_only() {
     assert_eq!(answered["projectCandidate"]["structure"], "P", "{answered}");
     assert_eq!(symbols_of(&answered["settings"]), ["P1.Kp"], "{answered}");
     assert!(answered.get("candidate").is_none(), "{answered}");
+}
+
+/// Records one change of the page in the study's inputs (A8.1), as `controlStudio/inputs` takes it.
+fn record_change(studio: &ControlStudio, project: &Project, change: &Value) {
+    let recorded = studio
+        .execute(
+            INPUTS,
+            &[json!({
+                "projectRoot": project.root.display().to_string(),
+                "runtimeId": project.loop_definition.runtime_id,
+                "loopId": project.loop_definition.id,
+                "change": change,
+                "storageFolder": project.root.join("storage").display().to_string(),
+            })],
+        )
+        .expect("the engine answers its own method");
+    assert!(
+        recorded.get("result").is_some(),
+        "the change is recorded: {recorded}"
+    );
+}
+
+/// Records the controller family the engineer chose in the Controller selector as the study's input (A8.1), as the page's change does.
+fn record_family(studio: &ControlStudio, project: &Project, family: &str) {
+    record_change(studio, project, &json!({ "family": family }));
+}
+
+#[test]
+fn tune_without_a_structure_uses_the_recorded_one() {
+    // A8.1, B4.2, B4.4: the Controller selector records the engineer's choice as the study's structure, and a Tune that names none designs
+    // for it, so the page sends no family of its own. A Tune that read the request alone would design the PI that a named formula takes
+    // when no structure is fixed, and the engineer's P would be replaced silently.
+    let project = Project::with_loop("recorded-structure", &own_law_pi_loop());
+    let (studio, updates) = engine_with_updates();
+    import_model(&studio, &project);
+    record_family(&studio, &project, "P");
+    let mut request = project.request();
+    request["method"] = json!("SIMC");
+    let answered = tune_and_wait(&studio, &updates, request);
+    assert_eq!(answered["projectCandidate"]["structure"], "P", "{answered}");
+    assert_eq!(symbols_of(&answered["settings"]), ["P1.Kp"], "{answered}");
+    assert!(answered.get("candidate").is_none(), "{answered}");
+}
+
+#[test]
+fn a_state_laws_tune_answers_with_the_words_of_its_finite_horizon() {
+    // B4.4 to B4.6, C4, N5.14: every design's answer carries the engine's words, because the page writes none. The state law is designed
+    // without the single loop's `tune_held`, so a Tune that gave words only to that path would answer a finite design with no line that
+    // names its steps and its policy and no outcome sentence, and the page would show a blank line where it wrote the sentence itself
+    // before. The README of lesson 69 enters these requirements and this design: a 20 step horizon, weights of 400 for the two states, an
+    // input weight of 40000 and a terminal weight of 400. Twenty steps are the words "20 steps", and the first gain is the one repeated.
+    let project = Project::with_loop("lqr-words", LQR_LOOP);
+    let (studio, updates) = engine_with_updates();
+    let imported = studio
+        .execute(IDENTIFY, &[project.import_request(LQR_MODEL)])
+        .expect("the engine answers its own method");
+    assert!(
+        imported.get("result").is_some(),
+        "the supplied model imports: {imported}"
+    );
+    record_change(
+        &studio,
+        &project,
+        &json!({
+            "referenceChange": 0.01, "maximumError": 0.002, "settlingBand": 0.001,
+            "settlingTimeSeconds": 90, "durationSeconds": 120,
+        }),
+    );
+    record_change(
+        &studio,
+        &project,
+        &json!({ "tuningPreferences": {
+            "method": "state-space",
+            "stateDesignDraft": {
+                "solverMode": "finite", "horizonSteps": "20",
+                "stateWeights": "[[400, 0], [0, 400]]", "inputWeights": "[[40000]]",
+                "terminalWeights": "[[400, 0], [0, 400]]",
+            },
+        } }),
+    );
+    let mut request = project.request();
+    request["method"] = json!("state-space");
+    let answered = tune_and_wait(&studio, &updates, request);
+    assert_eq!(
+        answered["state"]["horizon"]["steps"], 20,
+        "the design is the finite horizon the draft asks for: {answered}"
+    );
+    assert_eq!(
+        answered["words"]["horizonPolicy"], "Finite horizon: 20 steps \u{b7} Repeated first gain",
+        "{answered}"
+    );
+    assert_eq!(
+        answered["words"]["horizonStages"], "Riccati stages",
+        "{answered}"
+    );
+    assert!(
+        answered["words"]["outcome"]
+            .as_str()
+            .is_some_and(|sentence| sentence.starts_with("No prediction: ")),
+        "a state law predicts nothing (B4.5), and says so in the engine's sentence: {answered}"
+    );
+}
+
+#[test]
+fn the_tune_answer_names_the_manual_family() {
+    // B4.2: manual settings belong to a family. When the engineer chose none and the study records none, the manual Tune takes the family
+    // the Controller selector shows, the family of the study's candidate, and its answer names that family, so the page invents none (it
+    // showed PID when it knew none). A Tune that read the request alone would refuse the settings for want of a family.
+    let project = Project::with_loop("manual-family", &own_law_pi_loop());
+    let (studio, updates) = engine_with_updates();
+    import_model(&studio, &project);
+    let mut designed = project.request();
+    designed["method"] = json!("SIMC");
+    designed["structure"] = json!("PI");
+    let first = tune_and_wait(&studio, &updates, designed);
+    assert_eq!(first["projectCandidate"]["structure"], "PI", "{first}");
+    let mut manual = project.request();
+    manual["method"] = json!("manual");
+    manual["settings"] = json!({ "P1.Kp": 2.0, "P1.Ki": 0.5 });
+    let answered = tune_and_wait(&studio, &updates, manual);
+    assert_eq!(
+        answered["projectCandidate"]["structure"], "PI",
+        "the candidate's family is the manual family: {answered}"
+    );
+    assert_eq!(
+        (
+            answered["settings"]["P1.Kp"].as_f64(),
+            answered["settings"]["P1.Ki"].as_f64()
+        ),
+        (Some(2.0), Some(0.5)),
+        "the entered settings are the candidate: {answered}"
+    );
 }

@@ -12,37 +12,37 @@ use parking_lot::Mutex;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::{json, Value};
-use trust_control::commissioning::observation_assessment::observation_in_progress;
+use trust_control::chart_export::{self, ChartExportRequest};
 use trust_control::failure::{Cause, Failure, NextAction};
-use trust_control::identification::identify_result::{study_candidate, study_identification};
 use trust_control::messages::{
     OpenRequest, OpenResult, OperationRequest, OperationState, PageRequest, ParameterWorkRequest,
     PreviewRequest,
 };
-use trust_control::setup::messages::{SetupDiscoverRequest, SetupSaveRequest};
-use trust_control::stages::stage_availability;
-use trust_control::study::analysis_records::current_records;
-use trust_control::study::apply::ApplySection;
-use trust_control::study::current_model::current_model;
-use trust_control::study::inputs::{stage_evidence_of, InputsSection};
-use trust_control::study::tune::search_record::study_search_candidate;
-use trust_control::study::tune::state;
-use trust_control::study::validate::ValidateSection;
+use trust_control::plant_monitor::PlantMonitorRequest;
+use trust_control::setup::messages::{
+    ProjectLoopsRequest, SetupDiscoverRequest, SetupSaveRequest, SetupStepRequest,
+};
+use trust_control::simulator_start::{self, SimulatorStartOutcome, SimulatorStartRequest};
 
 use super::analysis_parameters_action;
 use super::analyze_action;
 use super::apply_action;
 use super::busy_loops::LoopClaims;
+use super::export_action;
 use super::identify_action;
 use super::inputs_action;
-use super::journal::{Journal, JournalEntry};
 use super::keep_action;
+use super::monitor_action;
+use super::open_action;
 use super::operation::{Operations, UpdateSink};
+use super::plant_monitor_action;
 use super::preview_action;
+use super::project_loops_action;
 use super::run_action;
 use super::runtime_client::runtime_recording::PendingReleases;
 use super::settings::{self, Environment, Platform};
 use super::setup_action;
+use super::setup_step_action;
 use super::tune_action;
 use super::validate_action;
 use super::{loops, storage};
@@ -86,14 +86,37 @@ pub const KEEP: &str = "controlStudio/keep";
 pub const SETUP_DISCOVER: &str = "controlStudio/setupDiscover";
 /// Loop setup (B1.3, §0.1b): writes a confirmed draft as loop files, all or none, never over an existing one.
 pub const SETUP_SAVE: &str = "controlStudio/setupSave";
+/// The step-by-step loop setup (B1.3, C12): the question the engine asks next, the words of a refused answer, or the finished draft and the
+/// sentence the engineer confirms before the save. The engine keeps the session's answers; the page keeps the session it returns.
+pub const SETUP_STEP: &str = "controlStudio/setupStep";
+/// The loop files of the workspace folders (A8.3, B1.2, B1.3): each file's decision and open request, the folder that declares a loop,
+/// and the loops of an equipment. The extension forwards the answer; it decides none of them.
+pub const PROJECT_LOOPS: &str = "controlStudio/projectLoops";
 /// Records the study's inputs (A8.1, A8.4; B4.2, B4.3): the acquisition settings, the requirements, the tuning method, its response
 /// and structure, the pins and the manual settings. It answers at once with the stages and what the change invalidated.
 pub const INPUTS: &str = "controlStudio/inputs";
 /// The automatic progression (B8): runs, from the earliest stage whose result is missing or no longer current, the stages up to the one
 /// it names (Identify, Tune or Validate), as one operation. It never applies.
 pub const RUN: &str = "controlStudio/run";
+/// The loop's results for the engineer to save (B10.5): the workflow result as JSON, or the signal table of a recording as CSV. The
+/// engine writes the text; the extension asks where to save it. It writes nothing and starts nothing.
+pub const EXPORT: &str = "controlStudio/export";
+/// The loop's sample for the page (B2, A3.4) and, when it changed, the target's label (B9.2): one coherent scan of the open loop, or
+/// the reason it is not current. The engine decides availability and staleness; it reads the runtime and writes nothing.
+pub const MONITOR: &str = "controlStudio/monitor";
+/// The plant summary of a plant handoff (B1.2, specification 34, §20.4): the runtime's `plant.status`, decided by the engine. It reads
+/// the runtime and writes nothing.
+pub const PLANT_MONITOR: &str = "controlStudio/plantMonitor";
+/// Decides a Start simulator request (A2.8): the extension starts the local simulator, joins a start in flight, or shows the reply
+/// the engine gives. The engine starts nothing itself.
+pub const SIMULATOR_START: &str = "controlStudio/simulatorStart";
+/// Reports the outcome of the simulator start the extension made (A2.8) and answers the reply the page shows.
+pub const SIMULATOR_START_RESULT: &str = "controlStudio/simulatorStartResult";
+/// The chart image export (B10.5): the file name, the save filter and the bytes of the page's chart. The extension shows the save
+/// dialog and writes the bytes; the engine writes nothing.
+pub const CHART_EXPORT: &str = "controlStudio/chartExport";
 /// The methods this module answers.
-pub const METHODS: [&str; 17] = [
+pub const METHODS: [&str; 25] = [
     OPEN,
     STATUS,
     CANCEL,
@@ -109,8 +132,16 @@ pub const METHODS: [&str; 17] = [
     KEEP,
     SETUP_DISCOVER,
     SETUP_SAVE,
+    SETUP_STEP,
+    PROJECT_LOOPS,
     ANALYZE,
     PARAMETERS,
+    EXPORT,
+    MONITOR,
+    PLANT_MONITOR,
+    SIMULATOR_START,
+    SIMULATOR_START_RESULT,
+    CHART_EXPORT,
 ];
 /// The notification that carries operation updates.
 pub const UPDATE_NOTIFICATION: &str = "controlStudio/update";
@@ -125,6 +156,9 @@ pub struct ControlStudio {
     /// The operations this engine started for each loop, by project folder and loop identifier, so that `controlStudio/open`
     /// names the ones that still run (A8.6). An operation that has ended is dropped from it when the loop is opened.
     started: Mutex<BTreeMap<(String, String), Vec<String>>>,
+    /// The observation of the loop the panel shows, which `controlStudio/monitor` keeps (B2): the sample's scan state and the label
+    /// the page was last given.
+    monitor: Mutex<Option<monitor_action::MonitorSession>>,
 }
 
 impl ControlStudio {
@@ -135,6 +169,7 @@ impl ControlStudio {
             pending: Arc::new(PendingReleases::default()),
             claims: LoopClaims::default(),
             started: Mutex::new(BTreeMap::new()),
+            monitor: Mutex::new(None),
         }
     }
 
@@ -174,7 +209,11 @@ impl ControlStudio {
             IDENTIFY => argument(arguments).and_then(|request| {
                 identify_action::answer(&self.operations, &self.pending, &self.claims, request)
             }),
-            PAGE => argument(arguments).and_then(|request| set_page(&request)),
+            PAGE => read_argument(
+                arguments,
+                trust_control::analysis::entries::read_page_entries,
+            )
+            .and_then(|request: PageRequest| set_page(&request)),
             INPUTS => {
                 argument(arguments).and_then(|request| inputs_action::answer(&self.claims, request))
             }
@@ -185,9 +224,10 @@ impl ControlStudio {
                 .and_then(|request| tune_action::answer(&self.operations, &self.claims, request)),
             PREVIEW => argument(arguments)
                 .and_then(|request: PreviewRequest| preview_action::answer(&request)),
-            ANALYZE => argument(arguments).and_then(|request| {
-                analyze_action::answer(&self.operations, &self.claims, &request)
-            }),
+            ANALYZE => read_argument(arguments, trust_control::analysis::entries::read_entries)
+                .and_then(|request: trust_control::messages::AnalyzeRequest| {
+                    analyze_action::answer(&self.operations, &self.claims, &request)
+                }),
             PARAMETERS => argument(arguments).and_then(|request: ParameterWorkRequest| {
                 analysis_parameters_action::answer(&self.operations, &self.claims, request)
             }),
@@ -201,10 +241,31 @@ impl ControlStudio {
             }),
             KEEP => argument(arguments)
                 .and_then(|request| keep_action::answer(&self.operations, &self.claims, request)),
-            SETUP_DISCOVER => argument(arguments)
-                .and_then(|request: SetupDiscoverRequest| setup_action::answer_discover(&request)),
+            MONITOR => monitor_action::answer_command(&self.monitor, arguments),
+            PLANT_MONITOR => argument(arguments).and_then(|request: PlantMonitorRequest| {
+                to_value(&plant_monitor_action::answer(&request))
+            }),
+            SIMULATOR_START => argument(arguments).and_then(|request: SimulatorStartRequest| {
+                to_value(&simulator_start::decide(&request))
+            }),
+            SIMULATOR_START_RESULT => {
+                argument(arguments).and_then(|outcome: SimulatorStartOutcome| {
+                    to_value(&simulator_start::outcome(&outcome))
+                })
+            }
+            CHART_EXPORT => argument(arguments).and_then(|request: ChartExportRequest| {
+                chart_export::export(&request).and_then(|answer| to_value(&answer))
+            }),
+            SETUP_DISCOVER => argument(arguments).and_then(|request: SetupDiscoverRequest| {
+                setup_action::answer_discover(&request, &self.claims)
+            }),
             SETUP_SAVE => argument(arguments)
                 .and_then(|request: SetupSaveRequest| setup_action::answer_save(&request)),
+            SETUP_STEP => argument(arguments)
+                .and_then(|request: SetupStepRequest| setup_step_action::answer(&request)),
+            PROJECT_LOOPS => argument(arguments)
+                .and_then(|request: ProjectLoopsRequest| project_loops_action::answer(&request)),
+            EXPORT => argument(arguments).and_then(export_action::answer),
             _ => return None,
         };
         if let Ok(value) = &answer {
@@ -221,7 +282,7 @@ impl ControlStudio {
         let running = request.loop_id.as_deref().map_or_else(Vec::new, |loop_id| {
             self.running_operations(&request.project_root, loop_id)
         });
-        open_with_running(request, running)
+        open_action::open_with_running(request, running)
     }
 
     /// The operations this engine started for the loop that still run, in the order they started (A8.6). One that has ended is
@@ -266,123 +327,6 @@ fn loop_of(arguments: &[Value]) -> Option<(String, String)> {
     ))
 }
 
-/// Lists the project's loops, or opens the loop's study: the checked loop, its stages and their evidence, the page last
-/// viewed (A8.6), the last Validate result and the Identify result while each is current, and the journaled operations it
-/// reattaches to. The stages follow
-/// the study's evidence: its recordings, its Identify result while that is current for the loop's signals, and its Tune candidate
-/// while it was designed on that current model (A8.4). Opening starts no test, tuning, validation or write (A8.6).
-///
-/// # Errors
-/// The loop cannot be opened, or its study, its Identify or Tune section or its journal cannot be read.
-pub fn open(request: &OpenRequest) -> Result<OpenResult, Failure> {
-    open_with_running(request, Vec::new())
-}
-
-/// [`open`] with the operations this engine runs for the loop, which the page follows (A8.6). The command line runs its own
-/// operations inside its verb, so it opens with none.
-fn open_with_running(request: &OpenRequest, running: Vec<String>) -> Result<OpenResult, Failure> {
-    let project_root = Path::new(&request.project_root);
-    let Some(loop_id) = &request.loop_id else {
-        return Ok(OpenResult::Loops {
-            loops: loops::list(project_root, &request.runtime_id)?,
-        });
-    };
-    let loop_definition = loops::open(project_root, &request.runtime_id, loop_id)?;
-    // A loop that uses a feature the Rust engine does not run yet stays on the TypeScript engine until its port (V6 decision D9):
-    // its study is that engine's, so `open` refuses before it reads, or moves, the study.
-    loop_definition.rust_engine_support()?;
-    let study = storage::open_study(project_root, &loop_definition.id, &loop_definition.revision)?;
-    let journal = Journal::open(
-        Path::new(&request.storage_folder),
-        &loop_definition.project_id,
-        &loop_definition.id,
-    )?;
-    let applied = study.section::<ApplySection>()?.unwrap_or_default();
-    let offers = apply_offers(journal.entries(), &applied);
-    let evidence = stage_evidence_of(&loop_definition, &study)?;
-    let stages = stage_availability(&evidence);
-    // The last Validate result is answered while the study holds it as current (A8.4, A8.6): a stale one is history.
-    let validation = if evidence.validation_has_result {
-        study
-            .section::<ValidateSection>()?
-            .map(|section| section.result(evidence))
-    } else {
-        None
-    };
-    let identification = study_identification(&study, &loop_definition, evidence)?;
-    let tune = study_candidate(&study, &loop_definition, evidence)?;
-    let search_candidate = study_search_candidate(&study, evidence)?;
-    // The kept analysis records that are current for the loop and the study's current model, fitted or supplied (B10.2, B3.7, A8.4).
-    let selected_model = current_model(&study)?.map(|current| current.model);
-    let analysis = current_records(&study, &loop_definition.revision, selected_model.as_ref());
-    let inputs = study.section::<InputsSection>()?.unwrap_or_default();
-    let state_fields = state::state_fields(&loop_definition, inputs.state_design.as_ref());
-    Ok(OpenResult::Opened {
-        stages,
-        reattached: journaled_operations(journal.entries()),
-        running,
-        validation,
-        stage_evidence: evidence,
-        identification,
-        tune,
-        search_candidate,
-        loop_definition: Box::new(loop_definition),
-        page: study.page,
-        page_analysis: study.analysis.clone(),
-        page_view: study.view.clone(),
-        analysis,
-        inputs,
-        restore_available: offers.restore,
-        keep_available: offers.keep,
-        apply_observation_resumable: offers.observation_resumable,
-        state_fields,
-    })
-}
-
-/// The journaled operations that reopening reattaches to (A8.5, A8.6): the recordings, experiments, campaigns and isolated jobs that
-/// the journal holds unfinished. A checkpoint is not an operation the runtime runs: an Apply's checkpoint is answered as Restore and
-/// Keep availability, and a mode checkpoint is returned by the identification's resume (B6.4), so neither is listed here.
-fn journaled_operations(entries: &[JournalEntry]) -> Vec<String> {
-    entries
-        .iter()
-        .filter(|entry| {
-            entry.holds_unfinished_operation()
-                && !matches!(
-                    entry,
-                    JournalEntry::Commissioning { .. } | JournalEntry::IdentificationMode { .. }
-                )
-        })
-        .map(|entry| entry.operation_id().to_string())
-        .collect()
-}
-
-/// What Apply offers an opened loop (A8.6): Restore previous settings while the journal holds the Apply's checkpoint (B6.4), Keep in
-/// project as `controlStudio/keep` decides it from the study's receipts (B6.5), and whether the journaled Apply observation can be
-/// followed to its end (A8.5, A8.6): a checkpoint whose observation the runtime may still record. Opening reads the runtime for none of
-/// it; a Restore or a Keep whose review the runtime no longer matches is refused when it is asked for.
-pub(crate) struct ApplyOffers {
-    pub(crate) restore: bool,
-    pub(crate) keep: bool,
-    pub(crate) observation_resumable: bool,
-}
-
-/// The offers of [`ApplyOffers`] for the journal's entries and the study's Apply section.
-pub(crate) fn apply_offers(journal: &[JournalEntry], applied: &ApplySection) -> ApplyOffers {
-    let checkpoint = journal.iter().find_map(|entry| match entry {
-        JournalEntry::Commissioning { checkpoint } => Some(&**checkpoint),
-        _ => None,
-    });
-    let observation_resumable = checkpoint.is_some_and(|checkpoint| {
-        let recorded = checkpoint.recording.is_some();
-        observation_in_progress(checkpoint.stage.journal_stage(), recorded, recorded)
-    });
-    ApplyOffers {
-        restore: checkpoint.is_some(),
-        keep: applied.keep_available(),
-        observation_resumable,
-    }
-}
-
 /// Records the page the engineer last viewed in the loop's study (A8.1), so that `open` returns it (A8.6). The study is read as
 /// `open` reads it, so a study of an earlier loop revision starts again at Identify (A8.2). Nothing else of the study changes,
 /// and no test, tuning, validation or write starts.
@@ -395,7 +339,19 @@ fn set_page(request: &PageRequest) -> Result<Value, Failure> {
     let mut study =
         storage::open_study(project_root, &loop_definition.id, &loop_definition.revision)?;
     study.page = request.page;
-    study.analysis.clone_from(&request.analysis);
+    // The analysis the page names is the one it shows. The engine recorded the model revision it calculated that tool for (B9.9), and the
+    // page's record names none, so the revision stays for the same tool.
+    let calculated_for = request.analysis.as_ref().and_then(|shown| {
+        study
+            .analysis
+            .as_ref()
+            .filter(|recorded| recorded.tool == shown.tool)
+            .and_then(|recorded| recorded.model_revision.clone())
+    });
+    study.analysis = request.analysis.clone().map(|mut shown| {
+        shown.model_revision = shown.model_revision.or(calculated_for);
+        shown
+    });
     // A request that sends no view keeps the recorded one: the page sends its view when one of its choices changes.
     if let Some(view) = &request.view {
         if view
@@ -416,8 +372,19 @@ fn set_page(request: &PageRequest) -> Result<Value, Failure> {
 }
 
 fn argument<T: DeserializeOwned>(arguments: &[Value]) -> Result<T, Failure> {
+    read_argument(arguments, |_| Ok(()))
+}
+
+/// The command's argument, after `read` has read it in place and before it decodes: the analysis reads its number entries that way, so
+/// that an entry the engine cannot read is refused under its field (`analysis/entries.rs`).
+fn read_argument<T: DeserializeOwned>(
+    arguments: &[Value],
+    read: impl FnOnce(&mut Value) -> Result<(), Failure>,
+) -> Result<T, Failure> {
     let mut value = arguments.first().cloned().unwrap_or(Value::Null);
     default_storage_folder(&mut value, &|name| std::env::var_os(name))?;
+    refuse_other_runtime(&value)?;
+    read(&mut value)?;
     trust_control::json::decode_value(value).map_err(|error| {
         Failure::new(
             &format!("The Control Studio command has invalid arguments: {error}."),
@@ -425,6 +392,39 @@ fn argument<T: DeserializeOwned>(arguments: &[Value]) -> Result<T, Failure> {
             NextAction::None,
         )
     })
+}
+
+/// A live request carries the connection the extension selects (`connection.runtimeId`, A2.7). When that runtime is not the loop's
+/// (`runtimeId`), the request is refused before anything starts or is decoded: a selection change never switches the study's target
+/// implicitly. A request without a connection, such as an analysis of saved evidence, is not refused here.
+///
+/// # Errors
+/// The connection names another runtime than the loop's.
+pub(crate) fn refuse_other_runtime(value: &Value) -> Result<(), Failure> {
+    let Some(selected) = value
+        .pointer("/connection/runtimeId")
+        .and_then(Value::as_str)
+    else {
+        return Ok(());
+    };
+    let Some(target) = value.get("runtimeId").and_then(Value::as_str) else {
+        return Ok(());
+    };
+    if selected == target {
+        return Ok(());
+    }
+    let selected = if selected.is_empty() {
+        "none"
+    } else {
+        selected
+    };
+    Err(Failure::new(
+        &format!(
+            "Control Studio is connected to {target}; the selected runtime is {selected}. Reconnect to continue."
+        ),
+        Cause::Runtime,
+        NextAction::ConnectRuntime,
+    ))
 }
 
 /// Fills an empty `storageFolder` of `request` with the engine's journal folder (§0.1a, A8.3): truST's folder in the user's local
@@ -459,566 +459,9 @@ pub(crate) fn to_value(value: &impl Serialize) -> Result<Value, Failure> {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::fs;
+#[path = "commands_test_support.rs"]
+pub(crate) mod test_support;
 
-    use trust_control::experiment::ControlExperimentKind;
-    use trust_control::identification::identify_result::identify_signals;
-    use trust_control::identification::model_comparison::ComparisonPresentation;
-    use trust_control::loop_definition::{LoopDefinition, NO_CONTROLLER_LAW};
-    use trust_control::messages::OperationUpdate;
-    use trust_control::model::decode_general_model;
-    use trust_control::recording::EvidenceSource;
-    use trust_control::study::identify::{IdentifyMethod, IdentifySection};
-    use trust_control::study::{Page, Study};
-
-    use super::*;
-
-    #[test]
-    fn an_empty_storage_folder_is_the_engines_journal_folder_and_a_named_one_is_kept() {
-        // §0.1a and A8.3: the extension asks for the folder the command line uses by leaving the field empty.
-        let environment = |name: &str| {
-            matches!(name, "HOME" | "LOCALAPPDATA")
-                .then(|| std::ffi::OsString::from("/home/engineer"))
-        };
-        let mut request = json!({ "projectRoot": "/project", "storageFolder": "" });
-        default_storage_folder(&mut request, &environment).expect("the folder is found");
-        let expected = settings::default_journal_folder(Platform::current(), &environment)
-            .expect("the folder is found");
-        assert_eq!(request["storageFolder"], expected.display().to_string());
-        let mut named = json!({ "storageFolder": "/journals" });
-        default_storage_folder(&mut named, &environment).expect("kept");
-        assert_eq!(named["storageFolder"], "/journals");
-        let mut without = json!({ "projectRoot": "/project" });
-        default_storage_folder(&mut without, &environment).expect("kept");
-        assert_eq!(
-            without,
-            json!({ "projectRoot": "/project" }),
-            "no field is added"
-        );
-    }
-
-    struct Ignore;
-
-    impl UpdateSink for Ignore {
-        fn send(&self, _update: OperationUpdate) {}
-    }
-
-    const EXAMPLE: &str =
-        include_str!("../../../examples/control-pid-commissioning/control-loop.json");
-
-    #[test]
-    fn open_refuses_a_parked_loop_before_it_reads_or_moves_the_typescript_study() {
-        // V6 decision D9: a loop with a parked feature stays on the TypeScript engine, whose study document is its own; opening it
-        // through the engine must leave that document where it is. A top-level cascade (C6, the two-loop form) is still parked (V7).
-        let root =
-            std::env::temp_dir().join(format!("trust-control-open-parked-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
-        fs::create_dir_all(&root).expect("project");
-        let mut file: Value = serde_json::from_str(EXAMPLE).expect("example");
-        file["cascade"] = json!({ "role": "inner", "outer": "control-pid-outer" });
-        fs::write(root.join("control-loop.json"), file.to_string()).expect("loop");
-        let example = LoopDefinition::decode(EXAMPLE).expect("example");
-        let directory = storage::study_directory(&root, &example.id);
-        fs::create_dir_all(&directory).expect("study folder");
-        let typescript_study = r#"{"schemaVersion":1,"loop":{"id":"x"},"state":{"page":"model"}}"#;
-        fs::write(directory.join("study.json"), typescript_study).expect("study");
-        let studio = ControlStudio::new(Arc::new(Ignore));
-        let request = json!({ "projectRoot": root.display().to_string(), "runtimeId": example.runtime_id,
-            "loopId": example.id, "storageFolder": root.join("storage").display().to_string() });
-        let answer = studio.execute(OPEN, &[request]).expect("answered");
-        assert_eq!(
-            answer["failure"]["cause"], "controller-capability",
-            "{answer}"
-        );
-        assert_eq!(
-            fs::read_to_string(directory.join("study.json")).expect("still there"),
-            typescript_study,
-            "the TypeScript study is neither read into a new study nor moved"
-        );
-        assert!(
-            !directory.join("history").exists(),
-            "nothing moved to history"
-        );
-        fs::remove_dir_all(&root).expect("clean up");
-    }
-
-    #[test]
-    fn open_lists_the_loops_then_opens_one_with_its_stages_and_no_operation() {
-        let root = std::env::temp_dir().join(format!("trust-control-open-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
-        fs::create_dir_all(&root).expect("project");
-        fs::write(root.join("control-loop.json"), EXAMPLE).expect("loop");
-        let example = LoopDefinition::decode(EXAMPLE).expect("example");
-        let studio = ControlStudio::new(Arc::new(Ignore));
-        let mut request = json!({ "projectRoot": root.display().to_string(), "runtimeId": example.runtime_id, "storageFolder": root.join("storage").display().to_string() });
-        let listed = studio
-            .execute(OPEN, std::slice::from_ref(&request))
-            .expect("answered");
-        assert_eq!(listed["result"]["kind"], "loops");
-        assert_eq!(listed["result"]["loops"][0]["loopId"], example.id.as_str());
-        request["loopId"] = json!(example.id);
-        let opened = studio.execute(OPEN, &[request]).expect("answered");
-        assert_eq!(opened["result"]["kind"], "opened", "{opened}");
-        assert_eq!(opened["result"]["loop"]["id"], example.id.as_str());
-        assert_eq!(opened["result"]["stages"][2]["stage"], "Identify");
-        assert_eq!(opened["result"]["stages"][2]["status"], "needs-data");
-        assert_eq!(opened["result"]["reattached"], json!([]));
-        // A8.6: a study that never applied offers neither Restore nor Keep, and no Apply observation waits to be resumed.
-        assert_eq!(opened["result"]["restoreAvailable"], json!(false));
-        assert_eq!(opened["result"]["keepAvailable"], json!(false));
-        assert_eq!(opened["result"]["applyObservationResumable"], json!(false));
-        assert!(
-            !root.join("control-studio").exists(),
-            "opening writes nothing"
-        );
-        fs::remove_dir_all(&root).expect("clean up");
-    }
-
-    #[test]
-    fn open_serves_an_observation_lesson_whose_controller_stages_are_not_applicable() {
-        // Specification 35, C12: a loop without a controller law is not parked, so `open` opens it on the engine. Tune, Validate and
-        // Apply are Not applicable with the reason, and Identify still runs on it. Heater lesson 04 is such an observation loop.
-        const OBSERVATION_LESSON: &str = include_str!(
-            "../../../examples/control/01-feedback-foundations-and-temperature-control/04-water-heater-p/control-loop.json"
-        );
-        let root =
-            std::env::temp_dir().join(format!("trust-control-open-c12-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
-        fs::create_dir_all(&root).expect("project");
-        fs::write(root.join("control-loop.json"), OBSERVATION_LESSON).expect("loop");
-        let lesson = LoopDefinition::decode(OBSERVATION_LESSON).expect("lesson");
-        let studio = ControlStudio::new(Arc::new(Ignore));
-        let request = json!({ "projectRoot": root.display().to_string(), "runtimeId": lesson.runtime_id,
-            "loopId": lesson.id, "storageFolder": root.join("storage").display().to_string() });
-        let answer = studio.execute(OPEN, &[request]).expect("answered");
-        assert_eq!(answer["result"]["kind"], "opened", "{answer}");
-        let stages = answer["result"]["stages"].as_array().expect("stages");
-        let stage = |name: &str| {
-            stages
-                .iter()
-                .find(|stage| stage["stage"] == name)
-                .unwrap_or_else(|| panic!("{name}: {answer}"))
-        };
-        assert_eq!(stage("Identify")["status"], "needs-data", "{answer}");
-        for name in ["Tune", "Validate", "Apply"] {
-            assert_eq!(stage(name)["status"], "not-applicable", "{name}: {answer}");
-            assert_eq!(stage(name)["label"], "Not applicable", "{name}: {answer}");
-            assert_eq!(stage(name)["reason"], NO_CONTROLLER_LAW, "{name}: {answer}");
-        }
-        assert!(stage("Identify").get("reason").is_none(), "{answer}");
-        assert_eq!(
-            answer["result"]["stageEvidence"]["controllerStagesApply"],
-            json!(false)
-        );
-        fs::remove_dir_all(&root).expect("clean up");
-    }
-
-    #[test]
-    fn a_malformed_request_or_an_unknown_operation_answers_with_a_failure() {
-        let studio = ControlStudio::new(Arc::new(Ignore));
-        let malformed = studio
-            .execute(OPEN, &[json!({ "projectRoot": "/x" })])
-            .expect("answered");
-        assert!(
-            malformed["failure"]["message"]
-                .as_str()
-                .is_some_and(|message| message.contains("invalid arguments")),
-            "{malformed}"
-        );
-        let unknown = studio
-            .execute(STATUS, &[json!({ "operationId": "operation-0" })])
-            .expect("answered");
-        assert!(unknown.get("failure").is_some(), "{unknown}");
-        assert!(
-            studio.execute("textDocument/hover", &[]).is_none(),
-            "another method is not Control Studio's"
-        );
-    }
-
-    /// A project folder with the example loop, and the arguments of `open` and `page` for it.
-    fn example_project(name: &str) -> (std::path::PathBuf, LoopDefinition, Value) {
-        let root =
-            std::env::temp_dir().join(format!("trust-control-{name}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
-        fs::create_dir_all(&root).expect("project");
-        fs::write(root.join("control-loop.json"), EXAMPLE).expect("loop");
-        let example = LoopDefinition::decode(EXAMPLE).expect("example");
-        let request = json!({
-            "projectRoot": root.display().to_string(),
-            "runtimeId": example.runtime_id,
-            "loopId": example.id,
-            "storageFolder": root.join("storage").display().to_string(),
-        });
-        (root, example, request)
-    }
-
-    #[test]
-    fn the_page_last_viewed_is_recorded_and_opening_returns_it_and_starts_nothing() {
-        let (root, example, request) = example_project("page");
-        let studio = ControlStudio::new(Arc::new(Ignore));
-        let opened = studio
-            .execute(OPEN, std::slice::from_ref(&request))
-            .expect("answered");
-        assert_eq!(
-            opened["result"]["page"], "Identify",
-            "a new study opens at Identify (A8.6): {opened}"
-        );
-        let page = json!({
-            "projectRoot": root.display().to_string(),
-            "runtimeId": example.runtime_id,
-            "loopId": example.id,
-            "page": "Tune",
-        });
-        let answered = studio.execute(PAGE, &[page]).expect("answered");
-        assert_eq!(answered, json!({ "result": {} }), "{answered}");
-        let reopened = studio.execute(OPEN, &[request]).expect("answered");
-        assert_eq!(reopened["result"]["page"], "Tune", "{reopened}");
-        assert_eq!(
-            reopened["result"]["reattached"],
-            json!([]),
-            "setting the page starts no operation"
-        );
-        let study = storage::open_study(&root, &example.id, &example.revision).expect("study");
-        assert_eq!(study.page, Page::Tune);
-        assert!(
-            study.sections.is_empty() && study.recordings.is_empty(),
-            "setting the page changes nothing else"
-        );
-        fs::remove_dir_all(&root).expect("clean up");
-    }
-
-    #[test]
-    fn the_page_keeps_its_method_choice_as_view_state_and_a_request_without_a_view_keeps_it() {
-        // §0.1a `controlStudio/page`, A8.6: the Identify page's Method, including the opened-file and supplied-model entries that start
-        // no campaign, comes back on open; a later page change without a view keeps it.
-        let (root, example, request) = example_project("page-view");
-        let studio = ControlStudio::new(Arc::new(Ignore));
-        let page = |view: Option<Value>| {
-            let mut body = json!({
-                "projectRoot": root.display().to_string(),
-                "runtimeId": example.runtime_id,
-                "loopId": example.id,
-                "page": "Identify",
-            });
-            if let Some(view) = view {
-                body["view"] = view;
-            }
-            body
-        };
-        let answered = studio
-            .execute(
-                PAGE,
-                &[page(Some(json!({ "identifyMethod": "supplied-model" })))],
-            )
-            .expect("answered");
-        assert_eq!(answered, json!({ "result": {} }), "{answered}");
-        let reopened = studio
-            .execute(OPEN, std::slice::from_ref(&request))
-            .expect("answered");
-        assert_eq!(
-            reopened["result"]["pageView"],
-            json!({ "identifyMethod": "supplied-model" }),
-            "{reopened}"
-        );
-        studio.execute(PAGE, &[page(None)]).expect("answered");
-        let again = studio.execute(OPEN, &[request]).expect("answered");
-        assert_eq!(
-            again["result"]["pageView"]["identifyMethod"], "supplied-model",
-            "a request without a view keeps the recorded one: {again}"
-        );
-        let refused = studio
-            .execute(
-                PAGE,
-                &[page(Some(json!({ "identifyMethod": "m".repeat(65) })))],
-            )
-            .expect("answered");
-        assert!(refused.get("failure").is_some(), "{refused}");
-        fs::remove_dir_all(&root).expect("clean up");
-    }
-
-    #[test]
-    fn a_study_of_an_earlier_loop_revision_opens_at_identify() {
-        let (root, example, request) = example_project("page-revision");
-        let mut earlier = Study::new(&example.id, "sha256:an-earlier-revision");
-        earlier.page = Page::Validate;
-        storage::save_study(&root, &earlier, &[]).expect("the earlier study is kept");
-        let studio = ControlStudio::new(Arc::new(Ignore));
-        let opened = studio.execute(OPEN, &[request]).expect("answered");
-        assert_eq!(
-            opened["result"]["page"], "Identify",
-            "a study of another loop revision starts again at Identify (A8.2): {opened}"
-        );
-        fs::remove_dir_all(&root).expect("clean up");
-    }
-
-    #[test]
-    fn an_unknown_page_is_a_failure_with_its_next_action() {
-        let studio = ControlStudio::new(Arc::new(Ignore));
-        let unknown = studio
-            .execute(
-                PAGE,
-                &[json!({
-                    "projectRoot": "/x",
-                    "runtimeId": "simulator",
-                    "loopId": "tank",
-                    "page": "Monitor",
-                })],
-            )
-            .expect("answered");
-        assert!(
-            unknown["failure"]["message"]
-                .as_str()
-                .is_some_and(|message| message.contains("invalid arguments")),
-            "{unknown}"
-        );
-        assert_eq!(unknown["failure"]["cause"], "implementation", "{unknown}");
-        assert_eq!(unknown["failure"]["nextAction"], "none", "{unknown}");
-        assert!(unknown.get("result").is_none(), "{unknown}");
-    }
-
-    #[test]
-    fn an_opened_loop_offers_restore_and_keep_only_from_the_journal_and_the_study() {
-        // A8.6: Restore starts from the journaled checkpoint, so an interrupted Apply offers it; Keep follows the study's receipts.
-        let nothing = apply_offers(&[], &ApplySection::default());
-        assert!(!nothing.restore && !nothing.keep && !nothing.observation_resumable);
-    }
-
-    #[test]
-    fn open_names_the_operations_the_loop_runs_while_they_run_and_forgets_them_once_they_end() {
-        // A8.6: a reopened panel follows the operations that still run for the loop. An ended one is in the study, not in `running`.
-        let (root, _example, request) = example_project("running-operations");
-        let studio = ControlStudio::new(Arc::new(Ignore));
-        let (release, wait) = std::sync::mpsc::channel::<()>();
-        let started = studio.operations().start("identify", move |_| {
-            let _ = wait.recv();
-            Ok(json!({}))
-        });
-        studio.remember_started(
-            std::slice::from_ref(&request),
-            &json!({ "operationId": started.operation_id }),
-        );
-        let running = studio
-            .execute(OPEN, std::slice::from_ref(&request))
-            .expect("answered");
-        assert_eq!(
-            running["result"]["running"],
-            json!([started.operation_id]),
-            "{running}"
-        );
-        release.send(()).expect("the operation is released");
-        for _ in 0..500 {
-            let ended = studio
-                .operations()
-                .status(&started.operation_id)
-                .is_ok_and(|update| update.state != OperationState::Running);
-            if ended {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
-        let ended = studio
-            .execute(OPEN, std::slice::from_ref(&request))
-            .expect("answered");
-        assert_eq!(ended["result"]["running"], json!([]), "{ended}");
-        fs::remove_dir_all(&root).expect("clean up");
-    }
-
-    #[test]
-    fn an_operation_of_another_loop_is_not_named_by_this_loops_open() {
-        let (root, _example, request) = example_project("running-other-loop");
-        let studio = ControlStudio::new(Arc::new(Ignore));
-        let started = studio.operations().start("identify", |_| Ok(json!({})));
-        let other = json!({ "projectRoot": root.display().to_string(), "loopId": "another-loop" });
-        studio.remember_started(
-            std::slice::from_ref(&other),
-            &json!({ "operationId": started.operation_id }),
-        );
-        studio.remember_started(
-            std::slice::from_ref(&request),
-            &json!({ "operationId": "operation-unknown" }),
-        );
-        let opened = studio
-            .execute(OPEN, std::slice::from_ref(&request))
-            .expect("answered");
-        assert_eq!(opened["result"]["running"], json!([]), "{opened}");
-        fs::remove_dir_all(&root).expect("clean up");
-    }
-
-    #[test]
-    fn reattached_lists_the_unfinished_journaled_recording_by_its_identifier() {
-        // A8.5, A8.6: a journaled recording is reattached by its identifier; the list holds journaled operations only.
-        use trust_control::experiment::{
-            ControlEvidenceSource, RecordingRecoveryBinding, RecordingRecoveryOwner,
-        };
-        let owner = RecordingRecoveryOwner {
-            schema_version: 1,
-            recording_id: "recording-1".into(),
-            project_id: "project:sha256:abc".into(),
-            runtime_id: "runtime:local".into(),
-            loop_id: "loop:tank".into(),
-            loop_revision: "sha256:loop".into(),
-            source: ControlEvidenceSource::Simulation,
-            program_revision: None,
-            start_acknowledgement_unconfirmed: None,
-            bindings: vec![RecordingRecoveryBinding {
-                id: "processVariable".into(),
-                address: Some("%IL0".into()),
-                symbol: None,
-                iec_type: "LREAL".into(),
-            }],
-        };
-        let entries = [JournalEntry::RecordingOwner { owner }];
-        assert_eq!(
-            journaled_operations(&entries),
-            vec!["recording-1".to_owned()]
-        );
-        assert_eq!(journaled_operations(&[]), Vec::<String>::new());
-    }
-
-    /// The estimation recording of the Identify sections the tests keep, and the validation recording of a qualified one.
-    const ESTIMATION: &str = "rec-00112233445566778899aabbccddeeff";
-    const VALIDATION: &str = "rec-ffeeddccbbaa99887766554433221100";
-
-    /// What the page shows of the fitted model `1 / (s + 1)`, as the identify fixtures of `identify_action_tests` show it.
-    fn presentation() -> ComparisonPresentation {
-        trust_control::json::decode_value(json!({
-            "equation": "G(s) = 1 / (1s + 1)",
-            "units": { "input": "V", "output": "m", "gain": "m/V", "time": "s" },
-            "parameters": [
-                { "name": "Gain", "value": 1.0, "unit": "m/V" },
-                { "name": "Time constant 1", "value": 1.0, "unit": "s" },
-                { "name": "Dead time", "value": 0.0, "unit": "s" }
-            ],
-            "poles": [-1.0], "zeros": [], "delaySeconds": 0.0,
-            "uncertainty": { "label": "Sample-resolution envelope from the estimation record; not statistical confidence" },
-            "estimation": { "normalizedError": 0.1 }, "validation": {},
-            "predictedResponse": [
-                { "timeSeconds": 0.0, "measured": 0.0, "predicted": 0.0, "residual": 0.0 },
-                { "timeSeconds": 2.0, "measured": 1.0, "predicted": 0.9, "residual": 0.1 }
-            ],
-            "validityRange": { "inputMinimum": 0.0, "inputMaximum": 1.0, "outputMinimum": 0.0, "outputMaximum": 1.0 },
-            "warnings": []
-        }))
-        .expect("the presentation decodes")
-    }
-
-    /// The Identify section of the example loop: the fitted model `1 / (s + 1)` from a command in V to a position in m. A
-    /// `validated` section names a validation recording, as a model that Validate qualified does (B5.2), so it is not provisional.
-    fn identified_section(example: &LoopDefinition, validated: bool) -> IdentifySection {
-        let channel = |id: &str, unit: &str| json!({ "id": id, "unit": unit, "operatingRange": { "minimum": -10.0, "maximum": 10.0 } });
-        let (validation, evidence) = if validated {
-            (
-                "validated",
-                json!(["sha256:recording", "sha256:validation"]),
-            )
-        } else {
-            ("unvalidated", json!(["sha256:recording"]))
-        };
-        let model = decode_general_model(&json!({
-            "kind": "transfer-function", "revision": "model:fitted:1", "source": "fitted",
-            "validation": validation, "evidence": evidence, "delaySeconds": 0.0,
-            "inputs": [channel("command", "V")], "outputs": [channel("position", "m")],
-            "numerator": [1.0], "denominator": [1.0, 1.0]
-        }))
-        .expect("a fitted model");
-        IdentifySection::new(
-            IdentifyMethod::Live(ControlExperimentKind::MvStep),
-            EvidenceSource::SimulatedPlant,
-            identify_signals(example, ControlExperimentKind::MvStep),
-            ESTIMATION,
-            validated.then_some(VALIDATION),
-            model,
-            presentation(),
-        )
-    }
-
-    #[test]
-    fn open_holds_a_current_identification_with_its_evidence_and_none_after_reset() {
-        // A8.6, B9.4: a reopened study with a current model holds its identification and says it has a model, so the page enables
-        // Tune without deducing it. Reset starts a new study, which holds neither.
-        let (root, example, request) = example_project("identification");
-        let mut study = Study::new(&example.id, &example.revision);
-        study
-            .set_section(&identified_section(&example, false))
-            .expect("the Identify section is kept");
-        storage::save_study(&root, &study, &[]).expect("the study is kept");
-        let studio = ControlStudio::new(Arc::new(Ignore));
-        let opened = studio
-            .execute(OPEN, std::slice::from_ref(&request))
-            .expect("answered");
-        assert_eq!(
-            opened["result"]["stageEvidence"]["hasModel"],
-            json!(true),
-            "{opened}"
-        );
-        let identification = &opened["result"]["identification"];
-        assert_eq!(
-            identification["modelRevision"], "model:fitted:1",
-            "{opened}"
-        );
-        assert_eq!(identification["provisional"], json!(true), "{opened}");
-        assert!(
-            opened["result"].get("tune").is_none(),
-            "a study with no candidate holds none: {opened}"
-        );
-        assert!(
-            identification["plot"]["timeSeconds"]
-                .as_array()
-                .is_some_and(|times| !times.is_empty()),
-            "the answer holds the plot: {opened}"
-        );
-        storage::start_new_study(&root, &study).expect("the study is reset");
-        let reset = studio.execute(OPEN, &[request]).expect("answered");
-        assert_eq!(
-            reset["result"]["stageEvidence"]["hasModel"],
-            json!(false),
-            "{reset}"
-        );
-        assert!(reset["result"].get("identification").is_none(), "{reset}");
-        fs::remove_dir_all(&root).expect("clean up");
-    }
-
-    #[test]
-    fn open_holds_a_model_that_validate_qualified_as_not_provisional() {
-        // B5.2, A8.6: a model whose independent check passed names its validation recording, and reopens as not provisional.
-        let (root, example, request) = example_project("identification-qualified");
-        let mut study = Study::new(&example.id, &example.revision);
-        study
-            .set_section(&identified_section(&example, true))
-            .expect("the qualified Identify section is kept");
-        storage::save_study(&root, &study, &[]).expect("the study is kept");
-        let studio = ControlStudio::new(Arc::new(Ignore));
-        let opened = studio.execute(OPEN, &[request]).expect("answered");
-        assert_eq!(
-            opened["result"]["identification"]["provisional"],
-            json!(false),
-            "{opened}"
-        );
-        fs::remove_dir_all(&root).expect("clean up");
-    }
-
-    #[test]
-    fn reset_answers_the_stage_evidence_of_the_fresh_study() {
-        // A8.4, B9.4: after Reset the new study holds no model, candidate or passed validation, and the answer says so, so the page
-        // takes that evidence from the engine rather than assuming it.
-        let (root, example, request) = example_project("reset-evidence");
-        let mut study = Study::new(&example.id, &example.revision);
-        study
-            .set_section(&identified_section(&example, false))
-            .expect("the Identify section is kept");
-        storage::save_study(&root, &study, &[]).expect("the study is kept");
-        let studio = ControlStudio::new(Arc::new(Ignore));
-        let mut reset_request = request;
-        reset_request["action"] = json!({ "action": "reset" });
-        let answer = studio
-            .execute(IDENTIFY, &[reset_request])
-            .expect("answered");
-        let evidence = &answer["result"]["stageEvidence"];
-        assert_eq!(evidence["hasModel"], json!(false), "{answer}");
-        assert_eq!(evidence["hasCandidate"], json!(false), "{answer}");
-        assert_eq!(evidence["validationHasResult"], json!(false), "{answer}");
-        assert_eq!(evidence["validationPassed"], json!(false), "{answer}");
-        fs::remove_dir_all(&root).expect("clean up");
-    }
-}
+#[cfg(test)]
+#[path = "commands_tests.rs"]
+mod tests;

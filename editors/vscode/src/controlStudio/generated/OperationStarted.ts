@@ -8,6 +8,10 @@
  */
 export interface OperationStarted {
   /**
+   * The answer's kind (§0.1a): the page shows the answer by it, never by the fields it carries.
+   */
+  kind: "operationStarted";
+  /**
    * The operation.
    */
   operationId: string;

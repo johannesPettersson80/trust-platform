@@ -3,204 +3,30 @@
 //! Reset clears the manual section; reopening restores the stage; and a cancelled fit keeps the previous state. No runtime runs here.
 
 use std::fs;
-use std::path::PathBuf;
 use std::sync::{mpsc, Arc};
-use std::time::Duration;
 
-use parking_lot::Mutex;
 use serde_json::{json, Value};
 use trust_control::experiment::ControlExperimentKind;
-use trust_control::identification::acquisition_settings::AcquisitionMethod;
-use trust_control::identification::form_draft::IDENTIFICATION_FORM_KEYS;
 use trust_control::identification::model_comparison::ComparisonPresentation;
-use trust_control::loop_definition::LoopDefinition;
-use trust_control::messages::{OperationState, OperationUpdate};
+use trust_control::messages::OperationUpdate;
 use trust_control::model::{decode_general_model, GeneralModel};
-use trust_control::recording::evidence::recording_evidence;
-use trust_control::recording::{EvidenceSource, RecordedRun, RecordingFile};
+use trust_control::recording::EvidenceSource;
 use trust_control::study::current_model::{current_model, CurrentModelSource};
 use trust_control::study::identify::{IdentifyMethod, IdentifySection, IdentifySignals};
-use trust_control::study::manual_identification::ManualIdentificationSection;
-use trust_control::study::{Study, StudySection};
 
+use super::test_support::{
+    answer, engine, finished, first_order_form, manual_section_json, step_run, Project, LOOP_ID,
+    RUNTIME_ID,
+};
 use super::*;
-use crate::commands::{ControlStudio, IDENTIFY};
+use crate::commands::{ControlStudio, OPEN};
 use crate::identify_import;
-use crate::operation::UpdateSink;
 use crate::runtime_client::runtime_recording::PendingReleases;
-use crate::{loops, storage};
+use crate::storage;
 
-/// The example loop of the identification tests, the runtime it names.
-const EXAMPLE: &str = include_str!("../../../examples/control-pid-commissioning/control-loop.json");
-const LOOP_ID: &str = "control-pid-commissioning";
-const RUNTIME_ID: &str = "simulator";
 /// The plant input and the measured output of the example loop, by their symbols.
 const PLANT_INPUT: &str = "P1.ManipulatedValue";
 const PROCESS_VALUE: &str = "P1.ProcessValue";
-
-/// The updates of an engine's operations, in the order the test receives them.
-struct Updates(Mutex<mpsc::Sender<OperationUpdate>>);
-
-impl UpdateSink for Updates {
-    fn send(&self, update: OperationUpdate) {
-        let _ = self.0.lock().send(update);
-    }
-}
-
-/// An engine whose operation updates the test receives.
-fn engine() -> (ControlStudio, mpsc::Receiver<OperationUpdate>) {
-    let (sender, receiver) = mpsc::channel();
-    (
-        ControlStudio::new(Arc::new(Updates(Mutex::new(sender)))),
-        receiver,
-    )
-}
-
-/// The update that ends an operation: its result, its failure or its cancellation.
-fn final_update(updates: &mpsc::Receiver<OperationUpdate>) -> OperationUpdate {
-    loop {
-        let update = updates
-            .recv_timeout(Duration::from_secs(30))
-            .expect("an update of the operation");
-        if update.state != OperationState::Running {
-            return update;
-        }
-    }
-}
-
-/// The process value and the manipulated value of sample `index` (every 0.5 s) of the first-order step record of `from` to `to`:
-/// the manipulated value steps at 5 s, and the process value starts at 20 and follows it with gain 0.5 and time constant 5 s.
-fn step_values(index: u32, from: f64, to: f64) -> (f64, f64) {
-    let time = f64::from(index) * 0.5;
-    let shape = if time < 5.0 {
-        0.0
-    } else {
-        1.0 - (-(time - 5.0) / 5.0).exp()
-    };
-    let manipulated = if time < 5.0 { from } else { to };
-    (20.0 + 0.5 * (to - from) * shape, manipulated)
-}
-
-/// A first-order step record of the example loop, sampled every 0.5 s for 60 s: the process value starts at 20 and, after the
-/// manipulated value steps from `from` to `to` at 5 s, follows it with gain 0.5 and time constant 5 s.
-fn step_run(name: &str, from: f64, to: f64) -> RecordedRun {
-    let samples: Vec<Value> = (0..120_u32)
-        .map(|index| {
-            let (process, manipulated) = step_values(index, from, to);
-            json!({
-                "scan": u64::from(index) + 1,
-                "runtime_time_ns": 1_000_000_000_u64 + u64::from(index) * 500_000_000,
-                "captured_at_ms": u64::from(index) * 500,
-                "values": [process, manipulated],
-                "forced": [false, false],
-                "quality": ["good", "good"]
-            })
-        })
-        .collect();
-    serde_json::from_value(json!({
-        "recording_id": name, "loop_revision": "sha256:loop-1",
-        "bindings": [
-            { "id": "processVariable", "address": "%IL0", "iec_type": "LREAL" },
-            { "id": "manipulatedVariable", "address": "%QL0", "iec_type": "LREAL" }
-        ],
-        "stop_reason": "sample_limit",
-        "samples": samples,
-        "acquisition": { "method": "runtime_scan_buffer", "completeness": "complete", "observedSampleCount": 120,
-            "scanRange": { "first": 1, "last": 120 }, "missingScanRanges": [], "droppedObservedSamples": 0,
-            "actualCycleTimingAvailable": true, "freshnessAvailable": false, "reason": "" }
-    }))
-    .expect("a recorded run")
-}
-
-/// The Recorded-data fit's form for a first-order model without held-step settings or exclusions.
-fn first_order_form() -> Value {
-    let values: serde_json::Map<String, Value> = IDENTIFICATION_FORM_KEYS
-        .iter()
-        .map(|key| ((*key).to_string(), json!("")))
-        .collect();
-    json!({
-        "schemaVersion": 1, "model": "first_order", "heldStep": false, "values": values,
-        "excludedStart": "", "excludedEnd": ""
-    })
-}
-
-/// A project folder of one test with the example loop, removed when the test ends.
-struct Project {
-    root: PathBuf,
-}
-
-impl Drop for Project {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.root);
-    }
-}
-
-impl Project {
-    fn new(name: &str) -> Self {
-        let root = std::env::temp_dir().join(format!(
-            "trust-identify-manual-{name}-{}",
-            std::process::id()
-        ));
-        let _ = fs::remove_dir_all(&root);
-        fs::create_dir_all(root.join("storage")).expect("the storage folder");
-        fs::write(root.join("control-loop.json"), EXAMPLE).expect("the loop file");
-        Self { root }
-    }
-
-    fn loop_definition(&self) -> LoopDefinition {
-        loops::open(&self.root, RUNTIME_ID, LOOP_ID).expect("the example loop opens")
-    }
-
-    fn study(&self) -> Study {
-        let loop_definition = self.loop_definition();
-        storage::open_study(&self.root, &loop_definition.id, &loop_definition.revision)
-            .expect("the working study")
-    }
-
-    /// Keeps the recording of `run` as the study's opened recording, and returns its identifier.
-    fn keep(&self, run: RecordedRun) -> String {
-        let evidence = recording_evidence(&run, None);
-        let mut file = RecordingFile::new(LOOP_ID, EvidenceSource::SimulatedPlant, run, evidence);
-        file.opened = true;
-        let id = file.id().expect("the recording identifier");
-        storage::save_recording(&self.root, &self.study(), &file).expect("the recording is kept");
-        id
-    }
-
-    /// The request of `action` on the loop; the manual actions need no runtime connection.
-    fn request(&self, action: &Value) -> Value {
-        json!({
-            "projectRoot": self.root.display().to_string(),
-            "runtimeId": RUNTIME_ID,
-            "loopId": LOOP_ID,
-            "storageFolder": self.root.join("storage").display().to_string(),
-            "action": action,
-        })
-    }
-}
-
-/// The engine's answer to `action`, which must be an answer at once: the `result` of a request that succeeded, which `execute` wraps
-/// as `{"result": …}`, or the `failure` envelope of a refusal, which the refusal tests read (as `identify_import_tests.rs` does).
-fn answer(studio: &ControlStudio, project: &Project, action: &Value) -> Value {
-    let envelope = studio
-        .execute(IDENTIFY, &[project.request(action)])
-        .expect("the engine answers its own method");
-    envelope.get("result").cloned().unwrap_or(envelope)
-}
-
-/// The result of the manual operation `action` starts, which must finish with a result.
-fn finished(
-    studio: &ControlStudio,
-    updates: &mpsc::Receiver<OperationUpdate>,
-    project: &Project,
-    action: &Value,
-) -> Value {
-    let started = answer(studio, project, action);
-    assert!(started["operationId"].is_string(), "{started}");
-    let end = final_update(updates);
-    assert_eq!(end.state, OperationState::Finished, "{end:?}");
-    end.result.expect("the operation's result")
-}
 
 /// The status of `stage` in an answer's stage list, as the engine writes it (`stages`); `null` when the answer names no such stage.
 fn stage_status(answer: &Value, stage: &str) -> Value {
@@ -210,13 +36,20 @@ fn stage_status(answer: &Value, stage: &str) -> Value {
         .map_or(Value::Null, |entry| entry["status"].clone())
 }
 
-/// The state of the loop's manual section in the study, as its JSON.
-fn manual_section_json(project: &Project) -> Option<Value> {
-    project
-        .study()
-        .sections
-        .get(ManualIdentificationSection::KEY)
-        .cloned()
+/// The `controlStudio/open` answer of the example loop of `project`.
+fn opened(studio: &ControlStudio, project: &Project) -> Value {
+    let envelope = studio
+        .execute(
+            OPEN,
+            &[json!({
+                "projectRoot": project.root.display().to_string(),
+                "runtimeId": RUNTIME_ID,
+                "loopId": LOOP_ID,
+                "storageFolder": project.root.join("storage").display().to_string(),
+            })],
+        )
+        .expect("the engine answers its own method");
+    envelope["result"].clone()
 }
 
 #[test]
@@ -358,277 +191,6 @@ fn a_cancelled_fit_keeps_the_previous_state_and_a_fit_that_runs_keeps_its_result
     let fitted = fit_unless_cancelled(&work, &|| false).expect("a fit that runs answers");
     assert_eq!(fitted["phase"], json!("validation_required"), "{fitted}");
     assert_ne!(manual_section_json(&project), Some(before));
-}
-
-/// The loop of lesson 26: a project-scripted experiment of the simulator, whose Configured method is the project test.
-const PROJECT_SCRIPTED_LOOP: &str = include_str!(
-    "../../../editors/vscode/media/examples/control/05-experiments-identification-and-validation/26-independent-model-validation/control-loop.json"
-);
-
-/// The text of a saved Control Studio recording file (schema 4, B10.2) of the step record `name`, of the project loop's revision: the
-/// file an engineer opens with **Open recording…**, which `importRecording` and `manualImport` check (B10.4, A9).
-fn recording_text(project: &Project, name: &str, from: f64, to: f64) -> String {
-    let loop_definition = project.loop_definition();
-    let samples: Vec<Value> = (0..120_u32)
-        .map(|index| {
-            let (process, manipulated) = step_values(index, from, to);
-            json!({
-                "elapsedSeconds": f64::from(index) * 0.5,
-                "observedAtMs": 500.0 * f64::from(index + 1),
-                "actualCycleSeconds": 0.5,
-                "scan": index + 1,
-                "source": "Simulation",
-                "loopRevision": loop_definition.revision,
-                "sp": 50.0,
-                "pv": process,
-                "requestedMv": manipulated,
-                "appliedMv": manipulated,
-                "units": { "sp": "°C", "pv": "°C", "mv": "%" },
-                "quality": "good",
-                "freshnessMs": null,
-                "controllerMode": "Auto",
-                "outputLimits": { "minimum": 0.0, "maximum": 100.0 },
-                "safetyState": "Normal",
-                "events": []
-            })
-        })
-        .collect();
-    json!({
-        "schemaVersion": 4,
-        "resultId": format!("result-{name}"),
-        "resultRevision": 1,
-        "createdAt": "2026-10-10T12:00:00.000Z",
-        "projectId": loop_definition.project_id,
-        "source": "Simulation",
-        "loop": { "id": LOOP_ID, "revision": loop_definition.revision },
-        "controller": { "instance": "P1.Controller", "revision": "sha256:controller-plant" },
-        "software": {
-            "extensionVersion": "0.25.0",
-            "numericalAdapters": { "trust-control-math": "1.0.0" }
-        },
-        "units": { "sp": "°C", "pv": "°C", "mv": "%" },
-        "recording": {
-            "rawSamples": samples,
-            "selectedIntervals": [{ "startSeconds": 0.0, "endSeconds": 59.5 }],
-            "acquisition": {
-                "method": "runtime_scan_buffer",
-                "completeness": "complete",
-                "recordingId": name,
-                "observedSampleCount": 120,
-                "scanRange": { "first": 1, "last": 120 },
-                "missingScanRanges": [],
-                "droppedObservedSamples": 0,
-                "actualCycleTimingAvailable": true,
-                "freshnessAvailable": false,
-                "reason": "Complete recording."
-            }
-        },
-        "evidence": { "observation": "Observed", "model": "Not evaluated" },
-        "conclusion": "Recorded for identification."
-    })
-    .to_string()
-}
-
-#[test]
-fn importing_a_recording_selects_it_for_the_next_check_and_names_it() {
-    let project = Project::new("import");
-    let (studio, updates) = engine();
-    let text = recording_text(&project, "imported", 50.0, 60.0);
-    let imported = answer(
-        &studio,
-        &project,
-        &json!({"action": "manualImport", "json": text}),
-    );
-    assert_eq!(imported["phase"], json!("recording-selected"), "{imported}");
-    assert_eq!(
-        imported["primaryAction"],
-        json!("checkRecording"),
-        "{imported}"
-    );
-    assert_eq!(
-        imported["message"],
-        json!("Recording opened. Check it before fitting a model."),
-        "{imported}"
-    );
-    let recording_id = imported["recordingId"]
-        .as_str()
-        .expect("the recording the next check reads")
-        .to_string();
-    assert!(recording_id.starts_with("rec-"), "{imported}");
-    assert!(
-        project.study().recordings.contains(&recording_id),
-        "the study lists the recording"
-    );
-    let checked = answer(
-        &studio,
-        &project,
-        &json!({"action": "manualQualify", "recordingId": recording_id, "form": first_order_form()}),
-    );
-    assert_eq!(checked["phase"], json!("qualified"), "{checked}");
-    assert_eq!(checked["recordingId"], json!(recording_id), "{checked}");
-    let restored = finished(
-        &studio,
-        &updates,
-        &project,
-        &json!({"action": "manualRestore"}),
-    );
-    assert_eq!(restored["recordingId"], json!(recording_id), "{restored}");
-}
-
-#[test]
-fn a_validation_import_is_selected_for_the_validation_role_and_the_preview_names_no_recording_yet()
-{
-    let project = Project::new("validation-import");
-    let estimation = project.keep(step_run("estimation", 50.0, 60.0));
-    let (studio, updates) = engine();
-    answer(
-        &studio,
-        &project,
-        &json!({"action": "manualQualify", "recordingId": estimation, "form": first_order_form()}),
-    );
-    let preview = finished(&studio, &updates, &project, &json!({"action": "manualFit"}));
-    assert_eq!(preview["phase"], json!("validation_required"), "{preview}");
-    assert!(preview["recordingId"].is_null(), "{preview}");
-    let text = recording_text(&project, "validation", 40.0, 55.0);
-    let imported = answer(
-        &studio,
-        &project,
-        &json!({"action": "manualImport", "json": text}),
-    );
-    assert_eq!(imported["phase"], json!("recording-selected"), "{imported}");
-    assert_eq!(imported["nextFitRole"], json!("validation"), "{imported}");
-    assert_ne!(imported["recordingId"], json!(estimation), "{imported}");
-    assert!(imported["recordingId"].is_string(), "{imported}");
-}
-
-#[test]
-fn a_refused_import_answers_its_sentence_and_keeps_no_recording() {
-    let project = Project::new("refused-import");
-    let (studio, _updates) = engine();
-    let before = project.study().recordings.len();
-    let refused = answer(
-        &studio,
-        &project,
-        &json!({"action": "manualImport", "json": "not a recording"}),
-    );
-    assert!(
-        refused["failure"]["message"]
-            .as_str()
-            .is_some_and(|text| !text.is_empty()),
-        "{refused}"
-    );
-    assert_eq!(
-        project.study().recordings.len(),
-        before,
-        "the study keeps nothing"
-    );
-}
-
-#[test]
-fn a_held_step_or_exclusion_refusal_names_the_form_key_it_refuses() {
-    let project = Project::new("form-field");
-    let estimation = project.keep(step_run("estimation", 50.0, 60.0));
-    let (studio, _updates) = engine();
-    let mut held = first_order_form();
-    held["heldStep"] = json!(true);
-    held["model"] = json!("fopdt");
-    for key in IDENTIFICATION_FORM_KEYS {
-        held["values"][key] = json!("5");
-    }
-    held["values"]["onsetSamples"] = json!("2.5");
-    let refused = answer(
-        &studio,
-        &project,
-        &json!({"action": "manualQualify", "recordingId": estimation, "form": held}),
-    );
-    assert_eq!(
-        refused["failure"]["field"],
-        json!("onsetSamples"),
-        "{refused}"
-    );
-    assert_eq!(
-        refused["failure"]["message"],
-        json!("onsetSamples: Enter a whole number from 1 to 100."),
-        "{refused}"
-    );
-    let mut excluded = first_order_form();
-    excluded["excludedStart"] = json!("2");
-    excluded["excludedEnd"] = json!("1");
-    let refused = answer(
-        &studio,
-        &project,
-        &json!({"action": "manualQualify", "recordingId": estimation, "form": excluded}),
-    );
-    assert_eq!(
-        refused["failure"]["field"],
-        json!("excludedEnd"),
-        "{refused}"
-    );
-}
-
-#[test]
-fn a_project_test_while_the_manual_identification_awaits_its_recording_selects_it_and_keeps_no_model(
-) {
-    let project = Project::new("project-test");
-    let estimation = project.keep(step_run("estimation", 50.0, 60.0));
-    let (studio, updates) = engine();
-    answer(
-        &studio,
-        &project,
-        &json!({"action": "manualQualify", "recordingId": estimation, "form": first_order_form()}),
-    );
-    finished(&studio, &updates, &project, &json!({"action": "manualFit"}));
-    let test_recording = project.keep(step_run("project-test", 40.0, 55.0));
-    let work = LoopWork {
-        project_root: project.root.clone(),
-        storage_folder: project.root.join("storage"),
-        pending: Arc::new(PendingReleases::new()),
-        loop_definition: project.loop_definition(),
-    };
-    let kept = keep_project_test_recording(&work, &project.study(), &test_recording)
-        .expect("the project test's recording is kept for the check");
-    assert_eq!(kept["phase"], json!("recording-selected"), "{kept}");
-    assert_eq!(kept["recordingId"], json!(test_recording), "{kept}");
-    assert_eq!(kept["nextFitRole"], json!("validation"), "{kept}");
-    assert_eq!(kept["primaryAction"], json!("checkRecording"), "{kept}");
-    assert_eq!(kept["message"], json!(PROJECT_TEST_NOTE), "{kept}");
-    assert!(
-        project
-            .study()
-            .section::<IdentifySection>()
-            .expect("the study reads")
-            .is_none(),
-        "the project test's own model is not kept"
-    );
-    assert_eq!(
-        manual_section_json(&project).expect("the manual section")["phase"],
-        json!("selected")
-    );
-}
-
-#[test]
-fn the_project_test_is_the_automatic_or_declared_run_of_a_project_scripted_loop() {
-    let project = Project::new("project-loop");
-    fs::write(
-        project.root.join("control-loop.json"),
-        PROJECT_SCRIPTED_LOOP,
-    )
-    .expect("the lesson's loop file");
-    let scripted = loops::open(&project.root, RUNTIME_ID, "control-lesson-26")
-        .expect("the project-scripted loop opens");
-    // The page's project test asks for the Automatic method, which runs the project's scenario (C12); the declared one does too.
-    assert!(is_project_test(&scripted, AcquisitionMethod::Automatic));
-    assert!(is_project_test(&scripted, AcquisitionMethod::Configured));
-    assert!(!is_project_test(&scripted, AcquisitionMethod::MvStep));
-    let example = Project::new("example-loop");
-    assert!(!is_project_test(
-        &example.loop_definition(),
-        AcquisitionMethod::Automatic
-    ));
-    assert!(!is_project_test(
-        &example.loop_definition(),
-        AcquisitionMethod::Configured
-    ));
 }
 
 /// Runs the Recorded-data fit of two first-order recordings to the accepted stage of a fresh study.
@@ -831,5 +393,226 @@ fn the_manual_answers_name_the_study_stages_so_tune_is_available_only_after_acce
         stage_status(&accepted, "Tune"),
         json!("ready"),
         "{accepted}"
+    );
+}
+
+// Specification 35, B3.8; Identify page specification, "Identified model and plot": the review's presentation carries the engine's words
+// for the fitted model (its type, its key numbers and its equation's fraction), which the page shows and does not compose.
+#[test]
+fn the_fitted_model_is_shown_with_the_engines_words() {
+    use trust_control::identification::presentation::{
+        identified_equation_fraction, identified_model_key_numbers, identified_model_type_text,
+        IdentifiedModelPresentation,
+    };
+    let project = Project::new("words");
+    let estimation = project.keep(step_run("estimation", 50.0, 60.0));
+    let (studio, updates) = engine();
+    answer(
+        &studio,
+        &project,
+        &json!({"action": "manualQualify", "recordingId": estimation, "form": first_order_form()}),
+    );
+    let preview = finished(&studio, &updates, &project, &json!({"action": "manualFit"}));
+    let shown: IdentifiedModelPresentation =
+        serde_json::from_value(preview["presentation"].clone())
+            .unwrap_or_else(|error| panic!("the presentation reads: {error}: {preview}"));
+    assert_eq!(
+        shown.model_type,
+        Some(identified_model_type_text(&shown)),
+        "{preview}"
+    );
+    assert_eq!(
+        shown.key_numbers,
+        Some(identified_model_key_numbers(&shown)),
+        "{preview}"
+    );
+    assert_eq!(
+        shown.equation_fraction,
+        identified_equation_fraction(&shown),
+        "{preview}"
+    );
+    assert!(
+        shown.equation_fraction.is_some(),
+        "the fitted model has a gain: {preview}"
+    );
+    assert!(
+        shown
+            .key_numbers
+            .as_deref()
+            .is_some_and(|line| line.starts_with("Gain ")),
+        "{preview}"
+    );
+}
+
+// Specification 35, B3.3: the evidence rows of a fit are the engine's numbers. The answer states the largest absolute residual of the
+// fit's samples beside the fit's root mean square error, and the page computes neither; an answer that shows no fit states none.
+#[test]
+fn the_fit_answer_states_the_largest_absolute_residual_of_its_samples() {
+    let project = Project::new("residual");
+    let estimation = project.keep(step_run("estimation", 50.0, 60.0));
+    let (studio, updates) = engine();
+    let checked = answer(
+        &studio,
+        &project,
+        &json!({"action": "manualQualify", "recordingId": estimation, "form": first_order_form()}),
+    );
+    assert!(
+        checked.get("maximumAbsoluteResidual").is_none(),
+        "a check shows no fit: {checked}"
+    );
+    let preview = finished(&studio, &updates, &project, &json!({"action": "manualFit"}));
+    let residuals: Vec<f64> = preview["fit"]["points"]
+        .as_array()
+        .expect("the fit holds its samples")
+        .iter()
+        .map(|point| point["residual"].as_f64().expect("a residual").abs())
+        .collect();
+    assert!(!residuals.is_empty(), "{preview}");
+    let largest = residuals.iter().copied().fold(0.0, f64::max);
+    assert_eq!(
+        preview["maximumAbsoluteResidual"].as_f64(),
+        Some(largest),
+        "{preview}"
+    );
+}
+
+// Specification 35, B3.3: a study that keeps no manual section answers the default form, so the page shows the engine's numbers.
+#[test]
+fn restoring_a_study_without_a_manual_section_answers_the_default_form() {
+    use trust_control::identification::form_draft::default_form;
+    let project = Project::new("default-form");
+    let (studio, updates) = engine();
+    let restored = finished(
+        &studio,
+        &updates,
+        &project,
+        &json!({"action": "manualRestore"}),
+    );
+    assert_eq!(
+        restored["form"],
+        serde_json::to_value(default_form()).expect("the form encodes"),
+        "{restored}"
+    );
+    assert_eq!(
+        restored["primaryAction"],
+        json!("openRecording"),
+        "{restored}"
+    );
+}
+
+// Specification 35, B3.3: a reopened study answers the form it kept, so the held-step controls show the numbers the engineer typed
+// and not the default numbers.
+#[test]
+fn reopening_a_study_answers_the_form_it_kept_and_not_the_default_numbers() {
+    use trust_control::identification::form_draft::default_form;
+    let project = Project::new("kept-form");
+    let estimation = project.keep(step_run("estimation", 50.0, 60.0));
+    let (studio, _updates) = engine();
+    let mut typed = first_order_form();
+    typed["values"]["gainStep"] = json!("0.25");
+    answer(
+        &studio,
+        &project,
+        &json!({"action": "manualQualify", "recordingId": estimation, "form": typed}),
+    );
+
+    // A new engine process reads the study again.
+    let (reopened, updates) = engine();
+    let restored = finished(
+        &reopened,
+        &updates,
+        &project,
+        &json!({"action": "manualRestore"}),
+    );
+    assert_eq!(restored["form"], typed, "{restored}");
+    assert_ne!(
+        restored["form"],
+        serde_json::to_value(default_form()).expect("the form encodes"),
+        "{restored}"
+    );
+}
+
+/// A8.6, B3.3: the open answer carries the Recorded-data fit the study keeps, so the page asks for no replay. A study that keeps none
+/// carries the engine's start state with its default form; a study that keeps an accepted fit carries that stage, replayed from the
+/// kept recordings, equal to what the engine's `manualRestore` answers; and a reset answers the start state of the new study. Catches
+/// an open answer without the state (the page would have to decide when to replay), and a reset that leaves the page the old state.
+#[test]
+fn open_answer_carries_the_recorded_data_fit_state() {
+    use trust_control::identification::form_draft::default_form;
+    let project = Project::new("open-fit-state");
+    let (studio, updates) = engine();
+    let default = serde_json::to_value(default_form()).expect("the form encodes");
+    let fresh = opened(&studio, &project);
+    assert_eq!(
+        fresh["manualIdentification"]["primaryAction"],
+        json!("openRecording"),
+        "{fresh}"
+    );
+    assert_eq!(fresh["manualIdentification"]["form"], default, "{fresh}");
+
+    accept_first_order(&project, &studio, &updates);
+    // A new engine process reads the study again.
+    let (reopened_studio, reopened_updates) = engine();
+    let reopened = opened(&reopened_studio, &project);
+    let state = &reopened["manualIdentification"];
+    assert_eq!(state["phase"], json!("accepted"), "{reopened}");
+    assert_eq!(
+        state["primaryActionLabel"],
+        json!("Model ready"),
+        "{reopened}"
+    );
+    assert_eq!(
+        state["stageEvidence"]["hasModel"],
+        json!(true),
+        "{reopened}"
+    );
+    let restored = finished(
+        &reopened_studio,
+        &reopened_updates,
+        &project,
+        &json!({"action": "manualRestore"}),
+    );
+    assert_eq!(
+        *state, restored,
+        "the open answer is the restoration's answer"
+    );
+
+    let reset = answer(&reopened_studio, &project, &json!({"action": "reset"}));
+    let start = &reset["manualIdentification"];
+    assert_eq!(start["primaryAction"], json!("openRecording"), "{reset}");
+    assert_eq!(start["form"], default, "{reset}");
+    assert_eq!(start["hasRecording"], json!(false), "{reset}");
+}
+
+/// A8.6: a saved fit whose recording is gone cannot be replayed. The open answer still opens the loop, and carries the fit as a failed
+/// stage that says why and offers to open a recording, so the sentence is not lost. Catches an open that fails for it.
+#[test]
+fn an_open_answer_names_a_saved_fit_that_cannot_be_replayed_and_still_opens() {
+    let project = Project::new("open-fit-lost-recording");
+    let estimation = project.keep(step_run("estimation", 50.0, 60.0));
+    let (studio, _updates) = engine();
+    let checked = answer(
+        &studio,
+        &project,
+        &json!({"action": "manualQualify", "recordingId": estimation, "form": first_order_form()}),
+    );
+    assert_eq!(checked["phase"], json!("qualified"), "{checked}");
+    fs::remove_file(
+        storage::study_directory(&project.root, LOOP_ID)
+            .join("recordings")
+            .join(format!("{estimation}.json")),
+    )
+    .expect("the recording file is removed");
+    let (reopened_studio, _updates) = engine();
+    let reopened = opened(&reopened_studio, &project);
+    assert_eq!(reopened["kind"], json!("opened"), "{reopened}");
+    let state = &reopened["manualIdentification"];
+    assert_eq!(state["status"], json!("failed"), "{reopened}");
+    assert_eq!(state["primaryAction"], json!("openRecording"), "{reopened}");
+    assert!(
+        state["reason"]
+            .as_str()
+            .is_some_and(|reason| !reason.is_empty()),
+        "the answer says why: {reopened}"
     );
 }

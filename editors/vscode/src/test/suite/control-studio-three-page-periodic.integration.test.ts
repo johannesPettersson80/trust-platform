@@ -1,6 +1,5 @@
 import * as assert from "assert";
-import { evaluateRecordedRun } from "../../controlStudio/runValidation";
-import { recordingArchive } from "./control-studio-recording-flow.test";
+import { recordingArchive } from "./control-studio-recording-archive";
 import { withStudio } from "./control-studio-three-page.integration.test";
 import { pollValue } from "./plant-rendered-harness";
 
@@ -13,7 +12,7 @@ suite("Control Studio periodic analysis", () => {
       const recordingValue = JSON.parse(recordingArchive(loop, "periodic-import", 1));
       // The input is a sine about the middle of the loop's output range, so it stays strictly inside the limits: the engine refuses a
       // record on a limit (measured_frequency.rs). The output is twice the input's deviation plus 5, so the measured magnitude is 2.
-      // The engine reads the archived run, so the same samples go into it, with its evaluation recomputed; `rawSamples` gets them too.
+      // The engine reads the archived run, so the same samples go into it; `rawSamples` gets them too.
       const { outputMinimum, outputMaximum } = loop.limits, middle = (outputMinimum + outputMaximum) / 2, amplitude = 5;
       const sampleAt = (index: number) => {
         const input = middle + amplitude * Math.sin(index * 0.5);
@@ -29,8 +28,9 @@ suite("Control Studio periodic analysis", () => {
         const { input, output } = sampleAt(index);
         sample.values[inputSymbol].value = input; sample.values[outputSymbol].value = output;
       }
-      // The archive's own data-bounds requirement on the output, as `recordingArchive` declares it.
-      archived.evaluation = evaluateRecordedRun(archived.run, [{ id: "data-bounds", kind: "bounds", channel: outputSymbol, window: { start: 0, end: 20 }, minimum: -20, maximum: 20 }]);
+      // The archive's own data-bounds requirement on the output (-20 to 20, as `recordingArchive` declares it) still holds for this
+      // response, which stays between -5 and 15, so its verdict stands; the evaluation names the run it judged, which is this one.
+      archived.evaluation.run = structuredClone(archived.run);
       const recording = JSON.stringify(recordingValue);
       // The file is opened with the default method, so the engine keeps it as a recording of the study (`importRecording`, spec 35
       // §0.1a) and the measured response reads it there; a file opened with Recorded-data fit stays with that manual identification.

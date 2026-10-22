@@ -17,6 +17,11 @@ export interface GroupDecoupler {
    */
   inputChannelIds: string[];
   /**
+   * The names of the rows of `D`, in member order, as `input_name` of a member gives them. Tune names them; a candidate kept before
+   * holds none.
+   */
+  inputNames?: string[] | null;
+  /**
    * `D = K⁻¹·diag(K)`, by plant input (row) and member (column).
    */
   matrix: number[][];

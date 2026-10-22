@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::failure::{Cause, Failure, NextAction};
 use crate::identification::acquisition_settings::{
-    check_acquisition_settings, AcquisitionSettings,
+    check_acquisition_settings, unreadable_duration_failure, AcquisitionSettings,
 };
 use crate::loop_definition::LoopDefinition;
 use crate::messages::{TuneChoice, TuneMethod};
@@ -34,12 +34,14 @@ use crate::study::tune::{refused_as, TuneSection};
 use crate::study::validate::{stage_evidence as validate_stage_evidence, ValidateSection};
 use crate::study::{Study, StudySection};
 use crate::tuning::automatic_criteria::validate_criteria;
-use crate::tuning::requirements::TuningRequirements;
+use crate::tuning::requirements::{RequirementRefusal, TuningRequirements};
 use crate::tuning::settings_pins::ControllerSettingsPins;
 use crate::tuning::structure::Structure;
 use crate::validation::engineer_scenario_effects::requirements_failure;
 use crate::validation::engineer_verification_campaign::declared_scenarios;
-use crate::validation::scenario_contract::{valid_engineer_scenarios, EngineerScenario};
+use crate::validation::scenario_contract::{
+    latest_scenario_check, valid_engineer_scenarios, EngineerScenario,
+};
 use crate::validation::texts;
 
 /// The inputs a study records, kept under the key `inputs` (A8.1). Every input is optional: an absent one is not yet given,
@@ -147,25 +149,28 @@ impl StudySection for InputsSection {
     fn check(&self) -> Result<(), Failure> {
         if let Some(requirements) = &self.requirements {
             requirements
-                .validate()
-                .map_err(refused_as(Cause::Settings, NextAction::OpenRequirements))?;
+                .check()
+                .map_err(RequirementRefusal::into_failure)?;
             if let Some(criteria) = &requirements.automatic_criteria {
                 validate_criteria(criteria)
                     .map_err(refused_as(Cause::Settings, NextAction::OpenRequirements))?;
             }
         }
         if let Some(settings) = &self.acquisition {
-            // The settings are checked as their JSON is, so the refusal names the first rule of Identify they break (B3.2).
+            // A time that no duration reads is refused under its field; the other settings are checked as their JSON is, so the
+            // refusal names the first rule of Identify they break, and a refused duration or range names its field (B3.2).
+            if settings.duration_seconds.is_nan() {
+                return Err(unreadable_duration_failure());
+            }
             let value = serde_json::to_value(settings).unwrap_or_default();
-            check_acquisition_settings(&value)
-                .map_err(|sentence| Failure::new(&sentence, Cause::Settings, NextAction::None))?;
+            check_acquisition_settings(&value)?;
         }
         if self
             .scenarios
             .as_deref()
             .is_some_and(|scenarios| !valid_engineer_scenarios(scenarios))
         {
-            return Err(requirements_failure(&texts::scenarios_invalid()));
+            return Err(requirements_failure(&texts::scenarios_invalid()).with_field("scenarios"));
         }
         if let Some(selection) = &self.recording_selection {
             check_selection(selection)?;
@@ -270,6 +275,9 @@ pub struct HeldTest<'a> {
     pub scenarios: &'a [EngineerScenario],
 }
 
+/// The sentence the Validate page shows when a change left the validations not current (A8.4, B9.9).
+pub const INPUTS_CHANGED: &str = "Inputs changed. Tune and verify before applying.";
+
 /// What a change invalidates (A8.4): the validations, when the test the study holds before the change differs from the test it
 /// holds after it. A candidate stays with the model and the test it was designed to, and every other input waits for its own
 /// stage, so none of them is reported here.
@@ -278,15 +286,112 @@ pub struct HeldTest<'a> {
 pub struct Invalidation {
     /// Whether the study's validations are no longer current for the test it holds (A8.4).
     pub validation: bool,
+    /// The sentence the page shows on the Validate page when the validations are no longer current, as the engine words it
+    /// ([`INPUTS_CHANGED`]); absent when the change invalidated nothing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<&'static str>,
+}
+
+impl Invalidation {
+    /// What a change invalidates when it leaves the validations not current (`validation`) or current: the former states its sentence.
+    #[must_use]
+    pub fn of(validation: bool) -> Self {
+        Self {
+            validation,
+            reason: validation.then_some(INPUTS_CHANGED),
+        }
+    }
 }
 
 /// What a change from the test `before` to the test `after` invalidates (A8.4): the validations, when the requirements or the
 /// declared scenarios are not the same. Nothing changes when both are equal. A changed limit or method invalidates nothing here.
 #[must_use]
 pub fn invalidation(before: &HeldTest<'_>, after: &HeldTest<'_>) -> Invalidation {
-    Invalidation {
-        validation: before != after,
+    Invalidation::of(before != after)
+}
+
+/// The stage evidence after a change (A8.4): a validation the change invalidated is no longer current, so the evidence names no result.
+/// The stages follow it, and the page hides the table of that result. The study keeps the result as history.
+#[must_use]
+pub fn evidence_after_invalidation(
+    mut evidence: StageEvidence,
+    invalidated: Invalidation,
+) -> StageEvidence {
+    if invalidated.validation {
+        evidence.validation_has_result = false;
+        evidence.validation_inconclusive = false;
+        evidence.validation_passed = false;
     }
+    evidence
+}
+
+/// The refusal of a declared check that ends after the validation duration (B4.3, B9.9): a change that gives the requirements or the
+/// scenarios must leave every check inside the validation, so the latest check may not end after the duration it runs in. The refusal
+/// names the duration it needs, under the duration field. A scenario event written after the duration is refused the same way, under
+/// the scenarios' field (the page's event-time limit, B4.3). Stored sections are not checked again here, so a study kept before this rule
+/// still reads.
+///
+/// # Errors
+/// Returns the settings failure of the first scenario event after the duration, under `scenarios`, or of the latest check that ends after
+/// the duration, under `durationSeconds`.
+pub fn check_within_duration(
+    requirements: &TuningRequirements,
+    scenarios: &[EngineerScenario],
+) -> Result<(), Failure> {
+    let duration = requirements.duration_seconds;
+    if let Some(scenario) = scenarios.iter().find(|scenario| {
+        scenario
+            .events
+            .iter()
+            .any(|event| event.at_ms > duration * 1000.0 + 1e-9)
+    }) {
+        let sentence = format!(
+            "Scenario {} writes an event after the validation duration of {duration} s.",
+            scenario.id
+        );
+        return Err(requirements_failure(&sentence).with_field("scenarios"));
+    }
+    let Some(latest) =
+        latest_scenario_check(scenarios).filter(|latest| latest.end_seconds > duration + 1e-9)
+    else {
+        return Ok(());
+    };
+    let sentence = texts::scenario_check_after_run(
+        &latest.scenario,
+        &latest.requirement,
+        latest.end_seconds,
+        duration,
+    );
+    Err(requirements_failure(&sentence).with_field("durationSeconds"))
+}
+
+/// The refusal of a scenario event that is not written on a task sample (B4.3, B9.9): Validate writes an event at a sample of the loop's
+/// task, so an event time is a whole number of the task's periods (`engineer_verification_campaign` refuses the same event when the
+/// campaign is built). A change of the scenarios is checked here as it is made, under the scenarios' field. A task period that is not a
+/// whole number of milliseconds is refused by the campaign with its own sentence, so no event is checked against it here, and stored
+/// sections are not checked again, so a study kept before this rule still reads.
+///
+/// # Errors
+/// Returns the settings failure of the first scenario event whose time is not a multiple of the task period, under `scenarios`.
+pub fn check_events_on_grid(
+    scenarios: &[EngineerScenario],
+    task_period_ms: f64,
+) -> Result<(), Failure> {
+    if task_period_ms < 1.0 || task_period_ms.fract() != 0.0 {
+        return Ok(());
+    }
+    for scenario in scenarios {
+        if let Some(event) = scenario
+            .events
+            .iter()
+            .find(|event| event.at_ms % task_period_ms != 0.0)
+        {
+            let sentence =
+                texts::scenario_event_between_samples(&scenario.id, event.at_ms, task_period_ms);
+            return Err(requirements_failure(&sentence).with_field("scenarios"));
+        }
+    }
+    Ok(())
 }
 
 /// The evidence that sets the stages of a study (A8.4, A8.6, B3.7): Identify and Tune read the study's current model, and a Validate

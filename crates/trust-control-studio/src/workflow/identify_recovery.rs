@@ -36,18 +36,20 @@ use trust_control::identification::campaign::journal::{
 };
 use trust_control::identification::campaign::{campaign_maximum_ms, campaign_recording_ms};
 use trust_control::identification::connected_run::{
-    campaign_method, fit_window, hold_end, input_steps, is_provisional, not_journaled,
-    stopped_hold_outcome, HoldEnd,
+    campaign_method, hold_end, input_steps, is_provisional, not_journaled, stopped_hold_outcome,
+    HoldEnd,
 };
 use trust_control::identification::independent_validation::RunEvaluation;
 use trust_control::identification::policy::identification_method;
+use trust_control::identification::project_baseline::campaign_fit_window;
 use trust_control::identification::reconcile::ExperimentIdentity;
 use trust_control::identification::texts::apply_cancel_refused;
 use trust_control::loop_definition::LoopDefinition;
+use trust_control::recording::context::ExperimentContext;
 use trust_control::recording::EvidenceSource;
 use trust_control::runtime::RuntimeConnection;
 
-use super::identify::cancel::{cancel_journaled, end_experiment};
+use super::identify::cancel::{cancel_journaled, end_experiment, note_ended_experiment};
 use super::identify::run::{
     campaign_record, clear_entries, fit_records, retain_recording, step_remaining, RunPorts,
     Schedule,
@@ -338,7 +340,14 @@ where
     K: RecordingRetention,
     C: CampaignClock,
 {
-    end_experiment(runtime, clock, &recovery.experiment_id)?;
+    let ended = end_experiment(runtime, clock, &recovery.experiment_id)?;
+    note_ended_experiment(
+        runtime,
+        recovery.plan.as_ref(),
+        ended.as_ref(),
+        loop_definition,
+        retention,
+    );
     if let Some(owner) = &recovery.recording_owner {
         let mut recording = runtime.recover_recording(loop_definition, owner)?;
         retain_recording(&mut recording, retention)?;
@@ -372,6 +381,10 @@ where
     let loop_definition = request.loop_definition;
     let campaign = journaled_campaign(&journal.lock()).ok_or_else(no_running_experiment)?;
     let (plan, baseline) = campaign.resumable_step(&loop_definition.revision)?;
+    // The resumed campaign ran on the original simulator, so the plant it ran against is noted for the recording it keeps (B10.2).
+    if let Some(plant) = runtime.plant_context(loop_definition) {
+        retention.note_plant(plant);
+    }
     let step_seconds = campaign.step_start_seconds.unwrap_or(0.0);
     // A journal from before the baseline's end was written reads the step's start as that end, as the first step starts there.
     let baseline_end_seconds = campaign.baseline_end_seconds.unwrap_or(step_seconds);
@@ -394,6 +407,10 @@ where
             );
             // A hold that fails leaves the experiment to the runtime: nothing is aborted, kept or cleared (A8.6).
             let state = held.hold(plan, baseline, step_seconds)?;
+            // The journaled step ended, however it ended: its context is noted for the recording that is kept (B10.2, B10.3).
+            if let Some(context) = ExperimentContext::of(plan, &state) {
+                retention.note_experiment(context);
+            }
             match hold_end(&state) {
                 HoldEnd::Unrestored(failure) => return Err(failure),
                 HoldEnd::Stopped(failure) => {
@@ -433,7 +450,7 @@ where
         Ok(plans) => journaled.extend(plans.iter().map(|stepped| stepped.id.clone())),
         Err(_) => journaled.push(plan.id.clone()),
     }
-    let window = fit_window(baseline_end_seconds, baseline.window_seconds);
+    let window = campaign_fit_window(loop_definition, baseline_end_seconds, baseline);
     let record = ended.and_then(|plans| {
         let run = retain_recording(&mut recording, retention)?;
         kept = true;

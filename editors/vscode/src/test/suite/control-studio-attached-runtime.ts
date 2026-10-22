@@ -5,9 +5,7 @@ import { execFile, spawn, type ChildProcess } from "child_process";
 import { runtimeLifecycleService } from "../../runtimeLifecycle";
 import { sendRuntimeControlRequest } from "../../runtimeControlClient";
 import { setSelectedRuntimeId } from "../../selectedRuntime";
-import type { ControlLoopDefinition } from "../../controlStudio/loopDefinition";
-import { loopInspectionBindings } from "../../controlStudio/loopInspectionBindings";
-import { inspectSymbolicSignals, type SymbolicInspectionSample } from "../../controlStudio/symbolicInspection";
+import type { LoopDefinition } from "../../controlStudio/generated/OpenResult";
 import { sleep } from "./plant-rendered-harness";
 
 /** A prepared project copy listens on this socket inside its own folder, so runs never share an endpoint. */
@@ -109,14 +107,82 @@ export async function startAttachedRuntime(projectRoot: string, options: { timeS
   };
 }
 
-/** One coherent sample of the loop's bindings from the runtime (control.signals.inspect), or undefined while it has none. */
-export async function inspectAttachedLoop(endpoint: string, loop: ControlLoopDefinition): Promise<SymbolicInspectionSample | undefined> {
-  const result = await inspectSymbolicSignals(
-    (operation, params) => sendRuntimeControlRequest(endpoint, undefined, operation, params, { timeoutMs: 5000 }),
-    { loopRevision: loop.revision },
-    loopInspectionBindings(loop),
-  );
-  return result.kind === "available" ? result.sample : undefined;
+/** A signal binding of control.signals.inspect (crates/trust-control/src/signals.rs SignalBinding): one selector, an address or a symbol. */
+interface InspectionBinding {
+  readonly id: string;
+  readonly iec_type: string;
+  readonly address?: string;
+  readonly symbol?: string;
+}
+
+/** The parts of the answer to control.signals.inspect that the journey reads (signals.rs InspectionAnswer). */
+interface InspectionAnswer {
+  readonly loop_revision: string;
+  readonly available: boolean;
+  readonly scan?: number;
+  readonly runtime_time_ns?: number;
+  readonly values?: readonly (number | null)[];
+}
+
+/** One coherent scan of the journey's bindings: each value by its binding id, and the scan it was taken in. */
+export interface AttachedSample {
+  readonly values: Readonly<Record<string, number | null>>;
+  readonly scan: number;
+  readonly runtimeTimeNs: number;
+}
+
+/**
+ * The bindings the journey reads, named from the loop's own JSON: the setpoint, the measurement and the output by their symbols
+ * (signals), and the mode channel as controllerMode (controller.modeSignal). The journey reads no other channel, so this is plain
+ * naming for the runtime; the engine decides what the loop's signals are.
+ */
+function journeyBindings(loop: LoopDefinition): InspectionBinding[] {
+  const bindings: InspectionBinding[] = [];
+  if (loop.signals.setpoint) bindings.push(bindingOf("setpoint", loop.signals.setpoint));
+  bindings.push(bindingOf("processVariable", loop.signals.processVariable), bindingOf("manipulatedVariable", loop.signals.manipulatedVariable));
+  const mode = loop.controller.modeSignal;
+  if (mode) {
+    bindings.push(/^%/.test(mode)
+      ? { id: "controllerMode", iec_type: "BOOL", address: mode.toUpperCase() }
+      : { id: "controllerMode", iec_type: "BOOL", symbol: mode });
+  }
+  return bindings;
+}
+
+function bindingOf(id: string, signal: { readonly symbol: string; readonly address?: string | null; readonly iecType: string }): InspectionBinding {
+  return { id, iec_type: signal.iecType, ...(signal.address ? { address: signal.address } : { symbol: signal.symbol }) };
+}
+
+/**
+ * One coherent sample of the journey's bindings from the runtime (control.signals.inspect), or undefined while the runtime holds none.
+ * The request names the loop's revision and the answer must name it too; the values come back in the order of the bindings.
+ */
+export async function inspectAttachedLoop(endpoint: string, loop: LoopDefinition): Promise<AttachedSample | undefined> {
+  const bindings = journeyBindings(loop);
+  const answer = await sendRuntimeControlRequest<InspectionAnswer>(endpoint, undefined, "control.signals.inspect",
+    { loop_revision: loop.revision, bindings }, { timeoutMs: 5000 });
+  if (answer.loop_revision !== loop.revision) {
+    throw new Error(`control.signals.inspect answered for revision ${answer.loop_revision}, not ${loop.revision}`);
+  }
+  if (answer.available === false) return undefined;
+  const values = answer.values;
+  if (answer.available !== true || !values || values.length !== bindings.length
+    || typeof answer.scan !== "number" || typeof answer.runtime_time_ns !== "number") {
+    throw new Error(`Invalid control.signals.inspect answer: ${JSON.stringify(answer)}`);
+  }
+  return {
+    values: Object.fromEntries(bindings.map((binding, index): [string, number | null] => [binding.id, values[index] ?? null])),
+    scan: answer.scan,
+    runtimeTimeNs: answer.runtime_time_ns,
+  };
+}
+
+/** The values of the loop's ST parameters as the runtime holds them (control.parameters.status of the loop's parameter binding). */
+export async function parameterValues(endpoint: string, loop: LoopDefinition): Promise<Record<string, number>> {
+  if (!loop.parameterBinding) throw new Error("The loop declares no ST parameter binding, so its parameter values cannot be read.");
+  const status = await sendRuntimeControlRequest<{ values: Record<string, number> }>(endpoint, undefined, "control.parameters.status",
+    { binding: loop.parameterBinding }, { timeoutMs: 5000 });
+  return status.values;
 }
 
 /** The last lines of a runtime log, for a failure message. */

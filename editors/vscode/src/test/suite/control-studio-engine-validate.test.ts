@@ -39,7 +39,7 @@ function exampleFolder(): string {
   return path.join(repoRoot, "examples/control/06-pid-tuning-methods/30-model-based-pi-tuning");
 }
 
-/** A loop with a declared analysis: the engine parks it, so it stays on the TypeScript route until V7. */
+/** A loop with a declared analysis: the engine refuses it (`controller-capability`), so the page shows the refusal. */
 const PARKED_LOOP_FILE = path.resolve(__dirname, "../../../src/test/fixtures/control-studio-engineer/control-loop.json");
 
 const SCOPE: LoopMessageScope = {
@@ -273,18 +273,28 @@ suite("Control Studio engine Validate route", () => {
       assert.doesNotMatch(JSON.stringify(posted), /"(?:token|authToken|controlAuthToken)":/, "no control token reaches the page");
     });
 
-    test("keeps the Validate of a parked loop out of the engine", async function () {
+    test("answers the Validate of a refused loop with the engine's refusal, out of the engine", async function () {
       this.timeout(30_000);
       const { loop, scope } = projectLoop(PARKED_LOOP_FILE, path.dirname(PARKED_LOOP_FILE));
       const current = startRoute();
       assert.strictEqual(await current.open(loop, scope), false);
-      assert.strictEqual(await current.handle(flowStart("verify", scope), scope), false);
-      assert.deepStrictEqual(posted.map((message) => message.kind), ["control-studio.analysis.tools"], "a parked loop answers its analysis tools only");
-      assert.ok(posted.every((message) => !("failure" in message)), "a parked refusal is not a failure the page shows");
+      const refusal = posted.find((message) => message.kind === "control-studio.engine.failure");
+      assert.ok(refusal, "the page is shown the engine's refusal of the open");
+      posted = [];
+      assert.strictEqual(await current.handle(flowStart("verify", scope), scope), true, "the refused loop's Validate is answered, not started");
+      assert.deepStrictEqual(posted.map((message) => message.kind), ["control-studio.engine.failure"], "the page shows the refusal and nothing else");
+      assert.deepStrictEqual(posted[0].failure, refusal?.failure, "the refusal is the engine's sentence and next action");
     });
   });
 
   suite("the page's Validate receiver on a DOM fixture", () => {
+    // The rows the engine writes for the requirements of `engineAnswer` (ValidateRow, validate_answer.rs). The page writes these words
+    // as they come; the engine's Rust tests (table_rows_tests.rs) pin how they are made.
+    const MODEL_CHECK_ROW = { title: "Model agreement", symbol: "", source: "", measured: "4 %", limit: "≤ 15 %", verdict: "Pass", verdictText: "Pass", verdictClass: "pass", requirement: "model-check" };
+    const CANDIDATE_SETTLING_ROW = { title: "Candidate · Maximum settling time · Measurement (m)", symbol: "Main.PV", source: "model model-4", measured: "20 s", limit: "≤ 15 s", verdict: "Fail", verdictText: "Fail · The response settles at 20 s, after the 15 s limit.", verdictClass: "fail", requirement: "response-deadline" };
+    const CURRENT_SETTLING_ROW = { title: "Current settings · Maximum settling time · Measurement (m)", symbol: "Main.PV", source: "model model-4", measured: "4 s", limit: "≤ 15 s", verdict: "Pass", verdictText: "Pass", verdictClass: "pass", requirement: "response-deadline" };
+    const OVERALL_FAIL_ROW = { title: "Candidate overall", symbol: "", source: "", measured: "—", limit: "—", verdict: "Fail", verdictText: "Fail", verdictClass: "fail", requirement: "overall" };
+    const OVERALL_PASS_ROW = { ...OVERALL_FAIL_ROW, verdict: "Pass", verdictText: "Pass", verdictClass: "pass" };
     /** The page's requirement table, as the Validate page's template holds it. */
     function validatePage(): { root: HTMLElement; table: HTMLTableElement; view: Window } {
       const { JSDOM } = require("jsdom");
@@ -349,6 +359,8 @@ suite("Control Studio engine Validate route", () => {
         applyAvailable: false,
         failure: { cause: "settings", message: "The response settles at 20 s, after the 15 s limit.", nextAction: "tune", nextActionLabel: "Tune controller" },
         stages: [],
+        // The engine's table: the model check, the failing candidate run, the passing current run, then the overall row.
+        table: [MODEL_CHECK_ROW, CANDIDATE_SETTLING_ROW, CURRENT_SETTLING_ROW, OVERALL_FAIL_ROW],
         ...overrides,
       };
       // The engine's evidence for the answer: the model and the candidate it validated, passed exactly when Apply is available (B9.4).
@@ -396,12 +408,17 @@ suite("Control Studio engine Validate route", () => {
       }], "the page's stage state holds the refusal with its next action, and Apply stays unavailable");
     });
 
-    test("names each scenario by its label when the campaign has several", () => {
+    test("shows each scenario's rows under the engine's names, in the engine's order, when the campaign has several", () => {
       const { root, table } = validatePage();
-      const answer = engineAnswer();
-      const [target] = answer.scenarios as Array<Record<string, unknown>>;
-      answer.scenarios = [target, { ...target, id: "cold-start", label: "Cold start" }];
-      receiveOf()(root, answer, { select: () => undefined, receive: () => undefined });
+      const scenarioRows = [
+        MODEL_CHECK_ROW,
+        { ...CANDIDATE_SETTLING_ROW, title: "Target response · Candidate · Maximum settling time · Measurement (m)" },
+        { ...CANDIDATE_SETTLING_ROW, title: "Cold start · Candidate · Maximum settling time · Measurement (m)" },
+        { ...CURRENT_SETTLING_ROW, title: "Target response · Current settings · Maximum settling time · Measurement (m)" },
+        { ...CURRENT_SETTLING_ROW, title: "Cold start · Current settings · Maximum settling time · Measurement (m)" },
+        OVERALL_FAIL_ROW,
+      ];
+      receiveOf()(root, engineAnswer({ table: scenarioRows }), { select: () => undefined, receive: () => undefined });
       const rows = Array.from(table.tBodies[0].rows);
       assert.strictEqual(rows.length, 6, "the model check, two runs in each of two scenarios, and the overall result");
       // Failures come first (B9.9), each group in the engine's order: both candidates fail, both current settings pass.
@@ -415,9 +432,12 @@ suite("Control Studio engine Validate route", () => {
       const { root, table } = validatePage();
       const received: Array<{ stage: string; payload: Record<string, unknown> }> = [];
       const ports = { select: () => undefined, receive: (stage: string, payload: Record<string, unknown>) => void received.push({ stage, payload }) };
-      const passed = engineAnswer({ status: "Pass", applyAvailable: true, failure: undefined });
-      const scenarios = passed.scenarios as Array<{ candidate: { requirements: Array<Record<string, unknown>> } }>;
-      scenarios[0].candidate.requirements[0].status = "Pass";
+      const passed = engineAnswer({ status: "Pass", applyAvailable: true, failure: undefined, table: [
+        MODEL_CHECK_ROW,
+        CURRENT_SETTLING_ROW,
+        { ...CANDIDATE_SETTLING_ROW, measured: "4 s", verdict: "Pass", verdictText: "Pass", verdictClass: "pass" },
+        OVERALL_PASS_ROW,
+      ] });
       receiveOf()(root, passed, ports);
       assert.strictEqual(table.tBodies[0].rows[2].cells[3].textContent, "Pass");
       assert.deepStrictEqual(received, [{
@@ -438,41 +458,16 @@ suite("Control Studio engine Validate route", () => {
 
     test("marks a limit that Automatic generated, and shows an operating range by its measured range and its declared bounds", () => {
       const { root, table } = validatePage();
-      const answer = engineAnswer();
-      const scenarios = answer.scenarios as Array<{ candidate: { requirements: Array<Record<string, unknown>> } }>;
-      scenarios[0].candidate.requirements[0].automatic = true;
-      scenarios[0].candidate.requirements.push(
-        {
-          id: "process-bounds",
-          label: "Operating range",
-          channel: { role: "Measurement", unit: "m", symbol: "Main.PV" },
-          limitSide: "atMost",
-          status: "Pass",
-          value: 0,
-          limit: 0,
-          unit: "m",
-          source: "model model-4",
-          reason: "Every value stays within the bounds.",
-          automatic: false,
-          measuredRange: { minimum: 20, maximum: 30 },
-          limitRange: { minimum: 0, maximum: 100 },
-        },
-        {
-          id: "fixed-parameter:Main.Kp",
-          label: "Parameter unchanged",
-          channel: { role: "Kp", unit: "V/m", symbol: "Main.Kp" },
-          limitSide: "atMost",
-          status: "Pass",
-          value: 0,
-          limit: 0,
-          unit: "V/m",
-          source: "model model-4",
-          reason: "The parameter kept its value.",
-          automatic: false,
-          measuredRange: { minimum: 2.5, maximum: 2.5 },
-          limitRange: { minimum: 2.5, maximum: 2.5 },
-        }
-      );
+      // The engine's rows for a generated limit (Automatic), an operating-range check by its measured range and declared bounds, and a
+      // single declared value (ValidateRow, validate_answer.rs).
+      const answer = engineAnswer({ table: [
+        MODEL_CHECK_ROW,
+        { ...CANDIDATE_SETTLING_ROW, title: "Candidate · Maximum settling time · Automatic · Measurement (m)" },
+        CURRENT_SETTLING_ROW,
+        { title: "Candidate · Operating range · Measurement (m)", symbol: "Main.PV", source: "model model-4", measured: "20–30 m", limit: "0–100 m", verdict: "Pass", verdictText: "Pass", verdictClass: "pass", requirement: "process-bounds" },
+        { title: "Candidate · Parameter unchanged · Kp (V/m)", symbol: "Main.Kp", source: "model model-4", measured: "2.5 V/m", limit: "= 2.5 V/m", verdict: "Pass", verdictText: "Pass", verdictClass: "pass", requirement: "fixed-parameter:Main.Kp" },
+        OVERALL_FAIL_ROW,
+      ] });
       receiveOf()(root, answer, { select: () => undefined, receive: () => undefined });
       const rows = Array.from(table.tBodies[0].rows);
       // The candidate's failed row comes first (B9.9), then the current settings' passing row and the candidate's other rows.
@@ -536,7 +531,7 @@ suite("Control Studio engine Validate route", () => {
       const { root, table } = validatePage();
       const received: Array<{ stage: string; payload: Record<string, unknown> }> = [];
       const ports = { select: () => undefined, receive: (stage: string, payload: Record<string, unknown>) => void received.push({ stage, payload }) };
-      validateReceiver.opened?.(root, { kind: "opened", validation: engineAnswer({ status: "Pass", applyAvailable: true, failure: undefined, scenarios: [] }) }, ports);
+      validateReceiver.opened?.(root, { kind: "opened", validation: engineAnswer({ status: "Pass", applyAvailable: true, failure: undefined, scenarios: [], table: [MODEL_CHECK_ROW] }) }, ports);
       assert.deepStrictEqual(received, [{
         stage: "engineer",
         payload: { status: "verified", stageEvidence: { hasModel: true, hasCandidate: true, validationHasResult: true, validationPassed: true } },
@@ -550,6 +545,36 @@ suite("Control Studio engine Validate route", () => {
       validateReceiver.opened?.(root, { kind: "opened" }, { select: () => undefined, receive: (stage, payload) => void received.push({ stage, payload }) });
       assert.strictEqual(table.hidden, true);
       assert.deepStrictEqual(received, []);
+    });
+
+    test("a stage change that leaves the validation no longer current hides its rows, and a reset drops the plant reason too", () => {
+      const { root, table, view } = validatePage();
+      const ports = { select: () => undefined, receive: () => undefined };
+      const reason = "The target-response run started outside the settling band, so every case ran on the model.";
+      const CustomEventOf = (view as unknown as { CustomEvent: typeof CustomEvent }).CustomEvent;
+      const stageChange = (detail: Record<string, unknown>) => view.dispatchEvent(new CustomEventOf("trust-control-studio-engineer", { detail }));
+      receiveOf()(root, engineAnswer({ plantReason: reason }), ports);
+      assert.strictEqual(table.hidden, false);
+      // The engine's stage evidence says whether the validation is still current; the status alone decides nothing.
+      stageChange({ status: "edited", reason: "Inputs changed. Tune and verify before applying.", stageEvidence: { validationHasResult: true } });
+      assert.strictEqual(table.hidden, false, "a change that leaves the validation current keeps the table, whatever its status");
+      stageChange({ status: "edited", reason: "Inputs changed. Tune and verify before applying.", stageEvidence: { validationHasResult: false } });
+      assert.strictEqual(table.hidden, true, "a changed input hides the table");
+      assert.strictEqual(table.tBodies[0].rows.length, 0, "and drops its rows");
+      receiveOf()(root, engineAnswer({ plantReason: reason }), ports);
+      stageChange({ status: "candidate", family: "PI", values: {}, stageEvidence: { validationHasResult: false } });
+      assert.strictEqual(table.hidden, true, "a new candidate hides the table");
+      assert.strictEqual(table.tBodies[0].rows.length, 0);
+      receiveOf()(root, engineAnswer({ plantReason: reason }), ports);
+      stageChange({ status: "reset", liveIdentification: true });
+      assert.strictEqual(table.hidden, true, "a reset hides the table");
+      assert.strictEqual(table.tBodies[0].rows.length, 0);
+      assert.strictEqual(root.querySelector("[data-studio-plant-reason]"), null, "and drops the plant reason");
+      receiveOf()(root, engineAnswer(), ports);
+      assert.strictEqual(table.hidden, false, "a later result shows the table again");
+      stageChange({ status: "running", reason: "Validating." });
+      stageChange({ liveIdentification: true });
+      assert.strictEqual(table.hidden, false, "a stage change that leaves the validation current keeps the table");
     });
 
     test("a plot with no current run has the candidate's series alone", () => {

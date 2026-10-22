@@ -70,3 +70,33 @@ fn a_delay_a_negative_gain_and_an_empty_list_are_refused() {
     );
     assert_eq!(root_locus(&plain, &[]), Err(ClassicalError::InvalidInput));
 }
+
+#[test]
+fn the_poles_of_a_sampled_loop_at_each_gain_are_the_roots_of_its_polynomial_in_z() {
+    // Ported from control-studio-numerics.test.ts, "qualifies four discretizations and z-plane root-locus stability" (N7.5): the sampled
+    // plant 1/(z² − 0.5z) at the gains 0 and 0.5. The solver does not know the domain: the roots of z² − 0.5z + k are 0 and 0.5 at
+    // k = 0 and 0.25 ± √0.4375·j at k = 0.5, whose modulus √0.5 is inside the unit circle.
+    let transfer = Transfer {
+        numerator: vec![1.0],
+        denominator: vec![1.0, -0.5, 0.0],
+        delay_seconds: 0.0,
+    };
+    let branches = root_locus(&transfer, &[0.0, 0.5]).expect("a root locus");
+    let open_loop = sorted_real_parts(&branches[0].poles);
+    assert!(
+        open_loop.len() == 2 && open_loop[0].abs() <= 1e-10 && (open_loop[1] - 0.5).abs() <= 1e-10,
+        "{open_loop:?}"
+    );
+    assert_eq!(branches[1].poles.len(), 2);
+    for pole in &branches[1].poles {
+        assert!((pole.real - 0.25).abs() <= 1e-10, "{pole:?}");
+        assert!(
+            (pole.imaginary.abs() - 0.4375_f64.sqrt()).abs() <= 1e-9,
+            "{pole:?}"
+        );
+        assert!(
+            pole.real.hypot(pole.imaginary) < 1.0,
+            "inside the unit circle: {pole:?}"
+        );
+    }
+}

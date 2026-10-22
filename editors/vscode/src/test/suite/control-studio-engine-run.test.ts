@@ -108,9 +108,12 @@ function stageFixture(): any {
   return dom.window.document.querySelector("main");
 }
 
-/** The three-page operation's fixture: the message area of each page and the action buttons. */
+/** The three-page operation's fixture: the stage tabs, which keep the engine's stage answer, the message area of each page and the action buttons. */
 function operationFixture(): any {
   const dom = new JSDOM(`<main>
+    <button data-engineer-stage-tab="model"></button>
+    <button data-engineer-stage-tab="tune"></button>
+    <button data-engineer-stage-tab="verify"></button>
     <div data-studio-message="model"></div>
     <div data-studio-message="tune" hidden></div>
     <div data-studio-message="verify" hidden></div>
@@ -236,9 +239,9 @@ suite("Control Studio engine run route", () => {
       method: "run",
       result: {
         stages: [
-          { stage: "Identify", status: "complete", label: "Complete" },
-          { stage: "Tune", status: "ready", label: "Ready" },
-          { stage: "Validate", status: "needs-data", label: "Needs data" },
+          { stage: "Identify", status: "complete", label: "Complete", available: true },
+          { stage: "Tune", status: "ready", label: "Ready", available: true },
+          { stage: "Validate", status: "needs-data", label: "Needs data", available: false },
         ],
         identification: { modelType: "first-order", equation: "G(s) = 2 / (10 s + 1)", keyNumbers: "gain 2", provisional: false },
         stageEvidence: { hasModel: true, hasCandidate: false, validationPassed: false },
@@ -247,6 +250,8 @@ suite("Control Studio engine run route", () => {
     const modelTab = root.querySelector('[data-engineer-stage-tab="model"]');
     assert.strictEqual(modelTab.dataset.status, "complete");
     assert.strictEqual(modelTab.getAttribute("aria-label"), "Identify, Complete");
+    assert.deepStrictEqual(["model", "tune", "verify"].map(id => root.querySelector(`[data-engineer-stage-tab="${id}"]`).dataset.available), ["true", "true", "false"],
+      "each tab keeps whether the engine says the stage's action can start");
     assert.strictEqual(root.querySelector("[data-studio-model-type]").textContent, "first-order");
     assert.strictEqual(root.querySelector("[data-studio-model-equation]").textContent, "G(s) = 2 / (10 s + 1)");
     assert.strictEqual(root.querySelector("[data-studio-model-result]").hasAttribute("hidden"), false);
@@ -256,19 +261,33 @@ suite("Control Studio engine run route", () => {
     }]);
   });
 
-  test("the page names the input the run waits for, and hands the flow to it as paused with that input", () => {
+  test("the page hands the flow to the input the run waits for as paused with that input, in the engine's sentence and under the engine's field", () => {
     const root = stageFixture();
     const received: Received = [];
-    runReceiver.result?.(root, { stages: [], needs: "limits", stageEvidence: NO_EVIDENCE }, portsOf(received));
+    // The run's answer carries the sentence that asks for the input and the field it concerns (RunResult.needsMessage, needsField, B8): the
+    // page writes none. Its own map of three sentences, one per code, is gone.
+    const asked = "Set the maximum experiment duration in Limits before identification.";
+    runReceiver.result?.(root, { stages: [], needs: "limits", needsMessage: asked, needsField: "durationSeconds", stageEvidence: NO_EVIDENCE }, portsOf(received));
     assert.deepStrictEqual(received, [{
       stage: "flow",
       payload: {
         status: "paused",
         state: "paused",
-        reason: "Set the experiment limits to identify the plant.",
+        reason: asked,
+        missingField: "durationSeconds",
         missing: "limits",
         stageEvidence: NO_EVIDENCE,
       },
+    }]);
+  });
+
+  test("a run that waits for an input the engine gave no sentence for is handed over with none: the page writes no sentence of its own", () => {
+    const root = stageFixture();
+    const received: Received = [];
+    runReceiver.result?.(root, { stages: [], needs: "manual-settings", stageEvidence: NO_EVIDENCE }, portsOf(received));
+    assert.deepStrictEqual(received, [{
+      stage: "flow",
+      payload: { status: "paused", state: "paused", missing: "manual-settings", stageEvidence: NO_EVIDENCE },
     }]);
   });
 
@@ -286,14 +305,28 @@ suite("Control Studio engine run route", () => {
     assert.deepStrictEqual(posted, ["control-studio.flow.start"]);
   });
 
-  test("after the run, the page offers Tune on the model it identified, and keeps Validate locked until a candidate exists", () => {
+  test("after the run, the page offers Tune when the engine's stages say it can start, and keeps Validate locked until they say so too", () => {
     const root = operationFixture();
     const operation = new ThreePageOperation(root, () => undefined, () => undefined, () => undefined);
     operation.start("find", {});
-    operation.receive("flow", { status: "completed", stageEvidence: { hasModel: true, hasCandidate: false, validationPassed: false } });
+    const ports: EngineHostPorts = { select: () => undefined, receive: (stage, payload) => operation.receive(stage, payload) };
+    const runResult = (stages: Array<Record<string, unknown>>): Record<string, unknown> => ({ kind: "control-studio.engine.result", method: "run", result: {
+      stages, stageEvidence: { hasModel: true, hasCandidate: false, validationPassed: false } } });
+    receiveEngineMessage(root, runResult([
+      { stage: "Identify", status: "complete", label: "Complete", available: true },
+      { stage: "Tune", status: "ready", label: "Ready", available: true },
+      { stage: "Validate", status: "needs-data", label: "Needs data", available: false },
+    ]), ports);
     assert.strictEqual(root.querySelector("[data-engineer-tune]").disabled, false);
     assert.strictEqual(root.querySelector("[data-engineer-verify]").disabled, true);
     assert.strictEqual(root.querySelector("[data-engineer-find]").textContent, "Identify plant");
+    // The page reads the engine's stage answer and not the evidence beside it: a stage answer that holds Tune back holds it back.
+    receiveEngineMessage(root, runResult([
+      { stage: "Identify", status: "complete", label: "Complete", available: true },
+      { stage: "Tune", status: "needs-data", label: "Needs data", available: false },
+      { stage: "Validate", status: "needs-data", label: "Needs data", available: false },
+    ]), ports);
+    assert.strictEqual(root.querySelector("[data-engineer-tune]").disabled, true);
   });
 
   test("the run's update names the stage it is in, and an update without a stage or an update that ends the run is left to the flow", () => {

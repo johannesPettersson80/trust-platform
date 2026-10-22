@@ -5,22 +5,25 @@
 
 /**
  * What `controlStudio/apply`, `controlStudio/restore` and `controlStudio/keep` answer at once (§0.1b): the review of the change, which
- * writes nothing, or the started operation, whose result follows through `controlStudio/update`. It is written untagged, so a review
- * is its own object and a started operation is `{"operationId": …}`; it is never decoded.
+ * writes nothing, the started operation, whose result follows through `controlStudio/update`, or the end of a Restore on a runtime
+ * that was replaced since Apply (B6.4). It is written untagged, so a review is its own object, a started operation is the answer
+ * that names an operation (`OperationStarted`) and a Restore's end is its outcome, each with its own `kind` (§0.1a); it is never decoded.
  */
-export type ApplicationAnswer =
-  | ApplicationReview
-  | {
-      /**
-       * The operation's identifier.
-       */
-      operationId: string;
-      [k: string]: unknown;
-    };
+export type ApplicationAnswer = ApplicationReview | OperationStarted | RestoreOutcome;
 /**
  * The mode a loop was found in (`FoundMode`): `auto` or `manual`.
  */
 export type FoundMode = "auto" | "manual";
+/**
+ * The action that holds the Validate page's position (B7; the Validate page specification: Apply and Restore never compete as primary
+ * actions): `apply` puts Apply in the position, `restore` puts Restore previous settings there, and `keep` makes Keep in project the
+ * page's primary action while Restore previous settings keeps the position beside it.
+ */
+export type PrimaryAction = "apply" | "restore" | "keep";
+/**
+ * The quality of one value of a scan (E3, rule 3).
+ */
+export type Quality = "good" | "bad" | "forced" | "missing";
 
 /**
  * The review of the change, answered when the request carried no review identity.
@@ -31,6 +34,11 @@ export interface ApplicationReview {
    */
   action: "apply" | "restore";
   approval: ApprovalBlock;
+  /**
+   * How the review is confirmed (A2.5, B9.3): the press of the action on a simulated target, the engineer's approval on a physical
+   * one. The page shows the review the way this says and reads `physical` for no decision.
+   */
+  confirmation: "press" | "approval" | "explicit";
   /**
    * The sentence that describes the reviewed operation (A11.1).
    */
@@ -44,6 +52,10 @@ export interface ApplicationReview {
    * The review identity that the confirmation names (`review_identity`).
    */
   identity: string;
+  /**
+   * The answer's kind (§0.1a): the page shows the answer by it, never by the fields it carries.
+   */
+  kind: "applicationReview";
   /**
    * The operating point the candidate was validated at (B6.2); `None` when the review has none to show.
    */
@@ -152,5 +164,301 @@ export interface ReviewedParameter {
    * The parameter's unit.
    */
   unit: string;
+  [k: string]: unknown;
+}
+/**
+ * The operation that runs the reviewed change.
+ */
+export interface OperationStarted {
+  /**
+   * The answer's kind (§0.1a): the page shows the answer by it, never by the fields it carries.
+   */
+  kind: "operationStarted";
+  /**
+   * The operation.
+   */
+  operationId: string;
+  [k: string]: unknown;
+}
+/**
+ * The end of a Restore on a runtime that was restarted or whose program was reloaded since Apply (B6.4, B6.7), answered at once
+ * with or without a review identity: nothing of the checkpoint can be restored, so the checkpoint is kept as history, nothing is
+ * written to the runtime, and no operation starts. The outcome says so (`restored` is false), with the stages that follow.
+ */
+export interface RestoreOutcome {
+  /**
+   * Whether Apply is offered once this Restore has ended (B7): never; a candidate must pass validation again first
+   * (`application_offers::apply_offered_after`).
+   */
+  applyAvailable: boolean;
+  /**
+   * Whether Keep in project is offered: never after a Restore (B6.5).
+   */
+  keepAvailable: boolean;
+  /**
+   * The answer's kind (§0.1a): the page shows the answer by it, never by the fields it carries.
+   */
+  kind: "restoreOutcome";
+  /**
+   * The mode the loop was returned to (A6.2), when it is known.
+   */
+  mode?: FoundMode | null;
+  parameters: ParameterStatus;
+  /**
+   * The action that holds the Validate page's position once this Restore has ended (B7; `application_offers::primary_action`);
+   * absent when none is offered, as after a confirmed Restore.
+   */
+  primaryAction?: PrimaryAction | null;
+  /**
+   * The sentence the engineer reads: what was restored, or why the restoration is unavailable or unconfirmed (A11.1).
+   */
+  reason: string;
+  /**
+   * The recording the Restore stopped and kept as evidence (E11.6, A8.1); `None` when no recording was held.
+   */
+  recording?: RecordedRun | null;
+  /**
+   * Whether Restore previous settings is still offered for the checkpoint: a Restore the runtime did not confirm leaves it
+   * offered (B6.7), a confirmed one closes the checkpoint (B6.4).
+   */
+  restoreAvailable: boolean;
+  /**
+   * Whether the runtime confirmed the restoration; Restored is shown only then (B6.4).
+   */
+  restored: boolean;
+  /**
+   * The status of every stage once this Restore has ended (B9.4): a confirmed Restore ends the block of the checkpoint it resolved
+   * (B6.4, B6.7), as `controlStudio/restore` answers them; absent from the workflow's own outcome, which the method completes.
+   */
+  stages?: StageAvailability[] | null;
+  [k: string]: unknown;
+}
+/**
+ * The parameter record as the runtime last reported it (E7.2).
+ */
+export interface ParameterStatus {
+  /**
+   * The revision of the values in force.
+   */
+  active_revision: string;
+  /**
+   * The revision of the parameter binding.
+   */
+  binding_revision: string;
+  /**
+   * The revision that was in force before the last transaction, when there is one.
+   */
+  previous_revision?: string | null;
+  /**
+   * The values that were in force before the last transaction, when there are some.
+   */
+  previous_values?: {
+    [k: string]: number;
+  } | null;
+  /**
+   * The revision of the program the record belongs to.
+   */
+  program_revision: string;
+  /**
+   * Why the last transaction was refused, when it was.
+   */
+  reason?: string | null;
+  /**
+   * The state of the last transaction.
+   */
+  status: "idle" | "pending" | "applied" | "rejected";
+  /**
+   * Whether the runtime keeps request identities for parameter operations.
+   */
+  supports_request_id?: boolean | null;
+  /**
+   * The identifier of the last transaction, when the runtime keeps one.
+   */
+  transaction_id?: string | null;
+  /**
+   * The values in force, one per bound parameter.
+   */
+  values: {
+    [k: string]: number;
+  };
+  [k: string]: unknown;
+}
+/**
+ * A recording as `control.recording.stop` returns it (E4.7): the evidence itself.
+ */
+export interface RecordedRun {
+  acquisition: Acquisition;
+  /**
+   * The signals, in the order of every sample's arrays.
+   */
+  bindings: SignalBinding[];
+  /**
+   * The loop revision.
+   */
+  loop_revision: string;
+  /**
+   * The program revision, when the recording has one.
+   */
+  program_revision?: string | null;
+  /**
+   * The recording's identifier.
+   */
+  recording_id: string;
+  /**
+   * All samples.
+   */
+  samples: RecordedSample[];
+  /**
+   * Why it ended.
+   */
+  stop_reason: "stopped" | "sample_limit" | "duration_limit" | "scan_reset" | "runtime_boundary";
+}
+/**
+ * How it was acquired.
+ */
+export interface Acquisition {
+  /**
+   * Whether the actual cycle timing is known.
+   */
+  actualCycleTimingAvailable: boolean;
+  /**
+   * Complete or incomplete.
+   */
+  completeness: "complete" | "incomplete";
+  /**
+   * Always 0.
+   */
+  droppedObservedSamples: number;
+  /**
+   * Always false.
+   */
+  freshnessAvailable: boolean;
+  /**
+   * Always `runtime_scan_buffer`.
+   */
+  method: string;
+  /**
+   * The gaps.
+   */
+  missingScanRanges: ScanRange[];
+  /**
+   * The executions observed.
+   */
+  observedSampleCount: number;
+  /**
+   * Why the recording is incomplete, or empty.
+   */
+  reason: string;
+  /**
+   * The sequence range covered.
+   */
+  scanRange?: ScanRange | null;
+}
+/**
+ * A range of sequence values.
+ */
+export interface ScanRange {
+  /**
+   * The first value.
+   */
+  first: number;
+  /**
+   * The last value.
+   */
+  last: number;
+}
+/**
+ * A signal Control Studio reads: its identifier in the request, its IEC type and exactly one
+ * selector, an address or a symbol (E2.4).
+ */
+export interface SignalBinding {
+  /**
+   * The direct address.
+   */
+  address?: string | null;
+  /**
+   * The identifier, unique in the request.
+   */
+  id: string;
+  /**
+   * The upper-case IEC type name.
+   */
+  iec_type: string;
+  /**
+   * The variable's path.
+   */
+  symbol?: string | null;
+  /**
+   * The unit of a channel that a kept archived run holds beside the loop's signals (B3.6): the loop's own signals have none,
+   * so a file without such a channel keeps its bytes and its identifier. The runtime neither reads nor writes it.
+   */
+  unit?: string | null;
+}
+/**
+ * One sample of a recording (E4.4, E4.6).
+ */
+export interface RecordedSample {
+  /**
+   * The runtime's wall-clock time of capture, for display only.
+   */
+  captured_at_ms: number;
+  /**
+   * One forced flag per binding.
+   */
+  forced: boolean[];
+  /**
+   * A missed execution fell inside the sample's record period (A4.4).
+   */
+  gap?: boolean;
+  /**
+   * One quality per binding: the worst of the executions it covers.
+   */
+  quality: Quality[];
+  /**
+   * The mean runtime time of the executions it covers; null when the runtime gave none.
+   */
+  runtime_time_ns?: number | null;
+  /**
+   * The last sequence value the sample covers.
+   */
+  scan: number;
+  /**
+   * One value per binding; null when bad or missing.
+   */
+  values: (number | null)[];
+}
+/**
+ * One stage's status, with the words the panel shows. A stage that is Not applicable also names the reason, which the page
+ * shows in place of its actions (C12), and so does a stage that an Apply's checkpoint holds (B6.4, B6.7) and a stage that cannot
+ * start yet for want of what it works on (B9.4). `available` says whether the stage's own action can start now (B9.4).
+ */
+export interface StageAvailability {
+  /**
+   * Whether the stage's own action can start now (B9.4). The page enables the action exactly then, and holds no copy of the
+   * rule. A bound loop can always Monitor, Test and Identify. Tune needs a model, a declared analysis or manual controller
+   * parameters; Validate needs a candidate; Apply needs a candidate whose current validation passed ([`apply_available`]), and in
+   * an answer that states the Validate page's offers, Apply offered (B7, `application_offers::offered_stages`). A stage that is
+   * Not applicable never starts (C12), and while an Apply's checkpoint waits for its Restore only Monitor starts
+   * ([`blocked_stage_availability`]).
+   */
+  available: boolean;
+  /**
+   * The status in words.
+   */
+  label: string;
+  /**
+   * Why the stage does not apply, when its status is Not applicable (C12), or why its action waits, while an Apply's checkpoint
+   * waits for its Restore (B6.4, B6.7) and while the study lacks what the stage works on: a model for Tune, a candidate for
+   * Validate (B9.4). The page shows it on the stage's page.
+   */
+  reason?: string | null;
+  /**
+   * The stage.
+   */
+  stage: "Monitor" | "Test" | "Identify" | "Tune" | "Validate" | "Apply";
+  /**
+   * Its status.
+   */
+  status: "ready" | "needs-data" | "in-progress" | "complete" | "warning" | "failed" | "not-applicable";
   [k: string]: unknown;
 }

@@ -1,6 +1,6 @@
 /**
  * The measured MIMO paths on the Tune page (C7): the settled windows and the drift tolerance the engineer enters, the engine's gain matrix,
- * relative gain array, static decoupler, pairing and sentences. A parked loop's TypeScript result (V7.17 debt) uses the same section.
+ * relative gain array, static decoupler, pairing and sentences. The engine's `measuredPaths` answer fills the section (B9.9).
  */
 export function renderThreePageMimoAnalysisTemplate(): string {
   return `<section class="studio-mimo" data-three-page-mimo-analysis hidden aria-live="polite">

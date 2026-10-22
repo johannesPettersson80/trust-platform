@@ -1,8 +1,8 @@
 //! The sequencer of Control Studio's automatic progression (specification 35, B8 and §0.1a `controlStudio/run`): it runs the stages of a
 //! run in their order, each through the stage function of its own method, and stops at the first failure or at the input an engineer
 //! must give. It decides nothing of its own: which stages run is trust-control's `run_plan`, given the evidence the study holds
-//! (`planned_evidence` only adds a fresh identification the request asks for), the input a stage asks for is its failure's next
-//! action (`needs_input`), and what each stage does is that stage's rule.
+//! (`planned_evidence` only adds a fresh identification the request asks for), the input a stage asks for, with the sentence that
+//! asks for it, is its failure's (`NeededInput::of_failure`), and what each stage does is that stage's rule.
 //!
 //! The stages keep their own results as they finish (identify and tune write the study, validate writes the study too), so a stop
 //! keeps every result the run obtained, and a Cancel stops the running stage at its next step.
@@ -19,13 +19,14 @@ use trust_control::identification::acquisition_settings::{
 };
 use trust_control::identification::connected_run::runtime_required;
 use trust_control::loop_definition::LoopDefinition;
-use trust_control::messages::{RunNeeds, RunResult, RunThrough, TuneRequest};
+use trust_control::messages::{RunResult, RunThrough, TuneRequest};
 use trust_control::runtime::RuntimeConnection;
-use trust_control::stages::{stage_availability, StageEvidence};
 use trust_control::study::inputs::{stage_evidence_of, InputsSection};
-use trust_control::study::run_plan::{needs_input, planned_evidence, run_plan};
+use trust_control::study::run_plan::{planned_evidence, run_plan, NeededInput};
 use trust_control::study::Page;
+use trust_control::tuning::settings_pins::PinnedSettings;
 
+use crate::application_state::state_now;
 use crate::commands::to_value;
 use crate::operation::{cancelled, OperationContext};
 use crate::runtime_client::runtime_recording::PendingReleases;
@@ -50,26 +51,34 @@ pub struct RunWork {
 }
 
 /// Runs the stages of `work` (B8) and answers the run's result: the stages after it, the evidence the page gates on, the identification
-/// the run made, and the input the run waits for when a stage needs one. Any other failure of a stage stops the run as the operation's
-/// failure, and the results the stages kept stay in the study.
+/// the run made, and the input the run waits for when a stage needs one, with the engine's sentence that asks for it. Any other failure
+/// of a stage stops the run as the operation's failure, and the results the stages kept stay in the study.
 ///
 /// # Errors
 /// A stage fails for a reason that is not an input the engineer must give, or the run is cancelled, or the study cannot be read.
 pub fn sequence(context: &OperationContext, work: &RunWork) -> Result<Value, Failure> {
     let mut identification = None;
-    let needs = match run_stages(context, work, &mut identification) {
-        Ok(needs) => needs,
-        Err(failure) => match needs_input(&failure) {
-            Some(needs) => Some(needs),
+    let asked = match run_stages(context, work, &mut identification) {
+        Ok(asked) => asked,
+        Err(failure) => match NeededInput::of_failure(&failure) {
+            Some(asked) => Some(asked),
             None => return Err(failure),
         },
     };
-    let stage_evidence = study_evidence(work)?;
+    // The stages after the run as the study and its journal hold them (B9.4, B7): the Apply stage can start exactly when Apply is
+    // offered, so a run whose validation passed offers Apply as the open answer would.
+    let (application, stage_evidence) = state_now(
+        &work.project_root,
+        &work.storage_folder,
+        &work.loop_definition,
+    )?;
     to_value(&RunResult {
-        stages: stage_availability(&stage_evidence),
+        stages: application.stages(&stage_evidence),
         stage_evidence,
         identification,
-        needs,
+        needs: asked.as_ref().map(|asked| asked.needs),
+        needs_message: asked.as_ref().map(|asked| asked.message.clone()),
+        needs_field: asked.and_then(|asked| asked.field),
     })
 }
 
@@ -80,7 +89,7 @@ fn run_stages(
     context: &OperationContext,
     work: &RunWork,
     identification: &mut Option<Value>,
-) -> Result<Option<RunNeeds>, Failure> {
+) -> Result<Option<NeededInput>, Failure> {
     let loop_definition = &work.loop_definition;
     let study = storage::open_study(
         &work.project_root,
@@ -94,17 +103,19 @@ fn run_stages(
     );
     let plan = run_plan(&evidence, work.through);
     if plan.tune && inputs.needs_manual_settings() {
-        return Ok(Some(RunNeeds::ManualSettings));
+        return Ok(Some(NeededInput::manual_settings()));
     }
     if plan.identify {
         context.enter_stage(Page::Identify);
+        // The stage requires the runtime itself, after the checks that need none: a method the loop cannot run and a missing limit are
+        // named before the missing connection, so the page can ask for the limits on a stopped runtime (B3.4 step 1, E11.1).
         *identification = Some(identify_action::run_stage(
             context,
             &work.project_root,
             &work.storage_folder,
             &work.pending,
             loop_definition,
-            connection_of(work)?,
+            work.connection.as_ref(),
             &acquisition_of(loop_definition, &inputs),
         )?);
     }
@@ -116,6 +127,7 @@ fn run_stages(
             &work.project_root,
             loop_definition,
             tune_request(work, &inputs),
+            inputs.pins.clone(),
         )?;
     }
     stop_if_cancelled(context)?;
@@ -159,20 +171,10 @@ fn tune_request(work: &RunWork, inputs: &InputsSection) -> TuneRequest {
         method: inputs.method,
         choice: inputs.declared_response(),
         structure: inputs.structure,
-        pins: inputs.pins.clone(),
+        pins: inputs.pins.as_ref().map(PinnedSettings::from),
         settings: inputs.manual_settings().cloned(),
         connection: work.connection.clone(),
     }
-}
-
-/// The evidence the study holds now, which decides every stage's status (A8.4, A8.6) and the page's actions (B9.4).
-fn study_evidence(work: &RunWork) -> Result<StageEvidence, Failure> {
-    let study = storage::open_study(
-        &work.project_root,
-        &work.loop_definition.id,
-        &work.loop_definition.revision,
-    )?;
-    stage_evidence_of(&work.loop_definition, &study)
 }
 
 /// Refuses to start the next stage once the run is cancelled (Cancel stops the run at its next step, B8).

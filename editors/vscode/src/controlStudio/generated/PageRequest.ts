@@ -50,10 +50,17 @@ export interface PageRequest {
 }
 /**
  * The page the engineer views with an analysis tool (§0.1a, `controlStudio/page`; A8.1): the tool shown and its inputs, so that
- * reopening shows them again.
+ * reopening shows them again. The engine records it itself with each calculation it answers, with the inputs it read and the model
+ * it used (B9.9).
  */
 export interface AnalysisPage {
   inputs?: AnalysisInputs;
+  /**
+   * The revision of the model the engine calculated the tool for, which the engine records with the analysis it answers (B9.9): it
+   * says whether the analysis is still current when the study's model changes (`stale` of an inputs answer). Absent while the tool
+   * is only selected, and in a record the page sends, whose revision the engine keeps for the same tool.
+   */
+  modelRevision?: string | null;
   /**
    * The tool shown.
    */
@@ -87,9 +94,9 @@ export interface AnalysisInputs {
    */
   crossoverRadPerSecond?: number | null;
   /**
-   * `initialState`: the duration in seconds, a whole number of steps.
+   * `initialState`: the duration in seconds, a whole number of steps. An answer writes it as the engine's words, as `step_seconds`.
    */
-  durationSeconds?: number | null;
+  durationSeconds?: number | string | null;
   /**
    * `measuredFrequency`: the tone frequencies in rad/s.
    */
@@ -110,7 +117,7 @@ export interface AnalysisInputs {
    * `measuredPaths`: the largest change that an input which was not stepped may make during a trial, in its unit: finite and
    * nonnegative. Absent, the check is not made.
    */
-  maximumUnexcitedInputDrift?: number | null;
+  maximumUnexcitedInputDrift?: number | string | null;
   /**
    * `measuredFrequency`: the minimum coherence, 0 to 1.
    */
@@ -148,9 +155,10 @@ export interface AnalysisInputs {
    */
   startupSamples?: number | null;
   /**
-   * `initialState`: the output step in seconds, above 0.
+   * `initialState`: the output step in seconds, above 0. An answer writes it as the engine's words (`2 min 30 s`), which the engine
+   * reads back as the same duration; a request gives seconds or the text the engineer typed.
    */
-  stepSeconds?: number | null;
+  stepSeconds?: number | string | null;
   /**
    * `leadLag`: the phase in degrees for a lead, or the low-frequency gain ratio for a lag.
    */
@@ -207,26 +215,28 @@ export interface SettledTrial {
  */
 export interface TimeWindow {
   /**
-   * The end of the window, in seconds.
+   * The end of the window, in seconds; absent when the request leaves it out. It is read as `start_seconds` is.
    */
-  endSeconds: number;
+  endSeconds?: number | string | null;
   /**
-   * The start of the window, in seconds.
+   * The start of the window, in seconds; absent when the request leaves it out. The page sends the text the engineer typed, which
+   * `number_of_entry` reads; text that is no number is refused under the window's field.
    */
-  startSeconds: number;
+  startSeconds?: number | string | null;
 }
 /**
  * The window after the step.
  */
 export interface TimeWindow1 {
   /**
-   * The end of the window, in seconds.
+   * The end of the window, in seconds; absent when the request leaves it out. It is read as `start_seconds` is.
    */
-  endSeconds: number;
+  endSeconds?: number | string | null;
   /**
-   * The start of the window, in seconds.
+   * The start of the window, in seconds; absent when the request leaves it out. The page sends the text the engineer typed, which
+   * `number_of_entry` reads; text that is no number is refused under the window's field.
    */
-  startSeconds: number;
+  startSeconds?: number | string | null;
 }
 /**
  * The page's own view choices, which the engine keeps with the page and answers on `open`, and never reads (§0.1a,

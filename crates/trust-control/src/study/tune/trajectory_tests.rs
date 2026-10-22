@@ -70,6 +70,7 @@ fn a_first_order_model_has_no_trajectory_feedforward_so_tune_refuses_with_the_se
         previous: None,
         request: &request(TuneMethod::Simc),
         relay: None,
+        pins: None,
     })
     .expect_err("a first-order model is not n/(a·s² + b·s)");
     assert_eq!(failure.message, texts::TRAJECTORY_REFUSED);

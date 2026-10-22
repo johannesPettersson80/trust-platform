@@ -3,13 +3,16 @@
 //! stage, the status, the primary action and its label, and whether the review may be accepted, so the page renders them and
 //! keeps no copy of the rules (AGENTS.md, "Logic in Rust").
 
-use crate::identification::form_draft::IdentificationFormDraft;
+use crate::identification::form_draft::{held_step_allows, IdentificationFormDraft};
 use crate::identification::presentation::identified_model_presentation;
 use crate::identification::review::{IdentificationModelSelection, IdentificationReview};
 use crate::identification::sensor_lag_comparison::{StructureChoice, StructureRecommendation};
 use crate::identification::state::IdentificationPhase;
 use crate::loop_definition::LoopDefinition;
-use crate::messages::{ManualAction, ManualIdentificationAnswer, ManualStage, ManualStatus};
+use crate::messages::{
+    AnswerKind, ManualAction, ManualIdentificationAnswer, ManualModelChoice, ManualStage,
+    ManualStatus,
+};
 
 use super::IdentificationWorkflow;
 
@@ -42,19 +45,23 @@ impl IdentificationWorkflow {
         form: Option<IdentificationFormDraft>,
     ) -> ManualIdentificationAnswer {
         let has_recording = self.current.is_some() || self.estimation.is_some();
+        let model_choices = model_choices_of(form.as_ref());
         let mut answer = ManualIdentificationAnswer {
+            kind: AnswerKind::new(),
             status: ManualStatus::Complete,
             reason: None,
             phase: None,
             next_fit_role: self.next_fit_role(),
             has_recording,
             form,
+            model_choices,
             qualification: None,
             estimation_qualification: None,
             validation_qualification: None,
             source: None,
             model: None,
             fit: None,
+            maximum_absolute_residual: None,
             presentation: None,
             primary_action: ManualAction::OpenRecording,
             primary_action_label: String::new(),
@@ -62,6 +69,7 @@ impl IdentificationWorkflow {
             structure_choice: None,
             recording_id: None,
             message: None,
+            test_outcome: None,
             // The workflow holds no study: the studio fills the study's evidence and stages once the action is saved.
             stage_evidence: None,
             stages: None,
@@ -205,12 +213,17 @@ impl IdentificationWorkflow {
         answer.source = Some(source);
         answer.model = Some(selected.clone());
         answer.fit = Some(fit.clone());
-        answer.presentation = Some(identified_model_presentation(
-            selected,
-            fit,
-            &loop_definition.signals.manipulated_variable.unit,
-            &loop_definition.signals.process_variable.unit,
-        ));
+        answer.maximum_absolute_residual = fit.maximum_absolute_residual();
+        // The page shows the engine's words for the model: its type, the equation's fraction and its key numbers (B3.8).
+        answer.presentation = Some(
+            identified_model_presentation(
+                selected,
+                fit,
+                &loop_definition.signals.manipulated_variable.unit,
+                &loop_definition.signals.process_variable.unit,
+            )
+            .with_words(),
+        );
         match review {
             IdentificationReview::ValidationRequired(preview) => {
                 answer.estimation_qualification = Some(preview.estimation_qualification.clone());
@@ -307,6 +320,43 @@ fn recording_action(has_recording: bool) -> ManualAction {
     }
 }
 
+/// The model families the page's model select offers, in the select's order.
+const MODEL_FAMILIES: [IdentificationModelSelection; 6] = [
+    IdentificationModelSelection::Automatic,
+    IdentificationModelSelection::Integrating,
+    IdentificationModelSelection::FirstOrder,
+    IdentificationModelSelection::Fopdt,
+    IdentificationModelSelection::SecondOrder,
+    IdentificationModelSelection::Sopdt,
+];
+
+/// The words of a model in the page's model select, offered with the choice (B3.3): the page lists the options from the choices and keeps
+/// no label table of its own.
+fn model_label(model: IdentificationModelSelection) -> &'static str {
+    match model {
+        IdentificationModelSelection::Automatic => "Choose automatically",
+        IdentificationModelSelection::Integrating => "Integrating",
+        IdentificationModelSelection::FirstOrder => "First order",
+        IdentificationModelSelection::Fopdt => "First order with dead time",
+        IdentificationModelSelection::SecondOrder => "Second order",
+        IdentificationModelSelection::Sopdt => "Compare additional lag",
+    }
+}
+
+/// The model choices the page may enable for `form` (`modelChoices`): every model of the select with its words, and, while the
+/// held-step measurement is on, only the models that a held step allows (`held_step_allows`, N2.3a).
+fn model_choices_of(form: Option<&IdentificationFormDraft>) -> Vec<ManualModelChoice> {
+    let held_step = form.is_some_and(|draft| draft.held_step);
+    MODEL_FAMILIES
+        .iter()
+        .map(|&model| ManualModelChoice {
+            model,
+            enabled: !held_step || held_step_allows(model),
+            label: Some(model_label(model)),
+        })
+        .collect()
+}
+
 /// The label of the primary action, as the page showed it (`primaryActionLabel`).
 fn action_label(
     action: ManualAction,
@@ -331,3 +381,7 @@ fn action_label(
     };
     label.to_string()
 }
+
+#[cfg(test)]
+#[path = "manual_answer_tests.rs"]
+mod tests;

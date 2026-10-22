@@ -161,7 +161,7 @@ async function main(): Promise<void> {
       { env: { TRUST_IDENTIFY_SINGLE_VALIDATE: "1" } },
     "Control Studio PID group setup rendered sets up two interacting Control.PID instances as one group and opens it in Control Studio":
       { fixture: fixture("control-studio-two-zone-group"), env: {} },
-    "Control Studio ON/OFF setup rendered sets up the program's own switching logic and opens it in Control Studio":
+    "Control Studio ON/OFF setup rendered sets up the program's own switching logic, opens it in Control Studio and tunes its switching band and minimum times":
       { fixture: path.join(repoRoot, "examples", "control-onoff-commissioning"), env: {} },
     "Control Studio state-feedback setup rendered sets up the program's own state-feedback law and opens it in Control Studio":
       { fixture: path.join(repoRoot, "examples", "control-state-feedback-commissioning"), env: {} },
@@ -174,10 +174,34 @@ async function main(): Promise<void> {
     "Control Studio three-page workflow renders state-design policy and preserves finite design drafts across reopen":
       { fixture: path.join(extensionDevelopmentPath, "media", "examples", "control", "11-state-space-estimation-and-predictive-control", "69-lqr"),
         env: {} },
+    // Lesson 61's project test, then its measured MIMO paths: the lesson's own project is the fixture (README steps 4 to 7).
+    "Control Studio course projects lesson 61 measures the coupled vessels gain matrix with measured MIMO paths after the project test":
+      { fixture: path.join(extensionDevelopmentPath, "media", "examples", "control", "10-multivariable-control", "61-mimo-paths"), env: {} },
+    // Lesson 89's finite search over the notch: the supplied model, Automatic Tune and Validate (README steps 4 to 6).
+    "Control Studio course projects lesson 89 finds the notch of the flexible axis by a finite search and validates the controller":
+      { fixture: path.join(extensionDevelopmentPath, "media", "examples", "control", "07-classical-stability-and-frequency-design", "89-mechanical-resonance"), env: {} },
     // Lesson 1's project declares the door indication and its own project experiment; README step 2 selects the indication in Signals.
     "Control Studio three-page workflow offers the declared project experiment and plots selected recorded signals in their own units":
       { fixture: path.join(repoRoot, "examples", "control", "01-feedback-foundations-and-temperature-control", "01-cold-storage-loop-anatomy"),
         env: {} },
+    // The project tests of the heater lessons run in real time on the lesson's own project (README, Experiment in Control Studio):
+    // lesson 13's 30.1 s held input (and its short display scenario), lesson 15's energy balance, and lessons 4 and 5's 120.1 s warming
+    // and load experiment under P and PI control.
+    "Control Studio process dynamics runs, keeps and reopens the published thirty-second held-input observation":
+      { fixture: path.join(repoRoot, "examples", "control", "01-feedback-foundations-and-temperature-control", "13-process-response-classes"),
+        env: { TRUST_PROCESS_DYNAMICS: "1" } },
+    "Control Studio process dynamics keeps the retained recording of a short project test on the chart while live values keep arriving":
+      { fixture: path.join(repoRoot, "examples", "control", "01-feedback-foundations-and-temperature-control", "13-process-response-classes"),
+        env: { TRUST_PROCESS_DYNAMICS: "1", TRUST_PROCESS_DYNAMICS_UI_ONLY: "1" } },
+    "Control Studio heater model actual rendered workflow control-water-heater-energy-balance executes its held heater case and retains independent evidence":
+      { fixture: path.join(repoRoot, "examples", "control", "01-feedback-foundations-and-temperature-control", "15-water-heater-energy-balance"),
+        env: { TRUST_CONTROL_STUDIO_HEATER_MODEL: "1" } },
+    "Control Studio actual PID heater lesson records the published proportional warming and load experiment through ordinary I/O":
+      { fixture: path.join(repoRoot, "examples", "control", "01-feedback-foundations-and-temperature-control", "04-water-heater-p"),
+        env: { TRUST_CONTROL_STUDIO_HEATER_PID_LESSON: "1" } },
+    "Control Studio actual PID heater lesson records the published proportional-integral warming and load experiment through ordinary I/O":
+      { fixture: path.join(repoRoot, "examples", "control", "01-feedback-foundations-and-temperature-control", "05-water-heater-pi"),
+        env: { TRUST_CONTROL_STUDIO_HEATER_PID_LESSON: "1" } },
     // The room heating acceptance takes hours, so it is listed only when the runner itself is asked for it.
     ...(process.env.TRUST_CONTROL_STUDIO_ROOM_HEATING === "1"
       ? {
@@ -211,12 +235,11 @@ async function main(): Promise<void> {
     "Rendered plant editor CPUI-006 rendered model starting conditions",
     "Control Studio three-page native journey identifies tunes validates applies and restores the real library PID from the visible controls",
     "Control Studio three-page PID group rendered review shows group members in controller settings and channel mapping in the real editor",
-    "Control Studio native PID group tunes validates applies and restores two actual library PIDs without changing an unselected PID",
     "Control Studio three-page workflow starts identification from its visible button with the actual Control.PID plant",
     "Control Studio three-page workflow edits manual settings in the existing result area and preserves full values and pins when changing method",
-    "Control Studio three-page recovery rendered projection shows Identify cancellation recovery while keeping page navigation usable",
-    "Control Studio three-page recovery rendered projection restores the same retry action after a generic recovery failure",
-    "Control Studio three-page recovery rendered projection clears recovery locks on terminal resolution and does not add a second button for normal Apply review",
+    "Control Studio three-page recovery rendered projection shows the engine's block on the pages and Restore previous settings in the Apply position, while page navigation stays usable",
+    "Control Studio three-page recovery rendered projection the failure's Restore previous settings asks for the Restore review on Validate, and a refused review leaves Restore in the position",
+    "Control Studio three-page recovery rendered projection the confirmed Restore's stages end the block, and a normal Apply review adds no recovery control",
     "Control Studio three-page binding selection edits per-output requirements and per-channel limits in the rendered MIMO workspace",
     "Control Studio loop setup form rendered sets up the project's Control.PID from compiled facts and opens it in Control Studio",
     "Control Studio Identify initial readings shows actual selected plant signals before identification and marks stopped readings unavailable",
@@ -263,12 +286,9 @@ async function main(): Promise<void> {
     // The journey's own state folder for the engine's operation journals (see `stateDir` above).
     const renderedStateDir = path.join(renderedRunDir, "state");
     try {
-      const nativePidGroup = renderedTestFullTitle.startsWith("Control Studio native PID group");
-      const studioCase = nativePidGroup || renderedTestFullTitle.startsWith("Control Studio ");
+      const studioCase = renderedTestFullTitle.startsWith("Control Studio ");
       const gated = gatedJourneys[renderedTestFullTitle];
-      const renderedFixture = gated?.fixture ? gated.fixture : nativePidGroup
-        ? path.join(extensionDevelopmentPath, "src", "test", "fixtures", "control-studio-pid-group")
-        : studioCase
+      const renderedFixture = gated?.fixture ? gated.fixture : studioCase
         ? path.join(repoRoot, "examples", "control-pid-commissioning")
         : path.join(extensionDevelopmentPath, "src", "test", "fixtures",
           renderedTestFullTitle.includes("CPFIX-003 rendered full candidate") ? "plant-rendered-full-preservation"
@@ -329,7 +349,6 @@ async function main(): Promise<void> {
           XDG_STATE_HOME: renderedStateDir,
           TRUST_PLANT_RENDERED_TEST: "1",
           ...(studioCase ? { TRUST_CONTROL_STUDIO_THREE_PAGE: "1" } : {}),
-          ...(nativePidGroup ? { TRUST_CONTROL_STUDIO_PID_GROUP_NATIVE: "1" } : {}),
           ...(renderedTestFullTitle.startsWith("Control Studio three-page native journey") ? { TRUST_CONTROL_STUDIO_THREE_PAGE_NATIVE: "1" } : {}),
           ...(gated?.env ?? {}),
           TRUST_CONTROL_STUDIO_RENDERED_SCREENSHOT: renderedScreenshot,

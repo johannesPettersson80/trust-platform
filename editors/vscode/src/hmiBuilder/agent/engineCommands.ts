@@ -102,7 +102,9 @@ export async function nativeCall(
 ): Promise<Record<string, unknown>> {
   const result = await nativeRead(token, command, input);
   if (result.ok !== true) {
-    throw new Error(`VALIDATION_FAILED: ${String(result.error ?? JSON.stringify(result.errors) ?? "Native HMI service refused the document")}`);
+    throw new Error(
+      `VALIDATION_FAILED: ${String(result.error ?? JSON.stringify(result.errors) ?? "Native HMI service refused the document")}`,
+    );
   }
   return result;
 }
@@ -214,7 +216,13 @@ export function apply(
   request: Envelope,
   receipt?: ApplyReceipt,
 ): Promise<AuthoringResult> {
-  return invoke(project, "trust-lsp.hmiAgent.apply", request, { phase, ...receipt }, phase === "receipt" ? "receipt" : "start");
+  return invoke(
+    project,
+    "trust-lsp.hmiAgent.apply",
+    request,
+    { phase, ...receipt },
+    phase === "receipt" ? "receipt" : "start",
+  );
 }
 
 /** `hmi_apply_draft` with `discard`: removes the draft's pages and keeps its identity. */

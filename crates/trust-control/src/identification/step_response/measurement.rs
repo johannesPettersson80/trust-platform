@@ -13,8 +13,8 @@ use crate::identification::refusal::Refusal;
 
 use super::preparation::{prepare, Prepared};
 use super::{
-    valid_step_response_settings, StepResponseMeasurement, StepResponseSettings, EPSILON,
-    INVALID_SETTINGS,
+    valid_step_response_settings, OnsetSide, StepResponseMeasurement, StepResponseSettings,
+    EPSILON, INVALID_SETTINGS,
 };
 
 /// The warning of a timestamp shift: a sensitivity study, not nominal model evidence (N2.4).
@@ -105,6 +105,7 @@ pub fn measure_step_response(
         sample_time_seconds: step.prepared.sample_time,
         detectable_onset_seconds,
         onset_threshold,
+        onset_side: Some(onset_side(direction)),
         level63: baseline_mean + 0.632 * change,
         warnings: timestamp_shift_warnings(settings),
         baseline: step.windows.baseline,
@@ -209,6 +210,16 @@ pub(super) fn onset_direction(hold_outputs: &[f64], baseline_mean: f64) -> f64 {
     js_sign(mean(&hold_outputs[final_tenth_start(hold_outputs.len())..]) - baseline_mean)
 }
 
+/// The side of the baseline the onset threshold lies on (N2.5): below `y0` for a falling `direction`, and above it otherwise, a zero
+/// direction included.
+pub(super) fn onset_side(direction: f64) -> OnsetSide {
+    if direction < 0.0 {
+        OnsetSide::Below
+    } else {
+        OnsetSide::Above
+    }
+}
+
 /// The onset threshold `y0 ± h` and the detectable onset after the step (N2.5): the first run of the declared number of
 /// held samples strictly beyond the threshold in `direction`. A zero direction puts it above `y0` and finds no onset.
 pub(super) fn onset(
@@ -216,7 +227,10 @@ pub(super) fn onset(
     settings: &StepResponseSettings,
     direction: f64,
 ) -> (f64, Option<f64>) {
-    let side = if direction < 0.0 { -1.0 } else { 1.0 };
+    let side = match onset_side(direction) {
+        OnsetSide::Below => -1.0,
+        OnsetSide::Above => 1.0,
+    };
     let threshold = step.windows.baseline.mean + side * settings.onset_threshold;
     let detectable = onset_time(
         &step.hold_times,

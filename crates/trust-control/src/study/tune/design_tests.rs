@@ -51,6 +51,7 @@ fn integrating() -> IdentifiedModel {
 /// and the method of the request.
 fn requirements(method: Option<TuningMethod>) -> TuningRequirements {
     TuningRequirements {
+        channel_requirements: None,
         reference_change: 1.0,
         maximum_error: 0.04,
         settling_band: 0.02,
@@ -481,7 +482,7 @@ fn the_answer_of_a_simc_pi_carries_its_lambda_its_margins_and_its_response() {
             )
         },
     );
-    assert_eq!(result.method_title, "SIMC PI (Skogestad 2003)");
+    assert_eq!(result.method_title, "Simple internal model control (SIMC)");
     assert!(
         result.method_description.contains("λ = 4 s"),
         "{}",
@@ -505,4 +506,295 @@ fn the_answer_of_a_simc_pi_carries_its_lambda_its_margins_and_its_response() {
     );
     assert_eq!(result.prediction_unavailable, None);
     assert!(result.settling_time_seconds.is_some());
+}
+
+#[test]
+fn automatic_recommends_p_first_when_the_declared_task_needs_no_added_term() {
+    // control-studio-engineer-pid: "recommends P first for a typed PID adapter until the declared task proves an added term necessary"
+    // (specification 35 B4.4 and C0: Tune recommends the simplest structure that meets every mandatory requirement; numerical annex
+    // N5.11). A delay-free first-order plant meets the steady-error allowance with a P inside its gain bounds, so P is chosen on a PID
+    // law, and PI, PD and PID are still compared and kept as attempts.
+    use crate::tuning::recommendation::P_AFTER_COMPARISON;
+    let model = IdentifiedModel {
+        dead_time_seconds: Some(0.0),
+        ..first_order(1.5)
+    };
+    let designed = with_basis(
+        &model,
+        ControllerAction::Direct,
+        None,
+        pid_law(),
+        |basis, _| design(None, None, basis),
+    )
+    .expect("Automatic recommends a candidate");
+    assert_eq!(designed.structure, Structure::P);
+    assert_eq!(designed.reason, P_AFTER_COMPARISON);
+    let structures: Vec<Structure> = designed
+        .attempts
+        .iter()
+        .map(|attempt| attempt.structure)
+        .collect();
+    assert_eq!(
+        structures,
+        [Structure::P, Structure::PI, Structure::PD, Structure::PID],
+        "every structure of the law is compared, in order"
+    );
+    assert_eq!(designed.attempts[0].status, AttemptStatus::Feasible);
+}
+
+#[test]
+fn an_automatic_p_beyond_the_declared_output_limits_is_refused_with_the_requirements() {
+    // control-studio-engineer-pid: "rejects an automatic candidate that exceeds declared actuator output limits before Verify" (B4.4:
+    // the first output from zero deviation, bias + Kp·Δr, must lie within the output limits). A plant gain of 0.2 needs Kp = 245 for the
+    // allowance, and the loop's outputs end at ±100, so the proportional-only law has no candidate.
+    let model = IdentifiedModel {
+        dead_time_seconds: Some(0.0),
+        ..first_order(0.2)
+    };
+    let law = LawFacts {
+        proportional_bounds: Some(GainBounds {
+            minimum: 0.0,
+            maximum: 1000.0,
+        }),
+        ..proportional_law()
+    };
+    let refused = with_basis(&model, ControllerAction::Direct, None, law, |basis, _| {
+        design(None, None, basis)
+    })
+    .expect_err("the first output is outside the output limits");
+    assert!(
+        refused.message.contains("output limit"),
+        "{}",
+        refused.message
+    );
+    assert_eq!(
+        (refused.cause, refused.next_action),
+        (Cause::TaskInfeasible, NextAction::OpenRequirements)
+    );
+}
+
+#[test]
+fn the_units_of_the_controllers_gains_come_from_the_loops_signals_in_the_notation_of_the_page() {
+    // control-studio-chart: "derives controller-setting units from the bound process and output signals" (B9.5, B9.9). The loop
+    // stores `degC`, the page reads `°C`; a gain is the plant input per measured output, an integral gain per second, and a derivative
+    // gain times second. A signal without a unit is dimensionless "1", which the loop file gives it.
+    use crate::model::decode_general_model;
+    use crate::tuning::method_description::describe_method;
+    let mut loop_definition = plant_loop();
+    loop_definition.signals.process_variable.unit = "degC".to_owned();
+    loop_definition.signals.manipulated_variable.unit = "%".to_owned();
+    let model = decode_general_model(&serde_json::json!({
+        "kind": "transfer-function", "revision": "heater", "source": "provided", "validation": "unvalidated",
+        "evidence": [], "delaySeconds": 0.0,
+        "inputs": [{ "id": "u", "unit": "%", "operatingRange": { "minimum": 0.0, "maximum": 100.0 } }],
+        "outputs": [{ "id": "y", "unit": "degC", "operatingRange": { "minimum": 0.0, "maximum": 100.0 } }],
+        "numerator": [1.5], "denominator": [4.0, 1.0]
+    }))
+    .expect("a general model");
+    let setup = LoopSetup::of(&loop_definition, &model, false);
+    assert_eq!(setup.process_unit, "°C");
+    assert_eq!(setup.manipulated_unit, "%");
+    let described = describe_method(
+        &first_order(1.5),
+        TuningMethod::Simc,
+        TuningObjective::Balanced,
+        ControllerAction::Direct,
+        &setup.process_unit,
+        &setup.manipulated_unit,
+    );
+    assert_eq!(described.units.proportional_gain, "%/°C");
+    assert_eq!(described.units.integral_gain, "%/(°C·s)");
+    assert_eq!(described.units.derivative_gain, "(%·s)/°C");
+}
+
+/// The shaft of lessons 34 to 37, `G(s) = 1/(s² + s)`: an integrator with a lag of one second.
+fn shaft() -> IdentifiedModel {
+    IdentifiedModel {
+        kind: LowOrderModelKind::Integrating,
+        time_constant_seconds: Some(1.0),
+        dead_time_seconds: Some(0.0),
+        ..first_order(1.0)
+    }
+}
+
+/// A gain's declared bounds: between `minimum` and `maximum`, in `unit`.
+fn declared(minimum: f64, maximum: f64, unit: &str) -> GainLimit {
+    GainLimit {
+        bounds: GainBounds { minimum, maximum },
+        unit: unit.to_owned(),
+    }
+}
+
+/// The design of a request on `model` to the `requirements`, on a 20 ms task with outputs of ±20, with the gain limits that the loop
+/// declares and a PID law.
+fn design_on(
+    model: &IdentifiedModel,
+    requirements: &TuningRequirements,
+    gain_limits: GainLimits,
+    structure: Option<Structure>,
+) -> Result<Design, Failure> {
+    let plant = from_identified(model, TuningMethod::Simc)
+        .expect("the fixture is a plant the formulas read");
+    let predictor = SelectedModelPredictor {
+        task_period_ms: 20.0,
+        output_limits: OutputLimits {
+            minimum: -20.0,
+            maximum: 20.0,
+        },
+        ..loop_predictor(model)
+    };
+    let context = DesignContext {
+        action: ControllerAction::Direct,
+        task_period_ms: predictor.task_period_ms,
+        operating_input: 0.0,
+        operating_output: 0.0,
+        output_limits: predictor.output_limits,
+        gain_limits,
+        process_unit: "m",
+        manipulated_unit: "V",
+        predictor: &predictor,
+    };
+    let placement = ModelPlacement::for_identified(model, requirements, &context);
+    let basis = DesignBasis {
+        plant: &plant,
+        requirements,
+        context: &context,
+        placement: &placement,
+        law: pid_law(),
+        gain_unit: "m/V",
+    };
+    design(None, structure, &basis)
+}
+
+/// The design of a request on the shaft lifting a weight that pulls with 1.962 on the drive: a unit setpoint change, 0.02 of
+/// allowed error and a band of 0.01, settled by 4 s of an 8 s test, and each gain declared between 0 and 100.
+fn loaded_shaft_design(structure: Option<Structure>) -> Result<Design, Failure> {
+    let requirements = TuningRequirements {
+        maximum_error: 0.02,
+        settling_band: 0.01,
+        settling_time_seconds: 4.0,
+        duration_seconds: 8.0,
+        constant_input_disturbance: Some(-1.962),
+        ..requirements(None)
+    };
+    let gain_limits = GainLimits {
+        proportional: Some(declared(0.0, 100.0, "V/m")),
+        integral: Some(declared(0.0, 100.0, "V/(m·s)")),
+        derivative: Some(declared(0.0, 100.0, "V·s/m")),
+    };
+    design_on(&shaft(), &requirements, gain_limits, structure)
+}
+
+#[test]
+fn a_pd_that_needs_a_gain_beyond_its_range_to_hold_a_load_is_refused_and_pid_is_recommended() {
+    // Ported from control-studio-automatic-response.test.ts, "refuses PD when holding a declared load within the allowed error needs a
+    // gain beyond its range, and recommends PID" (specification 35, B4.4; numerical annex N5.9, N5.11, N5.12). On the shaft PD holds the
+    // load of 1.962 with the error d/Kp, which is within the 0.02 − 0.01 = 0.01 allowed only for Kp ≥ 1.962/0.01 = 196.2, and the loop
+    // declares at most 100. PI has no placement on the shaft, and P cannot change its decay. PID has integral action and meets both
+    // trials at its second placement, the lessons' Kp 18.77, Ki 17.46 and Kd 7.27.
+    use crate::tuning::recommendation::PID_SELECTED;
+    let refused =
+        loaded_shaft_design(Some(Structure::PD)).expect_err("PD needs a gain beyond its range");
+    // The first sentence is the failure's message and the whole text its detail (`Failure::new`).
+    assert_eq!(
+        refused.message,
+        "PD cannot meet the requirements on the model: even its fastest response needs Kp of magnitude 196.2 V/m, above its declared maximum of 100 V/m, to keep its steady-state error within 0.01 m."
+    );
+    assert!(
+        refused.detail.as_deref().is_some_and(|detail| detail
+            .ends_with("Choose a structure with integral action or allow a larger error.")),
+        "{:?}",
+        refused.detail
+    );
+    assert_eq!(
+        (refused.cause, refused.next_action),
+        (Cause::TaskInfeasible, NextAction::OpenRequirements)
+    );
+    let recommended = loaded_shaft_design(None)
+        .expect("Automatic recommends a structure that meets the requirements");
+    assert_eq!(recommended.structure, Structure::PID);
+    assert_eq!(recommended.reason, PID_SELECTED);
+    let attempts: Vec<(Structure, AttemptStatus)> = recommended
+        .attempts
+        .iter()
+        .map(|attempt| (attempt.structure, attempt.status))
+        .collect();
+    assert_eq!(
+        attempts,
+        [
+            (Structure::P, AttemptStatus::Rejected),
+            (Structure::PI, AttemptStatus::Rejected),
+            (Structure::PD, AttemptStatus::Rejected),
+            (Structure::PID, AttemptStatus::Feasible),
+        ]
+    );
+    assert!(recommended.gains.integral_gain > 0.0);
+    assert!(recommended.gains.proportional_gain <= 100.0);
+    assert!((recommended.gains.proportional_gain - 18.768_926).abs() < 1e-5);
+    assert!((recommended.gains.integral_gain - 17.463_786).abs() < 1e-5);
+    assert!((recommended.gains.derivative_gain - 7.274_915).abs() < 1e-5);
+    let fixed = loaded_shaft_design(Some(Structure::PID)).expect("PID meets the same requirements");
+    assert_eq!(
+        (fixed.structure, fixed.gains),
+        (Structure::PID, recommended.gains)
+    );
+}
+
+#[test]
+fn a_pd_is_the_alternative_when_the_integral_gain_cannot_be_realized() {
+    // Ported from control-studio-controller-law.test.ts, "considers a compatible PD alternative instead of claiming all finite error
+    // tasks require integral action" (specification 35, B4.4 and B4.7; numerical annex N5.10 to N5.12). The loop declares its integral
+    // gain between 0 and 0, so PI and PID cannot be realized; P has no design for a model with a dead time; and PD, the constrained
+    // alternative of the formula PI, is recommended while its steady error 1/(1 + K·Kp) = 0.43 is within the 0.5 − 0.02 allowed. With an
+    // error limit of 0.1 no structure meets the task, and the refusal keeps PD's steady-state error among the attempts.
+    use crate::tuning::recommendation::PD_SELECTED;
+    let model = IdentifiedModel {
+        gain: 1.0,
+        time_constant_seconds: Some(1.0),
+        dead_time_seconds: Some(0.1),
+        ..first_order(1.0)
+    };
+    let gain_limits = || GainLimits {
+        proportional: Some(declared(0.0, 100.0, "V/m")),
+        integral: Some(declared(0.0, 0.0, "V/(m·s)")),
+        derivative: Some(declared(0.0, 100.0, "V·s/m")),
+    };
+    let task = |maximum_error: f64| TuningRequirements {
+        maximum_error,
+        settling_band: 0.02,
+        settling_time_seconds: 2.0,
+        duration_seconds: 4.0,
+        ..requirements(None)
+    };
+    let recommended = design_on(&model, &task(0.5), gain_limits(), None)
+        .expect("a PD alternative meets the task without integral action");
+    assert_eq!(recommended.structure, Structure::PD);
+    assert!(is_exactly_zero(recommended.gains.integral_gain));
+    assert_eq!(recommended.reason, PD_SELECTED);
+    let attempts: Vec<(Structure, AttemptStatus)> = recommended
+        .attempts
+        .iter()
+        .map(|attempt| (attempt.structure, attempt.status))
+        .collect();
+    assert_eq!(
+        attempts,
+        [
+            (Structure::P, AttemptStatus::Rejected),
+            (Structure::PI, AttemptStatus::Rejected),
+            (Structure::PD, AttemptStatus::Feasible),
+            (Structure::PID, AttemptStatus::Rejected),
+        ]
+    );
+    // With a tighter error limit no structure meets the task: the engine names the fastest miss (N5.12) and opens Requirements.
+    let refused = design_on(&model, &task(0.1), gain_limits(), None)
+        .expect_err("no structure meets the tighter task");
+    assert!(
+        refused.message.contains("cannot meet the requirements"),
+        "{}",
+        refused.message
+    );
+    assert_eq!(
+        (refused.cause, refused.next_action),
+        (Cause::TaskInfeasible, NextAction::OpenRequirements)
+    );
 }

@@ -106,10 +106,12 @@ fn estimator_choices<'a>(
         None => &[],
     };
     let states = state_channels(model);
-    if rows_given.len() != states.len() || states.len() > MAXIMUM_ESTIMATOR_STATES {
+    // The form sends every row it draws: the first one for each state of the model is that state's, and the rows after them are not
+    // read (B1.3, C4).
+    if rows_given.len() < states.len() || states.len() > MAXIMUM_ESTIMATOR_STATES {
         return Err(settings(texts::estimator_rows()));
     }
-    let rows = estimator_rows(rows_given)?;
+    let rows = estimator_rows(&rows_given[..states.len()])?;
     let measurement_noise = estimator
         .and_then(|entry| positive(entry.measurement_noise))
         .ok_or_else(|| {

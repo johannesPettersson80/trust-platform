@@ -181,6 +181,39 @@ fn the_newest_apply_decides_and_an_earlier_one_is_history() {
     assert_eq!(applied_later.keep_checkpoint(), Some("cp-2"));
 }
 
+/// B7: Apply is not offered again for the validation an Apply applied, also after its Restore (the Validate page specification: "A new
+/// candidate must pass validation before this action can offer Apply for that candidate"). So the section names the validation of its
+/// newest Apply whatever became of its settings: standing, restored or retired. An earlier Apply is history (A8.5), and a section
+/// without an Apply names none. The wrong behaviour caught: a restored Apply's validation forgotten, so that a reopened loop offers Apply
+/// for it again, or an earlier Apply's validation taken for the newest one's.
+#[test]
+fn the_newest_apply_names_its_validation_whatever_became_of_its_settings() {
+    assert_eq!(ApplySection::default().newest_validation(), None);
+    let applied = |checkpoint: &str, validation: &str| ApplicationReceipt {
+        validation_identity: validation.to_string(),
+        ..application(checkpoint, "passed", true)
+    };
+    for restorations in [
+        Vec::new(),
+        vec![restoration("cp-2", true, false)],
+        vec![restoration("cp-2", false, true)],
+    ] {
+        let receipts = section(
+            vec![
+                applied("cp-1", "validation:1"),
+                applied("cp-2", "validation:2"),
+            ],
+            restorations,
+        );
+        assert_eq!(
+            receipts.newest_validation(),
+            Some("validation:2"),
+            "{:?}",
+            receipts.restorations
+        );
+    }
+}
+
 #[test]
 fn a_kept_apply_is_not_kept_again_but_its_settings_still_restore() {
     let mut kept = section(vec![application("cp-1", "passed", true)], Vec::new());

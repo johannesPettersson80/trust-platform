@@ -111,7 +111,7 @@ method. Acquisition, fitting and model checking belong to that operation; do
 not expose separate Record, Check recording, Fit or Accept model buttons. Those buttons belong to the automatic method only:
 Recorded-data fit is the manual method, with steps of its own (spec 35, B3.3), and the engine names the one button the page shows
 at each step. On a loop the engine serves, the page sends its form as the text the user entered, after a short pause in typing, and
-shows the engine's stage, labels, gates and status; a refusal shows under the form field the engine names (B3.3).
+shows the engine's stage, labels, gates and status; a refusal shows under the form field the engine names (B3.3). The engine's answer lists the models of the **Model family** select as `modelChoices`, each with its words (`label`: **Choose automatically**, **Integrating**, **First order**, **First order with dead time**, **Second order**, **Compare additional lag**), and the page lists the options from those choices and keeps no label table of its own. While the held-step measurement is on, only `fopdt`, `integrating` and `sopdt` are enabled (N2.3a); the engine refuses any other model at the edit, naming the `model` field.
 Once the model qualifies, remain on Identify with its model and response plot
 visible. The **Tune** tab navigates to Tune without starting tuning or opening
 an editor. Press **Identify plant** again to run another identification with the
@@ -137,7 +137,7 @@ are known and the model qualifies, remain on the same model review state.
 While identification runs, replace the active identification action with
 **Abort** and show one short progress message. If it fails, show one short,
 specific failure message in the same area. These are temporary operation
-states, not a permanent status panel or footer.
+states, not a permanent status panel or footer. When an identification is cancelled, the engine's cancelled update carries the sentence to show in its `message`: `Identification cancelled.`
 
 ## Identified model and plot
 

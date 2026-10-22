@@ -1,14 +1,22 @@
 import type { ControlStudioEngine, EngineAnswer } from "./engineClient";
 import type { Failure } from "../generated/Failure";
 import type { RuntimeConnection } from "../generated/IdentifyRequest";
-import type { LoopMessageScope } from "../messages";
 
 /** The loop fields the route sends the engine. */
 export interface EngineLoop {
   readonly id: string;
   readonly runtimeId: string;
-  /** The parameters the loop's declared analysis maps to program symbols; their presence routes the parameter tool to the engine (C12). */
-  readonly analysisParameterSymbols?: Readonly<Record<string, string>>;
+}
+
+/**
+ * The identity of one page session on a loop, which every message to and from the page carries (the page's scope): the project, the
+ * editor session, the loop and the revision the page shows. A presentation type of the page's messages; the engine checks the revision.
+ */
+export interface EngineScope {
+  projectId: string;
+  editorSessionId: string;
+  loopId: string;
+  loopRevision: string;
 }
 
 /** The engine methods whose calls and failures the page shows; `start` is the engine's own start. */
@@ -39,24 +47,30 @@ export interface EngineRouteContext {
   readonly projectRoot: string;
   /** The folder of the operation journals (A8.3, A8.5): empty, so that the engine uses its own. */
   readonly storageFolder: string;
-  /** The loop the engine serves; none while the TypeScript route keeps the loop. */
+  /** The loop the engine serves; none while the engine does not serve the loop. */
   served(): EngineLoop | undefined;
   /** Posts one message to the page, with the loop's scope fields. */
-  post(scope: LoopMessageScope, message: Record<string, unknown>): Promise<void>;
+  post(scope: EngineScope, message: Record<string, unknown>): Promise<void>;
   /** Shows the engine's failure of a method on the page (`control-studio.engine.failure`). */
-  postFailure(scope: LoopMessageScope, method: EngineMethod, failure: Failure): Promise<void>;
+  postFailure(scope: EngineScope, method: EngineMethod, failure: Failure): Promise<void>;
   /**
    * One engine call. Undefined when the engine cannot take it: its start failure, or the call's own failure, is then shown, and
    * the command is not repeated.
    */
-  ask<T>(scope: LoopMessageScope, method: EngineMethod, run: () => Promise<EngineAnswer<T>>): Promise<EngineAnswer<T> | undefined>;
+  ask<T>(scope: EngineScope, method: EngineMethod, run: () => Promise<EngineAnswer<T>>): Promise<EngineAnswer<T> | undefined>;
   /** The study's runtime connection for a live request; none when no runtime runs, and the engine then refuses the request. */
   connection(): Promise<RuntimeConnection | undefined>;
+  /**
+   * The mode of the window's runtime lifecycle, `simulate` for the local simulator or `online` for a runtime attached through its endpoint.
+   * A live request that finds no runtime running carries it, and the engine answers the next action that applies: Start simulator or
+   * Connect runtime (A2.8, E11.1). None when the window does not say.
+   */
+  runtimeMode?(): Promise<string | undefined>;
   /**
    * Relays an operation's updates to the page (`control-studio.engine.update`); a finished operation's result follows as
    * `control-studio.engine.result` with the operation's command as its method.
    */
-  follow(operationId: string, scope: LoopMessageScope): void;
+  follow(operationId: string, scope: EngineScope): void;
 }
 
 /**
@@ -64,13 +78,13 @@ export interface EngineRouteContext {
  * true when it consumed one; a message of another stage returns false.
  */
 export interface EngineStageRoute {
-  handle(message: Record<string, unknown>, scope: LoopMessageScope): Promise<boolean>;
+  handle(message: Record<string, unknown>, scope: EngineScope): Promise<boolean>;
   /** Forgets the stage's running operations when the panel opens a loop again. */
   reset?(): void;
 }
 
 /** The scope fields of a message to the page. */
-export function scopeFields(scope: LoopMessageScope) {
+export function scopeFields(scope: EngineScope) {
   return {
     schemaVersion: 1,
     projectId: scope.projectId,
@@ -81,7 +95,7 @@ export function scopeFields(scope: LoopMessageScope) {
 }
 
 /** Whether a page message belongs to the loop's scope. */
-export function sameScope(value: Record<string, unknown>, scope: LoopMessageScope): boolean {
+export function sameScope(value: Record<string, unknown>, scope: EngineScope): boolean {
   return value.schemaVersion === 1 && value.projectId === scope.projectId && value.editorSessionId === scope.editorSessionId
     && value.loopId === scope.loopId && value.expectedLoopRevision === scope.loopRevision;
 }

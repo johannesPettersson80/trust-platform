@@ -4,6 +4,11 @@
  */
 
 /**
+ * The side of the baseline on which the sustained onset is sought (N2.5): `above` when the mean of the hold's last tenth lies above the
+ * baseline mean, and when it does not differ from it (such a hold finds no onset), `below` when it lies below.
+ */
+export type OnsetSide = "above" | "below";
+/**
  * A structure the engineer may choose (`structureChoice`: `first_order` or `additional_lag`).
  */
 export type StructureChoice = "first_order" | "additional_lag";
@@ -51,6 +56,15 @@ export interface ManualIdentificationAnswer {
    */
   hasRecording: boolean;
   /**
+   * The answer's kind (§0.1a): the page shows the answer by it, never by the fields it carries.
+   */
+  kind: "manualIdentification";
+  /**
+   * The largest absolute residual of that fit's samples, in output units: the engine's number for the evidence row that the page
+   * shows beside the prediction's root mean square error (B3.3). Absent without a fit, and when the fit holds no sample.
+   */
+  maximumAbsoluteResidual?: number | null;
+  /**
    * The sentence the page shows under the stage, as the engine words it (the stage's status line).
    */
   message?: string | null;
@@ -58,6 +72,12 @@ export interface ManualIdentificationAnswer {
    * The model the stage shows.
    */
   model?: IdentifiedModel2 | null;
+  /**
+   * The model choices the page may enable for the form it holds (`modelChoices`): every model of its model select, in the
+   * select's order. While the held-step measurement is on, only `fopdt` and `sopdt` are enabled, and the others are listed with
+   * `enabled` false.
+   */
+  modelChoices?: ManualModelChoice[];
   /**
    * Whether the next fit estimates the model or validates it.
    */
@@ -121,6 +141,11 @@ export interface ManualIdentificationAnswer {
    * The sensor-lag structure the primary action keeps, when it keeps one.
    */
   structureChoice?: StructureChoice | null;
+  /**
+   * The sentence that says how the project test that recorded the stage's independent recording ended (C12), as
+   * `IdentifyResult::test_outcome` gives it; absent for every other answer.
+   */
+  testOutcome?: string | null;
   /**
    * The check of the validation recording, at the validated review.
    */
@@ -304,6 +329,11 @@ export interface StepResponseMeasurement {
    * The 63 % level `y0 + 0.632·(ȳ_final − y0)` of the measured change.
    */
   level63: number;
+  /**
+   * The side of the baseline the onset threshold lies on (N2.5), so that the page words the criterion without deriving it from the
+   * windows. Absent in a record kept before the engine stated it.
+   */
+  onsetSide?: OnsetSide | null;
   /**
    * The onset threshold `y0 ± h` (N2.5).
    */
@@ -659,6 +689,11 @@ export interface StepResponseAnalysis {
    * The 63 % level `y0 + 0.632·K·Δu`.
    */
   level63: number;
+  /**
+   * The side of the baseline the onset threshold lies on (N2.5), so that the page words the criterion without deriving it from the
+   * windows. Absent in a record kept before the engine stated it.
+   */
+  onsetSide?: OnsetSide | null;
   /**
    * The onset threshold `y0 ± h` (N2.5).
    */
@@ -1035,6 +1070,11 @@ export interface StepResponseAnalysis1 {
    * The 63 % level `y0 + 0.632·K·Δu`.
    */
   level63: number;
+  /**
+   * The side of the baseline the onset threshold lies on (N2.5), so that the page words the criterion without deriving it from the
+   * windows. Absent in a record kept before the engine stated it.
+   */
+  onsetSide?: OnsetSide | null;
   /**
    * The onset threshold `y0 ± h` (N2.5).
    */
@@ -1660,6 +1700,25 @@ export interface IdentifiedModel2 {
   [k: string]: unknown;
 }
 /**
+ * One model of the page's model select and whether the page may enable it (`modelChoices` of the manual identification answer).
+ */
+export interface ManualModelChoice {
+  /**
+   * Whether the page may enable the option.
+   */
+  enabled: boolean;
+  /**
+   * The words of the option, as the engine offers them with the choice: the page lists the options from the choices and keeps no
+   * label table of its own.
+   */
+  label?: string | null;
+  /**
+   * The model, which the select's option value names in snake case (`fopdt`, `first_order` and so on).
+   */
+  model: "automatic" | "integrating" | "first_order" | "fopdt" | "second_order" | "sopdt";
+  [k: string]: unknown;
+}
+/**
  * An identified model as the engineer reviews it (B3.8; `IdentifiedModelPresentation`).
  */
 export interface IdentifiedModelPresentation {
@@ -1671,11 +1730,26 @@ export interface IdentifiedModelPresentation {
    * The plant-model equation with the identified coefficients.
    */
   equation: string;
+  /**
+   * The equation as a stacked fraction (B3.8). An answer gives it; a stored presentation holds none, and a presentation without a
+   * gain has none.
+   */
+  equationFraction?: EquationFraction | null;
   estimation: PresentationError;
+  /**
+   * One plain line of the key numbers, such as "Gain 0.21 °C per %, time constant 75 min, delay 12 s" (B3.8). An answer gives it;
+   * a stored presentation holds none.
+   */
+  keyNumbers?: string | null;
   /**
    * The model-structure comparison the model was chosen by, when a held step was compared (`modelStructure`; N2.10).
    */
   modelStructure?: SensorLagComparison | null;
+  /**
+   * The model type in plain words, such as "First-order model with delay" (B3.8). An answer gives it ([`Self::with_words`]); a
+   * stored presentation holds none.
+   */
+  modelType?: string | null;
   /**
    * The gain, each time constant and the dead time, in that order.
    */
@@ -1704,6 +1778,26 @@ export interface IdentifiedModelPresentation {
    * The zeros; the low-order forms have none.
    */
   zeros: number[];
+  [k: string]: unknown;
+}
+/**
+ * The equation of an identified model split for display as a stacked fraction, `G(s) = numerator / denominator · e^(−delay)`
+ * (B3.8): the gain, the factors of the denominator and the delay of the exponent, each written to six significant digits. The
+ * page lays the three out and writes none of them.
+ */
+export interface EquationFraction {
+  /**
+   * The delay of the exponent, such as `12s` for `e^(−12s)`; absent without a dead time.
+   */
+  delay?: string | null;
+  /**
+   * The denominator: `s` for an integrator, one factor `(τs + 1)` for each time constant, and `1` without one.
+   */
+  denominator: string;
+  /**
+   * The numerator: the gain, or the rate gain of an integrator.
+   */
+  numerator: string;
   [k: string]: unknown;
 }
 /**
@@ -1777,6 +1871,11 @@ export interface StepResponseAnalysis2 {
    */
   level63: number;
   /**
+   * The side of the baseline the onset threshold lies on (N2.5), so that the page words the criterion without deriving it from the
+   * windows. Absent in a record kept before the engine stated it.
+   */
+  onsetSide?: OnsetSide | null;
+  /**
    * The onset threshold `y0 ± h` (N2.5).
    */
   onsetThreshold: number;
@@ -1822,6 +1921,11 @@ export interface StepResponseMeasurement1 {
    * The 63 % level `y0 + 0.632·(ȳ_final − y0)` of the measured change.
    */
   level63: number;
+  /**
+   * The side of the baseline the onset threshold lies on (N2.5), so that the page words the criterion without deriving it from the
+   * windows. Absent in a record kept before the engine stated it.
+   */
+  onsetSide?: OnsetSide | null;
   /**
    * The onset threshold `y0 ± h` (N2.5).
    */
@@ -1966,15 +2070,27 @@ export interface StageEvidence {
 }
 /**
  * One stage's status, with the words the panel shows. A stage that is Not applicable also names the reason, which the page
- * shows in place of its actions (C12).
+ * shows in place of its actions (C12), and so does a stage that an Apply's checkpoint holds (B6.4, B6.7) and a stage that cannot
+ * start yet for want of what it works on (B9.4). `available` says whether the stage's own action can start now (B9.4).
  */
 export interface StageAvailability {
+  /**
+   * Whether the stage's own action can start now (B9.4). The page enables the action exactly then, and holds no copy of the
+   * rule. A bound loop can always Monitor, Test and Identify. Tune needs a model, a declared analysis or manual controller
+   * parameters; Validate needs a candidate; Apply needs a candidate whose current validation passed ([`apply_available`]), and in
+   * an answer that states the Validate page's offers, Apply offered (B7, `application_offers::offered_stages`). A stage that is
+   * Not applicable never starts (C12), and while an Apply's checkpoint waits for its Restore only Monitor starts
+   * ([`blocked_stage_availability`]).
+   */
+  available: boolean;
   /**
    * The status in words.
    */
   label: string;
   /**
-   * Why the stage does not apply, when its status is Not applicable.
+   * Why the stage does not apply, when its status is Not applicable (C12), or why its action waits, while an Apply's checkpoint
+   * waits for its Restore (B6.4, B6.7) and while the study lacks what the stage works on: a model for Tune, a candidate for
+   * Validate (B9.4). The page shows it on the stage's page.
    */
   reason?: string | null;
   /**

@@ -2,7 +2,7 @@ import * as assert from "assert";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import type { ControlLoopDefinition } from "../../controlStudio/loopDefinition";
+import type { LoopDefinition } from "../../controlStudio/generated/ProjectLoopsResult";
 import type { LoopMessageScope } from "../../controlStudio/messages";
 import type { ControlStudioEngine, EngineAnswer } from "../../controlStudio/engine/engineClient";
 import type { Failure } from "../../controlStudio/generated/Failure";
@@ -26,7 +26,7 @@ const SCOPE: LoopMessageScope = {
   loopRevision: "sha256:loop-1",
 };
 
-const LOOP = { id: "loop:tank", name: "Tank level", projectId: SCOPE.projectId, runtimeId: "runtime:local" } as unknown as ControlLoopDefinition;
+const LOOP = { id: "loop:tank", name: "Tank level", projectId: SCOPE.projectId, runtimeId: "runtime:local" } as unknown as LoopDefinition;
 
 /** The loop file the engine names for the selection: its definition as the file holds it. */
 const LOOP_FILE = { id: "loop:tank", name: "Tank level", projectId: SCOPE.projectId, runtimeId: "runtime:local" };
@@ -81,7 +81,7 @@ function fakeEngine(answer: (request: SetupDiscoverRequest) => EngineAnswer<Setu
 }
 
 function routeWith(engine: ControlStudioEngine, opened: OpenedSession[] = []): ThreePageBindingRoute {
-  return new ThreePageBindingRoute(LOOP, SCOPE, undefined, () => true, () => undefined,
+  return new ThreePageBindingRoute(LOOP, SCOPE, () => true,
     async (request, sessionId, family) => {
       opened.push({ request, sessionId, family });
     },
@@ -120,17 +120,37 @@ suite("Control Studio engine setup", () => {
       posted.push(payload);
     });
     assert.strictEqual(handled, true);
-    assert.deepStrictEqual(requests, [{ projectRoot: "/project", runtimeId: "runtime:local" }]);
+    // The request names the loop the panel shows, so the engine answers that loop's own mapping choices without a mapping (B1.2, B3.6).
+    assert.deepStrictEqual(requests, [{ projectRoot: "/project", runtimeId: "runtime:local", loopId: "loop:tank" }]);
     assert.deepStrictEqual(posted, [{ status: "bindings", targets: [LISTED_LOOP], rejected: [REJECTION] }]);
   });
 
-  test("posts the engine's refusal of a listing with its next action", async () => {
+  test("posts the engine's refusal of a listing with its sentence alone, which the page shows as it is", async () => {
     const { engine } = fakeEngine(() => ({ failure: SETTINGS_REFUSAL }));
     const posted: Array<Record<string, unknown>> = [];
     await routeWith(engine).handle(message("control-studio.binding.list", {}), async payload => {
       posted.push(payload);
     });
-    assert.deepStrictEqual(posted, [{ status: "failed", reason: "The loop has no such controller. Next: Loop setup…" }]);
+    assert.deepStrictEqual(posted, [{ status: "failed", reason: "The loop has no such controller." }]);
+  });
+
+  test("answers a message the page sends twice once, and forgets the oldest ids so that a long session is never refused", async () => {
+    const { engine, requests } = fakeEngine(() => discovered());
+    const route = routeWith(engine);
+    const first = message("control-studio.binding.list", {});
+    await route.handle(first, async () => undefined);
+    await route.handle(first, async () => undefined);
+    assert.strictEqual(requests.length, 1, "the repeated message is answered once");
+    const posted: Array<Record<string, unknown>> = [];
+    for (let index = 0; index < 4200; index += 1) {
+      await route.handle(message("control-studio.binding.list", { index }), async payload => {
+        posted.push(payload);
+      });
+    }
+    assert.strictEqual(requests.length, 4201, "every new message is answered");
+    assert.ok(posted.every(payload => payload.status === "bindings"), "no message is refused with a sentence of the route's own");
+    await route.handle(first, async () => undefined);
+    assert.strictEqual(requests.length, 4202, "an id forgotten long ago is answered again");
   });
 
   test("leaves the messages of the other stages to their routes, and asks the engine nothing for them", async () => {
@@ -148,10 +168,8 @@ suite("Control Studio engine setup", () => {
   });
 
   test("selects a binding through the engine: the selection and the family go to it, and the file it names opens as a session", async () => {
-    fs.mkdirSync(path.join(folder, "control-loops"), { recursive: true });
-    const file = path.join(folder, "control-loops", "tank.json");
-    fs.writeFileSync(file, JSON.stringify(LOOP_FILE));
-    const { engine, requests } = fakeEngine(() => discovered({ selectedFile: file }));
+    const selectedRequest = { schemaVersion: 1, source: "ConfiguredLoop", scope: { projectId: SCOPE.projectId, runtimeId: "runtime:local" }, loopDefinition: LOOP_FILE };
+    const { engine, requests } = fakeEngine(() => discovered({ selectedRequest }));
     const opened: OpenedSession[] = [];
     const posted: Array<Record<string, unknown>> = [];
     const handled = await routeWith(engine, opened).handle(
@@ -174,23 +192,27 @@ suite("Control Studio engine setup", () => {
     assert.deepStrictEqual(posted, []);
   });
 
-  test("posts a selection the engine refuses to the page with its next action, and opens nothing", async () => {
+  test("posts a selection the engine refuses to the page with its sentence alone, and opens nothing", async () => {
     const { engine } = fakeEngine(() => ({ failure: SETTINGS_REFUSAL }));
     const opened: OpenedSession[] = [];
     const posted: Array<Record<string, unknown>> = [];
     await routeWith(engine, opened).handle(message("control-studio.binding.select", { selection: SELECTION, page: "model" }), async payload => {
       posted.push(payload);
     });
-    assert.deepStrictEqual(posted, [{ status: "failed", page: "model", reason: "The loop has no such controller. Next: Loop setup…" }]);
+    assert.deepStrictEqual(posted, [{ status: "failed", page: "model", reason: "The loop has no such controller." }]);
     assert.deepStrictEqual(opened, []);
   });
 
-  test("reads the engine's save answer as the file it wrote, a parked structure, or a refusal", () => {
-    const saved: EngineAnswer<SetupSaveResult> = {
-      result: { loops: [{ id: "loop:tank", name: "Tank level", file: "control-loops/tank-level.json" }] },
-    };
-    assert.deepStrictEqual(setupSaveOutcome(saved), { kind: "saved", file: "control-loops/tank-level.json" });
-    assert.deepStrictEqual(setupSaveOutcome({ failure: { ...SETTINGS_REFUSAL, cause: "controller-capability", nextAction: "none" } }), { kind: "parked" });
+  test("reads the engine's save answer as the file it wrote, or a refusal", () => {
+    // The engine names the open request of the first loop it wrote; the page opens that request and reads no file.
+    const openRequest = { schemaVersion: 1, source: "ConfiguredLoop", scope: { projectId: "project:tank", runtimeId: "runtime:local" }, loopDefinition: { id: "loop:tank" } };
+    const saved = {
+      result: { loops: [{ id: "loop:tank", name: "Tank level", file: "control-loops/tank-level.json" }], openRequest },
+    } as unknown as EngineAnswer<SetupSaveResult>;
+    assert.deepStrictEqual(setupSaveOutcome(saved), { kind: "saved", file: "control-loops/tank-level.json", openRequest });
+    // No structure falls back to the TypeScript generator any more: a controller-capability refusal is shown like any other refusal.
+    const capability: Failure = { ...SETTINGS_REFUSAL, cause: "controller-capability", nextAction: "none" };
+    assert.deepStrictEqual(setupSaveOutcome({ failure: capability }), { kind: "refused", failure: capability });
     assert.deepStrictEqual(setupSaveOutcome({ failure: SETTINGS_REFUSAL }), { kind: "refused", failure: SETTINGS_REFUSAL });
     assert.deepStrictEqual(setupSaveOutcome({ result: { loops: [] } }), {
       kind: "refused",
@@ -206,7 +228,7 @@ suite("Control Studio engine setup", () => {
       "The gain is missing. Choose the gain variable. Next: Loop setup…");
   });
 
-  test("saves the feedforward draft the setup form posts unchanged, and a refusal of it is a refusal, never a parked structure (C8)", async () => {
+  test("saves the feedforward draft the setup form posts unchanged, and a refusal of it is shown as a refusal (C8)", async () => {
     // The form's draft for a feedforward: the keys are the fields of the engine's FeedforwardLoopDraft (setup/save.rs `parse_setup_draft`).
     const draft = {
       structure: "feedforward", name: "Water temperature", instance: "P1.Loop", action: "direct", parameterRecord: "P1.Parameters",

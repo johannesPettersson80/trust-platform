@@ -3,7 +3,7 @@
 
 use std::collections::BTreeSet;
 
-use crate::commissioning::initial_state::MAXIMUM_STATES;
+use crate::commissioning::initial_state::{ControllerInitialization, MAXIMUM_STATES};
 use crate::limits::{MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS};
 
 use super::{
@@ -399,6 +399,14 @@ impl LoopDefinition {
                     &reference.unit,
                     &self.signals.manipulated_variable.unit,
                 )?;
+                // The seven states and the application states are declared states, checked as the page checks each block
+                // (`libraryPidInitialization`, `decodeControllerInitialization`).
+                let declared: Vec<InitializedState> = states
+                    .iter()
+                    .chain(application_states.iter().flatten())
+                    .cloned()
+                    .collect();
+                ControllerInitialization::new(declared).map_err(|failure| failure.message)?;
                 let root = format!(
                     "{}.",
                     self.controller
@@ -775,6 +783,9 @@ pub(super) struct AddressSpan {
     end_bit: u64,
 }
 
+/// The largest integer a JavaScript number holds exactly, which is the largest byte offset the page reads.
+const MAXIMUM_SAFE_INTEGER: u64 = (1 << 53) - 1;
+
 pub(super) fn parse_address(address: &str) -> Option<AddressSpan> {
     let upper = address.to_ascii_uppercase();
     let rest = upper.strip_prefix('%')?;
@@ -800,6 +811,10 @@ pub(super) fn parse_address(address: &str) -> Option<AddressSpan> {
         return None;
     }
     let byte: u64 = byte.parse().ok()?;
+    // The page reads a byte offset as a safe integer (`addressRange` in `loopDefinition.ts`), so a larger one is no address.
+    if byte > MAXIMUM_SAFE_INTEGER {
+        return None;
+    }
     // A bit number counts only for a bit address; on a wider address it is accepted and ignored.
     let bit: u64 = match bit {
         Some(bit) if !bit.is_empty() && bit.bytes().all(|digit| digit.is_ascii_digit()) => {
@@ -847,11 +862,12 @@ fn revision(name: &str, value: &str) -> Result<(), String> {
     }
 }
 
-/// A label of a parameter binding: non-empty, at most 1024 characters, no control characters.
+/// A label: non-empty once trimmed, at most 1024 UTF-16 code units (the page's `value.length`), and no character below U+0020
+/// (`label` in `parameterBinding.ts`).
 fn label(name: &str, value: &str) -> Result<(), String> {
     if value.trim().is_empty()
-        || value.chars().count() > 1024
-        || value.chars().any(char::is_control)
+        || value.encode_utf16().count() > 1024
+        || value.chars().any(|character| character < '\u{20}')
     {
         return Err(format!("{name} is not a label"));
     }

@@ -8,9 +8,11 @@ use crate::identification::texts::method_refusal_text;
 use crate::study::StudySection;
 use crate::tuning::automatic_criteria::AutomaticCriteria;
 use crate::tuning::objective::{TuningMethod, TuningObjective};
+use crate::tuning::output_requirements::OutputRequirements;
 
 fn requirements() -> TuningRequirements {
     TuningRequirements {
+        channel_requirements: None,
         reference_change: 2.0,
         maximum_error: 0.4,
         settling_band: 0.1,
@@ -50,6 +52,44 @@ fn an_empty_inputs_section_is_valid_and_is_written_as_an_empty_document() {
     assert_eq!(text, "{}", "an absent input is not written");
     assert_eq!(InputsSection::decode(&text).expect("decoded"), empty);
     assert!(!empty.needs_manual_settings());
+}
+
+#[test]
+fn the_overshoot_limits_of_the_task_and_of_each_output_survive_a_round_trip() {
+    let output = |reference_change: f64, overshoot: f64| OutputRequirements {
+        reference_change,
+        maximum_error: 0.4,
+        settling_band: 0.1,
+        settling_time_seconds: 45.0,
+        maximum_overshoot_percent: Some(overshoot),
+    };
+    let section = InputsSection {
+        requirements: Some(TuningRequirements {
+            maximum_overshoot_percent: Some(5.0),
+            channel_requirements: Some(std::collections::BTreeMap::from([
+                ("P1.PV".to_owned(), output(2.0, 5.0)),
+                ("P2.PV".to_owned(), output(1.0, 12.5)),
+            ])),
+            ..requirements()
+        }),
+        ..InputsSection::default()
+    };
+    let decoded = InputsSection::decode(&section.encode().expect("encoded")).expect("decoded");
+    let requirements = decoded.requirements.expect("the requirements come back");
+    assert_eq!(
+        requirements.maximum_overshoot_percent,
+        Some(5.0),
+        "the task's limit"
+    );
+    let outputs = requirements
+        .channel_requirements
+        .expect("each output's requirements come back");
+    assert_eq!(outputs["P1.PV"].maximum_overshoot_percent, Some(5.0));
+    assert_eq!(
+        outputs["P2.PV"].maximum_overshoot_percent,
+        Some(12.5),
+        "each output keeps its own limit"
+    );
 }
 
 #[test]
@@ -123,6 +163,7 @@ fn the_requirements_are_checked_as_the_tune_section_checks_them() {
     .expect_err("a settling band not below the error limit");
     assert_eq!(refused.cause, Cause::Settings);
     assert_eq!(refused.next_action, NextAction::OpenRequirements);
+    assert_eq!(refused.field.as_deref(), Some("maximumError"));
 }
 
 #[test]
@@ -227,6 +268,42 @@ fn the_validations_are_invalidated_only_when_the_held_requirements_change() {
         invalidation(&none, &held_test(Some(&held), &[])).validation,
         "requirements recorded where none were held are a change"
     );
+}
+
+#[test]
+fn an_invalidation_states_its_sentence() {
+    // A8.4, B9.9: the Validate page says why a result went away in the engine's words, and the page writes none. A change that leaves the
+    // validations current says nothing, and the wire form of that answer carries no `reason` key at all.
+    let held = requirements();
+    let mut changed = requirements();
+    changed.settling_time_seconds = 50.0;
+    let none = held_test(None, &[]);
+    let invalidated = invalidation(
+        &held_test(Some(&held), &[]),
+        &held_test(Some(&changed), &[]),
+    );
+    assert!(invalidated.validation);
+    assert_eq!(
+        invalidated.reason,
+        Some("Inputs changed. Tune and verify before applying.")
+    );
+    assert_eq!(
+        serde_json::to_value(invalidated).expect("the invalidation encodes"),
+        serde_json::json!({
+            "validation": true,
+            "reason": "Inputs changed. Tune and verify before applying."
+        })
+    );
+    let unchanged = invalidation(&none, &none);
+    assert!(!unchanged.validation);
+    assert_eq!(unchanged.reason, None);
+    assert_eq!(
+        serde_json::to_value(unchanged).expect("the invalidation encodes"),
+        serde_json::json!({ "validation": false })
+    );
+    // A sentence without an invalidation, or an invalidation without a sentence, would leave the page to invent one.
+    assert_eq!(Invalidation::of(true).reason, Some(INPUTS_CHANGED));
+    assert_eq!(Invalidation::of(false).reason, None);
 }
 
 /// The test a study holds, for the requirements and the scenarios given.
@@ -431,4 +508,129 @@ fn the_held_requirements_are_the_recorded_ones_and_none_without_a_record() {
         None
     );
     assert_eq!(held_requirements(None, None), None);
+}
+
+#[test]
+fn a_scenario_list_that_no_scenario_reads_is_refused_under_the_scenarios_field() {
+    let unnamed: EngineerScenario = serde_json::from_value(serde_json::json!({
+        "id": "",
+        "initialValues": {},
+        "events": [],
+        "requirements": [],
+    }))
+    .expect("the scenario decodes; its empty identity is what is refused");
+    let refused = InputsSection {
+        scenarios: Some(vec![unnamed]),
+        ..InputsSection::default()
+    }
+    .check()
+    .expect_err("a scenario without an identity");
+    assert_eq!(refused.field.as_deref(), Some("scenarios"));
+}
+
+#[test]
+fn a_scenario_event_after_the_validation_duration_is_refused_under_the_scenarios_field() {
+    let mut test = requirements();
+    test.duration_seconds = 2.0;
+    let late: EngineerScenario = serde_json::from_value(serde_json::json!({
+        "id": "late",
+        "initialValues": {},
+        "events": [{ "atMs": 3000, "symbol": "Main.SP", "value": 3 }],
+        "requirements": [{ "id": "r", "kind": "bounds", "channel": "Main.PV",
+            "window": { "start": 0, "end": 1 }, "minimum": 0, "maximum": 5 }]
+    }))
+    .expect("a scenario in the stored form");
+    let refused =
+        check_within_duration(&test, &[late]).expect_err("the event is written after the run");
+    assert_eq!(refused.field.as_deref(), Some("scenarios"));
+    assert_eq!(
+        refused.message,
+        "Scenario late writes an event after the validation duration of 2 s."
+    );
+    assert!(check_within_duration(&test, &[scenario_named("early")]).is_ok());
+}
+
+/// A declared scenario that writes one event at `at_ms`.
+fn scenario_with_event_at(id: &str, at_ms: f64) -> EngineerScenario {
+    serde_json::from_value(serde_json::json!({
+        "id": id,
+        "initialValues": {},
+        "events": [{ "atMs": at_ms, "symbol": "Main.SP", "value": 3 }],
+        "requirements": [{ "id": "r", "kind": "bounds", "channel": "Main.PV",
+            "window": { "start": 0, "end": 1 }, "minimum": 0, "maximum": 5 }]
+    }))
+    .expect("a scenario in the stored form")
+}
+
+#[test]
+fn a_scenario_event_between_two_task_samples_is_refused_under_the_scenarios_field() {
+    // B4.3: Validate writes an event at a sample of the loop's task, so the change that gives the event is refused when its time is
+    // not a whole number of task periods.
+    let refused = check_events_on_grid(&[scenario_with_event_at("late-event", 150.0)], 100.0)
+        .expect_err("150 ms lies between the samples of a 100 ms task");
+    assert_eq!(refused.field.as_deref(), Some("scenarios"));
+    assert_eq!(
+        refused.message,
+        "Scenario late-event writes an event at 150 ms, which is not a multiple of the 100 ms task period."
+    );
+    for on_the_grid in [0.0, 100.0, 1_500.0] {
+        assert!(
+            check_events_on_grid(&[scenario_with_event_at("on", on_the_grid)], 100.0).is_ok(),
+            "{on_the_grid} ms is a sample"
+        );
+    }
+    let second = check_events_on_grid(
+        &[
+            scenario_with_event_at("first", 200.0),
+            scenario_with_event_at("second", 250.0),
+        ],
+        100.0,
+    )
+    .expect_err("the second scenario's event is off the grid");
+    assert!(
+        second.message.starts_with("Scenario second "),
+        "the refusal names the scenario that holds the event"
+    );
+}
+
+#[test]
+fn no_event_is_checked_against_a_task_period_that_validate_refuses() {
+    // The campaign refuses a task period that is not a whole number of milliseconds with its own sentence (B4.3), so the scenarios'
+    // events are not judged against it.
+    let odd = [scenario_with_event_at("odd", 150.0)];
+    for period in [2.5, 0.0, -100.0, f64::NAN] {
+        assert!(check_events_on_grid(&odd, period).is_ok(), "{period}");
+    }
+}
+
+#[test]
+fn a_change_that_invalidates_the_validation_leaves_no_current_result_in_the_evidence() {
+    let passed = StageEvidence {
+        loop_bound: true,
+        has_model: true,
+        has_declared_analysis: false,
+        has_manual_parameters: false,
+        has_candidate: true,
+        has_recording: true,
+        identification_failed: false,
+        validation_has_result: true,
+        validation_passed: true,
+        validation_inconclusive: false,
+        controller_stages_apply: true,
+    };
+    let invalidated = evidence_after_invalidation(passed, Invalidation::of(true));
+    assert!(
+        !invalidated.validation_has_result,
+        "the result the change left is not current"
+    );
+    assert!(!invalidated.validation_passed);
+    assert!(!invalidated.validation_inconclusive);
+    assert!(
+        invalidated.has_model && invalidated.has_candidate,
+        "the other evidence is kept"
+    );
+    assert_eq!(
+        evidence_after_invalidation(passed, Invalidation::of(false)),
+        passed
+    );
 }

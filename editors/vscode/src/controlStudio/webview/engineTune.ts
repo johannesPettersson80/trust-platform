@@ -6,6 +6,7 @@
  */
 import type { EngineStageReceiver } from "./engineStages";
 import { textOf } from "./engineIdentify";
+import { OPENED_OFFERS_EVENT, setOpenedOffers, type OpenedOffers } from "./openedOffers";
 
 type Fields = Record<string, unknown>;
 
@@ -27,14 +28,17 @@ export function tuneCandidatePayload(result: Fields, stageEvidence?: Fields): Fi
   const feedforward = record(result.feedforward);
   const group = record(result.group);
   const schedule = record(result.schedule);
+  // The engine's words of the answer (TuneWords, tune_words.rs): its margins in words, its outcome sentence and its setting rows.
+  const words = record(result.words);
   return {
     status: "candidate",
     family: textOf(candidate?.structure) || textOf(state?.family),
     // A Control.PID candidate's values are its settings; a program's law gives them by variable in `projectCandidate.values`.
     values: record(project?.values ?? result.settings) ?? {},
-    ...(margins ? { robustness: robustnessOf(margins, result.delayMarginSeconds) } : {}),
+    ...(margins ? { robustness: robustnessOf(margins, result.delayMarginSeconds, words) } : {}),
     ...(typeof result.methodDescription === "string" ? { methodDescription: result.methodDescription } : {}),
     outcome: record(result.outcome),
+    ...(words ? { words } : {}),
     comparison: arrayOf(result.comparison),
     unavailable: marginsUnavailable ? [marginsUnavailable] : [],
     task: record(result.requirements),
@@ -53,6 +57,21 @@ export function tuneCandidatePayload(result: Fields, stageEvidence?: Fields): Fi
  */
 export const tuneReceiver: EngineStageReceiver = {
   opened(_root, opened, ports) {
+    // The offers the engine made on open (C2, C4, B4.3): the controller that the Tune page offers with the rows of its manual editor, the
+    // setpoints a loop without one may take, and the scenario template. The controller reads the offer here; the editors read the store.
+    const offers: OpenedOffers = {
+      controllerOffer: (opened.controllerOffer ?? null) as OpenedOffers["controllerOffer"],
+      setpointChoices: (opened.setpointChoices ?? null) as OpenedOffers["setpointChoices"],
+      scenarioTemplate: (opened.scenarioTemplate ?? null) as OpenedOffers["scenarioTemplate"],
+      scenarioRowSignal: (opened.scenarioRowSignal ?? null) as OpenedOffers["scenarioRowSignal"],
+      stateDeclaredText: (opened.stateDeclaredText ?? null) as OpenedOffers["stateDeclaredText"],
+      liveSides: (opened.liveSides ?? null) as OpenedOffers["liveSides"],
+      requirementOutputs: (opened.requirementOutputs ?? null) as OpenedOffers["requirementOutputs"],
+    };
+    setOpenedOffers(offers);
+    // Editors built before the answer listen on the page's window; a page test without a window has none to tell.
+    if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(OPENED_OFFERS_EVENT));
+    ports.receive("engineer", { controllerOffer: offers.controllerOffer });
     // A kept finite search reopens as its trials (C5, A8.6). Its open answer's candidate holds no law, so the trials are what the page shows.
     const search = record(opened.searchCandidate);
     if (search) {
@@ -67,9 +86,9 @@ export const tuneReceiver: EngineStageReceiver = {
   },
 };
 
-/** Whether a Tune answer is a finite search's (C5): its answer holds its trials, where a candidate holds its settings. */
+/** Whether a Tune answer is a finite search's (C5), by the kind the engine names (`searchAnswer`, §0.1a). */
 export function isSearchAnswer(result: Fields): boolean {
-  return Array.isArray(result.trials);
+  return result.kind === "searchAnswer";
 }
 
 /**
@@ -122,23 +141,23 @@ export function predictedPlots(result: Fields): Fields | undefined {
 
 /** Draws a predicted response on the Tune chart, which reads the plots of the engineer's events (B9.6). */
 export function showTunePlots(plots: Fields | undefined): void {
-  if (plots) window.dispatchEvent(new CustomEvent("trust-control-studio-engineer", { detail: { plots } }));
+  if (plots && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("trust-control-studio-engineer", { detail: { plots } }));
 }
 
-function robustnessOf(margins: Fields, delay: unknown): Fields {
+/** The candidate's margins as the page shows them: each number, or the engine's word for a margin that is not a number (B9.5). */
+function robustnessOf(margins: Fields, delay: unknown, words: Fields | undefined): Fields {
   return {
-    gainMarginDb: marginOf(margins.gainMarginDb),
-    phaseMarginDegrees: marginOf(margins.phaseMarginDegrees),
-    delayMarginSeconds: marginOf(delay),
+    gainMarginDb: marginOf(margins.gainMarginDb, words?.gainMargin),
+    phaseMarginDegrees: marginOf(margins.phaseMarginDegrees, words?.phaseMargin),
+    delayMarginSeconds: marginOf(delay, words?.delayMargin),
     peakSensitivity: margins.peakSensitivity,
   };
 }
 
-/** A margin as the page shows it: its number, or the word for an unbounded margin or one the grid does not show (B9.5). */
-function marginOf(value: unknown): unknown {
+/** A margin as the page shows it: its number when it is finite, otherwise the word the engine gives it (TuneWords, B9.5). */
+function marginOf(value: unknown, word: unknown): unknown {
   const finite = record(value)?.finite;
-  if (typeof finite === "number") return finite;
-  return value === "unbounded" ? "unbounded" : "not observed in range";
+  return typeof finite === "number" ? finite : word;
 }
 
 function record(value: unknown): Fields | undefined {

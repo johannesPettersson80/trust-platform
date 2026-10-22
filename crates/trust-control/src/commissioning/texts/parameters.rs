@@ -221,89 +221,45 @@ pub fn parameter_identity_unresolved() -> String {
     "The parameter-operation identity remains unresolved.".to_owned()
 }
 
-/// Session (`ParameterSession.handle`, parameterSession.ts; B6.4): another write awaits its confirmation, so this request is refused.
-#[must_use]
-pub fn parameter_applying() -> String {
-    "A parameter transaction is awaiting confirmation. Inspect its status before another write."
-        .to_owned()
-}
-
-/// Session (`ParameterSession.handle`, parameterSession.ts): the review the webview names is no longer retained.
-#[must_use]
-pub fn parameter_review_expired() -> String {
-    "This review expired. Review the exact values again.".to_owned()
-}
-
-/// Session (`ParameterSession.handle`, parameterSession.ts): the review text is missing or longer than 64 kB.
+/// Review text (`values_of_text`, `controlStudio/parameters`; C12): the review text is missing or longer than 64 kB.
 #[must_use]
 pub fn parameter_json_too_long() -> String {
     "Enter a parameter JSON object of at most 64 kB.".to_owned()
 }
 
-/// Session (`ParameterSession.handle`, parameterSession.ts): the review text is not JSON (a text that the TypeScript reports by the JSON parser's own message).
+/// Review text (`values_of_text`, `controlStudio/parameters`; C12): the review text is not JSON (a text that the TypeScript reports by the JSON parser's own message).
 #[must_use]
 pub fn parameter_json_invalid() -> String {
     "The parameter values are not valid JSON.".to_owned()
 }
 
-/// Session (`ParameterSession.handle`, parameterSession.ts): a selected analysis has no candidate with an explicit ST parameter mapping.
-#[must_use]
-pub fn parameter_selected_analysis_missing() -> String {
-    "Calculate a selected model candidate with an explicit ST parameter mapping first.".to_owned()
-}
-
-/// Session (`ParameterSession.handle`, parameterSession.ts): the selected analysis values are copied for review; the runtime is not changed.
+/// Selected analysis (`controlStudio/parameters`, `draft`; C12): the selected analysis values are copied for review; the runtime is not changed.
 #[must_use]
 pub fn parameter_selected_analysis_draft() -> String {
     "Selected analysis values copied for review. The runtime has not changed.".to_owned()
 }
 
-/// Session (`ParameterSession.handle`, parameterSession.ts): the values changed, so the review is dropped.
+/// The values changed after a review, so the review is dropped: the answer of `controlStudio/parameters` with `invalidate` (C12).
 #[must_use]
 pub fn parameter_edited() -> String {
     "Values changed. Review again before applying.".to_owned()
 }
 
-/// Session (`ParameterSession.handle`, parameterSession.ts; B6.4): the reason shown while an Apply waits for its task boundary.
+/// The progress of a parameter write of `controlStudio/parameters` (C12, E7.4): the write waits for its task boundary and the values the
+/// runtime then reports.
 #[must_use]
 pub fn parameter_applying_reason() -> String {
     "Waiting for the owning task and observed values…".to_owned()
 }
 
-/// Session (`ParameterSession.handle`, parameterSession.ts; B6.4): a rollback is applied and its values were observed.
+/// Confirmed write (`applied_reason`; C12, B6.4): a rollback is applied and its values were observed.
 #[must_use]
 pub fn parameter_applied_rollback() -> String {
     "Previous values restored and observed after ST execution.".to_owned()
 }
 
-/// Session (`ParameterSession.handle`, parameterSession.ts; B6.4): an Apply is applied and its values were observed.
+/// Confirmed write (`applied_reason`; C12, B6.4): an Apply is applied and its values were observed.
 #[must_use]
 pub fn parameter_applied_apply() -> String {
     "Reviewed values observed after ST execution.".to_owned()
-}
-
-/// Reviewed application (`ReviewedStudioApplicationCoordinator.handle`, reviewedStudioApplication.ts): the message was already handled.
-#[must_use]
-pub fn parameter_request_already_handled() -> String {
-    "This application request has already been handled; no runtime operation was repeated."
-        .to_owned()
-}
-
-/// Reviewed application (`ReviewedStudioApplicationCoordinator.handle`, reviewedStudioApplication.ts): another request awaits its confirmation.
-#[must_use]
-pub fn parameter_request_busy() -> String {
-    "Another application request is awaiting confirmation.".to_owned()
-}
-
-/// Reviewed application (`ReviewedStudioApplicationCoordinator.handle`, reviewedStudioApplication.ts): the page handled its limit of requests.
-#[must_use]
-pub fn parameter_request_limit() -> String {
-    "Application request limit reached. Reopen Control Studio before starting another operation."
-        .to_owned()
-}
-
-/// Reviewed application (`ReviewedStudioApplicationCoordinator.handle`, reviewedStudioApplication.ts): the review of `action` (`apply` or `restore`) did not come.
-#[must_use]
-pub fn parameter_review_unavailable(action: &str) -> String {
-    format!("The {action} review was not available.")
 }

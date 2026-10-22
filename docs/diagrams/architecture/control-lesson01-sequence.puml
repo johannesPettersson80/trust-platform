@@ -1,26 +1,40 @@
 @startuml control-lesson01-sequence
 !theme plain
-title Lesson 1: experiment-relative manual sequence
-component "Control Studio\nreview / enable / restore" as studio
+title Lesson 1: project test on the engine (Identify, Project experiment)
+component "Control Studio page\nIdentify, method Project experiment\nReview project test → Confirm and start; Abort test" as page
+component "Engine (trust-control-studio identify)\nreview: the identity of the campaign (loop revision, settings, declared 120.1 s, scenario)\nstart: the same identity, or refused; journaled before dispatch\nrecording with the program revision; restoration confirmed by an unforced scan\nanswer: kept recording and its samples, restoration, and the fit or its note" as engine
+component "Runtime experiment service\ncontrol.experiment.* and control.recording.*\nP1.ExperimentEnabled (%MX24.0, BOOL): TRUE at start, FALSE at the end\nthe selected signals recorded with the program revision" as runtime
 component "Lesson 1 ST\nfixed reference + measured-input validity\nexperiment update counter" as lesson
-component "ColdStorageManualDemand\nON for 200 enabled updates\nOFF afterward" as compressor
+component "ColdStorageManualDemand\nON for 200 enabled updates (20 s)\nOFF afterward" as compressor
 component "Door schedule\nopen at 60 s, closed at 90 s\nrelative to enablement" as door
 component "One thermal state\nstate_space model\nindependent compressor / surroundings inputs" as room
 component "Published temperature, door\nand surroundings observations" as observations
 
-studio --> lesson : P1.ExperimentEnabled\nexisting Boolean experiment path
+page --> engine : review, then start with the same identity\nAbort test: cancel of that operation
+engine --> runtime : activation TRUE at start; recording of the selected signals
+runtime --> lesson : P1.ExperimentEnabled\nexisting Boolean experiment path
 lesson --> compressor : enable, validity, abort, counter
-lesson --> door : same counter and enable conditions
+lesson --> door : same counter and enable conditions\n%QL16 DoorCommand: 1 while the door is open
 compressor --> room : %QL0: OFF / ON encoding
-door --> room : %QL8: effective surroundings, degC
-door --> observations : %QL16: door indication\n%QL8: surroundings
+door --> room : %QL8 SurroundingsCommand: 4 °C, 6 °C while the door is open
+door --> observations : plant: %IL8 door indication\n%IL16 effective surroundings
 room --> observations : %IL0: room temperature
-observations --> studio : existing live samples\neditor-observed recording remains incomplete
+observations --> runtime : recorded samples, with the program revision
+runtime --> engine : restoration: activation FALSE, confirmed by an unforced scan
+engine --> page : Project test completed. Outputs restored.\nkept recording and samples; the fit, or its refusal as the note
 observations --> lesson : measured temperature validity only\nno temperature regulation
 
 note bottom of lesson
 Disabled, invalid or aborted: compressor OFF and door closed.
 Restart simulator for a matching thermal initial state.
 No activation-relative runtime event API is introduced.
+end note
+
+note bottom of engine
+Normal completion restores the activation without asserting an abort.
+Lesson 1 declares no abort binding, so an abort or a failed termination
+restores the activation only (C12).
+A fit that the recording cannot support is the test's note: the study keeps
+the recording and no model, and its current model stays as it was (B3.7).
 end note
 @enduml

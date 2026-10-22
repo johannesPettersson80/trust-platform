@@ -24,9 +24,10 @@ use trust_runtime::scheduler::{simulation_warning, ResourceCommand, ResourceCont
 use trust_runtime::settings::{
     BaseSettings, DiscoverySettings, MeshSettings, RuntimeSettings, SimulationSettings, WebSettings,
 };
-use trust_runtime::value::{Duration, Value};
+use trust_runtime::value::Value;
 use trust_runtime::watchdog::{FaultPolicy, RetainMode, WatchdogPolicy};
 
+use super::core::cycle_time_hint;
 use crate::runtime::DebugRuntime;
 use crate::session::SimulationFacts;
 
@@ -136,13 +137,19 @@ impl DebugControlServer {
         self.server.state().metrics.clone()
     }
 
-    /// Reports the simulation facts of the program that is now loaded (specification 35, A2.4).
-    pub(super) fn refresh_simulation(&self, facts: SimulationFacts) {
+    /// Reports the program that is now loaded (specification 35, A2.3 and A2.4): the tasks that `status` lists, the cycle that
+    /// the managed runner takes from them, and the simulation facts. A reload changes all three, as a reload in the runtime
+    /// replaces the metadata that its `status` lists.
+    pub(super) fn refresh_program(&self, session: &dyn DebugRuntime) {
         let state = self.server.state();
+        if let Ok(mut metadata) = state.metadata.lock() {
+            *metadata = session.metadata().clone();
+        }
         let Ok(mut settings) = state.settings.lock() else {
             return;
         };
-        settings.simulation = simulation_settings(facts);
+        settings.cycle_interval = cycle_time_hint(session.metadata());
+        settings.simulation = simulation_settings(session.simulation_facts());
     }
 }
 
@@ -164,7 +171,9 @@ fn default_settings(session: &dyn DebugRuntime) -> RuntimeSettings {
         .map(|runtime| (runtime.watchdog_policy(), runtime.fault_policy()))
         .unwrap_or_else(|_| (WatchdogPolicy::default(), FaultPolicy::SafeHalt));
     RuntimeSettings::new(
-        Duration::from_millis(10),
+        // `status` reports the cycle that the managed runner takes, never a constant (annex E1.3). `refresh_program` keeps it
+        // current across reloads.
+        cycle_time_hint(session.metadata()),
         BaseSettings {
             log_level: SmolStr::new("info"),
             watchdog,
@@ -323,6 +332,7 @@ fn empty_debug_snapshot() -> DebugSnapshot {
 mod search_provenance_tests {
     use super::*;
     use crate::DebugAdapter;
+    use trust_runtime::value::Duration;
 
     #[test]
     fn debug_bridge_reports_the_actual_session_simulation_snapshot() {

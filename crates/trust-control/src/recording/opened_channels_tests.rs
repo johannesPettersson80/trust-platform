@@ -144,6 +144,99 @@ fn a_requested_selection_must_name_present_and_distinct_channels() {
 }
 
 #[test]
+fn a_legacy_file_offers_each_selector_its_own_channel() {
+    let catalog =
+        opened_recording_catalog(&units(), &loop_definition(), &[], None).expect("the file opens");
+    let names = |channels: &[super::CatalogChannel]| {
+        channels
+            .iter()
+            .map(|channel| channel.id.clone())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(names(&catalog.inputs), ["appliedMv"]);
+    assert_eq!(names(&catalog.outputs), ["pv"]);
+}
+
+#[test]
+fn a_legacy_file_words_its_two_channels_and_an_archive_words_none() {
+    // Wrong behaviour caught: the page knowing the legacy identifiers `appliedMv` and `pv` to put words to them (B3.6). The engine
+    // gives the words, a catalog read back from the study gives them again, and an archive's channels, named by their symbols, have none.
+    let legacy =
+        opened_recording_catalog(&units(), &loop_definition(), &[], None).expect("the file opens");
+    let words = |channels: &[super::CatalogChannel]| {
+        channels
+            .iter()
+            .map(|channel| (channel.id.clone(), channel.label.clone()))
+            .collect::<Vec<_>>()
+    };
+    let expected = [
+        ("appliedMv".to_string(), Some("Applied input".to_string())),
+        ("pv".to_string(), Some("Measured output".to_string())),
+    ];
+    assert_eq!(words(&legacy.channels), expected);
+    assert_eq!(words(&legacy.inputs), expected[..1]);
+    assert_eq!(words(&legacy.outputs), expected[1..]);
+    let stored = json!({
+        "kind": "legacy",
+        "channels": [{ "id": "appliedMv", "unit": "%" }, { "id": "pv", "unit": "%" }],
+        "selection": { "inputs": ["appliedMv"], "outputs": ["pv"] }
+    });
+    let read_back = decoded(&stored).expect("the stored legacy catalog reads");
+    assert_eq!(words(&read_back.channels), expected);
+
+    let opened = opened_recording_catalog(
+        &units(),
+        &loop_definition(),
+        &[archive(&[[50.0, 48.0, 32.0]])],
+        None,
+    )
+    .expect("the archive opens");
+    assert!(
+        opened
+            .channels
+            .iter()
+            .all(|channel| channel.label.is_none()),
+        "an archive's channels are named by their symbols"
+    );
+}
+
+#[test]
+fn each_selector_offers_only_what_the_loop_does_not_declare_on_the_other_side() {
+    let loop_definition = loop_definition();
+    let process = loop_definition.signals.process_variable.symbol.clone();
+    let manipulated = loop_definition.signals.manipulated_variable.symbol.clone();
+    let catalog = opened_recording_catalog(
+        &units(),
+        &loop_definition,
+        &[archive(&[[50.0, 48.0, 32.0]])],
+        None,
+    )
+    .expect("the archive opens");
+    let inputs: Vec<&str> = catalog.inputs.iter().map(|item| item.id.as_str()).collect();
+    let outputs: Vec<&str> = catalog
+        .outputs
+        .iter()
+        .map(|item| item.id.as_str())
+        .collect();
+    assert!(
+        inputs.contains(&manipulated.as_str()),
+        "the plant input is offered"
+    );
+    assert!(
+        !inputs.contains(&process.as_str()),
+        "a measured output is no plant input"
+    );
+    assert!(
+        outputs.contains(&process.as_str()),
+        "the measured output is offered"
+    );
+    assert!(
+        !outputs.contains(&manipulated.as_str()),
+        "a plant input is no measured output"
+    );
+}
+
+#[test]
 fn a_stored_catalog_is_read_only_when_it_is_well_formed() {
     let stored = json!({
         "kind": "archive",

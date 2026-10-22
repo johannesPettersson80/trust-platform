@@ -7,9 +7,11 @@ use std::path::{Path, PathBuf};
 
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::loop_definition::{
-    parked_failure, parked_feature_of, LoopDefinition, LoopScope,
+    effective_loop, parked_failure, parked_feature_of, ChannelSelection, LoopDefinition, LoopScope,
 };
 use trust_control::messages::LoopEntry;
+
+use crate::storage;
 
 /// One loop file and what it holds.
 #[derive(Debug, Clone, PartialEq)]
@@ -144,11 +146,30 @@ fn parked_identity_and_name(file: &Path) -> Option<(String, String)> {
     ))
 }
 
-/// The checked loop `loop_id` of the project.
+/// The checked loop `loop_id` of the project, as the stages read it: the declared loop with the study's channel selection applied
+/// (A8.1, the Tune page's **Channels…**), so that Identify, Tune, Validate and Apply use one mapping. The selection belongs to the
+/// study of the loop's revision; without that study, or without a selection, the declared loop is returned.
+///
+/// # Errors
+/// The project declares no usable loop of that identifier, the study cannot be read, or the selection no longer fits the loop.
+pub fn open(
+    project_root: &Path,
+    runtime_id: &str,
+    loop_id: &str,
+) -> Result<LoopDefinition, Failure> {
+    let declared = open_declared(project_root, runtime_id, loop_id)?;
+    let selection = match storage::current_study(project_root, &declared.id, &declared.revision)? {
+        Some(study) => study.section::<ChannelSelection>()?,
+        None => None,
+    };
+    effective_loop(&declared, selection.as_ref())
+}
+
+/// The checked loop `loop_id` of the project as its file declares it, without the study's channel selection.
 ///
 /// # Errors
 /// The project declares no usable loop of that identifier.
-pub fn open(
+pub fn open_declared(
     project_root: &Path,
     runtime_id: &str,
     loop_id: &str,

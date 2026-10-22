@@ -11,10 +11,12 @@
 use trust_control_math::sampling::statistics::TimedValue;
 
 use crate::experiment::number_text::{js_number, js_round, js_to_fixed, js_to_precision};
-use crate::experiment::RestorationState;
+use crate::experiment::{experiment_recording_window_ms, RestorationState};
 use crate::failure::{Cause, Failure, NextAction};
-use crate::identification::acquisition_settings::AcquisitionError;
+use crate::identification::acquisition_settings::{AcquisitionError, DURATION_FIELD};
 use crate::identification::connected_run::recording_settling_ms;
+use crate::identification::policy::project_scripted;
+use crate::identification::project_baseline::takes_the_declared_baseline;
 use crate::identification::settle::{capped_baseline_window_seconds, observed_time_scale};
 use crate::limits::{
     connection_loss_timeout_ms, record_period_executions, MAXIMUM_EXPERIMENT_DURATION_MS,
@@ -199,7 +201,8 @@ pub fn campaign_maximum_ms(loop_definition: &LoopDefinition) -> Result<u64, Fail
             "The maximum experiment duration must be between 1 s and 24 h.",
             Cause::Settings,
             NextAction::OpenLimits,
-        ));
+        )
+        .with_field(DURATION_FIELD));
     }
     Ok(to_whole_ms(milliseconds))
 }
@@ -222,6 +225,12 @@ pub fn baseline_budget_ms(maximum_ms: u64, expected_settling_seconds: Option<f64
 /// the study declares one. The record period follows from the duration (A4.2). The runtime takes whole milliseconds (E4.2), so
 /// a fraction of a millisecond is rounded up and the recording still covers both parts.
 ///
+/// A project-scripted experiment that declares a baseline waits for no steady baseline (C12), so its recording plans no wait: it
+/// starts with the plan and covers the declared duration, whose last instant is the restoration sample. A project that declares no
+/// baseline waits for the steady baseline as a campaign does ([`takes_the_declared_baseline`]), and its recording plans that wait. The runtime ends a recording that has run its planned
+/// duration, before the sample at that instant, so the plan is the declared duration with the restoration margin of a Test recording
+/// ([`experiment_recording_window_ms`]); the run stops the recording as soon as the experiment has ended.
+///
 /// # Errors
 /// The maximum duration cannot be read (see [`campaign_maximum_ms`]).
 pub fn campaign_recording_ms(
@@ -229,6 +238,9 @@ pub fn campaign_recording_ms(
     expected_settling_seconds: Option<f64>,
 ) -> Result<u64, Failure> {
     let maximum_ms = campaign_maximum_ms(loop_definition)?;
+    if takes_the_declared_baseline(loop_definition) {
+        return Ok(experiment_recording_window_ms(maximum_ms));
+    }
     let budget_ms = baseline_budget_ms(maximum_ms, expected_settling_seconds);
     let planned = (budget_ms + ms_as_f64(maximum_ms))
         .min(ms_as_f64(RECORDING_DURATION_LIMIT_MS))
@@ -236,10 +248,28 @@ pub fn campaign_recording_ms(
     Ok(to_whole_ms(planned))
 }
 
+/// The expected settling time the recording of a loop's run sets its record period by, in whole ms (A4.2): the declared one, or a
+/// tenth of the maximum duration ([`recording_settling_ms`]). A project-scripted experiment records every execution of its hold
+/// (C12): the project owns its scenario and Identify steps no plant input for it, so its recording takes no settling time, and its
+/// record period is the smallest that fits the sample limit.
+#[must_use]
+pub fn campaign_settling_ms(
+    loop_definition: &LoopDefinition,
+    maximum_ms: u64,
+    expected_settling_seconds: Option<f64>,
+) -> Option<u64> {
+    if project_scripted(loop_definition).is_some() {
+        None
+    } else {
+        recording_settling_ms(maximum_ms, expected_settling_seconds)
+    }
+}
+
 /// The connection-loss timeout of a campaign in ms: five seconds, or three recorded sample intervals when those are longer
 /// (`silenceLimitMs`, A3.4, A7). A sample interval is the loop's task period times the record period of the campaign's
-/// recording (A4.2). That record period takes the same expected settling time as the recording's start: the declared one, or
-/// a tenth of the maximum duration (B3.4 step 2). The interval is in process time, which never runs slower than the wall clock.
+/// recording (A4.2). That record period takes the same expected settling time as the recording's start ([`campaign_settling_ms`]):
+/// the declared one, or a tenth of the maximum duration (B3.4 step 2), and none for a project-scripted experiment (C12). The
+/// interval is in process time, which never runs slower than the wall clock.
 ///
 /// # Errors
 /// The loop's task period is not a whole number of milliseconds, or the campaign's recording cannot be planned.
@@ -250,7 +280,7 @@ pub fn silence_limit_ms(
     let task_ms = task_period_whole_ms(loop_definition)?;
     let maximum_ms = campaign_maximum_ms(loop_definition)?;
     let recording_ms = campaign_recording_ms(loop_definition, expected_settling_seconds)?;
-    let settling_ms = recording_settling_ms(maximum_ms, expected_settling_seconds);
+    let settling_ms = campaign_settling_ms(loop_definition, maximum_ms, expected_settling_seconds);
     let record_every =
         record_period_executions(recording_ms, task_ms, RECORDING_SAMPLE_LIMIT, settling_ms);
     Ok(connection_loss_timeout_ms(Some(task_ms * record_every)))
@@ -316,7 +346,8 @@ pub fn require_campaign_limits(loop_definition: &LoopDefinition) -> Result<(), F
             "The maximum experiment duration is missing: experiment.durationSeconds must be set, between 1 s and 24 h.",
             Cause::Settings,
             NextAction::OpenLimits,
-        ));
+        )
+        .with_field(DURATION_FIELD));
     }
     let output = &loop_definition.signals.process_variable;
     let range = output.range;

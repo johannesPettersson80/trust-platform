@@ -82,6 +82,7 @@ fn a_runtime_that_cannot_be_reached_or_does_not_answer_properly_is_unreadable() 
     let not_an_endpoint = RuntimeConnection {
         endpoint: "http://localhost:9".to_string(),
         token: None,
+        runtime_id: None,
     };
     assert_eq!(
         RuntimeClient::read_experiment_status(&not_an_endpoint, "experiment-1"),

@@ -66,7 +66,7 @@ function trialRows(root: HTMLElement): HTMLTableRowElement[] {
 suite("Control Studio three-page finite search", () => {
   test("shows a finished search's trials: the selected one marked, a bound not met, a refused trial with its reason", () => {
     withPage(({ root, ports }) => {
-      receiveEngineMessage(root, { kind: "control-studio.engine.result", method: "tune", result: { status: "completed", selected: 0, trials: TRIALS, scoreUnit: "rad²·s" } }, ports);
+      receiveEngineMessage(root, { kind: "control-studio.engine.result", method: "tune", result: { kind: "searchAnswer", status: "completed", selected: 0, trials: TRIALS, scoreUnit: "rad²·s" } }, ports);
       const rows = trialRows(root);
       assert.deepStrictEqual(rows.map(row => row.dataset.studioSearchTrial), ["1", "2", "3"]);
       assert.ok(rows[0].hasAttribute("data-studio-search-selected"), "the selected trial is marked");
@@ -87,7 +87,7 @@ suite("Control Studio three-page finite search", () => {
 
   test("names J's unit as the engine answers it, not as the page builds it from the loop", () => {
     withPage(({ root, ports }) => {
-      receiveEngineMessage(root, { kind: "control-studio.engine.result", method: "tune", result: { status: "completed", selected: 0, trials: TRIALS, scoreUnit: "N·m²·s" } }, ports);
+      receiveEngineMessage(root, { kind: "control-studio.engine.result", method: "tune", result: { kind: "searchAnswer", status: "completed", selected: 0, trials: TRIALS, scoreUnit: "N·m²·s" } }, ports);
       const headings = Array.from(root.querySelectorAll("[data-studio-search-trials] th")).map(heading => heading.textContent);
       assert.ok(headings.includes("J (N·m²·s)"), `the heading is the answer's unit: ${headings.join(", ")}`);
     });
@@ -96,7 +96,7 @@ suite("Control Studio three-page finite search", () => {
   test("shows the sentence of a search that did not complete, above its trials", () => {
     withPage(({ root, ports }) => {
       const message = "The search was cancelled; the trials not attempted stay marked.";
-      receiveEngineMessage(root, { kind: "control-studio.engine.result", method: "tune", result: { status: "cancelled", message, trials: TRIALS, scoreUnit: "rad²·s" } }, ports);
+      receiveEngineMessage(root, { kind: "control-studio.engine.result", method: "tune", result: { kind: "searchAnswer", status: "cancelled", message, trials: TRIALS, scoreUnit: "rad²·s" } }, ports);
       const sentence = root.querySelector<HTMLElement>("[data-studio-search-status]");
       assert.strictEqual(sentence?.dataset.studioSearchStatus, "cancelled");
       assert.strictEqual(sentence?.textContent, message);

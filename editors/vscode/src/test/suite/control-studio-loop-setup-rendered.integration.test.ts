@@ -2,7 +2,6 @@ import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import { validateControlLoopDefinition } from "../../controlStudio/loopDefinition";
 import { attachControlStudio, attachWebview } from "./control-studio-rendered-harness";
 import { captureRenderedWorkbenchCdp, connectCdp, devToolsPort, evaluateInWebview, httpJson, pollValue, requiredEnvironment } from "./plant-rendered-harness";
 
@@ -33,10 +32,15 @@ suite("Control Studio loop setup form rendered", () => {
         set('manipulatedVariable.unit','%');set('manipulatedVariable.minimum','0');set('manipulatedVariable.maximum','100');set('mode','P1.AutoMode');return 'filled';`);
       const startup = (flag: string) => inner(`const e=d.querySelector('[data-setup-field="startupFlag"]');e.value='${flag}';e.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'flag';`);
       await startup("");
-      const startupMessage = await inner("return d.querySelector('[data-setup-message]').textContent;");
+      // The form checks nothing itself (B1.3): Save is always enabled, and the engine refuses the blank flag in its own words when it is
+      // saved. The flag's selector is in its collapsed Change panel, so the refusal shows in the form's message.
+      await inner("d.querySelector('[data-setup-save]').click();return 'save without the flag';");
+      const startupMessage = await pollValue("the engine's refusal of the blank startup flag",
+        () => inner("return d.querySelector('[data-setup-message]').textContent;"), text => text !== "", 15000);
       assert.match(startupMessage, /initializes P1\.Controller.*startup/,
         `the program's startup code initializes the PID, so validation needs the flag that marks startup as done: ${startupMessage}`);
       await startup("P1.Initialized");
+      assert.strictEqual(await inner("return d.querySelector('[data-setup-message]').textContent;"), "", "choosing the flag clears the engine's refusal");
       assert.strictEqual(await inner("return String(d.querySelector('[data-setup-save]').disabled);"), "false", await inner("return d.querySelector('[data-setup-message]').textContent;"));
       await shot("completed");
       await inner("d.querySelector('[data-setup-save]').click();return 'save';");
@@ -49,7 +53,8 @@ suite("Control Studio loop setup form rendered", () => {
         "The engine serves the loop the setup saved, so its stage tabs show the engine's status");
       await shot("studio");
       const saved = JSON.parse(fs.readFileSync(path.join(project, "control-loops", "fixture-temperature.json"), "utf8"));
-      assert.strictEqual(validateControlLoopDefinition(saved, { projectId: saved.projectId, runtimeId: saved.runtimeId }).kind, "accepted");
+      // The engine validates the saved loop when Control Studio opens it: the loop id and the stage statuses above are its open answer,
+      // so no TypeScript check repeats the validation (the deleted validateControlLoopDefinition).
       assert.strictEqual(saved.controller.law.parameterRecordSymbol, "P1.Parameters");
       assert.strictEqual(saved.experiment, undefined,
         "setup asks for no identification step or duration: Identify chooses them, and Limits supplies the maximum (B1.3)");

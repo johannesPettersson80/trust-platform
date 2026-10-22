@@ -13,15 +13,16 @@ use serde_json::Value;
 
 use crate::experiment::number_text::js_round;
 use crate::experiment::{
-    build_control_experiment_plan, checked_experiment_start, classify_control_experiment_status,
-    decode_control_experiment_recovery, ControlExperimentKind, ControlExperimentPlan,
-    ControlExperimentPlanResult, ControlExperimentRecovery, ControlExperimentRecoveryScope,
-    ControlExperimentRequestKind, ControlExperimentRuntimePhase, ControllerMode, ExperimentSample,
-    PlanInput, PlanSource, RecordingRecoveryOwner, RestorationState,
+    applied_hold_recording_ms, build_control_experiment_plan, checked_experiment_start,
+    classify_control_experiment_status, decode_control_experiment_recovery, ControlExperimentKind,
+    ControlExperimentPlan, ControlExperimentPlanResult, ControlExperimentRecovery,
+    ControlExperimentRecoveryScope, ControlExperimentRequestKind, ControlExperimentRuntimePhase,
+    ControllerMode, ExperimentSample, HoldRefusal, PlanInput, PlanSource, RecordingRecoveryOwner,
+    RestorationState,
 };
 use crate::failure::{Cause, Failure, NextAction};
 use crate::identification::acquisition_settings::{
-    decode_acquisition_settings, AcquisitionSettings,
+    check_acquisition_settings, range_refusal, unreadable_duration_failure, AcquisitionSettings,
 };
 use crate::identification::automatic::AutomaticIdentificationResult;
 use crate::identification::campaign::baseline::BaselineSummary;
@@ -253,31 +254,38 @@ pub fn live_write_refusal(source: EvidenceSource, operation: &str) -> Option<Fai
 /// refusal is the campaign's own, and it names the missing field (B3.4 step 1, B3.9).
 ///
 /// # Errors
-/// The settings do not decode or break a check of `decode_acquisition_settings`: the engineer reviews them in Limits. The loop
-/// declares no duration and the settings give none: the campaign's refusal names the first missing limit (the plant input
-/// limits, then `experiment.durationSeconds`), and Limits opens there.
+/// A range that the loop does not allow is refused under the field of Limits that holds it. The settings that do not decode or break
+/// another check of `check_acquisition_settings` are refused under the sentence that Limits explains. The loop declares no duration
+/// and the settings give none: the campaign's refusal names the first missing limit (the plant input limits, then
+/// `experiment.durationSeconds`), and Limits opens there.
 pub fn checked_acquisition_settings(
     loop_definition: &LoopDefinition,
     payload: &Value,
 ) -> Result<AcquisitionSettings, Failure> {
-    if let Some(settings) = decode_acquisition_settings(payload) {
-        return Ok(settings);
+    if let Ok(typed) = crate::json::decode_value::<AcquisitionSettings>(payload.clone()) {
+        if typed.duration_seconds.is_nan() {
+            return Err(unreadable_duration_failure());
+        }
+        let settings_give_no_duration = typed.duration_seconds <= 0.0;
+        let loop_declares_no_duration = loop_definition
+            .experiment
+            .as_ref()
+            .and_then(|experiment| experiment.duration_seconds)
+            .is_none();
+        if settings_give_no_duration && loop_declares_no_duration {
+            require_campaign_limits(loop_definition)?;
+        }
+        if let Some(refusal) = range_refusal(loop_definition, &typed) {
+            return Err(refusal);
+        }
     }
-    let typed = crate::json::decode_value::<AcquisitionSettings>(payload.clone());
-    let settings_give_no_duration = typed.is_ok_and(|settings| settings.duration_seconds <= 0.0);
-    let loop_declares_no_duration = loop_definition
-        .experiment
-        .as_ref()
-        .and_then(|experiment| experiment.duration_seconds)
-        .is_none();
-    if settings_give_no_duration && loop_declares_no_duration {
-        require_campaign_limits(loop_definition)?;
-    }
-    Err(Failure::new(
-        ACQUISITION_SETTINGS_TEXT,
-        Cause::Settings,
-        NextAction::OpenLimits,
-    ))
+    check_acquisition_settings(payload).map_err(|_| {
+        Failure::new(
+            ACQUISITION_SETTINGS_TEXT,
+            Cause::Settings,
+            NextAction::OpenLimits,
+        )
+    })
 }
 
 /// The expected settling time the campaign's recording sets its record period by, in whole ms (A4.2): the declared one, or a
@@ -304,7 +312,9 @@ pub fn offers_setpoint_step(
 /// How long a step is held, in ms (B3.4 step 4): the maximum duration counted from the end of the baseline, within the recording,
 /// shared by the `remaining` inputs still to step, less `restoration_ms` for the restoration ([`restoration_allowance_ms`]). The
 /// step starts at `step_seconds` and the baseline ended at `baseline_end_seconds`, both in process time of the recording, so a
-/// long wait for a steady start never shortens the step. A campaign of one input has `remaining` 1 (`connectedIdentificationChannels`).
+/// long wait for a steady start never shortens the step. A project-scripted experiment waits for no baseline: it starts at the
+/// recording's start, and its declared baseline is part of its maximum duration (C12). A campaign of one input has `remaining` 1
+/// (`connectedIdentificationChannels`).
 #[must_use]
 pub fn step_hold_ms(
     maximum_ms: u64,
@@ -320,8 +330,11 @@ pub fn step_hold_ms(
     shared.floor() - restoration_ms
 }
 
-/// The restoration allowance of a hold, in ms (B3.4 step 4): one baseline window, or, for a project-scripted experiment, which
-/// records its declared duration, the one restoration sample, one execution of the loop's task (C12).
+/// The restoration allowance of a hold, in ms (B3.4 step 4): one baseline window. A project-scripted experiment has none, because it
+/// records its declared duration (C12): its plan lasts that duration, and the runtime counts a duration to the execution at which the
+/// restoration takes effect (annex E5.4, A3.5). The activation is therefore in force from the second execution up to the last one
+/// before the end, which is every scan of a project's hold (a 30 s hold takes 30.1 s), and the restoration sample is the plan's last
+/// instant, not a time after it.
 #[must_use]
 pub fn restoration_allowance_ms(
     loop_definition: &LoopDefinition,
@@ -332,7 +345,7 @@ pub fn restoration_allowance_ms(
         .as_ref()
         .is_some_and(|experiment| experiment.execution == Execution::ProjectScripted);
     if project_scripted {
-        loop_definition.controller.task_period_ms
+        0.0
     } else {
         js_round(baseline.window_seconds * 1_000.0)
     }
@@ -353,6 +366,28 @@ pub fn hold_refusal(hold_ms: f64) -> Option<Failure> {
     })
 }
 
+/// The recording of a project step test from the hold the runtime applies, in ms, or `None` for a loop that declares no hold parameter
+/// (C12, Hold parameter): its baseline, every scan of the hold and one restoration sample, which is the duration the review shows and
+/// the plan records. The review and the run check the hold here before anything is recorded or written (B3.4 step 1). A hold that is
+/// missing or outside the declared bounds of its parameter is refused with no next action, because the engineer applies another value
+/// with the experiment settings; a hold whose recording is longer than the declared maximum duration is refused with Limits as the next
+/// action, because a longer maximum is one fix (B3.9).
+///
+/// # Errors
+/// The refusal of the hold, as above.
+pub fn campaign_hold_ms(
+    loop_definition: &LoopDefinition,
+    hold_seconds: Option<f64>,
+) -> Result<Option<f64>, Failure> {
+    applied_hold_recording_ms(loop_definition, hold_seconds).map_err(|refusal| {
+        let next_action = match &refusal {
+            HoldRefusal::NotApplied(_) => NextAction::None,
+            HoldRefusal::ExceedsMaximum(_) => NextAction::OpenLimits,
+        };
+        Failure::new(refusal.sentence(), Cause::Settings, next_action)
+    })
+}
+
 /// The seed of the step's excitation: the loop's seed (1 when it declares none), and the next one for the independent model
 /// check. The plan keeps its low 32 bits, as the `TypeScript`'s `seed >>> 0` does.
 #[must_use]
@@ -367,12 +402,15 @@ pub fn step_seed(loop_definition: &LoopDefinition, validation: bool) -> u32 {
 
 /// The reviewed plan of the step (`preparePlan`, B3.3 and B3.4 step 3): the method's amplitude, the hold as its duration, the
 /// step's seed, and the steady baseline's mean and half range, which centre and size a relay's switching band. The plan keeps
-/// the review's identifier; the run gives it a fresh one before it is journaled.
+/// the review's identifier; the run gives it a fresh one before it is journaled. `hold_seconds` is the value the runtime applies to
+/// the loop's declared hold parameter, for a project step test (C12): the plan records the baseline, that hold and one restoration
+/// sample, whatever `hold_ms` is left for the step. A loop without a hold parameter ignores it.
 ///
 /// # Errors
 /// The loop's plant input range is missing or not ordered (the refusal of [`plant_input_range`]); no synchronized sample is
-/// available, or the step has no headroom (the policy's refusal); the review refuses the plan (its reason); or the plan runs on
-/// a physical target, which needs the reviewed physical approval this path does not carry.
+/// available, or the step has no headroom (the policy's refusal); the review refuses the plan (its reason), which includes a hold
+/// parameter whose applied value is missing, outside its bounds or longer than the declared maximum; or the plan runs on a physical
+/// target, which needs the reviewed physical approval this path does not carry.
 pub fn step_plan(
     loop_definition: &LoopDefinition,
     sample: Option<&ExperimentSample>,
@@ -380,6 +418,7 @@ pub fn step_plan(
     baseline: &BaselineSummary,
     hold_ms: f64,
     validation: bool,
+    hold_seconds: Option<f64>,
 ) -> Result<ControlExperimentPlan, Failure> {
     approved_step_plan(
         loop_definition,
@@ -389,6 +428,7 @@ pub fn step_plan(
         hold_ms,
         validation,
         false,
+        hold_seconds,
     )
 }
 
@@ -398,6 +438,7 @@ pub fn step_plan(
 ///
 /// # Errors
 /// As [`step_plan`]; and a plan on a physical target that the approval does not cover.
+#[allow(clippy::too_many_arguments)] // The step's inputs, the approval and the applied hold.
 pub fn approved_step_plan(
     loop_definition: &LoopDefinition,
     sample: Option<&ExperimentSample>,
@@ -406,6 +447,7 @@ pub fn approved_step_plan(
     hold_ms: f64,
     validation: bool,
     physical_approved: bool,
+    hold_seconds: Option<f64>,
 ) -> Result<ControlExperimentPlan, Failure> {
     let range = plant_input_range(loop_definition)?;
     let amplitude = identification_amplitude(&AmplitudeInput {
@@ -435,7 +477,7 @@ pub fn approved_step_plan(
         seed: Some(step_seed(loop_definition, validation)),
         process_center: single_input.then_some(baseline.mean),
         process_noise: single_input.then_some(baseline.half_range),
-        hold_seconds: None,
+        hold_seconds,
     });
     match reviewed {
         ControlExperimentPlanResult::Accepted { plan }
@@ -869,3 +911,7 @@ fn whole_milliseconds(seconds: f64) -> Option<u64> {
 #[cfg(test)]
 #[path = "connected_run_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "connected_run_hold_tests.rs"]
+mod hold_tests;

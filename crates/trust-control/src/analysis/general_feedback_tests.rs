@@ -562,3 +562,53 @@ fn an_improper_declared_derivative_plus_proportional_law_keeps_its_law_and_its_c
         }
     }
 }
+
+#[test]
+fn a_siso_continuous_state_space_plant_closes_with_the_declared_law_on_its_full_denominator() {
+    // control-studio-general-model: "connects supported SISO continuous state-space models to declared analysis" (specification 35, B9.9:
+    // the feedback tool closes the selected model with the loop's declared law; C0: the analysis uses the model as Identify accepted it
+    // and never rescales it). The selected model x' = [[0, 1], [−2, −3]]x + [0, 1]ᵀu, y = [1, 0]x is 1/(s² + 3s + 2), whatever plant
+    // the declared analysis names.
+    let selected = model(&json!({
+        "revision": "engineer-model-1", "source": "provided", "validation": "unvalidated", "evidence": [], "delaySeconds": 0.0,
+        "kind": "continuous-state-space",
+        "inputs": [channel("u", "V")], "outputs": [channel("y", "m")],
+        "states": [channel("x1", "m"), channel("x2", "m/s")],
+        "a": [[0.0, 1.0], [-2.0, -3.0]], "b": [[0.0], [1.0]], "c": [[1.0, 0.0]], "d": [[0.0]]
+    }));
+    let analysis: DeclaredControlAnalysis = crate::json::decode_value(json!({
+        "plant": { "kind": "transfer-function", "numerator": [1.0], "denominator": [1.0, 1.0], "delaySeconds": 0.0,
+            "inputUnit": "V", "outputUnit": "m", "revision": "declared", "source": "provided", "validation": "validated" },
+        "controller": { "numerator": [{ "parameter": "Kp" }], "denominator": [1.0],
+            "parameters": { "Kp": { "value": 1.0, "minimum": 0.0, "maximum": 2.0, "unit": "V/m" } } },
+        "rootLocus": { "parameter": "Kp", "values": [1.0], "selectedValue": 1.0 }
+    }))
+    .expect("the declared analysis");
+    let definition = declared_feedback_definition(&analysis, &selected)
+        .expect("a supported SISO state-space model connects to the declared law");
+    assert_eq!(
+        definition.plant.identity().revision,
+        "engineer-model-1",
+        "the analysis uses the selected model's identity"
+    );
+    let plant =
+        linearised(&definition.plant).expect("the state-space plant has a transfer function");
+    assert_eq!(
+        plant.denominator,
+        vec![1.0, 3.0, 2.0],
+        "its full state denominator is kept, not the declared plant's"
+    );
+    assert_eq!(plant.numerator, vec![1.0]);
+    let result =
+        analyze_general_feedback(&definition, &[1.0, 10.0]).expect("the declared loop is analysed");
+    match result.closed_loop {
+        // The characteristic polynomial (s² + 3s + 2) + 1·Kp is s² + 3s + 3, whose roots −1.5 ± 0.87j lie in the left half-plane.
+        ClosedLoop::Qualified { poles, stable, .. } => {
+            assert_eq!(poles.len(), 2);
+            assert!(stable, "{poles:?}");
+        }
+        ClosedLoop::Unavailable { reason } => {
+            panic!("the closed loop is unavailable: {reason}")
+        }
+    }
+}

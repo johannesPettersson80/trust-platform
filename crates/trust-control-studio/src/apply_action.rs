@@ -5,22 +5,29 @@
 //!
 //! Every rule is trust-control's (`commissioning`, `study::apply`) or the workflow's (`workflow::apply`, `workflow::restore`). This
 //! module opens the loop, the study, the journal and the runtime connection, makes the calls of the workflow in their order, and
-//! writes each receipt. A receipt names the checkpoint that the workflow journaled before its first write (A8.5).
+//! writes each receipt. A receipt names the checkpoint that the workflow journaled before its first write (A8.5); an Apply interrupted
+//! before its receipt was kept has the journal as its only record, so a confirmed Restore of it keeps its checkpoint there as history
+//! (`keep_restoration`, B7). The answer that ends an Apply or a Restore carries the stages as they stand then, so the page shows the
+//! block of a checkpoint that waits for its Restore, and its end, without a reopen (B6.4, B6.7, B9.4). A Restore on a runtime that was replaced since Apply ends at once, before any
+//! review: the workflow keeps the checkpoint as history, and the answer says that nothing of it can be restored (B6.4).
 
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
+use trust_control::commissioning::application_offers::offered_stages;
 use trust_control::commissioning::application_records::ApplyOutcome;
-use trust_control::commissioning::checkpoint::CommissioningCheckpoint;
+use trust_control::commissioning::checkpoint::{CheckpointStage, CommissioningCheckpoint};
 use trust_control::failure::Failure;
 use trust_control::identification::connected_run::runtime_required;
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::messages::{ApplicationAnswer, ApplicationRequest};
 use trust_control::runtime::RuntimeConnection;
+use trust_control::stages::StageAvailability;
 use trust_control::study::apply::{
     restore_unavailable, ApplicationReceipt, ApplySection, RestorationReceipt,
 };
 
+use crate::application_state::{journaled_checkpoint, state_now};
 use crate::busy_loops::{LoopClaim, LoopClaims};
 use crate::commands::to_value;
 use crate::journal::{Journal, JournalEntry};
@@ -29,7 +36,7 @@ use crate::operation::{OperationContext, Operations};
 use crate::storage;
 use crate::workflow::apply::{review_apply, run_apply, ApplyContext};
 use crate::workflow::apply_observation::reattach_observation;
-use crate::workflow::restore::{review_restore, run_restore};
+use crate::workflow::restore::{retire_after_replacement, review_restore, run_restore, Retirement};
 
 /// The command of the operation that `apply` starts (§0.1a).
 const APPLY_COMMAND: &str = "apply";
@@ -78,10 +85,12 @@ pub fn answer(
 }
 
 /// Answers `controlStudio/restore` (B6.4): refused at once when the study offers no Restore (no applied settings, or a checkpoint that
-/// is closed), the review of the restore when the request names no review, else the Restore operation.
+/// is closed), the end of the Restore at once when the runtime was restarted or its program reloaded since Apply (the checkpoint is
+/// kept as history, B6.7), the review of the restore when the request names no review, else the Restore operation.
 ///
 /// # Errors
-/// As `answer`, and the study offers no Restore: no Apply has applied settings that a Restore could return.
+/// As `answer`, and the study offers no Restore: no Apply has applied settings that a Restore could return; or the runtime cannot be
+/// read.
 pub fn answer_restore(
     operations: &Operations,
     claims: &LoopClaims,
@@ -97,6 +106,11 @@ pub fn answer_restore(
     // B6.4: Restore starts from the journaled checkpoint, whether the Apply completed, failed or was interrupted at any step.
     if !work.with_journal(|journal| journaled_checkpoint(journal).is_some())? {
         return Err(restore_unavailable());
+    }
+    // B6.4: on a runtime that was restarted or reloaded since Apply nothing of the checkpoint can be restored, with or without a
+    // review: the Restore says so at once.
+    if let Some(retirement) = work.with_context(retire_after_replacement)? {
+        return answer_retirement(&work, retirement);
     }
     match request.review {
         None => {
@@ -147,6 +161,18 @@ impl ApplicationWork {
         )
     }
 
+    /// The status of every stage as the study and the journal hold them now, once this work's Apply or Restore has done its work: a
+    /// checkpoint it leaves unresolved waits for its Restore and holds the stages (B6.4, B6.7, B9.4), and the Apply stage can start
+    /// exactly when the end's own answer offers Apply (`apply`, B7: neither end offers it).
+    fn stages_now(&self, apply: bool) -> Result<Vec<StageAvailability>, Failure> {
+        let (application, evidence) = state_now(
+            &self.project_root,
+            &self.storage_folder,
+            &self.loop_definition,
+        )?;
+        Ok(offered_stages(&evidence, application.block, apply))
+    }
+
     /// Reads the loop's journal as it is now (A8.5).
     fn with_journal<T>(&self, read: impl FnOnce(&Journal) -> T) -> Result<T, Failure> {
         let journal = Journal::open(
@@ -191,9 +217,10 @@ fn run_apply_operation(
     work: &ApplicationWork,
     identity: &str,
 ) -> Result<Value, Failure> {
-    let outcome = work.with_context(|apply| run_apply(apply, context, identity))?;
+    let mut outcome = work.with_context(|apply| run_apply(apply, context, identity))?;
     // The receipt is the outcome's: a failure-path Restore may already have cleared the checkpoint from the journal (B6.4).
     record_application(work, &outcome)?;
+    outcome.stages = Some(work.stages_now(outcome.apply_available)?);
     to_value(&outcome)
 }
 
@@ -225,43 +252,114 @@ fn run_reattach_operation(
     context: &OperationContext,
     work: &ApplicationWork,
 ) -> Result<Value, Failure> {
-    let outcome = work.with_context(|apply| reattach_observation(apply, context))?;
+    let mut outcome = work.with_context(|apply| reattach_observation(apply, context))?;
     record_application(work, &outcome)?;
+    outcome.stages = Some(work.stages_now(outcome.apply_available)?);
     to_value(&outcome)
 }
 
-/// The Restore operation (B6.4): returns the previous settings from the journaled checkpoint, then keeps its receipt (A8.1). A
-/// checkpoint that the runtime's replacement retired is closed without a restore, and its receipt says so.
+/// The Restore operation (B6.4): returns the previous settings from the journaled checkpoint, then keeps its record (A8.1,
+/// [`keep_restoration`]). A checkpoint whose runtime was replaced never reaches it: `answer_restore` retires it first
+/// ([`answer_retirement`]).
 fn run_restore_operation(
     context: &OperationContext,
     work: &ApplicationWork,
     identity: &str,
 ) -> Result<Value, Failure> {
-    let (outcome, receipt) = work.with_context(|restore| {
-        let checkpoint =
-            journaled_checkpoint(&*restore.journal).map(|journaled| journaled.id.clone());
-        let outcome = run_restore(restore, context, identity)?;
-        let receipt = checkpoint.map(|id| {
-            // The workflow clears a checkpoint that a confirmed Restore returned, and one that the runtime's replacement retired, so
-            // a checkpoint that is no longer journaled and was not restored was retired (B6.4).
-            let still_journaled =
-                journaled_checkpoint(&*restore.journal).is_some_and(|journaled| journaled.id == id);
-            RestorationReceipt {
-                checkpoint: id,
-                restored: outcome.restored,
-                retired: !outcome.restored && !still_journaled,
-                reason: outcome.reason.clone(),
-                mode: outcome.mode,
-            }
-        });
-        Ok((outcome, receipt))
+    let (mut outcome, journaled) = work.with_context(|restore| {
+        let journaled = journaled_checkpoint(&*restore.journal).cloned();
+        Ok((run_restore(restore, context, identity)?, journaled))
     })?;
-    if let Some(receipt) = receipt {
-        record_section(&work.project_root, &work.loop_definition, |section| {
-            section.restorations.push(receipt);
-        })?;
+    if let Some(checkpoint) = journaled {
+        let receipt = RestorationReceipt {
+            checkpoint: checkpoint.id.clone(),
+            restored: outcome.restored,
+            retired: false,
+            reason: outcome.reason.clone(),
+            mode: outcome.mode,
+        };
+        keep_restoration(
+            &work.project_root,
+            &work.storage_folder,
+            &work.loop_definition,
+            checkpoint,
+            receipt,
+        )?;
     }
+    outcome.stages = Some(work.stages_now(outcome.apply_available)?);
     to_value(&outcome)
+}
+
+/// The end of a Restore on a runtime that was replaced since Apply (B6.4, B6.7): the workflow kept the checkpoint as history, and the
+/// study keeps the receipt that says so when it holds the Apply's (A8.1). The answer carries the stages, which the retired checkpoint
+/// no longer holds back, so the page offers a new validation without a reopen (B9.4).
+fn answer_retirement(work: &ApplicationWork, retirement: Retirement) -> Result<Value, Failure> {
+    let Retirement {
+        checkpoint,
+        mut outcome,
+    } = retirement;
+    record_restoration(
+        &work.project_root,
+        &work.loop_definition,
+        RestorationReceipt {
+            checkpoint,
+            restored: false,
+            retired: true,
+            reason: outcome.reason.clone(),
+            mode: None,
+        },
+    )?;
+    outcome.stages = Some(work.stages_now(outcome.apply_available)?);
+    to_value(&ApplicationAnswer::Retired(Box::new(outcome)))
+}
+
+/// Keeps the record of the Restore of `checkpoint` that `receipt` describes (A8.1, A8.5, B6.4, B7): the receipt, beside the receipt of
+/// the Apply whose checkpoint it acted on. An Apply interrupted before its receipt was kept has no receipt to stand beside, so the
+/// loop's journal is its only record: a Restore the runtime confirmed cleared the checkpoint, and it is journaled again as history,
+/// recovered, so that the validation the Apply applied stays recorded and Apply is not offered for it until a new validation passes
+/// (B7, `application_offers::newest_applied_validation`). A recovered checkpoint grants nothing and holds no stage back, and a later
+/// Apply replaces it. A Restore the runtime did not confirm left the checkpoint journaled as it was (B6.7).
+///
+/// # Errors
+/// The study or the journal cannot be read or written.
+pub(crate) fn keep_restoration(
+    project_root: &Path,
+    storage_folder: &Path,
+    loop_definition: &LoopDefinition,
+    checkpoint: CommissioningCheckpoint,
+    receipt: RestorationReceipt,
+) -> Result<(), Failure> {
+    let restored = receipt.restored;
+    if record_restoration(project_root, loop_definition, receipt)? || !restored {
+        return Ok(());
+    }
+    let mut journal = Journal::open(
+        storage_folder,
+        &loop_definition.project_id,
+        &loop_definition.id,
+    )?;
+    journal.persist(JournalEntry::Commissioning {
+        checkpoint: Box::new(CommissioningCheckpoint {
+            stage: CheckpointStage::Recovered,
+            ..checkpoint
+        }),
+    })
+}
+
+/// Keeps a Restore's receipt beside the receipt of the Apply whose checkpoint it acted on (A8.1), and answers whether it was kept: every
+/// Restore receipt names an Apply's (A8.5), so a Restore of an Apply that was interrupted before its receipt was kept keeps none.
+fn record_restoration(
+    project_root: &Path,
+    loop_definition: &LoopDefinition,
+    receipt: RestorationReceipt,
+) -> Result<bool, Failure> {
+    if !apply_section(project_root, loop_definition)?.names_an_apply(&receipt.checkpoint) {
+        return Ok(false);
+    }
+    record_section(project_root, loop_definition, |section| {
+        section.restorations.push(receipt);
+    })?;
+    Ok(true)
 }
 
 /// Starts `run` on `work` as the operation `command`, holding `claim` until it ends (A8.5), and answers the operation's identifier at
@@ -278,17 +376,7 @@ pub(crate) fn started<W: Send + 'static>(
         drop(claim);
         worked
     });
-    to_value(&ApplicationAnswer::Started {
-        operation_id: started.operation_id,
-    })
-}
-
-/// The checkpoint that the journal holds for the loop, when an Apply journaled one (A8.5).
-fn journaled_checkpoint(journal: &Journal) -> Option<&CommissioningCheckpoint> {
-    journal.entries().iter().find_map(|entry| match entry {
-        JournalEntry::Commissioning { checkpoint } => Some(&**checkpoint),
-        _ => None,
-    })
+    to_value(&ApplicationAnswer::Started(started))
 }
 
 /// The study's Apply section as it is now: empty before the first Apply (A8.1).

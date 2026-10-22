@@ -16,6 +16,7 @@ use super::entry_allowance::{noise_aware_transfer_tolerance, AllowanceTerms};
 use super::gain_schedule_adapter::{
     is_table_variable, schedule_points, schedule_tracking_values, with_schedule_members,
 };
+use super::group_adapter::{group_channel_symbols, group_transfer_binding};
 use super::initial_state::{
     initialization_values, operating_input, operating_output, transfer_member,
     ControllerInitialization,
@@ -34,7 +35,10 @@ use super::transfer::{
 };
 use super::transfer_tracking::{DeclaredStateKind, TransferTracking};
 use crate::failure::{Cause, Failure, NextAction};
-use crate::loop_definition::{InitializedState, LoopDefinition, Parameter, PostScan, StateType};
+use crate::loop_definition::{
+    ControllerProject, InitializedState, LoopDefinition, Parameter, PidControllerGroup, PostScan,
+    StateType,
+};
 use crate::model::GeneralModel;
 use crate::validation::engineer_verification_plan::{
     engineer_verification_plan, EngineerRequirements,
@@ -105,13 +109,78 @@ pub struct DeclaredStateProfile {
     formulas: BTreeMap<String, InitializationFormula>,
 }
 
+/// The further channels of a declared tracking (`additional_references`, `additional_measurements` and `additional_commands` of
+/// [`DeclaredStateTracking`]): a loop with one controller output has no further setpoint or Manual command, and names its process
+/// variable as its one measurement.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FurtherChannels {
+    /// Each other member's setpoint with its own process value (`additional_references`).
+    pub references: Vec<AdditionalReference>,
+    /// Every member's process value (`additional_measurements`).
+    pub measurements: Vec<String>,
+    /// Each other member's Manual command with the output it holds (`additional_commands`).
+    pub commands: Vec<AdditionalCommand>,
+}
+
+/// The further channels of the declared tracking of a loop (`tracking`): a PID group's other members' setpoints with their process
+/// values and Manual commands with the outputs they hold, and every member's process value, in the order of the group's transfer
+/// (C7, annex E6.4); for any other loop its process variable alone. The commissioning profile's tracking and Identify's mode
+/// transfer name the same channels.
+///
+/// # Errors
+/// The loop's channels do not fit (see [`declared_channels`] and `group_channel_symbols`).
+pub fn further_channels(loop_definition: &LoopDefinition) -> Result<FurtherChannels, Failure> {
+    if let Some(group) = loop_definition.controller.group.as_ref() {
+        let symbols = group_channel_symbols(loop_definition, group)?;
+        return Ok(FurtherChannels {
+            references: symbols
+                .further_references
+                .into_iter()
+                .map(|(reference_symbol, process_variable)| AdditionalReference {
+                    reference_symbol,
+                    process_variable,
+                })
+                .collect(),
+            measurements: symbols.measurements,
+            commands: symbols
+                .further_commands
+                .into_iter()
+                .map(|(manual_command_symbol, output_symbol)| AdditionalCommand {
+                    manual_command_symbol,
+                    output_symbol,
+                })
+                .collect(),
+        });
+    }
+    let channels = declared_channels(loop_definition)?;
+    Ok(FurtherChannels {
+        references: Vec::new(),
+        measurements: channels
+            .measurements()
+            .into_iter()
+            .map(|member| member.symbol)
+            .collect(),
+        commands: Vec::new(),
+    })
+}
+
 impl DeclaredStateProfile {
-    /// The binding that the declared transfer writes (`declaredTransferBinding`).
+    /// The project and the group of a PID group's loop (C7), when the loop declares one: its transfer writes every member.
+    fn group(&self) -> Option<(&ControllerProject, &PidControllerGroup)> {
+        let controller = &self.loop_definition.controller;
+        Some((controller.project.as_ref()?, controller.group.as_ref()?))
+    }
+
+    /// The binding that the declared transfer writes (`declaredTransferBinding`): a PID group's binding holds the setpoint and the
+    /// Manual command of every member, its output and each other member's output (C7); every other loop's holds its one pair.
     ///
     /// # Errors
-    /// See [`declared_transfer_binding`].
+    /// See [`declared_transfer_binding`] and `group_transfer_binding`.
     pub fn binding(&self) -> Result<TransferBinding, Failure> {
-        declared_transfer_binding(&self.loop_definition, &self.definition)
+        match self.group() {
+            Some((project, group)) => group_transfer_binding(&self.loop_definition, project, group),
+            None => declared_transfer_binding(&self.loop_definition, &self.definition),
+        }
     }
 
     /// The reference targets of the loop for a reviewed task (`commissioningReferenceTargets`, B6.2).
@@ -182,7 +251,7 @@ impl DeclaredStateProfile {
         if self.loop_definition.controller.manual_output_follows_output == Some(true) {
             bounded.push(manual.symbol.clone());
         }
-        let channels = declared_channels(&self.loop_definition)?;
+        let further = further_channels(&self.loop_definition)?;
         Ok(TransferTracking::DeclaredState(DeclaredStateTracking {
             kind: DeclaredStateKind::DeclaredStateV1,
             reference_symbol: reference.symbol.clone(),
@@ -192,13 +261,9 @@ impl DeclaredStateProfile {
             initialization_formulas: (!self.formulas.is_empty()).then(|| self.formulas.clone()),
             initialization_values: values,
             bounded_state_symbols: bounded,
-            additional_references: Vec::new(),
-            additional_measurements: channels
-                .measurements()
-                .into_iter()
-                .map(|member| member.symbol)
-                .collect(),
-            additional_commands: Vec::new(),
+            additional_references: further.references,
+            additional_measurements: further.measurements,
+            additional_commands: further.commands,
         }))
     }
 }
@@ -274,8 +339,8 @@ pub fn declared_transfer_binding(
 /// the formulas of the states that it initializes, and the tracking those formulas require.
 ///
 /// # Errors
-/// The loop's channels do not fit (see [`declared_channels`]), or a state's formula does not fit the model and the loop (see
-/// [`initialization_formulas`]).
+/// The loop's channels do not fit (see [`declared_channels`]), a PID group's member channels do not fit (see
+/// `group_channel_symbols`), or a state's formula does not fit the model and the loop (see [`initialization_formulas`]).
 pub fn declared_commissioning_profile(
     loop_definition: &LoopDefinition,
     model: &GeneralModel,
@@ -299,9 +364,14 @@ pub fn declared_commissioning_profile(
     } else {
         vec![RequiredTracking::DeclaredInitializationFormulas]
     };
+    // The references the review keeps and a Restore writes back: every member's setpoint for a PID group (C7), the loop's own otherwise.
+    let references = match loop_definition.controller.group.as_ref() {
+        Some(group) => group_channel_symbols(loop_definition, group)?.references,
+        None => vec![channels.reference.symbol],
+    };
     Ok(CommissioningProfile {
         label: label.to_owned(),
-        references: vec![channels.reference.symbol],
+        references,
         required_tracking,
         kind: ProfileKind::DeclaredState(DeclaredStateProfile {
             loop_definition: loop_definition.clone(),

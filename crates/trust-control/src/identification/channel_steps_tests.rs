@@ -272,3 +272,31 @@ fn an_own_step_is_refused_where_the_policy_forbids_a_sustained_step() {
         (Cause::Settings, NextAction::ChooseMethod)
     );
 }
+
+// C12: a project-scripted loop with several plant inputs is one observation of the project's scenario. The project moves every input,
+// so no input needs a Manual command, and Control Studio steps none of them.
+#[test]
+fn a_project_scripted_loop_with_several_inputs_is_observed_as_one_step_without_manual_commands() {
+    let scripted = json!({
+        "execution": "project-scripted", "kind": "observation", "amplitude": 0.0,
+        "durationSeconds": 92.1, "seed": 1
+    });
+    let mut loop_definition = two_input_loop(&scripted, None, None);
+    if let Some(channels) = loop_definition.channels.as_mut() {
+        channels.inputs[1].manual_output_signal = None;
+        channels.inputs[1].manual_output_type = None;
+    }
+    let steps = input_steps(&loop_definition, &Value::Null)
+        .expect("the project's scenario steps no input, so no Manual command is needed");
+    assert_eq!(steps.len(), 1, "one observation of the declared duration");
+    assert_eq!(
+        steps[0].loop_definition, loop_definition,
+        "the step is the loop itself"
+    );
+    assert!(steps[0].manipulated, "the step reads the loop as it is");
+    assert_eq!(
+        steps[0].own_method, None,
+        "the project's scenario runs, not a step of Control Studio's"
+    );
+    assert_eq!(own_steps_check(&loop_definition, chosen_in_auto()), Ok(()));
+}

@@ -16,7 +16,7 @@ use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{GainSchedule, LoopDefinition, SchedulePoint, SchedulingVariable};
 use crate::messages::{
     CandidateOutcome, ScheduleAnswer, ScheduleAnswerPoint, ScheduleAnswerVariable,
-    ScheduleChoiceWord, TuneRequest,
+    ScheduleChoiceWord, TuneRequest, TuneWords,
 };
 use crate::study::tune::model::tuning_model;
 use crate::study::tune::prediction::{candidate_outcome, current_prediction, TraceNames};
@@ -152,8 +152,11 @@ pub fn run_schedule(
         schedule,
         &table,
     )?;
+    let mut answered = own_outcome;
+    let words = TuneWords::of_result(own_input.loop_definition, &answered.result);
+    answered.result.words = Some(words);
     Ok(ScheduleOutcome {
-        own: own_outcome,
+        own: answered,
         siblings,
     })
 }
@@ -345,7 +348,7 @@ fn with_evaluation<T>(
     let mapped = mapped_parameters(loop_definition);
     let shaping = record_shaping(
         loop_definition,
-        &pinned_settings(loop_definition, inputs.request, &mapped)?,
+        &pinned_settings(loop_definition, inputs.pins, &mapped)?,
     );
     let setup = LoopSetup::of(
         loop_definition,

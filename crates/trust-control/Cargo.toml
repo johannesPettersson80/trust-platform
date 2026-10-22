@@ -8,6 +8,8 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+# The chart export carries the file's bytes in standard base64 and reads the page's data URL (B10.5).
+base64 = "0.22"
 schemars.workspace = true
 serde.workspace = true
 # Stored studies keep exact numbers: a value read back must equal the value written (A8.3).

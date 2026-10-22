@@ -6,8 +6,8 @@
 use serde_json::json;
 
 use super::{
-    check_family, check_selection, identify_project, is_controller_family, ProjectLoopFiles,
-    CONTROLLER_FAMILIES,
+    check_family, check_selection, controller_belongs_to_equipment, identify_project,
+    is_controller_family, ProjectLoopFiles, CONTROLLER_FAMILIES,
 };
 use crate::loop_definition::LoopDefinition;
 use crate::setup::discovery::{
@@ -135,6 +135,7 @@ fn a_family_is_accepted_only_when_the_selected_loops_adapter_realizes_it() {
         controller_compatibility: ControllerCompatibility::Accepted {
             recommended_family: None,
             methods: None,
+            method_titles: None,
             families: vec![
                 "P".to_string(),
                 "PI".to_string(),
@@ -244,4 +245,31 @@ fn a_file_that_is_too_large_or_not_json_declares_nothing_for_the_project_choice(
             .root,
         "/workspace/b"
     );
+}
+
+#[test]
+fn a_controller_belongs_to_an_equipment_when_it_is_the_equipment_or_one_of_its_members_without_case(
+) {
+    assert!(controller_belongs_to_equipment(
+        "Main.TankPID",
+        "Main.TankPID"
+    ));
+    assert!(controller_belongs_to_equipment(
+        "main.tankpid",
+        "Main.TankPID"
+    ));
+    assert!(controller_belongs_to_equipment(
+        "Main.TankPID.Inner",
+        "Main.TankPID"
+    ));
+    // A shared prefix is not membership: the equipment's path must end at a dot.
+    assert!(!controller_belongs_to_equipment(
+        "Main.TankPID2",
+        "Main.TankPID"
+    ));
+    assert!(!controller_belongs_to_equipment(
+        "Main.Tank",
+        "Main.TankPID"
+    ));
+    assert!(!controller_belongs_to_equipment("Main", "Main.TankPID"));
 }

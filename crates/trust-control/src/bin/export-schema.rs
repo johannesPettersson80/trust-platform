@@ -11,20 +11,27 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use schemars::{JsonSchema, SchemaGenerator};
+use trust_control::chart_export::{ChartExportAnswer, ChartExportRequest};
 use trust_control::commissioning::application_records::{ApplyOutcome, RestoreOutcome};
+use trust_control::export::{ExportRequest, ExportResult};
 use trust_control::failure::Failure;
 use trust_control::identification::campaign_review::IdentifyReview;
 use trust_control::loop_definition::PidControllerGroup;
 use trust_control::messages::{
     AnalyzeAnswer, AnalyzeRequest, ApplicationAnswer, ApplicationRequest, CancelResult,
     IdentifyRequest, IdentifyResult, InputsRequest, InputsResult, KeepRequest, KeepResult,
-    KeepReviewAnswer, ManualIdentificationAnswer, OpenRequest, OpenResult, OperationRequest,
-    OperationStarted, OperationUpdate, PageRequest, ParameterWorkAnswer, ParameterWorkRequest,
-    PreviewRequest, ResetResult, RunRequest, RunResult, TuneRequest, TuneResult, ValidateRequest,
-    ValidateResult,
+    KeepReviewAnswer, ManualIdentificationAnswer, MonitorRequest, MonitorResult, OpenRequest,
+    OpenResult, OperationRequest, OperationStarted, OperationUpdate, PageRequest,
+    ParameterWorkAnswer, ParameterWorkRequest, PreviewRequest, ResetResult, RunRequest, RunResult,
+    TuneRequest, TuneResult, ValidateRequest, ValidateResult,
 };
+use trust_control::plant_monitor::{PlantMonitorRequest, PlantMonitorResult};
 use trust_control::setup::messages::{
-    SetupDiscoverRequest, SetupDiscoverResult, SetupSaveRequest, SetupSaveResult,
+    ProjectLoopsRequest, ProjectLoopsResult, SetupDiscoverRequest, SetupDiscoverResult,
+    SetupSaveRequest, SetupSaveResult, SetupStepRequest, SetupStepResult,
+};
+use trust_control::simulator_start::{
+    SimulatorStartAnswer, SimulatorStartOutcome, SimulatorStartReply, SimulatorStartRequest,
 };
 use trust_control::tuning::group_candidate::{GroupCandidate, GroupDecoupler, GroupMemberDesign};
 use trust_control::tuning::search::{SearchAnswer, SearchCandidate, SearchTrial};
@@ -71,6 +78,8 @@ fn export(folder: &Path) -> io::Result<()> {
         IdentifyReview,
         IdentifyResult,
         ManualIdentificationAnswer,
+        MonitorRequest,
+        MonitorResult,
         ResetResult,
         CancelResult,
         PageRequest,
@@ -94,10 +103,24 @@ fn export(folder: &Path) -> io::Result<()> {
         SetupDiscoverResult,
         SetupSaveRequest,
         SetupSaveResult,
+        SetupStepRequest,
+        SetupStepResult,
+        ProjectLoopsRequest,
+        ProjectLoopsResult,
+        ExportRequest,
+        ExportResult,
         AnalyzeRequest,
         AnalyzeAnswer,
         ParameterWorkRequest,
         ParameterWorkAnswer,
+        PlantMonitorRequest,
+        PlantMonitorResult,
+        SimulatorStartRequest,
+        SimulatorStartAnswer,
+        SimulatorStartOutcome,
+        SimulatorStartReply,
+        ChartExportRequest,
+        ChartExportAnswer,
         SearchAnswer,
         SearchCandidate,
         SearchTrial,
