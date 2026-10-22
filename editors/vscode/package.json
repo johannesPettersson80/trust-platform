@@ -5124,6 +5124,7 @@
     "clean:out": "node -e \"require('fs').rmSync('out', { recursive: true, force: true })\"",
     "typecheck:webview": "tsc -p ./tsconfig.webview.json",
     "generate:control-studio-types": "node ./scripts/generate-control-studio-types.js",
+    "generate:symbol-geometry": "node ./scripts/generate-symbol-geometry.js",
     "check:canvas-geometry": "node ./scripts/network-canvas-overlap-check.js --require-browser",
     "compile": "npm run build:libraries && npm run build:examples && npm run build:panel && npm run build:statechart && npm run build:blockly && npm run build:ladder && npm run build:sfc && npm run build:network-canvas && npm run build:control-studio && npm run build:hmi-builder && npm run clean:out && tsc -p ./ && npm run typecheck:webview",
     "watch": "concurrently \"node ./scripts/watch-io-panel.js\" \"node ./scripts/build-statechart-webview.js --watch\" \"node ./scripts/build-blockly-webview.js --watch\" \"node ./scripts/build-ladder-webview.js --watch\" \"node ./scripts/build-sfc-webview.js --watch\"",

@@ -104,7 +104,7 @@ pub(super) fn handle_debug_breakpoint_locations(
     if let Some(locations) = metadata.statement_locations(file_id) {
         let max_line = params.end_line.unwrap_or(params.line);
         for location in locations {
-            let (loc_line, loc_col) = location_to_line_col(source_text, location);
+            let (loc_line, loc_col) = location_to_line_col(&source_text, location);
             if loc_line < params.line || loc_line > max_line {
                 continue;
             }

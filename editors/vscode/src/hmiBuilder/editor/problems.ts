@@ -15,9 +15,9 @@ import type { HmiPageModel } from "../drawing/model";
 import type { HmiColorsModel } from "../drawing/tokens";
 import type { Catalogue } from "./catalogue";
 import { languageTables } from "./languages";
-import { languageServerCatalogue, languageServerPageFiles, languageServerVariables } from "./languageServerPageFiles";
-import type { ProjectTexts, VariableNode } from "./messages";
-import { colourWarnings, displayWarning, objectWarnings, QualityWarning } from "./quality";
+import { languageServerCatalogue, languageServerPageFiles } from "./languageServerPageFiles";
+import type { ProjectTexts } from "./messages";
+import { colourQualityWarnings, pageQualityWarnings, type QualityRequest, type QualityWarning } from "./quality";
 import { languageServerTexts } from "./textFiles";
 
 /** The Problems view's name for these problems. */
@@ -68,10 +68,11 @@ export function screenFileRoot(file: string): string | undefined {
   return path.basename(normalized) === "screen.toml" && path.basename(hmi) === "hmi" ? path.dirname(hmi) : undefined;
 }
 
-/** What the quality checks read: the catalogue, the program's variables, and the files' models. */
+/** What the quality checks read: the catalogue and the files' models, which the drawing needs, and the language server, which
+ * decides the warnings (`trust-lsp.hmiQuality`). */
 export interface QualitySource {
   catalogue(): Promise<Catalogue | undefined>;
-  variables(root: string): Promise<VariableNode[]>;
+  request: QualityRequest;
   page(text: string, file: string): Promise<HmiPageModel | undefined>;
   colors(text: string): Promise<HmiColorsModel | undefined>;
   /** The project's languages and texts, for the texts cut in each language (§14.5 item 6). */
@@ -81,7 +82,13 @@ export interface QualitySource {
 const languageServerQuality: QualitySource = {
   catalogue: languageServerCatalogue,
   texts: (root) => languageServerTexts(vscode.Uri.file(root)),
-  variables: async (root) => (await languageServerVariables(vscode.Uri.file(root))).variables,
+  request: async (command, argument) => {
+    try {
+      return await vscode.commands.executeCommand(command, argument);
+    } catch {
+      return undefined;
+    }
+  },
   page: async (text, file) => {
     const read = await languageServerPageFiles.read(text, file);
     return read.ok ? read.model : undefined;
@@ -142,8 +149,6 @@ export class HmiProblems implements vscode.Disposable {
   private readonly warningsByObject = new Map<string, Record<string, QualityWarning[]>>();
   /** Each project's colour warnings, for the Colours section. */
   private readonly colourWarningsByRoot = new Map<string, QualityWarning[]>();
-  /** Each project's variables, read again when one of its source files is saved. */
-  private readonly variables = new Map<string, Promise<VariableNode[]>>();
   /** The latest check of each file; an older check's answer is dropped. */
   private readonly versions = new Map<string, number>();
   private readonly changed = new vscode.EventEmitter<vscode.Uri>();
@@ -281,19 +286,7 @@ export class HmiProblems implements vscode.Disposable {
     if (!/\.st$/i.test(file)) return;
     const root = projectOfSource(file);
     if (!root) return;
-    this.variables.delete(path.normalize(root));
     void this.checkProject(root);
-  }
-
-  /** The project's variables, read once until one of its source files is saved. */
-  private variablesOf(root: string): Promise<VariableNode[]> {
-    const key = path.normalize(root);
-    let variables = this.variables.get(key);
-    if (!variables) {
-      variables = this.quality.variables(root).catch(() => []);
-      this.variables.set(key, variables);
-    }
-    return variables;
   }
 
   /** The warnings about the project colours of a screen layout, at their lines. */
@@ -303,13 +296,15 @@ export class HmiProblems implements vscode.Disposable {
     const key = uri.toString();
     const version = (this.versions.get(key) ?? 0) + 1;
     this.versions.set(key, version);
-    const [colors, catalogue, variables] = await Promise.all([
-      this.quality.colors(text),
-      this.quality.catalogue(),
-      this.variablesOf(root),
-    ]);
+    const [colors, catalogue] = await Promise.all([this.quality.colors(text), this.quality.catalogue()]);
     if (this.clearIfGone(uri) || this.versions.get(key) !== version || !colors || !catalogue) return;
-    const warnings = colourWarnings(colors, catalogue);
+    const { warnings, display } = await colourQualityWarnings(
+      this.quality.request,
+      vscode.Uri.file(root).toString(),
+      colors,
+      catalogue,
+    );
+    if (this.clearIfGone(uri) || this.versions.get(key) !== version) return;
     const lines = text.split(/\r?\n/);
     const warning = (line: number, message: string) => {
       const diagnostic = new vscode.Diagnostic(
@@ -320,7 +315,6 @@ export class HmiProblems implements vscode.Disposable {
       diagnostic.source = HMI_PROBLEMS_SOURCE;
       return diagnostic;
     };
-    const display = displayWarning(variables);
     this.collection.set(uri, [
       ...(display ? [warning(0, display)] : []),
       ...warnings.map((found) =>
@@ -378,15 +372,21 @@ export class HmiProblems implements vscode.Disposable {
     file: string,
     view: "page" | "pid",
   ): Promise<QualityWarning[]> {
-    const [model, catalogue, variables, texts] = await Promise.all([
+    const [model, catalogue, texts] = await Promise.all([
       this.quality.page(text, file),
       this.quality.catalogue(),
-      this.variablesOf(root),
       this.quality.texts?.(root).catch(() => undefined),
     ]);
-    return model && catalogue
-      ? objectWarnings(model, catalogue, variables, texts ? languageTables(texts) : undefined, view)
-      : [];
+    if (!model || !catalogue) return [];
+    const languages = texts ? languageTables(texts) : undefined;
+    return pageQualityWarnings(
+      this.quality.request,
+      vscode.Uri.file(root).toString(),
+      model,
+      catalogue,
+      languages,
+      view,
+    );
   }
 
   private async check(uri: vscode.Uri, text: string): Promise<void> {

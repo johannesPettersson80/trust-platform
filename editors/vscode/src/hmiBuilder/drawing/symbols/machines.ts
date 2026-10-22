@@ -5,7 +5,7 @@
 
 import { token } from "../parts";
 import { el, SvgNode, text } from "../svg";
-import type { SymbolDefinition, SymbolState } from "./index";
+import type { SymbolArt, SymbolState } from "./index";
 import { readNumbers, readRunning, readRunningWith, runningStates, shownBoundNumber, SymbolReader } from "./reading";
 import { BODY, HATCH, LINE, MOVING, round, STILL } from "./style";
 
@@ -60,9 +60,7 @@ const readAngle: SymbolReader = (value, frame, faulted, object) => {
     : { ...reading, word: shownBoundNumber(value, "speed", frame, object) ?? "" };
 };
 
-export const MOTOR: SymbolDefinition = {
-  size: [64, 64],
-  ports: {},
+export const MOTOR: SymbolArt = {
   properties: ["running", "fault", "manual", "out-of-service"],
   deciding: ["fault", "running"],
   states: runningStates(),
@@ -104,9 +102,7 @@ export const MOTOR: SymbolDefinition = {
   },
 };
 
-export const SERVO_MOTOR: SymbolDefinition = {
-  size: [96, 64],
-  ports: {},
+export const SERVO_MOTOR: SymbolArt = {
   properties: ["running", "fault", "manual", "out-of-service", "speed", "angle"],
   deciding: ["fault", "running"],
   states: runningStates((running) => ({ speed: running ? { share: 0.5 } : 0, angle: running ? 30 : 0 })),
@@ -158,9 +154,7 @@ export const SERVO_MOTOR: SymbolDefinition = {
   },
 };
 
-export const SHAFT: SymbolDefinition = {
-  size: [64, 64],
-  ports: {},
+export const SHAFT: SymbolArt = {
   properties: ["angle", "speed"],
   deciding: ["angle", "speed"],
   states: [
@@ -207,9 +201,7 @@ export const SHAFT: SymbolDefinition = {
   },
 };
 
-export const DRUM: SymbolDefinition = {
-  size: [64, 64],
-  ports: {},
+export const DRUM: SymbolArt = {
   properties: ["angle", "position"],
   deciding: ["angle", "position"],
   states: [
@@ -264,9 +256,7 @@ export const DRUM: SymbolDefinition = {
   },
 };
 
-export const COUPLING: SymbolDefinition = {
-  size: [96, 64],
-  ports: {},
+export const COUPLING: SymbolArt = {
   properties: ["motor-angle", "load-angle"],
   deciding: ["motor-angle", "load-angle"],
   states: [
@@ -301,9 +291,7 @@ export const COUPLING: SymbolDefinition = {
   ],
 };
 
-export const ENCODER: SymbolDefinition = {
-  size: [64, 64],
-  ports: {},
+export const ENCODER: SymbolArt = {
   properties: ["angle"],
   deciding: ["angle"],
   states: [state("zero", "At 0°", { angle: 0 }), state("turned", "Turned", { angle: 135 })],
@@ -353,9 +341,7 @@ export const ENCODER: SymbolDefinition = {
   },
 };
 
-export const ROTARY_ARM: SymbolDefinition = {
-  size: [64, 64],
-  ports: {},
+export const ROTARY_ARM: SymbolArt = {
   properties: ["angle"],
   deciding: ["angle"],
   states: [state("hanging", "Hanging", { angle: 0 }), state("raised", "Raised", { angle: 60 })],
@@ -393,9 +379,7 @@ export const ROTARY_ARM: SymbolDefinition = {
   ],
 };
 
-export const AXIS_INDICATOR: SymbolDefinition = {
-  size: [64, 64],
-  ports: {},
+export const AXIS_INDICATOR: SymbolArt = {
   properties: ["actual", "target"],
   deciding: ["actual", "target"],
   states: [

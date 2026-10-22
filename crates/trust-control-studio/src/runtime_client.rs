@@ -6,6 +6,7 @@ use std::collections::hash_map::RandomState;
 use std::collections::BTreeMap;
 use std::hash::BuildHasher;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::thread;
 use std::time::Duration;
 
 use serde::de::DeserializeOwned;
@@ -26,7 +27,7 @@ use trust_control::identification::reconcile::StatusRead;
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::recording::{RecordedRun, RecordingRequest, RecordingStatus};
 use trust_control::runtime::{RuntimeConnection, RuntimeStatus};
-use trust_control::signals::{Inspection, InspectionRequest};
+use trust_control::signals::{Inspection, InspectionRequest, SignalBinding};
 use trust_control::validation::isolated_run_protocol::{
     decode_status, ready_project_revision, IsolatedRunRequest, IsolatedRunStart, IsolatedRunStatus,
 };
@@ -50,6 +51,10 @@ mod status_read_tests;
 
 /// How long one request may wait for its answer.
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// The inspections after the first one while the runtime waits for its next scan (`inspectSymbolicSignals`, at most twenty;
+/// E3 rule 8).
+pub const INSPECTION_RETRIES: usize = 20;
 
 /// A connection to the runtime a study is bound to.
 #[derive(Debug)]
@@ -95,6 +100,53 @@ impl RuntimeClient {
     pub fn inspect(&mut self, request: &InspectionRequest) -> Result<Inspection, Failure> {
         let answer = self.call("control.signals.inspect", Some(to_params(request)?))?;
         request.decode(&answer)
+    }
+
+    /// Inspects `bindings` of `loop_definition` until a coherent scan answers (E3 rule 8): the first inspection, then at most
+    /// [`INSPECTION_RETRIES`] more while the runtime waits for its next scan, each after a wait of the loop's task period clamped
+    /// to 50–100 ms (`inspectSymbolicSignals`). The inspections are pinned to the program revision `expected` names, when it
+    /// does; otherwise to the revision of the first answer (E11.4). Returns the scan, or the runtime's last wait when no scan
+    /// answered within the retries.
+    ///
+    /// # Errors
+    /// The runtime cannot be reached, refuses, or answers out of protocol.
+    pub fn inspect_until_scanned(
+        &mut self,
+        loop_definition: &LoopDefinition,
+        expected: Option<&str>,
+        bindings: &[SignalBinding],
+    ) -> Result<Inspection, Failure> {
+        let period = loop_definition.controller.task_period_ms;
+        let wait_ms = if period.is_finite() {
+            period.clamp(50.0, 100.0)
+        } else {
+            50.0
+        };
+        let pause = Duration::from_secs_f64(wait_ms / 1000.0);
+        let mut pinned = expected.map(str::to_string);
+        let mut retries = 0;
+        loop {
+            let request = InspectionRequest::new(
+                &loop_definition.revision,
+                pinned.as_deref(),
+                bindings.to_vec(),
+            )?;
+            let inspection = self.inspect(&request)?;
+            let Inspection::Pending {
+                program_revision, ..
+            } = &inspection
+            else {
+                return Ok(inspection);
+            };
+            if retries == INSPECTION_RETRIES {
+                return Ok(inspection);
+            }
+            if pinned.is_none() {
+                pinned = Some(program_revision.clone());
+            }
+            retries += 1;
+            thread::sleep(pause);
+        }
     }
 
     /// Starts a recording (E4.2); its identifier must already be journaled (E11.2, E11.3).

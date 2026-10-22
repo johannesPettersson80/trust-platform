@@ -39,20 +39,22 @@ use trust_control::identification::connected_run::{
     campaign_method, hold_end, input_steps, is_provisional, not_journaled, stopped_hold_outcome,
     HoldEnd,
 };
+use trust_control::identification::identify_result::recorded_chart_samples;
 use trust_control::identification::independent_validation::RunEvaluation;
 use trust_control::identification::policy::identification_method;
 use trust_control::identification::project_baseline::campaign_fit_window;
 use trust_control::identification::reconcile::ExperimentIdentity;
 use trust_control::identification::texts::apply_cancel_refused;
 use trust_control::loop_definition::LoopDefinition;
+use trust_control::messages::{CampaignRestoration, RecordedChartSample};
 use trust_control::recording::context::ExperimentContext;
 use trust_control::recording::EvidenceSource;
 use trust_control::runtime::RuntimeConnection;
 
 use super::identify::cancel::{cancel_journaled, end_experiment, note_ended_experiment};
 use super::identify::run::{
-    campaign_record, clear_entries, fit_records, retain_recording, step_remaining, RunPorts,
-    Schedule,
+    campaign_record, clear_entries, fit_records, hold_restoration, retain_recording,
+    step_remaining, RunPorts, Schedule,
 };
 use super::identify::{
     cancel_identification, ConnectedRuntime, IdentifyRequest, IdentifyRuntime, LoopSampler,
@@ -86,6 +88,11 @@ pub struct ResumedIdentification<E> {
     pub provisional: bool,
     /// The runtime recording the result came from: the run's identifier in its record.
     pub recording_id: String,
+    /// The restoration the journaled step's hold confirmed (C12), as a fresh run reports the one of its last step: every later step
+    /// of the continuation confirmed its own, or the resume failed.
+    pub restoration: Option<CampaignRestoration>,
+    /// The samples of the kept recording, which the answer hands the page to draw its recorded signals from, as a fresh run's does.
+    pub recorded_samples: Vec<RecordedChartSample>,
 }
 
 /// The ports a resume reads and writes: the runtime, the loop's live sample for the plant inputs a resumed campaign still steps, where the
@@ -389,6 +396,7 @@ where
     // A journal from before the baseline's end was written reads the step's start as that end, as the first step starts there.
     let baseline_end_seconds = campaign.baseline_end_seconds.unwrap_or(step_seconds);
     let mut recording = runtime.recover_recording(loop_definition, &campaign.recording)?;
+    let mut restoration = None;
     let ended = match read_experiment_identity(|id| runtime.experiment_status(id), &plan.id) {
         // The status cannot be read: the experiment, its recording and the journal stay the runtime's, and reopening
         // reconciles them. Nothing is aborted, kept or cleared here (A8.6, E11.5).
@@ -407,6 +415,7 @@ where
             );
             // A hold that fails leaves the experiment to the runtime: nothing is aborted, kept or cleared (A8.6).
             let state = held.hold(plan, baseline, step_seconds)?;
+            restoration = hold_restoration(&state);
             // The journaled step ended, however it ended: its context is noted for the recording that is kept (B10.2, B10.3).
             if let Some(context) = ExperimentContext::of(plan, &state) {
                 retention.note_experiment(context);
@@ -451,9 +460,11 @@ where
         Err(_) => journaled.push(plan.id.clone()),
     }
     let window = campaign_fit_window(loop_definition, baseline_end_seconds, baseline);
+    let mut recorded_samples = Vec::new();
     let record = ended.and_then(|plans| {
         let run = retain_recording(&mut recording, retention)?;
         kept = true;
+        recorded_samples = recorded_chart_samples(loop_definition, &run);
         campaign_record(loop_definition, &run, plans, window, request.evaluate)
     });
     if !kept {
@@ -470,6 +481,8 @@ where
         provisional: is_provisional(&result),
         recording_id: record.run.id,
         result,
+        restoration,
+        recorded_samples,
     })
 }
 

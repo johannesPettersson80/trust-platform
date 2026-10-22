@@ -205,7 +205,7 @@ suite("Control Studio three-page native journey", () => {
         const delay = /(?:^|, )delay ([^ ,]+) (s|min|h)(?:,|$)/.exec(repeated.keyNumbers ?? "");
         if (delay) assert.ok(equation.includes(delay[2] === "s" ? `e^(-${delay[1]}s)` : "e^(-"), `The displayed G(s) shows the identified delay: ${equation}`);
       } else {
-        // Reported gap (G4): the engine's identification states no operating point (IdentifyResult, crates/trust-control/src/messages.rs).
+        // Reported gap (G4): the engine's identification states no operating point (IdentifyResult, crates/trust-control/src/messages/identify.rs).
         await gap(() => assert.fail(`The displayed plant equation includes its measured output operating point; the engine's identification states none: ${equation}`));
       }
       assert.strictEqual(await inner("const chart=d.querySelector('[data-control-studio-chart]').getBoundingClientRect();return String(chart.bottom<=d.defaultView.innerHeight-8);"), "true", "The identified response plot fits the available editor height");

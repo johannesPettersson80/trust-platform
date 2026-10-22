@@ -138,18 +138,34 @@ impl DebugControlServer {
     }
 
     /// Reports the program that is now loaded (specification 35, A2.3 and A2.4): the tasks that `status` lists, the cycle that
-    /// the managed runner takes from them, and the simulation facts. A reload changes all three, as a reload in the runtime
-    /// replaces the metadata that its `status` lists.
+    /// the managed runner takes from them, the simulation facts, and the program's sources, which isolated runs and searches compile
+    /// and breakpoints resolve against. A reload changes all of them, as a reload in the runtime replaces the metadata that its
+    /// `status` lists.
     pub(super) fn refresh_program(&self, session: &dyn DebugRuntime) {
         let state = self.server.state();
         if let Ok(mut metadata) = state.metadata.lock() {
             *metadata = session.metadata().clone();
         }
+        state.sources.replace(session.control_sources());
         let Ok(mut settings) = state.settings.lock() else {
             return;
         };
         settings.cycle_interval = cycle_time_hint(session.metadata());
         settings.simulation = simulation_settings(session.simulation_facts());
+    }
+}
+
+#[cfg(test)]
+impl DebugControlServer {
+    /// The texts of the sources the control state holds now, in order.
+    pub(super) fn source_texts(&self) -> Vec<String> {
+        self.server
+            .state()
+            .sources
+            .files()
+            .iter()
+            .map(|file| file.text.clone())
+            .collect()
     }
 }
 

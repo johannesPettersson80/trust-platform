@@ -54,6 +54,7 @@ mod hmi_page_proposal;
 mod hmi_placed;
 mod hmi_plant_project;
 mod hmi_program_edits;
+mod hmi_quality;
 #[path = "commands/hmi_rename.rs"]
 pub(crate) mod hmi_rename;
 mod hmi_rename_instance;
@@ -72,6 +73,7 @@ pub const HMI_FILE_CHECK_COMMAND: &str = "trust-lsp.hmiFileCheck";
 pub const HMI_CATALOGUE_COMMAND: &str = "trust-lsp.hmiCatalogue";
 pub const HMI_BUNDLE_COMMAND: &str = "trust-lsp.hmiBundle";
 pub const HMI_TEXTS_COMMAND: &str = "trust-lsp.hmiTexts";
+pub const HMI_QUALITY_COMMAND: &str = "trust-lsp.hmiQuality";
 pub const HMI_FACEPLATES_COMMAND: &str = "trust-lsp.hmiFaceplates";
 pub const HMI_FACEPLATE_INSTANCES_COMMAND: &str = "trust-lsp.hmiFaceplateInstances";
 pub const HMI_PLACED_FACEPLATES_COMMAND: &str = "trust-lsp.hmiPlacedFaceplates";
@@ -95,6 +97,7 @@ pub const EXECUTE_COMMANDS: &[&str] = &[
     HMI_CATALOGUE_COMMAND,
     HMI_BUNDLE_COMMAND,
     HMI_TEXTS_COMMAND,
+    HMI_QUALITY_COMMAND,
     HMI_FACEPLATES_COMMAND,
     HMI_FACEPLATE_INSTANCES_COMMAND,
     HMI_PLACED_FACEPLATES_COMMAND,
@@ -178,6 +181,7 @@ pub fn execute_read_command(state: &ServerState, params: ExecuteCommandParams) -
         HMI_FILE_PARSE_COMMAND => Some(hmi_files::parse_value(params.arguments)),
         HMI_CATALOGUE_COMMAND => Some(hmi_catalogue::catalogue_value(params.arguments)),
         HMI_TEXTS_COMMAND => Some(hmi_texts::texts_value(params.arguments)),
+        HMI_QUALITY_COMMAND => Some(hmi_quality::quality_value(state, params.arguments)),
         HMI_FACEPLATES_COMMAND => Some(hmi_faceplates::faceplates_value(params.arguments)),
         HMI_FACEPLATE_INSTANCES_COMMAND => Some(hmi_placed::instances_value_with_context(
             state,

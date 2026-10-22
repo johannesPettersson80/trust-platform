@@ -833,7 +833,11 @@ Planned with the user on 3 October 2026.
 
 ## 6. Process graphics
 
-1. Each symbol declares its ports with position and direction.
+1. Each symbol declares its ports with position and direction. The shipped symbols' design size, label
+   place and ports are one table in the runtime (`crates/trust-runtime/src/hmi/symbol_geometry.json`):
+   the language server's routes read it, and the editor's drawing reads the module generated from it
+   (`npm run generate:symbol-geometry`), so that both meet the same ports. A project symbol declares
+   its own in its file (§14.4).
 2. A pipe connects two ports, or a port and a junction on another pipe. The file stores the
    connection, not the drawn line.
 3. The route is computed: orthogonal, around objects, with few bends. It shall be recomputed
@@ -1671,6 +1675,11 @@ on a trip, equipment alarms, and own detection by extending the base.
    user was away, approved by the user on 3 October 2026:
    - The checks are warnings. They show in the Problems view as warnings (source `truST HMI`)
      and in the editor, but never stop a deployment.
+   - The language server decides every warning, its threshold and its sentence
+     (`trust-lsp.hmiQuality`). The editor's drawing reports only what the drawing knows: each
+     text it cut to fit, in each of the project's languages, and each text of the component
+     specimen with what lies behind it; the program's variable types and the alarm colours'
+     distances are read and computed by the server.
    - **Touch targets:** a control, a page button, or any object with a click (§5.4) that is
      narrower or lower than 44 px at the design size is flagged at its line.
    - **Missing units:** a value, gauge, bar, split bar, slider, numeric input or setpoint entry

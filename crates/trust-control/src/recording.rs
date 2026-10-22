@@ -25,6 +25,7 @@ pub mod channels;
 pub mod context;
 pub mod even_sampling;
 pub mod evidence;
+pub mod label;
 pub mod opened;
 pub mod opened_channels;
 pub mod page;
@@ -331,6 +332,18 @@ pub struct RecordingFile {
     /// of existing files stay as they are.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub context: Option<context::RunContext>,
+}
+
+impl AsRef<RecordedRun> for RecordedRun {
+    fn as_ref(&self) -> &RecordedRun {
+        self
+    }
+}
+
+impl AsRef<RecordedRun> for RecordingFile {
+    fn as_ref(&self) -> &RecordedRun {
+        &self.run
+    }
 }
 
 impl RecordingFile {

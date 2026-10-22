@@ -268,6 +268,8 @@ export function initializeThreePageAnalysis(
       inputsByTool.set(tool, inputs);
       selected = tool; refusal = undefined; notice = undefined;
       render();
+      // The workflow shows the restored tool as the chosen one: Analyze… offers its Close, and the Tune button names its action.
+      changed();
       // The analysis the page showed is calculated again when the panel reopens (A8.6, B9.9), with the inputs the engine answered
       // for it, as they were recorded: the editor is not read back, so no entry the engine kept is lost or changed.
       if (!pending) calculate(tool, inputs);
@@ -333,10 +335,11 @@ export function initializeThreePageAnalysis(
         return;
       }
       case "measuredFrequency": {
-        // The recording and its sample time are the engine's: the answer names the recording it measured (B10.3), and the page holds none of its own.
+        // The recording and its sample time are the engine's: the answer names the recording it measured in words, what it recorded
+        // and when (B10.3), and the page holds none of its own.
         const measured = answerFor("measuredFrequency");
         textField("Frequencies (rad/s, comma separated)", listText(inputs.frequencies ?? undefined), "periodic-frequencies");
-        textField("Recording", measured?.recordingId ?? "", "periodic-recording", true);
+        textField("Recording", measured?.recordingLabel ?? "", "periodic-recording", true);
         textField("Recorded sample time (s)", measured ? String(measured.sampleTimeSeconds) : "", "periodic-sample-time", true);
         numberField("Discard startup samples", inputs.startupSamples ?? undefined, "periodic-startup");
         numberField("Segments", inputs.segmentCount ?? undefined, "periodic-segments");

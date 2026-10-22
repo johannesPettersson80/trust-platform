@@ -6,7 +6,7 @@ import * as vscode from "vscode";
 
 import { languageServerReady, openBuilder, postedOfType, until } from "./hmiBuilderHost";
 import { languageServerCatalogue, languageServerPageFiles } from "../../hmiBuilder/editor/languageServerPageFiles";
-import { objectWarnings } from "../../hmiBuilder/editor/quality";
+import { drawnCuts } from "../../hmiBuilder/editor/quality";
 
 // Specification 39, §8.7: faceplate files open in the HMI Builder with their description and
 // fields, edits keep them, and a click can open the faceplates of the project and its libraries.
@@ -91,8 +91,8 @@ suite("HMI Builder editor: faceplates", function () {
       );
       assert.ok(read.ok, `${file} reads`);
       if (!read.ok) continue;
-      for (const warning of objectWarnings(read.model, catalogue, [])) {
-        if (warning.kind === "cut-text") cut.push(`${file}: ${warning.message}`);
+      for (const { cuts } of drawnCuts(read.model, catalogue, undefined)) {
+        for (const text of cuts) cut.push(`${file}: ${text.object} "${text.text}"`);
       }
     }
     assert.deepStrictEqual(cut, []);

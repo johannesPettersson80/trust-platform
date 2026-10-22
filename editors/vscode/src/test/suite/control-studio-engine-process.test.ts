@@ -115,6 +115,25 @@ suite("Control Studio engine process", () => {
     assert.notStrictEqual(childProcessId(engine), stopped);
   });
 
+  test("starts an engine that could not be started again on a call after the restart window, so a repaired engine needs no reload", async function () {
+    // Wrong behaviour caught: a failed start stuck until the window was reloaded, although the engine was installed meanwhile.
+    this.timeout(30_000);
+    const executable = path.join(folder, process.platform === "win32" ? "engine.exe" : "engine");
+    engine = startEngine({ executable });
+    await assert.rejects(createEngineClient(engine).open(openRequest(folder)), /could not be started/);
+    fs.copyFileSync(engineBinary(), executable);
+    fs.chmodSync(executable, 0o755);
+    const realNow = Date.now;
+    try {
+      // Inside the restart window the reason is kept, so a broken engine is not started on every call.
+      await assert.rejects(createEngineClient(engine).open(openRequest(folder)), /could not be started/);
+      Date.now = () => realNow() + 61_000;
+      assert.deepStrictEqual(await createEngineClient(engine).open(openRequest(folder)), NO_LOOPS);
+    } finally {
+      Date.now = realNow;
+    }
+  });
+
   test("answers a malformed request with a JSON-RPC error", async function () {
     this.timeout(30_000);
     const child = spawn(engineBinary(), ["serve"], {

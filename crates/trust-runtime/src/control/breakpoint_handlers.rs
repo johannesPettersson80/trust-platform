@@ -41,7 +41,7 @@ pub(super) fn handle_breakpoints_set(
     let mut resolved = Vec::new();
     for line in params.lines {
         if let Some((location, resolved_line, resolved_col)) =
-            metadata.resolve_breakpoint_position(source_text, file_id, line, 1)
+            metadata.resolve_breakpoint_position(&source_text, file_id, line, 1)
         {
             breakpoints.push(DebugBreakpoint::new(location));
             resolved.push(json!({"line": resolved_line, "column": resolved_col}));

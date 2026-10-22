@@ -290,6 +290,44 @@ fn a_reload_that_attaches_a_simulated_driver_updates_what_control_status_reports
 }
 
 #[test]
+fn a_reload_replaces_the_sources_that_isolated_runs_and_searches_compile() {
+    // Wrong behaviour caught: the control state kept the sources the simulator started with, so after an edit and a reload,
+    // Validate's isolated runs and a search compiled the program as it was before the edit (specification 35, B5.3 and C5).
+    let (session, root) = loaded_session("reload-sources", Some(SIMULATED_IO), None);
+    let main = root.join("main.st");
+    let mut adapter = DebugAdapter::new(session);
+    let addr = reserve_loopback_addr();
+    let auth = "reload-sources-token";
+    start_control_server(&mut adapter, &root, addr, auth);
+    let edited = PROGRAM.replace("Count := Count + 1;", "Count := Count + 2;");
+    fs::write(&main, &edited).unwrap();
+    adapter
+        .session_mut()
+        .reload_program(Some(main.to_string_lossy().as_ref()))
+        .unwrap();
+    adapter.sync_control_program();
+
+    let texts = adapter
+        .control_server
+        .as_ref()
+        .expect("the control server runs")
+        .source_texts();
+    assert!(
+        texts
+            .iter()
+            .any(|text| text.contains("Count := Count + 2;")),
+        "the control state holds the reloaded program: {texts:?}"
+    );
+    assert!(
+        texts
+            .iter()
+            .all(|text| !text.contains("Count := Count + 1;")),
+        "and no longer the program from before the edit"
+    );
+    fs::remove_dir_all(root).ok();
+}
+
+#[test]
 fn a_reload_starts_a_new_runtime_epoch_in_control_status() {
     let (session, root) = loaded_session("reload-epoch", Some(SIMULATED_IO), None);
     let main = root.join("main.st");

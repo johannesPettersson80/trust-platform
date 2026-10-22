@@ -87,7 +87,10 @@ export function receiveEngineMessage(root: HTMLElement, message: Record<string, 
         return;
       }
       const owner = refusalPage(message.method, failure);
-      ports.receive("flow", { status: "failed", failure: studioFailure(failure), ...(owner ? { page: owner } : {}) });
+      // A refused change of the study inputs ends no operation, so it is `refused`, not `failed`: an operation that runs keeps the page
+      // busy and its Abort (the engine refuses the change while the operation reads the inputs, A8.5).
+      const status = message.method === "inputs" ? "refused" : "failed";
+      ports.receive("flow", { status, failure: studioFailure(failure), ...(owner ? { page: owner } : {}) });
       // A start the engine cannot take ends the Identify page's wait too, so that its command is not left running (B3.3).
       if (message.method === "identify" || message.method === "start") ports.receive("identify", { status: "failed", ...identifyRefusal(failure) });
       // A refused Tune drops the candidate the page holds (threePageTuning.ts).
@@ -120,6 +123,8 @@ export function receiveEngineMessage(root: HTMLElement, message: Record<string, 
         if (identify) ports.receive("identify", { status: "complete" });
       } else if (update.state === "failed") {
         const failure = record(update.failure) ?? {};
+        // A failed Apply or Restore names the stages it leaves: a checkpoint that waits for its Restore holds them (B6.4, B6.7, B9.4).
+        if (Array.isArray(update.stages)) applyStageStatuses(root, update.stages);
         ports.receive("flow", { status: "completed", flowStage });
         ports.receive("flow", { status: "failed", failure: studioFailure(failure) });
         if (identify) ports.receive("identify", { status: "failed", ...identifyRefusal(failure) });

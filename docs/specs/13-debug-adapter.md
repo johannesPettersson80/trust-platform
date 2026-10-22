@@ -616,8 +616,11 @@ The debug adapter SHALL preserve the following protocol and session contracts:
   DAP thread list projects configured runtime tasks without changing their
   identity.
 - The managed debug runner uses the smallest positive configured task interval
-  as its cycle-pacing deadline. It executes at least one cycle while active,
-  does not hot-loop between deadlines, and remains responsive to stop requests.
+  as its cycle-pacing deadline; a program whose tasks have no positive interval
+  (background tasks only) is paced at 10 ms. The control status reports that
+  cycle (`cycle_interval_ms`), also after a reload. It executes at least one cycle
+  while active, does not hot-loop between deadlines, and remains responsive to
+  stop requests.
 - Stack, scope, and I/O-state projection SHALL use a captured runtime snapshot
   and SHALL NOT wait on the live runtime mutex after that snapshot is
   available. When no storage frame or source location exists, a synthetic Main

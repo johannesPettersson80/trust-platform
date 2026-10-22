@@ -35,7 +35,8 @@ use trust_control::messages::{
     AnalyzeRequest, ModelRevision,
 };
 use trust_control::model::{decode_general_model, GeneralModel, ResponseConnection};
-use trust_control::recording::RecordedRun;
+use trust_control::recording::label::recording_label;
+use trust_control::recording::{RecordedRun, RecordingFile};
 use trust_control::study::analysis_records::{self, KeptAnalysis};
 use trust_control::study::current_model::current_model;
 use trust_control::study::Study;
@@ -492,7 +493,8 @@ fn calculate(work: &Work, budget: &Budget<'_>) -> Result<AnalysisResult, Failure
             let (recording_id, recording) = measured_recording(work, loop_definition, inputs)?;
             measured_frequency::measured_frequency_answer(
                 &recording_id,
-                &recording,
+                &recording_label(&recording),
+                &recording.run,
                 loop_definition,
                 inputs,
                 budget,
@@ -522,10 +524,10 @@ fn measured_recording(
     work: &Work,
     loop_definition: &LoopDefinition,
     inputs: &AnalysisInputs,
-) -> Result<(String, RecordedRun), Failure> {
+) -> Result<(String, RecordingFile), Failure> {
     if let Some(id) = inputs.recording_id.as_deref() {
         let file = storage::read_recording(&work.project_root, &loop_definition.id, id)?;
-        return Ok((id.to_string(), file.run));
+        return Ok((id.to_string(), file));
     }
     let study = storage::open_study(
         &work.project_root,
@@ -533,7 +535,7 @@ fn measured_recording(
         &loop_definition.revision,
     )?;
     measured_frequency::last_periodic_recording(&study.recordings, loop_definition, |id| {
-        storage::read_recording(&work.project_root, &loop_definition.id, id).map(|file| file.run)
+        storage::read_recording(&work.project_root, &loop_definition.id, id)
     })
 }
 

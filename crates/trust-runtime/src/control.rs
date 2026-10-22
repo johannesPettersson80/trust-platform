@@ -37,7 +37,7 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError, RwLock};
 
 use crate::config::ControlMode;
 use crate::debug::{DebugControl, DebugVariableHandles};
@@ -281,9 +281,12 @@ pub struct ControlAuditEvent {
     pub details: Option<serde_json::Value>,
 }
 
+/// The sources of the program that runs, which the debug, breakpoint, isolated-run and search handlers read. A program reload replaces
+/// them in place ([`SourceRegistry::replace`]): every clone of the registry shares them, so a handler always reads the sources of the
+/// program that runs now, never those of the program the state was built with.
 #[derive(Debug, Clone, Default)]
 pub struct SourceRegistry {
-    files: Vec<SourceFile>,
+    files: Arc<RwLock<Arc<Vec<SourceFile>>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -295,15 +298,23 @@ pub struct SourceFile {
 
 impl SourceRegistry {
     pub fn new(files: Vec<SourceFile>) -> Self {
-        Self { files }
+        Self {
+            files: Arc::new(RwLock::new(Arc::new(files))),
+        }
     }
 
-    pub fn files(&self) -> &[SourceFile] {
-        &self.files
+    /// Replaces the sources with those of the program a reload loaded.
+    pub fn replace(&self, files: Vec<SourceFile>) {
+        *self.files.write().unwrap_or_else(PoisonError::into_inner) = Arc::new(files);
+    }
+
+    /// The sources as they are now.
+    pub fn files(&self) -> Arc<Vec<SourceFile>> {
+        Arc::clone(&self.files.read().unwrap_or_else(PoisonError::into_inner))
     }
 
     pub fn file_id_for_path(&self, path: &Path) -> Option<u32> {
-        self.file_for_path(path, None).map(|file| file.id)
+        file_for_path(&self.files(), path, None).map(|file| file.id)
     }
 
     pub fn file_id_for_path_in_project(
@@ -311,66 +322,69 @@ impl SourceRegistry {
         path: &Path,
         project_root: Option<&Path>,
     ) -> Option<u32> {
-        self.file_for_path(path, project_root).map(|file| file.id)
+        file_for_path(&self.files(), path, project_root).map(|file| file.id)
     }
 
-    pub fn source_text(&self, file_id: u32) -> Option<&str> {
-        self.files
+    pub fn source_text(&self, file_id: u32) -> Option<String> {
+        self.files()
             .iter()
             .find(|file| file.id == file_id)
-            .map(|file| file.text.as_str())
+            .map(|file| file.text.clone())
     }
 
     pub fn is_empty(&self) -> bool {
-        self.files.is_empty()
+        self.files().is_empty()
+    }
+}
+
+fn file_for_path<'a>(
+    files: &'a [SourceFile],
+    path: &Path,
+    project_root: Option<&Path>,
+) -> Option<&'a SourceFile> {
+    if let Some(file) = files.iter().find(|file| file.path == path) {
+        return Some(file);
     }
 
-    fn file_for_path(&self, path: &Path, project_root: Option<&Path>) -> Option<&SourceFile> {
-        if let Some(file) = self.files.iter().find(|file| file.path == path) {
+    let mut candidates = Vec::new();
+    candidates.push(path.to_path_buf());
+    if let Some(root) = project_root {
+        if path.is_relative() {
+            candidates.push(root.join(path));
+            if path.components().count() == 1 {
+                candidates.push(root.join("src").join(path));
+            }
+        }
+    }
+
+    for candidate in &candidates {
+        if let Some(file) = files.iter().find(|file| file.path == *candidate) {
             return Some(file);
         }
-
-        let mut candidates = Vec::new();
-        candidates.push(path.to_path_buf());
-        if let Some(root) = project_root {
-            if path.is_relative() {
-                candidates.push(root.join(path));
-                if path.components().count() == 1 {
-                    candidates.push(root.join("src").join(path));
-                }
-            }
-        }
-
-        for candidate in &candidates {
-            if let Some(file) = self.files.iter().find(|file| file.path == *candidate) {
+        if let Ok(canonical) = std::fs::canonicalize(candidate) {
+            if let Some(file) = files
+                .iter()
+                .find(|file| canonical_path_eq(&file.path, &canonical))
+            {
                 return Some(file);
             }
-            if let Ok(canonical) = std::fs::canonicalize(candidate) {
-                if let Some(file) = self
-                    .files
-                    .iter()
-                    .find(|file| canonical_path_eq(&file.path, &canonical))
-                {
-                    return Some(file);
-                }
-            }
         }
-
-        if path.is_relative() {
-            return self.unique_suffix_match(path);
-        }
-
-        None
     }
 
-    fn unique_suffix_match(&self, suffix: &Path) -> Option<&SourceFile> {
-        let mut matches = self.files.iter().filter(|file| file.path.ends_with(suffix));
-        let first = matches.next()?;
-        if matches.next().is_some() {
-            return None;
-        }
-        Some(first)
+    if path.is_relative() {
+        return unique_suffix_match(files, path);
     }
+
+    None
+}
+
+fn unique_suffix_match<'a>(files: &'a [SourceFile], suffix: &Path) -> Option<&'a SourceFile> {
+    let mut matches = files.iter().filter(|file| file.path.ends_with(suffix));
+    let first = matches.next()?;
+    if matches.next().is_some() {
+        return None;
+    }
+    Some(first)
 }
 
 fn canonical_path_eq(left: &Path, right: &Path) -> bool {

@@ -6,7 +6,7 @@
 import { formatValue } from "../format";
 import { say } from "../speech";
 import { el } from "../svg";
-import type { SymbolDefinition, SymbolState } from "./index";
+import type { SymbolArt, SymbolState } from "./index";
 import type { LiveValue } from "../model";
 import { token } from "../parts";
 import { percentWord, SymbolReading } from "./reading";
@@ -41,8 +41,7 @@ function plugTop(lift: number): number {
   return AXIS - 8 - TRAVEL * Math.min(1, Math.max(0, lift));
 }
 
-export const CONTROL_VALVE: SymbolDefinition = {
-  size: [64, 64],
+export const CONTROL_VALVE: SymbolArt = {
   properties: ["position", "fault", "manual", "out-of-service", "demand"],
   deciding: ["fault", "position"],
   sample: "partly-open",
@@ -57,10 +56,6 @@ export const CONTROL_VALVE: SymbolDefinition = {
     state("manual", "Manual", 60, { manual: true }),
     state("out-of-service", "Out of service", 0, { "out-of-service": true }),
   ],
-  ports: {
-    inlet: { at: [0, AXIS], direction: "left" },
-    outlet: { at: [64, AXIS], direction: "right" },
-  },
   draw: (view) => {
     const lift = Math.min(1, Math.max(0, view.opening ?? 0));
     const top = plugTop(lift);

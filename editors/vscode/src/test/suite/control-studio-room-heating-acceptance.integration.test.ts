@@ -55,7 +55,7 @@ const HEATING_PANEL = "overview/heating-panel";
 /**
  * Reads the engine's answers recorded since `since` back from the page (control-studio-rendered-harness.ts), as small projections,
  * because a plot or a recording can hold thousands of samples. A running update only reports progress, so it is left out. The
- * fields are the engine's (crates/trust-control/src/messages.rs): RunResult.identification (IdentifyResult) and needs,
+ * fields are the engine's (crates/trust-control/src/messages.rs and its modules): RunResult.identification (IdentifyResult) and needs,
  * ValidateResult.applyAvailable and each scenario's plant, ApplyOutcome.result (the commissioning result) and its transfers, the
  * reason of a Restore or Keep outcome, and KeepResult.kept.
  */

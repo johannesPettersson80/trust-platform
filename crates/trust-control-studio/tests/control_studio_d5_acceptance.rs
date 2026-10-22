@@ -927,17 +927,19 @@ fn journey(
         "Restore returns TIC101 to Auto, the mode it had before Apply (A6.2, B6.4)",
     );
 
-    // Apply again: when the review refuses, the candidate is validated once more (B7), then the review is made again.
-    let (_refused, refusal) = copy.run("apply-review-again", "apply", &["--json"], SHORT_LIMIT);
-    if refusal.code() != Some(0) {
-        let (validated_again, status) =
-            copy.run("validate-again", "validate", &["--json"], STEP_LIMIT);
-        if status.code() != Some(0) {
-            return Err(format!(
-                "validate again did not verify the candidate:\n{}",
-                validated_again.report(status)
-            ));
-        }
+    // Apply again: the review refuses the validation the first Apply applied (B7), so the candidate is validated once more, then the
+    // review is made again.
+    let (refused, refusal) = copy.run("apply-review-again", "apply", &["--json"], SHORT_LIMIT);
+    record.findings.check(
+        refusal.code() != Some(0) && refused.answer()["failure"]["nextAction"] == "validate",
+        "After Restore, Apply's review refuses the validation the first Apply applied and names Validate (B7)",
+    );
+    let (validated_again, status) = copy.run("validate-again", "validate", &["--json"], STEP_LIMIT);
+    if status.code() != Some(0) {
+        return Err(format!(
+            "validate again did not verify the candidate:\n{}",
+            validated_again.report(status)
+        ));
     }
     let (program, status) = copy.run("apply-review-third", "apply", &["--json"], SHORT_LIMIT);
     let review_again = program.answer()["result"].clone();

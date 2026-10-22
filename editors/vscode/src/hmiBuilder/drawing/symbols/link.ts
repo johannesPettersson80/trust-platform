@@ -7,16 +7,14 @@
 import { token } from "../parts";
 import { say } from "../speech";
 import { el, SvgNode } from "../svg";
-import type { SymbolDefinition } from "./index";
+import type { SymbolArt } from "./index";
 import { observed, turnDelayMs } from "./motion";
 import { on, shownBoundNumber } from "./reading";
 import { BODY, HATCH, LINE, MOVING } from "./style";
 
 const LINE_PATH = "M20 32 H44";
 
-export const NETWORK_LINK: SymbolDefinition = {
-  size: [64, 64],
-  ports: {},
+export const NETWORK_LINK: SymbolArt = {
   properties: ["connected", "age", "hold", "fallback", "out-of-service"],
   deciding: ["connected"],
   states: [

@@ -11,9 +11,9 @@
 //! context, library and inspection answers (`queries`, `query_metadata`), and the operations of the
 //! authoring commands (`service`, `review_apply`).
 //!
-//! The extension keeps what presents and wires: the rendering and preview (AT-07, AT-08), the editor
-//! transaction (AT-09) and the editor's quality warnings (`editor/quality.ts`), which depend on the drawing
-//! engine and are not yet in Rust (see the report of this stage).
+//! The extension keeps what presents and wires: the rendering and preview (AT-07, AT-08) and the editor
+//! transaction (AT-09). The editor's quality warnings are decided by `trust-lsp.hmiQuality`
+//! (`hmi_quality`); the extension adds only the texts its drawing cuts.
 
 mod argument;
 mod native;

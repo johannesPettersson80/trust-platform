@@ -122,6 +122,9 @@ export class ThreePageOperation {
       // A failure that names the page it belongs to (a refused Channels… selection belongs to Tune) shows there; any other on the operation's
       // page. The sentence is the engine's failure; an answer without one, such as a Validate answer that offers no Apply, shows none.
       this.show(PAGE_IDS.find(page => page === payload.page) ?? this.page, payload);
+    } else if (status === "refused") {
+      // A refused change of the study inputs shows where a failure would, and ends nothing: a running operation keeps the page busy.
+      this.show(PAGE_IDS.find(page => page === payload.page) ?? this.page, payload);
     }
     // A change that left the validation not current (A8.4) says so on the Validate page, in the words the answer carries.
     if (status === "edited" && typeof payload.reason === "string" && payload.reason) this.notice("verify", payload.reason);

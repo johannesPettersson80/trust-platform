@@ -32,8 +32,10 @@ export function startEngine(options: StartEngineOptions): EngineProcess {
 
 /**
  * The engine process and its JSON-RPC connection. An unexpected exit starts the engine again, as long as it
- * starts no more than `MAX_STARTS` times in `START_WINDOW_MS`; after that the reason is kept, and every call
- * fails with it. A call made while the engine restarts waits for the new connection. Disposing closes the
+ * starts no more than `MAX_STARTS` times in `START_WINDOW_MS`; after that the reason is kept, and a call fails
+ * with it until `START_WINDOW_MS` have passed, when the next call starts the engine again: an engine that was
+ * installed or repaired meanwhile is used without a reload of the window, and a broken one is started at most
+ * once in that window. A call made while the engine restarts waits for the new connection. Disposing closes the
  * engine's standard input, which ends it.
  */
 export class EngineProcess implements vscode.Disposable {
@@ -49,6 +51,8 @@ export class EngineProcess implements vscode.Disposable {
   private current: MessageConnection | undefined;
   private stderrTail = "";
   private failure: string | undefined;
+  /** When the engine stopped for good; a call `START_WINDOW_MS` later starts it again. */
+  private failedAt: number | undefined;
   private disposed = false;
 
   constructor(private readonly options: StartEngineOptions) {
@@ -59,6 +63,12 @@ export class EngineProcess implements vscode.Disposable {
   connection(): Promise<MessageConnection> {
     if (this.current) {
       return Promise.resolve(this.current);
+    }
+    if (this.failure && !this.disposed && this.failedAt !== undefined && Date.now() - this.failedAt >= START_WINDOW_MS) {
+      this.failure = undefined;
+      this.failedAt = undefined;
+      this.startTimes.length = 0;
+      this.start();
     }
     if (this.failure) {
       return Promise.reject(new Error(this.failure));
@@ -191,6 +201,7 @@ export class EngineProcess implements vscode.Disposable {
 
   private fail(reason: string): void {
     this.failure = reason;
+    this.failedAt = Date.now();
     for (const waiter of this.waiting.splice(0)) {
       waiter.reject(new Error(reason));
     }

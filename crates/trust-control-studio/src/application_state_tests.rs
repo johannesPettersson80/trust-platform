@@ -19,6 +19,7 @@ use trust_control::commissioning::parameter_application::ParameterOwner;
 use trust_control::commissioning::parameter_status::{ParameterStatus, RecordState};
 use trust_control::commissioning::transfer::proportional_transfer_binding;
 use trust_control::commissioning::transfer_tracking::{proportional_tracking, TransferTracking};
+use trust_control::failure::NextAction;
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::messages::OperationUpdate;
 use trust_control::stages::{Stage, IDENTIFY_FIRST, TUNE_FIRST};
@@ -26,7 +27,7 @@ use trust_control::study::apply::{ApplySection, RestorationReceipt};
 use trust_control::study::inputs::InputsSection;
 use trust_control::study::Study;
 
-use super::{journaled_checkpoint, state_now};
+use super::{journaled_checkpoint, refuse_applied_validation, state_now};
 use crate::apply_action::keep_restoration;
 use crate::commands::{ControlStudio, IDENTIFY, INPUTS, OPEN, RESTORE, TUNE, VALIDATE};
 use crate::inputs_action::journal_folder;
@@ -753,5 +754,48 @@ fn a_confirmed_restore_of_an_apply_without_a_receipt_keeps_its_checkpoint_as_his
             .restorations,
         vec![receipt(true)]
     );
+    fs::remove_dir_all(&root).expect("clean up");
+}
+
+/// B7: Apply's review keeps the rule the offers state, by the newest Apply's checkpoint while the journal holds it and by the study's
+/// newest Apply receipt once it does not. The wrong behaviour caught: the review accepted the validation the newest Apply had already
+/// applied, so only the page's withheld offer kept the engine from applying the same validation again after a Restore.
+#[test]
+fn an_apply_of_the_validation_the_newest_apply_applied_is_refused() {
+    let (root, example, request) = example_project("applied-validation");
+    let study = |root: &Path| {
+        storage::open_study(root, &example.id, &example.revision).expect("the working study")
+    };
+    let open_journal = || {
+        Journal::open(&storage_folder(&request), &example.project_id, &example.id)
+            .expect("the journal")
+    };
+
+    // The journal holds the newest Apply's checkpoint, restored since: it still names the validation it applied.
+    journal(&request, &example, checkpoint(CheckpointStage::Recovered));
+    let refused = refuse_applied_validation(&open_journal(), &study(&root), "sha256:applied")
+        .expect_err("the applied validation is refused");
+    assert_eq!(
+        refused.message,
+        "Apply already applied this validation, so Apply is not available for it again."
+    );
+    assert_eq!(refused.next_action, NextAction::Validate);
+    assert!(
+        refuse_applied_validation(&open_journal(), &study(&root), "sha256:validated-after").is_ok(),
+        "a validation that passed after the Apply may be applied (B7)"
+    );
+
+    // With no checkpoint journaled, the study's newest Apply receipt names the applied validation.
+    open_journal()
+        .clear("commissioning-test")
+        .expect("the checkpoint is cleared");
+    assert!(
+        refuse_applied_validation(&open_journal(), &study(&root), "sha256:applied").is_ok(),
+        "nothing records an Apply yet"
+    );
+    keep_apply_receipt(&root, &example);
+    let refused = refuse_applied_validation(&open_journal(), &study(&root), "sha256:applied")
+        .expect_err("the receipt's validation is refused");
+    assert_eq!(refused.next_action, NextAction::Validate);
     fs::remove_dir_all(&root).expect("clean up");
 }

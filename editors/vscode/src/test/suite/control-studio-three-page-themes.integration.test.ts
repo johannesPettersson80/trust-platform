@@ -108,7 +108,7 @@ function stages(identify: StageStatus, tune: StageStatus, validate: StageStatus)
   return ([["Identify", identify], ["Tune", tune], ["Validate", validate]] as const).map(([stage, status]) => ({ stage, status, label: STAGE_LABELS[status], available: available[stage] }));
 }
 
-/** The fixture's identification as the engine answers it (IdentifyResult, crates/trust-control/src/messages.rs): 2 e^(-0.5s) / (4s + 1). */
+/** The fixture's identification as the engine answers it (IdentifyResult, crates/trust-control/src/messages/identify.rs): 2 e^(-0.5s) / (4s + 1). */
 const IDENTIFIED = {
   kind: "identification",
   modelType: "First-order model with delay",

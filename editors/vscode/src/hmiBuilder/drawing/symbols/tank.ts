@@ -3,7 +3,7 @@
 // 2, liquid; §5.3 item 5).
 
 import { el } from "../svg";
-import type { SymbolDefinition, SymbolState } from "./index";
+import type { SymbolArt, SymbolState } from "./index";
 import { readNumbers } from "./reading";
 import { LINE } from "./style";
 import { openVessel, vesselOutline, Walls } from "./vessels";
@@ -22,12 +22,7 @@ export function levelStates(property = "level"): SymbolState[] {
   return [state("low", "Low", 0.15), state("half", "Half", 0.5), state("high", "High", 0.9)];
 }
 
-export const TANK: SymbolDefinition = {
-  size: [64, 64],
-  ports: {
-    inlet: { at: [20, 0], direction: "up" },
-    outlet: { at: [64, 46], direction: "right" },
-  },
+export const TANK: SymbolArt = {
   properties: ["level"],
   deciding: ["level"],
   states: levelStates(),

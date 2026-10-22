@@ -15,7 +15,7 @@ fn debug_stop_to_json(
     });
     if let Some(location) = stop.location {
         if let Some(text) = state.sources.source_text(location.file_id) {
-            let (line, column) = location_to_line_col(text, &location);
+            let (line, column) = location_to_line_col(&text, &location);
             if let Some(source) = state
                 .sources
                 .files()
@@ -42,12 +42,9 @@ fn location_to_source(
     state: &ControlState,
 ) -> Option<(DebugSource, u32, u32)> {
     let source_text = state.sources.source_text(location.file_id)?;
-    let (line, column) = location_to_line_col(source_text, location);
-    let source = state
-        .sources
-        .files()
-        .iter()
-        .find(|file| file.id == location.file_id)?;
+    let (line, column) = location_to_line_col(&source_text, location);
+    let files = state.sources.files();
+    let source = files.iter().find(|file| file.id == location.file_id)?;
     let name = source
         .path
         .file_name()

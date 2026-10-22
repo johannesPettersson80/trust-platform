@@ -47,6 +47,12 @@ export interface OperationUpdate {
    */
   stage?: Page | null;
   /**
+   * The status of every stage that a failed Apply or Restore leaves (specification 35, B6.4, B6.7, B9.4): one that stopped after its
+   * first write leaves its checkpoint waiting for its Restore, which holds the stages, and the page shows that block without a
+   * reopen. Absent for every other update.
+   */
+  stages?: StageAvailability[] | null;
+  /**
    * Its state.
    */
   state: "running" | "finished" | "failed" | "cancelled";
@@ -105,5 +111,40 @@ export interface Failure {
    * (one source of the words); absent for `wait` and `none`.
    */
   nextActionLabel?: string | null;
+  [k: string]: unknown;
+}
+/**
+ * One stage's status, with the words the panel shows. A stage that is Not applicable also names the reason, which the page
+ * shows in place of its actions (C12), and so does a stage that an Apply's checkpoint holds (B6.4, B6.7) and a stage that cannot
+ * start yet for want of what it works on (B9.4). `available` says whether the stage's own action can start now (B9.4).
+ */
+export interface StageAvailability {
+  /**
+   * Whether the stage's own action can start now (B9.4). The page enables the action exactly then, and holds no copy of the
+   * rule. A bound loop can always Monitor, Test and Identify. Tune needs a model, a declared analysis or manual controller
+   * parameters; Validate needs a candidate; Apply needs a candidate whose current validation passed ([`apply_available`]), and in
+   * an answer that states the Validate page's offers, Apply offered (B7, `application_offers::offered_stages`). A stage that is
+   * Not applicable never starts (C12), and while an Apply's checkpoint waits for its Restore only Monitor starts
+   * ([`blocked_stage_availability`]).
+   */
+  available: boolean;
+  /**
+   * The status in words.
+   */
+  label: string;
+  /**
+   * Why the stage does not apply, when its status is Not applicable (C12), or why its action waits, while an Apply's checkpoint
+   * waits for its Restore (B6.4, B6.7) and while the study lacks what the stage works on: a model for Tune, a candidate for
+   * Validate (B9.4). The page shows it on the stage's page.
+   */
+  reason?: string | null;
+  /**
+   * The stage.
+   */
+  stage: "Monitor" | "Test" | "Identify" | "Tune" | "Validate" | "Apply";
+  /**
+   * Its status.
+   */
+  status: "ready" | "needs-data" | "in-progress" | "complete" | "warning" | "failed" | "not-applicable";
   [k: string]: unknown;
 }

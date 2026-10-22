@@ -103,6 +103,7 @@ export function run(): Promise<void> {
   require("./hmi-builder-run-target.test");
   require("./hmi-design-quality.test");
   require("./hmi-builder-quality.test");
+  require("./hmi-builder-symbol-geometry.test");
   require("./hmi-builder-editor.test");
   require("./hmi-builder-page-sync.test");
   require("./hmi-builder-editing.test");

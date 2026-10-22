@@ -30,7 +30,7 @@
 //! validation: nothing is written to the controller (N8.9). The parameter overrides of the candidate runs (B5.3) are not in the
 //! answer, so this test does not check them.
 //!
-//! The answer's names are those of `ValidateResult` in `crates/trust-control/src/messages.rs`, and the checks read them as
+//! The answer's names are those of `ValidateResult` in `crates/trust-control/src/messages/validate_answer.rs`, and the checks read them as
 //! written there: `modelCheck` (absent when no check ran; with `status`, `modelRevision`, `recordingId`, `limit` and
 //! `normalizedError`), `scenarios` (each with `id`, `plant`, `current` and `candidate`, which are runs with `runId`, `evidence`,
 //! `status` and `requirements`), the result's `status` (the candidate's overall result) and `applyAvailable`. A requirement has

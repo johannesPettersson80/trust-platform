@@ -126,7 +126,10 @@ suite("Control Studio engine route: Tune", () => {
     release();
     assert.strictEqual(await changed, true);
     assert.strictEqual(await tuned, true);
-    assert.deepStrictEqual(fake.requests.map((sent) => sent.method), ["controlStudio/open", "controlStudio/analyze", "controlStudio/inputs", "controlStudio/tune"],
+    // Once the started Tune's subscription stands, the route reads its state (`onUpdate`'s catch-up); that read is not part of the order.
+    assert.deepStrictEqual(
+      fake.requests.map((sent) => sent.method).filter((method) => method !== "controlStudio/status"),
+      ["controlStudio/open", "controlStudio/analyze", "controlStudio/inputs", "controlStudio/tune"],
       "the engine records the change, then starts the Tune");
   });
 

@@ -5,7 +5,7 @@
 import { say } from "../speech";
 import { el } from "../svg";
 import type { Word } from "../words";
-import type { SymbolDefinition, SymbolState } from "./index";
+import type { SymbolArt, SymbolState } from "./index";
 import type { LiveValue } from "../model";
 import { on, SymbolReading } from "./reading";
 import { BODY, FILLED, HATCH, LINE, MOVING } from "./style";
@@ -36,8 +36,7 @@ function state(
   return { id, name, values: { open, closed, fault: false, manual: false, "out-of-service": false, ...flags }, needs };
 }
 
-export const VALVE: SymbolDefinition = {
-  size: [64, 64],
+export const VALVE: SymbolArt = {
   properties: ["open", "closed", "fault", "manual", "out-of-service"],
   deciding: ["fault", "open", "closed"],
   sample: "open",
@@ -50,10 +49,6 @@ export const VALVE: SymbolDefinition = {
     state("manual", "Manual", true, false, { manual: true }),
     state("out-of-service", "Out of service", false, true, { "out-of-service": true }),
   ],
-  ports: {
-    inlet: { at: [0, AXIS], direction: "left" },
-    outlet: { at: [64, AXIS], direction: "right" },
-  },
   draw: (view) => {
     const angle = 90 * (1 - (view.opening ?? 0));
     return [

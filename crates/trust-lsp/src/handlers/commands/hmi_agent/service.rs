@@ -514,8 +514,8 @@ fn validate(state: &ServerState, argument: &Argument, raw: &Value) -> AgentResul
 /// The validation answer of a draft (`validate` in `service.ts`): the navigation, incompleteness, binding
 /// and geometry findings of each page, the routing findings, the viewports and the engineering validity.
 ///
-/// The editor's own quality warnings (`editor/quality.ts`: units, unbound objects, cut text, contrast) are
-/// not in this answer yet; they depend on the drawing engine, which stays in the extension.
+/// The editor's quality warnings (units, unbound objects, cut text, contrast) are not in this answer: the
+/// editor asks `trust-lsp.hmiQuality` for them with the texts its drawing cuts (specification 39, §14.1 item 4).
 pub(super) fn validate_draft(
     state: &ServerState,
     argument: &Argument,

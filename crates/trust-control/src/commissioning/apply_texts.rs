@@ -16,6 +16,18 @@ pub fn validation_not_current() -> Failure {
     )
 }
 
+/// The loop's newest Apply already applied the study's validation (B7; the Validate page specification: "A new candidate must pass
+/// validation before this action can offer Apply for that candidate"): whether its settings stand, were restored or were retired, Apply
+/// waits for a validation that passes after it.
+#[must_use]
+pub fn validation_already_applied() -> Failure {
+    Failure::new(
+        "Apply already applied this validation, so Apply is not available for it again. Validate the controller again before applying.",
+        Cause::Settings,
+        NextAction::Validate,
+    )
+}
+
 /// An earlier Apply of the loop is unresolved on the running program (A8.5, B6.4, E11.7): its journaled checkpoint `checkpoint` stopped at
 /// the stage `stage`, so a new Apply would write over operations whose outcome the journal still owns, and new work cannot bypass their
 /// owners. Restore previous settings resolves it first.

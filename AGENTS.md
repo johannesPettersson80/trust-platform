@@ -29,13 +29,9 @@ truST's logic is written in Rust. There is no exception without the user's writt
 - **Structured Text** stays the language of PLC programs and libraries.
 - **No new logic in TypeScript.** A change that needs logic adds it in Rust, even when similar logic
   already exists in TypeScript.
-- **Existing TypeScript logic is debt to remove.** Known debt:
-  - `editors/vscode/src/hmiBuilder/editor/quality.ts` (about 250 lines): the HMI editor's quality
-    warnings (specification 39 §14.1).
-
-  Do not extend it. When a task touches it, move the touched logic into Rust within the task, or stop
-  and tell the user before changing it. The staged plan is
-  `docs/internal/testing/checklists/rust-logic-migration.md` in the primary checkout.
+- **Existing TypeScript logic is debt to remove.** No known debt remains: the HMI editor's quality
+  warnings moved to `trust-lsp.hmiQuality` (22 October 2026). TypeScript logic found later is debt:
+  move the touched logic into Rust within the task, or stop and tell the user before changing it.
 - **Tests**: logic is proven by Rust tests (`cargo test`). VS Code and browser tests prove only the
   wiring and what is rendered.
 - **Review**: a change that adds or grows logic in TypeScript is rejected, whoever wrote it. Report any

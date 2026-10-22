@@ -391,3 +391,31 @@ fn a_group_refuses_gains_because_it_writes_its_values_by_symbol() {
         .expect_err("a group takes no gains");
     assert_eq!(failure.message, NOT_BY_GAINS);
 }
+
+/// B6.2, C7: Apply waits for every member of a PID group, not only for the primary one. The starting point compares each member's plant
+/// input and measured output, in the model's channel order, which the operating point's values follow. Wrong behaviour caught: the
+/// starting point named the primary member's pair alone, so Apply entered Auto while another member's output was still moving.
+#[test]
+fn the_starting_point_of_a_group_compares_every_member_in_the_models_channel_order() {
+    use crate::commissioning::pid_commissioning::starting_point_symbols;
+    use crate::model::general::decode_general_model;
+    let channel = |id: &str| json!({ "id": id, "unit": "%", "operatingRange": { "minimum": 0, "maximum": 100 } });
+    let model = decode_general_model(&json!({
+        "kind": "continuous-state-space", "revision": "group-model", "source": "provided", "validation": "validated",
+        "evidence": ["group"], "delaySeconds": 0.0,
+        "inputs": [channel("u0"), channel("u1")], "outputs": [channel("y0"), channel("y1")],
+        "states": [channel("x0"), channel("x1")],
+        "a": [[-1.0, 0.0], [0.0, -1.0]], "b": [[1.0, 0.0], [0.0, 1.0]], "c": [[1.0, 0.0], [0.0, 1.0]], "d": [[0.0, 0.0], [0.0, 0.0]],
+        "operatingPoint": { "inputs": [40.0, 60.0], "outputs": [40.0, 60.0] }
+    }))
+    .expect("the group's model decodes");
+    let loop_definition = group_loop(2, true);
+    let binding = controller_adapter(&loop_definition)
+        .expect("the coherent group is served")
+        .transfer_binding()
+        .expect("the group transfers");
+    let (inputs, outputs) = starting_point_symbols(&loop_definition, &model, &binding)
+        .expect("the symbols of both members");
+    assert_eq!(inputs, vec!["P1.MV0".to_owned(), "P1.MV1".to_owned()]);
+    assert_eq!(outputs, vec!["P1.PV0".to_owned(), "P1.PV1".to_owned()]);
+}

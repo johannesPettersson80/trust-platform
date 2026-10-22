@@ -5,7 +5,7 @@
 
 import { say } from "../speech";
 import { el, SvgNode } from "../svg";
-import type { SymbolDefinition, SymbolState, SymbolView } from "./index";
+import type { SymbolArt, SymbolState, SymbolView } from "./index";
 import { paint } from "./plant";
 import { on, readRunningWith, runningStates } from "./reading";
 import type { SymbolReader } from "./reading";
@@ -42,9 +42,7 @@ function converter(view: SymbolView, input: SvgNode): SvgNode[] {
 }
 
 /** A frequency converter: AC in, AC out at the frequency it gives while it runs. */
-export const VFD: SymbolDefinition = {
-  size: [64, 64],
-  ports: {},
+export const VFD: SymbolArt = {
   properties: ["running", "fault", "manual", "out-of-service", "frequency"],
   deciding: ["fault", "running"],
   sample: "running",
@@ -70,9 +68,7 @@ const readDrive: SymbolReader = (value, frame, faulted, object) => {
 };
 
 /** A drive: DC in from its bus, AC out to its motor at the speed it gives while it runs. */
-export const DRIVE: SymbolDefinition = {
-  size: [64, 64],
-  ports: {},
+export const DRIVE: SymbolArt = {
   properties: ["running", "ready", "fault", "manual", "out-of-service", "speed"],
   deciding: ["fault", "running", "ready"],
   sample: "running",
@@ -137,9 +133,7 @@ const switchingStates = (extra: Record<string, boolean> = {}): SymbolState[] => 
 ];
 
 /** A contactor: its main contact with the contactor's arc, closed while it is energised. */
-export const CONTACTOR: SymbolDefinition = {
-  size: [64, 64],
-  ports: {},
+export const CONTACTOR: SymbolArt = {
   properties: ["closed", "fault"],
   deciding: ["fault", "closed"],
   sample: "closed",
@@ -158,9 +152,7 @@ export const CONTACTOR: SymbolDefinition = {
 
 /** A circuit breaker: its main contact with the breaker's cross; tripped, it stands open and says
  * so as a fault. */
-export const BREAKER: SymbolDefinition = {
-  size: [64, 64],
-  ports: {},
+export const BREAKER: SymbolArt = {
   properties: ["closed", "tripped"],
   deciding: ["tripped", "closed"],
   sample: "closed",

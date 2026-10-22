@@ -5,7 +5,7 @@
 import { token } from "../parts";
 import { say } from "../speech";
 import { el } from "../svg";
-import type { SymbolDefinition } from "./index";
+import type { SymbolArt } from "./index";
 import { paint, rotor } from "./plant";
 import { on, readNumbers, readRunning, readRunningWith, runningStates } from "./reading";
 import { BODY, HATCH, LINE, LIQUID, round } from "./style";
@@ -46,9 +46,7 @@ function vesselLiquid(level: number): string {
 }
 
 /** A closed vessel, filled to its level. */
-export const VESSEL: SymbolDefinition = {
-  size: [64, 64],
-  ports: { inlet: { at: [32, 0], direction: "up" }, outlet: { at: [32, 64], direction: "down" } },
+export const VESSEL: SymbolArt = {
   properties: ["level"],
   deciding: ["level"],
   states: levelStates(),
@@ -78,14 +76,7 @@ export const VESSEL: SymbolDefinition = {
 };
 
 /** A heat exchanger: the shell the product passes, and the medium's tube coil through it. */
-export const HEAT_EXCHANGER: SymbolDefinition = {
-  size: [64, 64],
-  ports: {
-    inlet: { at: [0, 32], direction: "left" },
-    outlet: { at: [64, 32], direction: "right" },
-    "medium-inlet": { at: [32, 0], direction: "up" },
-    "medium-outlet": { at: [32, 64], direction: "down" },
-  },
+export const HEAT_EXCHANGER: SymbolArt = {
   properties: ["temperature", "fault"],
   deciding: ["fault", "temperature"],
   sample: "working",
@@ -108,9 +99,7 @@ export const HEAT_EXCHANGER: SymbolDefinition = {
 };
 
 /** A filter: the housing with its filter medium across it; clogged, the medium shows it. */
-export const FILTER: SymbolDefinition = {
-  size: [64, 64],
-  ports: { inlet: { at: [0, 32], direction: "left" }, outlet: { at: [64, 32], direction: "right" } },
+export const FILTER: SymbolArt = {
   properties: ["differential-pressure", "clogged", "fault"],
   deciding: ["fault", "clogged", "differential-pressure"],
   sample: "clean",
@@ -161,13 +150,7 @@ export const FILTER: SymbolDefinition = {
 };
 
 /** A cyclone: its feed enters the cylinder at the side, gas leaves on top, solids down the cone. */
-export const CYCLONE: SymbolDefinition = {
-  size: [64, 64],
-  ports: {
-    inlet: { at: [0, 14], direction: "left" },
-    "gas-outlet": { at: [32, 0], direction: "up" },
-    "solids-outlet": { at: [32, 64], direction: "down" },
-  },
+export const CYCLONE: SymbolArt = {
   properties: ["differential-pressure", "fault"],
   deciding: ["fault", "differential-pressure"],
   sample: "working",
@@ -203,10 +186,8 @@ export const CYCLONE: SymbolDefinition = {
 };
 
 /** A crusher: the housing with its breaker plate and the hammer rotor, which turns while it runs. */
-export const CRUSHER: SymbolDefinition = {
+export const CRUSHER: SymbolArt = {
   ...MACHINE,
-  size: [64, 64],
-  ports: { inlet: { at: [32, 0], direction: "up" }, outlet: { at: [32, 64], direction: "down" } },
   properties: [...MACHINE.properties, "load"],
   read: readRunningWith("load", true),
   states: runningStates((running) => ({ load: running ? 72 : 0 })),
@@ -249,14 +230,8 @@ export const CRUSHER: SymbolDefinition = {
 
 /** A vibrating screen: the inclined deck with its mesh, on springs, and its exciter on top, whose
  * weight circles while it runs; oversize leaves at the deck's low end, undersize below it. */
-export const SCREEN: SymbolDefinition = {
+export const SCREEN: SymbolArt = {
   ...MACHINE,
-  size: [64, 64],
-  ports: {
-    inlet: { at: [8, 0], direction: "up" },
-    oversize: { at: [64, 44], direction: "right" },
-    undersize: { at: [32, 64], direction: "down" },
-  },
   read: readRunning,
   states: runningStates(),
   draw: (view) => [

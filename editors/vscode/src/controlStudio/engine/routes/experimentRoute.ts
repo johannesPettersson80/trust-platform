@@ -228,6 +228,8 @@ export function createExperimentRoute(context: EngineRouteContext): ExperimentSt
       ...(answer.binding ? { binding: answer.binding } : {}),
       ...(typeof answer.message === "string" ? { reason: answer.message } : {}),
       ...(answer.offer ? { offer: answer.offer } : {}),
+      // A review of a write to a physical target needs the engineer's approval before its confirmation (A2.5).
+      ...(answer.physical === true ? { physical: true } : {}),
     };
   }
 

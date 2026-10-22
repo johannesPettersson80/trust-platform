@@ -21,6 +21,7 @@ pub mod presentation;
 pub mod remote_operations;
 pub mod remote_values;
 pub mod setting_values;
+pub mod symbol_geometry;
 pub mod texts;
 pub mod trend_history;
 pub mod variable_tree;

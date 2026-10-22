@@ -50,6 +50,11 @@ export class ThreePageExperiments {
   private offer: ParameterToolOffer | undefined;
   /** The identity of the engine's last parameter review, which the confirmation names; none once an answer gives no review. */
   private parameterReviewId: string | undefined;
+  /** The engine's last parameter review writes to a physical target, so its confirmation needs the engineer's approval (A2.5). */
+  private parameterReviewPhysical = false;
+  /** The engineer's approval of a parameter write to a physical target, shown with a review that needs it (A2.5, B9.3). */
+  private readonly parameterApproval?: HTMLElement;
+  private readonly parameterApprove?: HTMLInputElement;
   /** The engine's review of the project test and the identity its start is confirmed with (C12). */
   private reviewId: string | undefined;
   /** Set when the engine's review carries an approval block: the project test runs on a physical target (A2.5). */
@@ -84,6 +89,9 @@ export class ThreePageExperiments {
     this.restoreButton?.addEventListener("click", () => this.reviewRestore());
     this.parameterAction = root.querySelector<HTMLButtonElement>("[data-three-page-experiment-parameter-action]") ?? undefined;
     this.parameterAction?.addEventListener("click", () => this.parameterStep());
+    this.parameterApproval = root.querySelector<HTMLElement>("[data-three-page-experiment-parameter-approval]") ?? undefined;
+    this.parameterApprove = root.querySelector<HTMLInputElement>("[data-three-page-experiment-parameter-approve]") ?? undefined;
+    this.parameterApprove?.addEventListener("change", () => this.render());
     const parameterHost = root.querySelector<HTMLElement>("[data-three-page-experiment-parameter-fields]");
     if (parameterHost && this.parameterValues && this.parameterBinding) {
       this.parameterFields = new ParameterFields(parameterHost, this.parameterValues, () => this.editParameters());
@@ -270,7 +278,9 @@ export class ThreePageExperiments {
     this.pending = "parameter-apply";
     this.parameterStatusText("");
     this.render();
-    this.post("control-studio.parameters.apply", { reviewId: this.parameterReviewId, physicalApproved: false });
+    // On a physical target the write carries the engineer's approval of the review (A2.5); the engine refuses it without one.
+    const approved = this.parameterReviewPhysical && this.parameterApprove?.checked === true;
+    this.post("control-studio.parameters.apply", { reviewId: this.parameterReviewId, physicalApproved: approved });
     return true;
   }
 
@@ -307,6 +317,9 @@ export class ThreePageExperiments {
     if (offer) {
       this.offer = offer;
       this.parameterReviewId = text(payload.reviewId);
+      // Each answer with an offer replaces the review, and the approval the engineer gave belongs to the review it was given for.
+      this.parameterReviewPhysical = this.parameterReviewId !== undefined && payload.physical === true;
+      if (this.parameterApprove) this.parameterApprove.checked = false;
     }
     this.parameterStatusText(text(payload.reason) ?? "");
     this.render();
@@ -370,13 +383,19 @@ export class ThreePageExperiments {
     this.parameterSection.hidden = !this.parameterFlow;
     const waiting = this.pending !== undefined || this.experimentId !== undefined;
     const offers = (step: ToolStep): boolean => this.offer?.available.includes(step) === true;
-    for (const input of Array.from(this.parameterSection.querySelectorAll<HTMLInputElement>("input"))) input.disabled = waiting || !offers("review");
+    for (const input of Array.from(this.parameterSection.querySelectorAll<HTMLInputElement>("input:not([data-three-page-experiment-parameter-approve])"))) {
+      input.disabled = waiting || !offers("review");
+    }
     if (this.restoreButton) this.restoreButton.disabled = waiting || !offers("restore");
+    // A review of a write to a physical target shows the approval, and its confirmation waits for it (A2.5, B9.3).
+    const approving = this.parameterReviewPhysical && this.offer?.nextStep === "apply";
+    if (this.parameterApproval) this.parameterApproval.hidden = !approving;
+    if (this.parameterApprove) this.parameterApprove.disabled = waiting;
     if (this.parameterAction) {
       // Its step is the tool's own; the review and start of the project test stay on the Identify page.
       this.parameterAction.hidden = !this.parameterFlow;
       this.parameterAction.textContent = this.parameterStepLabel;
-      this.parameterAction.disabled = waiting || this.blocked() !== undefined;
+      this.parameterAction.disabled = waiting || this.blocked() !== undefined || (approving && this.parameterApprove?.checked !== true);
     }
     if (this.parameterStatus) this.parameterStatus.hidden = false;
   }

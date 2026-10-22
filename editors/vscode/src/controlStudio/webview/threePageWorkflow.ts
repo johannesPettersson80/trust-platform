@@ -225,6 +225,8 @@ if (root) {
   const analysisChooser = new ThreePageAnalysisChooser(root, { labels: analysisLabels, tools: availableAnalysis,
     choose: tool => chooseAnalysis(tool), close: () => closeAnalysis() });
   const synchronizeTools = () => {
+    // A tool the analysis restored when the panel reopened (A8.6, B9.9) is the shown one, as if the engineer had chosen it from Analyze….
+    if (analysisChoice === undefined) analysisChoice = analysis.shown()?.tool;
     for (const offer of analysis.offers()) analysisLabels[offer.tool] = offer.label;
     analysisLabels["measured-mimo"] = mimoAnalysis.label() ?? "Measured MIMO paths";
     const tools = availableAnalysis();
@@ -396,7 +398,7 @@ if (root) {
     if (stage === "flow" && payload.status === "running") operation.importing = false;
     // A refused requirement reopens the requirements editor, and a refused limit reopens Limits, under the field the engine names (B4.3, B3.2);
     // the page message still shows it.
-    if (stage === "flow" && payload.status === "failed") { showRefusedRequirement(payload.failure); showRefusedLimit(payload.failure); }
+    if (stage === "flow" && (payload.status === "failed" || payload.status === "refused")) { showRefusedRequirement(payload.failure); showRefusedLimit(payload.failure); }
     operation.receive(stage, payload);
     application.receive(payload);
     bindings?.synchronize();

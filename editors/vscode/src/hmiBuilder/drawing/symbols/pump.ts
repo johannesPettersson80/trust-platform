@@ -3,25 +3,20 @@
 // variable-speed variant carries the arrow of variability and gives its speed (§5.2 phase 2).
 
 import { el, SvgNode } from "../svg";
-import type { SymbolDefinition, SymbolView } from "./index";
+import type { SymbolArt, SymbolView } from "./index";
 import { readRunningWith, runningStates } from "./reading";
 import { BODY, HATCH, LINE, MOVING, round, STILL } from "./style";
 
 const CENTRE = { x: 30, y: 36 };
 const VANES = 6;
 
-export const PUMP: SymbolDefinition = {
-  size: [64, 64],
+export const PUMP: SymbolArt = {
   properties: ["running", "fault", "manual", "out-of-service", "speed"],
   deciding: ["fault", "running"],
   sample: "running",
   // A variable-speed pump gives its speed while it runs.
   read: readRunningWith("speed", true),
   states: runningStates((running) => ({ speed: running ? 62 : 0 })),
-  ports: {
-    inlet: { at: [0, CENTRE.y], direction: "left" },
-    outlet: { at: [64, 20], direction: "right" },
-  },
   draw: (view) => [
     // A variable-speed pump: the ISO 14617 arrow of variability, passing behind the casing.
     ...(view.variant === "variable-speed"

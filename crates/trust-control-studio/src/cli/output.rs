@@ -353,6 +353,7 @@ mod tests {
             result: None,
             failure: None,
             message: None,
+            stages: None,
         }
     }
 

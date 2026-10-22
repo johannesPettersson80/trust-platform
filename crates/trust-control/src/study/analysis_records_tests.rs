@@ -39,6 +39,7 @@ fn saved_routh() -> SavedRouthAnalysis {
 fn measured_result(recording_id: &str) -> MeasuredFrequencyResult {
     MeasuredFrequencyResult {
         recording_id: recording_id.to_string(),
+        recording_label: String::new(),
         recording_revision: "rev-1".to_string(),
         sample_time_seconds: 0.1,
         frequencies: vec![1.0, 2.0],

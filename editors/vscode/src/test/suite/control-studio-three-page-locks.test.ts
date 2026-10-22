@@ -154,6 +154,24 @@ suite("Control Studio three-page locks and confirmations", () => {
     });
   });
 
+  test("a settings change the engine refuses during a run shows its sentence and leaves the run and its Abort in place", () => {
+    // The engine refuses a change of the study inputs while an operation reads them (A8.5). Wrong behaviour caught: the page took the
+    // refusal for the end of the run, so the Abort became Identify plant while the campaign kept running.
+    withPage(STAGE_MARKUP, root => {
+      const operation = new ThreePageOperation(root, () => undefined, () => undefined, () => undefined, () => undefined);
+      operation.start("find", {});
+      operation.receive("flow", { status: "refused", page: "tune",
+        failure: { message: "Wait for the running operation to end.", nextAction: { kind: "wait", label: "" } } });
+      assert.strictEqual(control<HTMLButtonElement>(root, "[data-engineer-find]").textContent, "Abort", "the run keeps its Abort");
+      assert.strictEqual(disabled(root, "[data-engineer-find]"), false);
+      for (const selector of RUN_LOCKED) assert.strictEqual(disabled(root, selector), true, `${selector} stays locked during the run`);
+      assert.strictEqual(control(root, '[data-studio-message="tune"]').textContent, "Wait for the running operation to end.",
+        "the refusal shows on its editor's page");
+      operation.receive("flow", { status: "completed" });
+      assert.strictEqual(control<HTMLButtonElement>(root, "[data-engineer-find]").textContent, "Identify plant", "the run's own end frees the action");
+    });
+  });
+
   test("an Apply run locks the same controls while its stage Abort stays enabled", () => {
     // The Apply area keeps the Apply stage of the engine's last answer (engineShared.ts `applyStageStatuses`).
     withPage(`${STAGE_MARKUP}<div data-studio-application></div>`, root => {

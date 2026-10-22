@@ -275,3 +275,50 @@ fn an_update_that_is_not_cancelled_states_no_cancellation() {
     assert_eq!(finished.state, OperationState::Finished);
     assert_eq!((progress.message, finished.message), (None, None));
 }
+
+/// B6.4, B6.7, B9.4: a failed operation carries the stages its work named, so that a failed Apply or Restore shows the block of a
+/// checkpoint that waits for its Restore without a reopen. Wrong behaviour caught: the failed update carried no stages, and the page kept
+/// the stages of the answer before the failure. A running or finished update carries none.
+#[test]
+fn a_failed_operation_carries_the_stages_its_work_named_and_no_other_update_does() {
+    use trust_control::stages::{Stage, StageAvailability, StageStatus};
+    let held = vec![StageAvailability {
+        stage: Stage::Identify,
+        status: StageStatus::Ready,
+        label: StageStatus::Ready.label(),
+        available: false,
+        reason: Some("Restore previous settings first."),
+    }];
+    let (operations, updates) = operations();
+    let named = held.clone();
+    operations.start("restore", move |context| {
+        context.progress("Restoring the previous settings");
+        context.stages_on_failure(named);
+        Err(Failure::new(
+            "The runtime refused the rollback.",
+            Cause::Runtime,
+            NextAction::Restore,
+        ))
+    });
+    let running = next(&updates);
+    assert_eq!(running.state, OperationState::Running);
+    assert_eq!(running.stages, None, "a running update carries no stages");
+    let failed = next(&updates);
+    assert_eq!(failed.state, OperationState::Failed);
+    assert_eq!(
+        failed.stages,
+        Some(held),
+        "the failed update carries the stages the work named"
+    );
+
+    operations.start("apply", |context| {
+        context.stages_on_failure(Vec::new());
+        Ok(json!({ "kind": "applied" }))
+    });
+    let finished = next(&updates);
+    assert_eq!(finished.state, OperationState::Finished);
+    assert_eq!(
+        finished.stages, None,
+        "a finished update carries its stages in its result, not here"
+    );
+}

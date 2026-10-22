@@ -40,6 +40,11 @@ import {
   REFRIGERATION_UNIT,
 } from "./thermal";
 import { VALVE } from "./valve";
+import { LABEL_HEIGHT, SYMBOL_GEOMETRY, type SymbolLabel, type SymbolPort } from "./geometry";
+
+// The shipped symbols' geometry is the runtime's table (`symbol_geometry.json`), which the language server's routes read too.
+export { LABEL_HEIGHT };
+export type { SymbolLabel, SymbolPort };
 
 export { SPIN_PERIOD_MS } from "./motion";
 
@@ -84,12 +89,6 @@ export function symbolFor(type: string): SymbolDefinition | undefined {
   return (SYMBOLS as Partial<Record<string, SymbolDefinition>>)[type] ?? REGISTERED.get(type);
 }
 
-/** A connection point (§6): where a pipe meets the symbol, and the way the pipe leaves it. */
-export interface SymbolPort {
-  at: [number, number];
-  direction: "left" | "right" | "up" | "down";
-}
-
 /** What a symbol shows of its equipment's state (§5.3, item 4). */
 export interface SymbolView {
   /** The state is unknown: no moving part, the body hatched. */
@@ -122,9 +121,6 @@ export interface SymbolState {
   needs: string[];
 }
 
-/** Where a symbol's tag and state word stand: under it, or beside it, as an instrument's do. */
-export type SymbolLabel = "under" | "beside";
-
 export interface SymbolDefinition {
   /** The symbol's design size in pixels, without its label. */
   size: [number, number];
@@ -152,9 +148,6 @@ export interface SymbolDefinition {
   /** The symbol's parts in its own pixels, for this view. */
   draw(view: SymbolView): SvgNode[];
 }
-
-/** The room the label takes under a symbol: the tag and the state word, each 14 px (§14.2). */
-export const LABEL_HEIGHT = 44;
 
 /** Where a symbol stands in its object: scaled to fit above the label, centred (§14.2); or, with
  * its label beside it as an instrument has, at the left, fitting the height and taking at most
@@ -233,7 +226,10 @@ export type SymbolType =
   | "contactor"
   | "breaker";
 
-export const SYMBOLS: Record<SymbolType, SymbolDefinition> = {
+/** What a shipped symbol's module declares: its drawing, its states and their reading, without the geometry the table holds. */
+export type SymbolArt = Omit<SymbolDefinition, "size" | "label" | "ports">;
+
+const ART: Record<SymbolType, SymbolArt> = {
   pump: PUMP,
   valve: VALVE,
   "control-valve": CONTROL_VALVE,
@@ -291,3 +287,14 @@ export const SYMBOLS: Record<SymbolType, SymbolDefinition> = {
   contactor: CONTACTOR,
   breaker: BREAKER,
 };
+
+/** A shipped symbol: its drawing, with its design size, label and ports from the runtime's table (§6 item 1, §14.2). */
+function shipped(type: SymbolType, art: SymbolArt): SymbolDefinition {
+  const geometry = SYMBOL_GEOMETRY[type];
+  if (!geometry) throw new Error(`The symbol ${type} has no geometry in the runtime's table.`);
+  return { ...art, ...geometry };
+}
+
+export const SYMBOLS = Object.fromEntries(
+  (Object.entries(ART) as Array<[SymbolType, SymbolArt]>).map(([type, art]) => [type, shipped(type, art)]),
+) as Record<SymbolType, SymbolDefinition>;

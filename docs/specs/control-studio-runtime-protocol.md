@@ -258,6 +258,7 @@ Rules:
 5. `stale` is not a runtime quality. Studio derives it from the wall-clock time since the last newer scan (A3.4).
 6. An inspection is evidence for its own scan only. An editor poll is never evidence (B2).
 7. A read of a loop's signal MUST be taken at the end of an execution of the loop's task (A5.2).
+8. Studio asks again while the answer waits for the next scan: the first answer after a watch was replaced, by another reader or by Studio itself, is `available: false` (rule 1). A read that a run, a review or a recording start needs asks again after a wait of the loop's task period clamped to 50–100 ms, at most twenty more times, and the inspections after the first are pinned to the program revision the first answer named (E11.4). Only then is no scan available, which the read's own refusal states (B3.4 step 1, B3.9). An editor poll asks once.
 
 ## E4. Recordings
 
@@ -1017,7 +1018,7 @@ Studio journals the identity, then dispatches the request. An experiment is disp
 
 ### E11.5 Reattachment
 
-- After a panel close or an Extension Host restart, Studio MUST reattach to every journaled operation by its identifier, show its state through its status operation, and continue the study (A8.5).
+- After a panel close, an Extension Host restart or a restart of the Control Studio engine, Studio MUST reattach to every journaled operation by its identifier, show its state through its status operation, and continue the study (A8.5).
 - Closing a panel MUST NOT cancel a running experiment. A long experiment keeps running in the runtime while VS Code is closed (A8.5, A10.4). Closing during Apply's observation follows E11.11.
 - If the program revision, the binding revision or the session epoch differs from the journaled one, or if no terminal status is available, the operation is unresolved. Dependent work stays blocked until a fresh review (A2.2).
 - Studio MUST discard any reply that carries another session epoch. A new epoch starts a new time origin and a new sample window. Studio never draws a continuous response across it.
@@ -1030,8 +1031,8 @@ Studio journals the identity, then dispatches the request. An experiment is disp
 - An experiment owner is cleared only after its terminal recording has been retained. Studio labels the result with the stored plan. It reports only what the runtime reported.
 - A transaction owner is cleared when its terminal outcome has been retained.
 - A job owner is cleared when its terminal result has been retained.
-- After an Extension Host restart, a recording owner loads as **Recording recovery unconfirmed**. It disables a new start and offers a stop for the retained identifier only. A terminal record is accepted only when its identity, its loop revision, its binding order and its program revision match the owner. Studio MUST NOT rebuild a recording under a new identifier, and it MUST NOT substitute editor samples.
-- After a panel or Extension Host reload, Studio MAY reconstruct the owner of an experiment. It polls the stored `experiment_id`. If the runtime identity cannot be established, the owner stays unconfirmed and blocks any replacement test start.
+- After an Extension Host or engine restart, a recording owner loads as **Recording recovery unconfirmed**. It disables a new start and offers a stop for the retained identifier only. A terminal record is accepted only when its identity, its loop revision, its binding order and its program revision match the owner. Studio MUST NOT rebuild a recording under a new identifier, and it MUST NOT substitute editor samples.
+- After a panel, Extension Host or engine reload, Studio MAY reconstruct the owner of an experiment. It polls the stored `experiment_id`. If the runtime identity cannot be established, the owner stays unconfirmed and blocks any replacement test start.
 - Studio MUST retain a recording's samples before it releases the recording (E4.7). It stops the recording after the terminal state, and it releases the recording only after the samples are retained.
 
 ### E11.7 Unconfirmed transactions
@@ -1039,7 +1040,7 @@ Studio journals the identity, then dispatches the request. An experiment is disp
 - A lost acknowledgement is resolved by observing the same transaction. Studio MUST NOT repeat an apply.
 - An unconfirmed Manual operation keeps its owner and offers recovery in the current panel. A failed recovery review keeps that route available.
 - Dependent commands and changes of the editable task inputs are refused until the operation is reconciled. The engine refuses them, with the block's reason and the next action Restore previous settings (specification 35, B6.4), so the refusal holds for the extension and the command line alike; the view keeps no lock of its own.
-- An explicitly confirmed replacement-runtime review unlocks the next study. It does not claim that the old operation completed, and it does not replay the old operation's writes.
+- An explicitly confirmed replacement-runtime review unlocks the next study: the engineer's Restore previous settings on a runtime that was restarted or reloaded since Apply is that confirmation, and the engine keeps the checkpoint as history (specification 35, B6.4). It does not claim that the old operation completed, and it does not replay the old operation's writes.
 - A rollback after an unconfirmed operation is always a fresh review (E7.5). Studio never reuses the review of a closed panel, and it never issues a second apply or rollback from that review.
 - New work cannot bypass an unresolved application owner. A saved outcome never restores write authority (A8.6).
 

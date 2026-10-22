@@ -15,8 +15,8 @@ use trust_runtime::hmi::page_files::{HmiObject, HmiPage};
 
 use super::geometry::{coord, Rect};
 use super::ports::{
-    port_point, round_hundredths, symbol_geometry, symbol_placement, PortDirection, PortPoint,
-    SymbolLabel, LABEL_HEIGHT,
+    label_height, port_point, round_hundredths, symbol_geometry, symbol_placement, PortDirection,
+    PortPoint, SymbolLabel,
 };
 
 /// A point of a route, in page pixels (`Point` in `route.ts`).
@@ -90,7 +90,7 @@ fn solid_boxes(object: &HmiObject) -> Vec<Rect> {
             x: whole.x,
             y: whole.y + placement.area,
             width: whole.width,
-            height: LABEL_HEIGHT,
+            height: label_height(),
         },
     ]
 }

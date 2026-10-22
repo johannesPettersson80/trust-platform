@@ -261,6 +261,23 @@ suite("Control Studio engine run route", () => {
     }]);
   });
 
+  test("a failed Restore shows the stages its failure leaves on their tabs, so the block shows without a reopen (B6.4, B6.7, B9.4)", () => {
+    // Wrong behaviour caught: a failed update carried no stages, and the tabs kept the stages of the answer before the failure.
+    const root = stageFixture();
+    const received: Received = [];
+    const held = { status: "complete", label: "Complete", available: false, reason: "Restore previous settings first." };
+    receiveEngineMessage(root, {
+      kind: "control-studio.engine.update",
+      update: {
+        operationId: "operation-3", command: "restore", state: "failed",
+        failure: { message: "The runtime refused the rollback.", cause: "runtime", nextAction: "restore", nextActionLabel: "Restore previous settings" },
+        stages: [{ stage: "Identify", ...held }, { stage: "Tune", ...held }, { stage: "Validate", ...held }],
+      },
+    }, portsOf(received));
+    assert.deepStrictEqual(["model", "tune", "verify"].map(id => root.querySelector(`[data-engineer-stage-tab="${id}"]`).dataset.available), ["false", "false", "false"],
+      "each tab takes the stage the failure left");
+  });
+
   test("the page hands the flow to the input the run waits for as paused with that input, in the engine's sentence and under the engine's field", () => {
     const root = stageFixture();
     const received: Received = [];

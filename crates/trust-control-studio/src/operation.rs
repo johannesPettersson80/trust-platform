@@ -15,6 +15,7 @@ use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::campaign::CANCELLED_TEXT;
 use trust_control::identification::connected_run::identification_cancelled;
 use trust_control::messages::{AnswerKind, OperationStarted, OperationState, OperationUpdate};
+use trust_control::stages::StageAvailability;
 use trust_control::study::Page;
 
 /// The command of an identification (`identify_action`): its cancelled update carries the identification's sentence.
@@ -55,6 +56,9 @@ pub struct OperationContext {
     sink: Arc<dyn UpdateSink>,
     /// The stage a run is in (B8), shared by every clone of the context; none for an operation that runs no stages.
     stage: Arc<Mutex<Option<Page>>>,
+    /// The status of every stage that the operation's failure leaves, which its failed update carries (B9.4); none until the work
+    /// names it.
+    failure_stages: Arc<Mutex<Option<Vec<StageAvailability>>>>,
 }
 
 impl OperationContext {
@@ -73,6 +77,13 @@ impl OperationContext {
     /// Reports what the operation is doing.
     pub fn progress(&self, text: &str) {
         self.report(OperationState::Running, Some(text.to_string()), None, None);
+    }
+
+    /// Names the status of every stage that the operation leaves when it fails, which its failed update carries (B6.4, B6.7, B9.4): an
+    /// Apply or a Restore that stopped after its first write leaves a checkpoint that holds the stages, and the page shows that block
+    /// without a reopen.
+    pub fn stages_on_failure(&self, stages: Vec<StageAvailability>) {
+        *self.failure_stages.lock() = Some(stages);
     }
 
     /// Reports that a run has entered `stage` (B8). Every later update of the operation names that stage, until the next one.
@@ -97,6 +108,11 @@ impl OperationContext {
             result,
             failure,
             message: cancelled_message(&self.command, state),
+            stages: if state == OperationState::Failed {
+                self.failure_stages.lock().take()
+            } else {
+                None
+            },
         };
         if let Some(entry) = self.entries.lock().get_mut(&self.id) {
             entry.latest = update.clone();
@@ -130,6 +146,7 @@ impl Operations {
             entries: Arc::clone(&self.entries),
             sink: Arc::clone(&self.sink),
             stage: Arc::new(Mutex::new(None)),
+            failure_stages: Arc::new(Mutex::new(None)),
         };
         let latest = OperationUpdate {
             operation_id: id.clone(),
@@ -140,6 +157,7 @@ impl Operations {
             result: None,
             failure: None,
             message: None,
+            stages: None,
         };
         self.entries.lock().insert(
             id.clone(),

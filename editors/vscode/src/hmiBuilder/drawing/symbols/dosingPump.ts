@@ -4,16 +4,11 @@
 
 import { token } from "../parts";
 import { el } from "../svg";
-import type { SymbolDefinition } from "./index";
+import type { SymbolArt } from "./index";
 import { readRunningWith, runningStates } from "./reading";
 import { BODY, HATCH, LINE, MOVING, STILL } from "./style";
 
-export const DOSING_PUMP: SymbolDefinition = {
-  size: [64, 64],
-  ports: {
-    inlet: { at: [14, 64], direction: "down" },
-    outlet: { at: [14, 0], direction: "up" },
-  },
+export const DOSING_PUMP: SymbolArt = {
   properties: ["running", "fault", "manual", "out-of-service", "rate"],
   deciding: ["fault", "running"],
   states: runningStates((running) => ({ rate: running ? { share: 0.6 } : 0 })),

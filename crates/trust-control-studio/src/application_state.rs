@@ -11,6 +11,7 @@ use std::path::Path;
 use trust_control::commissioning::application_offers::{
     newest_applied_validation, offered_stages, ApplicationOffers, JournaledApply, PrimaryAction,
 };
+use trust_control::commissioning::apply_texts::validation_already_applied;
 use trust_control::commissioning::checkpoint::CommissioningCheckpoint;
 use trust_control::commissioning::checkpoint_block::{block_reason, block_refusal};
 use trust_control::failure::Failure;
@@ -110,6 +111,27 @@ pub(crate) fn journaled_checkpoint(journal: &Journal) -> Option<&CommissioningCh
         JournalEntry::Commissioning { checkpoint } => Some(&**checkpoint),
         _ => None,
     })
+}
+
+/// Refuses an Apply of `validation`, the identity of the study's passed validation, when the loop's newest Apply applied it (B7,
+/// `application_offers::apply_offered`): whether that Apply's settings stand, were restored or were retired, Apply is offered again only
+/// for a validation that passes after it, and the review keeps the rule the offers state, so a request that names the old validation is
+/// refused as the page's offer is withheld.
+///
+/// # Errors
+/// The study's Apply section cannot be read, or the newest Apply applied `validation`.
+pub(crate) fn refuse_applied_validation(
+    journal: &Journal,
+    study: &Study,
+    validation: &str,
+) -> Result<(), Failure> {
+    let receipts = study.section::<ApplySection>()?.unwrap_or_default();
+    let applied =
+        newest_applied_validation(journaled_checkpoint(journal), receipts.newest_validation());
+    if applied == Some(validation) {
+        return Err(validation_already_applied());
+    }
+    Ok(())
 }
 
 /// Refuses an action that the block holds (B6.4, B6.7; annex E11.7): Identify, Tune, Validate, Reset, the imports and a change of the

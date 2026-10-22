@@ -29,6 +29,7 @@ use crate::loop_definition::LoopDefinition;
 use crate::model::GeneralModel;
 use crate::validation::commissioning_assessment::CommissioningCriteria;
 use crate::validation::engineer_verification_plan::EngineerRequirements;
+use crate::validation::model_route::bound_channels;
 
 use super::actuator_feedback::{transfer_output_basis, transfer_target_allowance};
 use super::channel_mapping::connected_model_channels;
@@ -808,13 +809,39 @@ pub fn response_start_seconds(samples: &[ResponseSample], target: f64) -> Option
         .map(|sample| sample.elapsed_seconds)
 }
 
-/// The plant input and the measured output that the starting point compares (`startingPointSymbols`; B6.2): the input the output drives,
-/// which is its applied feedback where the loop declares one, and the process variable.
-fn starting_point_symbols(
+/// The plant inputs and measured outputs that the starting point compares (B6.2), in the model's channel order, which the operating
+/// point's values follow: the loop's own pair, and for a PID group every member's (C7), so that Apply waits until every member's output
+/// has settled, not only the primary member's. Each plant input is read where the transfer reads it: its actuator's feedback when the
+/// loop declares one.
+///
+/// # Errors
+/// The model does not connect the loop's channels, or a plant input is not an output of the transfer binding.
+pub(super) fn starting_point_symbols(
     loop_definition: &LoopDefinition,
     model: &GeneralModel,
     binding: &TransferBinding,
 ) -> Result<(Vec<String>, Vec<String>), Failure> {
+    if loop_definition.controller.group.is_some() {
+        let bound = bound_channels(loop_definition, model)?;
+        let inputs = bound
+            .inputs
+            .iter()
+            .map(|input| {
+                std::iter::once(&binding.output)
+                    .chain(&binding.additional_outputs)
+                    .find(|member| member.symbol == input.signal.symbol)
+                    .and_then(|member| transfer_output_basis(binding, member))
+                    .map(|basis| basis.symbol.clone())
+                    .ok_or_else(binding_failure)
+            })
+            .collect::<Result<Vec<String>, Failure>>()?;
+        let outputs = bound
+            .outputs
+            .iter()
+            .map(|output| output.signal.symbol.to_owned())
+            .collect();
+        return Ok((inputs, outputs));
+    }
     let channels = connected_model_channels(loop_definition, model)?;
     let input = transfer_output_basis(binding, &binding.output).ok_or_else(binding_failure)?;
     Ok((

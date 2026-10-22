@@ -118,7 +118,7 @@ Open [`src/Main.st`](src/Main.st). `Control.PID` runs the rigid-model PID on the
 3. On **Tune**, choose **Measured frequency response**. Enter 6.283, 12.566, 15.708, 18.850, 21.991, 25.133, 31.416 in **Frequencies (rad/s, comma separated)**, 10 **Segments**, 0.8 **Minimum coherence** and **Discard startup samples** 300, the rest and the first 4 s of tones. Select **Calculate measured frequency response**.
 4. On **Identify**, choose **Supplied plant model** in **Method**, select **Open model…** and open `flexible-axis-model.json`.
 5. On **Tune**, keep **P1 · PID** and **Automatic**. Select **Requirements…**, enter **Setpoint change (rad)** 1, **Maximum steady-state error (rad)** 0.02, **Maximum settling time (s)** 4, **Settling band (±rad)** 0.01, **Validation duration (s)** 8 and **Auto-entry tolerance (N·m)** 1.5, select **Done**, then **Tune controller**.
-6. On **Validate**, select **Validate controller**. When every row passes, select **Apply**; Control Studio shows **Applied**.
+6. On **Validate**, select **Validate controller**. When every **Candidate** row passes, select **Apply**; Control Studio shows **Applied**. The **Current settings** rows run the axis without the notch, so some of them fail.
 
 Select **Abort test** to stop early.
 

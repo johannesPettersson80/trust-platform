@@ -310,6 +310,9 @@ an action is allowed, what Apply and Restore do), the runtime clients and the st
     be the recording's. `recordingId` is the recording's identifier in the study (the `rec-` identifier that `importRecording` answers,
     which the study lists), not the identifier the runtime gave its run, and the answer names that identifier. A request that names
     neither measures the study's last kept recording that is a periodic record (B9.9), and the answer names the recording it used.
+    Beside the identifier the answer names the recording in words (`recordingLabel`), which the page's Recording field shows: the
+    experiment the run wrote first and the UTC time of its first sample, for example "PRBS recorded 2026-10-22 14:05:31 UTC", or
+    "Recording of …" ("Opened recording of …" for a file opened from disk) when the run wrote none.
     A study that keeps no such recording refuses with the next action Identify. A file opened with Recorded-data fit on a served loop is one of the
     study's recordings (B3.6, and the paragraph above); a loop the engine refuses keeps no such file, so it is not one of the
     study's recordings.
@@ -415,7 +418,12 @@ window's field (`<inputId>:<window key>`), as a missing end is; the drift tolera
   methods name none. `controlStudio/status` answers for an operation, and
   `controlStudio/cancel` cancels it as Cancel does. The cancelled update of every operation carries the sentence the page shows
   (`message`): `Identification cancelled.` for an identify operation, `Analysis cancelled.` for an analysis, and `The operation was
-  cancelled.` for every other; the page writes none (B9.4).
+  cancelled.` for every other; the page writes none (B9.4). The failed update of an Apply or a Restore carries the stages as the
+  study and the journal hold them then (`stages`): one that stopped after its first write leaves its checkpoint waiting for its
+  Restore, and the page shows that block at once (B6.4, B6.7). The extension's listener of an operation the page started, or a route
+  adopted while it ran, also reads the operation's status once it stands, so an operation that ended before the listener stood still
+  reaches the page with its final update. A reopened panel's listeners of the operations `controlStudio/open` listed do not read it,
+  since an operation that has ended shows nothing there (A8.6).
 - A method's JSON-RPC result is `{"result": …}` or `{"failure": …}`; a failure carries its cause
   and next action (A11). A malformed message or an unknown method is a JSON-RPC error.
 - The engine ends when its client closes standard input. Ending it never stops a runtime-owned
@@ -1253,7 +1261,8 @@ clears the manual section (B3.7).
 
 1. **Preconditions.** A connected target (a project test's review that finds no
    runtime running is answered with the next action that applies, A2.8); the selected signals fresh, good and
-   not forced; the limits present (otherwise **Limits…** opens at the missing
+   not forced, read from one coherent scan (a read that took over the runtime's inspection watch waits for the
+   next scan, runtime protocol annex E3 rule 8, so another reader's watch never refuses a run); the limits present (otherwise **Limits…** opens at the missing
    field); physical approval on a physical target (A2.5). A Manual method
    switches the loop to Manual through a transfer that holds the present output
    (A6.3) and returns it to its starting mode afterwards (A6.2). The approval
@@ -1704,7 +1713,9 @@ at the loop's task period and a tenth of that settling time. A reading that
 takes any output out of its band restarts the dwell. The wait can be cancelled
 and lasts at most the longer of 60 s and three times the test duration, in
 process time. An integrating output takes its present value as its operating
-point and rests wherever it is, so it does not hold the wait.
+point and rests wherever it is, so it does not hold the wait. A PID group's plant
+inputs and measured outputs are every member's, in the model's channel order
+(C7), so Apply waits until every member's output has settled.
 
 **B6.3 Observation.** After the transfer, the validated target change runs and
 the runtime records the response for the test duration in process time. The
@@ -1884,7 +1895,9 @@ Apply is the one whose checkpoint the loop's journal holds, at any stage, and ot
 one of the study's newest Apply receipt (A8.1, A8.5). So a reopened loop does not offer the
 validation that was applied, also after its Restore, and a validation that passed after the
 Apply or after its Restore is offered: every answer after the end of an Apply or a Restore
-states the Apply offer that end stated, until a new validation passes.
+states the Apply offer that end stated, until a new validation passes. Apply's review and its
+confirmation keep the same rule: a request for the validation the newest Apply applied is
+refused with the next action Validate, as the offer is withheld.
 `controlStudio/open` also answers `restoreAvailable` and `keepAvailable` (B6.4). The
 end of an Apply and the end of a Restore answer all three: neither end offers Apply
 (`applyAvailable` is false), because the Apply's settings stand or it restored the
@@ -2026,7 +2039,9 @@ the reasons an action is unavailable.
   a result (B8).
 - While work runs, its button becomes **Abort** (B8). The Abort control MUST
   stay reachable on every page, and every page MUST target the same operation
-  identity.
+  identity. A refused change of the study inputs (`controlStudio/inputs`) is no
+  operation's end: the page shows the engine's sentence on the editor's page and
+  the running work keeps its **Abort**.
 - Changing a view MUST NOT duplicate an acquisition or a parameter write.
 - A stage the loop's structure does not use shows the status Not applicable and the engine's reason on its page, and the page's
   controls for that stage are inert (C12). The engine decides the status; the page only shows it.
@@ -3308,7 +3323,7 @@ A C12 observation or open-loop loop whose declared analysis maps its parameters 
 - **Bounds.** A value lies within the analysis parameter's own minimum and maximum, after the IEC rounding of its symbol's type: a REAL is rounded to single precision (C0). A value outside those bounds is refused before any review.
 - **Selected values.** The values the analysis selects are its swept parameter at the selected value and each other parameter at its declared value. The engine answers them as a draft that a review can start from; the engineer may enter any other value within the bounds.
 - **Review.** A review writes nothing. It names the identity of what its confirmation writes: the loop's revision, the program, binding and active revisions of the record, the action, the revision that a Restore returns to, the symbols written and the whole record (A2.5, E11.8). The confirmation (`confirm`) names that identity. The engine reads the runtime again and makes the reviews the identity may name: the Apply of the values that the confirmation sends back, and the Restore of the values that the runtime retains. The write is the one whose review gives the named identity, so the engine, not the page, decides whether a confirmation applies or restores; the identity binds the action, so the two never give the same one. A record or a loop that changed since the review gives another identity, so the write is refused and the review is asked for again. The values of a review go to the engine as the text the engineer typed (`json`, at most 64 kB): the engine reads it as a JSON object of numbers by symbol, refuses a text that is none with its own sentence (`The parameter values are not valid JSON.`, or `Provide exactly the declared finite parameter values.` for JSON that is no such object), and answers the values it read. The page reads no JSON. It sends the identity it shows and the values the last review answered, if it answered any, and the engine decides whether they still give that identity: a confirmation whose identity neither the engine's new review of the Apply nor of the Restore gives is refused by the engine with its own sentence, "The parameter record or the loop changed since the review. Review the values again before the write.", and the page shows that sentence (E11.8).
-- **Write.** The identifier of the write is journaled before it is sent (E11.2). The write goes through the runtime's parameter transaction (E7.3) and is confirmed on the record that the runtime reports (E7.4). A physical target needs the engineer's approval (A2.5, E10.2). While a write is pending, no other write is started. A journaled write whose record is no longer pending is cleared on the next request (E11.4). The write's final answer says how it ended (`status`): `applied`, with the engine's sentence "Reviewed values observed after ST execution.", or "Previous values restored and observed after ST execution." for a Restore, and the values and the record that the runtime confirmed; or `failed`, with the engine's sentence of what stopped it: the runtime's reason, "The reviewed values were not confirmed after controller execution." when the runtime does not report the written values after the owning task executed, or the refusal before the write. A failed write shows no values as written. While the write waits for its task boundary, its operation reports its progress in the engine's words, "Waiting for the owning task and observed values…", which the page shows with the tool. The page shows the engine's sentences, writes no progress sentence of its own, and decides no outcome; while its own request is in flight it only names that request on the tool's button.
+- **Write.** The identifier of the write is journaled before it is sent (E11.2). The write goes through the runtime's parameter transaction (E7.3) and is confirmed on the record that the runtime reports (E7.4). A physical target needs the engineer's approval (A2.5, E10.2): a review of a write to a physical target says so (`physical`), the page shows an approval box with it, the tool's step button waits for the box, and the confirmation carries the approval (`physicalApproved`); the engine refuses a write to a physical target without it. While a write is pending, no other write is started. A journaled write whose record is no longer pending is cleared on the next request (E11.4). The write's final answer says how it ended (`status`): `applied`, with the engine's sentence "Reviewed values observed after ST execution.", or "Previous values restored and observed after ST execution." for a Restore, and the values and the record that the runtime confirmed; or `failed`, with the engine's sentence of what stopped it: the runtime's reason, "The reviewed values were not confirmed after controller execution." when the runtime does not report the written values after the owning task executed, or the refusal before the write. A failed write shows no values as written. While the write waits for its task boundary, its operation reports its progress in the engine's words, "Waiting for the owning task and observed values…", which the page shows with the tool. The page shows the engine's sentences, writes no progress sentence of its own, and decides no outcome; while its own request is in flight it only names that request on the tool's button.
 - **Offer.** Each answer of `inspect`, `review`, `reviewRestore`, `invalidate`, `released` and of a write names the tool's offer (`offer`): the step its own button runs next (`nextStep`) and every action the engine takes now (`available`), from the engine's state, the loop's claim and journal and the review the answer gives. While the settings are frozen (Experiment settings, Frozen through the test) the tool only inspects, and its next step is Inspect. After a review its next step is the confirmation of that review, with Inspect, Review and Restore beside it. Otherwise, after an inspection, an edit or a write, its next step is a review, with Inspect and Restore beside it. Before the engine's first answer the tool's step is Inspect, which reads only and which the engine takes in every state: the open answer's project test form names this first offer (`projectTestForm.parameterOffer`), so the page starts the tool from the engine's offer and holds none of its own. The page renders the offer: its step button, its fields while a review is offered, and its Restore while a Restore is offered. It keeps the identity of the engine's last review and no phase of its own, and its controls wait only while its own request or its own project test runs.
 - **Restore.** A Restore reviews and writes the values that the runtime retains from before the last write (E7.5), under the same identity and confirmation rules. A Restore of a record that retains no previous values is refused.
 - **Edit.** A change of the values after a review (`invalidate`) spends that review, and the engine answers the sentence the page shows, "Values changed. Review again before applying.", with the tool's offer. An inspection answers "Current values loaded. Edit them, then review the exact change.", the review of an Apply "Review the exact values before applying them.", and the review of a Restore "Review the values from before the last write before restoring them." A draft (`draft`) answers its copy note, "Selected analysis values copied for review. The runtime has not changed." Neither reads the runtime (C12, E11.1).

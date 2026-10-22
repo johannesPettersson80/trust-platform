@@ -2,17 +2,11 @@
 // mixer's elements blend it into the main stream (specification 39, §5.2 phase 2, liquid).
 
 import { el } from "../svg";
-import type { SymbolDefinition } from "./index";
+import type { SymbolArt } from "./index";
 import { readNumbers } from "./reading";
 import { BODY, HATCH, LINE } from "./style";
 
-export const MIXER: SymbolDefinition = {
-  size: [64, 64],
-  ports: {
-    inlet: { at: [0, 32], direction: "left" },
-    "inlet-2": { at: [24, 64], direction: "down" },
-    outlet: { at: [64, 32], direction: "right" },
-  },
+export const MIXER: SymbolArt = {
   properties: ["ratio"],
   deciding: ["ratio"],
   states: [{ id: "mixing", name: "Mixing", values: { ratio: { share: 0.5 } }, needs: ["ratio"] }],

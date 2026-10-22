@@ -2,7 +2,7 @@
 // (specification 39, §5.2 phase 2, liquid; §5.3 item 5).
 
 import { el } from "../svg";
-import type { SymbolDefinition, SymbolState } from "./index";
+import type { SymbolArt, SymbolState } from "./index";
 import { readNumbers } from "./reading";
 import { LINE } from "./style";
 import { openVessel, vesselOutline, Walls } from "./vessels";
@@ -20,12 +20,7 @@ function state(id: string, name: string, upper: number, lower: number): SymbolSt
   };
 }
 
-export const TANK_CASCADE: SymbolDefinition = {
-  size: [96, 72],
-  ports: {
-    inlet: { at: [14, 0], direction: "up" },
-    outlet: { at: [96, 60], direction: "right" },
-  },
+export const TANK_CASCADE: SymbolArt = {
   properties: ["upper-level", "lower-level"],
   deciding: ["upper-level", "lower-level"],
   states: [

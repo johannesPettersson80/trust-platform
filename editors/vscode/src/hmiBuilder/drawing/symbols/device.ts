@@ -3,13 +3,11 @@
 // lit in the moving colour while it runs.
 
 import { el } from "../svg";
-import type { SymbolDefinition } from "./index";
+import type { SymbolArt } from "./index";
 import { readRunning, runningStates } from "./reading";
 import { BODY, HATCH, LINE, MOVING, STILL } from "./style";
 
-export const DEVICE: SymbolDefinition = {
-  size: [64, 64],
-  ports: {},
+export const DEVICE: SymbolArt = {
   properties: ["running", "fault", "manual", "out-of-service"],
   deciding: ["fault", "running"],
   states: runningStates(),

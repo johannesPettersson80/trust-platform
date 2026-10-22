@@ -380,7 +380,8 @@ END_PROGRAM
     }
 
     /// Specification 39: the legacy `trust-lsp.hmiInit` command is removed (decision 12); the HMI
-    /// Builder's file commands are offered (§17.3).
+    /// Builder's file commands are offered (§17.3), and so is the editor's quality check (§14.1
+    /// item 4).
     #[test]
     fn advertised_commands_are_exactly_the_supported_set() {
         assert_eq!(
@@ -395,6 +396,7 @@ END_PROGRAM
                 "trust-lsp.hmiCatalogue",
                 "trust-lsp.hmiBundle",
                 "trust-lsp.hmiTexts",
+                "trust-lsp.hmiQuality",
                 "trust-lsp.hmiFaceplates",
                 "trust-lsp.hmiFaceplateInstances",
                 "trust-lsp.hmiPlacedFaceplates",

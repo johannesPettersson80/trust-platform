@@ -6,6 +6,36 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- The HMI's shipped symbols take their design size, label and ports from one table in the runtime (`symbol_geometry.json`):
+  the language server's pipe routes read it, and the editor's drawing reads the module generated from it, so both meet the same
+  ports.
+- The HMI Builder's quality warnings (touch targets, missing units, unbound objects, cut texts, low contrast, colours that look
+  like an alarm's, and a program without `Hmi.Display`) are decided by the language server (`trust-lsp.hmiQuality`); the editor
+  reports only what its drawing measures. The warnings and their sentences are unchanged.
+- Control Studio's Apply of a PID group waits until every member's output has settled at the validated operating point, and
+  compares every member's plant input in Manual; it compared the primary member alone.
+- The VS Code simulator's control server takes the program's sources again on every reload, so Validate's isolated runs, a
+  finite search and breakpoints use the program as edited; they kept the sources the simulator started with.
+- Control Studio starts its engine again on a request a minute after a failed start, so an engine installed or repaired meanwhile
+  is used without reloading the window.
+- Control Studio shows the block of an Apply's checkpoint at once when an Apply or a Restore fails after its first write (the
+  failed update carries the stages), and an engine operation that ends before the panel follows it still reaches the page with
+  its final answer.
+- Control Studio's experiment-settings and declared-analysis parameter tools write to a physical target: a review of such a write
+  shows an approval box, and the write carries the engineer's approval (it was always sent unapproved, so the engine refused it).
+- Control Studio's resumed identification (`trust-control-studio identify --resume`) answers the kept recording's samples and the
+  restoration its experiment confirmed, as a fresh identification does.
+- Control Studio's measured frequency response names its recording by what it recorded and when, for example "PRBS recorded
+  2026-10-22 14:05:31 UTC", instead of the study's `rec-…` identifier.
+- Control Studio's Tune page shows the analysis it restores after a reopen as the chosen one: Analyze… offers its Close, and the Tune
+  button names the analysis's action.
+- Control Studio no longer shows a settings change that the engine refuses during a running operation as the end of that
+  operation: the refusal shows on its editor's page, and the running work keeps its Abort.
+- Control Studio's engine refuses Apply's review and confirmation for the validation the newest Apply already applied, with
+  Validate as the next action, as the page's withheld offer always said; a request from the command line could apply it again.
+- Control Studio's Identify no longer refuses a loop with "the loop's Auto/Manual mode is unavailable" when another reader, such
+  as the panel's live values, had just changed the runtime's signal inspection: the engine waits for the runtime's next scan, up to
+  twenty task periods of 50–100 ms, before it counts a run's or a review's sample as unavailable.
 - Control Studio's panel in VS Code is now presentation only: every rule, check and decision runs in its Rust engine, and the
   TypeScript route and session are removed. A loop the engine does not run shows the engine's refusal and its next action.
   Export (JSON of the workflow result, CSV of the selected signal table, B10.5), the Channels… mapping, the loop monitor's live

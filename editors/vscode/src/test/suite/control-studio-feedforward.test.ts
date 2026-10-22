@@ -20,7 +20,7 @@ suite("Control Studio feedforward from a measured disturbance", () => {
     (globalThis as any).document = dom.window.document;
     try {
       const { renderTunedController } = require("../../controlStudio/webview/threePageResults");
-      // The engine's FeedforwardAnswer in the names its JSON gives (messages.rs): the page shows these and computes none of them.
+      // The engine's FeedforwardAnswer in the names its JSON gives (messages/tune.rs): the page shows these and computes none of them.
       // Every gain comes with the engine's unit (the model's channels': degC per % and per kW, and % per kW for K_ff): the page composes none.
       const feedforward = { outputPath: { gain: 0.2, gainUnit: "degC/%", timeConstantSeconds: 8, delaySeconds: 0 },
         disturbancePath: { gain: -0.1, gainUnit: "degC/kW", timeConstantSeconds: 3, delaySeconds: 0 },

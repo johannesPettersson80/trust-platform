@@ -8,7 +8,7 @@ import { token } from "../parts";
 import { say } from "../speech";
 import { el, SvgNode, text } from "../svg";
 import { withValueFormat } from "../valueFormats";
-import type { SymbolDefinition } from "./index";
+import type { SymbolArt } from "./index";
 import { on, readNumbers, shownBoundNumber } from "./reading";
 import { BODY, HATCH, LINE } from "./style";
 
@@ -29,11 +29,8 @@ function bubble(x: number, letters: string, unknown: boolean, part = "bubble"): 
 }
 
 /** An instrument measuring one value, with the ISA letters of what it measures. */
-export function instrument(letters: string): SymbolDefinition {
+export function instrument(letters: string): SymbolArt {
   return {
-    size: [48, 48],
-    label: "beside",
-    ports: {},
     properties: ["value", "fault"],
     deciding: ["fault", "value"],
     states: [
@@ -48,10 +45,7 @@ export function instrument(letters: string): SymbolDefinition {
 
 const readPair = readNumbers("a", "b");
 
-export const SENSOR_PAIR: SymbolDefinition = {
-  size: [112, 48],
-  label: "beside",
-  ports: {},
+export const SENSOR_PAIR: SymbolArt = {
   properties: ["a", "b", "disagree"],
   deciding: ["a", "b", "disagree"],
   states: [
@@ -101,10 +95,7 @@ const readMeasurement = readNumbers("pv");
 /** The loop controller of the PID loop and controller pairs (§8.1): an ISA-5.1 shared display, a
  * bubble in a square with a line across it, the letters above the line and the loop number below
  * it. Its word gives the measurement, and the setpoint beside it while they differ. */
-export const CONTROLLER: SymbolDefinition = {
-  size: [48, 48],
-  label: "beside",
-  ports: {},
+export const CONTROLLER: SymbolArt = {
   properties: ["pv", "sp", "manual"],
   deciding: ["pv", "sp"],
   states: [
@@ -173,11 +164,8 @@ export const CONTROLLER: SymbolDefinition = {
 export const ANALYZER = instrument("AT");
 
 /** A switch instrument: its bubble with its letters, its state as On or Off. */
-function switchInstrument(letters: string): SymbolDefinition {
+function switchInstrument(letters: string): SymbolArt {
   return {
-    size: [48, 48],
-    label: "beside",
-    ports: {},
     properties: ["state", "fault"],
     deciding: ["fault", "state"],
     states: [
@@ -202,7 +190,7 @@ function switchInstrument(letters: string): SymbolDefinition {
 export const LEVEL_SWITCH = switchInstrument("LS");
 export const PRESSURE_SWITCH = switchInstrument("PS");
 /** Any switch, named by its tag's letters: FS for a flow switch FS-101, XS without a tag. */
-export const DIGITAL_SWITCH: SymbolDefinition = {
+export const DIGITAL_SWITCH: SymbolArt = {
   ...switchInstrument("XS"),
   draw: (view) => bubble(24, /^([A-Za-z]{1,4})/.exec(view.tag ?? "")?.[1]?.toUpperCase() ?? "XS", view.unknown),
 };

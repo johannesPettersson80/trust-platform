@@ -163,7 +163,7 @@ fn source_text_lookup_is_exact_and_uses_first_duplicate_id() {
         source(7, "src/second.st", "SECOND"),
     ]);
 
-    assert_eq!(registry.source_text(7), Some("FIRST"));
+    assert_eq!(registry.source_text(7).as_deref(), Some("FIRST"));
     assert_eq!(registry.source_text(8), None);
 }
 
@@ -261,9 +261,7 @@ fn unique_suffix_match_returns_first_only_when_no_second_match_exists() {
         source(2, "/project/b/other.st", "B"),
     ]);
     assert_eq!(
-        registry
-            .unique_suffix_match(Path::new("main.st"))
-            .map(|file| file.id),
+        unique_suffix_match(&registry.files(), Path::new("main.st")).map(|file| file.id),
         Some(1)
     );
 
@@ -271,9 +269,7 @@ fn unique_suffix_match_returns_first_only_when_no_second_match_exists() {
         source(1, "/project/a/main.st", "A"),
         source(2, "/project/b/main.st", "B"),
     ]);
-    assert!(ambiguous
-        .unique_suffix_match(Path::new("main.st"))
-        .is_none());
+    assert!(unique_suffix_match(&ambiguous.files(), Path::new("main.st")).is_none());
 }
 
 #[test]

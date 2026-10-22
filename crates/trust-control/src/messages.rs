@@ -344,6 +344,11 @@ pub struct OperationUpdate {
     /// (specification 35, B3, B9.4); the page writes none of its own.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
+    /// The status of every stage that a failed Apply or Restore leaves (specification 35, B6.4, B6.7, B9.4): one that stopped after its
+    /// first write leaves its checkpoint waiting for its Restore, which holds the stages, and the page shows that block without a
+    /// reopen. Absent for every other update.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stages: Option<Vec<StageAvailability>>,
 }
 
 /// The answer of a command that starts a long operation: its identifier, at once.

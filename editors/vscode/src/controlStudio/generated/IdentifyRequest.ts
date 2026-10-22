@@ -203,7 +203,8 @@ export interface AcquisitionSettings {
    */
   relayDirection?: RelayDirection | null;
   /**
-   * Whether the experiment may reuse a recording of the same loop. Absent means it may not, which is what every request asks.
+   * The reuse flag of a study kept before ranges were kept by signal: it is read so that such a study still opens, and it is
+   * ignored (specification 35, B3.2). Nothing sets it, so it is never written.
    */
   reuseRecordings?: boolean;
   /**

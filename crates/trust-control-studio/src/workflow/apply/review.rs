@@ -49,6 +49,7 @@ use trust_control::validation::run_requests::law_coefficients;
 use super::journaling::{stage_word, unresolved};
 use super::law::LawKind;
 use super::ApplyContext;
+use crate::application_state::refuse_applied_validation;
 use crate::journal::{Journal, JournalEntry};
 use crate::runtime_client::parameters::ParameterTransactions;
 use crate::runtime_client::transfers::TransferSession;
@@ -91,6 +92,9 @@ pub(crate) fn preconditions(context: &ApplyContext<'_>) -> Result<ApplyInputs, F
     let (current, validate) = validated_sections(context.study, loop_definition)?;
     loop_definition.rust_engine_support()?;
     refuse_unfinished(&*context.journal)?;
+    let validation_identity = validation_identity(&validate)?;
+    // B7: the validation the newest Apply applied is not applied again, whatever became of its settings since.
+    refuse_applied_validation(&*context.journal, context.study, &validation_identity)?;
     let process_noise = measured_noise(
         context.project_root,
         context.study,
@@ -110,7 +114,7 @@ pub(crate) fn preconditions(context: &ApplyContext<'_>) -> Result<ApplyInputs, F
         gains: candidate_gains(loop_definition, &candidate),
         coefficients,
         schedule: schedule_write_of(schedule_points(loop_definition), &candidate)?,
-        validation_identity: validation_identity(&validate)?,
+        validation_identity,
         task: validate.requirements,
         model: current.model,
         process_noise,

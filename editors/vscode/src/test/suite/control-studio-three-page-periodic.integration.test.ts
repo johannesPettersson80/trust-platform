@@ -51,6 +51,10 @@ suite("Control Studio periodic analysis", () => {
       assert.strictEqual(periodic.recordingRevision, loop.revision, "the kept recording carries the revision of the loop it was imported into");
       assert.ok(Math.abs(periodic.points[0].magnitude - 2) < 0.1, JSON.stringify(periodic.points[0]));
       assert.ok(periodic.points[0].coherence > 0.8, JSON.stringify(periodic.points[0]));
+      // The Recording field names the recording in the engine's words, what it recorded and when (B10.3), not by the study's `rec-…`
+      // digest (wrong behaviour caught: the digest was the only name the engineer saw).
+      const recordingField = await pollValue("recording words", () => inner("return d.querySelector('[data-analysis-periodic-recording]')?.value??'';"), value => value.length > 0, 10000);
+      assert.ok(!recordingField.startsWith("rec-") && / UTC$/.test(recordingField) && recordingField === periodic.recordingLabel, recordingField);
       await capture("periodic-import");
       assert.ok(Number(await inner("let count=0;for(const canvas of d.querySelectorAll('[data-three-page-analysis-plot] canvas')){if(!canvas.width||!canvas.height)continue;const ctx=canvas.getContext('2d');if(!ctx)continue;const start=Math.floor(canvas.height*.15);const pixels=ctx.getImageData(0,start,canvas.width,canvas.height-start).data;for(let i=0;i<pixels.length;i+=4)if(pixels[i+2]>180&&pixels[i+2]>pixels[i]+50&&pixels[i+2]>pixels[i+1]+25)count++;}return String(count);")) > 6, "A single measured FRF point must be visible in the plotted data area, beyond its legend");
       await reopen();

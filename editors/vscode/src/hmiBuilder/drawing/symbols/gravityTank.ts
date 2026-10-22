@@ -2,7 +2,7 @@
 // outflow grows with its level (specification 39, §5.2 phase 2, liquid; §5.3 item 5).
 
 import { el } from "../svg";
-import type { SymbolDefinition } from "./index";
+import type { SymbolArt } from "./index";
 import { readNumbers } from "./reading";
 import { LINE } from "./style";
 import { levelStates } from "./tank";
@@ -11,12 +11,7 @@ import { openVessel, vesselOutline, Walls } from "./vessels";
 /** The tank's walls, in its own pixels. */
 const WALLS: Walls = { left: 8, right: 56, top: 8, bottom: 52 };
 
-export const GRAVITY_TANK: SymbolDefinition = {
-  size: [64, 64],
-  ports: {
-    inlet: { at: [20, 0], direction: "up" },
-    outlet: { at: [32, 64], direction: "down" },
-  },
+export const GRAVITY_TANK: SymbolArt = {
   properties: ["level"],
   deciding: ["level"],
   states: levelStates(),

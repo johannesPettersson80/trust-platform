@@ -582,7 +582,6 @@ var TrustHmiDrawing = (() => {
     return { id, name, values: { open, closed, fault: false, manual: false, "out-of-service": false, ...flags }, needs };
   }
   var VALVE = {
-    size: [64, 64],
     properties: ["open", "closed", "fault", "manual", "out-of-service"],
     deciding: ["fault", "open", "closed"],
     sample: "open",
@@ -595,10 +594,6 @@ var TrustHmiDrawing = (() => {
       state("manual", "Manual", true, false, { manual: true }),
       state("out-of-service", "Out of service", false, true, { "out-of-service": true })
     ],
-    ports: {
-      inlet: { at: [0, AXIS], direction: "left" },
-      outlet: { at: [64, AXIS], direction: "right" }
-    },
     draw: (view) => {
       const angle = 90 * (1 - (view.opening ?? 0));
       return [
@@ -662,7 +657,6 @@ var TrustHmiDrawing = (() => {
     return AXIS - 8 - TRAVEL * Math.min(1, Math.max(0, lift));
   }
   var CONTROL_VALVE = {
-    size: [64, 64],
     properties: ["position", "fault", "manual", "out-of-service", "demand"],
     deciding: ["fault", "position"],
     sample: "partly-open",
@@ -677,10 +671,6 @@ var TrustHmiDrawing = (() => {
       state2("manual", "Manual", 60, { manual: true }),
       state2("out-of-service", "Out of service", 0, { "out-of-service": true })
     ],
-    ports: {
-      inlet: { at: [0, AXIS], direction: "left" },
-      outlet: { at: [64, AXIS], direction: "right" }
-    },
     draw: (view) => {
       const lift = Math.min(1, Math.max(0, view.opening ?? 0));
       const top = plugTop(lift);
@@ -751,8 +741,6 @@ var TrustHmiDrawing = (() => {
 
   // src/hmiBuilder/drawing/symbols/device.ts
   var DEVICE = {
-    size: [64, 64],
-    ports: {},
     properties: ["running", "fault", "manual", "out-of-service"],
     deciding: ["fault", "running"],
     states: runningStates(),
@@ -790,11 +778,6 @@ var TrustHmiDrawing = (() => {
 
   // src/hmiBuilder/drawing/symbols/dosingPump.ts
   var DOSING_PUMP = {
-    size: [64, 64],
-    ports: {
-      inlet: { at: [14, 64], direction: "down" },
-      outlet: { at: [14, 0], direction: "up" }
-    },
     properties: ["running", "fault", "manual", "out-of-service", "rate"],
     deciding: ["fault", "running"],
     states: runningStates((running) => ({ rate: running ? { share: 0.6 } : 0 })),
@@ -877,8 +860,6 @@ var TrustHmiDrawing = (() => {
   };
   var FAN = {
     ...MACHINE,
-    size: [64, 64],
-    ports: {},
     properties: [...MACHINE.properties, "speed"],
     read: readRunningWith("speed", true),
     states: runningStates((running) => ({ speed: running ? 62 : 0 })),
@@ -904,8 +885,6 @@ var TrustHmiDrawing = (() => {
   };
   var BLOWER = {
     ...MACHINE,
-    size: [64, 64],
-    ports: { inlet: { at: [0, 32], direction: "left" }, outlet: { at: [64, 32], direction: "right" } },
     draw: (view) => [
       el("path", { d: "M0 32 H6 M58 32 H64", fill: "none", ...LINE }),
       el("circle", { "data-part": "casing", cx: 32, cy: 32, r: 26, fill: view.unknown ? HATCH : BODY, ...LINE }),
@@ -915,8 +894,6 @@ var TrustHmiDrawing = (() => {
   };
   var AGITATOR = {
     ...MACHINE,
-    size: [64, 64],
-    ports: {},
     draw: (view) => [
       el("rect", {
         "data-part": "motor",
@@ -976,8 +953,6 @@ var TrustHmiDrawing = (() => {
   }
   var CONVEYOR = {
     ...MACHINE,
-    size: [96, 40],
-    ports: {},
     draw: (view) => [
       el("path", { "data-part": "legs", d: "M14 29 L10 39 M82 29 L86 39", fill: "none", ...LINE }),
       el("rect", {
@@ -1022,8 +997,6 @@ var TrustHmiDrawing = (() => {
   ];
   var POSITIONED = ["open", "closed", "fault", "manual", "out-of-service"];
   var DAMPER = {
-    size: [64, 64],
-    ports: { inlet: { at: [0, 32], direction: "left" }, outlet: { at: [64, 32], direction: "right" } },
     properties: [...POSITIONED, "position"],
     deciding: ["fault", "open", "closed", "position"],
     sample: "open",
@@ -1074,8 +1047,6 @@ var TrustHmiDrawing = (() => {
     }
   };
   var CYLINDER = {
-    size: [96, 40],
-    ports: {},
     properties: POSITIONED,
     deciding: ["fault", "open", "closed"],
     sample: "closed",
@@ -1113,8 +1084,6 @@ var TrustHmiDrawing = (() => {
     }
   };
   var MOTOR_VALVE = {
-    size: [64, 64],
-    ports: { inlet: { at: [0, AXIS], direction: "left" }, outlet: { at: [64, AXIS], direction: "right" } },
     properties: POSITIONED,
     deciding: ["fault", "open", "closed"],
     sample: "open",
@@ -1144,8 +1113,6 @@ var TrustHmiDrawing = (() => {
     ]
   };
   var WEIGH_SCALE = {
-    size: [64, 64],
-    ports: {},
     properties: ["value", "fault"],
     deciding: ["fault", "value"],
     sample: "weighing",
@@ -1198,8 +1165,6 @@ var TrustHmiDrawing = (() => {
     ];
   }
   var VFD = {
-    size: [64, 64],
-    ports: {},
     properties: ["running", "fault", "manual", "out-of-service", "frequency"],
     deciding: ["fault", "running"],
     sample: "running",
@@ -1218,8 +1183,6 @@ var TrustHmiDrawing = (() => {
     return on(ready) ? { ...reading, state: "ready", word: say("Ready") } : { ...reading, state: "not-ready", word: say("Not ready") };
   };
   var DRIVE = {
-    size: [64, 64],
-    ports: {},
     properties: ["running", "ready", "fault", "manual", "out-of-service", "speed"],
     deciding: ["fault", "running", "ready"],
     sample: "running",
@@ -1276,8 +1239,6 @@ var TrustHmiDrawing = (() => {
     { id: "open", name: "Open", values: { closed: false, ...extra }, needs: ["closed"] }
   ];
   var CONTACTOR = {
-    size: [64, 64],
-    ports: {},
     properties: ["closed", "fault"],
     deciding: ["fault", "closed"],
     sample: "closed",
@@ -1293,8 +1254,6 @@ var TrustHmiDrawing = (() => {
     )
   };
   var BREAKER = {
-    size: [64, 64],
-    ports: {},
     properties: ["closed", "tripped"],
     deciding: ["tripped", "closed"],
     sample: "closed",
@@ -1378,11 +1337,6 @@ var TrustHmiDrawing = (() => {
     return [state5("low", "Low", 0.15), state5("half", "Half", 0.5), state5("high", "High", 0.9)];
   }
   var TANK = {
-    size: [64, 64],
-    ports: {
-      inlet: { at: [20, 0], direction: "up" },
-      outlet: { at: [64, 46], direction: "right" }
-    },
     properties: ["level"],
     deciding: ["level"],
     states: levelStates(),
@@ -1400,11 +1354,6 @@ var TrustHmiDrawing = (() => {
   // src/hmiBuilder/drawing/symbols/gravityTank.ts
   var WALLS2 = { left: 8, right: 56, top: 8, bottom: 52 };
   var GRAVITY_TANK = {
-    size: [64, 64],
-    ports: {
-      inlet: { at: [20, 0], direction: "up" },
-      outlet: { at: [32, 64], direction: "down" }
-    },
     properties: ["level"],
     deciding: ["level"],
     states: levelStates(),
@@ -1437,9 +1386,6 @@ var TrustHmiDrawing = (() => {
   }
   function instrument(letters) {
     return {
-      size: [48, 48],
-      label: "beside",
-      ports: {},
       properties: ["value", "fault"],
       deciding: ["fault", "value"],
       states: [
@@ -1453,9 +1399,6 @@ var TrustHmiDrawing = (() => {
   }
   var readPair = readNumbers("a", "b");
   var SENSOR_PAIR = {
-    size: [112, 48],
-    label: "beside",
-    ports: {},
     properties: ["a", "b", "disagree"],
     deciding: ["a", "b", "disagree"],
     states: [
@@ -1494,9 +1437,6 @@ var TrustHmiDrawing = (() => {
   }
   var readMeasurement = readNumbers("pv");
   var CONTROLLER = {
-    size: [48, 48],
-    label: "beside",
-    ports: {},
     properties: ["pv", "sp", "manual"],
     deciding: ["pv", "sp"],
     states: [
@@ -1560,9 +1500,6 @@ var TrustHmiDrawing = (() => {
   var ANALYZER = instrument("AT");
   function switchInstrument(letters) {
     return {
-      size: [48, 48],
-      label: "beside",
-      ports: {},
       properties: ["state", "fault"],
       deciding: ["fault", "state"],
       states: [
@@ -1593,8 +1530,6 @@ var TrustHmiDrawing = (() => {
   // src/hmiBuilder/drawing/symbols/link.ts
   var LINE_PATH = "M20 32 H44";
   var NETWORK_LINK = {
-    size: [64, 64],
-    ports: {},
     properties: ["connected", "age", "hold", "fallback", "out-of-service"],
     deciding: ["connected"],
     states: [
@@ -1776,8 +1711,6 @@ var TrustHmiDrawing = (() => {
     return reading.word || faulted ? reading : { ...reading, word: shownBoundNumber(value, "speed", frame, object) ?? "" };
   };
   var MOTOR = {
-    size: [64, 64],
-    ports: {},
     properties: ["running", "fault", "manual", "out-of-service"],
     deciding: ["fault", "running"],
     states: runningStates(),
@@ -1817,8 +1750,6 @@ var TrustHmiDrawing = (() => {
     }
   };
   var SERVO_MOTOR = {
-    size: [96, 64],
-    ports: {},
     properties: ["running", "fault", "manual", "out-of-service", "speed", "angle"],
     deciding: ["fault", "running"],
     states: runningStates((running) => ({ speed: running ? { share: 0.5 } : 0, angle: running ? 30 : 0 })),
@@ -1868,8 +1799,6 @@ var TrustHmiDrawing = (() => {
     }
   };
   var SHAFT = {
-    size: [64, 64],
-    ports: {},
     properties: ["angle", "speed"],
     deciding: ["angle", "speed"],
     states: [
@@ -1914,8 +1843,6 @@ var TrustHmiDrawing = (() => {
     }
   };
   var DRUM = {
-    size: [64, 64],
-    ports: {},
     properties: ["angle", "position"],
     deciding: ["angle", "position"],
     states: [
@@ -1968,8 +1895,6 @@ var TrustHmiDrawing = (() => {
     }
   };
   var COUPLING = {
-    size: [96, 64],
-    ports: {},
     properties: ["motor-angle", "load-angle"],
     deciding: ["motor-angle", "load-angle"],
     states: [
@@ -2002,8 +1927,6 @@ var TrustHmiDrawing = (() => {
     ]
   };
   var ENCODER = {
-    size: [64, 64],
-    ports: {},
     properties: ["angle"],
     deciding: ["angle"],
     states: [state3("zero", "At 0\xB0", { angle: 0 }), state3("turned", "Turned", { angle: 135 })],
@@ -2050,8 +1973,6 @@ var TrustHmiDrawing = (() => {
     }
   };
   var ROTARY_ARM = {
-    size: [64, 64],
-    ports: {},
     properties: ["angle"],
     deciding: ["angle"],
     states: [state3("hanging", "Hanging", { angle: 0 }), state3("raised", "Raised", { angle: 60 })],
@@ -2087,8 +2008,6 @@ var TrustHmiDrawing = (() => {
     ]
   };
   var AXIS_INDICATOR = {
-    size: [64, 64],
-    ports: {},
     properties: ["actual", "target"],
     deciding: ["actual", "target"],
     states: [
@@ -2140,12 +2059,6 @@ var TrustHmiDrawing = (() => {
 
   // src/hmiBuilder/drawing/symbols/mixer.ts
   var MIXER = {
-    size: [64, 64],
-    ports: {
-      inlet: { at: [0, 32], direction: "left" },
-      "inlet-2": { at: [24, 64], direction: "down" },
-      outlet: { at: [64, 32], direction: "right" }
-    },
     properties: ["ratio"],
     deciding: ["ratio"],
     states: [{ id: "mixing", name: "Mixing", values: { ratio: { share: 0.5 } }, needs: ["ratio"] }],
@@ -2201,8 +2114,6 @@ var TrustHmiDrawing = (() => {
     return `M${round(32 - half)} ${surface} H${round(32 + half)} A${HEAD_RX} ${HEAD_RY} 0 0 1 ${VESSEL_RIGHT} 14 ${lower} V14 A${HEAD_RX} ${HEAD_RY} 0 0 1 ${round(32 - half)} ${surface} Z`;
   }
   var VESSEL = {
-    size: [64, 64],
-    ports: { inlet: { at: [32, 0], direction: "up" }, outlet: { at: [32, 64], direction: "down" } },
     properties: ["level"],
     deciding: ["level"],
     states: levelStates(),
@@ -2229,13 +2140,6 @@ var TrustHmiDrawing = (() => {
     }
   };
   var HEAT_EXCHANGER = {
-    size: [64, 64],
-    ports: {
-      inlet: { at: [0, 32], direction: "left" },
-      outlet: { at: [64, 32], direction: "right" },
-      "medium-inlet": { at: [32, 0], direction: "up" },
-      "medium-outlet": { at: [32, 64], direction: "down" }
-    },
     properties: ["temperature", "fault"],
     deciding: ["fault", "temperature"],
     sample: "working",
@@ -2257,8 +2161,6 @@ var TrustHmiDrawing = (() => {
     ]
   };
   var FILTER = {
-    size: [64, 64],
-    ports: { inlet: { at: [0, 32], direction: "left" }, outlet: { at: [64, 32], direction: "right" } },
     properties: ["differential-pressure", "clogged", "fault"],
     deciding: ["fault", "clogged", "differential-pressure"],
     sample: "clean",
@@ -2308,12 +2210,6 @@ var TrustHmiDrawing = (() => {
     ]
   };
   var CYCLONE = {
-    size: [64, 64],
-    ports: {
-      inlet: { at: [0, 14], direction: "left" },
-      "gas-outlet": { at: [32, 0], direction: "up" },
-      "solids-outlet": { at: [32, 64], direction: "down" }
-    },
     properties: ["differential-pressure", "fault"],
     deciding: ["fault", "differential-pressure"],
     sample: "working",
@@ -2349,8 +2245,6 @@ var TrustHmiDrawing = (() => {
   };
   var CRUSHER = {
     ...MACHINE2,
-    size: [64, 64],
-    ports: { inlet: { at: [32, 0], direction: "up" }, outlet: { at: [32, 64], direction: "down" } },
     properties: [...MACHINE2.properties, "load"],
     read: readRunningWith("load", true),
     states: runningStates((running) => ({ load: running ? 72 : 0 })),
@@ -2390,12 +2284,6 @@ var TrustHmiDrawing = (() => {
   };
   var SCREEN = {
     ...MACHINE2,
-    size: [64, 64],
-    ports: {
-      inlet: { at: [8, 0], direction: "up" },
-      oversize: { at: [64, 44], direction: "right" },
-      undersize: { at: [32, 64], direction: "down" }
-    },
     read: readRunning,
     states: runningStates(),
     draw: (view) => [
@@ -2433,17 +2321,12 @@ var TrustHmiDrawing = (() => {
   var CENTRE = { x: 30, y: 36 };
   var VANES = 6;
   var PUMP = {
-    size: [64, 64],
     properties: ["running", "fault", "manual", "out-of-service", "speed"],
     deciding: ["fault", "running"],
     sample: "running",
     // A variable-speed pump gives its speed while it runs.
     read: readRunningWith("speed", true),
     states: runningStates((running) => ({ speed: running ? 62 : 0 })),
-    ports: {
-      inlet: { at: [0, CENTRE.y], direction: "left" },
-      outlet: { at: [64, 20], direction: "right" }
-    },
     draw: (view) => [
       // A variable-speed pump: the ISO 14617 arrow of variability, passing behind the casing.
       ...view.variant === "variable-speed" ? [
@@ -2501,10 +2384,6 @@ var TrustHmiDrawing = (() => {
 
   // src/hmiBuilder/drawing/symbols/supply.ts
   var SUPPLY = {
-    size: [64, 64],
-    ports: {
-      outlet: { at: [64, 32], direction: "right" }
-    },
     properties: ["pressure"],
     deciding: ["pressure"],
     states: [
@@ -2542,11 +2421,6 @@ var TrustHmiDrawing = (() => {
     };
   }
   var TANK_CASCADE = {
-    size: [96, 72],
-    ports: {
-      inlet: { at: [14, 0], direction: "up" },
-      outlet: { at: [96, 60], direction: "right" }
-    },
     properties: ["upper-level", "lower-level"],
     deciding: ["upper-level", "lower-level"],
     states: [
@@ -2622,8 +2496,6 @@ var TrustHmiDrawing = (() => {
   };
   var DOOR = { hinge: [76, 46], length: 20, opens: 75 };
   var COLD_ROOM = {
-    size: [96, 64],
-    ports: {},
     properties: ["door-open", "temperature"],
     deciding: ["temperature", "door-open"],
     states: [
@@ -2691,8 +2563,6 @@ var TrustHmiDrawing = (() => {
     }
   };
   var REFRIGERATION_UNIT = {
-    size: [96, 64],
-    ports: {},
     properties: ["running", "fault", "manual", "out-of-service"],
     deciding: ["fault", "running"],
     states: runningStates(),
@@ -2718,11 +2588,6 @@ var TrustHmiDrawing = (() => {
     ]
   };
   var HEATER = {
-    size: [64, 64],
-    ports: {
-      inlet: { at: [20, 0], direction: "up" },
-      outlet: { at: [64, 16], direction: "right" }
-    },
     properties: ["power", "temperature", "level"],
     deciding: ["power", "temperature"],
     states: [
@@ -2765,11 +2630,6 @@ var TrustHmiDrawing = (() => {
     }
   };
   var COOLER = {
-    size: [64, 64],
-    ports: {
-      inlet: { at: [0, 18], direction: "left" },
-      outlet: { at: [64, 18], direction: "right" }
-    },
     properties: ["running", "fault", "manual", "out-of-service"],
     deciding: ["fault", "running"],
     states: runningStates(),
@@ -2796,13 +2656,6 @@ var TrustHmiDrawing = (() => {
     ]
   };
   var JACKETED_VESSEL = {
-    size: [64, 64],
-    ports: {
-      inlet: { at: [32, 0], direction: "up" },
-      outlet: { at: [32, 64], direction: "down" },
-      "jacket-inlet": { at: [0, 52], direction: "left" },
-      "jacket-outlet": { at: [64, 26], direction: "right" }
-    },
     properties: ["level", "temperature"],
     deciding: ["level", "temperature"],
     states: [
@@ -2827,13 +2680,6 @@ var TrustHmiDrawing = (() => {
     ]
   };
   var COUPLED_VESSELS = {
-    size: [96, 64],
-    ports: {
-      "inlet-1": { at: [20, 0], direction: "up" },
-      "outlet-1": { at: [20, 64], direction: "down" },
-      "inlet-2": { at: [76, 0], direction: "up" },
-      "outlet-2": { at: [76, 64], direction: "down" }
-    },
     properties: ["temperature-1", "temperature-2"],
     deciding: ["temperature-1", "temperature-2"],
     states: [
@@ -2892,11 +2738,6 @@ var TrustHmiDrawing = (() => {
     });
   }
   var HEAT_DRAW_OFF = {
-    size: [64, 64],
-    ports: {
-      inlet: { at: [0, 44], direction: "left" },
-      outlet: { at: [64, 44], direction: "right" }
-    },
     properties: ["power"],
     deciding: ["power"],
     states: [
@@ -2932,6 +2773,160 @@ var TrustHmiDrawing = (() => {
     ]
   };
 
+  // src/hmiBuilder/drawing/symbols/geometry.ts
+  var LABEL_HEIGHT = 44;
+  var SYMBOL_GEOMETRY = {
+    agitator: { size: [64, 64], ports: {} },
+    analyzer: { size: [48, 48], label: "beside", ports: {} },
+    "axis-indicator": { size: [64, 64], ports: {} },
+    blower: {
+      size: [64, 64],
+      ports: { inlet: { at: [0, 32], direction: "left" }, outlet: { at: [64, 32], direction: "right" } }
+    },
+    breaker: { size: [64, 64], ports: {} },
+    "cold-room": { size: [96, 64], ports: {} },
+    contactor: { size: [64, 64], ports: {} },
+    "control-valve": {
+      size: [64, 64],
+      ports: { inlet: { at: [0, 44], direction: "left" }, outlet: { at: [64, 44], direction: "right" } }
+    },
+    controller: { size: [48, 48], label: "beside", ports: {} },
+    conveyor: { size: [96, 40], ports: {} },
+    cooler: {
+      size: [64, 64],
+      ports: { inlet: { at: [0, 18], direction: "left" }, outlet: { at: [64, 18], direction: "right" } }
+    },
+    "coupled-vessels": {
+      size: [96, 64],
+      ports: {
+        "inlet-1": { at: [20, 0], direction: "up" },
+        "outlet-1": { at: [20, 64], direction: "down" },
+        "inlet-2": { at: [76, 0], direction: "up" },
+        "outlet-2": { at: [76, 64], direction: "down" }
+      }
+    },
+    coupling: { size: [96, 64], ports: {} },
+    crusher: {
+      size: [64, 64],
+      ports: { inlet: { at: [32, 0], direction: "up" }, outlet: { at: [32, 64], direction: "down" } }
+    },
+    cyclone: {
+      size: [64, 64],
+      ports: {
+        inlet: { at: [0, 14], direction: "left" },
+        "gas-outlet": { at: [32, 0], direction: "up" },
+        "solids-outlet": { at: [32, 64], direction: "down" }
+      }
+    },
+    cylinder: { size: [96, 40], ports: {} },
+    damper: {
+      size: [64, 64],
+      ports: { inlet: { at: [0, 32], direction: "left" }, outlet: { at: [64, 32], direction: "right" } }
+    },
+    device: { size: [64, 64], ports: {} },
+    "digital-switch": { size: [48, 48], label: "beside", ports: {} },
+    "dosing-pump": {
+      size: [64, 64],
+      ports: { inlet: { at: [14, 64], direction: "down" }, outlet: { at: [14, 0], direction: "up" } }
+    },
+    drive: { size: [64, 64], ports: {} },
+    drum: { size: [64, 64], ports: {} },
+    encoder: { size: [64, 64], ports: {} },
+    fan: { size: [64, 64], ports: {} },
+    filter: {
+      size: [64, 64],
+      ports: { inlet: { at: [0, 32], direction: "left" }, outlet: { at: [64, 32], direction: "right" } }
+    },
+    "flow-sensor": { size: [48, 48], label: "beside", ports: {} },
+    "gravity-tank": {
+      size: [64, 64],
+      ports: { inlet: { at: [20, 0], direction: "up" }, outlet: { at: [32, 64], direction: "down" } }
+    },
+    "heat-draw-off": {
+      size: [64, 64],
+      ports: { inlet: { at: [0, 44], direction: "left" }, outlet: { at: [64, 44], direction: "right" } }
+    },
+    "heat-exchanger": {
+      size: [64, 64],
+      ports: {
+        inlet: { at: [0, 32], direction: "left" },
+        outlet: { at: [64, 32], direction: "right" },
+        "medium-inlet": { at: [32, 0], direction: "up" },
+        "medium-outlet": { at: [32, 64], direction: "down" }
+      }
+    },
+    heater: {
+      size: [64, 64],
+      ports: { inlet: { at: [20, 0], direction: "up" }, outlet: { at: [64, 16], direction: "right" } }
+    },
+    "jacketed-vessel": {
+      size: [64, 64],
+      ports: {
+        inlet: { at: [32, 0], direction: "up" },
+        outlet: { at: [32, 64], direction: "down" },
+        "jacket-inlet": { at: [0, 52], direction: "left" },
+        "jacket-outlet": { at: [64, 26], direction: "right" }
+      }
+    },
+    "level-sensor": { size: [48, 48], label: "beside", ports: {} },
+    "level-switch": { size: [48, 48], label: "beside", ports: {} },
+    mixer: {
+      size: [64, 64],
+      ports: {
+        inlet: { at: [0, 32], direction: "left" },
+        "inlet-2": { at: [24, 64], direction: "down" },
+        outlet: { at: [64, 32], direction: "right" }
+      }
+    },
+    motor: { size: [64, 64], ports: {} },
+    "motor-valve": {
+      size: [64, 64],
+      ports: { inlet: { at: [0, 44], direction: "left" }, outlet: { at: [64, 44], direction: "right" } }
+    },
+    "network-link": { size: [64, 64], ports: {} },
+    "position-sensor": { size: [48, 48], label: "beside", ports: {} },
+    "pressure-sensor": { size: [48, 48], label: "beside", ports: {} },
+    "pressure-switch": { size: [48, 48], label: "beside", ports: {} },
+    pump: {
+      size: [64, 64],
+      ports: { inlet: { at: [0, 36], direction: "left" }, outlet: { at: [64, 20], direction: "right" } }
+    },
+    "refrigeration-unit": { size: [96, 64], ports: {} },
+    "rotary-arm": { size: [64, 64], ports: {} },
+    screen: {
+      size: [64, 64],
+      ports: {
+        inlet: { at: [8, 0], direction: "up" },
+        oversize: { at: [64, 44], direction: "right" },
+        undersize: { at: [32, 64], direction: "down" }
+      }
+    },
+    "sensor-pair": { size: [112, 48], label: "beside", ports: {} },
+    "servo-motor": { size: [96, 64], ports: {} },
+    shaft: { size: [64, 64], ports: {} },
+    "speed-sensor": { size: [48, 48], label: "beside", ports: {} },
+    supply: { size: [64, 64], ports: { outlet: { at: [64, 32], direction: "right" } } },
+    tank: {
+      size: [64, 64],
+      ports: { inlet: { at: [20, 0], direction: "up" }, outlet: { at: [64, 46], direction: "right" } }
+    },
+    "tank-cascade": {
+      size: [96, 72],
+      ports: { inlet: { at: [14, 0], direction: "up" }, outlet: { at: [96, 60], direction: "right" } }
+    },
+    "temperature-sensor": { size: [48, 48], label: "beside", ports: {} },
+    valve: {
+      size: [64, 64],
+      ports: { inlet: { at: [0, 44], direction: "left" }, outlet: { at: [64, 44], direction: "right" } }
+    },
+    vessel: {
+      size: [64, 64],
+      ports: { inlet: { at: [32, 0], direction: "up" }, outlet: { at: [32, 64], direction: "down" } }
+    },
+    vfd: { size: [64, 64], ports: {} },
+    "weigh-scale": { size: [64, 64], ports: {} }
+  };
+
   // src/hmiBuilder/drawing/symbols/index.ts
   var REGISTERED = /* @__PURE__ */ new Map();
   var TITLES = /* @__PURE__ */ new Map();
@@ -2944,7 +2939,6 @@ var TrustHmiDrawing = (() => {
   function symbolFor(type) {
     return SYMBOLS[type] ?? REGISTERED.get(type);
   }
-  var LABEL_HEIGHT = 44;
   function symbolPlacement(size, symbolSize, label = "under") {
     const [width, height] = size;
     const [symbolWidth, symbolHeight] = symbolSize;
@@ -2956,7 +2950,7 @@ var TrustHmiDrawing = (() => {
     const scale = Math.max(0, Math.min(width / symbolWidth, area / symbolHeight));
     return { left: round((width - symbolWidth * scale) / 2), top: round((area - symbolHeight * scale) / 2), scale, area };
   }
-  var SYMBOLS = {
+  var ART = {
     pump: PUMP,
     valve: VALVE,
     "control-valve": CONTROL_VALVE,
@@ -3014,6 +3008,14 @@ var TrustHmiDrawing = (() => {
     contactor: CONTACTOR,
     breaker: BREAKER
   };
+  function shipped(type, art) {
+    const geometry = SYMBOL_GEOMETRY[type];
+    if (!geometry) throw new Error(`The symbol ${type} has no geometry in the runtime's table.`);
+    return { ...art, ...geometry };
+  }
+  var SYMBOLS = Object.fromEntries(
+    Object.entries(ART).map(([type, art]) => [type, shipped(type, art)])
+  );
 
   // src/hmiBuilder/drawing/adaptive.ts
   var SPACE = 16;

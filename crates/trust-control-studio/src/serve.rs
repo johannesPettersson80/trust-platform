@@ -239,6 +239,7 @@ mod tests {
             result: None,
             failure: None,
             message: None,
+            stages: None,
         });
         let sent = frames(&output);
         assert_eq!(sent.len(), 1);

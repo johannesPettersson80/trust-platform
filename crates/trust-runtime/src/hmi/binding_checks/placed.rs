@@ -11,7 +11,7 @@ use crate::value::Value;
 
 /// The problems of a page's placed faceplates against the faceplates and pairs of the bundle: a
 /// faceplate it lacks, at the `faceplate` key, and each field the instance's block lacks, at the
-/// `instance` key. An instance that is none is [`check_placed`]'s.
+/// `instance` key. An instance that is none is `check_placed`'s.
 pub fn check_placements(
     page: &HmiPage,
     bundle: &HmiBundle,

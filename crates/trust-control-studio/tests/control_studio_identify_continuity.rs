@@ -186,6 +186,21 @@ fn killed_identification_resumes_from_its_journal_and_follows_its_experiment() {
         ),
     );
     check_plot(&mut findings, &result);
+    // A resumed campaign answers what a fresh one does (wrong behaviour caught: it answered neither the kept recording's samples nor
+    // the restoration, so the page drew no recorded signals after a resume, C12).
+    findings.check(
+        result["recordedSamples"]
+            .as_array()
+            .is_some_and(|samples| !samples.is_empty()),
+        "the resumed result carries the kept recording's samples, as a fresh run's does",
+    );
+    findings.check(
+        result["restoration"] == "restored",
+        format!(
+            "the resumed result names the restoration its step confirmed: {}",
+            result["restoration"]
+        ),
+    );
     let section = check_study_keeps_the_model(
         &mut findings,
         &lab,

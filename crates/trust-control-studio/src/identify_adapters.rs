@@ -13,9 +13,7 @@ use trust_control::recording::context::{ExperimentContext, PlantContext, RunCont
 use trust_control::recording::evidence::RecordingEvidence;
 use trust_control::recording::{EvidenceSource, RecordedRun, RecordingFile};
 use trust_control::runtime::RuntimeConnection;
-use trust_control::signals::{
-    loop_inspection_bindings, Inspection, InspectionRequest, InspectionSample,
-};
+use trust_control::signals::{loop_inspection_bindings, Inspection, InspectionSample};
 use trust_control::study::Study;
 
 use crate::runtime_client::RuntimeClient;
@@ -48,18 +46,20 @@ impl<'a> RuntimeSampler<'a> {
 }
 
 impl RuntimeSampler<'_> {
-    /// One coherent scan of the loop's signals as the runtime answers it (E3), or `None` while no scan is available. A gain-scheduled
-    /// loop's signals include its scheduling variable (`loop_inspection_bindings`).
+    /// One coherent scan of the loop's signals as the runtime answers it (E3), or `None` when the runtime still waits for its next
+    /// scan after the retries of E3 rule 8: a read that replaced another reader's inspection watch answers with the next scan, so the
+    /// run's first sample is not refused for a watch it took over (B3.4 step 1). A gain-scheduled loop's signals include its
+    /// scheduling variable (`loop_inspection_bindings`).
     ///
     /// # Errors
     /// The runtime cannot be reached, refuses, or answers out of protocol.
     pub fn scan(&self) -> Result<Option<InspectionSample>, Failure> {
-        let request = InspectionRequest::new(
-            &self.loop_definition.revision,
+        let bindings = loop_inspection_bindings(self.loop_definition);
+        let inspection = RuntimeClient::connect(self.connection)?.inspect_until_scanned(
+            self.loop_definition,
             None,
-            loop_inspection_bindings(self.loop_definition),
+            &bindings,
         )?;
-        let inspection = RuntimeClient::connect(self.connection)?.inspect(&request)?;
         Ok(match inspection {
             Inspection::Pending { .. } => None,
             Inspection::Available(sample) => Some(sample),
@@ -169,3 +169,7 @@ impl RecordingRetention for StudyRetention<'_> {
         self.plant = Some(plant);
     }
 }
+
+#[cfg(test)]
+#[path = "identify_adapters_tests.rs"]
+mod tests;

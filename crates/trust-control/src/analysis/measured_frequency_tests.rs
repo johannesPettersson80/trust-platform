@@ -12,6 +12,8 @@ use trust_control_math::frequency_identification::FrequencyRejection;
 
 /// The recording's identifier in the study: the identifier `importRecording` answers (`rec-` and its digest).
 const RECORDING_ID: &str = "rec-00000000000000000000000000000001";
+/// The words that name the recording, which the answer passes on as it is given them (`recording::label`).
+const RECORDING_LABEL: &str = "PRBS recorded 2026-10-22 14:05:31 UTC";
 /// The identifier the runtime gave the run, which the analysis never names (§0.1a).
 const RUN_ID: &str = "periodic-import";
 const REVISION: &str = "sha256:loop-1";
@@ -115,6 +117,7 @@ fn a_steady_gain_is_measured_as_its_magnitude_at_the_tone() {
     let budget = Budget::new(ANALYSIS_BUDGET, &elapsed, &cancelled);
     let answer = measured_frequency_answer(
         RECORDING_ID,
+        RECORDING_LABEL,
         &recorded,
         &definition,
         &inputs(RECORDING_ID, REVISION),
@@ -147,6 +150,7 @@ fn a_record_too_short_for_its_segments_is_rejected_with_its_reason() {
     let budget = Budget::new(ANALYSIS_BUDGET, &elapsed, &cancelled);
     let answer = measured_frequency_answer(
         RECORDING_ID,
+        RECORDING_LABEL,
         &recorded,
         &definition,
         &inputs(RECORDING_ID, REVISION),
@@ -173,6 +177,7 @@ fn the_answer_refuses_a_recording_or_a_revision_that_it_does_not_name() {
     let other_recording = inputs("rec-00000000000000000000000000000002", REVISION);
     let error = measured_frequency_answer(
         RECORDING_ID,
+        RECORDING_LABEL,
         &recorded,
         &definition,
         &other_recording,
@@ -182,12 +187,20 @@ fn the_answer_refuses_a_recording_or_a_revision_that_it_does_not_name() {
     assert!(error.message.contains("recordingId"), "{}", error.message);
     // The run's own identifier is not the study's: a request that names it is refused (§0.1a).
     let run_id = inputs(RUN_ID, REVISION);
-    let error = measured_frequency_answer(RECORDING_ID, &recorded, &definition, &run_id, &budget)
-        .expect_err("the runtime's identifier of the run");
+    let error = measured_frequency_answer(
+        RECORDING_ID,
+        RECORDING_LABEL,
+        &recorded,
+        &definition,
+        &run_id,
+        &budget,
+    )
+    .expect_err("the runtime's identifier of the run");
     assert!(error.message.contains("recordingId"), "{}", error.message);
     let other_revision = inputs(RECORDING_ID, "sha256:other");
     let error = measured_frequency_answer(
         RECORDING_ID,
+        RECORDING_LABEL,
         &recorded,
         &definition,
         &other_revision,
@@ -212,8 +225,19 @@ fn a_request_that_names_no_recording_measures_the_recording_given_and_names_it()
         frequencies: Some(vec![1.0]),
         ..AnalysisInputs::default()
     };
-    let answer = measured_frequency_answer(RECORDING_ID, &recorded, &definition, &unnamed, &budget)
-        .expect("the recording the study chose is measured");
+    let answer = measured_frequency_answer(
+        RECORDING_ID,
+        RECORDING_LABEL,
+        &recorded,
+        &definition,
+        &unnamed,
+        &budget,
+    )
+    .expect("the recording the study chose is measured");
+    assert_eq!(
+        answer.recording_label, RECORDING_LABEL,
+        "the answer names the recording in the words the study gives it, not by its digest alone"
+    );
     assert_eq!(
         answer.recording_id, RECORDING_ID,
         "the answer names the study's identifier of the recording it used (§0.1a)"
@@ -226,6 +250,7 @@ fn a_request_that_names_no_recording_measures_the_recording_given_and_names_it()
     };
     let error = measured_frequency_answer(
         RECORDING_ID,
+        RECORDING_LABEL,
         &recorded,
         &definition,
         &revision_only,
@@ -290,6 +315,7 @@ fn the_answer_stops_when_the_budget_runs_out() {
     let budget = Budget::new(ANALYSIS_BUDGET, &elapsed, &cancelled);
     let error = measured_frequency_answer(
         RECORDING_ID,
+        RECORDING_LABEL,
         &recorded,
         &definition,
         &inputs(RECORDING_ID, REVISION),

@@ -86,18 +86,13 @@ export function createAnalyzeRoute(options: AnalyzeRouteOptions): AnalyzeRoute {
     options.post({ ...scopeFields(scope), kind, ...fields });
 
   /**
-   * Relays one analysis operation's updates to the page until it ends or the route is reset. The engine sends an update as a
-   * notification, which no listener keeps for a later subscriber, so an update sent before this subscription stands is never
-   * replayed. The operation's state is therefore asked for once the subscription stands (`controlStudio/status`; the engine records a
-   * final state before it sends it): an operation that has already ended reaches the page as its final update.
+   * Relays one analysis operation's updates to the page until it ends or the route is reset. An operation that ended before this
+   * subscription stood reaches the page as its final update all the same (`ControlStudioEngine.onUpdate`).
    */
   function follow(operationId: string, scope: EngineScope): void {
     stopWatching();
     running = operationId;
     watch = client.onUpdate(operationId, (update: OperationUpdate) => relayUpdate(operationId, scope, update));
-    void client.status({ operationId }).then(reply => {
-      if ("result" in reply && reply.result.state !== "running") relayUpdate(operationId, scope, reply.result);
-    }, () => undefined);
   }
 
   /** Sends the page one update of the operation the route follows; its final update ends the follow. */

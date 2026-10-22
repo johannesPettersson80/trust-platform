@@ -46,7 +46,7 @@ use trust_control::identification::recorded_limits::{
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::messages::{
     AnswerKind, CampaignRestoration, CancelResult, IdentifyAction, IdentifyRequest,
-    OperationStarted, ResetResult,
+    OperationStarted, RecordedChartSample, ResetResult,
 };
 use trust_control::recording::EvidenceSource;
 use trust_control::runtime::RuntimeConnection;
@@ -486,19 +486,12 @@ fn keep_campaign(
                     scheduling_value,
                 },
             )?;
-            // The facts of the campaign that the stored section does not keep: its restoration (C12), the sentence that says the
-            // confirmed restoration releases the experiment settings, the samples of the kept recording, which the page draws its
-            // recorded signals from (`control-studio.recording.evidence`), and the sentence of a project test's end.
-            if let Some(fields) = answer.as_object_mut() {
-                fields.insert("restoration".into(), to_value(&restoration)?);
-                if let Some(note) = settings_released(restoration) {
-                    fields.insert("settingsReleased".into(), Value::String(note));
-                }
-                fields.insert("recordedSamples".into(), to_value(&recorded_samples)?);
-                if let Some(outcome) = test_outcome(&work.loop_definition, restoration) {
-                    fields.insert("testOutcome".into(), Value::String(outcome));
-                }
-            }
+            add_campaign_facts(
+                &mut answer,
+                &work.loop_definition,
+                restoration,
+                &recorded_samples,
+            )?;
             Ok(answer)
         }
         RunResult::Recorded(_) => {
@@ -526,6 +519,29 @@ fn keep_campaign(
             to_value(&answer)
         }
     }
+}
+
+/// Adds to `answer` the facts of a campaign that the stored section does not keep: its restoration (C12), the sentence that says the
+/// confirmed restoration releases the experiment settings, the samples of the kept recording, which the page draws its recorded
+/// signals from (`control-studio.recording.evidence`), and the sentence of a project test's end. A fresh campaign and a resumed one
+/// answer them alike.
+fn add_campaign_facts(
+    answer: &mut Value,
+    loop_definition: &LoopDefinition,
+    restoration: Option<CampaignRestoration>,
+    recorded_samples: &[RecordedChartSample],
+) -> Result<(), Failure> {
+    if let Some(fields) = answer.as_object_mut() {
+        fields.insert("restoration".into(), to_value(&restoration)?);
+        if let Some(note) = settings_released(restoration) {
+            fields.insert("settingsReleased".into(), Value::String(note));
+        }
+        fields.insert("recordedSamples".into(), to_value(&recorded_samples)?);
+        if let Some(outcome) = test_outcome(loop_definition, restoration) {
+            fields.insert("testOutcome".into(), Value::String(outcome));
+        }
+    }
+    Ok(())
 }
 
 /// The sentence of a project test's end (C12), for the campaign of a project-scripted loop, which is its project test; `None` for any
@@ -564,7 +580,7 @@ fn run_resume(
     qualification(loop_definition, &resumed.result)?;
     let kind = kind.ok_or_else(resumed_without_experiment)?;
     let recording_file_id = kept_file(&retention, &resumed.recording_id)?;
-    keep_result(
+    let mut answer = keep_result(
         work,
         retention.study(),
         Fitted {
@@ -575,7 +591,14 @@ fn run_resume(
             // The resumed campaign's start was checked when it began, and its value is not journaled, so none is kept.
             scheduling_value: None,
         },
-    )
+    )?;
+    add_campaign_facts(
+        &mut answer,
+        loop_definition,
+        resumed.restoration,
+        &resumed.recorded_samples,
+    )?;
+    Ok(answer)
 }
 
 /// The Cancel of the journaled operation `operation_id`, keeping its recording in `study` before the runtime buffer is released

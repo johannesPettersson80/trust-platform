@@ -279,7 +279,8 @@ suite("Control Studio engine inputs route", () => {
         receiveEngineMessage(root, { kind: "control-studio.engine.failure", method, failure }, ports);
         const flow = received.filter(item => item.stage === "flow");
         assert.strictEqual(flow.length, 1, "the failure still reaches the flow once, so that every listener hears it");
-        assert.strictEqual(flow[0].payload.status, "failed");
+        // A refused change of the study inputs ends no operation (wrong behaviour caught: a refusal during a run shown as the run's failure).
+        assert.strictEqual(flow[0].payload.status, method === "inputs" ? "refused" : "failed");
         return flow[0].payload.page;
       };
       assert.strictEqual(pageOf("inputs", refusal), "tune", "a refused change of the mapping belongs where Channels… is");

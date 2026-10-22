@@ -1183,6 +1183,11 @@ export interface MeasuredFrequencyResult {
    */
   recordingId: string;
   /**
+   * The words that name the recording to the engineer (`recording::label`): what it recorded and when. A result kept before
+   * the words were answered reads them as empty.
+   */
+  recordingLabel?: string;
+  /**
    * The revision of the recording.
    */
   recordingRevision: string;

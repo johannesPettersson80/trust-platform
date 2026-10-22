@@ -42,6 +42,7 @@ export function renderParameterTool(tool: ParameterTool): string {
   <div class="parameter-grid" data-three-page-experiment-parameter-fields hidden></div>
   <textarea data-three-page-experiment-parameter-values hidden aria-hidden="true">{}</textarea>
   <p class="studio-action-message" data-three-page-experiment-parameter-status role="status">Inspect the running simulator before editing the declared trial values.</p>
+  <label class="studio-field" data-three-page-experiment-parameter-approval hidden><input type="checkbox" data-three-page-experiment-parameter-approve> Approve this write to the physical target</label>
   <button type="button" class="trust-button" data-three-page-experiment-parameter-action>Inspect experiment parameters</button>
   <button type="button" class="trust-button studio-auxiliary" data-three-page-experiment-restore>Restore previous value</button>
  </details>`;

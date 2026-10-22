@@ -99,8 +99,19 @@ export interface ControlStudioEngine {
   analyze(request: AnalyzeRequest): Promise<EngineAnswer<AnalyzeAnswer>>;
   /** The loop's results for the engineer to save (B10.5): the text of the JSON or the CSV export, and the file name it suggests. */
   exportLoop(request: ExportRequest): Promise<EngineAnswer<ExportResult>>;
-  /** Runs `listener` for each `controlStudio/update` of the operation `operationId`. */
-  onUpdate(operationId: string, listener: (update: OperationUpdate) => void): vscode.Disposable;
+  /**
+   * Runs `listener` for each `controlStudio/update` of the operation `operationId`, and nothing after its final update. The engine
+   * sends updates as notifications that nothing keeps for a later listener, so a final update sent before this subscription stood
+   * would never reach it: unless `catchUp` is false, the operation's state is read once the subscription stands
+   * (`controlStudio/status`; the engine records a final state before it sends it), and the listener hears one final update, whichever
+   * source brings it first. A reopened panel follows the operations `controlStudio/open` listed without it, since an operation that
+   * has ended shows nothing there (A8.6).
+   */
+  onUpdate(
+    operationId: string,
+    listener: (update: OperationUpdate) => void,
+    options?: { catchUp?: boolean }
+  ): vscode.Disposable;
 }
 
 const METHOD = {
@@ -163,12 +174,29 @@ export function createEngineClient(engine: EngineProcess): ControlStudioEngine {
     simulatorStartResult: (request) => call<SimulatorStartReply>(METHOD.simulatorStartResult, request),
     chartExport: (request) => call<ChartExportAnswer>(METHOD.chartExport, request),
     exportLoop: (request) => call<ExportResult>(METHOD.exportLoop, request),
-    onUpdate: (operationId, listener) =>
-      engine.onNotification(UPDATE_NOTIFICATION, (params) => {
+    onUpdate: (operationId, listener, options) => {
+      let ended = false;
+      let disposed = false;
+      const deliver = (update: OperationUpdate): void => {
+        if (disposed || ended) return;
+        if (update.state !== "running") ended = true;
+        listener(update);
+      };
+      const subscription = engine.onNotification(UPDATE_NOTIFICATION, (params) => {
         const update = params as OperationUpdate;
-        if (update.operationId === operationId) {
-          listener(update);
-        }
-      }),
+        if (update.operationId === operationId) deliver(update);
+      });
+      if (options?.catchUp !== false) {
+        void call<OperationUpdate>(METHOD.status, { operationId }).then(reply => {
+          if ("result" in reply && reply.result.state !== "running") deliver(reply.result);
+        }, () => undefined);
+      }
+      return {
+        dispose: () => {
+          disposed = true;
+          subscription.dispose();
+        },
+      };
+    },
   };
 }

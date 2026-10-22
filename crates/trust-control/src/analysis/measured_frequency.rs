@@ -87,6 +87,10 @@ pub struct MeasuredFrequencyResult {
     /// The recording's identifier in the study: the identifier `importRecording` answers, which the study lists, and not the
     /// identifier the runtime gave the run.
     pub recording_id: String,
+    /// The words that name the recording to the engineer (`recording::label`): what it recorded and when. A result kept before
+    /// the words were answered reads them as empty.
+    #[serde(default)]
+    pub recording_label: String,
     /// The revision of the recording.
     pub recording_revision: String,
     /// The sample time of the record, read from its cycles.
@@ -209,14 +213,14 @@ const NO_PERIODIC_RECORDING: &str =
 /// # Errors
 /// A recording cannot be read, or the study keeps no recording that is a periodic record; the failure of the second names the
 /// next action Identify.
-pub fn last_periodic_recording(
+pub fn last_periodic_recording<R: AsRef<RecordedRun>>(
     recordings: &[String],
     loop_definition: &LoopDefinition,
-    mut read: impl FnMut(&str) -> Result<RecordedRun, Failure>,
-) -> Result<(String, RecordedRun), Failure> {
+    mut read: impl FnMut(&str) -> Result<R, Failure>,
+) -> Result<(String, R), Failure> {
     for id in recordings.iter().rev() {
         let recording = read(id.as_str())?;
-        if periodic_record(&recording, loop_definition).is_ok() {
+        if periodic_record(recording.as_ref(), loop_definition).is_ok() {
             return Ok((id.clone(), recording));
         }
     }
@@ -230,8 +234,8 @@ pub fn last_periodic_recording(
 /// The measured frequency response of a retained recording (`measuredFrequency`, B9.9; N2.8): the tones of the request,
 /// estimated on the record after its startup samples. A tone that the estimate refuses gives a rejected result with its reason.
 /// `recording_id` is the recording's identifier in the study (the identifier `importRecording` answers, which the study lists), and
-/// the answer names it; `recording` is the run the study keeps under it. `budget` is checked before the record and before the
-/// estimate (A7).
+/// the answer names it with `recording_label`, the words that name it to the engineer (`recording::label`); `recording` is the run
+/// the study keeps under it. `budget` is checked before the record and before the estimate (A7).
 ///
 /// # Errors
 /// Returns the input failure of a setting outside its limit or of a recording or revision that the request names but that is not
@@ -239,6 +243,7 @@ pub fn last_periodic_recording(
 #[allow(clippy::too_many_lines)] // The answer reads, checks, estimates and words its result in the order of N2.8 and A7.
 pub fn measured_frequency_answer(
     recording_id: &str,
+    recording_label: &str,
     recording: &RecordedRun,
     loop_definition: &LoopDefinition,
     inputs: &AnalysisInputs,
@@ -333,6 +338,7 @@ pub fn measured_frequency_answer(
     };
     Ok(MeasuredFrequencyResult {
         recording_id,
+        recording_label: recording_label.to_owned(),
         recording_revision,
         sample_time_seconds: record.sample_time_seconds,
         frequencies,

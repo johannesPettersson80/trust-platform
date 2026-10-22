@@ -4,15 +4,11 @@
 // phase 2, liquid).
 
 import { el } from "../svg";
-import type { SymbolDefinition } from "./index";
+import type { SymbolArt } from "./index";
 import { readNumbers } from "./reading";
 import { BODY, HATCH, LINE } from "./style";
 
-export const SUPPLY: SymbolDefinition = {
-  size: [64, 64],
-  ports: {
-    outlet: { at: [64, 32], direction: "right" },
-  },
+export const SUPPLY: SymbolArt = {
   properties: ["pressure"],
   deciding: ["pressure"],
   states: [

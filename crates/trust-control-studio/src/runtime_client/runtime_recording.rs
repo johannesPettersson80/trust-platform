@@ -14,8 +14,6 @@ use std::collections::hash_map::RandomState;
 use std::hash::BuildHasher;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::thread;
-use std::time::Duration;
 
 use parking_lot::Mutex;
 use serde_json::{json, Value};
@@ -38,9 +36,7 @@ use trust_control::recording::page::{check_status_page, FollowCursor};
 use trust_control::recording::start::{may_retry_start, START_ATTEMPT_LIMIT};
 use trust_control::recording::{EvidenceSource, RecordedRun, RecordingRequest, RecordingStatus};
 use trust_control::runtime::{RuntimeConnection, RuntimeStatus};
-use trust_control::signals::{
-    loop_inspection_bindings, Inspection, InspectionRequest, SignalBinding,
-};
+use trust_control::signals::{loop_inspection_bindings, Inspection, SignalBinding};
 
 use super::experiment::whole_milliseconds;
 use super::recording_coordinator::RecordingSession;
@@ -51,8 +47,6 @@ use trust_runtime_client::ControlError;
 
 /// The recording of a plan without a planned duration covers one hour of process time (`DEFAULT_RECORDING_DURATION_MS`).
 pub const DEFAULT_RECORDING_DURATION_MS: u64 = 3_600_000;
-/// The inspections after the first one of a symbolic start (`inspectSymbolicSignals`, at most twenty).
-const INSPECTION_RETRIES: usize = 20;
 
 /// Where a recording's owner is journaled (E11.2). It is written before the start is dispatched, written again when the
 /// start's acknowledgement is lost, and cleared when the runtime refused the start before any buffer existed (E11.6).
@@ -536,52 +530,23 @@ fn send_start(
     }
 }
 
-/// Inspects `bindings` until a coherent scan answers: the first inspection, then at most [`INSPECTION_RETRIES`] more, each
-/// after a wait of the task period clamped to 50–100 ms (`inspectSymbolicSignals`). The inspections are pinned to the program
-/// revision `expected` names, when it does; otherwise to the revision of the first one (E11.4). Returns the program revision of
-/// the coherent scan.
+/// Inspects `bindings` until a coherent scan answers ([`RuntimeClient::inspect_until_scanned`]), pinned to the program revision
+/// `expected` names, when it does; otherwise to the revision of the first answer (E11.4). Returns the program revision of the
+/// coherent scan.
 fn inspect_coherently(
     client: &mut RuntimeClient,
     loop_definition: &LoopDefinition,
     expected: Option<&str>,
     bindings: &[SignalBinding],
 ) -> Result<String, Failure> {
-    let period = loop_definition.controller.task_period_ms;
-    let wait_ms = if period.is_finite() {
-        period.clamp(50.0, 100.0)
-    } else {
-        50.0
-    };
-    let pause = Duration::from_secs_f64(wait_ms / 1000.0);
-    let mut pinned = expected.map(str::to_string);
-    for attempt in 0..=INSPECTION_RETRIES {
-        if attempt > 0 {
-            thread::sleep(pause);
-        }
-        let request = InspectionRequest::new(
-            &loop_definition.revision,
-            pinned.as_deref(),
-            bindings.to_vec(),
-        )?;
-        let inspection = client.inspect(&request)?;
-        let revision = match &inspection {
-            Inspection::Pending {
-                program_revision, ..
-            } => program_revision.clone(),
-            Inspection::Available(sample) => sample.program_revision.clone(),
-        };
-        if pinned.is_none() {
-            pinned = Some(revision.clone());
-        }
-        if matches!(inspection, Inspection::Available(_)) {
-            return Ok(revision);
-        }
+    match client.inspect_until_scanned(loop_definition, expected, bindings)? {
+        Inspection::Available(sample) => Ok(sample.program_revision),
+        Inspection::Pending { .. } => Err(Failure::new(
+            "Wait for a current coherent symbolic scan, then retry recording.",
+            Cause::Runtime,
+            NextAction::Wait,
+        )),
     }
-    Err(Failure::new(
-        "Wait for a current coherent symbolic scan, then retry recording.",
-        Cause::Runtime,
-        NextAction::Wait,
-    ))
 }
 
 /// The identity of a recording, for the calls that name it alone: stop, status and release (E4.6, E4.7). Their limits are

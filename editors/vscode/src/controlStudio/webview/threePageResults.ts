@@ -131,7 +131,7 @@ function comparisonTable(entries: unknown[]): HTMLTableElement {
     const entry = item as { label?: unknown; structure?: unknown; gains?: Record<string, number>; outcomeText?: unknown };
     const gains = entry.gains ?? {};
     const row = body.insertRow(); row.dataset.studioComparisonStructure = String(entry.structure);
-    // The outcome's sentence is the engine's (ComparisonEntry.outcomeText, messages.rs); the page composes none.
+    // The outcome's sentence is the engine's (ComparisonEntry.outcomeText, messages/tune.rs); the page composes none.
     const outcome = typeof entry.outcomeText === "string" ? entry.outcomeText : "";
     // A gain the answer does not hold is shown as none, never as zero (the engine's candidate holds all three).
     for (const text of [String(entry.label), String(entry.structure), gainText(gains.proportionalGain),
@@ -140,7 +140,7 @@ function comparisonTable(entries: unknown[]): HTMLTableElement {
   return table;
 }
 
-/** A feedforward path as the engine answers it: its gain with the unit of it, its time constant and its dead time (`FeedforwardPath`, messages.rs). */
+/** A feedforward path as the engine answers it: its gain with the unit of it, its time constant and its dead time (`FeedforwardPath`, messages/tune.rs). */
 interface FeedforwardPathView { gain: number; gainUnit?: string | null; timeConstantSeconds: number; delaySeconds: number }
 /** The engine's answer of a measured-disturbance feedforward (C8, `FeedforwardAnswer`), in the names of its JSON, with the unit of each value it states. */
 interface FeedforwardAnswerView {

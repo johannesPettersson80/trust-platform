@@ -4,7 +4,7 @@
 
 import { token } from "../parts";
 import { el, SvgNode, text } from "../svg";
-import type { SymbolDefinition, SymbolState, SymbolView } from "./index";
+import type { SymbolArt, SymbolState, SymbolView } from "./index";
 import { percentWord, readNumbers, readRunning, readRunningWith, runningStates } from "./reading";
 import { BODY, FILLED, HATCH, LINE, MOVING, round, STILL } from "./style";
 import { AXIS, BODY_PATH, MIDDLE, readFeedback, STUBS_PATH } from "./valve";
@@ -49,10 +49,8 @@ const MACHINE = {
 };
 
 /** A fan: three blades in its housing; the variable-speed variant gives its speed. */
-export const FAN: SymbolDefinition = {
+export const FAN: SymbolArt = {
   ...MACHINE,
-  size: [64, 64],
-  ports: {},
   properties: [...MACHINE.properties, "speed"],
   read: readRunningWith("speed", true),
   states: runningStates((running) => ({ speed: running ? 62 : 0 })),
@@ -80,10 +78,8 @@ export const FAN: SymbolDefinition = {
 };
 
 /** A blower (ISO 14617 compressor): a circle with its converging lines, its rotor's mark circling. */
-export const BLOWER: SymbolDefinition = {
+export const BLOWER: SymbolArt = {
   ...MACHINE,
-  size: [64, 64],
-  ports: { inlet: { at: [0, 32], direction: "left" }, outlet: { at: [64, 32], direction: "right" } },
   draw: (view) => [
     el("path", { d: "M0 32 H6 M58 32 H64", fill: "none", ...LINE }),
     el("circle", { "data-part": "casing", cx: 32, cy: 32, r: 26, fill: view.unknown ? HATCH : BODY, ...LINE }),
@@ -93,10 +89,8 @@ export const BLOWER: SymbolDefinition = {
 };
 
 /** An agitator: its motor on top, its shaft and its impeller, which turns while it runs. */
-export const AGITATOR: SymbolDefinition = {
+export const AGITATOR: SymbolArt = {
   ...MACHINE,
-  size: [64, 64],
-  ports: {},
   draw: (view) => [
     el("rect", {
       "data-part": "motor",
@@ -160,10 +154,8 @@ function roller(x: number, view: SymbolView, part: string): SvgNode {
 }
 
 /** A belt conveyor: the belt around its two rollers, on its legs. */
-export const CONVEYOR: SymbolDefinition = {
+export const CONVEYOR: SymbolArt = {
   ...MACHINE,
-  size: [96, 40],
-  ports: {},
   draw: (view) => [
     el("path", { "data-part": "legs", d: "M14 29 L10 39 M82 29 L86 39", fill: "none", ...LINE }),
     el("rect", {
@@ -223,9 +215,7 @@ const POSITIONED = ["open", "closed", "fault", "manual", "out-of-service"];
 
 /** A damper in its duct: the blade lies along the duct when open and across it when closed; a
  * modulating damper's blade turns with its position. */
-export const DAMPER: SymbolDefinition = {
-  size: [64, 64],
-  ports: { inlet: { at: [0, 32], direction: "left" }, outlet: { at: [64, 32], direction: "right" } },
+export const DAMPER: SymbolArt = {
   properties: [...POSITIONED, "position"],
   deciding: ["fault", "open", "closed", "position"],
   sample: "open",
@@ -279,9 +269,7 @@ export const DAMPER: SymbolDefinition = {
 };
 
 /** A cylinder: its piston and rod run out when extended and back when retracted. */
-export const CYLINDER: SymbolDefinition = {
-  size: [96, 40],
-  ports: {},
+export const CYLINDER: SymbolArt = {
   properties: POSITIONED,
   deciding: ["fault", "open", "closed"],
   sample: "closed",
@@ -324,9 +312,7 @@ export const CYLINDER: SymbolDefinition = {
 
 /** A motor valve: the valve body and its stem with the motor (IEC 60617, M) on top; the body is
  * filled when closed. */
-export const MOTOR_VALVE: SymbolDefinition = {
-  size: [64, 64],
-  ports: { inlet: { at: [0, AXIS], direction: "left" }, outlet: { at: [64, AXIS], direction: "right" } },
+export const MOTOR_VALVE: SymbolArt = {
   properties: POSITIONED,
   deciding: ["fault", "open", "closed"],
   sample: "open",
@@ -357,9 +343,7 @@ export const MOTOR_VALVE: SymbolDefinition = {
 };
 
 /** A weigh scale: its platform on the load cell; the word gives the weight. */
-export const WEIGH_SCALE: SymbolDefinition = {
-  size: [64, 64],
-  ports: {},
+export const WEIGH_SCALE: SymbolArt = {
   properties: ["value", "fault"],
   deciding: ["fault", "value"],
   sample: "weighing",

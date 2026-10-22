@@ -407,6 +407,28 @@ suite("Control Studio three-page project experiments", () => {
     });
   });
 
+  test("a review of a write to a physical target waits for the engineer's approval, and the write carries it (A2.5)", () => {
+    // Wrong behaviour caught: every write said `physicalApproved: false`, so the engine refused each write to a physical target.
+    withExperimentTool((page) => {
+      const { root, experiments, step, messages, window } = page;
+      const approval = root.querySelector<HTMLElement>("[data-three-page-experiment-parameter-approval]")!;
+      const approve = root.querySelector<HTMLInputElement>("[data-three-page-experiment-parameter-approve]")!;
+      assert.strictEqual(approval.hidden, true, "no review, no approval");
+      experiments.receive("parameters", { status: "reviewed", reviewId: "review-1", values: EXPERIMENT_VALUES, offer: REVIEWED, physical: true });
+      assert.strictEqual(step.textContent, "Apply reviewed values");
+      assert.strictEqual(approval.hidden, false, "the review of a physical write shows the approval");
+      assert.strictEqual(step.disabled, true, "the write waits for the approval");
+      approve.checked = true;
+      approve.dispatchEvent(new window.Event("change", { bubbles: true }));
+      assert.strictEqual(step.disabled, false);
+      step.click();
+      assert.deepStrictEqual(messages[messages.length - 1], { kind: "control-studio.parameters.apply", payload: { reviewId: "review-1", physicalApproved: true } });
+      experiments.receive("parameters", { status: "applied", values: EXPERIMENT_VALUES, reason: APPLIED, offer: FREE });
+      assert.strictEqual(approval.hidden, true, "the approval belonged to the review it was given for");
+      assert.strictEqual(approve.checked, false);
+    });
+  });
+
   test("the experiment settings wait only while the page's own test runs: a test's review holds nothing in the page (C12)", () => {
     withExperimentTool((page) => {
       const { root, experiments, step, field, messages } = page;

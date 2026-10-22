@@ -4,7 +4,7 @@
 // heat draw-off. A heater's element and a draw-off's heat show while they work.
 
 import { el, SvgNode } from "../svg";
-import type { SymbolDefinition, SymbolState } from "./index";
+import type { SymbolArt, SymbolState } from "./index";
 import { percentWord, readNumbers, readRunning, runningStates, shownBoundNumber, SymbolReader } from "./reading";
 import { BODY, HATCH, LINE, MOVING, round, STILL } from "./style";
 import { RoundedRect, roundedLiquid, roundedRectOutline } from "./vessels";
@@ -71,9 +71,7 @@ const readTemperature: SymbolReader = (value, frame, faulted, object) => {
 
 const DOOR = { hinge: [76, 46] as const, length: 20, opens: 75 };
 
-export const COLD_ROOM: SymbolDefinition = {
-  size: [96, 64],
-  ports: {},
+export const COLD_ROOM: SymbolArt = {
   properties: ["door-open", "temperature"],
   deciding: ["temperature", "door-open"],
   states: [
@@ -145,9 +143,7 @@ export const COLD_ROOM: SymbolDefinition = {
   },
 };
 
-export const REFRIGERATION_UNIT: SymbolDefinition = {
-  size: [96, 64],
-  ports: {},
+export const REFRIGERATION_UNIT: SymbolArt = {
   properties: ["running", "fault", "manual", "out-of-service"],
   deciding: ["fault", "running"],
   states: runningStates(),
@@ -173,12 +169,7 @@ export const REFRIGERATION_UNIT: SymbolDefinition = {
   ],
 };
 
-export const HEATER: SymbolDefinition = {
-  size: [64, 64],
-  ports: {
-    inlet: { at: [20, 0], direction: "up" },
-    outlet: { at: [64, 16], direction: "right" },
-  },
+export const HEATER: SymbolArt = {
   properties: ["power", "temperature", "level"],
   deciding: ["power", "temperature"],
   states: [
@@ -223,12 +214,7 @@ export const HEATER: SymbolDefinition = {
   },
 };
 
-export const COOLER: SymbolDefinition = {
-  size: [64, 64],
-  ports: {
-    inlet: { at: [0, 18], direction: "left" },
-    outlet: { at: [64, 18], direction: "right" },
-  },
+export const COOLER: SymbolArt = {
   properties: ["running", "fault", "manual", "out-of-service"],
   deciding: ["fault", "running"],
   states: runningStates(),
@@ -255,14 +241,7 @@ export const COOLER: SymbolDefinition = {
   ],
 };
 
-export const JACKETED_VESSEL: SymbolDefinition = {
-  size: [64, 64],
-  ports: {
-    inlet: { at: [32, 0], direction: "up" },
-    outlet: { at: [32, 64], direction: "down" },
-    "jacket-inlet": { at: [0, 52], direction: "left" },
-    "jacket-outlet": { at: [64, 26], direction: "right" },
-  },
+export const JACKETED_VESSEL: SymbolArt = {
   properties: ["level", "temperature"],
   deciding: ["level", "temperature"],
   states: [
@@ -289,14 +268,7 @@ export const JACKETED_VESSEL: SymbolDefinition = {
   ],
 };
 
-export const COUPLED_VESSELS: SymbolDefinition = {
-  size: [96, 64],
-  ports: {
-    "inlet-1": { at: [20, 0], direction: "up" },
-    "outlet-1": { at: [20, 64], direction: "down" },
-    "inlet-2": { at: [76, 0], direction: "up" },
-    "outlet-2": { at: [76, 64], direction: "down" },
-  },
+export const COUPLED_VESSELS: SymbolArt = {
   properties: ["temperature-1", "temperature-2"],
   deciding: ["temperature-1", "temperature-2"],
   states: [
@@ -359,12 +331,7 @@ function heatFlow(direction: "left" | "right"): SvgNode {
   });
 }
 
-export const HEAT_DRAW_OFF: SymbolDefinition = {
-  size: [64, 64],
-  ports: {
-    inlet: { at: [0, 44], direction: "left" },
-    outlet: { at: [64, 44], direction: "right" },
-  },
+export const HEAT_DRAW_OFF: SymbolArt = {
   properties: ["power"],
   deciding: ["power"],
   states: [

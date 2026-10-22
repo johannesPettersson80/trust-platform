@@ -1,5 +1,6 @@
 import * as assert from "assert";
-import type { ControlStudioEngine } from "../../controlStudio/engine/engineClient";
+import { createEngineClient, type ControlStudioEngine } from "../../controlStudio/engine/engineClient";
+import type { EngineProcess } from "../../controlStudio/engine/engineProcess";
 import type { EngineLoop, EngineScope } from "../../controlStudio/engine/engineRouteContext";
 import { analysisPageOf, createAnalyzeRoute } from "../../controlStudio/engine/routes/analyzeRoute";
 import type { OperationUpdate } from "../../controlStudio/generated/OperationUpdate";
@@ -8,6 +9,8 @@ import type { OperationUpdate } from "../../controlStudio/generated/OperationUpd
  * The analysis route's answers to the page (specification 35, B9.9). The engine sends an operation's updates as notifications, and a
  * notification reaches only the listeners that stand when it is sent (`engineProcess.ts`). The fake engine below does the same: it keeps
  * the operation's latest state, as the engine does (`Operations::report`), and delivers each update to the listeners present at once.
+ * The route talks to it through the extension's own engine client (`createEngineClient`), whose `onUpdate` reads the state of an
+ * operation that ended before its listener stood, so these tests prove that catch-up for every route that follows an operation.
  */
 
 const SCOPE: EngineScope = {
@@ -46,28 +49,45 @@ class FakeEngine {
   private latest: OperationUpdate = { operationId: OPERATION, command: "analyze", state: "running" };
   private readonly listeners = new Set<(update: OperationUpdate) => void>();
 
-  /** The engine's own delivery: it keeps the latest state, then sends the update to the listeners that stand now. */
+  /** The engine's own delivery: it keeps the latest state, then sends the update as a notification to the listeners that stand now. */
   report(update: OperationUpdate): void {
     this.latest = update;
     for (const listener of Array.from(this.listeners)) listener(update);
   }
 
-  /** The methods the analysis route calls: the tools, a run's operation, its status, the page record and the cancel. */
-  readonly client = {
-    analyze: async (request: Record<string, unknown>) => {
-      this.requests.push(request);
-      if (request.tool === undefined) return this.listAnswer;
-      if (this.finishBeforeReply) this.report(finishedUpdate());
-      return { result: { operationId: OPERATION } };
-    },
-    status: async () => ({ result: this.latest }),
-    page: async (request: Record<string, unknown>) => { this.pages.push(request); return { result: {} }; },
-    cancel: async () => ({ result: this.latest }),
-    onUpdate: (_operationId: string, listener: (update: OperationUpdate) => void) => {
+  /** The engine's answers by method: the tools, a run's operation, its status, the page record and the cancel. */
+  private async answer(method: string, request: Record<string, unknown>): Promise<unknown> {
+    switch (method) {
+      case "controlStudio/analyze":
+        this.requests.push(request);
+        if (request.tool === undefined) return this.listAnswer;
+        if (this.finishBeforeReply) this.report(finishedUpdate());
+        return { result: { operationId: OPERATION } };
+      case "controlStudio/page":
+        this.pages.push(request);
+        return { result: {} };
+      case "controlStudio/status":
+      case "controlStudio/cancel":
+        return { result: this.latest };
+      default:
+        throw new Error(`the fake engine answers no ${method}`);
+    }
+  }
+
+  /** The engine process the client talks to: its requests, and its `controlStudio/update` notifications. */
+  private readonly process = {
+    connection: async () => ({
+      sendRequest: (method: string, request: Record<string, unknown>) => this.answer(method, request),
+    }),
+    onNotification: (method: string, handler: (params: unknown) => void) => {
+      const listener = (update: OperationUpdate) => { if (method === "controlStudio/update") handler(update); };
       this.listeners.add(listener);
       return { dispose: () => { this.listeners.delete(listener); } };
     },
   };
+
+  /** The extension's engine client over the fake engine, as the panel's routes use it. */
+  readonly client: ControlStudioEngine = createEngineClient(this.process as unknown as EngineProcess);
 }
 
 const delay = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
@@ -100,7 +120,7 @@ function assertStartedFirst(posted: Array<Record<string, unknown>>): void {
 async function calculate(engine: FakeEngine, finishDuringAck: boolean): Promise<Array<Record<string, unknown>>> {
   const posted: Array<Record<string, unknown>> = [];
   const route = createAnalyzeRoute({
-    client: engine.client as unknown as ControlStudioEngine,
+    client: engine.client,
     projectRoot: "/project",
     post: async message => {
       posted.push(message);
@@ -120,7 +140,7 @@ async function calculate(engine: FakeEngine, finishDuringAck: boolean): Promise<
 async function openLoop(engine: FakeEngine): Promise<Array<Record<string, unknown>>> {
   const posted: Array<Record<string, unknown>> = [];
   const route = createAnalyzeRoute({
-    client: engine.client as unknown as ControlStudioEngine,
+    client: engine.client,
     projectRoot: "/project",
     post: async message => {
       posted.push(message);
@@ -156,7 +176,7 @@ suite("Control Studio analysis route", () => {
     const engine = new FakeEngine();
     const posted: Array<Record<string, unknown>> = [];
     const route = createAnalyzeRoute({
-      client: engine.client as unknown as ControlStudioEngine,
+      client: engine.client,
       projectRoot: "/project",
       post: async message => { posted.push(message); },
       served: () => true,
@@ -183,7 +203,7 @@ suite("Control Studio analysis route", () => {
     const engine = new FakeEngine();
     const posted: Array<Record<string, unknown>> = [];
     const route = createAnalyzeRoute({
-      client: engine.client as unknown as ControlStudioEngine,
+      client: engine.client,
       projectRoot: "/project",
       post: async message => { posted.push(message); },
       served: () => true,

@@ -61,13 +61,9 @@ pub fn answer(
     let work = ApplicationWork::of(&request)?;
     let claim = work.claim(claims, APPLY_OPERATION)?;
     if request.resume {
-        return started(
-            operations,
-            claim,
-            APPLY_COMMAND,
-            work,
-            run_reattach_operation,
-        );
+        return started(operations, claim, APPLY_COMMAND, work, |context, work| {
+            with_failure_stages(context, work, run_reattach_operation(context, work))
+        });
     }
     match request.review {
         None => {
@@ -79,7 +75,9 @@ pub fn answer(
             claim,
             APPLY_COMMAND,
             work,
-            move |context, work| run_apply_operation(context, work, &identity),
+            move |context, work| {
+                with_failure_stages(context, work, run_apply_operation(context, work, &identity))
+            },
         ),
     }
 }
@@ -122,7 +120,13 @@ pub fn answer_restore(
             claim,
             RESTORE_COMMAND,
             work,
-            move |context, work| run_restore_operation(context, work, &identity),
+            move |context, work| {
+                with_failure_stages(
+                    context,
+                    work,
+                    run_restore_operation(context, work, &identity),
+                )
+            },
         ),
     }
 }
@@ -208,6 +212,26 @@ impl ApplicationWork {
         };
         action(&mut context)
     }
+}
+
+/// The end of an Apply or a Restore as its operation reports it: a failure carries the stages as the study and the journal hold them
+/// then (B6.4, B6.7, B9.4), so that the page shows the block of a checkpoint the failure left waiting for its Restore without a reopen.
+/// Stages that cannot be read leave the failure as it is.
+fn with_failure_stages(
+    context: &OperationContext,
+    work: &ApplicationWork,
+    worked: Result<Value, Failure>,
+) -> Result<Value, Failure> {
+    if worked.is_err() {
+        if let Ok((application, evidence)) = state_now(
+            &work.project_root,
+            &work.storage_folder,
+            &work.loop_definition,
+        ) {
+            context.stages_on_failure(application.stages(&evidence));
+        }
+    }
+    worked
 }
 
 /// The Apply operation (B6.1 to B6.3): runs the reviewed change, then keeps its receipt in the study (A8.1). The workflow refuses an

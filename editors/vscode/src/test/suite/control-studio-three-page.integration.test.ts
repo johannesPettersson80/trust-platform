@@ -63,6 +63,10 @@ suite("Control Studio three-page workflow", () => {
       await pollValue("host lag design", () => inner("return JSON.stringify(d.defaultView.__toolEvents.filter(e=>e.envelope?.tool==='leadLag'&&(e.kind==='control-studio.analysis.answer'||e.kind==='control-studio.analysis.update'&&e.state==='finished')).map(e=>e.envelope.inputs.mode));"), value => JSON.parse(value).includes("lag"), 15000);
       await reopen();
       await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();return 'tune again';");
+      // The reopened page shows the restored analysis as the chosen one (A8.6, B9.9): Analyze… offers its Close, and the Tune button names
+      // the analysis's action. Wrong behaviour caught: only an engineer's choice named the tool, so the restored design had no Close.
+      await pollValue("restored analysis named", () => inner("return String(!d.querySelector('[data-studio-analysis-close]').hidden)+'|'+d.querySelector('[data-engineer-tune]').textContent;"),
+        value => value.startsWith("true|") && value !== "true|Tune controller", 10000);
       await choose("leadLag");
       // Reopening calculates the design again (B9.9), so the restored mode is awaited rather than read at once.
       await pollValue("restored lead-lag mode", () => inner("return d.querySelector('[data-analysis-lead-lag-mode]')?.value??'';"), value => value === "lag", 10000);
@@ -529,7 +533,7 @@ suite("Control Studio three-page workflow", () => {
     await withStudio(async inner => {
       const gaps: string[] = [];
       // The engine's Tune answer: the candidate's structure and settings, its predicted measurement and the predicted measurement of the
-      // current settings beside it (TuneResult; the traces `measurement` and `current-measurement`, TuneRole in crates/trust-control/src/messages.rs).
+      // current settings beside it (TuneResult; the traces `measurement` and `current-measurement`, TuneRole in crates/trust-control/src/messages/tune.rs).
       await inner(engineResult("tune", { candidate: { structure: "PI" }, settings: { "P1.Parameters.ProportionalGain": 5, "P1.Parameters.IntegralGain": 1 },
         outcome: { status: "meets" }, words: TUNE_WORDS,
         response: { timeSeconds: [0, 1, 2], traces: [{ role: "measurement", symbol: "P1.ProcessValue", unit: "°C", values: [20, 21, 21.8] },
@@ -852,7 +856,7 @@ interface EngineIdentification {
   plantInput: { unit: string; count: number; minimum: number | null; maximum: number | null } | null;
 }
 
-/** A verdict of the engine's Validate answer (RequirementStatus in crates/trust-control/src/messages.rs). */
+/** A verdict of the engine's Validate answer (RequirementStatus in crates/trust-control/src/identification/independent_validation.rs). */
 type Verdict = "Pass" | "Fail" | "Inconclusive";
 
 /** A stage's status in the engine's answers (StageStatus in crates/trust-control/src/stages.rs). */

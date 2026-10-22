@@ -345,8 +345,11 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
     return true;
   }
 
-  /** Relays one operation's updates to the page; an identification's final result follows its last update (B3.8). */
-  function relay(operationId: string, scope: EngineScope): Subscription {
+  /**
+   * Relays one operation's updates to the page; an identification's final result follows its last update (B3.8). An operation the
+   * page started catches up on a final update sent before the subscription stood; one a reopened panel follows does not (A8.6).
+   */
+  function relay(operationId: string, scope: EngineScope, catchUp = true): Subscription {
     return client.onUpdate(operationId, (update: OperationUpdate) => {
       // An analysis operation's updates belong to the analysis route, which answers the page's analysis (B9.9).
       if (update.command === "analyze") return;
@@ -378,13 +381,13 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
       if (update.state === "finished" && update.command !== "identify" && update.command !== "tune" && result) {
         void send({ ...scopeFields(scope), kind: "control-studio.engine.result", method: update.command, result });
       }
-    });
+    }, { catchUp });
   }
 
   /** Relays the operation's updates to the page until the next open or the route's end. */
   function follow(operationIds: readonly string[], scope: EngineScope): void {
     for (const subscription of subscriptions.splice(0)) subscription.dispose();
-    subscriptions = operationIds.map((operationId) => relay(operationId, scope));
+    subscriptions = operationIds.map((operationId) => relay(operationId, scope, false));
   }
 
   /**
