@@ -147,16 +147,20 @@ fn engine_root(
     {
         return session::drive_register_root(runtime, module, buffers, activation).map(|_| ());
     }
-    if let Some(done) = super::compact_entry::run(
-        runtime,
-        module,
-        pou_id,
-        entry_instance,
-        depth_offset,
-        entry,
-        buffers,
-    ) {
-        return done;
+    // The frameless body's result is returned as it comes: wrapped in an option and unwrapped
+    // again, it would be moved whole (checklist P1-6).
+    if let Some((code, end)) = super::compact_entry::frameless(runtime, module, pou_id) {
+        return super::compact_entry::enter(
+            runtime,
+            module,
+            code,
+            pou_id,
+            end,
+            entry_instance,
+            depth_offset,
+            entry,
+            buffers,
+        );
     }
     execute_stack_root(
         runtime,

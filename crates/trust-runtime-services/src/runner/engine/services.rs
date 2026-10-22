@@ -131,7 +131,8 @@ impl<C: MonotonicClock> DeviceServices<C> {
     /// Arms the scan deadline at `deadline` on the clock, or disarms it with `None`. The holds that
     /// run after this call move the deadline forward; the holds before it do not.
     pub(super) fn arm(&self, deadline: Option<MonotonicInstant>) {
-        self.holds_at_arm.set(self.holds.held_at(self.clock.now()));
+        self.holds_at_arm
+            .set(self.holds.held_at(|| self.clock.now()));
         self.deadline.set(deadline);
     }
 
@@ -149,7 +150,7 @@ impl<C: MonotonicClock> DeviceServices<C> {
     /// The debugger holds that have run on the device's clock: the completed holds, and the hold in
     /// progress up to now (specification 11 §6.6).
     pub(super) fn held_time(&self) -> TimeSpan {
-        self.holds.held_at(self.clock.now())
+        self.holds.held_at(|| self.clock.now())
     }
 
     /// The statement hook while the debugger is live: the work of
@@ -256,7 +257,7 @@ impl<C: MonotonicClock> ExecutionServices for DeviceServices<C> {
         let now = self.clock.now();
         let held = self
             .holds
-            .held_at(now)
+            .held_at(|| now)
             .saturating_sub(self.holds_at_arm.get());
         now >= deadline.saturating_add(held)
     }

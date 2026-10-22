@@ -509,10 +509,11 @@ where
     }
 
     /// The logical time of monotonic reading `instant`: the time since the program started
-    /// (spec 34 §7.1).
+    /// (spec 34 §7.1), taken in whole nanoseconds, without a `Duration` between, whose seconds a
+    /// 32-bit chip divides out in software (checklist P1-6).
     fn logical(&self, instant: MonotonicInstant) -> value::Duration {
-        let since_start = instant.saturating_since(self.program_start).as_duration();
-        value::Duration::from_nanos(i64::try_from(since_start.as_nanos()).unwrap_or(i64::MAX))
+        let since_start = instant.saturating_since(self.program_start).as_nanos();
+        value::Duration::from_nanos(i64::try_from(since_start).unwrap_or(i64::MAX))
     }
 
     /// The program's cycle interval as a span.

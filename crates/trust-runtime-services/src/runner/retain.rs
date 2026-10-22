@@ -127,11 +127,14 @@ impl RetainStore {
             access.capture_retain(&mut self.capture)?;
         }
         self.capture.mark_dirty();
-        let offer = persister.offer(&mut self.capture, now);
-        if let Some(error) = persister.take_failure() {
+        // A refused offer latches the failure it returns, which is taken here, once; a failure
+        // that an earlier step latched fails this scan. The offer's own result is not held and
+        // returned, which would move it whole (checklist P1-6).
+        if let Err(error) = persister.offer(&mut self.capture, now) {
+            persister.take_failure();
             return Err(error);
         }
-        offer
+        persister.take_failure().map_or(Ok(()), Err)
     }
 
     /// Advances a pending checkpoint by at most one log step, with the platform's per-step program

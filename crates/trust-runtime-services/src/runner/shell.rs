@@ -358,6 +358,10 @@ where
     /// `reload timeout` (specification 11 §6.7.1; specification 34 §11.3). The change is never
     /// applied.
     pub(super) fn expire_change(&self) {
+        // The clock is read only while a change waits for a boundary (checklist P1-6).
+        if self.change.expiry().is_none() {
+            return;
+        }
         if let Some(reply) = self.change.withdraw_expired(self.clock.now()) {
             self.send(&reply);
         }

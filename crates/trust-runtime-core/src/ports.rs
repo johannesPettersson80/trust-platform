@@ -91,6 +91,12 @@ impl TimeSpan {
         u64::try_from(time.as_nanos()).ok().map(Self)
     }
 
+    /// The span in whole nanoseconds.
+    #[must_use]
+    pub const fn as_nanos(self) -> u64 {
+        self.0
+    }
+
     /// The span as a `Duration`. A span under a second, as a scan's or a task's is, needs no
     /// division into seconds, which a 32-bit chip makes in software (checklist P1-6).
     #[must_use]

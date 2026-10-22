@@ -22,43 +22,29 @@ use super::{execute_with_buffers, push_activation_frame, ExecutionBuffers};
 use crate::error::RuntimeError;
 use crate::memory::InstanceId;
 
-/// The stack root of program `pou_id` of `instance` at call depth `depth_offset`, joining allowance
-/// `entry`, in `buffers`, when its body has frameless compact code that this composition runs, as
-/// the dispatcher's root runs it (`entry::execute_stack_root`) for an engine entry, which keeps no
-/// result; the caller takes and gives back the buffers, unwinds a failure and checks the deadline
-/// after success, as for any root. `None`, having done nothing, otherwise.
-pub(super) fn run(
-    runtime: &mut impl ExecutionContext,
-    module: &VmModule,
+/// The frameless compact code of program `pou_id` and the end of its body, when this composition
+/// runs it as the dispatcher's root would (`entry::execute_stack_root`) for an engine entry, which
+/// keeps no result: the caller then runs it with [`enter`], takes and gives back the buffers,
+/// unwinds a failure and checks the deadline after success, as for any root. `None` otherwise.
+pub(super) fn frameless<'m>(
+    runtime: &impl ExecutionContext,
+    module: &'m VmModule,
     pou_id: u32,
-    instance: Option<InstanceId>,
-    depth_offset: u32,
-    entry: crate::vm::budget::ExecutionEntry,
-    buffers: &mut ExecutionBuffers,
-) -> Option<Result<(), RuntimeError>> {
+) -> Option<(&'m CompactCode, usize)> {
     let code = module.compact_code(pou_id).filter(|code| code.frameless)?;
     let pou = module.pou(pou_id)?;
     // The dispatcher's conditions for compact code at a frame's first instruction.
     if code.start != pou.code_start || !runtime.runs_compact() {
         return None;
     }
-    Some(enter(
-        runtime,
-        module,
-        code,
-        pou_id,
-        pou.code_end,
-        instance,
-        depth_offset,
-        entry,
-        buffers,
-    ))
+    Some((code, pou.code_end))
 }
 
-/// The entry of `code`, the body of `pou_id` that ends at `end`, in `buffers`. No activation result
-/// is built: the engine entry keeps none (checklist P1-9).
+/// The entry of `code`, the body of `pou_id` that ends at `end`, in `buffers`, of `instance` at call
+/// depth `depth_offset`, joining allowance `entry`. No activation result is built: the engine entry
+/// keeps none (checklist P1-9).
 #[allow(clippy::too_many_arguments)]
-fn enter(
+pub(super) fn enter(
     runtime: &mut impl ExecutionContext,
     module: &VmModule,
     code: &CompactCode,

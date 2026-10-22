@@ -42,12 +42,14 @@ impl HeldTime {
         }
     }
 
-    /// The completed holds and the hold in progress up to `now`, which counts as held.
-    pub(super) fn held_at(&self, now: MonotonicInstant) -> TimeSpan {
+    /// The completed holds and the hold in progress up to the reading `now` gives, which counts as
+    /// held. `now` is asked only for a hold in progress, so that a scan the debugger does not hold
+    /// reads no clock for it (checklist P1-6).
+    pub(super) fn held_at(&self, now: impl FnOnce() -> MonotonicInstant) -> TimeSpan {
         let in_progress = self
             .started
             .get()
-            .map_or(TimeSpan::ZERO, |started| now.saturating_since(started));
+            .map_or(TimeSpan::ZERO, |started| now().saturating_since(started));
         self.completed.get().saturating_add(in_progress)
     }
 }
