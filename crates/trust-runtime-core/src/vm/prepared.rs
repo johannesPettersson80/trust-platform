@@ -114,6 +114,25 @@ fn method_owners(
     Ok(owners)
 }
 
+/// Exactly one prepared binding for each of the I/O map's `bindings` (specification 34 MEM-14).
+fn prepared_io_bindings(
+    bindings: &[crate::bytecode::IoBinding],
+    vm: &VmModule,
+) -> Result<Vec<crate::io_image::PreparedIoBinding>, RuntimeError> {
+    let mut prepared = Vec::new();
+    prepared
+        .try_reserve_exact(bindings.len())
+        .map_err(|_| RuntimeError::PreparationLimit)?;
+    for binding in bindings {
+        prepared.push(crate::io_image::PreparedIoBinding::from_tables(
+            binding,
+            &vm.types,
+            &vm.strings,
+        )?);
+    }
+    Ok(prepared)
+}
+
 /// A prepared source-free STBC application with immutable version-selected storage ABI.
 /// Mutable execution state is created separately.
 /// Fields are private so raw metadata cannot forge executable admission.
@@ -425,12 +444,7 @@ impl PreparedModule {
                 return Err(RuntimeError::PreparationLimit);
             }
         }
-        let io_bindings = io
-            .iter()
-            .map(|binding| {
-                crate::io_image::PreparedIoBinding::from_tables(binding, &vm.types, &vm.strings)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let io_bindings = prepared_io_bindings(io, &vm)?;
         // Count the shared registration lists without allocating, then build once.
         let (registry_bytes, registry_work) = crate::stdlib::StandardLibrary::preparation_demand();
         preparation.charge(registry_bytes, registry_work)?;

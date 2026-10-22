@@ -169,6 +169,8 @@ impl CompactCode {
                 bodies.push((pou, code));
             }
         }
+        // The table holds exactly its bodies (specification 34 MEM-14).
+        bodies.shrink_to_fit();
         bodies
     }
 

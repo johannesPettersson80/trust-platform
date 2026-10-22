@@ -133,6 +133,8 @@ pub(super) fn prepare_call_plans(
         budget.records::<(u32, u8)>(plan.arguments.outputs.len())?;
         plans.push((site.offset, Arc::new(plan)));
     }
+    // A site without a plan leaves no room behind (specification 34 MEM-14).
+    plans.shrink_to_fit();
     Ok(plans)
 }
 

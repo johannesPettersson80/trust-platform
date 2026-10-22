@@ -187,6 +187,72 @@ impl PreparedModule {
 }
 
 #[cfg(test)]
+mod exact_tables {
+    extern crate std;
+
+    use super::PreparedModule;
+    use crate::vm::module::VmNativeSymbolSpec;
+    use crate::vm::PreparationLimits;
+    use std::format;
+
+    /// Specification 34 MEM-14: each table of a prepared program holds exactly its entries, with no
+    /// room for entries it does not hold, which the memory figure would count as the program's heap.
+    /// Worked by hand: each table below is built once with the entries preparation found, so its
+    /// capacity equals its length, in the corpus programs that have standard blocks (`blocks`),
+    /// native calls with arguments (`strings`, `calls`), bindings (`io`) and compact bodies. Catches
+    /// a table that grows by pushing and keeps the room of its last doubling: on 22 October 2026
+    /// v1p's block members held room for four entries and used two, and its type table, which
+    /// preparation extends by a timer's duration slot, room for 18 and used 10.
+    #[test]
+    fn the_prepared_tables_keep_no_room_they_do_not_use() {
+        let mut filled = [0usize; 6];
+        for name in ["blocks", "calls", "io", "strings", "scalar"] {
+            let path = format!(
+                "{}/../trust-runtime/tests/fixtures/bounded-c/{name}/program.stbc",
+                env!("CARGO_MANIFEST_DIR")
+            );
+            let bytes = std::fs::read(&path).expect("the corpus program reads");
+            let p = PreparedModule::from_bytes(&bytes, PreparationLimits::default())
+                .expect("the corpus program prepares");
+            let vm = &p.vm;
+            let tables = [
+                ("compact code", vm.compact.len(), vm.compact.capacity()),
+                ("types", vm.types.entries.len(), vm.types.entries.capacity()),
+                (
+                    "I/O bindings",
+                    p.io_bindings.len(),
+                    p.io_bindings.capacity(),
+                ),
+                (
+                    "block members",
+                    p.builtin_members.len(),
+                    p.builtin_members.capacity(),
+                ),
+                ("call plans", p.call_plans.len(), p.call_plans.capacity()),
+            ];
+            for (at, (table, len, capacity)) in tables.into_iter().enumerate() {
+                assert_eq!(capacity, len, "{name}: {table}");
+                filled[at] += len;
+            }
+            for spec in vm.native_symbol_specs.iter() {
+                if let VmNativeSymbolSpec::Parsed { arg_specs, .. } = spec {
+                    assert_eq!(
+                        arg_specs.capacity(),
+                        arg_specs.len(),
+                        "{name}: a native call's arguments"
+                    );
+                    filled[5] += arg_specs.len();
+                }
+            }
+        }
+        assert!(
+            filled.iter().all(|&entries| entries > 0),
+            "every table has entries in some program: {filled:?}"
+        );
+    }
+}
+
+#[cfg(test)]
 mod record_probe {
     extern crate std;
 
@@ -335,5 +401,104 @@ mod record_probe {
         for (name, bytes) in tables {
             std::println!("table probe:   {name}: {bytes} B");
         }
+        // Length against capacity of the vectors the figure counts at their capacity.
+        let fill = [
+            ("vm.code", vm.code.len(), vm.code.capacity()),
+            ("vm.refs", vm.refs.len(), vm.refs.capacity()),
+            ("vm.consts", vm.consts.len(), vm.consts.capacity()),
+            ("vm.compact", vm.compact.len(), vm.compact.capacity()),
+            ("vm.ref_types", vm.ref_types.len(), vm.ref_types.capacity()),
+            (
+                "vm.types.entries",
+                vm.types.entries.len(),
+                vm.types.entries.capacity(),
+            ),
+            (
+                "vm.types.offsets",
+                vm.types.offsets.len(),
+                vm.types.offsets.capacity(),
+            ),
+            (
+                "layout.entries",
+                p.layout.entries.len(),
+                p.layout.entries.capacity(),
+            ),
+            (
+                "initializers.entries",
+                p.initializers.entries.len(),
+                p.initializers.entries.capacity(),
+            ),
+            ("io_bindings", p.io_bindings.len(), p.io_bindings.capacity()),
+            ("io_leaves", p.io_leaves.len(), p.io_leaves.capacity()),
+            (
+                "builtin_members",
+                p.builtin_members.len(),
+                p.builtin_members.capacity(),
+            ),
+            ("call_plans", p.call_plans.len(), p.call_plans.capacity()),
+        ];
+        for (name, len, capacity) in fill {
+            std::println!("table probe: fill {name}: {len} of {capacity}");
+        }
+        for (pou, code) in &vm.compact {
+            std::println!(
+                "table probe: compact {pou}: ops {} of {}, slots {} of {}, blocks {} of {}, kinded {}",
+                code.ops.len(),
+                code.ops.capacity(),
+                code.slots.len(),
+                code.slots.capacity(),
+                code.blocks.len(),
+                code.blocks.capacity(),
+                code.kinded.is_some()
+            );
+        }
+        // The spare capacity of each table: its heap less that of its exact clone.
+        let spare = |name: &str, original: usize, exact: usize| {
+            std::println!(
+                "table probe: spare {name}: {} of {original} B",
+                original - exact
+            );
+        };
+        macro_rules! spare_of {
+            ($name:expr, $table:expr) => {{
+                let exact = $table.clone();
+                spare(
+                    $name,
+                    heap(&|count| count.of(&$table)),
+                    heap(&|count| count.of(&exact)),
+                );
+            }};
+        }
+        spare_of!("vm.code", vm.code);
+        spare_of!("vm.compact", vm.compact);
+        spare_of!("vm.strings", vm.strings);
+        spare_of!("vm.types", vm.types);
+        spare_of!("vm.refs", vm.refs);
+        spare_of!("vm.ref_types", vm.ref_types);
+        spare_of!("vm.consts", vm.consts);
+        spare_of!("vm.pou_by_id", vm.pou_by_id);
+        spare_of!("vm.pou_params", vm.pou_params);
+        spare_of!("vm.native_symbol_specs", vm.native_symbol_specs);
+        spare_of!("layout", p.layout);
+        spare_of!("initializers", p.initializers);
+        spare_of!("io_bindings", p.io_bindings);
+        spare_of!("builtin_members", p.builtin_members);
+        let types = p.layouts.type_layouts().to_vec();
+        spare(
+            "layouts.types",
+            heap(&|count| count.of(p.layouts.type_layouts())),
+            heap(&|count| count.of(types.as_slice())),
+        );
+        std::println!(
+            "table probe: sizes VmRef {} Value {} StorageDeclaration {} InitializerEntry {} \
+             TypeLayout {} BuiltinMembers {} CompactCode {}",
+            core::mem::size_of::<crate::vm::module::VmRef>(),
+            core::mem::size_of::<crate::value::Value>(),
+            core::mem::size_of::<crate::bytecode::StorageDeclaration>(),
+            core::mem::size_of::<crate::bytecode::InitializerEntry>(),
+            core::mem::size_of::<crate::memory::layout::TypeLayout>(),
+            core::mem::size_of::<super::super::builtin_members::BuiltinMembers>(),
+            core::mem::size_of::<crate::vm::compact::CompactCode>(),
+        );
     }
 }

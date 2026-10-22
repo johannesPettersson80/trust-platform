@@ -64,6 +64,8 @@ impl PreparedModule {
             })
             .collect();
         tables.sort_unstable_by_key(|table| table.pou);
+        // The table holds exactly the standard blocks' entries (specification 34 MEM-14).
+        tables.shrink_to_fit();
         tables
     }
 

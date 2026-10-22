@@ -55,6 +55,11 @@ pub(super) fn bind_duration_slots(
                 let id =
                     u32::try_from(vm.types.entries.len()).map_err(|_| RuntimeError::Overflow)?;
                 budget.records::<TypeEntry>(1)?;
+                // The table grows by exactly this entry (specification 34 MEM-14).
+                vm.types
+                    .entries
+                    .try_reserve_exact(1)
+                    .map_err(|_| RuntimeError::PreparationLimit)?;
                 vm.types.entries.push(TypeEntry {
                     kind: TypeKind::Primitive,
                     name_idx: None,

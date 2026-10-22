@@ -193,7 +193,8 @@ pub fn resolve_native_symbol_specs(
 fn parse_native_symbol(symbol: &SmolStr) -> Result<(SmolStr, Vec<VmNativeArgSpec>), SmolStr> {
     let mut parts = symbol.split('|');
     let target = SmolStr::new(parts.next().unwrap_or_default());
-    let mut args = Vec::new();
+    // Room for exactly the argument tokens that follow the target (specification 34 MEM-14).
+    let mut args = Vec::with_capacity(symbol.matches('|').count());
     for raw in parts {
         if raw.is_empty() {
             return Err("empty CALL_NATIVE arg token".into());

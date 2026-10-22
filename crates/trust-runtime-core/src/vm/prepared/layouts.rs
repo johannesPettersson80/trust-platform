@@ -40,6 +40,14 @@ pub(crate) struct PreparedLayouts {
     charged: PreparationUsage,
 }
 
+/// The type layouts, for the table probe of a prepared program (MEM-14).
+#[cfg(test)]
+impl PreparedLayouts {
+    pub(super) fn type_layouts(&self) -> &[crate::memory::layout::TypeLayout] {
+        &self.types
+    }
+}
+
 /// Each POU's reference leaves, ascending, as a range of one list that every POU shares
 /// (specification 34 MEM-14: lists are ranges into shared arrays, not one vector per entry).
 #[derive(Debug, Default)]
