@@ -1,7 +1,8 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.3 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 and
-  0.3 make exact what the implementation of milestone M1 decided within that design, Appendix B),
+- **Status:** 0.4 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+  0.4 make exact what the implementation of milestones M1 and M2 decided within that design,
+  Appendix B),
   with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 with unsigned
   images accepted on an empty trust list (§5.11), interface calls by `match` (§6.4), the
@@ -508,11 +509,17 @@ once at a cold restart after `INIT` is copied in. The warm-init entry initialize
 variables only. Specification 03's rules on which initializers are eligible are unchanged. The
 kernel's restart behaviour is IEC 61131-1's as IEC §6.5.6 refers to it:
 
-- **Cold restart:** every area takes `INIT`; the cold-init entry runs; the retain area takes `INIT`
-  too (IEC §6.5.6.2).
-- **Warm restart:** the retain area is restored from the newest valid checkpoint (specification 11
-  §6.7, RETAIN-02) and the rest takes `INIT`; the warm-init entry runs.
+- **Cold restart:** every variable takes `INIT`, the retain area too (IEC §6.5.6.2); the cold-init
+  entry runs.
+- **Warm restart:** the retain area keeps its values, or, at a warm restart from the checkpoint, the
+  newest valid checkpoint is restored into it (§11; specification 11 §6.7, RETAIN-02); every other
+  variable takes `INIT`; the warm-init entry runs.
 - **Online change:** §12.
+
+At both restarts the process images keep their bytes; they take `INIT` once, when the program is
+constructed. After the initialization, every variable located at `%M` is published into the marker
+image, so that the first scan's sample finds the variable's starting or retained value there
+(specification 11 §6.7, "Directly represented variables at restart").
 
 The build computes the starting memory with the runtime's own initialization of the same program on
 the engineering computer (the declared initial values, the types' defaults, the function blocks'
@@ -824,8 +831,9 @@ the interpreter's heap of three regions held at most 64 KB in one block.
 The build computes what the program needs in RAM, replacing the device-side figure of specification
 34 MEM-12 (C1-21): the areas' lengths (§5.5), the stack bound (§8.5), the kernel's per-program
 bookkeeping (tasks, breakpoints: one bit per statement, Live Values queues, as the kernel version
-declares in a table of constants per device class), and the retain capture buffer (twice the retain
-area, specification 34 MEM-09). It is written to `MEMFIG` and `build.json`, shown by the tools before
+declares in a table of constants per device class), and the retain capture buffer: twice the
+largest checkpoint payload of the retain map (§11), the payload a capture fills and the one a save
+leaves it (specification 34 MEM-09), computed by the kernel's own bound from the image's tables. It is written to `MEMFIG` and `build.json`, shown by the tools before
 deploy, and checked by the device against the program memory it measures at boot (specification 34
 Appendix D.2 and D.5 define that measurement; it changes only by no longer subtracting a prepared
 program). `status` and `capabilities` report it as today, in the parts they have: the areas as the
@@ -844,15 +852,40 @@ On computers the task stack has guard pages. Until M5 the checks of §6.5 and §
 
 Specification 11 §6.7 and 34 §10 hold: the checkpoint format (STRN v3), its keys, the save
 triggers (periodic, stop, due), the checkpoint log in flash with its two slots, RETAIN-01 to
-RETAIN-05. What changes: the capture reads the retain area through the retain map (§5.10) instead
-of walking declarations, which is one `memcpy` per record and no decoding; the restore writes
-through the same map after checking each key's type against the type table; a key the new image
-does not declare is reported as `retain_orphan_dropped` as today; a declared key the checkpoint
-lacks takes `INIT`.
+RETAIN-05. A compiled program and the interpreter write the same payload for the same values, byte
+for byte, and each restores the other's checkpoint. What changes is how the kernel reaches the
+values:
 
-Until the retain map is read (milestone M2), a compiled program's retained variables keep their
-values in memory across a warm restart, from either source, and no checkpoint is written or read;
-`status` reports no retain capture.
+- **Capture.** The capture visits the retain map in its order and writes each variable from the
+  retain area through the type table (§5.8): a scalar as its tag and its bytes, a `STRING` as its
+  UTF-8 bytes, a `WSTRING` converted to UTF-8, an enumeration by its type and value names, an array
+  with its bounds, a structure with its type and member names, the bytes the codec writes for the
+  same value held as a value, without building it, so that a capture into the reserved payload
+  allocates nothing (specification 34 MEM-04). A variable whose type holds a function block
+  instance, an interface, a reference or a pointer is left out, as the interpreter leaves out a
+  value that holds an instance or a reference. The capture runs at the output sample of a scan in
+  which a save is due, after the loop's observers; a capture that fails, a non-finite `REAL` for
+  example, fails that scan before the outputs are driven. A stop captures and completes the
+  checkpoint before the resource reports Stopped.
+- **Restore.** The checkpoint is applied by name, without regard to case, to a copy of the retain
+  area, and every entry is checked against its variable's type before the area changes, with the
+  migration rules of specification 11 §6.7: a number widened within its family (signed, unsigned,
+  bit string), a `REAL` to an `LREAL`, a text cut to its capacity without splitting a character, an
+  enumeration of the same type, value and value name rebuilt with the declared spelling, an array of
+  the same bounds element by element, a structure member by member, where a member the saved value
+  lacks takes its starting value from `INIT` and a member the type lacks is dropped; a subrange
+  value outside its bounds is refused with its numbers. Each converted value is reported as
+  `retain_migration_applied`, a key the image does not declare as `retain_orphan_dropped`; a key
+  that names a variable declared without `RETAIN` leaves it alone and is not reported, as the
+  interpreter does. A retained variable the checkpoint does not name keeps the value it holds,
+  which after a power-on is its starting value. One refused value refuses the whole checkpoint and
+  changes nothing (RETAIN-02).
+- **Install.** The check of an install (specification 34 §11.2, decision G13) restores the newest
+  checkpoint into a fresh start of the new image in the same way, before anything is written, and
+  refuses the install with the restore's reason.
+
+The checkpoint's identity is the record's (specification 34 §5.1): the image's SHA-256 and its
+retain-schema identity (§10.1).
 
 ## 12. Online change
 
@@ -1022,3 +1055,4 @@ the runtime has errors of their own).
 | 0.1 | 22 October 2026 | First complete version, written after the vat pasteurizer did not fit the ESP32-C6 (160 KB needed, 51 KB available) and the owner asked for the state of the art, no spike and an exact specification. Approved by the owner the same day ("implement the checklist"). |
 | 0.2 | 22 October 2026 | Exact where milestone M1's implementation decided within the approved design: the generator reads trust-hir's recorded types and resolved symbols (§3); one module per CPU for every computer, its calling convention named (§4.4); the flags as they link (static PIE, `prolog-epilog` remarks, because `-stack-size-section` has no effect on stable rustc, §4.5, §8.5); table sections with a count, `CODE` at 64 bytes (§5.3); an entry per program body (§5.4); the type kinds listed (§5.8); strings rounded to even (§6.2); variables as cells behind shared references so that the generated crate needs no `unsafe` (§6.3); the context with the fault record in it and two kernel functions (§8.2); the fault codes listed (Appendix A). Measured: the reference workload's image for the C6 is 86 KB with 43 KB of code, and its memory figure 4,546 bytes (§10.4). No change of direction. |
 | 0.3 | 22 October 2026 | Exact where running the reference workload on the C6 decided within the approved design: the container keeps `TRSTA002` and holds an image as entry kind 3 at a 64-byte boundary, and the image's record comes from its tables (§10.1); the install check runs the kernel's checks (§10.2); the C6 copies the module into a 128 KiB program code region of RAM instead of running it from the flash cache, measured 0.063 ms average and 0.178 ms worst for the control task over an hour against 0.243 ms and 1.05 ms in place, a module too large for the region running in place (§10.3); the figure's parts in `status` (§10.4); the compiled cycle and the sampling grid, whose drift lost activations on every runtime and is corrected in specification 10 §4.3 (§8.7); retain held in memory until M2 (§11); `status`, `io.read` and refused Live Values writes until M3 (§13.3). |
+| 0.4 | 22 October 2026 | Exact where milestone M2's retain decided within the approved design: the capture writes the codec's bytes from the retain area through the type table, without building values, and leaves out a variable that holds an instance as the interpreter does; the restore applies specification 11 §6.7's migrations against the type table and gives a structure member the checkpoint lacks its starting value; a retained variable the checkpoint lacks keeps its value, as the interpreter's warm restart keeps it; the install check restores the newest checkpoint into the new image (§11); the process images are carried over a restart and the variables at `%M` published after it, as specification 11 §6.7 says (§6.7); the retain capture of the figure is twice the kernel's payload bound (§10.4). |

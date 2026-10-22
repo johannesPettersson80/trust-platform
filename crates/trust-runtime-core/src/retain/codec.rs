@@ -176,6 +176,25 @@ impl<'a> PayloadWriter<'a> {
         Ok(())
     }
 
+    /// Append one retained value whose name is the concatenation of `pieces` and whose tagged value
+    /// `encode` appends, for a value held in neither a `Value` nor cells: a compiled program writes
+    /// it from its retain area through its type table (specification 44 §11). `encode` must append
+    /// exactly the bytes [`entry`](Self::entry) writes for the same value.
+    ///
+    /// # Errors
+    ///
+    /// The error of `encode`; the payload then holds a partial entry, which the capture discards.
+    pub(crate) fn entry_with(
+        &mut self,
+        pieces: &[&str],
+        encode: impl FnOnce(&mut Vec<u8>) -> Result<(), RuntimeError>,
+    ) -> Result<(), RuntimeError> {
+        self.encode_name_pieces(pieces);
+        encode(self.out)?;
+        self.count += 1;
+        Ok(())
+    }
+
     /// Write an entry name given as pieces: the length of all of them, then each piece.
     fn encode_name_pieces(&mut self, pieces: &[&str]) {
         let length: usize = pieces.iter().map(|piece| piece.len()).sum();
@@ -500,7 +519,11 @@ fn encode_value(out: &mut Vec<u8>, value: &Value) -> Result<(), RuntimeError> {
             out.extend_from_slice(&v.to_le_bytes());
         }
         Value::Array(array) => {
-            encode_array_header(out, array.elements().len(), array.dimensions());
+            encode_array_header(
+                out,
+                array.elements().len(),
+                array.dimensions().iter().copied(),
+            );
             for element in array.elements() {
                 encode_value(out, element)?;
             }
@@ -546,13 +569,17 @@ fn encode_value(out: &mut Vec<u8>, value: &Value) -> Result<(), RuntimeError> {
 }
 
 /// The marker that ends a structure value without a physical checkpoint.
-const NO_PHYSICAL_CHECKPOINT: u8 = 0;
+pub(crate) const NO_PHYSICAL_CHECKPOINT: u8 = 0;
 /// The marker that precedes a structure value's physical checkpoint.
 const PHYSICAL_CHECKPOINT: u8 = 1;
 
 /// Write the header of an array of `elements` elements within `dimensions`: its tag, its element count,
 /// its dimension count and the inclusive bounds of each dimension. The elements follow.
-fn encode_array_header(out: &mut Vec<u8>, elements: usize, dimensions: &[(i64, i64)]) {
+pub(crate) fn encode_array_header(
+    out: &mut Vec<u8>,
+    elements: usize,
+    dimensions: impl ExactSizeIterator<Item = (i64, i64)>,
+) {
     out.push(ValueTag::Array as u8);
     out.extend_from_slice(&(elements as u32).to_le_bytes());
     out.extend_from_slice(&(dimensions.len() as u32).to_le_bytes());
@@ -564,14 +591,19 @@ fn encode_array_header(out: &mut Vec<u8>, elements: usize, dimensions: &[(i64, i
 
 /// Write the header of a structure of `members` members: its tag, its type name and its member count.
 /// Each member's name and value follow, then the marker for its physical checkpoint.
-fn encode_struct_header(out: &mut Vec<u8>, type_name: &str, members: usize) {
+pub(crate) fn encode_struct_header(out: &mut Vec<u8>, type_name: &str, members: usize) {
     out.push(ValueTag::Struct as u8);
     encode_string(out, type_name);
     out.extend_from_slice(&(members as u32).to_le_bytes());
 }
 
 /// Write an enumeration value: its tag, its type name, its variant name and its numeric value.
-fn encode_enumeration(out: &mut Vec<u8>, type_name: &str, variant_name: &str, numeric: i64) {
+pub(crate) fn encode_enumeration(
+    out: &mut Vec<u8>,
+    type_name: &str,
+    variant_name: &str,
+    numeric: i64,
+) {
     out.push(ValueTag::Enum as u8);
     encode_string(out, type_name);
     encode_string(out, variant_name);

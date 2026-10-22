@@ -14,11 +14,12 @@ use trust_plc_abi as abi;
 use trust_runtime_core::io_address::IoSize;
 use trust_runtime_core::memory::IoArea;
 use trust_runtime_core::native::image::{
-    type_kind, AreaRecord, EntryKind, EntryRecord, FileRecord, ImageWriter, IoBindRecord,
+    type_kind, AreaRecord, EntryKind, EntryRecord, FileRecord, Image, ImageWriter, IoBindRecord,
     MemberDetail, MemoryFigure, Record, RetainRecord, SectionId, StmtRecord, StringPool,
     SymbolRecord, TaskRecord, TypeRecord, AREA_HAS_INIT, AREA_RETAINED, NONE, SYMBOL_CONSTANT,
     SYMBOL_INSTANCE, SYMBOL_PROGRAM, SYMBOL_RETAINED, TABLE_PREFIX_BYTES,
 };
+use trust_runtime_core::native::retain::payload_bound;
 
 /// A symbol before the table is sorted.
 struct Pending {
@@ -606,21 +607,39 @@ pub(super) fn write(
     types(writer, &mut pool, model);
     statements(writer, &mut pool, inputs);
 
+    writer.section(SectionId::Strings, pool.into_bytes());
     let area_bytes: u64 = area_records.iter().map(|area| area.length).sum();
-    let retain_capture = 2 * u64::from(model.area_r.size);
     let bookkeeping =
         64 * (model.tasks.len() as u64) + (inputs.ids.order.len() as u64).div_ceil(8) + 256;
-    let figure = MemoryFigure {
+    let mut figure = MemoryFigure {
         areas: area_bytes,
         stack: inputs.stack,
         bookkeeping,
-        retain_capture,
-        total: area_bytes + inputs.stack + bookkeeping + retain_capture,
+        retain_capture: 0,
+        total: area_bytes + inputs.stack + bookkeeping,
         code: inputs.module.code.code.len() as u64,
         rodata: inputs.module.code.rodata.len() as u64,
         init: init_bytes,
     };
     writer.section(SectionId::MemFig, figure.bytes().to_vec());
-    writer.section(SectionId::Strings, pool.into_bytes());
+    // The capture of the retained values holds the largest checkpoint payload twice, the one it
+    // fills and the one a save leaves it (specification 34 MEM-09). The payload's bound is the
+    // kernel's, read from the tables as a device reads them.
+    let bound = retain_capture(writer)?;
+    figure.retain_capture = 2 * bound;
+    figure.total += figure.retain_capture;
+    writer.section(SectionId::MemFig, figure.bytes().to_vec());
     Ok(figure)
+}
+
+/// The largest checkpoint payload of the image `writer` holds, by the kernel's bound
+/// (specification 44 §11).
+fn retain_capture(writer: &ImageWriter) -> Result<u64, NativeError> {
+    let image = writer
+        .clone()
+        .finish()
+        .map_err(|error| NativeError::Image(format!("{error:?}")))?;
+    let parsed = Image::parse(&image).map_err(|error| NativeError::Image(error.to_string()))?;
+    let bound = payload_bound(&parsed).map_err(|error| NativeError::Image(error.to_string()))?;
+    Ok(u64::try_from(bound).unwrap_or(u64::MAX))
 }

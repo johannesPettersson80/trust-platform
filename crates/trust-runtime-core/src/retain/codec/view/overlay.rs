@@ -103,7 +103,7 @@ fn encode_node(
             if dims.len() > MOST_DIMENSIONS {
                 return Err(RuntimeError::TypeMismatch);
             }
-            encode_array_header(out, count, dims);
+            encode_array_header(out, count, dims.iter().copied());
             let mut indices = [0i64; MOST_DIMENSIONS];
             for flat in 0..count {
                 // The element's subscripts, the last dimension running fastest, as decoding counts.

@@ -55,7 +55,7 @@ const IMAGE_BYTES: usize = 256;
 const PROGRAM_BUDGET: usize = 64;
 
 /// The STM32F407's checkpoint slots: one 16 KiB erase unit each (specification 34 §10.1).
-fn f407() -> FlashGeometry {
+pub(super) fn f407() -> FlashGeometry {
     FlashGeometry::new(4, 16_384, 16_384).expect("the STM32F407's checkpoint geometry")
 }
 
@@ -76,7 +76,7 @@ struct RamState {
 /// and programming ANDs whole units, as the real flash does. A test can make every later program
 /// and erase fail, as a power cut does.
 #[derive(Clone)]
-struct RamFlash {
+pub(super) struct RamFlash {
     geometry: FlashGeometry,
     state: Rc<RefCell<RamState>>,
     /// True between a scan's input read and its output drive; the flash counts a program or erase
@@ -86,7 +86,7 @@ struct RamFlash {
 
 impl RamFlash {
     /// A blank flash of `geometry`.
-    fn new(geometry: FlashGeometry) -> Self {
+    pub(super) fn new(geometry: FlashGeometry) -> Self {
         Self {
             geometry,
             state: Rc::new(RefCell::new(RamState {

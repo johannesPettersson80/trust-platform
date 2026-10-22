@@ -16,14 +16,18 @@ use trust_plc_abi::kernel::{Entry, InPlace};
 use trust_plc_abi::{Cx, FaultCode, FaultRecord, KernelApi, INTERFACE_VERSION};
 
 use super::image::{
-    AreaRecord, EntryKind, EntryRecord, Image, ImageError, IoBindRecord, SymbolRecord, Target,
-    TaskRecord, AREA_HAS_INIT, BACKGROUND_PRIORITY, NONE,
+    AreaRecord, EntryKind, EntryRecord, Image, ImageError, IoBindRecord, SectionId, SymbolRecord,
+    Target, TaskRecord, AREA_HAS_INIT, BACKGROUND_PRIORITY, NONE,
 };
+use super::retain::{self, AreaBytes};
 use crate::cycle::{sort_ready_tasks_by_priority, ReadyTask};
 use crate::error::{ExecutionLimitKind, RuntimeError};
 use crate::io_image::FlatImages;
+use crate::retain::capture::RetainCapture;
+use crate::retain::RetainSnapshot;
 use crate::task::{evaluate_task_readiness, TaskState};
 use crate::value::Duration;
+use crate::vm::RetainApplyEvent;
 
 /// Where a platform put an admitted module's code: the entry point at each offset of `CODE`
 /// (specification 44 §10.3).
@@ -211,6 +215,23 @@ impl Memory {
     fn base(&mut self) -> *mut u8 {
         self.words.as_mut_ptr().cast::<u8>()
     }
+
+    /// The area's bytes, copied.
+    fn bytes(&self) -> Vec<u8> {
+        let mut bytes = vec![0; self.len];
+        self.read(0, &mut bytes);
+        bytes
+    }
+}
+
+impl AreaBytes for Memory {
+    fn len(&self) -> usize {
+        self.len
+    }
+
+    fn read(&self, offset: usize, out: &mut [u8]) -> bool {
+        Memory::read(self, offset, out)
+    }
 }
 
 /// A variable bound to a process image address.
@@ -275,6 +296,14 @@ pub struct NativeProgram<'i, C> {
 /// The index of area `id` in a program's memory, 1 to 6.
 fn slot(id: u8) -> Option<usize> {
     usize::from(id).checked_sub(1).filter(|index| *index < 6)
+}
+
+/// The index of the retain area in a program's memory.
+const RETAIN: usize = trust_plc_abi::AREA_RETAIN as usize - 1;
+
+/// Whether area `id` is a process image: `%I`, `%Q` or `%M`.
+fn process_image(id: u32) -> bool {
+    (1..=3).contains(&id)
 }
 
 impl<'i, C: ModuleCode> NativeProgram<'i, C> {
@@ -353,7 +382,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         }
         let inputs = vec![0; lengths[0]];
         let outputs = vec![0; lengths[1]];
-        Ok(Self {
+        let mut program = Self {
             image,
             code,
             areas,
@@ -367,7 +396,13 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             budget: device.max_statements,
             inputs,
             outputs,
-        })
+        };
+        // The process images take their starting memory once; a restart carries them over
+        // (specification 11 §6.7, "Directly represented variables at restart").
+        program
+            .start_memory(process_image)
+            .map_err(|_| Refusal::Image(ImageError::Table(SectionId::Areas)))?;
+        Ok(program)
     }
 
     /// The image the program runs.
@@ -416,10 +451,10 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         }
     }
 
-    /// Copies the starting memory into the areas that have one, `retain` too when `with_retain`
-    /// (specification 44 §6.7, §7.4).
-    fn start_memory(&mut self, with_retain: bool) -> Result<(), RuntimeError> {
-        let init = self.image.section_bytes(super::image::SectionId::Init);
+    /// Copies the starting memory into the areas `starts` selects by their id (specification 44
+    /// §6.7, §7.4).
+    fn start_memory(&mut self, starts: impl Fn(u32) -> bool) -> Result<(), RuntimeError> {
+        let init = self.image.section_bytes(SectionId::Init);
         let areas = self.image.table::<AreaRecord>().map_err(|error| {
             RuntimeError::InvalidBundle(SmolStr::new(alloc::format!("{error}")))
         })?;
@@ -427,7 +462,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             let Some(index) = u8::try_from(area.id).ok().and_then(slot) else {
                 continue;
             };
-            if area.id == u32::from(trust_plc_abi::AREA_RETAIN) && !with_retain {
+            if !starts(area.id) {
                 continue;
             }
             let memory = &mut self.areas[index];
@@ -441,34 +476,86 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         Ok(())
     }
 
-    /// A cold restart: every area takes its starting memory, the retained variables too, and the
-    /// cold-start initialization runs (specification 44 §6.7; IEC §6.5.6.2).
+    /// A cold restart: every variable takes its starting memory, the retained ones too, the
+    /// cold-start initialization runs, and the variables located at `%M` are published into the
+    /// marker image (specification 44 §6.7; IEC §6.5.6.2; specification 11 §6.7). The process
+    /// images are carried over.
     ///
     /// # Errors
     ///
     /// The fault of the initialization.
     pub fn cold_start(&mut self, now: Duration) -> Result<(), RuntimeError> {
-        self.start_memory(true)?;
+        self.start_memory(|id| !process_image(id))?;
         self.reset_task_timing(now);
-        match self.cold {
-            Some(entry) => self.call(entry, u32::MAX, now),
-            None => Ok(()),
+        if let Some(entry) = self.cold {
+            self.call(entry, u32::MAX, now)?;
         }
+        self.publish_markers();
+        Ok(())
     }
 
-    /// A warm restart: every area but the retained one takes its starting memory, the retained
-    /// variables keep what the caller restored, and the warm-start initialization runs.
+    /// A warm restart: every variable but the retained ones takes its starting memory, the
+    /// retained variables keep what they hold, the warm-start initialization runs, and the
+    /// variables located at `%M` are published into the marker image (IEC §6.5.6.1; specification
+    /// 11 §6.7). The process images are carried over.
     ///
     /// # Errors
     ///
     /// The fault of the initialization.
     pub fn warm_start(&mut self, now: Duration) -> Result<(), RuntimeError> {
-        self.start_memory(false)?;
+        let retain = u32::from(trust_plc_abi::AREA_RETAIN);
+        self.start_memory(|id| !process_image(id) && id != retain)?;
         self.reset_task_timing(now);
-        match self.warm {
-            Some(entry) => self.call(entry, u32::MAX, now),
-            None => Ok(()),
+        if let Some(entry) = self.warm {
+            self.call(entry, u32::MAX, now)?;
         }
+        self.publish_markers();
+        Ok(())
+    }
+
+    /// A warm restart from the checkpoint `snapshot`: the checkpoint is restored into the retained
+    /// variables by name, each value checked against the variable's type before any of them
+    /// changes, and then the warm restart runs (specification 44 §11; specification 11 §6.7). A
+    /// retained variable the checkpoint does not name keeps what it holds, which after a power-on
+    /// is its starting value. Returns the events of the restore.
+    ///
+    /// # Errors
+    ///
+    /// The refusal of a value, which changes nothing, or the fault of the initialization.
+    pub fn warm_start_from(
+        &mut self,
+        now: Duration,
+        snapshot: &RetainSnapshot,
+    ) -> Result<Vec<RetainApplyEvent>, RuntimeError> {
+        let current = self.areas[RETAIN].bytes();
+        let (staged, events) = retain::stage(&self.image, snapshot, &current)?;
+        self.areas[RETAIN].write(0, &staged);
+        self.warm_start(now)?;
+        Ok(events)
+    }
+
+    /// Refills `capture` with the checkpoint of the retained variables as they are now: each
+    /// variable of the retain map under its key, written from the retain area without building a
+    /// value, so that a capture into a reserved payload allocates nothing (specification 44 §11;
+    /// specification 34 MEM-04).
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::RetainStore`] for a value no checkpoint holds, such as a non-finite `REAL`;
+    /// the capture then holds no payload.
+    pub fn capture_retain(&self, capture: &mut RetainCapture) -> Result<(), RuntimeError> {
+        let area = &self.areas[RETAIN];
+        capture.refill(|payload| retain::fill(&self.image, area, payload))
+    }
+
+    /// The most bytes [`Self::capture_retain`] writes, which a capture reserves (specification 34
+    /// MEM-09).
+    ///
+    /// # Errors
+    ///
+    /// The error of [`retain::payload_bound`].
+    pub fn retain_payload_bound(&self) -> Result<usize, RuntimeError> {
+        retain::payload_bound(&self.image)
     }
 
     /// Every task counts its next activation from `now` (specification 10 §4).
@@ -507,35 +594,52 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         }
     }
 
+    /// Copies the bound variable of `binding` out to its output or marker image.
+    fn publish_binding(&mut self, binding: Binding) {
+        let image = usize::from(binding.image - 1);
+        let Some(area) = slot(binding.area) else {
+            return;
+        };
+        if binding.width == 0 {
+            let mut value = [0u8];
+            self.areas[area].read(binding.offset as usize, &mut value);
+            let mut byte = [0u8];
+            self.areas[image].read(binding.byte as usize, &mut byte);
+            let mask = 1u8 << binding.bit;
+            byte[0] = if value[0] != 0 {
+                byte[0] | mask
+            } else {
+                byte[0] & !mask
+            };
+            self.areas[image].write(binding.byte as usize, &byte);
+        } else {
+            let mut bytes = [0u8; 8];
+            let width = binding.width as usize;
+            self.areas[area].read(binding.offset as usize, &mut bytes[..width]);
+            self.areas[image].write(binding.byte as usize, &bytes[..width]);
+        }
+    }
+
+    /// Publishes the variables located at `%M` into the marker image, so that the first scan's
+    /// sample finds their starting or retained values there (specification 11 §6.7). Every other
+    /// byte of the image keeps its value.
+    fn publish_markers(&mut self) {
+        for index in 0..self.bindings.len() {
+            let binding = self.bindings[index];
+            if binding.image == 3 {
+                self.publish_binding(binding);
+            }
+        }
+    }
+
     /// Copies the bound variables out to the output and marker images after the tasks ran, and
     /// the output area to the output image.
     fn publish(&mut self) {
+        // By index: a scan allocates nothing (specification 34, "The allocation count").
         for index in 0..self.bindings.len() {
             let binding = self.bindings[index];
-            if binding.image == 1 {
-                continue;
-            }
-            let image = usize::from(binding.image - 1);
-            let Some(area) = slot(binding.area) else {
-                continue;
-            };
-            if binding.width == 0 {
-                let mut value = [0u8];
-                self.areas[area].read(binding.offset as usize, &mut value);
-                let mut byte = [0u8];
-                self.areas[image].read(binding.byte as usize, &mut byte);
-                let mask = 1u8 << binding.bit;
-                byte[0] = if value[0] != 0 {
-                    byte[0] | mask
-                } else {
-                    byte[0] & !mask
-                };
-                self.areas[image].write(binding.byte as usize, &byte);
-            } else {
-                let mut bytes = [0u8; 8];
-                let width = binding.width as usize;
-                self.areas[area].read(binding.offset as usize, &mut bytes[..width]);
-                self.areas[image].write(binding.byte as usize, &bytes[..width]);
+            if binding.image != 1 {
+                self.publish_binding(binding);
             }
         }
         // A safe-state write may have grown the output image past the program's outputs

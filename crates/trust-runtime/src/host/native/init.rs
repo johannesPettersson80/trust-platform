@@ -202,6 +202,24 @@ impl Writer<'_, '_, '_> {
                     .copy_from_slice(&text.as_bytes()[..end]);
                 Ok(())
             }
+            (Kind::WStr(capacity), Value::WString(text)) => {
+                // At most `capacity` UTF-16 code units, never half of a pair (specification 10
+                // §2.3.1).
+                let end =
+                    trust_runtime_core::value::string_capacity_cut(text, true, *capacity as usize)
+                        .unwrap_or(text.len());
+                let units: Vec<u8> = text[..end]
+                    .encode_utf16()
+                    .flat_map(u16::to_le_bytes)
+                    .collect();
+                let length = u16::try_from(units.len() / 2).unwrap_or(u16::MAX);
+                put(bytes, &length.to_le_bytes())?;
+                bytes
+                    .get_mut(offset + 2..offset + 2 + units.len())
+                    .ok_or_else(|| NativeError::Compile("a starting text outside its area".into()))?
+                    .copy_from_slice(&units);
+                Ok(())
+            }
             (Kind::Array { elem, .. }, Value::Array(array)) => {
                 let size = self.model.types.info(*elem).size as usize;
                 for (index, element) in array.elements().iter().enumerate() {

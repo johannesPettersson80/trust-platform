@@ -117,14 +117,29 @@ impl RetainStore {
     /// The [`RuntimeError::RetainStore`] of a save that did not begin, or of one an earlier step
     /// latched: the caller fails this scan with it before physical outputs.
     pub fn capture(&mut self, access: &mut CycleAccess<'_, '_>) -> Result<(), RuntimeError> {
+        let now = access.logical_time();
+        self.capture_with(now, |capture| access.capture_retain(capture))
+    }
+
+    /// [`capture`](Self::capture) for a program that refills the capture itself with `fill`, at the
+    /// scan's logical time `now`: a compiled program writes its retained values from its retain area
+    /// (specification 44 §11).
+    ///
+    /// # Errors
+    ///
+    /// As [`capture`](Self::capture), and the error of `fill`.
+    pub fn capture_with(
+        &mut self,
+        now: Duration,
+        fill: impl FnOnce(&mut RetainCapture) -> Result<(), RuntimeError>,
+    ) -> Result<(), RuntimeError> {
         let Some(persister) = self.persister.as_mut() else {
             return Ok(());
         };
-        let now = access.logical_time();
         // The values are captured only for a save the persister starts: a due save while no
         // checkpoint is being written (specification 34 §10; checklist P1-6).
         if persister.takes_capture(&self.capture, now) {
-            access.capture_retain(&mut self.capture)?;
+            fill(&mut self.capture)?;
         }
         self.capture.mark_dirty();
         // A refused offer latches the failure it returns, which is taken here, once; a failure
@@ -161,11 +176,25 @@ impl RetainStore {
     /// The [`RuntimeError::RetainStore`] of a save that did not complete; the newest committed
     /// checkpoint stays readable.
     pub fn save(&mut self, state: &mut RuntimeState<'_>) -> Result<(), RuntimeError> {
+        let now = state.current_time();
+        self.save_with(now, |capture| state.capture_retain(capture))
+    }
+
+    /// [`save`](Self::save) for a program that refills the capture itself with `fill`, at the
+    /// logical time `now` of its last scan (specification 44 §11).
+    ///
+    /// # Errors
+    ///
+    /// As [`save`](Self::save), and the error of `fill`.
+    pub fn save_with(
+        &mut self,
+        now: Duration,
+        fill: impl FnOnce(&mut RetainCapture) -> Result<(), RuntimeError>,
+    ) -> Result<(), RuntimeError> {
         let Some(persister) = self.persister.as_mut() else {
             return Ok(());
         };
-        state.capture_retain(&mut self.capture)?;
-        let now = state.current_time();
+        fill(&mut self.capture)?;
         let finish = persister.finish(&mut self.capture, now);
         if let Some(error) = persister.take_failure() {
             return Err(error);

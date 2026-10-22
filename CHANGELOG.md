@@ -18,8 +18,15 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   its program slot and runs its code from a 128 KiB region of its RAM, through the same program
   store, install, `status`, `tasks.stats` and `io.read` as today; the pasteurizer's control task
   takes about 0.06 ms there, 0.18 ms at worst over an hour, and its 86 KB image installs over USB.
-  Retained values, online change, the debugger and Live Values writes of a compiled program follow
-  (specification 44 M2, M3).
+  A compiled program keeps its `RETAIN` variables across a power cut as an interpreted one does:
+  the ESP32-C6 saves them into its checkpoint log in the same format, byte for byte, restores them
+  at a warm start with the same conversions, and checks at an install that the new program accepts
+  them. Online change, the debugger and Live Values writes of a compiled program follow
+  (specification 44 M3).
+- Fixed: a compiled program's variable located at `%M` took the marker image's 0 at its first scan
+  instead of its initial value, and a restart cleared the process images; the variable's value is
+  now published into the marker image at every start, and the images are carried over a restart,
+  as specification 11 §6.7 says.
 - Changed: an install keeps one copy of the uploaded container while it commits, not two, so a chip
   installs a program twice as large from the same heap.
 - Fixed: a periodic task lost activations. The resource paced each cycle one interval after the

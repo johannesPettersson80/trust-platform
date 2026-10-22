@@ -210,30 +210,29 @@ pub fn install_check(
     }
 }
 
-impl<H: ProgramHardware, C> Esp32Loader<H, C> {
-    /// The checkpoint store of a program whose record keeps retained values, with the identity that its
-    /// checkpoints carry.
-    fn retain_config(
-        &mut self,
-        config: &Configuration,
-        identity: CheckpointIdentity,
-    ) -> Result<RetainConfig, String> {
-        let flash = self.hardware.checkpoint_flash()?;
-        // The largest payload one slot takes: a retained image is saved whole or not at all.
-        let image_bytes = usize::try_from(flash.geometry().max_payload_len()).map_err(|_| {
-            String::from("the checkpoint's largest payload exceeds the platform's address range")
-        })?;
-        Ok(RetainConfig {
-            mode: RetainMode::File,
-            store: CheckpointStore {
-                flash,
-                program_budget: CHECKPOINT_STEP_BYTES,
-            },
-            identity,
-            save_interval: config.retain_save_interval,
-            image_bytes,
-        })
-    }
+/// The checkpoint store of a program whose record keeps retained values, over the checkpoint flash of
+/// `hardware`, with the identity that its checkpoints carry: an interpreted program's and a compiled
+/// program's alike (specification 34 §10; specification 44 §11).
+pub(crate) fn retain_config<H: ProgramHardware>(
+    hardware: &mut H,
+    config: &Configuration,
+    identity: CheckpointIdentity,
+) -> Result<RetainConfig, String> {
+    let flash = hardware.checkpoint_flash()?;
+    // The largest payload one slot takes: a retained image is saved whole or not at all.
+    let image_bytes = usize::try_from(flash.geometry().max_payload_len()).map_err(|_| {
+        String::from("the checkpoint's largest payload exceeds the platform's address range")
+    })?;
+    Ok(RetainConfig {
+        mode: RetainMode::File,
+        store: CheckpointStore {
+            flash,
+            program_budget: CHECKPOINT_STEP_BYTES,
+        },
+        identity,
+        save_interval: config.retain_save_interval,
+        image_bytes,
+    })
 }
 
 impl<H, C, W> ProgramLoader<Platform<W>, ProgramCycle<C, H::Io>> for Esp32Loader<H, C>
@@ -301,7 +300,7 @@ where
         }
         platform.feed();
         let retain = if retains {
-            Some(self.retain_config(&config, identity)?)
+            Some(retain_config(&mut self.hardware, &config, identity)?)
         } else {
             None
         };
@@ -452,7 +451,7 @@ where
 
 /// The refusal of a program that cannot start: its checkpoint log cannot be opened when the record
 /// keeps retained values, and otherwise the program itself cannot be constructed.
-fn start_failure(retains: bool, error: &RuntimeError) -> String {
+pub(crate) fn start_failure(retains: bool, error: &RuntimeError) -> String {
     if retains {
         format!("the installed application's checkpoint cannot be opened: {error}")
     } else {

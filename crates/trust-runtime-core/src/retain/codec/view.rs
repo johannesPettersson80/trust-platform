@@ -167,7 +167,7 @@ fn encode_cells(
             dimensions,
             elements,
         } => {
-            encode_array_header(out, elements, dimensions);
+            encode_array_header(out, elements, dimensions.iter().copied());
             for ordinal in 0..elements {
                 let (element, element_type) = cells.child(range, type_id, ordinal)?;
                 encode_cells(out, cells, element, element_type, depth + 1)?;

@@ -93,6 +93,8 @@ pub use cycle::{resource_tasks, ResourceCycle, RetainSource, TaskDescriptor};
 pub use engine::EngineLiveValues;
 pub use hold::HoldHandle;
 pub use host::RunnerPlatform;
+#[cfg(feature = "native")]
+pub use install::check_image_retained_values;
 pub use install::{
     check_install, check_retained_values, newest_checkpoint, newest_checkpoint_payload_len,
 };

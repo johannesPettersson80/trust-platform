@@ -1704,6 +1704,15 @@
         "split_plan": "Keep representation and scalar sizing, date/time, reference access, partial access, defaults, string semantics and overlap layout/writers in their current focused owners. Split any individual file approaching 1000 lines by its existing semantic responsibility; preserve one portable value implementation and keep tests beside the contract they exercise."
       },
       {
+        "crate_name": "trust-runtime-core",
+        "module_name": "native",
+        "path": "crates/trust-runtime-core/src/native",
+        "owner": "runtime native execution",
+        "rationale": "Spec 44 groups the kernel's side of compiled programs: the program image's reader, writer and records, the deployment record of an image, the kernel's program (admission, areas, scan, bindings, faults), the Live Values bindings and the retained variables through the retain map. Each is a real child module with its tests beside it; the aggregate is not one large implementation file or a mixed owner.",
+        "review_date": "2026-10-22",
+        "split_plan": "Keep the image format in native/image.rs with its records and writer, the record in native/record.rs, the program in native/program.rs, the Live Values bindings in native/live.rs and the retained variables in native/retain.rs. Split any individual file approaching 1000 lines by its existing responsibility; the copy plan of an online change and the debugger's symbol access (milestone M3) get their own child modules."
+      },
+      {
         "crate_name": "trust-runtime",
         "module_name": "runtime",
         "path": "crates/trust-runtime/src/runtime",

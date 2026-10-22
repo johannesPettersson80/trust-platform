@@ -80,6 +80,39 @@ pub fn check_retained_values<F: CheckpointFlash + ?Sized>(
     warm_start(&prepared, &snapshot)
 }
 
+/// Checks that the retained values of the newest checkpoint in `checkpoints` restore into the
+/// compiled program image `admitted`, as its warm start after a power-on restores them, by name and
+/// against its type table (specification 44 §11; specification 11 §6.7.1). The checkpoint slots
+/// are only read. An image whose tables do not read is left to the kernel's checks that follow in
+/// the install, which refuse it with their own reason (specification 44 §10.2).
+///
+/// # Errors
+///
+/// A retained-value error when the newest checkpoint is damaged or its flash cannot be read, and the
+/// restore's own error, which names the retained value and its reason, when the image refuses a
+/// value.
+#[cfg(feature = "native")]
+pub fn check_image_retained_values<F: CheckpointFlash + ?Sized>(
+    checkpoints: &mut F,
+    admitted: &Admitted<'_>,
+) -> Result<(), RuntimeError> {
+    use trust_runtime_core::native::image::Image;
+
+    if admitted.record.configuration.retain_mode == RetainMode::None {
+        return Ok(());
+    }
+    let Some(image) = Image::parse(admitted.program)
+        .ok()
+        .filter(|image| image.check_tables().is_ok())
+    else {
+        return Ok(());
+    };
+    let Some(snapshot) = newest_checkpoint(checkpoints)? else {
+        return Ok(());
+    };
+    trust_runtime_core::native::retain::check(&image, &snapshot).map(drop)
+}
+
 /// The check of an install on a chip (specification 34 §11.2, decision G13): the program `admitted`
 /// is prepared with the limits that the heap allows now, and then [`check_retained_values`] runs on the
 /// module it prepared.

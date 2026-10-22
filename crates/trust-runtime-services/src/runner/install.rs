@@ -22,6 +22,8 @@
 
 mod retained;
 
+#[cfg(feature = "native")]
+pub use retained::check_image_retained_values;
 pub use retained::{
     check_install, check_retained_values, newest_checkpoint, newest_checkpoint_payload_len,
 };

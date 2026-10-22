@@ -71,6 +71,26 @@ impl ModuleCode for StandIn {
 /// An image of `MAIN` in a 10 ms task, its byte 1 bound to `%QX0.1`, whose body is at
 /// `body`, with memory figure `total` and stack bound `stack`.
 pub(crate) fn image(body: u32, total: u64, stack: u64, target: Target) -> Vec<u8> {
+    let out = IoBindRecord {
+        symbol: 2,
+        area: 2,
+        size: 0,
+        byte: 0,
+        bit: 1,
+        flags: 0,
+    };
+    image_with(body, total, stack, target, out, 0)
+}
+
+/// The image of [`image`] with its one binding `binding` and a marker image of `markers` bytes.
+fn image_with(
+    body: u32,
+    total: u64,
+    stack: u64,
+    target: Target,
+    binding: IoBindRecord,
+    markers: u64,
+) -> Vec<u8> {
     let mut strings = StringPool::new();
     let main = strings.add("MAIN");
     let count_name = strings.add("MAIN.COUNT");
@@ -109,7 +129,7 @@ pub(crate) fn image(body: u32, total: u64, stack: u64, target: Target) -> Vec<u8
         &[
             area(1, 0, 0),
             area(2, 1, 0),
-            area(3, 0, 0),
+            area(3, markers, 0),
             area(4, 0, 0),
             area(5, 0, 0),
             area(6, 8, AREA_HAS_INIT),
@@ -129,17 +149,7 @@ pub(crate) fn image(body: u32, total: u64, stack: u64, target: Target) -> Vec<u8
         }],
         &0u32.to_le_bytes(),
     );
-    writer.table(
-        &[IoBindRecord {
-            symbol: 2,
-            area: 2,
-            size: 0,
-            byte: 0,
-            bit: 1,
-            flags: 0,
-        }],
-        &[],
-    );
+    writer.table(&[binding], &[]);
     let symbol = |canonical, offset, size, flags, parent| SymbolRecord {
         canonical,
         display: canonical,
@@ -291,6 +301,43 @@ fn a_grown_output_image_still_takes_the_programs_outputs() {
     }
     // The count went 5, 6, 7: its lowest bit is `%QX0.1`.
     assert_eq!(program.outputs, [0b10, 0xA5]);
+}
+
+/// A variable located at `%M` is published into the marker image when the program starts, so the
+/// first scan's sample finds its starting value there, and a restart carries the rest of the image
+/// over (specification 11 §6.7, "Directly represented variables at restart"). Here `MAIN.COUNT`,
+/// starting at 5, is `%MB0`. Catches a start that leaves the marker image zero, which the first
+/// scan copied over the count (it counted 0, 1, ... instead of 5, 6, ...), and a restart that
+/// clears a marker byte no variable covers.
+#[test]
+fn a_start_publishes_the_marker_variables_and_keeps_the_image() {
+    let device = device();
+    let count_at_mb0 = IoBindRecord {
+        symbol: 1,
+        area: 3,
+        size: 1,
+        byte: 0,
+        bit: 0,
+        flags: 0,
+    };
+    let bytes = image_with(0, 100, 50, device.target, count_at_mb0, 2);
+    let image = admit(&bytes, &device).unwrap();
+    let mut program = NativeProgram::new(image, StandIn, &device, &WITHOUT_DEBUGGER).unwrap();
+    program.cold_start(Duration::ZERO).unwrap();
+    let mut markers = [0u8; 2];
+    assert!(program.read(3, 0, &mut markers));
+    assert_eq!(markers, [5, 0]);
+    // A byte a driver wrote, which no variable covers.
+    assert!(program.write(3, 1, &[7]));
+    program
+        .scan(Duration::from_nanos(10 * MS), &mut NoHooks)
+        .unwrap();
+    assert!(program.read(3, 0, &mut markers));
+    assert_eq!(markers, [6, 7]);
+    // The count is not retained: a warm restart gives it 5 again and publishes it; byte 1 stays.
+    program.warm_start(Duration::ZERO).unwrap();
+    assert!(program.read(3, 0, &mut markers));
+    assert_eq!(markers, [5, 7]);
 }
 
 /// A fault ends the scan with its runtime error and publishes nothing.

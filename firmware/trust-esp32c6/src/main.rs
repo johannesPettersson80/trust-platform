@@ -41,7 +41,9 @@ use core::fmt::Write;
 
 use smol_str::SmolStr;
 #[cfg(feature = "native")]
-use trust_platform_esp32::compiled_loader::{CompiledLoader, CompiledProgramCycle};
+use trust_platform_esp32::compiled_loader::{
+    compiled_install_check, CompiledLoader, CompiledProgramCycle,
+};
 use trust_platform_esp32::loader::{default_event_capacity, program_memory_bytes};
 #[cfg(not(feature = "native"))]
 use trust_platform_esp32::loader::{install_check, Esp32Loader};
@@ -60,8 +62,6 @@ use trust_runtime_core::deployment::ControlMode;
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, ProgramStore};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_services::chip::platform::status_settings;
-#[cfg(feature = "native")]
-use trust_runtime_services::installation::Admitted;
 #[cfg(not(feature = "native"))]
 use trust_runtime_services::runner::engine::DeviceMemory;
 use trust_runtime_services::runner::{EngineLiveValues, Runner};
@@ -179,17 +179,15 @@ fn main() -> ! {
             install_check(checkpoint_reader, device_memory, heap_room),
         )
     };
-    // A compiled program keeps no checkpoint yet (specification 44 §11, milestone M2), so an install
-    // has no retained values to check; the store's own check admits the image as the kernel does.
+    // A compiled program's install checks that the newest checkpoint restores into the new image
+    // through its retain map (specification 44 §11); the store's own check then admits the image as
+    // the kernel does.
     #[cfg(feature = "native")]
-    let (loader, retained_check) = {
-        drop(checkpoint_reader);
-        (
-            CompiledLoader::new(parts.hardware, ProgramCode, clock, heap_room)
-                .with_allocator_operations(allocator_operations),
-            |_: &Admitted<'_>| Ok::<(), trust_runtime_core::error::RuntimeError>(()),
-        )
-    };
+    let (loader, retained_check) = (
+        CompiledLoader::new(parts.hardware, ProgramCode, clock, heap_room)
+            .with_allocator_operations(allocator_operations),
+        compiled_install_check(checkpoint_reader),
+    );
 
     // The loop is built before any program (specification 34 STATE-08, Appendix D.2): its receive
     // buffer, its event store and its boxes are taken from the heap first, so that no program's blocks

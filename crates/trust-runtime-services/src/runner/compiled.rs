@@ -11,8 +11,12 @@
 //! overruns, start and end, the output sample and the cycle's end, in an engine scan's order,
 //! through [`CycleHooks::on_compiled_phase`].
 //!
-//! The retained values stay in the program's memory across a warm restart; their checkpoint comes
-//! with the retain map (specification 44 §11, milestone M2), so this cycle saves none.
+//! A cycle built with [`CompiledCycle::with_retain`] also holds the chip's checkpoint store, as an
+//! engine cycle does (specification 34 §10; specification 44 §11): the retained values are captured
+//! through the image's retain map after the observers saw the output sample, a pending checkpoint
+//! advances between scans, a stop completes it, and a warm restart from the checkpoint restores it
+//! by name. Without one, a stop saves nothing and a warm restart keeps the retained values the
+//! program holds in its memory.
 
 use alloc::vec::Vec;
 
@@ -23,13 +27,14 @@ use trust_runtime_core::memory::Generation;
 use trust_runtime_core::native::image::BACKGROUND_PRIORITY;
 use trust_runtime_core::native::program::{ModuleCode, NativeProgram, ScanHooks};
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, TimeSpan};
-use trust_runtime_core::retain::RestartMode;
+use trust_runtime_core::retain::{RestartMode, RetainSnapshot};
 use trust_runtime_core::value::Duration;
 use trust_runtime_core::vm::{CycleHooks, CyclePhase, MemoryFigure, RetainApplyEvent};
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
 use super::cycle::{ResourceCycle, RetainSource, TaskDescriptor};
 use super::engine::{CycleSettings, ProcessIo};
+use super::retain::{RetainConfig, RetainStore};
 use crate::metrics::ProgramMemory;
 use crate::status::IoDriverStatus;
 
@@ -56,6 +61,10 @@ pub struct CompiledCycle<'i, C, I, K> {
     operations: Option<fn() -> u32>,
     /// The allocator operations the last scan's program made.
     last_allocations: Option<u64>,
+    /// The checkpoint store of the retained values, when the program keeps them.
+    retain: Option<RetainStore>,
+    /// The logical time of the last scan, which a stop's checkpoint carries.
+    now: Duration,
 }
 
 impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode> CompiledCycle<'i, C, I, K> {
@@ -99,7 +108,24 @@ impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode> CompiledCycle<'i, C, I,
             fault: None,
             operations: None,
             last_allocations: None,
+            retain: None,
+            now: Duration::ZERO,
         })
+    }
+
+    /// This cycle with the checkpoint store of `retain` (specification 34 §10; specification 44
+    /// §11): the persister opens the log over the platform's flash, and the capture reserves the
+    /// program's largest retained payload, so that no capture grows it (specification 34 MEM-09).
+    ///
+    /// # Errors
+    ///
+    /// The [`RuntimeError`] of a checkpoint log that cannot be opened, of a retain map that does not
+    /// read, or of a heap without room for the capture.
+    pub fn with_retain(mut self, retain: RetainConfig) -> Result<Self, RuntimeError> {
+        let mut store = RetainStore::open(retain)?;
+        store.reserve(self.program.retain_payload_bound()?)?;
+        self.retain = Some(store);
+        Ok(self)
     }
 
     /// This cycle, which counts the allocator operations of each scan's program with
@@ -152,7 +178,8 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledC
 
     /// The image's memory figure (specification 44 §10.4) in the parts `status` reports: the areas
     /// as the persistent block, the stack bound as the activation stack and the kernel's bookkeeping
-    /// as the engine; the module's code is not part of the figure (specification 44 §10.3).
+    /// as the engine; the module's code is not part of the figure (specification 44 §10.3). The
+    /// capture of the retained values counts when the cycle has a store that persists them.
     fn program_memory(&self) -> Option<ProgramMemory> {
         let figure = self.program.image().memory_figure();
         let bytes = |value: u64| usize::try_from(value).unwrap_or(usize::MAX);
@@ -165,7 +192,7 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledC
                 engine: bytes(figure.bookkeeping),
                 retain_capture: bytes(figure.retain_capture),
             },
-            retains: false,
+            retains: self.retain.as_ref().is_some_and(RetainStore::persists),
         })
     }
 
@@ -178,6 +205,7 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledC
         if let Some(fault) = &self.fault {
             return Err(fault.clone());
         }
+        self.now = now;
         observer.on_compiled_phase(CyclePhase::CycleStart, now, &self.images)?;
         observer.on_compiled_phase(CyclePhase::BeforeInputSample, now, &self.images)?;
         self.io.read_inputs(&mut self.program.inputs)?;
@@ -210,6 +238,12 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledC
         }
         self.program.copy_images(&mut self.images);
         observer.on_compiled_phase(CyclePhase::BeforeOutputSample, now, &self.images)?;
+        // The retained values are captured and offered where an engine cycle captures them; a
+        // retain failure fails the scan before its outputs are driven (specification 11 §6.7).
+        if let Some(retain) = self.retain.as_mut() {
+            let program = &self.program;
+            retain.capture_with(now, |capture| program.capture_retain(capture))?;
+        }
         observer.on_compiled_phase(CyclePhase::AfterOutputSample, now, &self.images)?;
         self.io.write_outputs(&self.program.outputs)?;
         observer.on_compiled_phase(CyclePhase::CycleEnd, now, &self.images)
@@ -231,30 +265,58 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledC
         self.io.write_safe_outputs(&self.program.outputs)
     }
 
-    /// The checkpoint of the retained values comes with the retain map (specification 44 §11,
-    /// milestone M2); until then a stop saves nothing.
+    /// Captures the values the program holds and completes the pending checkpoint and the newest
+    /// image before the resource reports Stopped (specification 11 §6.7); a cycle without a
+    /// checkpoint store saves nothing.
     fn save_retain(&mut self) -> Result<(), RuntimeError> {
+        if let Some(retain) = self.retain.as_mut() {
+            let program = &self.program;
+            retain.save_with(self.now, |capture| program.capture_retain(capture))?;
+        }
         Ok(())
     }
 
-    /// A cold restart gives every area its starting memory; a warm restart keeps the retained
-    /// values the program holds in its memory (IEC 61131-3 §6.5.6.1), from either source, since no
-    /// checkpoint holds them yet. A restart that completes clears the latched fault and installs the
-    /// next generation.
+    /// Advances a pending checkpoint by at most one persister step, between scans (specification
+    /// 34 §10); a cycle without a checkpoint store does nothing.
+    fn step_retain(&mut self) {
+        if let Some(retain) = self.retain.as_mut() {
+            retain.step();
+        }
+    }
+
+    /// A cold restart gives every variable its starting memory. A warm restart from the checkpoint
+    /// restores the newest committed checkpoint by name, each value checked before any variable
+    /// changes (specification 44 §11); a cycle without a checkpoint store restores the empty
+    /// checkpoint, as an engine cycle does, and so keeps the retained values the program holds, as
+    /// a warm restart from memory does (IEC 61131-3 §6.5.6.1). A restart that completes clears the
+    /// latched fault and installs the next generation.
     fn restart(
         &mut self,
         mode: RestartMode,
-        _source: RetainSource,
+        source: RetainSource,
     ) -> Result<Vec<RetainApplyEvent>, RuntimeError> {
         let generation = self.generation.next().ok_or(RuntimeError::Overflow)?;
-        match mode {
-            RestartMode::Cold => self.program.cold_start(Duration::ZERO)?,
-            RestartMode::Warm => self.program.warm_start(Duration::ZERO)?,
-        }
+        let events = match (mode, source) {
+            (RestartMode::Cold, _) => {
+                self.program.cold_start(Duration::ZERO)?;
+                Vec::new()
+            }
+            (RestartMode::Warm, RetainSource::Checkpoint) => {
+                let snapshot = match self.retain.as_mut() {
+                    Some(retain) => retain.recover()?,
+                    None => RetainSnapshot::default(),
+                };
+                self.program.warm_start_from(Duration::ZERO, &snapshot)?
+            }
+            (RestartMode::Warm, RetainSource::Memory) => {
+                self.program.warm_start(Duration::ZERO)?;
+                Vec::new()
+            }
+        };
         self.program.copy_images(&mut self.images);
         self.generation = generation;
         self.fault = None;
-        Ok(Vec::new())
+        Ok(events)
     }
 
     fn reset_task_timing(&mut self, now: Duration) {
@@ -321,5 +383,7 @@ impl ScanHooks for TaskPhases<'_, '_> {
     }
 }
 
+#[cfg(test)]
+mod retain_tests;
 #[cfg(test)]
 mod tests;
