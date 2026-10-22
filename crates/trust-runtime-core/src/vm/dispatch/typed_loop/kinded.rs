@@ -82,7 +82,7 @@ enum Step {
 /// Run `kinded`, the kinded code of `body`'s compact code, from its first operation to the body's
 /// end, as the typed loop runs the compact code (`typed_loop::run`).
 pub(super) fn run<R: ExecutionContext>(
-    mut body: Body<'_, R>,
+    body: &mut Body<'_, R>,
     kinded: &KindedCode,
     operand_stack: &mut OperandStack,
     pc: &mut usize,
@@ -97,7 +97,7 @@ pub(super) fn run<R: ExecutionContext>(
     let mut aside = None;
     let mut next = 0;
     while let (Some(&op), Some(&kind)) = (code.ops.get(next), kinded.ops.get(next)) {
-        let (first, result) = match step(&mut body, &mut operands, &mut aside, kinded, op, kind)? {
+        let (first, result) = match step(body, &mut operands, &mut aside, kinded, op, kind)? {
             Step::Next => {
                 next += 1;
                 continue;

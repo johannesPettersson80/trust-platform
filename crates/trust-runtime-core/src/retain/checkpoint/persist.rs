@@ -289,8 +289,11 @@ impl<F: CheckpointFlash> CheckpointPersister<F> {
     }
 
     /// The failure of a write that did not commit, handed out once (specification 11 §6.7: a retain
-    /// failure fails the scan before physical outputs are committed).
+    /// failure fails the scan before physical outputs are committed). A scan asks every time, so
+    /// no failure is answered without taking the option, which moves the whole error's room
+    /// (checklist P1-6).
     pub fn take_failure(&mut self) -> Option<RuntimeError> {
+        self.failure.as_ref()?;
         self.failure.take()
     }
 

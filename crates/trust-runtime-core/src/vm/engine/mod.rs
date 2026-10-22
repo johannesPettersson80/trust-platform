@@ -542,14 +542,22 @@ impl<'a> EngineState<'a> {
             .reset(self.prepared.limits.max_work);
         self.data.resources.construction_bytes.set(0);
         self.data.resources.constructed_values = 0;
-        let result = self
-            .check_entry_deadline()
-            .and_then(|()| self.execute_cycle_inner(hooks));
-        if let Err(error) = &result {
-            self.latch_fault_record(error);
-            self.data.fault = Some(error.clone());
+        // A success is returned by itself and a failure as it is latched, so the scan's result is
+        // not moved: on a 32-bit chip it is as large as the error (checklist P1-6).
+        if let Err(error) = self.check_entry_deadline() {
+            return Err(self.latch_scan_failure(error));
         }
-        result
+        if let Err(error) = self.execute_cycle_inner(hooks) {
+            return Err(self.latch_scan_failure(error));
+        }
+        Ok(())
+    }
+
+    /// Latch `error`, which failed the scan, with its fault record, and return it.
+    fn latch_scan_failure(&mut self, error: RuntimeError) -> RuntimeError {
+        self.latch_fault_record(&error);
+        self.data.fault = Some(error.clone());
+        error
     }
 
     /// Latch the fixed-size record of a fault with the site of the failing instruction, the
@@ -575,10 +583,13 @@ impl<'a> EngineState<'a> {
         } else {
             EdgeInputTransaction::begin(self, module, pou, instance)?
         };
+        // Without an edge transaction the result is returned as it comes, not held and moved: on a
+        // 32-bit chip it is as large as the error (checklist P1-6).
+        let Some(edge) = edge else {
+            return self.execute_prepared_pou(module, pou, instance);
+        };
         let result = self.execute_prepared_pou(module, pou, instance);
-        if let Some(edge) = edge {
-            edge.restore(self);
-        }
+        edge.restore(self);
         result
     }
 
@@ -589,7 +600,10 @@ impl<'a> EngineState<'a> {
         instance: Option<InstanceId>,
     ) -> Result<(), RuntimeError> {
         let mut fault_site = None;
-        let result = super::dispatch::execute_pou_stack_for_engine_entry(
+        // Only the failing entry's site belongs to the fault: a later adapter, deadline or
+        // output failure must not inherit the last instruction a program reached. A success is
+        // returned by itself, so its result is not moved (checklist P1-6).
+        match super::dispatch::execute_pou_stack_for_engine_entry(
             self,
             module,
             pou,
@@ -597,11 +611,16 @@ impl<'a> EngineState<'a> {
             0,
             crate::vm::budget::ExecutionEntry::Nested,
             &mut fault_site,
-        );
-        // Only the failing entry's site belongs to the fault: a later adapter, deadline or
-        // output failure must not inherit the last instruction a program reached.
-        self.data.fault_site = if result.is_err() { fault_site } else { None };
-        result
+        ) {
+            Ok(()) => {
+                self.data.fault_site = None;
+                Ok(())
+            }
+            Err(error) => {
+                self.data.fault_site = fault_site;
+                Err(error)
+            }
+        }
     }
 }
 

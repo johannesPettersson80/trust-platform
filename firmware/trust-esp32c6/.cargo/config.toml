@@ -2,9 +2,10 @@
 target = "riscv32imac-unknown-none-elf"
 
 [target.riscv32imac-unknown-none-elf]
-# `memcpy` is the firmware's RAM copy (`src/memcpy.rs`, spec 34 D.2): this assignment follows
-# esp-rom-sys's, which gives it the ROM's address.
-rustflags = ["-C", "link-arg=-Tlinkall.x", "-C", "link-arg=--defsym=memcpy=trust_memcpy", "-C", "link-arg=-Map=trust-esp32c6.map", "-C", "llvm-args=-outliner-benefit-threshold=16"]
+# `memcpy`, `memset` and `memcmp` are the firmware's RAM routines (`src/memcpy.rs`, `src/memset.rs`,
+# `src/memcmp.rs`, spec 34 D.2): these assignments follow esp-rom-sys's, which give the ROM's
+# addresses.
+rustflags = ["-C", "link-arg=-Tlinkall.x", "-C", "link-arg=--defsym=memcpy=trust_memcpy", "-C", "link-arg=--defsym=memset=trust_memset", "-C", "link-arg=--defsym=memcmp=trust_memcmp", "-C", "link-arg=-Map=trust-esp32c6.map", "-C", "llvm-args=-outliner-benefit-threshold=16"]
 
 [env]
 # Scan-time code executes from HP SRAM through esp-hal's RAM-code linker hook (spec 34 D.2).

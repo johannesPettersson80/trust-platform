@@ -180,7 +180,27 @@ impl BlockPlaces<'_> {
     /// block does not declare, or whose place lies past the store's offsets.
     #[inline]
     pub(crate) fn member(self, member: Member) -> Option<(ByteRange, u32, Option<u32>)> {
-        let place = self.members[member as usize]?;
+        let place = self.members[member as usize].as_ref()?;
+        let (range, presence) = self.place(place)?;
+        Some((range, place.type_id, presence))
+    }
+
+    /// The bytes of `member` in the instance, the primitive of its leaf and the offset of its
+    /// presence byte, as [`Self::member`] gives them, for a member whose type is a scalar: a block's
+    /// BOOL and TIME members are read and written as their leaves' bytes (checklist P1-4). `None`
+    /// for a member of another type, and where [`Self::member`] gives none. The member's place is
+    /// looked up once and not copied (checklist P1-6).
+    #[inline]
+    pub(crate) fn leaf(self, member: Member) -> Option<(ByteRange, u16, Option<u32>)> {
+        let place = self.members[member as usize].as_ref()?;
+        let scalar = place.scalar?;
+        let (range, presence) = self.place(place)?;
+        Some((range, scalar, presence))
+    }
+
+    /// The bytes of the member at `place` in the instance and the offset of its presence byte.
+    #[inline]
+    fn place(self, place: &MemberPlace) -> Option<(ByteRange, Option<u32>)> {
         let start = self.bytes.start.checked_add(u32::from(place.offset))?;
         let bytes = u32::from(place.bytes);
         let presence = if place.presence {
@@ -194,20 +214,8 @@ impl BlockPlaces<'_> {
                 start,
                 bytes,
             },
-            place.type_id,
             presence,
         ))
-    }
-
-    /// The bytes of `member` in the instance, the primitive of its leaf and the offset of its
-    /// presence byte, as [`Self::member`] gives them, for a member whose type is a scalar: a block's
-    /// BOOL and TIME members are read and written as their leaves' bytes (checklist P1-4). `None`
-    /// for a member of another type, and where [`Self::member`] gives none.
-    #[inline]
-    pub(crate) fn leaf(self, member: Member) -> Option<(ByteRange, u16, Option<u32>)> {
-        let scalar = self.members[member as usize]?.scalar?;
-        let (range, _, presence) = self.member(member)?;
-        Some((range, scalar, presence))
     }
 }
 

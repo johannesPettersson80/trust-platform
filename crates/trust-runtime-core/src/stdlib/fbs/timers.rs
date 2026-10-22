@@ -40,22 +40,22 @@ fn duration_leaf<S: StoreAccess>(
     ctx: &BuiltinExecContext<'_, S>,
     member: Member,
 ) -> Option<(Duration, bool)> {
-    for (prim, is_ltime) in [
-        (TIME, Some(false)),
-        (LTIME, Some(true)),
-        (DURATION_SLOT, None),
-    ] {
-        match leaf_bytes(ctx, member, prim) {
-            Some(Some(bytes)) => {
-                let value = leaf_duration(bytes)?;
-                let is_ltime = is_ltime.unwrap_or(bytes.get(8) == Some(&LTIME_FAMILY));
-                return Some((value, is_ltime));
-            }
-            Some(None) => return Some((Duration::ZERO, false)),
-            None => {}
+    // The member's place is found once, and its leaf's primitive says how its bytes read.
+    let (range, prim, presence) = ctx.places?.leaf(member)?;
+    let is_ltime = match prim {
+        TIME => Some(false),
+        LTIME => Some(true),
+        DURATION_SLOT => None,
+        _ => return None,
+    };
+    match ctx.storage.read_place_bytes(range, presence)? {
+        Some(bytes) => {
+            let value = leaf_duration(bytes)?;
+            let is_ltime = is_ltime.unwrap_or(bytes.get(8) == Some(&LTIME_FAMILY));
+            Some((value, is_ltime))
         }
+        None => Some((Duration::ZERO, false)),
     }
-    None
 }
 
 /// Timer output and elapsed duration.

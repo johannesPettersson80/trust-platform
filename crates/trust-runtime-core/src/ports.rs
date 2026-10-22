@@ -91,9 +91,14 @@ impl TimeSpan {
         u64::try_from(time.as_nanos()).ok().map(Self)
     }
 
-    /// The span as a `Duration`.
+    /// The span as a `Duration`. A span under a second, as a scan's or a task's is, needs no
+    /// division into seconds, which a 32-bit chip makes in software (checklist P1-6).
     #[must_use]
+    #[allow(clippy::cast_possible_truncation)] // a span under a second fits 32 bits
     pub const fn as_duration(self) -> Duration {
+        if self.0 < 1_000_000_000 {
+            return Duration::new(0, self.0 as u32);
+        }
         Duration::from_nanos(self.0)
     }
 
@@ -465,6 +470,18 @@ mod tests {
             TimeSpan::new(Duration::MAX).as_duration(),
             Duration::new(18_446_744_073, 709_551_615)
         );
+    }
+
+    /// A span converts to the same `Duration` on both sides of a second, where its conversion stops
+    /// taking the short way (PORT-01): 999,999,999 ns is 0 s and 999,999,999 ns, 1,000,000,000 ns is
+    /// 1 s, and 1,000,000,001 ns is 1 s and 1 ns. Catches a short way whose nanoseconds reach a whole
+    /// second, or whose bound is off by one.
+    #[test]
+    fn a_span_converts_alike_on_both_sides_of_a_second() {
+        let nanos = |n| TimeSpan::new(Duration::from_nanos(n)).as_duration();
+        assert_eq!(nanos(999_999_999), Duration::new(0, 999_999_999));
+        assert_eq!(nanos(1_000_000_000), Duration::new(1, 0));
+        assert_eq!(nanos(1_000_000_001), Duration::new(1, 1));
     }
 
     /// Spans add and subtract without going past their range or below zero (PORT-01): 5 ms and

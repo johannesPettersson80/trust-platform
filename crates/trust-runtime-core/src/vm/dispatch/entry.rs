@@ -210,22 +210,30 @@ fn execute_pou_with_pump(
 /// Runs `root` in the context's execution buffers, which it takes for the entry and gives back
 /// cleared: a failure unwinds the frames the root left and writes the innermost failing
 /// instruction's site to `fault_site` (specification 34 MEM-05), and a success checks the deadline.
+/// A success returns its value by itself, so the `Result` of a success, which on a 32-bit chip is
+/// as large as the error, is not moved (checklist P1-6).
 fn pump<R: ExecutionContext, T>(
     runtime: &mut R,
     fault_site: &mut Option<FaultSite>,
     root: impl FnOnce(&mut R, &mut ExecutionBuffers) -> Result<T, RuntimeError>,
 ) -> Result<T, RuntimeError> {
     let mut buffers = runtime.take_execution_buffers();
-    let mut result = root(runtime, &mut buffers);
-    if result.is_err() {
-        #[cfg(feature = "register-ir")]
-        super::continuation::unwind_stack_frames(runtime, &mut buffers, &mut result);
-        #[cfg(not(feature = "register-ir"))]
-        session::unwind_stack_failure(runtime, &mut buffers, &mut result);
-        // The site the dispatcher recorded for the innermost failing instruction, read before
-        // clearing the buffers (specification 34 MEM-05).
-        *fault_site = buffers.fault_site;
-    }
+    let mut result = match root(runtime, &mut buffers) {
+        Ok(value) => {
+            buffers.clear();
+            runtime.recycle_execution_buffers(buffers);
+            runtime.check_execution_deadline()?;
+            return Ok(value);
+        }
+        Err(error) => Err(error),
+    };
+    #[cfg(feature = "register-ir")]
+    super::continuation::unwind_stack_frames(runtime, &mut buffers, &mut result);
+    #[cfg(not(feature = "register-ir"))]
+    session::unwind_stack_failure(runtime, &mut buffers, &mut result);
+    // The site the dispatcher recorded for the innermost failing instruction, read before
+    // clearing the buffers (specification 34 MEM-05).
+    *fault_site = buffers.fault_site;
     buffers.clear();
     runtime.recycle_execution_buffers(buffers);
     if result.is_ok() {

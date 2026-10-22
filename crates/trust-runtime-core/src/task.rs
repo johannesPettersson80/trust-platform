@@ -93,6 +93,37 @@ mod tests {
     }
 
     #[test]
+    fn a_task_due_within_its_second_interval_missed_none() {
+        // IEC 61131-3 periodic tasks (specification 10, task scheduling): a task of a 10 ms
+        // interval last run at 0 that is evaluated 1 ns before its second deadline, at
+        // 19.999999 ms, is due once and missed no interval, and its last deadline is 10 ms; at
+        // 20 ms it passed two deadlines, missed one, and its last deadline is 20 ms. Catches an
+        // interval count that is off by one at twice the interval.
+        let mut before = TaskState::new(Duration::ZERO);
+        let readiness = evaluate_task_readiness(
+            &mut before,
+            Duration::from_millis(10),
+            false,
+            Duration::from_nanos(19_999_999),
+        );
+        assert_eq!(readiness.due_at, Some(Duration::from_millis(10)));
+        assert_eq!(readiness.missed_intervals, 0);
+        assert_eq!(before.last_run, Duration::from_millis(10));
+
+        let mut at = TaskState::new(Duration::ZERO);
+        let readiness = evaluate_task_readiness(
+            &mut at,
+            Duration::from_millis(10),
+            false,
+            Duration::from_millis(20),
+        );
+        assert_eq!(readiness.due_at, Some(Duration::from_millis(10)));
+        assert_eq!(readiness.missed_intervals, 1);
+        assert_eq!(at.overrun_count, 1);
+        assert_eq!(at.last_run, Duration::from_millis(20));
+    }
+
+    #[test]
     fn task_readiness_tracks_event_edges_without_repeating_high_level() {
         let mut state = TaskState::new(Duration::ZERO);
 

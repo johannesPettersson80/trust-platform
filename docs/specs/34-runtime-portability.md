@@ -3905,7 +3905,12 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   destination from the two source words it straddles, read whole and shifted together, and a copy
   of more than 128 bytes goes on to the ROM's. Copies of 17 to 128 bytes at different offsets,
   mostly a program call's result of 59 to 79 bytes, took about 9.5% of the busy samples of `t2q`'s
-  cycle on the ROM's (firmware p2l, 22 October 2026). Interrupts
+  cycle on the ROM's (firmware p2l, 22 October 2026). For the same reason the firmware links
+  `memset` and `memcmp` to its own, in RAM (`src/memset.rs`, `src/memcmp.rs`): a fill of at most
+  128 bytes stores its whole words through a table of word stores and its other bytes one by one,
+  a comparison of at most 32 bytes compares byte by byte, and any longer one goes on to the ROM's
+  (`t2q` called the ROM's `memset` about three times a cycle and its `memcmp` about four times,
+  firmware p2r). Interrupts
   use the same stack on RISC-V, so the window includes them. The allocator serves three heap regions on the C6, tried in
   this order: the main heap, the boot loader's reclaimed RAM and the LP SRAM. A program's prepared module and its execution services
   are allocated on the heap when the program starts, and the program's cycle owns them: they are

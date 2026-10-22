@@ -98,7 +98,8 @@ pub(super) fn run(
     }
     // A body whose operands' kinds preparation fixed runs on their bits (checklist P1-9).
     if let Some(kinded_code) = code.kinded.as_ref() {
-        return kinded::run(body, kinded_code, operand_stack, pc, end);
+        // The body is lent, not moved: it is 56 bytes on a 32-bit chip (checklist P1-6).
+        return kinded::run(&mut body, kinded_code, operand_stack, pc, end);
     }
     let mut operands = Operands {
         cells: [Cell::Null; DEPTH],
@@ -214,7 +215,7 @@ impl<R: ExecutionContext> Body<'_, R> {
 
     /// Run the body on the compact loop from operation `first`, the operands on the operand stack.
     fn hand_over(
-        self,
+        &mut self,
         operand_stack: &mut OperandStack,
         pc: &mut usize,
         end: usize,

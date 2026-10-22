@@ -27,8 +27,10 @@
 
 extern crate alloc;
 
+mod memcmp;
 mod memcpy;
 mod memory;
+mod memset;
 
 use alloc::boxed::Box;
 use core::fmt::Write;

@@ -113,9 +113,11 @@ impl<'a> EngineState<'a> {
         write: impl FnOnce(&mut Self, &ByteRange) -> bool,
     ) -> Result<(), RuntimeError> {
         self.check_entry_deadline()?;
-        let range = self
-            .leaf_range_in(leaf, root)
-            .ok_or_else(|| RuntimeError::NullReference)?;
+        // A range taken out of an option without a `Result` around it: turned into one, it is
+        // copied in and out of the result at `opt-level = "z"` (checklist P1-6).
+        let Some(range) = self.leaf_range_in(leaf, root) else {
+            return Err(RuntimeError::NullReference);
+        };
         let held = self
             .data
             .store
