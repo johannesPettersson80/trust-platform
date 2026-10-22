@@ -44,6 +44,7 @@ this directory are explicitly identified and do not become IEC requirements.
 | [32-mqtt-io.md](32-mqtt-io.md) | MQTT communication, configuration, mapping, payload, security, worker, and broker-interoperability contracts | trust-runtime |
 | [33-openot-database-persistence.md](33-openot-database-persistence.md) | TOML-selected durable persistence of resolved OpenOT documents | trust-runtime |
 | [34-runtime-portability.md](34-runtime-portability.md) | Planned shared host/MCU engine, source-free initialization, bounded profiles, target qualification, and dependency modernization | trust-runtime-core, trust-runtime, future platform adapters |
+| [44-native-execution.md](44-native-execution.md) | Native execution: programs compiled on the engineering computer, the program image, the kernel, its memory, faults, retain, online change, debugging and the toolchain; supersedes 12 and the loading parts of 34 (0.1, approved) | trust-runtime (build), trust-runtime-core (kernel), trust-runtime-services, platforms, trust-debug, editors/vscode |
 | [sfc-profile.md](sfc-profile.md) | Reserved SFC keywords, visual-editor scope, textual SFC boundary | editors/vscode, trust-syntax |
 
 ## Standard Reference
