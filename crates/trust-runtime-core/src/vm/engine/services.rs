@@ -39,6 +39,14 @@ pub trait ExecutionServices {
         None
     }
 
+    /// The function that gives [`Self::allocator_operations`]'s count, when the platform counts with
+    /// one. The engine takes it when a scan begins and reads the count through it around every call
+    /// into a service, which spares each reading the call through the services (checklist P1-6).
+    /// `None` reads the count through [`Self::allocator_operations`].
+    fn allocator_operations_reader(&self) -> Option<fn() -> u64> {
+        None
+    }
+
     /// Observe an instruction boundary using read-only installed state.
     /// Hosted debugging/profiling adapters may publish snapshots or pause here.
     /// Writes still enter through the controller's checked management boundary.

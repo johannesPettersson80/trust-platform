@@ -1051,7 +1051,7 @@ impl ExecutionContext for EngineState<'_> {
             let before = self
                 .services
                 .debug_active()
-                .then(|| self.services.allocator_operations())
+                .then(|| self.allocator_operations())
                 .flatten();
             self.services
                 .on_statement(pou, pc, depth, &self.data.storage, self.data.now);
@@ -1091,7 +1091,7 @@ impl ExecutionContext for EngineState<'_> {
             let before = self
                 .services
                 .debug_active()
-                .then(|| self.services.allocator_operations())
+                .then(|| self.allocator_operations())
                 .flatten();
             let result = self.services.on_statement_with_frame_checked(
                 pou,

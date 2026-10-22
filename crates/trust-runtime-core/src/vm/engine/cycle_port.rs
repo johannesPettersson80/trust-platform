@@ -429,7 +429,7 @@ impl EngineState<'_> {
         if !hooks.observes(phase) {
             return Ok(());
         }
-        let before = self.services.allocator_operations();
+        let before = self.allocator_operations();
         let result = hooks.on_phase(
             phase,
             &mut CycleAccess {

@@ -612,7 +612,7 @@ impl<'a> EngineState<'a> {
             // Provisional output views are callback-scoped. Preserve the hosted
             // rollback domain: flat Q only, not M/hierarchical state effects.
             // Physical effects already completed by a driver cannot be rolled back.
-            let before = self.services.allocator_operations();
+            let before = self.allocator_operations();
             let sampled = hooks.on_phase(
                 CyclePhase::AfterOutputSample,
                 &mut CycleAccess {
@@ -625,7 +625,7 @@ impl<'a> EngineState<'a> {
             let result = sampled
                 .and_then(|()| self.check_entry_deadline())
                 .and_then(|()| {
-                    let before = self.services.allocator_operations();
+                    let before = self.allocator_operations();
                     let published = hooks.publish_outputs(&CycleAccess {
                         engine: self,
                         phase: CyclePhase::AfterOutputSample,

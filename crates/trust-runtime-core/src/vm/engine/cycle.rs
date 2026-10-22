@@ -136,7 +136,7 @@ impl EngineState<'_> {
         let name = &prepared.vm.strings[declaration.name_idx as usize];
         let observed = hooks.has_program_hooks();
         if observed {
-            let before = self.services.allocator_operations();
+            let before = self.allocator_operations();
             hooks.program_started(name);
             self.count_service_operations(before);
         }
@@ -151,7 +151,7 @@ impl EngineState<'_> {
             self.execute_pou(pou, Some(instance))
         })();
         if observed {
-            let before = self.services.allocator_operations();
+            let before = self.allocator_operations();
             hooks.program_finished(name);
             self.count_service_operations(before);
         }

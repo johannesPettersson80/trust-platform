@@ -160,6 +160,30 @@ fn programs() -> Vec<(String, Vec<u8>)> {
     programs
 }
 
+/// Prints the parts of the prepared program that `TRUST_FIGURE_PROBE` names, for a measurement of
+/// MEM-14's target (a prepared program at most its container's bytes):
+/// `TRUST_FIGURE_PROBE=<program.stbc> cargo test -p trust-runtime-core --test memory_figure
+/// figure_probe -- --ignored --nocapture`. The sizes are this host's.
+#[test]
+#[ignore = "a measurement probe"]
+fn figure_probe() {
+    let path = std::env::var("TRUST_FIGURE_PROBE").expect("TRUST_FIGURE_PROBE names a program");
+    let bytes = std::fs::read(&path).expect("the program reads");
+    let prepared = PreparedModule::from_bytes(&bytes, limits()).expect("prepares");
+    println!(
+        "figure probe: {path}: {} bytes of bytecode; prepared program {} bytes",
+        bytes.len(),
+        prepared.program_bytes()
+    );
+    for part in prepared
+        .program_parts()
+        .iter()
+        .filter(|part| part.bytes != 0)
+    {
+        println!("figure probe:   {}: {} B", part.name, part.bytes);
+    }
+}
+
 #[test]
 fn the_prepared_programs_figure_is_the_heap_it_holds() {
     // Spec 34 MEM-12 and MEM-14: preparation computes the bytes of heap the prepared program holds

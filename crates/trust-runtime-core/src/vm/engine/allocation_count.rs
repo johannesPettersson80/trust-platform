@@ -19,6 +19,9 @@ pub(super) struct ScanAllocations {
     /// The operations the engine made itself in the last scan; `None` when the platform does not
     /// count them.
     last: Option<u64>,
+    /// The function that gives the platform's count, taken when the scan began
+    /// ([`ExecutionServices::allocator_operations_reader`]).
+    reader: Option<fn() -> u64>,
 }
 
 impl ScanAllocations {
@@ -31,9 +34,20 @@ impl ScanAllocations {
 impl EngineState<'_> {
     /// Begin counting a scan.
     pub(super) fn begin_allocation_count(&mut self) {
+        self.data.resources.scan_allocations.reader = self.services.allocator_operations_reader();
+        let began = self.allocator_operations();
         let count = &mut self.data.resources.scan_allocations;
-        count.began = self.services.allocator_operations();
+        count.began = began;
         count.services = 0;
+    }
+
+    /// The platform's count of allocator operations, through the function the scan took when the
+    /// platform gives one, else through the services.
+    pub(super) fn allocator_operations(&self) -> Option<u64> {
+        match self.data.resources.scan_allocations.reader {
+            Some(read) => Some(read()),
+            None => self.services.allocator_operations(),
+        }
     }
 
     /// Count the operations since `before`, a reading taken before a call into a service, as the
@@ -43,7 +57,7 @@ impl EngineState<'_> {
         let Some(before) = before else {
             return;
         };
-        let Some(after) = self.services.allocator_operations() else {
+        let Some(after) = self.allocator_operations() else {
             return;
         };
         let count = &mut self.data.resources.scan_allocations;
@@ -52,7 +66,7 @@ impl EngineState<'_> {
 
     /// End counting a scan: the engine's operations are the scan's less the services'.
     pub(super) fn end_allocation_count(&mut self) {
-        let ended = self.services.allocator_operations();
+        let ended = self.allocator_operations();
         let count = &mut self.data.resources.scan_allocations;
         count.last = match (count.began.take(), ended) {
             (Some(began), Some(ended)) => {

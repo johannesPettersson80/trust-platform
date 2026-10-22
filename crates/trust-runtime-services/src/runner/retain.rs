@@ -134,7 +134,10 @@ impl RetainStore {
             persister.take_failure();
             return Err(error);
         }
-        persister.take_failure().map_or(Ok(()), Err)
+        if let Some(error) = persister.take_failure() {
+            return Err(error);
+        }
+        Ok(())
     }
 
     /// Advances a pending checkpoint by at most one log step, with the platform's per-step program

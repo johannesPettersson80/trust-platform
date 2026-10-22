@@ -18,7 +18,8 @@ use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::{self, Value};
 use trust_runtime_core::vm::{
-    CyclePhase, ExecutionServices, PreparationLimits, PreparedModule, VM_MAX_CALL_DEPTH,
+    CycleAccess, CycleHooks, CyclePhase, ExecutionServices, PreparationLimits, PreparedModule,
+    VM_MAX_CALL_DEPTH,
 };
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
@@ -150,6 +151,51 @@ fn plant_value(cycle: &EngineCycle<'_, TestClock, TestIo>, name: &str) -> Value 
         .get_instance_var(*plant, name)
         .cloned()
         .unwrap_or_else(|| panic!("Plant has {name}"))
+}
+
+/// Specification 34, "The allocation count": a device counts the allocator operations of the thread
+/// that runs its scans, and the engine tells its own from the services' by reading the count around
+/// every call into a service. Worked by hand: the count is 100 when the scan begins, and the
+/// observer, a service, makes 2 operations at the input sample, so the scan's count ends at 102, of
+/// which the engine made none (102 - 100 - 2). Catches an engine that counts a service's operations
+/// as its own, and a device whose count the engine does not read (no count at all).
+#[test]
+fn a_device_counts_the_services_operations_apart_from_the_engines() {
+    extern crate std;
+    std::thread_local! {
+        static OPERATIONS: core::cell::Cell<u64> = const { core::cell::Cell::new(100) };
+    }
+    fn operations() -> u64 {
+        OPERATIONS.with(core::cell::Cell::get)
+    }
+    /// An observer that makes two allocator operations at the input sample.
+    struct Allocating;
+    impl CycleHooks for Allocating {
+        fn on_phase(
+            &mut self,
+            phase: CyclePhase,
+            _access: &mut CycleAccess<'_, '_>,
+        ) -> Result<(), RuntimeError> {
+            if phase == CyclePhase::BeforeInputSample {
+                OPERATIONS.with(|count| count.set(count.get() + 2));
+            }
+            Ok(())
+        }
+    }
+    let clock = TestClock::default();
+    let prepared = PreparedModule::from_bytes(GPIO, device_limits(CHIP_MEMORY))
+        .expect("the program is admitted");
+    let services = DeviceServices::new(clock.clone()).with_allocator_operations(Some(operations));
+    let mut cycle =
+        EngineCycle::start(&prepared, &services, TestIo::new(clock.clone()), settings())
+            .expect("the program starts");
+    cycle.reset_task_timing(value::Duration::ZERO);
+    assert_eq!(cycle.allocator_operations(), Some(100));
+    cycle
+        .run_scan(logical(0), None, &mut Allocating)
+        .expect("the scan runs");
+    assert_eq!(cycle.allocator_operations(), Some(102));
+    assert_eq!(cycle.last_scan_allocations(), Some(0));
 }
 
 #[test]

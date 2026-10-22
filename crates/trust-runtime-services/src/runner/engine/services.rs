@@ -218,6 +218,10 @@ impl<C: MonotonicClock> ExecutionServices for DeviceServices<C> {
         self.allocator_operations.map(|operations| operations())
     }
 
+    fn allocator_operations_reader(&self) -> Option<fn() -> u64> {
+        self.allocator_operations
+    }
+
     /// The statement hook (specification 13, "Safe Points"). At the first instruction of a
     /// statement, found in the module's `LINE_TABLE`, the resource loop decides whether the
     /// scan stops: at a breakpoint, a pending pause or a step's boundary. If it does, the scan
