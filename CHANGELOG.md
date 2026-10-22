@@ -6,6 +6,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Added: `trust-runtime build --target <device or CPU>` compiles a project into native machine code
+  for that device, in a program image (`build/program.<target>.tpi`) with its memory figure in
+  `build.json` and, with `--emit-source`, the generated Rust (specification 44). The reference plant
+  program `examples/vat_pasteurizer` (batch control with a PID loop, twelve alarms, status texts, a
+  plant simulation) needs 4,546 bytes of RAM on the ESP32-C6 instead of about 160 KB, and on a
+  computer it computes the same values as the runtime, bit for bit, scan after scan. Building needs
+  the toolchain folder at `TRUST_TOOLCHAIN`; running an image on the devices follows.
 - Changed: a program takes less of a chip's memory. Each table of a prepared program holds exactly
   its entries, and a chip boots the program it has installed where it lies in its flash, without
   copying it into its heap: it reads the program's declarations and initializers there and keeps on

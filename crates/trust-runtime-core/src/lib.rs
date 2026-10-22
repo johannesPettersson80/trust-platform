@@ -48,6 +48,9 @@ pub mod io_address;
 pub mod io_image;
 /// Portable runtime memory identity types.
 pub mod memory;
+/// Compiled programs: the program image and the kernel's side of the module interface
+/// (specification 44).
+pub mod native;
 /// Portable numeric conversion helpers.
 pub mod numeric;
 /// Small platform contracts: clocks, the resource loop's wait and wake, and the control link.

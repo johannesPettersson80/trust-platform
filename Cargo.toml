@@ -13,6 +13,8 @@ members = [
     "crates/trust-ads-server",
     "crates/verification-cases",
     "crates/trust-runtime-core",
+    "crates/trust-plc-abi",
+    "crates/trust-plc-lib",
     "crates/trust-runtime-services",
     "crates/trust-platform-stm32",
     "crates/trust-platform-stm32f4",
@@ -125,6 +127,8 @@ trust-ads-core = { path = "crates/trust-ads-core" }
 trust-ads-server = { path = "crates/trust-ads-server" }
 verification-cases = { path = "crates/verification-cases" }
 trust-runtime-core = { path = "crates/trust-runtime-core", default-features = false }
+trust-plc-abi = { path = "crates/trust-plc-abi" }
+trust-plc-lib = { path = "crates/trust-plc-lib" }
 trust-runtime-services = { path = "crates/trust-runtime-services" }
 trust-board-fixture = { path = "crates/trust-board-fixture" }
 trust-platform-memory = { path = "crates/trust-platform-memory" }

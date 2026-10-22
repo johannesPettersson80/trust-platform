@@ -19,6 +19,11 @@ trust-tcads-native = { workspace = true, optional = true }
 trust-ads-server = { workspace = true, optional = true }
 trust-runtime-core = { workspace = true, default-features = false, features = ["std"] }
 trust-runtime-services = { workspace = true, optional = true }
+# Compiled programs (specification 44): the module interface and the program library whose layouts
+# the generator lays out against, and the reader of the modules the pinned compiler links.
+trust-plc-abi = { workspace = true, optional = true, features = ["host"] }
+trust-plc-lib = { workspace = true, optional = true }
+object = { version = "0.37.3", default-features = false, features = ["read_core", "elf", "std"], optional = true }
 # The one control client of the command line's runtime requests (`trust-runtime discover`).
 trust-runtime-client = { workspace = true, optional = true }
 trust-wasm-analysis = { workspace = true, optional = true }
@@ -168,6 +173,9 @@ full = [
     "dep:trust-ads-core",
     "dep:trust-tcads-native",
     "dep:trust-runtime-services",
+    "dep:trust-plc-abi",
+    "dep:trust-plc-lib",
+    "dep:object",
     "dep:trust-runtime-client",
     "dep:trust-wasm-analysis",
     "dep:smol_str",

@@ -162,7 +162,8 @@ CASE State OF
             State := VatState#Heating;
         END_IF;
     VatState#Heating:
-        IF Temperature.Value >= Active.PasteurTemp THEN
+        (* The loop approaches its setpoint from below, so the hold starts within its band. *)
+        IF Temperature.Value >= Active.PasteurTemp - HoldBand THEN
             State := VatState#Holding;
         END_IF;
     VatState#Holding:

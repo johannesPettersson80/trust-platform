@@ -5,7 +5,20 @@ use super::context::{
 };
 use crate::db::queries::name_from_node;
 
-pub(in crate::db) type ExpressionTypeMap = FxHashMap<(u32, u32), TypeId>;
+/// What type checking learns of a file's expressions, by text range: each expression's type and
+/// the symbol each name, member and call resolved to.
+#[derive(Default)]
+pub(in crate::db) struct ExpressionTypeMap {
+    pub(in crate::db) types: FxHashMap<(u32, u32), TypeId>,
+    pub(in crate::db) symbols: FxHashMap<(u32, u32), SymbolId>,
+}
+
+impl ExpressionTypeMap {
+    fn take_from(&mut self, checker: &mut TypeChecker<'_>) {
+        self.types.extend(checker.take_expression_types());
+        self.symbols.extend(checker.take_resolved_symbols());
+    }
+}
 
 pub(in crate::db) fn type_check_file(
     symbols: &mut SymbolTable,
@@ -130,7 +143,7 @@ fn type_check_pou_with_expression_types(
     checker.finish_return_checks(node);
 
     if let Some(expression_types) = expression_types {
-        expression_types.extend(checker.take_expression_types());
+        expression_types.take_from(&mut checker);
     }
 }
 
@@ -173,7 +186,7 @@ fn type_check_property_with_expression_types(
         checker.stmt().check_statement_list_with_labels(&stmt_list);
 
         if let Some(expression_types) = expression_types.as_mut() {
-            expression_types.extend(checker.take_expression_types());
+            expression_types.take_from(&mut checker);
         }
     }
 }
@@ -198,7 +211,7 @@ fn type_check_action_with_expression_types(
     }
 
     if let Some(expression_types) = expression_types {
-        expression_types.extend(checker.take_expression_types());
+        expression_types.take_from(&mut checker);
     }
 }
 

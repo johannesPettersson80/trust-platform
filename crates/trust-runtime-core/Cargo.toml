@@ -31,6 +31,8 @@ sha2 = { version = "0.11.0", default-features = false }
 smol_str.workspace = true
 thiserror.workspace = true
 trust-hir = { workspace = true, optional = true }
+# The interface of compiled programs, which the kernel fills and calls (specification 44 §8.2).
+trust-plc-abi = { workspace = true }
 
 [dev-dependencies]
 crc32fast.workspace = true

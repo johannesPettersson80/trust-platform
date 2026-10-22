@@ -26,6 +26,7 @@ impl<'a> TypeChecker<'a> {
             loop_stack: Vec::new(),
             label_scopes: Vec::new(),
             expression_types: FxHashMap::default(),
+            resolved_symbols: FxHashMap::default(),
         }
     }
 
@@ -175,6 +176,7 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
             .resolve_name_in_context_outcome(&name, node.text_range())
         {
             NameResolveOutcome::Resolved(resolved) => {
+                self.checker.record_resolved_symbol(node, resolved.id);
                 let Some(symbol) = self.checker.symbols.get(resolved.id) else {
                     return self.checker.legacy_type_from_outcome(
                         self.checker.unknown_type_outcome(node.text_range()),

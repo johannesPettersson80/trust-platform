@@ -26,6 +26,7 @@ pub use api::{
     bytecode_module_from_sources_with_paths, CompileSession,
 };
 pub use artifact::configured_resource;
+pub(crate) use build::lower_application_and_frontend;
 pub(crate) use build::LoweredApplication;
 #[cfg(test)]
 pub(crate) use build::{lower_application, lower_application_with_abi};
@@ -36,6 +37,7 @@ pub(crate) use io::{
     bind_value_ref_to_address, collect_direct_field_bindings, parse_field_address, FieldAddress,
     InstanceBinding,
 };
+pub(crate) use lower::{import_hir_type_to_runtime, literal_text};
 pub use parse::{
     parse_debug_expression, parse_debug_expression_with_abi, parse_debug_lvalue,
     parse_debug_lvalue_with_abi,
@@ -49,7 +51,7 @@ pub use types::{CompileError, CycleResult, SourceFile};
 
 pub(crate) use compiler::{
     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
-    GlobalInit, ProgramInstanceConfig, ResolvedAccess, WildcardRequirement,
+    ConfigModel, GlobalInit, ProgramInstanceConfig, ResolvedAccess, WildcardRequirement,
 };
 use compiler::{
     collect_edge_declarations, contains_textual_action, interface_type_name, lower_classes,

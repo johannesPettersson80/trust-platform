@@ -563,7 +563,7 @@ fn qualified_type_operand_name(node: &SyntaxNode) -> Option<String> {
     }
 }
 
-fn import_hir_type_to_runtime(
+pub(crate) fn import_hir_type_to_runtime(
     registry: &mut TypeRegistry,
     symbols: &SymbolTable,
     hir_type_id: TypeId,

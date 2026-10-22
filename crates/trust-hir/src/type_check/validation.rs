@@ -259,13 +259,18 @@ impl<'a> TypeChecker<'a> {
         resolved: Option<&ResolvedSymbol>,
     ) -> TypeId {
         if self.is_return_target(node) {
+            if let Some(current) = self.current_pou_symbol {
+                self.record_resolved_symbol(node, current);
+            }
             return self.current_function_return.unwrap_or(TypeId::VOID);
         }
         if let Some(resolved) = resolved
             && let Some(symbol) = self.symbols.get(resolved.id)
             && matches!(symbol.kind, SymbolKind::Property { .. })
         {
-            return symbol.type_id;
+            let type_id = symbol.type_id;
+            self.record_resolved_symbol(node, resolved.id);
+            return type_id;
         }
         self.expr().check_expression(node)
     }

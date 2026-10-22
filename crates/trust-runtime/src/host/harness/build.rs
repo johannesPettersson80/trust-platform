@@ -52,12 +52,14 @@ pub(crate) fn lower_application(
     lower_application_with_abi(sources, label_errors, crate::value::StorageAbi::default())
 }
 
-struct AnalyzedSourceFiles {
-    project: Project,
-    file_ids: Vec<FileId>,
+/// The checked semantic model of a project's sources: the project database, each source's file id
+/// and syntax tree, in source order.
+pub(crate) struct AnalyzedSourceFiles {
+    pub(crate) project: Project,
+    pub(crate) file_ids: Vec<FileId>,
     parses: Vec<parser::Parse>,
     declaration_catalogs: Vec<Arc<DeclarationCatalog>>,
-    syntaxes: Vec<SyntaxNode>,
+    pub(crate) syntaxes: Vec<SyntaxNode>,
 }
 
 fn analyze_source_files(
@@ -142,6 +144,17 @@ pub(crate) fn lower_application_with_abi(
     label_errors: bool,
     storage_abi: crate::value::StorageAbi,
 ) -> Result<LoweredApplication, CompileError> {
+    lower_application_and_frontend(sources, label_errors, storage_abi).map(|(lowered, _)| lowered)
+}
+
+/// The lowered declarations of `sources` together with the semantic model they were lowered from,
+/// which the compiled-program generator reads the statements' types and resolved names from
+/// (specification 44 §3).
+pub(crate) fn lower_application_and_frontend(
+    sources: &[SourceFile],
+    label_errors: bool,
+    storage_abi: crate::value::StorageAbi,
+) -> Result<(LoweredApplication, AnalyzedSourceFiles), CompileError> {
     let frontend = analyze_source_files(sources, label_errors, storage_abi)?;
 
     let mut builder = RuntimeBuilder::new();
@@ -176,15 +189,18 @@ pub(crate) fn lower_application_with_abi(
             path: sources[idx].path.clone(),
         })
         .collect();
-    Ok(LoweredApplication {
-        builder,
-        program_defs: lowered_programs.program_defs,
-        program_externals: lowered_programs.program_externals,
-        globals: lowered_programs.globals,
-        program_access: lowered_programs.program_access,
-        configuration: lowered_programs.configuration,
-        source_metadata,
-    })
+    Ok((
+        LoweredApplication {
+            builder,
+            program_defs: lowered_programs.program_defs,
+            program_externals: lowered_programs.program_externals,
+            globals: lowered_programs.globals,
+            program_access: lowered_programs.program_access,
+            configuration: lowered_programs.configuration,
+            source_metadata,
+        },
+        frontend,
+    ))
 }
 
 fn lower_project_types(

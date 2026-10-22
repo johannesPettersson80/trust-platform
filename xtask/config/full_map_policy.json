@@ -545,6 +545,38 @@
       "status": "allowed",
       "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
       "rationale": "The STM32U5A9 memory map gives the shared measurement crate its main-stack window, and its reset store implements the shared ResetStore; the memory crate holds the record codec and depends on no runtime or compiler."
+    },
+    {
+      "from": "trust-plc-lib",
+      "to": "trust-plc-abi",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "native execution (specification 44)",
+      "rationale": "The program library is compiled into every program module together with the kernel interface whose cells, strings and faults its functions use (specification 44 §6.9)."
+    },
+    {
+      "from": "trust-runtime-core",
+      "to": "trust-plc-abi",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "native execution (specification 44)",
+      "rationale": "The kernel fills the context of the module interface and calls a compiled program's entry points through it (specification 44 §8.2, §8.3); the interface crate has no dependencies and builds on every chip."
+    },
+    {
+      "from": "trust-runtime",
+      "to": "trust-plc-abi",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "native execution (specification 44)",
+      "rationale": "The build lays out compiled programs against the module interface and the computer's kernel maps a module's code executable through its host side (specification 44 §4, §10.3)."
+    },
+    {
+      "from": "trust-runtime",
+      "to": "trust-plc-lib",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "native execution (specification 44)",
+      "rationale": "The build lays out the standard function blocks at the program library's own offsets, which every module links (specification 44 §6.8)."
     }
   ],
   "forbidden_workspace_edges": [
@@ -3747,6 +3779,70 @@
         "invariant": "Selects an MMU entry (MMU_ITEM_INDEX) for the next content read or write; the index is below the MMU's 256 entries.",
         "test_evidence": "C6 bench of batch s2a: the chip boots, installs and restarts its programs from the mapped slot (speed and figure runs), and trust-runtime-services' loading tests of the mapped boot and the install slot.",
         "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/kernel.rs",
+        "line": 23,
+        "owner": "native execution (specification 44)",
+        "invariant": "Turning an address into an entry function is sound only for the address of an entry point of an admitted image in executable memory that stays mapped; the caller (the kernel's loader after the checks of specification 44 §10.2) promises it.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/kernel.rs",
+        "line": 26,
+        "owner": "native execution (specification 44)",
+        "invariant": "The address is a function of the module with the EntryFn signature, as the caller of from_address promises; a data pointer and a function pointer have the same size on every target of specification 44 §4.4.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/kernel.rs",
+        "line": 95,
+        "owner": "native execution (specification 44)",
+        "invariant": "A context's raw pointers name memory its owning cycle owns with it (areas, breakpoint bits, function table); the cycle moves them as one and a module reads them only during a call on the cycle's thread.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/kernel.rs",
+        "line": 155,
+        "owner": "native execution (specification 44)",
+        "invariant": "A computer kernel's executable mapping holds an admitted module's code copied in before the mapping was made executable and never written after; offset is checked inside the mapping, and the program keeps the mapping alive as long as its entries.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/module.rs",
+        "line": 46,
+        "owner": "native execution (specification 44)",
+        "invariant": "The view is created only after checking that the area is at least size_of::<T>() bytes, its base non-null and aligned for T; T: Plain makes every bit pattern a value that changes only through cells; the 's lifetime cannot outlive the entry call, during which the kernel keeps the area in place and writes nothing.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/module.rs",
+        "line": 66,
+        "owner": "native execution (specification 44)",
+        "invariant": "The kernel calls an entry point with its own non-null context, valid and used by nothing else until the call returns (specification 44 §8.3); null is refused before.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/module.rs",
+        "line": 140,
+        "owner": "native execution (specification 44)",
+        "invariant": "index is below breakpoint_bytes and the kernel keeps breakpoint_bytes readable bytes at breakpoints for the call (specification 44 §13.2); null is refused before.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/module.rs",
+        "line": 145,
+        "owner": "native execution (specification 44)",
+        "invariant": "The kernel's function table is a static that outlives every call; null is refused before.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "review_date": "2026-10-22"
       }
     ],
     "delegated_unsafe_path_register": [
@@ -3763,6 +3859,13 @@
         "invariant": "vendored examples are demonstration code only and remain outside shipped runtime/library execution paths",
         "test_evidence": "rg baseline artifact target/gate-artifacts/unsafe-concurrency-baseline-e22773356/unsafe-production-rust-rg.txt",
         "review_date": "2026-05-02"
+      },
+      {
+        "path_prefix": "crates/trust-plc-abi/src/plain.rs",
+        "owner": "native execution (specification 44)",
+        "invariant": "The Plain contract of the area types (specification 44 §6.3): the unsafe trait declaration and its implementations for cells of integers, floats and RefValue, arrays of Plain, Str and WStr, and plain_struct!'s implementation for a #[repr(C)] structure whose ZEROED value names each field's <$ty as Plain>::ZEROED, which fails the build for a field that is not Plain. No other unsafe code lives in the file.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "review_date": "2026-10-22"
       }
     ],
     "panic_like_classifications": [

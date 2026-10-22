@@ -109,8 +109,11 @@ WaitIdle(IN := Status.State = VatState#Idle, PT := T#5s);
 WaitAlarm(IN := Status.Unacknowledged > 0, PT := T#5s);
 WaitAborted(IN := Status.State = VatState#Aborted AND Status.Unacknowledged = 0, PT := T#5s);
 IF NOT Press.Q THEN
-    Pressing := 0;
-    IF WaitAlarm.Q THEN
+    IF Pressing > 0 THEN
+        (* The press has ended: the finger leaves the button for one scan, so that the next press
+           is a new rising edge. *)
+        Pressing := 0;
+    ELSIF WaitAlarm.Q THEN
         Pressing := 3;
     ELSIF WaitAborted.Q THEN
         Pressing := 2;

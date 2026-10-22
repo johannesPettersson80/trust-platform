@@ -1,4 +1,5 @@
-//! Bundle build command (compile sources to program.stbc).
+//! Bundle build command (compile sources to program.stbc, or with `--target` to a native program
+//! image, specification 44 §4.1).
 
 use std::path::{Path, PathBuf};
 
@@ -88,5 +89,119 @@ pub fn run_build(
     if report.sources.len() > 5 {
         println!(" - ... +{}", report.sources.len() - 5);
     }
+    Ok(())
+}
+
+/// `trust-runtime build`: `program.stbc`, or with `--target` a native program image.
+pub fn run_build_command(
+    bundle: Option<PathBuf>,
+    sources: Option<PathBuf>,
+    ci: bool,
+    target: Option<String>,
+    emit_source: bool,
+) -> anyhow::Result<()> {
+    match target {
+        Some(target) => run_native_build(bundle, sources, &target, emit_source, ci),
+        None => run_build(bundle, sources, ci),
+    }
+}
+
+/// The target `name` names: a device, a CPU, a Rust target triple or `host` (specification 44 §4.4).
+fn native_target(name: &str) -> anyhow::Result<trust_runtime::native::Target> {
+    use trust_runtime::native::Target;
+    let target = match name.to_ascii_lowercase().as_str() {
+        "host" => Target::this_cpu(),
+        "esp32c6" | "esp32-c6" | "riscv32imac" | "riscv32imac-unknown-none-elf" => {
+            Some(Target::Rv32imac)
+        }
+        "stm32u5a9" | "thumbv8m" | "thumbv8m.main-none-eabihf" => Some(Target::ThumbV8mMainHf),
+        "x86_64" | "x86-64" | "x86_64-unknown-linux-gnu" | "x86_64-pc-windows-msvc" => {
+            Some(Target::X86_64)
+        }
+        "aarch64" | "arm64" | "aarch64-unknown-linux-gnu" | "aarch64-apple-darwin" => {
+            Some(Target::Aarch64)
+        }
+        _ => None,
+    };
+    target.ok_or_else(|| anyhow::anyhow!("unknown target '{name}'"))
+}
+
+/// `trust-runtime build --target`: the project compiled into a native program image in its build
+/// folder, with the memory figure in `build.json` (specification 44 §4.1).
+pub fn run_native_build(
+    bundle: Option<PathBuf>,
+    sources: Option<PathBuf>,
+    target: &str,
+    emit_source: bool,
+    ci: bool,
+) -> anyhow::Result<()> {
+    use trust_runtime::native::{build, triple, Options, Toolchain};
+    let bundle_root = match bundle {
+        Some(path) => path,
+        None => detect_bundle_path(None).unwrap_or(std::env::current_dir()?),
+    };
+    let target = native_target(target)?;
+    let files = trust_runtime::bundle_builder::collect_project_source_files(
+        &bundle_root,
+        sources.as_deref(),
+    )?;
+    let toolchain = Toolchain::from_env()?;
+    let build_folder = bundle_root.join("build");
+    let work = build_folder.join("native").join(triple(target));
+    let built = build(
+        &files,
+        &Options {
+            target,
+            hooks: true,
+        },
+        &toolchain,
+        &work,
+    )?;
+    let image = build_folder.join(format!("program.{}.tpi", triple(target)));
+    std::fs::write(&image, &built.image)?;
+    if !emit_source {
+        let _ = std::fs::remove_file(work.join("module.rs"));
+    }
+    let figure = built.figure;
+    let report = json!({
+        "version": 1,
+        "command": "build",
+        "status": "ok",
+        "target": triple(target),
+        "image": image.display().to_string(),
+        "image_bytes": built.image.len(),
+        "memory_figure": {
+            "areas": figure.areas,
+            "stack": figure.stack,
+            "bookkeeping": figure.bookkeeping,
+            "retain_capture": figure.retain_capture,
+            "total": figure.total,
+        },
+        "flash": {
+            "code": figure.code,
+            "rodata": figure.rodata,
+            "init": figure.init,
+        },
+    });
+    std::fs::write(
+        build_folder.join("build.json"),
+        serde_json::to_string_pretty(&report)? + "\n",
+    )?;
+    if ci {
+        println!("{}", serde_json::to_string_pretty(&report)?);
+        return Ok(());
+    }
+    println!("{}", style::success(format!("Wrote {}", image.display())));
+    println!(
+        "Image {} bytes: code {}, read-only data {}, starting memory {}",
+        built.image.len(),
+        figure.code,
+        figure.rodata,
+        figure.init
+    );
+    println!(
+        "Memory figure: {} bytes (areas {}, stack {}, bookkeeping {}, retain capture {})",
+        figure.total, figure.areas, figure.stack, figure.bookkeeping, figure.retain_capture
+    );
     Ok(())
 }

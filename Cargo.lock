@@ -6916,6 +6916,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-plc-abi"
+version = "0.24.75"
+dependencies = [
+ "memmap2",
+]
+
+[[package]]
+name = "trust-plc-lib"
+version = "0.24.75"
+dependencies = [
+ "libm",
+ "trust-plc-abi",
+]
+
+[[package]]
 name = "trust-plcopen"
 version = "0.24.75"
 dependencies = [
@@ -6953,6 +6968,7 @@ dependencies = [
  "native-tls",
  "notify",
  "nusb",
+ "object 0.37.3",
  "opcua",
  "open-ot-carriage",
  "open-ot-conformance",
@@ -6996,6 +7012,8 @@ dependencies = [
  "trust-devices",
  "trust-hir",
  "trust-ide",
+ "trust-plc-abi",
+ "trust-plc-lib",
  "trust-plcopen",
  "trust-runtime-client",
  "trust-runtime-core",
@@ -7033,6 +7051,7 @@ dependencies = [
  "smol_str",
  "thiserror 2.0.21",
  "trust-hir",
+ "trust-plc-abi",
  "verification-cases",
 ]
 

@@ -492,7 +492,8 @@ pub(super) fn analyze_query(
     Arc::new(FileAnalysis {
         symbols: Arc::new(symbols),
         diagnostics: Arc::new(diagnostics),
-        expression_types: Arc::new(expression_types),
+        expression_types: Arc::new(expression_types.types),
+        resolved_symbols: Arc::new(expression_types.symbols),
         declaration_catalog: Arc::new(declaration_catalog),
     })
 }
@@ -549,6 +550,7 @@ fn empty_analysis() -> Arc<FileAnalysis> {
         symbols: Arc::new(SymbolTable::default()),
         diagnostics: Arc::new(Vec::new()),
         expression_types: Arc::new(FxHashMap::default()),
+        resolved_symbols: Arc::new(FxHashMap::default()),
         declaration_catalog: Arc::new(DeclarationCatalog::default()),
     })
 }

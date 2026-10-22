@@ -65,11 +65,20 @@ pub struct Database {
     source_revision: AtomicU64,
 }
 
+/// What the analysis of one file learned: its symbols with the project's, its diagnostics, the type
+/// of each expression and the symbol each name resolved to, by text range.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileAnalysis {
+    /// The file's symbols, merged with the project's.
     pub symbols: Arc<SymbolTable>,
+    /// The file's diagnostics.
     pub diagnostics: Arc<Vec<Diagnostic>>,
+    /// The type of each expression, by its text range.
     pub expression_types: Arc<FxHashMap<(u32, u32), TypeId>>,
+    /// The symbol each name, member and call of the file resolved to, by text range; for a call,
+    /// the POU whose parameters it binds.
+    pub resolved_symbols: Arc<FxHashMap<(u32, u32), SymbolId>>,
+    /// The file's declarations as the authoring tools read them.
     pub declaration_catalog: Arc<DeclarationCatalog>,
 }
 

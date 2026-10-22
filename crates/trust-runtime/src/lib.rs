@@ -121,6 +121,10 @@ pub mod mesh;
 #[cfg(feature = "full")]
 #[path = "host/metrics.rs"]
 pub mod metrics;
+/// Compiled programs: the build of a project into a native program image (specification 44).
+#[cfg(feature = "full")]
+#[path = "host/native/mod.rs"]
+pub mod native;
 /// OPC UA profile and IEC-to-OPC UA mapping helpers.
 #[cfg(feature = "full")]
 #[path = "host/opcua/mod.rs"]

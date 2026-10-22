@@ -221,7 +221,9 @@ fn run() -> anyhow::Result<()> {
             project,
             sources,
             ci,
-        }) => build::run_build(project, sources, ci),
+            target,
+            emit_source,
+        }) => build::run_build_command(project, sources, ci, target, emit_source),
         Some(Command::Test {
             project,
             filter,

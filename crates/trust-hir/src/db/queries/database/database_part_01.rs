@@ -164,6 +164,7 @@ impl Database {
                 symbols: Arc::new(SymbolTable::default()),
                 diagnostics: Arc::new(Vec::new()),
                 expression_types: Arc::new(FxHashMap::default()),
+                resolved_symbols: Arc::new(FxHashMap::default()),
                 declaration_catalog: Arc::new(DeclarationCatalog::default()),
             });
         };
@@ -174,6 +175,7 @@ impl Database {
                     symbols: Arc::new(SymbolTable::default()),
                     diagnostics: Arc::new(Vec::new()),
                     expression_types: Arc::new(FxHashMap::default()),
+                    resolved_symbols: Arc::new(FxHashMap::default()),
                     declaration_catalog: Arc::new(DeclarationCatalog::default()),
                 })
             })

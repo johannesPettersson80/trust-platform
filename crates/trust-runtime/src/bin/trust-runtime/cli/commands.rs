@@ -141,9 +141,19 @@ pub enum Command {
         /// Enable CI-friendly behavior and machine-readable output.
         #[arg(long, action = ArgAction::SetTrue)]
         ci: bool,
+        /// Compile the project into a native program image for this target instead of
+        /// program.stbc (specification 44): a device (esp32c6, stm32u5a9), a CPU (x86_64,
+        /// aarch64, riscv32imac, thumbv8m), a Rust target triple, or `host`.
+        #[arg(long)]
+        target: Option<String>,
+        /// With --target: keep the generated Rust crate next to the image.
+        #[arg(long, action = ArgAction::SetTrue)]
+        emit_source: bool,
     },
     /// Deprecated alias for `trust-dev test`.
-    #[command(after_help = "Canonical:\n  trust-dev test --project ./my-plc\n\nDeprecated compatibility alias, removal no earlier than 2026-10-05:\n  trust-runtime test --project ./my-plc")]
+    #[command(
+        after_help = "Canonical:\n  trust-dev test --project ./my-plc\n\nDeprecated compatibility alias, removal no earlier than 2026-10-05:\n  trust-runtime test --project ./my-plc"
+    )]
     Test {
         /// Project folder directory (defaults to auto-detect or current directory).
         #[arg(long = "project", alias = "bundle")]
@@ -165,7 +175,9 @@ pub enum Command {
         ci: bool,
     },
     /// Deprecated alias for `trust-dev docs`.
-    #[command(after_help = "Canonical:\n  trust-dev docs --project ./my-plc\n\nDeprecated compatibility alias, removal no earlier than 2026-10-05:\n  trust-runtime docs --project ./my-plc")]
+    #[command(
+        after_help = "Canonical:\n  trust-dev docs --project ./my-plc\n\nDeprecated compatibility alias, removal no earlier than 2026-10-05:\n  trust-runtime docs --project ./my-plc"
+    )]
     Docs {
         /// Project folder directory (defaults to auto-detect or current directory).
         #[arg(long = "project", alias = "bundle")]
@@ -291,7 +303,9 @@ pub enum Command {
         start: bool,
     },
     /// Deprecated alias for `trust-dev commit`.
-    #[command(after_help = "Canonical:\n  trust-dev commit --project .\n\nDeprecated compatibility alias, removal no earlier than 2026-10-05:\n  trust-runtime commit --project .")]
+    #[command(
+        after_help = "Canonical:\n  trust-dev commit --project .\n\nDeprecated compatibility alias, removal no earlier than 2026-10-05:\n  trust-runtime commit --project ."
+    )]
     Commit {
         /// Project folder directory (defaults to current directory).
         #[arg(long = "project", alias = "bundle")]

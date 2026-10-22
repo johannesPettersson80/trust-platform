@@ -1,0 +1,706 @@
+//! A compiled program in the kernel (specification 44 §8, §10): the image admitted against the
+//! device, its areas in RAM with their starting memory, its tasks scheduled as specification 10 §4
+//! schedules them, its variables bound to the process image, and the faults of its module turned
+//! into the runtime's errors.
+//!
+//! The kernel never decodes the program: it reads the image's tables where they lie and calls the
+//! module's entry points. A platform puts the module's code where its CPU executes it and hands the
+//! kernel the entry points ([`ModuleCode`]).
+
+use alloc::vec;
+use alloc::vec::Vec;
+use core::fmt;
+
+use smol_str::SmolStr;
+use trust_plc_abi::kernel::Entry;
+use trust_plc_abi::{Cx, FaultCode, FaultRecord, KernelApi, INTERFACE_VERSION};
+
+use super::image::{
+    AreaRecord, EntryKind, EntryRecord, Image, ImageError, IoBindRecord, SymbolRecord, Target,
+    TaskRecord, AREA_HAS_INIT, BACKGROUND_PRIORITY, NONE,
+};
+use crate::cycle::{sort_ready_tasks_by_priority, ReadyTask};
+use crate::error::{ExecutionLimitKind, RuntimeError};
+use crate::task::{evaluate_task_readiness, TaskState};
+use crate::value::Duration;
+
+/// Where a platform put an admitted module's code: the entry point at each offset of `CODE`
+/// (specification 44 §10.3).
+pub trait ModuleCode {
+    /// The entry point whose first instruction is `offset` bytes into `CODE`; `None` when the
+    /// platform cannot reach it.
+    fn entry(&self, offset: u32) -> Option<Entry>;
+}
+
+/// What a device offers a program (specification 44 §10.2, steps 2 and 6).
+#[derive(Clone, Copy, Debug)]
+pub struct Device {
+    /// The device's CPU.
+    pub target: Target,
+    /// The bytes the device has for programs.
+    pub program_memory: u64,
+    /// The bytes of the task stack.
+    pub task_stack: u64,
+    /// The statements one activation may execute (specification 44 §8.4).
+    pub max_statements: u32,
+}
+
+/// Why a device refuses an image; the first failed check names its reason (specification 44
+/// §10.2).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Refusal {
+    /// The image is damaged or inconsistent.
+    Image(ImageError),
+    /// The image is for another CPU.
+    Target {
+        /// The image's target number.
+        image: u32,
+        /// The device's.
+        device: Target,
+    },
+    /// The image was built against another kernel interface.
+    Interface {
+        /// The image's version.
+        image: u16,
+    },
+    /// The program needs more memory than the device has.
+    Memory {
+        /// The program's memory figure.
+        needs: u64,
+        /// The device's memory for programs.
+        has: u64,
+    },
+    /// The program's stack bound exceeds the task stack.
+    Stack {
+        /// The bound.
+        needs: u64,
+        /// The task stack.
+        has: u64,
+    },
+    /// An entry point the platform cannot reach.
+    Entry(u32),
+}
+
+impl fmt::Display for Refusal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Image(error) => error.fmt(f),
+            Self::Target { image, device } => write!(
+                f,
+                "the image is for target {image}, this device is {device:?}: rebuild the project for it"
+            ),
+            Self::Interface { image } => write!(
+                f,
+                "kernel interface {image} required, this runtime has {INTERFACE_VERSION}: rebuild the project"
+            ),
+            Self::Memory { needs, has } => write!(
+                f,
+                "insufficient memory: the program needs {needs} bytes, the device has {has}"
+            ),
+            Self::Stack { needs, has } => write!(
+                f,
+                "insufficient stack: the program needs {needs} bytes, the task stack has {has}"
+            ),
+            Self::Entry(offset) => write!(f, "the entry point at code offset {offset} cannot be reached"),
+        }
+    }
+}
+
+impl From<Refusal> for RuntimeError {
+    fn from(refusal: Refusal) -> Self {
+        RuntimeError::InvalidBundle(SmolStr::new(alloc::format!("{refusal}")))
+    }
+}
+
+/// Admits the image in `bytes` on `device`: its header, its section table, its tables, its memory
+/// figure and its stack bound (specification 44 §10.2, steps 2, 3, 5 and 6). The image is read where
+/// it lies and nothing is allocated.
+///
+/// # Errors
+///
+/// The first [`Refusal`].
+pub fn admit<'i>(bytes: &'i [u8], device: &Device) -> Result<Image<'i>, Refusal> {
+    let image = Image::parse(bytes).map_err(Refusal::Image)?;
+    let header = *image.header();
+    if Target::from_raw(header.target) != Some(device.target) {
+        return Err(Refusal::Target {
+            image: header.target,
+            device: device.target,
+        });
+    }
+    if u32::from(header.interface_version) != INTERFACE_VERSION {
+        return Err(Refusal::Interface {
+            image: header.interface_version,
+        });
+    }
+    image.check_tables().map_err(Refusal::Image)?;
+    let figure = image.memory_figure();
+    if figure.total > device.program_memory {
+        return Err(Refusal::Memory {
+            needs: figure.total,
+            has: device.program_memory,
+        });
+    }
+    if figure.stack > device.task_stack {
+        return Err(Refusal::Stack {
+            needs: figure.stack,
+            has: device.task_stack,
+        });
+    }
+    Ok(image)
+}
+
+/// One area's memory: 8-byte words, so that the module's views are aligned.
+struct Memory {
+    words: Vec<u64>,
+    len: usize,
+}
+
+impl Memory {
+    fn new(len: usize) -> Self {
+        Self {
+            words: vec![0; len.div_ceil(8).max(1)],
+            len,
+        }
+    }
+
+    fn write(&mut self, offset: usize, data: &[u8]) -> bool {
+        if offset
+            .checked_add(data.len())
+            .is_none_or(|end| end > self.len)
+        {
+            return false;
+        }
+        for (index, byte) in data.iter().enumerate() {
+            let at = offset + index;
+            let shift = (at % 8) * 8;
+            if let Some(word) = self.words.get_mut(at / 8) {
+                *word = (*word & !(0xFF << shift)) | (u64::from(*byte) << shift);
+            }
+        }
+        true
+    }
+
+    fn read(&self, offset: usize, out: &mut [u8]) -> bool {
+        if offset
+            .checked_add(out.len())
+            .is_none_or(|end| end > self.len)
+        {
+            return false;
+        }
+        for (index, byte) in out.iter_mut().enumerate() {
+            let at = offset + index;
+            let word = self.words.get(at / 8).copied().unwrap_or(0);
+            *byte = (word >> ((at % 8) * 8)).to_le_bytes()[0];
+        }
+        true
+    }
+
+    fn clear(&mut self) {
+        self.words.fill(0);
+    }
+
+    fn base(&mut self) -> *mut u8 {
+        self.words.as_mut_ptr().cast::<u8>()
+    }
+}
+
+/// A variable bound to a process image address.
+#[derive(Clone, Copy)]
+struct Binding {
+    /// 1 inputs, 2 outputs, 3 markers.
+    image: u8,
+    /// 0 a bit, else a width in bytes.
+    width: u32,
+    byte: u32,
+    bit: u8,
+    /// The variable's area and offset.
+    area: u8,
+    offset: u32,
+}
+
+/// A task with the entry points of its programs.
+struct NativeTask {
+    name: SmolStr,
+    interval: Duration,
+    priority: u32,
+    /// The `SINGLE` variable's area and offset.
+    single: Option<(u8, u32)>,
+    programs: Vec<usize>,
+    state: TaskState,
+}
+
+/// What a scan reports while it runs.
+pub trait ScanHooks {
+    /// Task `task` missed `missed` activations before this one.
+    fn task_overrun(&mut self, _task: usize, _missed: u64) {}
+    /// Task `task` starts.
+    fn task_started(&mut self, _task: usize) {}
+    /// Task `task` ended.
+    fn task_finished(&mut self, _task: usize) {}
+}
+
+/// Scan hooks that report nothing.
+pub struct NoHooks;
+
+impl ScanHooks for NoHooks {}
+
+/// An admitted program with its areas.
+pub struct NativeProgram<'i, C> {
+    image: Image<'i>,
+    code: C,
+    areas: [Memory; 6],
+    entries: Vec<Entry>,
+    cold: Option<usize>,
+    warm: Option<usize>,
+    tasks: Vec<NativeTask>,
+    bindings: Vec<Binding>,
+    ready: Vec<ReadyTask>,
+    cx: Cx,
+    budget: u32,
+    /// The input image the drivers fill (`%I`).
+    pub inputs: Vec<u8>,
+    /// The output image the drivers drive (`%Q`).
+    pub outputs: Vec<u8>,
+}
+
+/// The index of area `id` in a program's memory, 1 to 6.
+fn slot(id: u8) -> Option<usize> {
+    usize::from(id).checked_sub(1).filter(|index| *index < 6)
+}
+
+impl<'i, C: ModuleCode> NativeProgram<'i, C> {
+    /// The program of the admitted `image` with its module at `code`, its areas allocated and
+    /// zero. The program starts with [`Self::cold_start`] or [`Self::warm_start`].
+    ///
+    /// # Errors
+    ///
+    /// [`Refusal::Entry`] for an entry point the platform cannot reach; [`Refusal::Image`] for a
+    /// table that does not read.
+    pub fn new(
+        image: Image<'i>,
+        code: C,
+        device: &Device,
+        api: &'static KernelApi,
+    ) -> Result<Self, Refusal> {
+        let table_error = Refusal::Image;
+        let entries_table = image.table::<EntryRecord>().map_err(table_error)?;
+        let mut entries = Vec::with_capacity(entries_table.len() as usize);
+        let mut cold = None;
+        let mut warm = None;
+        for (index, entry) in entries_table.iter().enumerate() {
+            let Some(function) = code.entry(entry.code_offset) else {
+                return Err(Refusal::Entry(entry.code_offset));
+            };
+            if entry.kind == EntryKind::ColdInit as u32 {
+                cold = Some(index);
+            } else if entry.kind == EntryKind::WarmInit as u32 {
+                warm = Some(index);
+            }
+            entries.push(function);
+        }
+        let mut lengths = [0usize; 6];
+        for area in image.table::<AreaRecord>().map_err(table_error)?.iter() {
+            if let Some(index) = u8::try_from(area.id).ok().and_then(slot) {
+                lengths[index] = usize::try_from(area.length).unwrap_or(0);
+            }
+        }
+        let areas = lengths.map(Memory::new);
+        let symbols = image.table::<SymbolRecord>().map_err(table_error)?;
+        let mut bindings = Vec::new();
+        for binding in image.table::<IoBindRecord>().map_err(table_error)?.iter() {
+            let Some(symbol) = symbols.get(binding.symbol) else {
+                continue;
+            };
+            bindings.push(Binding {
+                image: binding.area,
+                width: if binding.size == 0 {
+                    0
+                } else {
+                    binding.width()
+                },
+                byte: binding.byte,
+                bit: binding.bit,
+                area: symbol.area,
+                offset: symbol.offset,
+            });
+        }
+        let mut tasks = Vec::new();
+        for task in image.table::<TaskRecord>().map_err(table_error)?.iter() {
+            let single = (task.single != NONE)
+                .then(|| symbols.get(task.single))
+                .flatten()
+                .map(|symbol| (symbol.area, symbol.offset));
+            tasks.push(NativeTask {
+                name: SmolStr::new(image.string(task.name).unwrap_or("")),
+                interval: Duration::from_nanos(i64::try_from(task.interval_ns).unwrap_or(i64::MAX)),
+                priority: task.priority,
+                single,
+                programs: image
+                    .task_programs(&task)
+                    .filter_map(|entry| usize::try_from(entry).ok())
+                    .collect(),
+                state: TaskState::new(Duration::ZERO),
+            });
+        }
+        let inputs = vec![0; lengths[0]];
+        let outputs = vec![0; lengths[1]];
+        Ok(Self {
+            image,
+            code,
+            areas,
+            entries,
+            cold,
+            warm,
+            tasks,
+            bindings,
+            ready: Vec::new(),
+            cx: Cx::new(api),
+            budget: device.max_statements,
+            inputs,
+            outputs,
+        })
+    }
+
+    /// The image the program runs.
+    pub fn image(&self) -> &Image<'i> {
+        &self.image
+    }
+
+    /// Where the module's code is.
+    pub fn code(&self) -> &C {
+        &self.code
+    }
+
+    /// The tasks by name and priority, in the image's order; the programs without a task are the
+    /// task of priority [`BACKGROUND_PRIORITY`].
+    pub fn tasks(&self) -> impl Iterator<Item = (&str, u32)> {
+        self.tasks
+            .iter()
+            .map(|task| (task.name.as_str(), task.priority))
+    }
+
+    /// The bytes of area `id`, 0 for an area the program does not have.
+    pub fn area_length(&self, id: u8) -> usize {
+        slot(id).map_or(0, |index| self.areas[index].len)
+    }
+
+    /// Reads `out.len()` bytes of area `id` from `offset`; `false` outside the area.
+    pub fn read(&self, id: u8, offset: usize, out: &mut [u8]) -> bool {
+        slot(id).is_some_and(|index| self.areas[index].read(offset, out))
+    }
+
+    /// Writes `data` into area `id` at `offset`; `false` outside the area.
+    pub fn write(&mut self, id: u8, offset: usize, data: &[u8]) -> bool {
+        slot(id).is_some_and(|index| self.areas[index].write(offset, data))
+    }
+
+    /// Copies the starting memory into the areas that have one, `retain` too when `with_retain`
+    /// (specification 44 §6.7, §7.4).
+    fn start_memory(&mut self, with_retain: bool) -> Result<(), RuntimeError> {
+        let init = self.image.section_bytes(super::image::SectionId::Init);
+        let areas = self.image.table::<AreaRecord>().map_err(|error| {
+            RuntimeError::InvalidBundle(SmolStr::new(alloc::format!("{error}")))
+        })?;
+        for area in areas.iter() {
+            let Some(index) = u8::try_from(area.id).ok().and_then(slot) else {
+                continue;
+            };
+            if area.id == u32::from(trust_plc_abi::AREA_RETAIN) && !with_retain {
+                continue;
+            }
+            let memory = &mut self.areas[index];
+            memory.clear();
+            if area.flags & AREA_HAS_INIT != 0 {
+                let start = area.init_offset as usize;
+                let bytes = init.get(start..start + memory.len).unwrap_or(&[]);
+                memory.write(0, bytes);
+            }
+        }
+        Ok(())
+    }
+
+    /// A cold restart: every area takes its starting memory, the retained variables too, and the
+    /// cold-start initialization runs (specification 44 §6.7; IEC §6.5.6.2).
+    ///
+    /// # Errors
+    ///
+    /// The fault of the initialization.
+    pub fn cold_start(&mut self, now: Duration) -> Result<(), RuntimeError> {
+        self.start_memory(true)?;
+        self.reset_task_timing(now);
+        match self.cold {
+            Some(entry) => self.call(entry, u32::MAX, now),
+            None => Ok(()),
+        }
+    }
+
+    /// A warm restart: every area but the retained one takes its starting memory, the retained
+    /// variables keep what the caller restored, and the warm-start initialization runs.
+    ///
+    /// # Errors
+    ///
+    /// The fault of the initialization.
+    pub fn warm_start(&mut self, now: Duration) -> Result<(), RuntimeError> {
+        self.start_memory(false)?;
+        self.reset_task_timing(now);
+        match self.warm {
+            Some(entry) => self.call(entry, u32::MAX, now),
+            None => Ok(()),
+        }
+    }
+
+    /// Every task counts its next activation from `now` (specification 10 §4).
+    pub fn reset_task_timing(&mut self, now: Duration) {
+        for task in &mut self.tasks {
+            task.state = TaskState::new(now);
+        }
+    }
+
+    /// Copies the bound variables in from the input and marker images before the tasks run.
+    fn sample(&mut self) {
+        let inputs = core::mem::take(&mut self.inputs);
+        self.areas[0].write(0, &inputs);
+        self.inputs = inputs;
+        for binding in self.bindings.clone() {
+            if binding.image == 2 {
+                continue;
+            }
+            let image = usize::from(binding.image - 1);
+            let Some(area) = slot(binding.area) else {
+                continue;
+            };
+            if binding.width == 0 {
+                let mut byte = [0u8];
+                self.areas[image].read(binding.byte as usize, &mut byte);
+                let value = (byte[0] >> binding.bit) & 1;
+                self.areas[area].write(binding.offset as usize, &[value]);
+            } else {
+                let mut bytes = [0u8; 8];
+                let width = binding.width as usize;
+                self.areas[image].read(binding.byte as usize, &mut bytes[..width]);
+                self.areas[area].write(binding.offset as usize, &bytes[..width]);
+            }
+        }
+    }
+
+    /// Copies the bound variables out to the output and marker images after the tasks ran, and
+    /// the output area to the output image.
+    fn publish(&mut self) {
+        for binding in self.bindings.clone() {
+            if binding.image == 1 {
+                continue;
+            }
+            let image = usize::from(binding.image - 1);
+            let Some(area) = slot(binding.area) else {
+                continue;
+            };
+            if binding.width == 0 {
+                let mut value = [0u8];
+                self.areas[area].read(binding.offset as usize, &mut value);
+                let mut byte = [0u8];
+                self.areas[image].read(binding.byte as usize, &mut byte);
+                let mask = 1u8 << binding.bit;
+                byte[0] = if value[0] != 0 {
+                    byte[0] | mask
+                } else {
+                    byte[0] & !mask
+                };
+                self.areas[image].write(binding.byte as usize, &byte);
+            } else {
+                let mut bytes = [0u8; 8];
+                let width = binding.width as usize;
+                self.areas[area].read(binding.offset as usize, &mut bytes[..width]);
+                self.areas[image].write(binding.byte as usize, &bytes[..width]);
+            }
+        }
+        let mut outputs = core::mem::take(&mut self.outputs);
+        self.areas[1].read(0, &mut outputs);
+        self.outputs = outputs;
+    }
+
+    /// Runs one scan at logical time `now`: the inputs sampled, every due task's programs by
+    /// priority, the programs without a task, the outputs published (specification 10 §4;
+    /// specification 34 CYCLE-01 to CYCLE-06).
+    ///
+    /// # Errors
+    ///
+    /// The fault of the program that faulted; the scan ends there and publishes nothing.
+    pub fn scan(&mut self, now: Duration, hooks: &mut dyn ScanHooks) -> Result<(), RuntimeError> {
+        self.sample();
+        let mut ready = core::mem::take(&mut self.ready);
+        ready.clear();
+        for index in 0..self.tasks.len() {
+            if self.tasks[index].priority == BACKGROUND_PRIORITY {
+                continue;
+            }
+            let single = match self.tasks[index].single {
+                Some((area, offset)) => {
+                    let mut byte = [0u8];
+                    self.read(area, offset as usize, &mut byte);
+                    byte[0] != 0
+                }
+                None => false,
+            };
+            let task = &mut self.tasks[index];
+            let readiness = evaluate_task_readiness(&mut task.state, task.interval, single, now);
+            if readiness.missed_intervals > 0 {
+                hooks.task_overrun(index, readiness.missed_intervals);
+            }
+            if let Some(due_at) = readiness.due_at {
+                ready.push(ReadyTask { index, due_at });
+            }
+        }
+        let tasks = &self.tasks;
+        sort_ready_tasks_by_priority(&mut ready, |index| tasks[index].priority);
+        let mut result = Ok(());
+        'tasks: for entry in &ready {
+            hooks.task_started(entry.index);
+            for position in 0..self.tasks[entry.index].programs.len() {
+                let program = self.tasks[entry.index].programs[position];
+                let task = u32::try_from(entry.index).unwrap_or(u32::MAX);
+                if let Err(error) = self.call(program, task, now) {
+                    result = Err(error);
+                    break 'tasks;
+                }
+            }
+            hooks.task_finished(entry.index);
+        }
+        self.ready = ready;
+        result?;
+        for index in 0..self.tasks.len() {
+            if self.tasks[index].priority != BACKGROUND_PRIORITY {
+                continue;
+            }
+            for position in 0..self.tasks[index].programs.len() {
+                let program = self.tasks[index].programs[position];
+                self.call(program, u32::MAX, now)?;
+            }
+        }
+        self.publish();
+        Ok(())
+    }
+
+    /// Calls entry `entry` for task `task` at logical time `now`.
+    fn call(&mut self, entry: usize, task: u32, now: Duration) -> Result<(), RuntimeError> {
+        let Some(function) = self.entries.get(entry).copied() else {
+            return Err(RuntimeError::InvalidExecutionState);
+        };
+        for (index, memory) in self.areas.iter_mut().enumerate() {
+            let id = u8::try_from(index + 1).unwrap_or(0);
+            let len = u32::try_from(memory.len).unwrap_or(u32::MAX);
+            let base = memory.base();
+            self.cx.set_area(id, base, len);
+        }
+        self.cx.task = task;
+        self.cx.now_ns = now.as_nanos();
+        self.cx.budget = self.budget;
+        self.cx.fault = FaultRecord::default();
+        let code = function.call(&mut self.cx);
+        if code == 0 {
+            Ok(())
+        } else {
+            Err(fault_error(&self.cx.fault, code, self.budget))
+        }
+    }
+
+    /// The value of the variable whose canonical name is `canonical`, read through the symbol and
+    /// type tables (specification 44 §13.3): an elementary value, an enumeration's number as an
+    /// `LINT`, or a text; `None` for a name the image does not declare or a structured value.
+    pub fn value(&self, canonical: &str) -> Option<crate::value::Value> {
+        use super::image::{type_kind as kind, TypeRecord};
+        use crate::value::Value;
+        let (_, symbol) = self.image.find_symbol(canonical)?;
+        let ty = self
+            .image
+            .table::<TypeRecord>()
+            .ok()?
+            .get(symbol.type_index)?;
+        let offset = symbol.offset as usize;
+        if ty.kind == kind::STRING {
+            let mut length = [0u8; 2];
+            self.read(symbol.area, offset, &mut length).then_some(())?;
+            let length = usize::from(u16::from_le_bytes(length)).min(ty.count as usize);
+            let mut text = vec![0u8; length];
+            self.read(symbol.area, offset + 2, &mut text)
+                .then_some(())?;
+            return Some(Value::String(SmolStr::new(
+                alloc::string::String::from_utf8_lossy(&text),
+            )));
+        }
+        let mut bytes = [0u8; 8];
+        let size = (ty.size as usize).min(8);
+        self.read(symbol.area, offset, &mut bytes[..size])
+            .then_some(())?;
+        let unsigned = u64::from_le_bytes(bytes);
+        let signed = |bits: u32| -> i64 {
+            let shift = 64 - bits;
+            ((unsigned << shift) as i64) >> shift
+        };
+        Some(match ty.kind {
+            kind::BOOL => Value::Bool(bytes[0] != 0),
+            kind::SINT => Value::SInt(i8::try_from(signed(8)).ok()?),
+            kind::INT => Value::Int(i16::try_from(signed(16)).ok()?),
+            kind::DINT => Value::DInt(i32::try_from(signed(32)).ok()?),
+            kind::LINT => Value::LInt(signed(64)),
+            kind::USINT => Value::USInt(bytes[0]),
+            kind::UINT => Value::UInt(u16::try_from(unsigned).ok()?),
+            kind::UDINT => Value::UDInt(u32::try_from(unsigned).ok()?),
+            kind::ULINT => Value::ULInt(unsigned),
+            kind::BYTE => Value::Byte(bytes[0]),
+            kind::WORD => Value::Word(u16::try_from(unsigned).ok()?),
+            kind::DWORD => Value::DWord(u32::try_from(unsigned).ok()?),
+            kind::LWORD => Value::LWord(unsigned),
+            kind::REAL => Value::Real(f32::from_bits(u32::try_from(unsigned).ok()?)),
+            kind::LREAL => Value::LReal(f64::from_bits(unsigned)),
+            kind::TIME => Value::Time(Duration::from_nanos(signed(64))),
+            kind::LTIME => Value::LTime(Duration::from_nanos(signed(64))),
+            kind::ENUM => Value::LInt(signed(ty.size * 8)),
+            _ => return None,
+        })
+    }
+
+    /// The record of the last fault a module raised.
+    pub fn last_fault(&self) -> FaultRecord {
+        self.cx.fault
+    }
+}
+
+/// The runtime error of the fault `code` with its record (specification 44 §8.6, Appendix A).
+pub fn fault_error(record: &FaultRecord, code: u32, budget: u32) -> RuntimeError {
+    let [a, b, c] = record.detail;
+    match FaultCode::from_raw(code) {
+        Some(FaultCode::DivisionByZero) => RuntimeError::DivisionByZero,
+        Some(FaultCode::ModuloByZero) => RuntimeError::ModuloByZero,
+        Some(FaultCode::Overflow | FaultCode::DateTimeRange) => RuntimeError::Overflow,
+        Some(FaultCode::IndexOutOfBounds) => RuntimeError::IndexOutOfBounds {
+            index: a,
+            lower: b,
+            upper: c,
+        },
+        Some(FaultCode::SubrangeViolation) => RuntimeError::SubrangeViolation {
+            value: i128::from(a),
+            lower: i128::from(b),
+            upper: i128::from(c),
+        },
+        Some(FaultCode::NullReference) => RuntimeError::NullReference,
+        Some(FaultCode::ForStepZero) => RuntimeError::ForStepZero,
+        Some(FaultCode::TypeMismatch) => RuntimeError::TypeMismatch,
+        Some(FaultCode::StringCapacityExceeded) => RuntimeError::StringCapacityExceeded,
+        Some(FaultCode::ReferenceLifetime) => RuntimeError::ReferenceLifetime,
+        Some(FaultCode::NonFiniteValue) => RuntimeError::NonFiniteValue,
+        Some(FaultCode::InfiniteLoop) => RuntimeError::ExecutionLimit {
+            kind: ExecutionLimitKind::Work,
+            used: budget as usize,
+            requested: 1,
+            limit: budget as usize,
+        },
+        Some(
+            FaultCode::StackOverflow | FaultCode::MemoryProtection | FaultCode::ModuleInternal,
+        )
+        | None => RuntimeError::InvalidExecutionState,
+    }
+}
+
+#[cfg(test)]
+mod tests;

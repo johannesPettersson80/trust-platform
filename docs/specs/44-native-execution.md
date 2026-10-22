@@ -1,6 +1,7 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.1, approved by the owner on 22 October 2026 ("implement the checklist"), with the six
+- **Status:** 0.2 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 makes
+  exact what the implementation of milestone M1 decided within that design, Appendix B), with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 with unsigned
   images accepted on an empty trust list (§5.11), interface calls by `match` (§6.4), the
   non-preemptive scheduler in v1 (§16), sources embedded on computers only (§5.3), and the request
@@ -116,6 +117,11 @@ Engineering computer                               Device (every platform)
 The build's steps and their outputs:
 
 1. **Semantic model.** trust-hir checks the project as today. A project with an error does not build.
+   The generator reads each POU's statements from the syntax tree with what trust-hir's type checker
+   recorded of them: the type of every expression and the symbol every name, member and call resolved
+   to (`FileAnalysis::resolved_symbols`), so that it resolves no name itself. The declarations (types,
+   POUs, variables, configuration, tasks) come from the harness's lowering as today; the program model
+   carries no expression types and is not the generator's input.
 2. **Layout.** The generator lays out every variable in its area by the rules of §7.2 and assigns
    every statement an id in source order.
 3. **Generation.** The generator writes one Rust crate: the areas as `#[repr(C)]` types, every POU as
@@ -174,6 +180,14 @@ operating system's C library, and linked by rust-lld into a freestanding positio
 module, the same form as on the chips (§5.3). The kernel maps it into executable memory itself
 (§10.3). No system linker, Visual Studio or Xcode is needed on any computer.
 
+One module serves every computer of a CPU: the x86-64 module is built for
+`x86_64-unknown-linux-gnu` and the AArch64 module for `aarch64-unknown-linux-gnu` on Linux, Windows
+and macOS alike, since a freestanding module calls nothing of the operating system. The interface
+names the calling convention instead of taking the operating system's: `extern "sysv64"` on x86-64
+and `extern "C"` elsewhere (AAPCS64 and Apple's arm64 convention agree for the interface's
+signatures, which pass everything in registers). The AArch64 module reserves `x18`, which macOS
+reserves.
+
 ### 4.5 Compiler flags
 
 Fixed for every target, in the toolchain bundle's manifest, and recorded in the image header:
@@ -181,12 +195,21 @@ Fixed for every target, in the toolchain bundle's manifest, and recorded in the 
 ```
 -C opt-level=2 -C codegen-units=1 -C lto=fat -C panic=abort -C relocation-model=pic
 -C overflow-checks=off (the generator emits the standard's checks itself, §6.5)
--C debuginfo=0 -C strip=symbols -C llvm-args=-stack-size-section (§8.5)
+-C debuginfo=0 -C remark=prolog-epilog (each function's frame, §8.5)
 -C target-cpu=<fixed per target> -C target-feature=<fixed per target, §9>
+-C linker=rust-lld -C linker-flavor=ld.lld, linked with --pie --no-dynamic-linker -nostdlib
+--emit-relocs and a linker script that puts CODE at address 0 and RODATA after it
 --cfg trust_module
 ```
 
-No `-Z` flag is used: the build runs on stable rustc only.
+No `-Z` flag is used: the build runs on stable rustc only. The module is linked as a static
+position-independent executable, so that an absolute address anywhere in it would be a dynamic
+relocation, which the image builder refuses (§5.3); a module that links has none. The program
+library and the interface crates are compiled for each target with the same relocation model, abort
+on panic and embedded bitcode, so that link-time optimization takes in what the program calls. The
+ELF's symbols are kept for the image builder, which reads the entry points' offsets from them; the
+image carries none of them. (`-C llvm-args=-stack-size-section`, which 0.1 named, is accepted by
+stable rustc and has no effect: rustc sets that option itself only for `-Z emit-stack-sizes`.)
 
 ### 4.6 The toolchain bundle
 
@@ -236,7 +259,15 @@ pool at an offset, every offset is relative to the start of the image.
 ### 5.3 Sections
 
 The section table has one 16-byte entry per section: id (4), flags (4), offset (4), length (4).
-Each id appears at most once; a required section that is absent refuses the image.
+Each id appears at most once; a required section that is absent refuses the image. `CODE` starts at
+a 64-byte boundary of the image, the largest alignment a module's code or data needs on a target of
+§4.4, and a container keeps the image at such a boundary in its slot.
+
+A table section (`ENTRY`, `AREAS`, `TASKS`, `IOBIND`, `SYMBOLS`, `TYPES`, `STMTS`, `RETAIN`,
+`FILES`) starts with its record count (4) and a reserved word (4), then holds that many records of
+its fixed size; data its records name follows the records and is named by offsets from the
+section's start: the task table's program list (4-byte entry indexes) and the type table's details.
+`STRINGS` starts with the empty string, at offset 0.
 
 | Id | Section | Required | Content |
 |---|---|---|---|
@@ -259,8 +290,11 @@ Each id appears at most once; a required section that is absent refuses the imag
 
 ### 5.4 Entry table
 
-One 16-byte record per entry point: kind (4: 1 task body, 2 cold-init, 3 warm-init, 4 method for
-tools), index (4: the task index, or 0), code offset (4, relative to `CODE`), reserved (4). The
+One 16-byte record per entry point: kind (4: 1 program body, 2 cold-init, 3 warm-init, 4 method for
+tools), index (4: the program instance's number in the configuration, or 0), code offset (4,
+relative to `CODE`, with the Thumb bit on a Thumb target), reserved (4). A task's record lists the
+program bodies it runs, in order, so that the kernel observes each program's call as today's
+runtime does. The
 kernel calls an entry point by its offset through the calling convention of §8.3 and never jumps
 anywhere else in `CODE`.
 
@@ -308,9 +342,12 @@ have symbols with area 7 (stack) and the offset in their frame, for the debugger
 
 ### 5.8 Type table
 
-One 24-byte record per type: kind (4: elementary id as specification 12 §6.2 numbers them, kept;
-or 100 enumeration, 101 subrange, 102 array, 103 structure, 104 union, 105 string, 106 wstring,
-107 reference, 108 pointer, 109 FB, 110 class, 111 interface, 112 alias), name (string offset, 4,
+One 24-byte record per type: kind (4: an elementary type 1 `BOOL`, 2 `SINT`, 3 `INT`, 4 `DINT`, 5
+`LINT`, 6 `USINT`, 7 `UINT`, 8 `UDINT`, 9 `ULINT`, 10 `REAL`, 11 `LREAL`, 12 `BYTE`, 13 `WORD`, 14
+`DWORD`, 15 `LWORD`, 16 `TIME`, 17 `LTIME`, 18 `DATE`, 19 `LDATE`, 20 `TOD`, 21 `LTOD`, 22 `DT`, 23
+`LDT`, 24 `CHAR`, 25 `WCHAR`; or 100 enumeration, 101 subrange, 102 array, 103 structure, 104 union,
+105 string, 106 wstring, 107 reference, 108 pointer, 109 FB, 110 class, 111 interface, 112 alias,
+113 program), name (string offset, 4,
 or 0), size (4), alignment (4), detail offset (4, into a type detail list), count (4). The detail
 list holds, per kind: an enumeration's values (name offset, value i64); a subrange's base type and
 bounds (i64, i64); an array's element type and dimensions (lower, upper i64 each); a structure's,
@@ -367,7 +404,7 @@ the kernel interface.
 | `TIME`, `LTIME` | `i64` nanoseconds | 8 | specification 10's temporal storage, kept |
 | `DATE`, `LDATE`, `TOD`, `LTOD`, `DT`, `LDT` | `i64` as specification 10 encodes them | 8 | |
 | `CHAR`, `WCHAR` | `u8`, `u16` | 1, 2 | |
-| `STRING[n]` | `Str<n>`: `u16` length, `[u8; n]` UTF-8 | 2 + n (4 + n above 65,535) | `STRING` is `STRING[80]` (specification 02 §6) |
+| `STRING[n]` | `Str<n>`: `u16` length, `[u8; n]` UTF-8 | 2 + n, rounded up to even | `STRING` is `STRING[80]` (specification 02 §6); even, so that each length in an array is aligned |
 | `WSTRING[n]` | `WStr<n>`: `u16` length, `[u16; n]` | 2 + 2n | |
 | Enumeration (§6.4.4.2) | the base integer type | | values checked on assignment from an integer |
 | Subrange (§6.4.4.4) | the base type | | bounds checked on every assignment (§6.5) |
@@ -385,17 +422,25 @@ generator monomorphizes every call to its argument types.
 ### 6.3 Areas and symbols in generated code
 
 The generator declares each area as one `#[repr(C)]` type whose fields are the area's variables in
-layout order with explicit padding, and emits for every symbol:
+layout order, and emits for every symbol:
 
 ```rust
 const _: () = assert!(core::mem::offset_of!(Globals, plant) == 16);
 const _: () = assert!(core::mem::size_of::<Globals>() == 6_480);
 ```
 
-so that a mistake in either the layout rules or the symbol table fails the build. A task body
-receives the areas as `&mut` references from the kernel's context (§8.3) and accesses variables as
-fields: `g.plant.counter.value`. LLVM compiles such an access to one load or store at a constant
-offset.
+so that a mistake in either the layout rules or the symbol table fails the build.
+
+Every variable is a cell (`core::cell::Cell` of its value, a string a cell of its length and cells
+of its bytes): a program reads a variable with `get` and writes it with `set` through shared
+references, as Structured Text's aliasing needs (a `VAR_IN_OUT` or a `REF_TO` may name a variable the
+program also writes by name), in safe Rust and without `unsafe` in the generated crate. A task body
+receives shared references to the areas, which the interface crate makes from the kernel's context
+for the duration of the entry call (§8.3), and accesses variables as fields:
+`w.p.VAT.LEVEL.VALUE.get()`. LLVM compiles such an access to one load or store at a constant
+offset, with the aliasing assumptions of C, as every compiler of Structured Text to native code has
+them. A type of an area is declared with the interface's `plain_struct!`, which implements the
+interface's `Plain` trait only for a `#[repr(C)]` structure whose every field is `Plain`.
 
 ### 6.4 POUs (IEC §6.6)
 
@@ -467,6 +512,12 @@ kernel's restart behaviour is IEC 61131-1's as IEC §6.5.6 refers to it:
 - **Warm restart:** the retain area is restored from the newest valid checkpoint (specification 11
   §6.7, RETAIN-02) and the rest takes `INIT`; the warm-init entry runs.
 - **Online change:** §12.
+
+The build computes the starting memory with the runtime's own initialization of the same program on
+the engineering computer (the declared initial values, the types' defaults, the function blocks'
+defaults), so that a compiled program starts where an interpreted one started, and writes each value
+at the place the program's layout gives it. Until the cold-init entry carries the initializers that
+depend on a call (milestone M2), every initializer is evaluated there.
 
 ### 6.8 Standard functions and function blocks (IEC §6.6.2.5, §6.6.3.5)
 
@@ -572,25 +623,35 @@ the kernel refuses a mismatch (§10.2).
 #[repr(C)]
 pub struct Cx {
     pub version: u32,            // the interface version the kernel implements
+    pub task: u32,               // the running task's index, u32::MAX for none
     pub areas: [Area; 7],        // base pointer and length of each area, §7.1
     pub now_ns: i64,             // the task's logical time, TIME() (specification 11 §5.2.1)
-    pub budget: u32,             // statements left in this scan, §8.4
+    pub budget: u32,             // statements left in this activation, §8.4
     pub stmt: u32,               // the id of the statement being executed, §13
-    pub task: u32,               // the running task's index
+    pub armed: u32,              // not 0 while statements look at their breakpoint bits
+    pub breakpoint_bytes: u32,   // the bytes of the breakpoint bits
     pub breakpoints: *const u8,  // one bit per statement id, §13.2
-    pub api: &'static KernelApi,
+    pub api: *const KernelApi,
+    pub kernel: *mut c_void,     // the kernel's own pointer, which only its functions read
+    pub fault: FaultRecord,      // the fault that ended the call, written by the module
 }
 #[repr(C)] pub struct Area { pub base: *mut u8, pub len: u32 }
 #[repr(C)]
 pub struct KernelApi {
-    pub stop: extern "C" fn(cx: *mut Cx, stmt: u32) -> u32,  // a breakpoint hit, a pause or a step: returns 0 to continue, else the fault to raise
-    pub fault: extern "C" fn(cx: *mut Cx, code: u32, a: i64, b: i64),  // records the fault's detail before the entry returns it
-    pub debug_write: extern "C" fn(cx: *mut Cx, symbol: u32) -> u32,    // applies queued Live Values writes to one variable at a safe point
+    pub stop: StopFn,          // a breakpoint hit, a pause or a step: returns 0 to continue, else the fault to raise
+    pub debug_write: DebugWriteFn, // applies queued Live Values writes to one variable at a safe point
 }
-#[repr(C)] pub struct Fault { pub code: u32, pub stmt: u32 }
+#[repr(C)] pub struct FaultRecord { pub code: u32, pub stmt: u32, pub detail: [i64; 3] }
 ```
 
-Three functions are the whole interface a scan can call. Everything else a program needs (time,
+`StopFn` is `fn(*mut Cx, u32) -> u32` and `DebugWriteFn` `fn(*mut Cx, u32) -> u32`, in the
+convention §4.4 names. A module records a fault in `Cx::fault` (its code, the statement and up to
+three numbers: the index and the bounds, the value and the bounds) and returns its code; no kernel
+function is called for it. A statement looks at its breakpoint bit only while `armed` is set, so a
+statement costs a store of its id, a decrement of the budget and two branches when no debugger is
+armed.
+
+Two functions are the whole interface a scan can call. Everything else a program needs (time,
 inputs, outputs, markers, retain) is memory the kernel prepared before the scan. The kernel calls
 the module only through the entry table.
 
@@ -619,9 +680,11 @@ each task's wall time as today; a hardware watchdog on the chips as today.
 
 Each task runs its activations on the kernel's task stack (one stack in the cooperative scheduler
 of v1; one per task when preemption comes, §16). The build computes each task's stack bound: the
-module's `.stack_sizes` section (§4.5) gives every function's frame; trust-hir's call graph gives
-the deepest static chain of each task's programs; the bound is that chain's sum plus the library's
-declared maximum plus 25%. The image's `MEMFIG` carries the bound; the kernel refuses an image whose
+compiler's `prolog-epilog` remarks (§4.5) give every function's frame; the call graph of the
+linked module (its call relocations, kept by `--emit-relocs`) gives the deepest static chain of each
+task's programs; the bound is that chain's sum plus the library's declared maximum plus 25%. Until
+the call graph is read, the bound is the sum of every function's frame, which no static chain
+exceeds since IEC 61131-3 has no recursion (1,584 bytes for the reference workload on the C6). The image's `MEMFIG` carries the bound; the kernel refuses an image whose
 bound exceeds its task stack (specification 34 MEM-03: the C6's main stack window), with both
 numbers. The kernel fills the stack with a pattern at start and checks the high-water mark after
 every scan; a mark inside the margin is the fault `StackOverflow`. §10.5 adds a hardware guard.
@@ -882,12 +945,18 @@ specification between milestones needs a written reason and the owner's approval
 
 ## Appendix A — Fault codes
 
-The codes of specification 10 §10.2 keep their names; `trust-plc-abi` numbers them from 1 in the
-order of specification 10 §10.1, then `InfiniteLoop`, `StackOverflow`, `ReferenceLifetime`,
-`MemoryProtection`, `ModuleInternal`, `StringCapacityExceeded`.
+`trust-plc-abi` numbers the faults a module raises, and the kernel maps each to the runtime error of
+specification 10 §10.2 named after it: 1 `DivisionByZero`, 2 `ModuloByZero`, 3 `Overflow`, 4
+`IndexOutOfBounds` (index, lower, upper), 5 `SubrangeViolation` (value, lower, upper), 6
+`NullReference`, 7 `ForStepZero`, 8 `TypeMismatch`, 9 `DateTimeRange` (reported as `Overflow`), 10
+`StringCapacityExceeded`, 11 `ReferenceLifetime`, 12 `NonFiniteValue`, 13 `InfiniteLoop` (reported
+as the work limit of TIME-08, `runtime_execution_timeout`), 14 `StackOverflow`, 15
+`MemoryProtection`, 16 `ModuleInternal` (the last three reported as an invalid execution state until
+the runtime has errors of their own).
 
 ## Appendix B — Revision history
 
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 22 October 2026 | First complete version, written after the vat pasteurizer did not fit the ESP32-C6 (160 KB needed, 51 KB available) and the owner asked for the state of the art, no spike and an exact specification. Approved by the owner the same day ("implement the checklist"). |
+| 0.2 | 22 October 2026 | Exact where milestone M1's implementation decided within the approved design: the generator reads trust-hir's recorded types and resolved symbols (§3); one module per CPU for every computer, its calling convention named (§4.4); the flags as they link (static PIE, `prolog-epilog` remarks, because `-stack-size-section` has no effect on stable rustc, §4.5, §8.5); table sections with a count, `CODE` at 64 bytes (§5.3); an entry per program body (§5.4); the type kinds listed (§5.8); strings rounded to even (§6.2); variables as cells behind shared references so that the generated crate needs no `unsafe` (§6.3); the context with the fault record in it and two kernel functions (§8.2); the fault codes listed (Appendix A). Measured: the reference workload's image for the C6 is 86 KB with 43 KB of code, and its memory figure 4,546 bytes (§10.4). No change of direction. |
