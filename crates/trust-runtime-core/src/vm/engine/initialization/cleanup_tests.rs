@@ -26,7 +26,7 @@ fn initializer_snapshot_refusal_skips_owned_clone_and_retires_instances() {
         .get(&prepared.vm.strings, "COUNTER")
         .unwrap();
     let temporary = state.reserve_instance(pou, Some(result)).unwrap();
-    let entry = prepared.initializers.entries[0].clone();
+    let entry = prepared.initializer_at(0);
     state
         .data
         .construction

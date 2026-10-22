@@ -141,7 +141,7 @@ impl PreparedModule {
         part("initializers", &mut count);
         count.of(&self.roots);
         part("construction roots", &mut count);
-        count.of(&self.layout);
+        count.of(&self.storage);
         part("storage layout", &mut count);
         count.of(&self.layouts);
         part("type and region layouts", &mut count);
@@ -274,7 +274,9 @@ mod record_probe {
             .expect("the program prepares");
         let mut fields: Vec<(&str, usize)> = Vec::from([
             ("vm", size_of_val(&p.vm)),
-            ("layout", size_of_val(&p.layout)),
+            // The image field is a slice reference, measured by its type.
+            ("image", size_of::<&[u8]>()),
+            ("storage", size_of_val(&p.storage)),
             ("layouts", size_of_val(&p.layouts)),
             ("roots", size_of_val(&p.roots)),
             ("initializers", size_of_val(&p.initializers)),
@@ -372,7 +374,7 @@ mod record_probe {
                 "vm.native_symbol_specs",
                 heap(&|count| count.of(&vm.native_symbol_specs)),
             ),
-            ("layout", heap(&|count| count.of(&p.layout))),
+            ("storage", heap(&|count| count.of(&p.storage))),
             ("layouts", heap(&|count| count.of(&p.layouts))),
             ("roots", heap(&|count| count.of(&p.roots))),
             ("initializers", heap(&|count| count.of(&p.initializers))),
@@ -417,16 +419,6 @@ mod record_probe {
                 "vm.types.offsets",
                 vm.types.offsets.len(),
                 vm.types.offsets.capacity(),
-            ),
-            (
-                "layout.entries",
-                p.layout.entries.len(),
-                p.layout.entries.capacity(),
-            ),
-            (
-                "initializers.entries",
-                p.initializers.entries.len(),
-                p.initializers.entries.capacity(),
             ),
             ("io_bindings", p.io_bindings.len(), p.io_bindings.capacity()),
             ("io_leaves", p.io_leaves.len(), p.io_leaves.capacity()),
@@ -479,8 +471,6 @@ mod record_probe {
         spare_of!("vm.pou_by_id", vm.pou_by_id);
         spare_of!("vm.pou_params", vm.pou_params);
         spare_of!("vm.native_symbol_specs", vm.native_symbol_specs);
-        spare_of!("layout", p.layout);
-        spare_of!("initializers", p.initializers);
         spare_of!("io_bindings", p.io_bindings);
         spare_of!("builtin_members", p.builtin_members);
         let types = p.layouts.type_layouts().to_vec();

@@ -161,8 +161,7 @@ pub fn bind_retained_declarations(
     }
     for root in prepared.construction_roots() {
         let declaration = prepared
-            .storage_declarations()
-            .get(root.declaration_idx as usize)
+            .storage_declaration(root.declaration_idx as usize)
             .ok_or(RuntimeError::InvalidExecutionState)?;
         if root.parent_root_idx.is_some() || declaration.role != StorageRole::ProgramRoot {
             continue;

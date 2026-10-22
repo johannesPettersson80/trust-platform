@@ -6,6 +6,15 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Changed: a program takes less of a chip's memory. Each table of a prepared program holds exactly
+  its entries, and a chip boots the program it has installed where it lies in its flash, without
+  copying it into its heap: it reads the program's declarations and initializers there and keeps on
+  its heap only the part of each that a scan reads. On the ESP32-C6 the bench program `v1p`, an
+  8,290-byte container, takes 15,112 bytes of heap instead of 19,052, at the same scan speed. A
+  computer's program and the candidate of an online change are prepared from their bytes and take
+  no more memory than before. An install writes the program slot that does not hold the running
+  program, so a container that was installed but has not started yet is replaced by the next
+  install.
 - Changed: scans are faster on every runtime, most on the chips. A program reads and writes its own
   and the global scalar variables, and the outputs of its timers and other standard function
   blocks, where they lie, without looking them up by name. A program body without calls to user

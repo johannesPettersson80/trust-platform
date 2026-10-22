@@ -144,7 +144,7 @@ impl EngineState<'_> {
         &mut self,
         source: &EngineState<'_>,
     ) -> Result<(), RuntimeError> {
-        for (index, declaration) in source.prepared.layout.entries.iter().enumerate() {
+        for (index, declaration) in source.prepared.storage_declarations().enumerate() {
             if declaration.role == StorageRole::External
                 || declaration.owner != StorageOwner::Instance
                 || !declaration.is_retained()
@@ -178,7 +178,7 @@ impl EngineState<'_> {
                     }
                 }
                 for &phase_id in source.prepared.edge_declarations(index as u32) {
-                    let phase = &source.prepared.layout.entries[phase_id as usize];
+                    let phase = source.prepared.storage_declaration_at(phase_id as usize);
                     let phase_name = &source.prepared.vm.strings[phase.name_idx as usize];
                     if let Some(view) = source.read_instance_var(old, phase_name) {
                         if self.copies_cells_from(&view) {

@@ -270,10 +270,9 @@ fn owned_and_artifact_retaining_routes_preserve_sections_faults_and_usage() {
         assert_eq!(owned.preparation_usage(), borrowed.preparation_usage());
         assert_eq!(owned.type_table(), borrowed.type_table());
         assert_eq!(owned.strings(), borrowed.strings());
-        assert_eq!(
-            owned.storage_declarations(),
-            borrowed.storage_declarations()
-        );
+        assert!(owned
+            .storage_declarations()
+            .eq(borrowed.storage_declarations()));
         assert_eq!(owned.construction_roots(), borrowed.construction_roots());
         let mut left = owned.instantiate(0).unwrap();
         let mut right = borrowed.instantiate(0).unwrap();

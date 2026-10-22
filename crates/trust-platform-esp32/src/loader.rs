@@ -35,6 +35,7 @@
 //! which the loop then makes its program. The shared order is in `trust_runtime_services::runner`; the
 //! loader supplies the C6's steps.
 
+use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::format;
 use alloc::string::{String, ToString};
@@ -259,12 +260,16 @@ where
         // A program that fails to load leaves no record of a running program.
         self.running = None;
 
-        // The program is prepared first. The C6 maps its slot, so the program's bytes lie in flash
-        // (specification 34 MEM-14); bytes that a boot read into memory are freed as soon as it is.
-        let prepared = PreparedModule::from_bytes(&program, device_limits(self.memory))
-            .map_err(|error| format!("the installed application cannot be prepared: {error}"))?;
+        // The program is prepared first. The C6 maps its slot, so the program's bytes lie in flash,
+        // where the prepared program reads its declarations and initializers (specification 34
+        // MEM-14); bytes that a boot read into memory are decoded and freed as soon as it is.
         let bytes = program.len();
-        drop(program);
+        let limits = device_limits(self.memory);
+        let prepared = match program {
+            Cow::Borrowed(mapped) => PreparedModule::from_mapped(mapped, limits),
+            Cow::Owned(read) => PreparedModule::from_bytes(&read, limits),
+        }
+        .map_err(|error| format!("the installed application cannot be prepared: {error}"))?;
         platform.feed();
         // It calls no deeper than the C6's main stack holds, before anything of it is constructed
         // (specification 34 MEM-03).

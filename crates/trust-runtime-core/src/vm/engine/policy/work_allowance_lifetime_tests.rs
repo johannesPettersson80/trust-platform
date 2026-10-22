@@ -116,12 +116,10 @@ fn staging_refusal_of_a_global_write_draws_no_work() {
         )
     };
     let (initializer_id, entry) = prepared
-        .initializers
-        .entries
-        .iter()
+        .initializer_entries()
         .enumerate()
         .find(|(_, entry)| entry.body_kind == InitializerBodyKind::Action)
-        .map(|(id, entry)| (id as u32, entry.clone()))
+        .map(|(id, entry)| (id as u32, entry))
         .expect("fixture has an action context");
     data.construction
         .initializers

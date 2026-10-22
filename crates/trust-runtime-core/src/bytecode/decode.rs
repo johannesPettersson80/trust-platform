@@ -71,6 +71,29 @@ mod section_validate;
 use section_validate::*;
 
 mod construction;
+pub(crate) use construction::{initializer_entry, storage_declaration};
 
 mod record;
 use record::Record;
+
+/// The byte range of section `id`'s payload in a container that decoding has accepted, or `None`
+/// when it has no such section: the header's section table read again, without its checks
+/// (specification 12 §4). A prepared program finds the records it reads in place with it
+/// (specification 34 MEM-14).
+pub(crate) fn section_payload(bytes: &[u8], id: SectionId) -> Option<core::ops::Range<usize>> {
+    let field = |at: usize| -> Option<u32> {
+        Some(u32::from_le_bytes(bytes.get(at..at + 4)?.try_into().ok()?))
+    };
+    let count = usize::from(u16::from_le_bytes(bytes.get(14..16)?.try_into().ok()?));
+    let table = usize::try_from(field(16)?).ok()?;
+    (0..count).find_map(|index| {
+        let entry = table.checked_add(index.checked_mul(SECTION_ENTRY_SIZE)?)?;
+        let entry_id = u16::from_le_bytes(bytes.get(entry..entry + 2)?.try_into().ok()?);
+        if entry_id != id.as_raw() {
+            return None;
+        }
+        let start = usize::try_from(field(entry + 4)?).ok()?;
+        let len = usize::try_from(field(entry + 8)?).ok()?;
+        Some(start..start.checked_add(len)?)
+    })
+}

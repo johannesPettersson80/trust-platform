@@ -15,9 +15,7 @@ fn prepared() -> PreparedModule {
 
 fn declaration(prepared: &PreparedModule, owner: StorageOwner) -> u32 {
     prepared
-        .layout
-        .entries
-        .iter()
+        .storage_declarations()
         .position(|entry| {
             entry.owner == owner
                 && entry.owns_storage()
@@ -51,9 +49,11 @@ fn state_data(prepared: &PreparedModule) -> alloc::boxed::Box<super::super::supe
 fn frame_commit_validates_name_index_before_charging_or_mutating() {
     let mut prepared = prepared();
     let declaration = declaration(&prepared, StorageOwner::Frame);
-    let slot = prepared.layout.entries[declaration as usize].slot as usize;
+    let slot = prepared.storage_declaration_at(declaration as usize).slot as usize;
     let mut data = state_data(&prepared);
-    prepared.layout.entries[declaration as usize].name_idx = u32::MAX;
+    let mut edited = prepared.storage_declaration_at(declaration as usize);
+    edited.name_idx = u32::MAX;
+    prepared.set_declaration(declaration as usize, edited);
     let mut state = EngineState::borrow(
         &mut data,
         &prepared,
@@ -80,7 +80,7 @@ fn frame_commit_validates_name_index_before_charging_or_mutating() {
 fn frame_commits_publish_values_without_persistent_markers_or_marker_allocation() {
     let mut prepared = prepared();
     let declaration = declaration(&prepared, StorageOwner::Frame);
-    let slot = prepared.layout.entries[declaration as usize].slot as usize;
+    let slot = prepared.storage_declaration_at(declaration as usize).slot as usize;
     let mut data = state_data(&prepared);
     let before = data.construction.initialized_declarations.len();
     prepared.limits.max_construction_bytes = 0;
@@ -119,7 +119,7 @@ fn frame_commits_publish_values_without_persistent_markers_or_marker_allocation(
 fn frame_commit_still_rejects_stale_references_before_publication() {
     let prepared = prepared();
     let declaration = declaration(&prepared, StorageOwner::Frame);
-    let slot = prepared.layout.entries[declaration as usize].slot as usize;
+    let slot = prepared.storage_declaration_at(declaration as usize).slot as usize;
     let mut data = state_data(&prepared);
     let mut state = EngineState::borrow(
         &mut data,
@@ -258,16 +258,15 @@ fn failed_instance_storage_write_does_not_publish_its_initialized_mark() {
 fn marker_allocation_refusals_precede_instance_publication() {
     let mut prepared = prepared();
     let declaration = prepared
-        .layout
-        .entries
-        .iter()
+        .storage_declarations()
         .position(|entry| {
             entry.owner == StorageOwner::Instance
                 && entry.role == StorageRole::Variable
                 && &prepared.vm.strings[entry.name_idx as usize] == "value"
         })
         .unwrap() as u32;
-    let owner = prepared.layout.entries[declaration as usize]
+    let owner = prepared
+        .storage_declaration_at(declaration as usize)
         .owner_pou_id
         .unwrap();
     let mut data = state_data(&prepared);
@@ -388,7 +387,7 @@ fn native_state_mark_is_admitted_before_publication() {
         .to_vec();
     let declaration = *declarations.first().expect("Counter instance slot");
     for &id in &declarations {
-        let entry = &mut prepared.layout.entries[id as usize];
+        let mut entry = prepared.storage_declaration_at(id as usize);
         if id == declaration {
             entry.role = StorageRole::NativeState;
             entry.owner_pou_id = Some(pou);
@@ -398,6 +397,7 @@ fn native_state_mark_is_admitted_before_publication() {
         ) {
             entry.role = StorageRole::Variable;
         }
+        prepared.set_declaration(id as usize, entry);
     }
 
     let mut data = state_data(&prepared);
@@ -440,7 +440,9 @@ fn native_state_mark_is_admitted_before_publication() {
     );
     let marker = key;
     let field_name = SmolStr::new(
-        &prepared.vm.strings[prepared.layout.entries[declaration as usize].name_idx as usize],
+        &prepared.vm.strings[prepared
+            .storage_declaration_at(declaration as usize)
+            .name_idx as usize],
     );
     let before_value = crate::vm::engine::test_store::instance_var(&state, instance, &field_name);
     let instance_count = crate::vm::engine::test_store::projection(&state)
@@ -538,7 +540,7 @@ fn lifecycle_mark_allocation_refusal_precedes_global_and_instance_value_writes()
     for owner in [StorageOwner::Global, StorageOwner::Instance] {
         let prepared = prepared();
         let declaration = declaration(&prepared, owner);
-        let entry = &prepared.layout.entries[declaration as usize];
+        let entry = prepared.storage_declaration_at(declaration as usize);
         let name = &prepared.vm.strings[entry.name_idx as usize];
         let mut data = state_data(&prepared);
         let projection = crate::vm::engine::test_store::projection(&EngineState::borrow(
@@ -657,7 +659,9 @@ fn initialized_marker_refusal_does_not_publish_prepared_once_marker_or_global_va
     let mut prepared = prepared();
     let declaration = declaration(&prepared, StorageOwner::Global);
     let name = SmolStr::new(
-        &prepared.vm.strings[prepared.layout.entries[declaration as usize].name_idx as usize],
+        &prepared.vm.strings[prepared
+            .storage_declaration_at(declaration as usize)
+            .name_idx as usize],
     );
     let mut data = state_data(&prepared);
     let previous = crate::vm::engine::test_store::global(
@@ -821,7 +825,9 @@ fn lifetime_fault_still_precedes_once_marker_admission() {
     let declaration = declaration(&prepared, StorageOwner::Global);
     let mut data = state_data(&prepared);
     let name = SmolStr::new(
-        &prepared.vm.strings[prepared.layout.entries[declaration as usize].name_idx as usize],
+        &prepared.vm.strings[prepared
+            .storage_declaration_at(declaration as usize)
+            .name_idx as usize],
     );
     let value_before = crate::vm::engine::test_store::global(
         &EngineState::borrow(

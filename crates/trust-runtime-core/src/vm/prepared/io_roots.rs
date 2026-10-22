@@ -186,7 +186,7 @@ impl PreparedModule {
         let own = self
             .declarations(StorageOwner::Instance, Some(template))
             .iter()
-            .filter_map(|&id| self.layout.entries.get(id as usize))
+            .filter_map(|&id| self.storage_declaration(id as usize))
             .find(|declaration| {
                 declaration.owner_pou_id == Some(template)
                     && self

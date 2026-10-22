@@ -94,17 +94,14 @@ mod tests {
         )
         .unwrap();
         let template = prepared
-            .layout
-            .entries
-            .iter()
+            .storage_declarations()
             .find(|entry| entry.role == StorageRole::ProgramRoot)
-            .unwrap()
-            .clone();
+            .unwrap();
         let base = prepared.vm.strings.len() as u32;
         for text in ["First", "Scheduled", "Last", "sChEdUlEd"] {
             prepared.vm.strings.push(text);
         }
-        let mut layout = prepared.layout.clone();
+        let mut layout = prepared.storage_layout();
         layout.entries.clear();
         for offset in 0..3 {
             let mut root = template.clone();

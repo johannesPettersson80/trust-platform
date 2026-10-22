@@ -129,11 +129,10 @@ impl EngineState<'_> {
         let entry = prepared.program_entry(name_idx).ok_or_else(|| {
             invalid_bytecode(smol_str::SmolStr::new_static("missing task program root"))
         })?;
-        let declaration = &prepared.layout.entries[entry.declaration as usize];
-        let pou = declaration.owner_pou_id.ok_or_else(|| {
+        let pou = entry.pou.ok_or_else(|| {
             invalid_bytecode(smol_str::SmolStr::new_static("missing program template"))
         })?;
-        let name = &prepared.vm.strings[declaration.name_idx as usize];
+        let name = &prepared.vm.strings[entry.name_idx as usize];
         let observed = hooks.has_program_hooks();
         if observed {
             let before = self.allocator_operations();

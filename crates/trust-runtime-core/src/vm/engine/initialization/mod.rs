@@ -37,15 +37,9 @@ impl EngineState<'_> {
         if depth as usize >= self.prepared.limits.max_call_depth {
             return Err(super::super::VmTrap::CallStackOverflow.into_runtime_error());
         }
-        let entry = self
-            .prepared
-            .initializers
-            .entries
-            .get(id as usize)
-            .cloned()
-            .ok_or_else(|| {
-                invalid_bytecode(smol_str::SmolStr::new_static("unknown initializer"))
-            })?;
+        let entry = self.prepared.initializer(id as usize).ok_or_else(|| {
+            invalid_bytecode(smol_str::SmolStr::new_static("unknown initializer"))
+        })?;
         let context = entry.context_initializer_idx.unwrap_or(id);
         let result_type = self
             .prepared
@@ -67,7 +61,7 @@ impl EngineState<'_> {
             && entry.code_length == 0
             && let Some(value) = entry
                 .declaration_idx
-                .and_then(|index| self.prepared.layout.entries.get(index as usize))
+                .and_then(|index| self.prepared.storage_declaration(index as usize))
                 .and_then(|declaration| declaration.default_const_idx)
                 .and_then(|index| self.prepared.vm.consts.get(index as usize))
         {
@@ -100,7 +94,7 @@ impl EngineState<'_> {
             && entry.recipe_member_idx.is_none()
             && entry
                 .declaration_idx
-                .and_then(|index| self.prepared.layout.entries.get(index as usize))
+                .and_then(|index| self.prepared.storage_declaration(index as usize))
                 .is_some_and(|declaration| declaration.default_const_idx.is_none())
             && direct_scalar_intrinsic_default(&self.prepared.vm, result_type)
         {
@@ -165,7 +159,7 @@ impl EngineState<'_> {
         let outcome = if entry.code_length == 0 {
             let constant = entry
                 .declaration_idx
-                .and_then(|index| self.prepared.layout.entries.get(index as usize))
+                .and_then(|index| self.prepared.storage_declaration(index as usize))
                 .and_then(|declaration| declaration.default_const_idx)
                 .and_then(|index| self.prepared.vm.consts.get(index as usize));
             let value = match constant {
@@ -366,7 +360,7 @@ fn initializer_branch_metadata(
     }
     let declaration = entry
         .declaration_idx
-        .and_then(|index| prepared.layout.entries.get(index as usize));
+        .and_then(|index| prepared.storage_declaration(index as usize));
     let primitive_id = prepared
         .vm
         .types
@@ -379,7 +373,7 @@ fn initializer_branch_metadata(
     Some(crate::vm::diagnostic_timing::InitializerBranchMetadata {
         initializer_id: id,
         declaration_idx: entry.declaration_idx,
-        declaration_role: declaration.map(|declaration| declaration.role),
+        declaration_role: declaration.as_ref().map(|declaration| declaration.role),
         result_type_id: result_type,
         primitive_id,
         stage: entry.stage,

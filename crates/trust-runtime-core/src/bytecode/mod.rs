@@ -12,6 +12,7 @@ pub type SectionDetail = SectionDiagnostic;
 
 mod decode;
 pub use decode::DecodeStats;
+pub(crate) use decode::{initializer_entry, section_payload, storage_declaration};
 mod disassemble;
 mod encode;
 mod format;

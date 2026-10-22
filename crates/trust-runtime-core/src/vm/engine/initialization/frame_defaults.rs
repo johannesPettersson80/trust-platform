@@ -19,19 +19,21 @@ impl EngineState<'_> {
         frame: &mut VmFrame,
         depth: u32,
     ) -> Result<bool, RuntimeError> {
+        // A call reads the compact records of the initializer and its declaration, which the heap
+        // holds, and nothing of the program's image (MEM-14).
         let prepared = self.prepared;
-        let Some(entry) = prepared.initializers.entries.get(id as usize) else {
+        let Some(entry) = prepared.scan_initializer(id as usize) else {
             return Ok(false);
         };
         if entry.stage != InitializationStage::Default
-            || entry.code_length != 0
+            || entry.has_body()
             || entry.once != InitializationOnce::None
         {
             return Ok(false);
         }
         let Some(declaration) = entry
-            .declaration_idx
-            .and_then(|index| prepared.layout.entries.get(index as usize))
+            .declaration_idx()
+            .and_then(|index| prepared.scan_declaration(index as usize))
         else {
             return Ok(false);
         };
@@ -50,7 +52,7 @@ impl EngineState<'_> {
             return Ok(false);
         }
         let literal = declaration
-            .default_const_idx
+            .default_const_idx()
             .and_then(|index| prepared.vm.consts.get(index as usize));
         let primitive = match prepared
             .vm
@@ -60,11 +62,9 @@ impl EngineState<'_> {
             .map(|entry| &entry.data)
         {
             Some(TypeData::Primitive { prim_id, .. })
-                if declaration.default_const_idx.is_none()
+                if declaration.default_const_idx().is_none()
                     && entry.body_kind == InitializerBodyKind::Action
-                    && entry.context_initializer_idx.is_none()
-                    && entry.recipe_type_id.is_none()
-                    && entry.recipe_member_idx.is_none()
+                    && !entry.has_context_or_recipe()
                     && direct_scalar_intrinsic_default(&prepared.vm, result_type) =>
             {
                 Some(*prim_id)
@@ -80,7 +80,9 @@ impl EngineState<'_> {
             return Err(crate::vm::VmTrap::CallStackOverflow.into_runtime_error());
         }
         #[cfg(all(feature = "std", feature = "test-support"))]
-        let branch_metadata = initializer_branch_metadata(prepared, id, entry, result_type);
+        let branch_metadata = prepared
+            .initializer(id as usize)
+            .and_then(|entry| initializer_branch_metadata(prepared, id, &entry, result_type));
         let value = if let Some(constant) = literal {
             #[cfg(all(feature = "std", feature = "test-support"))]
             log_initializer_branch(

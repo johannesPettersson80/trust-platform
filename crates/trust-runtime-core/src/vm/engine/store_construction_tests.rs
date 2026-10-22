@@ -232,7 +232,7 @@ fn member(state: &EngineState<'_>, instance: InstanceId, name: &str) -> Value {
 }
 
 fn declaration_name(prepared: &PreparedModule, declaration: u32) -> &str {
-    let entry = &prepared.layout.entries[declaration as usize];
+    let entry = prepared.storage_declaration_at(declaration as usize);
     &prepared.vm.strings[entry.name_idx as usize]
 }
 

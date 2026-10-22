@@ -20,15 +20,13 @@ fn call_path_literal_default_refuses_a_reference_that_outlives_its_frame() {
     let mut prepared = fixture();
     let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let id = prepared
-        .initializers
-        .entries
-        .iter()
+        .initializer_entries()
         .position(|entry| {
             entry.declaration_idx.is_some()
                 && entry.stage == crate::bytecode::InitializationStage::Default
         })
         .unwrap();
-    let declaration = prepared.initializers.entries[id].declaration_idx.unwrap() as usize;
+    let declaration = prepared.initializer_at(id).declaration_idx.unwrap() as usize;
     let constant = prepared.vm.consts.len() as u32;
     prepared
         .vm
@@ -39,8 +37,12 @@ fn call_path_literal_default_refuses_a_reference_that_outlives_its_frame() {
             generation: crate::memory::Generation::FIRST,
             path: alloc::vec::Vec::new(),
         })));
-    prepared.layout.entries[declaration].default_const_idx = Some(constant);
-    prepared.initializers.entries[id].code_length = 0;
+    let mut edited = prepared.storage_declaration_at(declaration);
+    edited.default_const_idx = Some(constant);
+    prepared.set_declaration(declaration, edited);
+    let mut edited = prepared.initializer_at(id);
+    edited.code_length = 0;
+    prepared.set_initializer(id, edited);
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
     state.data.resources.construction_bytes.set(0);
     state

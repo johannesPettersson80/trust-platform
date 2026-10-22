@@ -32,24 +32,25 @@ impl PreparedModule {
         &self.vm.types
     }
 
-    /// Admitted declaration identities, slots and qualifiers for read-only tooling.
-    pub fn storage_declarations(&self) -> &[StorageDeclaration] {
-        &self.layout.entries
+    /// Admitted declaration identities, slots and qualifiers for read-only tooling, in order, each
+    /// read where it lies in the program's image (specification 34 MEM-14).
+    pub fn storage_declarations(&self) -> impl Iterator<Item = StorageDeclaration> + '_ {
+        (0..self.declaration_count()).filter_map(|index| self.storage_declaration(index))
     }
 
     /// Frame declarations selected through the preparation-time owner index.
     /// Looking up one invocation does not scan the application's whole layout.
-    pub fn frame_declarations(&self, pou: u32) -> impl Iterator<Item = &StorageDeclaration> {
+    pub fn frame_declarations(&self, pou: u32) -> impl Iterator<Item = StorageDeclaration> + '_ {
         self.declarations(StorageOwner::Frame, Some(pou))
             .iter()
-            .filter_map(|id| self.layout.entries.get(*id as usize))
+            .filter_map(|id| self.storage_declaration(*id as usize))
     }
 
     /// Instance declarations selected through the same preparation-time index.
-    pub fn instance_declarations(&self, pou: u32) -> impl Iterator<Item = &StorageDeclaration> {
+    pub fn instance_declarations(&self, pou: u32) -> impl Iterator<Item = StorageDeclaration> + '_ {
         self.declarations(StorageOwner::Instance, Some(pou))
             .iter()
-            .filter_map(|id| self.layout.entries.get(*id as usize))
+            .filter_map(|id| self.storage_declaration(*id as usize))
     }
 
     /// Resource and task descriptors for hosted scheduling and protocol metadata.

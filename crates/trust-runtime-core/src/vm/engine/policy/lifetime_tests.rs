@@ -205,9 +205,7 @@ fn initialized_marker_lookup_consumes_no_allowance_before_visibility_read() {
         &super::super::services::LOGICAL_ONLY,
     ));
     let (declaration, instance) = prepared
-        .layout
-        .entries
-        .iter()
+        .storage_declarations()
         .enumerate()
         .find_map(|(index, entry)| {
             if entry.owner != StorageOwner::Instance || entry.role != StorageRole::Variable {
@@ -238,7 +236,7 @@ fn initialized_marker_lookup_consumes_no_allowance_before_visibility_read() {
             .declaration(
                 StorageOwner::Instance,
                 Some(template),
-                prepared.layout.entries[declaration as usize].slot as usize,
+                prepared.storage_declaration_at(declaration as usize).slot as usize,
             )
             .is_some(),
         "the selected slot resolves to its declaration"
@@ -246,12 +244,10 @@ fn initialized_marker_lookup_consumes_no_allowance_before_visibility_read() {
     let marks_before = data.construction.initialized_declarations.len();
 
     let (initializer_id, entry) = prepared
-        .initializers
-        .entries
-        .iter()
+        .initializer_entries()
         .enumerate()
         .find(|(_, entry)| entry.body_kind == InitializerBodyKind::Action)
-        .map(|(id, entry)| (id as u32, entry.clone()))
+        .map(|(id, entry)| (id as u32, entry))
         .expect("fixture has an action context");
     data.construction
         .initializers
@@ -274,7 +270,7 @@ fn initialized_marker_lookup_consumes_no_allowance_before_visibility_read() {
         state.check_read(
             crate::value::ValueRef {
                 location: MemoryLocation::Instance(instance),
-                offset: prepared.layout.entries[declaration as usize].slot,
+                offset: prepared.storage_declaration_at(declaration as usize).slot,
                 generation: state.data.storage.generation(),
                 path: Vec::new(),
             }

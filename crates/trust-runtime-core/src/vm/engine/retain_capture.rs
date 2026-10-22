@@ -61,8 +61,10 @@ impl EngineState<'_> {
         payload: &mut PayloadWriter<'_>,
     ) -> Result<(), RuntimeError> {
         let prepared = self.prepared;
+        // A capture at the end of a cycle reads the compact records, not the program's image
+        // (MEM-14).
         for &id in prepared.retained_declarations(StorageOwner::Global, None) {
-            let declaration = &prepared.layout.entries[id as usize];
+            let declaration = prepared.scan_declaration_at(id as usize);
             let name = &prepared.vm.strings[declaration.name_idx as usize];
             if let Ok(view) = self.read_slot(MemoryLocation::Global, declaration.slot as usize)
                 && view_is_retainable(&view)?
@@ -73,7 +75,7 @@ impl EngineState<'_> {
             }
         }
         for (index, root) in prepared.roots.entries.iter().enumerate() {
-            let root_declaration = &prepared.layout.entries[root.declaration_idx as usize];
+            let root_declaration = prepared.scan_declaration_at(root.declaration_idx as usize);
             if root.parent_root_idx.is_some() || root_declaration.role != StorageRole::ProgramRoot {
                 continue;
             }
@@ -82,7 +84,7 @@ impl EngineState<'_> {
             let program_name = &prepared.vm.strings[root_declaration.name_idx as usize];
             for &id in prepared.retained_declarations(StorageOwner::Instance, root.template_pou_id)
             {
-                let declaration = &prepared.layout.entries[id as usize];
+                let declaration = prepared.scan_declaration_at(id as usize);
                 let name = &prepared.vm.strings[declaration.name_idx as usize];
                 if let Some(view) = self.read_instance_var(instance, name)
                     && view_is_retainable(&view)?
@@ -122,7 +124,7 @@ impl EngineState<'_> {
             .retained_declarations(StorageOwner::Global, None)
             .iter()
             .any(|&id| {
-                let declaration = &prepared.layout.entries[id as usize];
+                let declaration = prepared.scan_declaration_at(id as usize);
                 let global = &prepared.vm.strings[declaration.name_idx as usize];
                 global
                     .strip_prefix("@program/")
@@ -163,12 +165,12 @@ pub(crate) fn retained_payload_bound(prepared: &PreparedModule) -> Option<usize>
     };
     let mut total = 4usize;
     for &id in prepared.retained_declarations(StorageOwner::Global, None) {
-        let declaration = prepared.layout.entries.get(id as usize)?;
+        let declaration = prepared.storage_declaration(id as usize)?;
         let name = prepared.vm.strings.get(declaration.name_idx as usize)?;
         total = total.checked_add(entry(name.len(), declaration.type_id)?)?;
     }
     for root in &prepared.roots.entries {
-        let root_declaration = prepared.layout.entries.get(root.declaration_idx as usize)?;
+        let root_declaration = prepared.storage_declaration(root.declaration_idx as usize)?;
         if root.parent_root_idx.is_some() || root_declaration.role != StorageRole::ProgramRoot {
             continue;
         }
@@ -177,7 +179,7 @@ pub(crate) fn retained_payload_bound(prepared: &PreparedModule) -> Option<usize>
             .strings
             .get(root_declaration.name_idx as usize)?;
         for &id in prepared.retained_declarations(StorageOwner::Instance, root.template_pou_id) {
-            let declaration = prepared.layout.entries.get(id as usize)?;
+            let declaration = prepared.storage_declaration(id as usize)?;
             let name = prepared.vm.strings.get(declaration.name_idx as usize)?;
             // The key `@program/<program>/<variable>`.
             let key = program.len().checked_add(name.len())?.checked_add(10)?;

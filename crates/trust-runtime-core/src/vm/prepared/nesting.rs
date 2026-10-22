@@ -43,7 +43,7 @@ impl PreparedModule {
     /// initializer.
     fn body_ops(&self, id: u32) -> BodyOps {
         let mut ops = BodyOps::default();
-        let Some(entry) = self.initializers.entries.get(id as usize) else {
+        let Some(entry) = self.initializer(id as usize) else {
             return ops;
         };
         let start = entry.code_offset as usize;
@@ -95,7 +95,7 @@ impl PreparedModule {
         if let Some(Some(depth)) = memo.get(id as usize) {
             return *depth;
         }
-        let Some(entry) = self.initializers.entries.get(id as usize) else {
+        let Some(entry) = self.initializer(id as usize) else {
             return 0;
         };
         let mut nested = self
@@ -167,8 +167,8 @@ impl PreparedModule {
     /// The most initializer evaluations that one call level holds at once: an initializer and the
     /// deepest chain nested in it (at least one).
     pub(crate) fn initializer_nesting(&self) -> usize {
-        let mut memo = alloc::vec![None; self.initializers.entries.len()];
-        (0..self.initializers.entries.len())
+        let mut memo = alloc::vec![None; self.initializer_count()];
+        (0..self.initializer_count())
             .filter_map(|id| u32::try_from(id).ok())
             .map(|id| self.initializer_depth(id, 0, &mut memo))
             .max()
@@ -183,7 +183,7 @@ impl PreparedModule {
         let mut bounds = RawShellBounds::default();
         let mut arrays = 0usize;
         let mut structures = 0usize;
-        for id in 0..self.initializers.entries.len() {
+        for id in 0..self.initializer_count() {
             let Ok(id) = u32::try_from(id) else {
                 break;
             };

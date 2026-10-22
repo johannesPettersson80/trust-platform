@@ -45,7 +45,7 @@ impl EngineState<'_> {
                     .claimed_roots
                     .insert(root_index(index)?);
             } else {
-                let declaration = &prepared.layout.entries[root.declaration_idx as usize];
+                let declaration = prepared.storage_declaration_at(root.declaration_idx as usize);
                 if declaration.role == StorageRole::ProgramRoot {
                     self.data
                         .construction
@@ -60,7 +60,7 @@ impl EngineState<'_> {
         }
 
         for &id in prepared.resource_actions() {
-            let entry = &prepared.initializers.entries[id as usize];
+            let entry = prepared.initializer_at(id as usize);
             if entry
                 .declaration_idx
                 .is_some_and(|index| self.data.construction.retained_globals.contains_key(&index))
@@ -71,7 +71,9 @@ impl EngineState<'_> {
         }
         for (index, root) in prepared.roots.entries.iter().enumerate() {
             if root.parent_root_idx.is_none()
-                && prepared.layout.entries[root.declaration_idx as usize].role
+                && prepared
+                    .storage_declaration_at(root.declaration_idx as usize)
+                    .role
                     == StorageRole::ProgramRoot
                 && let Some(instance) = self.data.construction.roots[index]
             {
@@ -147,7 +149,8 @@ impl EngineState<'_> {
         let prepared = self.prepared;
         for &id in prepared.declarations(StorageOwner::Instance, Some(pou)) {
             self.charge_work_units(1)?;
-            if let Some(value) = prepared.layout.entries[id as usize]
+            if let Some(value) = prepared
+                .storage_declaration_at(id as usize)
                 .default_const_idx
                 .and_then(|index| prepared.vm.consts.get(index as usize))
             {
@@ -225,7 +228,7 @@ impl EngineState<'_> {
             return Ok(instance);
         }
         for &id in prepared.declarations(StorageOwner::Instance, Some(pou)) {
-            let declaration = &prepared.layout.entries[id as usize];
+            let declaration = prepared.storage_declaration_at(id as usize);
             let name = self
                 .prepared
                 .vm
@@ -350,7 +353,7 @@ impl EngineState<'_> {
         let prepared = self.prepared;
         // Native-state/edge declarations without actions still own real fixed slots.
         for &id in prepared.declarations(StorageOwner::Instance, Some(pou)) {
-            let declaration = &prepared.layout.entries[id as usize];
+            let declaration = prepared.storage_declaration_at(id as usize);
             if declaration.owner_pou_id == Some(pou)
                 && matches!(
                     declaration.role,
@@ -373,7 +376,7 @@ impl EngineState<'_> {
             }
         }
         for &id in prepared.instance_actions(pou) {
-            let entry = &prepared.initializers.entries[id as usize];
+            let entry = prepared.initializer_at(id as usize);
             if intrinsic {
                 if entry.stage == InitializationStage::Explicit {
                     continue;
@@ -381,7 +384,8 @@ impl EngineState<'_> {
                 let declaration = entry
                     .declaration_idx
                     .ok_or_else(|| RuntimeError::InvalidExecutionState)?;
-                let type_id = prepared.layout.entries[declaration as usize]
+                let type_id = prepared
+                    .storage_declaration_at(declaration as usize)
                     .type_id
                     .ok_or_else(|| RuntimeError::InvalidExecutionState)?;
                 let prepared = self.prepared;
@@ -421,10 +425,12 @@ impl EngineState<'_> {
         let _timing = crate::vm::diagnostic_timing::begin(
             crate::vm::diagnostic_timing::Phase::DeclarationAction,
         );
-        let Some(entry) = self.prepared.initializers.entries.get(id as usize).cloned() else {
+        // A call reads what decides the action from the initializer's compact record, so a static
+        // that is already initialized costs no read of the program's image (MEM-14).
+        let Some(entry) = self.prepared.scan_initializer(id as usize) else {
             return Err(RuntimeError::InvalidExecutionState);
         };
-        let Some(declaration) = entry.declaration_idx else {
+        let Some(declaration) = entry.declaration_idx() else {
             return Err(RuntimeError::InvalidExecutionState);
         };
         let instance = self.physical_declaration_instance(declaration, instance)?;
@@ -478,7 +484,7 @@ impl EngineState<'_> {
         declaration: u32,
         mut instance: Option<InstanceId>,
     ) -> Result<Option<InstanceId>, RuntimeError> {
-        let Some(entry) = self.prepared.layout.entries.get(declaration as usize) else {
+        let Some(entry) = self.prepared.scan_declaration(declaration as usize) else {
             return Err(RuntimeError::InvalidExecutionState);
         };
         if entry.owner != StorageOwner::Instance {
@@ -525,7 +531,7 @@ impl EngineState<'_> {
         let _timing = crate::vm::diagnostic_timing::begin(
             crate::vm::diagnostic_timing::Phase::InitializerCommit,
         );
-        let Some(declared) = self.prepared.layout.entries.get(declaration as usize) else {
+        let Some(declared) = self.prepared.storage_declaration(declaration as usize) else {
             return Err(RuntimeError::InvalidExecutionState);
         };
         let Some(name) = self.prepared.vm.strings.get(declared.name_idx as usize) else {
@@ -683,13 +689,18 @@ impl EngineState<'_> {
             // Default runs, so a newly initialized value is not taken for a caller-supplied return.
             let return_supplied = phase == InitializationPhase::Return && return_supplied;
             for &id in actions {
-                let supplied = prepared.initializers.entries[id as usize]
-                    .declaration_idx
+                let supplied = prepared
+                    .scan_initializer(id as usize)
+                    .and_then(|initializer| initializer.declaration_idx())
                     .is_some_and(|declaration| match phase {
-                        InitializationPhase::Parameter => {
-                            let slot = prepared.layout.entries[declaration as usize].slot as usize;
-                            frame.parameter_values_present.get(slot) == Some(&true)
-                        }
+                        InitializationPhase::Parameter => prepared
+                            .scan_declaration(declaration as usize)
+                            .is_some_and(|declaration| {
+                                frame
+                                    .parameter_values_present
+                                    .get(declaration.slot as usize)
+                                    == Some(&true)
+                            }),
                         InitializationPhase::Return => return_supplied,
                         _ => false,
                     });
@@ -720,9 +731,9 @@ impl EngineState<'_> {
     ) -> Result<(), RuntimeError> {
         let prepared = self.prepared;
         for &id in prepared.configuration_actions() {
-            let entry = &prepared.initializers.entries[id as usize];
+            let entry = prepared.initializer_at(id as usize);
             let value = self.evaluate_initializer(id, None, None, 0)?;
-            self.commit_configuration_target(entry, value)?;
+            self.commit_configuration_target(&entry, value)?;
         }
         Ok(())
     }
@@ -975,9 +986,7 @@ mod typed_instance_refusal_tests {
         )
         .unwrap();
         let pou = prepared
-            .layout
-            .entries
-            .iter()
+            .storage_declarations()
             .find(|entry| entry.owner == StorageOwner::Instance && entry.type_id.is_some())
             .and_then(|entry| entry.owner_pou_id)
             .unwrap();

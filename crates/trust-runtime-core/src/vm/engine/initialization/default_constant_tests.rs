@@ -24,9 +24,7 @@ fn direct_scalar_default_fixture() -> (
     let actual_data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let expected_data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let initializer_id = prepared
-        .initializers
-        .entries
-        .iter()
+        .initializer_entries()
         .position(|entry| {
             entry.phase == crate::bytecode::InitializationPhase::Return
                 && entry.declaration_idx.is_some()
@@ -38,7 +36,7 @@ fn direct_scalar_default_fixture() -> (
                 && entry.recipe_member_idx.is_none()
                 && entry
                     .declaration_idx
-                    .and_then(|index| prepared.layout.entries.get(index as usize))
+                    .and_then(|index| prepared.storage_declaration(index as usize))
                     .is_some_and(|declaration| declaration.default_const_idx.is_none())
                 && prepared
                     .vm
@@ -48,7 +46,7 @@ fn direct_scalar_default_fixture() -> (
         .unwrap();
     let type_id = prepared
         .vm
-        .ref_type(prepared.initializers.entries[initializer_id].result_ref_idx)
+        .ref_type(prepared.initializer_at(initializer_id).result_ref_idx)
         .unwrap();
     (
         prepared,
@@ -193,20 +191,22 @@ fn constant_default_charges_exact_clone_demand_and_cleans_rejected_staging() {
     // Exercise the internal zero-body clone seam without another authoring engine.
     // The separate bytecode_source_free test admits an actual WSTRING container.
     let id = prepared
-        .initializers
-        .entries
-        .iter()
+        .initializer_entries()
         .position(|entry| {
             entry.declaration_idx.is_some()
                 && entry.stage == crate::bytecode::InitializationStage::Default
         })
         .unwrap();
-    let declaration = prepared.initializers.entries[id].declaration_idx.unwrap() as usize;
+    let declaration = prepared.initializer_at(id).declaration_idx.unwrap() as usize;
     let constant = prepared.vm.consts.len() as u32;
     let payload = Value::WString("A".repeat(8192));
     prepared.vm.consts.push(payload.clone());
-    prepared.layout.entries[declaration].default_const_idx = Some(constant);
-    prepared.initializers.entries[id].code_length = 0;
+    let mut edited = prepared.storage_declaration_at(declaration);
+    edited.default_const_idx = Some(constant);
+    prepared.set_declaration(declaration, edited);
+    let mut edited = prepared.initializer_at(id);
+    edited.code_length = 0;
+    prepared.set_initializer(id, edited);
     // The payload has 8192 UTF-16 code units of 2 bytes each: its exact clone demand (TIME-08).
     let demand = 2 * 8192;
     prepared.limits.max_construction_bytes = demand - 1;
@@ -270,19 +270,22 @@ fn member_default_preflight_cannot_strand_an_instance_or_lifetime_metadata() {
     .unwrap();
     let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let declaration = prepared
-        .layout
-        .entries
-        .iter()
+        .storage_declarations()
         .position(|entry| {
             entry.owner == StorageOwner::Instance
                 && prepared.vm.strings[entry.name_idx as usize].eq_ignore_ascii_case("wide")
         })
         .unwrap();
-    let pou = prepared.layout.entries[declaration].owner_pou_id.unwrap();
+    let pou = prepared
+        .storage_declaration_at(declaration)
+        .owner_pou_id
+        .unwrap();
     let wide = Value::WString("A".repeat(16));
     let constant = prepared.vm.consts.len() as u32;
     prepared.vm.consts.push(wide.clone());
-    prepared.layout.entries[declaration].default_const_idx = Some(constant);
+    let mut edited = prepared.storage_declaration_at(declaration);
+    edited.default_const_idx = Some(constant);
+    prepared.set_declaration(declaration, edited);
     let templates = data.construction.instance_templates.len();
     let lifetimes = data.lifetimes.instance_lifetimes.len();
     let (instances, scope) = {

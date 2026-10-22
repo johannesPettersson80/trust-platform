@@ -37,7 +37,7 @@ pub(super) fn of_ref(
     prepared
         .declarations(owner, owner_pou)
         .iter()
-        .filter_map(|&id| prepared.layout.entries.get(id as usize))
+        .filter_map(|&id| prepared.storage_declaration(id as usize))
         .find(|declaration| declaration.slot as usize == slot)
         .and_then(|declaration| declaration.type_id)
         .map_or(largest, |type_id| saved_bytes(prepared, type_id))

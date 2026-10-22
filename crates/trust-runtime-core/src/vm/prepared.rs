@@ -14,6 +14,9 @@ mod budget;
 mod builtin_members;
 pub(crate) mod byte_types;
 pub(crate) mod call_plans;
+/// The storage declarations and initializers, and what a scan reads of them (specification 34
+/// MEM-14).
+mod declarations;
 mod duration_slots;
 /// The prepared program's part of the memory figure (specification 34 MEM-12, MEM-14).
 mod figure;
@@ -32,10 +35,13 @@ mod metadata;
 mod nesting;
 /// The most a scan keeps beside its operands (C1-19c2).
 pub(crate) mod operand_bounds;
+/// A table of fixed-width records, decoded or read where they lie in a mapped image (MEM-14).
+mod records;
 mod reference_names;
 pub(crate) use budget::PreparationBudget;
 pub use budget::PreparationUsage;
 pub(crate) use call_plans::CallPlan;
+pub(crate) use declarations::ScanDeclaration;
 pub use figure::{MemoryFigure, ProgramPart, PROGRAM_PARTS};
 pub(crate) use instances::InstanceBookkeeping;
 pub(crate) use io_leaves::{InputLeaves, IoLeaf};
@@ -141,11 +147,17 @@ pub struct PreparedModule {
     pub(crate) vm: VmModule,
     #[cfg(feature = "register-ir")]
     pub(crate) register_plans: super::register_ir::PreparedRegisterPlans,
-    pub(crate) layout: StorageLayout,
+    /// The program's bytes where a chip maps them, in which the tables below lie; empty when the
+    /// program was prepared from bytes it does not keep (specification 34 MEM-14).
+    image: &'static [u8],
+    /// The storage declarations, decoded or in the mapped image, and what a scan reads of each
+    /// (MEM-14).
+    storage: declarations::DeclarationTable,
     /// Prepared cell layouts and region ranges (specification 34 §6.2, MEM-10).
     pub(crate) layouts: layouts::PreparedLayouts,
     pub(crate) roots: ConstructionRoots,
-    pub(crate) initializers: InitializerIndex,
+    /// The initializers, decoded or in the mapped image, and what a call reads of each (MEM-14).
+    initializers: declarations::InitializerTable,
     pub(crate) access: AccessBindings,
     pub(crate) resources: ResourceMeta,
     pub(crate) io_bindings: Vec<crate::io_image::PreparedIoBinding>,
@@ -242,15 +254,43 @@ impl PreparedModule {
         call_plans::set_plans_enabled(enabled);
     }
 
-    /// Decode, fully validate and prepare an artifact without source or a compiler.
+    /// Decode, fully validate and prepare an artifact without source or a compiler. The prepared
+    /// program keeps its tables decoded and nothing of `bytes`.
+    ///
+    /// # Errors
+    ///
+    /// The error of the decode, the validation or the preparation that refuses the artifact.
     pub fn from_bytes(bytes: &[u8], limits: PreparationLimits) -> Result<Self, RuntimeError> {
+        Self::from_input(bytes, None, limits)
+    }
+
+    /// Decode, fully validate and prepare the artifact that lies in `image`, where a chip maps its
+    /// program slot for as long as the program is held. The prepared program reads its storage
+    /// declarations and initializers where they lie in the image and keeps on the heap only what a
+    /// scan reads of them (specification 34 MEM-14, the program image in place).
+    ///
+    /// # Errors
+    ///
+    /// The error of the decode, the validation or the preparation that refuses the artifact.
+    pub fn from_mapped(
+        image: &'static [u8],
+        limits: PreparationLimits,
+    ) -> Result<Self, RuntimeError> {
+        Self::from_input(image, Some(image), limits)
+    }
+
+    fn from_input(
+        bytes: &[u8],
+        image: Option<&'static [u8]>,
+        limits: PreparationLimits,
+    ) -> Result<Self, RuntimeError> {
         let (raw, transport) = Self::decode_input(bytes, limits)?;
         Self::check_limits(limits)?;
         let mut preparation = PreparationBudget::new(limits);
         preparation.charge(transport.bytes, transport.work)?;
         let source =
             OwnedValidatedSource::new(raw, limits.validation).map_err(RuntimeError::from)?;
-        Self::prepare_source(source, preparation, limits, bytes.len())
+        Self::prepare_source(source, preparation, limits, bytes.len(), image)
     }
 
     /// Hosted tooling may retain the immutable decoded artifact alongside its
@@ -345,7 +385,7 @@ impl PreparedModule {
         let token = raw
             .validated_with_limits(limits.validation)
             .map_err(RuntimeError::from)?;
-        Self::prepare_source(token, preparation, limits, encoded_len)
+        Self::prepare_source(token, preparation, limits, encoded_len, None)
     }
 
     fn prepare_source(
@@ -353,6 +393,7 @@ impl PreparedModule {
         mut preparation: PreparationBudget,
         limits: PreparationLimits,
         encoded_len: usize,
+        image: Option<&'static [u8]>,
     ) -> Result<Self, RuntimeError> {
         let stats = token.stats();
         preparation.metadata(token.view(), encoded_len)?;
@@ -485,6 +526,8 @@ impl PreparedModule {
                 preparation.charge(bytes, work)
             })?;
         let preparation_usage = preparation.usage();
+        let (storage, initializers) =
+            declarations::tables(image, layout.entries, initializers.entries)?;
         let mut prepared = Self {
             preparation_usage,
             indexes,
@@ -493,7 +536,8 @@ impl PreparedModule {
             vm,
             #[cfg(feature = "register-ir")]
             register_plans,
-            layout,
+            image: image.unwrap_or_default(),
+            storage,
             layouts,
             roots,
             initializers,

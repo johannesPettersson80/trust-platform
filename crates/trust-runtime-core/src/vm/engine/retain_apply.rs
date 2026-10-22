@@ -49,7 +49,7 @@ impl EngineState<'_> {
         // later member-default recipes, as in the hosted migration transaction.
         let mut destinations = BTreeMap::new();
         let prepared = self.prepared;
-        for (id, declaration) in prepared.layout.entries.iter().enumerate() {
+        for (id, declaration) in prepared.storage_declarations().enumerate() {
             if declaration.owner != StorageOwner::Global
                 || declaration.role == StorageRole::ProgramRoot
             {
@@ -72,7 +72,7 @@ impl EngineState<'_> {
             }
         }
         for (root_index, root) in prepared.roots.entries.iter().enumerate() {
-            let root_declaration = &prepared.layout.entries[root.declaration_idx as usize];
+            let root_declaration = prepared.storage_declaration_at(root.declaration_idx as usize);
             if root.parent_root_idx.is_some() || root_declaration.role != StorageRole::ProgramRoot {
                 continue;
             }
@@ -80,7 +80,7 @@ impl EngineState<'_> {
                 .ok_or(RuntimeError::InvalidExecutionState)?;
             let program = &prepared.vm.strings[root_declaration.name_idx as usize];
             for &id in prepared.declarations(StorageOwner::Instance, root.template_pou_id) {
-                let declaration = &prepared.layout.entries[id as usize];
+                let declaration = prepared.storage_declaration_at(id as usize);
                 let name = &prepared.vm.strings[declaration.name_idx as usize];
                 // The program-scoped index entry is bookkeeping (TIME-08) and is not charged.
                 cost_sum(&[
@@ -102,7 +102,7 @@ impl EngineState<'_> {
             }
         }
         let mut actions = BTreeMap::new();
-        for (index, entry) in prepared.initializers.entries.iter().enumerate() {
+        for (index, entry) in prepared.initializer_entries().enumerate() {
             if entry.stage == InitializationStage::Default
                 && let Some(declaration) = entry.declaration_idx
             {
@@ -146,7 +146,7 @@ impl EngineState<'_> {
                     events.push(RetainApplyEvent::Orphan { name: key.clone() });
                     continue;
                 };
-                let declaration = &prepared.layout.entries[id as usize];
+                let declaration = prepared.storage_declaration_at(id as usize);
                 if !declaration.is_retained() {
                     continue;
                 }

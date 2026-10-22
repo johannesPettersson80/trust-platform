@@ -227,9 +227,7 @@ fn duplicate_root_owner_keeps_binary_search_when_cache_is_forged() {
 fn declaration_cache_fixture(pou_count: usize, owners: &[u32]) -> PreparedIndexes {
     let prepared = super::tests::prepared();
     let template = prepared
-        .layout
-        .entries
-        .iter()
+        .storage_declarations()
         .find(|entry| entry.owns_storage())
         .unwrap();
     let mut layout = crate::bytecode::StorageLayout::default();

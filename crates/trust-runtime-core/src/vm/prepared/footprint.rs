@@ -12,7 +12,7 @@ impl PreparedModule {
             vm,
             #[cfg(feature = "register-ir")]
             register_plans,
-            layout,
+            storage,
             layouts,
             roots,
             initializers,
@@ -39,7 +39,7 @@ impl PreparedModule {
         after("prepared indexes");
         drop(layouts);
         after("type and region layouts");
-        drop(layout);
+        drop(storage);
         after("storage layout");
         drop(roots);
         after("construction roots");

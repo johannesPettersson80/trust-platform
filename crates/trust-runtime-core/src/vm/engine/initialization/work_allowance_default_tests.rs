@@ -19,9 +19,7 @@ fn instance_node_and_first_member_preflight_each_take_one_unit() {
     let prepared = fixture();
     let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
     let pou = prepared
-        .layout
-        .entries
-        .iter()
+        .storage_declarations()
         .find(|entry| entry.owner == StorageOwner::Instance && entry.type_id.is_some())
         .and_then(|entry| entry.owner_pou_id)
         .unwrap();

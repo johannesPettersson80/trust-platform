@@ -369,7 +369,8 @@ mod tests {
             .reset(prepared.limits.max_work);
         let mut defaults = 0;
         for &id in prepared.declarations(StorageOwner::Instance, Some(pou)) {
-            if let Some(value) = prepared.layout.entries[id as usize]
+            if let Some(value) = prepared
+                .storage_declaration_at(id as usize)
                 .default_const_idx
                 .and_then(|index| prepared.vm.consts.get(index as usize))
             {

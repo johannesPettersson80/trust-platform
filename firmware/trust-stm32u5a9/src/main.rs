@@ -184,7 +184,9 @@ fn main() -> ! {
         heap_bytes: memory::HEAP.capacity(),
         call_depth,
     });
-    let prepared = match PreparedModule::from_bytes(program, limits) {
+    // The program lies in the application region, where the prepared program reads its
+    // declarations and initializers (specification 34 MEM-14).
+    let prepared = match PreparedModule::from_mapped(program, limits) {
         Ok(prepared) => prepared,
         Err(error) => serve_stopped(
             parts,

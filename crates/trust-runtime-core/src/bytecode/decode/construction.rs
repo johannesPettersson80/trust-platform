@@ -6,6 +6,59 @@ use crate::bytecode::{
     StorageOwner, StorageRole, BYTECODE_MAX_CONSTRUCTION_RECORDS,
 };
 
+/// The storage declaration of a 40-byte STORAGE_LAYOUT record (specification 12 §11.5), or `None`
+/// for a record whose owner or role the format does not name. A prepared program reads its records
+/// where they lie in its image through it (specification 34 MEM-14).
+pub(crate) fn storage_declaration(bytes: &[u8; 40]) -> Option<StorageDeclaration> {
+    let record = Record(bytes);
+    Some(StorageDeclaration {
+        owner: StorageOwner::from_raw(record.0[0])?,
+        role: StorageRole::from_raw(record.0[1])?,
+        retain: record.0[2],
+        flags: record.0[3],
+        owner_pou_id: record.optional::<4>(),
+        name_idx: record.word::<8>(),
+        type_id: record.optional::<12>(),
+        slot: record.word::<16>(),
+        ref_idx: record.optional::<20>(),
+        default_const_idx: record.optional::<24>(),
+        construction_nodes: record.word::<28>(),
+        related_declaration_idx: record.optional::<32>(),
+        source_name_idx: record.optional::<36>(),
+    })
+}
+
+/// The initializer of a 60-byte INITIALIZER_INDEX record (specification 12 §11.5), or `None` for a
+/// record whose phase, once, stage, trigger, target or body kind the format does not name. A
+/// prepared program reads its records where they lie in its image through it (specification 34
+/// MEM-14).
+pub(crate) fn initializer_entry(bytes: &[u8; 60]) -> Option<InitializerEntry> {
+    let record = Record(bytes);
+    Some(InitializerEntry {
+        declaration_idx: record.optional::<0>(),
+        owner_pou_id: record.optional::<4>(),
+        result_ref_idx: record.word::<8>(),
+        code_offset: record.word::<12>(),
+        code_length: record.word::<16>(),
+        visible_local_count: record.word::<20>(),
+        visible_static_count: record.word::<24>(),
+        phase: InitializationPhase::from_raw(record.0[28])?,
+        once: InitializationOnce::from_raw(record.0[29])?,
+        stage: InitializationStage::from_raw(record.0[30])?,
+        trigger: InitializationTrigger::from_raw(record.0[31])?,
+        target_idx: record.optional::<32>(),
+        partial_kind: record.0[36],
+        target_kind: InitializationTarget::from_raw(record.0[37])?,
+        target_reserved: [record.0[38], record.0[39]],
+        partial_index: record.word::<40>(),
+        context_initializer_idx: record.optional::<44>(),
+        recipe_type_id: record.optional::<48>(),
+        recipe_member_idx: record.optional::<52>(),
+        body_kind: InitializerBodyKind::from_raw(record.0[56])?,
+        recipe_reserved: [record.0[57], record.0[58], record.0[59]],
+    })
+}
+
 pub(super) fn decode_construction(
     kind: SectionId,
     payload: &[u8],
@@ -30,21 +83,7 @@ pub(super) fn decode_construction(
             let mut entries = budget.vector(count)?;
             for _ in 0..count {
                 let record = Record::<40>::read(&mut reader)?;
-                entries.push(StorageDeclaration {
-                    owner: StorageOwner::from_raw(record.0[0]).ok_or_else(invalid)?,
-                    role: StorageRole::from_raw(record.0[1]).ok_or_else(invalid)?,
-                    retain: record.0[2],
-                    flags: record.0[3],
-                    owner_pou_id: record.optional::<4>(),
-                    name_idx: record.word::<8>(),
-                    type_id: record.optional::<12>(),
-                    slot: record.word::<16>(),
-                    ref_idx: record.optional::<20>(),
-                    default_const_idx: record.optional::<24>(),
-                    construction_nodes: record.word::<28>(),
-                    related_declaration_idx: record.optional::<32>(),
-                    source_name_idx: record.optional::<36>(),
-                });
+                entries.push(storage_declaration(record.0).ok_or_else(invalid)?);
             }
             SectionData::StorageLayout(StorageLayout { entries })
         }
@@ -67,30 +106,7 @@ pub(super) fn decode_construction(
             let mut entries = budget.vector(count)?;
             for _ in 0..count {
                 let record = Record::<60>::read(&mut reader)?;
-                entries.push(InitializerEntry {
-                    declaration_idx: record.optional::<0>(),
-                    owner_pou_id: record.optional::<4>(),
-                    result_ref_idx: record.word::<8>(),
-                    code_offset: record.word::<12>(),
-                    code_length: record.word::<16>(),
-                    visible_local_count: record.word::<20>(),
-                    visible_static_count: record.word::<24>(),
-                    phase: InitializationPhase::from_raw(record.0[28]).ok_or_else(invalid)?,
-                    once: InitializationOnce::from_raw(record.0[29]).ok_or_else(invalid)?,
-                    stage: InitializationStage::from_raw(record.0[30]).ok_or_else(invalid)?,
-                    trigger: InitializationTrigger::from_raw(record.0[31]).ok_or_else(invalid)?,
-                    target_idx: record.optional::<32>(),
-                    partial_kind: record.0[36],
-                    target_kind: InitializationTarget::from_raw(record.0[37])
-                        .ok_or_else(invalid)?,
-                    target_reserved: [record.0[38], record.0[39]],
-                    partial_index: record.word::<40>(),
-                    context_initializer_idx: record.optional::<44>(),
-                    recipe_type_id: record.optional::<48>(),
-                    recipe_member_idx: record.optional::<52>(),
-                    body_kind: InitializerBodyKind::from_raw(record.0[56]).ok_or_else(invalid)?,
-                    recipe_reserved: [record.0[57], record.0[58], record.0[59]],
-                });
+                entries.push(initializer_entry(record.0).ok_or_else(invalid)?);
             }
             SectionData::Initializers(InitializerIndex { entries })
         }

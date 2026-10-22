@@ -34,6 +34,22 @@ fn snapshot(storage: &VariableStorage) -> (Value, Value, Value, Value, Value) {
 #[test]
 fn saved_artifact_executes_expected_trace_without_compiler_or_source() {
     let prepared = PreparedModule::from_bytes(ARTIFACT, PreparationLimits::default()).unwrap();
+    executes_expected_trace(&prepared);
+}
+
+/// A program that reads its declarations and initializers where they lie in its mapped image runs
+/// the same trace, through the per-call initialization of the method's reference and the warm and
+/// cold restarts, which build its storage from those records again (specification 34 MEM-14, the
+/// program image in place).
+/// Catches: a mapped program that builds, initializes or restarts from records read at the wrong
+/// place in its image.
+#[test]
+fn mapped_artifact_executes_expected_trace_reading_its_records_in_place() {
+    let prepared = PreparedModule::from_mapped(ARTIFACT, PreparationLimits::default()).unwrap();
+    executes_expected_trace(&prepared);
+}
+
+fn executes_expected_trace(prepared: &PreparedModule) {
     let mut state = prepared.instantiate(0).unwrap();
     for row in TRACE.lines().filter(|line| !line.starts_with('#')).skip(1) {
         let n: Vec<i64> = row.split(',').map(|cell| cell.parse().unwrap()).collect();

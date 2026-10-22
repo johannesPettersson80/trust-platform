@@ -242,9 +242,9 @@ fn same_execution(a: &PreparedModule, b: &PreparedModule) -> bool {
     let x = &a.vm;
     let y = &b.vm;
     a.limits == b.limits
-        && a.layout == b.layout
+        && a.storage_declarations().eq(b.storage_declarations())
         && a.roots == b.roots
-        && a.initializers == b.initializers
+        && a.initializer_entries().eq(b.initializer_entries())
         && a.access == b.access
         && a.recipes == b.recipes
         && a.method_owners == b.method_owners

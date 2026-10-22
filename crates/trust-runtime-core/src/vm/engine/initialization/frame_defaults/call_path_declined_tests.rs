@@ -17,9 +17,7 @@ fn fixture() -> PreparedModule {
 /// The fixture's method return (`Counter.Advance : INT`): a frame-owned default without an executable body.
 fn return_default(prepared: &PreparedModule) -> u32 {
     let id = prepared
-        .initializers
-        .entries
-        .iter()
+        .initializer_entries()
         .position(|entry| {
             entry.phase == InitializationPhase::Return
                 && entry.stage == InitializationStage::Default
@@ -27,7 +25,7 @@ fn return_default(prepared: &PreparedModule) -> u32 {
                 && entry.code_length == 0
                 && entry
                     .declaration_idx
-                    .and_then(|index| prepared.layout.entries.get(index as usize))
+                    .and_then(|index| prepared.storage_declaration(index as usize))
                     .is_some_and(|declaration| {
                         declaration.owner == StorageOwner::Frame
                             && declaration.default_const_idx.is_none()
@@ -38,10 +36,11 @@ fn return_default(prepared: &PreparedModule) -> u32 {
 }
 
 fn frame_for(prepared: &PreparedModule, id: u32) -> VmFrame {
-    let declaration_index = prepared.initializers.entries[id as usize]
+    let declaration_index = prepared
+        .initializer_at(id as usize)
         .declaration_idx
         .expect("declaration action") as usize;
-    let declaration = &prepared.layout.entries[declaration_index];
+    let declaration = prepared.storage_declaration_at(declaration_index);
     let slots = declaration.slot as usize + 1;
     VmFrame {
         activation: None,
@@ -65,10 +64,13 @@ fn frame_for(prepared: &PreparedModule, id: u32) -> VmFrame {
 fn call_path_reference_array_and_struct_literal_defaults_decline_the_direct_path() {
     let mut prepared = fixture();
     let id = return_default(&prepared);
-    let declaration = prepared.initializers.entries[id as usize]
+    let declaration = prepared
+        .initializer_at(id as usize)
         .declaration_idx
         .expect("declaration action") as usize;
-    prepared.initializers.entries[id as usize].code_length = 0;
+    let mut edited = prepared.initializer_at(id as usize);
+    edited.code_length = 0;
+    prepared.set_initializer(id as usize, edited);
     let literals = [
         Value::Reference(Some(crate::value::ValueRef {
             location: crate::memory::MemoryLocation::Local(crate::memory::FrameId(u32::MAX)),
@@ -88,7 +90,9 @@ fn call_path_reference_array_and_struct_literal_defaults_decline_the_direct_path
     for literal in literals {
         let constant = prepared.vm.consts.len() as u32;
         prepared.vm.consts.push(literal);
-        prepared.layout.entries[declaration].default_const_idx = Some(constant);
+        let mut edited = prepared.storage_declaration_at(declaration);
+        edited.default_const_idx = Some(constant);
+        prepared.set_declaration(declaration, edited);
         let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
         let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
         state.data.resources.constructed_values = 0;

@@ -11,12 +11,9 @@ fn fixture(dense_globals: bool) -> PreparedModule {
     )
     .unwrap();
     let template = prepared
-        .layout
-        .entries
-        .iter()
+        .storage_declarations()
         .find(|entry| entry.owns_storage())
-        .unwrap()
-        .clone();
+        .unwrap();
     let mut global = template.clone();
     global.owner = StorageOwner::Global;
     global.owner_pou_id = None;
@@ -43,14 +40,14 @@ fn fixture(dense_globals: bool) -> PreparedModule {
         .unwrap();
     let mut collided = sparse.clone();
     collided.owner_pou_id = Some(fallback_pou);
-    prepared.layout.entries = if dense_globals {
+    prepared.set_declarations(if dense_globals {
         alloc::vec![global, reordered, external, dense, sparse, collided]
     } else {
         alloc::vec![reordered, global, external, dense, sparse, collided]
-    };
+    });
     let mut indexes = PreparedIndexes::default();
     let mut budget = PreparationBudget::new(PreparationLimits::default());
-    for (id, declaration) in prepared.layout.entries.iter().enumerate() {
+    for (id, declaration) in prepared.storage_declarations().enumerate() {
         if declaration.owns_storage() {
             indexes
                 .declarations
@@ -66,15 +63,16 @@ fn fixture(dense_globals: bool) -> PreparedModule {
     indexes
         .declarations
         .sort_values(&mut budget, |a, b| {
-            prepared.layout.entries[*a as usize]
+            prepared
+                .storage_declaration_at(*a as usize)
                 .slot
-                .cmp(&prepared.layout.entries[*b as usize].slot)
+                .cmp(&prepared.storage_declaration_at(*b as usize).slot)
         })
         .unwrap();
     indexes
         .prepare_declaration_plan(
             prepared.vm.pou_by_id.len(),
-            &prepared.layout,
+            &prepared.storage_layout(),
             &crate::collections::SortedMap::new(),
             &mut budget,
         )
@@ -215,28 +213,26 @@ fn instrumented_lookups_run_their_searches_to_completion() {
 fn sparse_owner_and_slot_resolve_without_a_former_work_bound() {
     let mut prepared = fixture(false);
     let template = prepared
-        .layout
-        .entries
-        .iter()
+        .storage_declarations()
         .find(|entry| entry.owner == StorageOwner::Frame)
-        .unwrap()
-        .clone();
-    prepared.layout.entries.clear();
+        .unwrap();
+    let mut entries = alloc::vec::Vec::new();
     for ordinal in 0..68 {
         let mut declaration = template.clone();
         declaration.owner_pou_id = Some(ordinal * 2 + 1);
         declaration.slot = 0;
-        prepared.layout.entries.push(declaration);
+        entries.push(declaration);
     }
     for slot in 1..11 {
         let mut declaration = template.clone();
         declaration.owner_pou_id = Some(135);
         declaration.slot = slot * 2;
-        prepared.layout.entries.push(declaration);
+        entries.push(declaration);
     }
+    prepared.set_declarations(entries);
     let mut indexes = PreparedIndexes::default();
     let mut budget = PreparationBudget::new(PreparationLimits::default());
-    for (id, declaration) in prepared.layout.entries.iter().enumerate() {
+    for (id, declaration) in prepared.storage_declarations().enumerate() {
         indexes
             .declarations
             .push(
@@ -250,15 +246,16 @@ fn sparse_owner_and_slot_resolve_without_a_former_work_bound() {
     indexes
         .declarations
         .sort_values(&mut budget, |a, b| {
-            prepared.layout.entries[*a as usize]
+            prepared
+                .storage_declaration_at(*a as usize)
                 .slot
-                .cmp(&prepared.layout.entries[*b as usize].slot)
+                .cmp(&prepared.storage_declaration_at(*b as usize).slot)
         })
         .unwrap();
     indexes
         .prepare_declaration_plan(
             prepared.vm.pou_by_id.len(),
-            &prepared.layout,
+            &prepared.storage_layout(),
             &crate::collections::SortedMap::new(),
             &mut budget,
         )

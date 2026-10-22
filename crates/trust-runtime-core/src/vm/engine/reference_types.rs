@@ -1,6 +1,6 @@
 //! Resolve storage reference types through admitted declarations and compound paths.
 use super::*;
-use crate::bytecode::{StorageDeclaration, StorageOwner, StorageRole, TypeData};
+use crate::bytecode::{StorageOwner, StorageRole, TypeData};
 use crate::memory::MemoryLocation;
 use crate::value::{RefSegment, ValueRefView};
 use crate::vm::type_policy::{resolved_alias_type, vm_string_capacity_for_type, vm_type_for_path};
@@ -119,7 +119,7 @@ impl EngineState<'_> {
         &self,
         mut current: u32,
         name: &str,
-    ) -> Result<Option<&StorageDeclaration>, RuntimeError> {
+    ) -> Result<Option<&crate::vm::prepared::ScanDeclaration>, RuntimeError> {
         for _ in 0..=self.prepared.vm.pou_by_id.len() {
             if let Some(member) = self.prepared.member(current, name) {
                 return Ok(Some(member));

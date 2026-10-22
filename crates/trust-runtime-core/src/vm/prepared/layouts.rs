@@ -390,7 +390,9 @@ impl PreparedModule {
     /// function static's and a native-state slot's, right after their value.
     #[must_use]
     pub fn presence_offset(&self, declaration: u32, start: u32) -> Option<u32> {
-        let entry = self.layout.entries.get(declaration as usize)?;
+        // A scan asks this of every access to a slot that may keep presence, so it reads the
+        // declaration's compact record, not the program's image (MEM-14).
+        let entry = self.scan_declaration(declaration as usize)?;
         if !holds_presence(entry.role) {
             return None;
         }
@@ -450,7 +452,7 @@ impl PreparedModule {
 
     /// The bytes of the largest staged result of an initializer evaluated in place, or 0.
     fn largest_in_place_result(&self) -> u32 {
-        (0..self.initializers.entries.len())
+        (0..self.initializer_count())
             .filter_map(|id| self.in_place_result(u32::try_from(id).ok()?))
             .map(|(_, bytes)| bytes)
             .max()
@@ -465,8 +467,8 @@ impl PreparedModule {
     /// a literal). The bytes are rounded up to [`INSTANCE_ALIGN`], so that a frame
     /// pushed above the result stays aligned. `None` for every other initializer.
     pub(crate) fn in_place_result(&self, id: u32) -> Option<(u32, u32)> {
-        let entry = self.initializers.entries.get(id as usize)?;
-        let declaration = self.layout.entries.get(entry.declaration_idx? as usize)?;
+        let entry = self.initializer(id as usize)?;
+        let declaration = self.storage_declaration(entry.declaration_idx? as usize)?;
         if declaration.owner != StorageOwner::Frame
             || entry.body_kind != InitializerBodyKind::Action
         {
@@ -488,7 +490,7 @@ impl PreparedModule {
         let in_place = super::byte_types::copies_as_bytes(self, result)
             || (super::byte_types::backing_place(self, result) && self.recipe_free(result, 0))
             || (super::byte_types::copies_with_references(self, result)
-                && (entry.code_length == 0 || self.default_body(entry, result))
+                && (entry.code_length == 0 || self.default_body(&entry, result))
                 && self.recipe_free(result, 0));
         if !in_place || !super::byte_types::same_type(self, result, slot_type, 0) {
             return None;
@@ -505,8 +507,8 @@ impl PreparedModule {
     /// Such a result needs no room on the activation stack: the value path's commit would write all
     /// of its bytes into the variable anyway. `None` for every other initializer.
     pub(crate) fn persistent_in_place_result(&self, id: u32) -> Option<u32> {
-        let entry = self.initializers.entries.get(id as usize)?;
-        let declaration = self.layout.entries.get(entry.declaration_idx? as usize)?;
+        let entry = self.initializer(id as usize)?;
+        let declaration = self.storage_declaration(entry.declaration_idx? as usize)?;
         if !matches!(
             declaration.owner,
             StorageOwner::Global | StorageOwner::Instance
@@ -519,7 +521,7 @@ impl PreparedModule {
         let default = if entry.code_length == 0 {
             declaration.default_const_idx.is_none()
         } else {
-            self.default_body(entry, result)
+            self.default_body(&entry, result)
         };
         let layout = self.type_layout(result)?;
         let plain = layout.reference_leaves.is_empty() && layout.instance_leaves.is_empty();
@@ -535,7 +537,7 @@ impl PreparedModule {
     /// Whether the result of some initializer is built in its variable's own bytes (C1-22), which
     /// then takes a staged-result record of its own while it is built.
     pub(crate) fn has_persistent_in_place_result(&self) -> bool {
-        (0..self.initializers.entries.len()).any(|id| {
+        (0..self.initializer_count()).any(|id| {
             u32::try_from(id).is_ok_and(|id| self.persistent_in_place_result(id).is_some())
         })
     }
@@ -644,7 +646,7 @@ impl PreparedModule {
             largest = largest.max(leaves);
         }
         // A staged result evaluated in place lies above the frame it initializes (C1-13).
-        let staged = (0..self.initializers.entries.len())
+        let staged = (0..self.initializer_count())
             .filter_map(|id| self.in_place_result(u32::try_from(id).ok()?))
             .filter_map(|(result, _)| self.type_layout(result))
             .map(|layout| layout.reference_leaves.len())

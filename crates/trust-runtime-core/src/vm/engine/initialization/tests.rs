@@ -40,10 +40,11 @@ fn forged_dynamic_initializer_store_cannot_modify_global_storage() {
     forged.vm.code.push(0x10);
     forged.vm.code.extend_from_slice(&constant.to_le_bytes());
     forged.vm.code.push(0x33);
-    let entry = &mut forged.initializers.entries[0];
+    let mut entry = forged.initializer_at(0);
     entry.code_offset = start;
     entry.code_length = 11;
     entry.stage = InitializationStage::Default;
+    forged.set_initializer(0, entry);
     state.prepared = &forged;
     assert_eq!(
         state.evaluate_initializer(0, None, None, 0),
@@ -82,14 +83,12 @@ fn forged_dynamic_initializer_store_cannot_modify_global_storage() {
 
 fn enabled_initializer(prepared: &PreparedModule) -> u32 {
     prepared
-        .initializers
-        .entries
-        .iter()
+        .initializer_entries()
         .position(|entry| {
             entry.stage == InitializationStage::Explicit
                 && entry
                     .declaration_idx
-                    .and_then(|index| prepared.layout.entries.get(index as usize))
+                    .and_then(|index| prepared.storage_declaration(index as usize))
                     .and_then(|declaration| prepared.vm.strings.get(declaration.name_idx as usize))
                     .is_some_and(|name| name.eq_ignore_ascii_case("enabled"))
         })

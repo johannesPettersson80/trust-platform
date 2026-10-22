@@ -280,7 +280,7 @@ impl EngineState<'_> {
         path: &[RefSegment],
         value: Value,
     ) -> Result<(ValueRef, Value, PreparedWrite), RuntimeError> {
-        let (_, declaration) = self
+        let (id, declaration) = self
             .prepared
             .global(name)
             .ok_or(RuntimeError::NullReference)?;
@@ -294,8 +294,14 @@ impl EngineState<'_> {
         }
         let declared_type = declaration.type_id;
 
-        let mut reference =
-            self.persistent_io_reference(declaration.ref_idx.ok_or(RuntimeError::TypeMismatch)?)?;
+        // A write by name is a service's request, not a scan: it reads the reference from the
+        // declaration where it lies in the program's image (MEM-14).
+        let reference_idx = self
+            .prepared
+            .storage_declaration(id as usize)
+            .and_then(|declaration| declaration.ref_idx)
+            .ok_or(RuntimeError::TypeMismatch)?;
+        let mut reference = self.persistent_io_reference(reference_idx)?;
         if !path.is_empty() {
             reference
                 .path

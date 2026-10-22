@@ -104,7 +104,7 @@ impl EngineState<'_> {
         instance: Option<InstanceId>,
     ) -> Option<InPlace> {
         let result_type = self.prepared.persistent_in_place_result(id)?;
-        let declared = self.prepared.layout.entries.get(declaration as usize)?;
+        let declared = self.prepared.storage_declaration(declaration as usize)?;
         let arm = &*self.data.store;
         let location = match declared.owner {
             StorageOwner::Global => MemoryLocation::Global,
@@ -136,7 +136,7 @@ impl EngineState<'_> {
     fn in_place(&self, id: u32, declaration: u32, frame: &VmFrame) -> Option<InPlace> {
         let (result_type, _) = self.prepared.in_place_result(id)?;
         let arm = &*self.data.store;
-        let declared = self.prepared.layout.entries.get(declaration as usize)?;
+        let declared = self.prepared.storage_declaration(declaration as usize)?;
         let slot = declared.slot as usize;
         let owner = self.frame_slot_activation(frame, slot)?;
         let reader = self.data.reader(self.prepared);
@@ -163,15 +163,9 @@ impl EngineState<'_> {
         if depth as usize >= self.prepared.limits.max_call_depth {
             return Err(super::super::super::VmTrap::CallStackOverflow.into_runtime_error());
         }
-        let entry: InitializerEntry = self
-            .prepared
-            .initializers
-            .entries
-            .get(id as usize)
-            .cloned()
-            .ok_or_else(|| {
-                invalid_bytecode(smol_str::SmolStr::new_static("unknown initializer"))
-            })?;
+        let entry: InitializerEntry = self.prepared.initializer(id as usize).ok_or_else(|| {
+            invalid_bytecode(smol_str::SmolStr::new_static("unknown initializer"))
+        })?;
         let context = entry.context_initializer_idx.unwrap_or(id);
         let Some(code_end) = (entry.code_offset as usize).checked_add(entry.code_length as usize)
         else {
@@ -364,7 +358,7 @@ impl EngineState<'_> {
         let _timing = crate::vm::diagnostic_timing::begin(
             crate::vm::diagnostic_timing::Phase::InitializerCommit,
         );
-        let Some(declared) = self.prepared.layout.entries.get(declaration as usize) else {
+        let Some(declared) = self.prepared.storage_declaration(declaration as usize) else {
             return Err(RuntimeError::InvalidExecutionState);
         };
         if self
@@ -409,7 +403,7 @@ impl EngineState<'_> {
         let _timing = crate::vm::diagnostic_timing::begin(
             crate::vm::diagnostic_timing::Phase::InitializerCommit,
         );
-        let Some(declared) = self.prepared.layout.entries.get(declaration as usize) else {
+        let Some(declared) = self.prepared.storage_declaration(declaration as usize) else {
             return Err(RuntimeError::InvalidExecutionState);
         };
         if self

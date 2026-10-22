@@ -10,7 +10,7 @@ mod cells;
 
 /// The declared name of the layout entry `declaration` (C1-9d1).
 fn member_name(prepared: &PreparedModule, declaration: u32) -> &str {
-    let entry = &prepared.layout.entries[declaration as usize];
+    let entry = prepared.storage_declaration_at(declaration as usize);
     &prepared.vm.strings[entry.name_idx as usize]
 }
 
@@ -66,7 +66,7 @@ impl EngineState<'_> {
                 indices.push(root_index(index)?);
             }
         }
-        for (index, declaration) in source.prepared.layout.entries.iter().enumerate() {
+        for (index, declaration) in source.prepared.storage_declarations().enumerate() {
             if declaration.owner != StorageOwner::Global
                 || declaration.role != StorageRole::Variable
                 || !declaration.is_retained()
@@ -449,9 +449,7 @@ mod tests {
         )
         .unwrap();
         let (declaration, name) = prepared
-            .layout
-            .entries
-            .iter()
+            .storage_declarations()
             .enumerate()
             .find(|(_, entry)| {
                 entry.owner == StorageOwner::Global && entry.role == StorageRole::Variable
@@ -463,7 +461,9 @@ mod tests {
                 )
             })
             .expect("GPIO fixture has a global variable");
-        prepared.layout.entries[declaration as usize].retain = 1;
+        let mut edited = prepared.storage_declaration_at(declaration as usize);
+        edited.retain = 1;
+        prepared.set_declaration(declaration as usize, edited);
         let mut source_data =
             EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
         crate::vm::engine::test_store::set_global(
@@ -626,14 +626,14 @@ mod tests {
             )
             .unwrap();
             let declaration = prepared
-                .layout
-                .entries
-                .iter()
+                .storage_declarations()
                 .position(|entry| {
                     entry.owner == StorageOwner::Global && entry.role == StorageRole::Variable
                 })
                 .expect("GPIO fixture has a global variable");
-            prepared.layout.entries[declaration].retain = 1;
+            let mut edited = prepared.storage_declaration_at(declaration);
+            edited.retain = 1;
+            prepared.set_declaration(declaration, edited);
             prepared
         };
         // Construction under a limit below these bytes fails before any restart runs. The

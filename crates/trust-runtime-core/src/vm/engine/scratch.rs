@@ -594,9 +594,7 @@ impl ScratchPlan {
         // An initializer body runs in execution buffers of its own (C1-13); construction reserves
         // them, so the first call that initializes a frame variable allocates none.
         let bodies = prepared
-            .initializers
-            .entries
-            .iter()
+            .initializer_entries()
             .any(|entry| entry.code_length != 0);
         Ok(Self {
             levels,

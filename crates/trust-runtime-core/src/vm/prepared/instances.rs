@@ -78,7 +78,7 @@ impl PreparedModule {
     /// take; they lie on the activation stack above the frame (C1-11c, C1-19c4).
     pub(crate) fn call_instance_room(&self, pou: u32) -> Option<InstanceRoom> {
         let mut room = InstanceRoom::default();
-        for declaration in &self.layout.entries {
+        for declaration in self.storage_declarations() {
             if declaration.owner != StorageOwner::Frame
                 || declaration.owner_pou_id != Some(pou)
                 || !declaration.owns_storage()
@@ -103,9 +103,7 @@ impl PreparedModule {
             .instance_actions(pou)
             .iter()
             .filter(|&&id| {
-                self.initializers
-                    .entries
-                    .get(id as usize)
+                self.initializer(id as usize)
                     .is_some_and(|entry| entry.once == InitializationOnce::Instance)
             })
             .count();
@@ -149,7 +147,7 @@ impl PreparedModule {
                         once,
                     })?;
                     for &id in self.declarations(StorageOwner::Instance, Some(pou)) {
-                        let member = self.layout.entries.get(id as usize)?;
+                        let member = self.storage_declaration(id as usize)?;
                         let Some(member_type) = member.type_id.filter(|_| member.owns_storage())
                         else {
                             continue;
@@ -187,7 +185,7 @@ impl PreparedModule {
     /// (C1-21).
     pub(crate) fn largest_result_instances(&self) -> Result<usize, RuntimeError> {
         let mut largest = 0u32;
-        for entry in &self.initializers.entries {
+        for entry in self.initializer_entries() {
             if let Some(type_id) = self.vm.ref_type(entry.result_ref_idx) {
                 let room = self
                     .instance_tree(type_id, 0)
@@ -232,9 +230,7 @@ impl PreparedModule {
             .ok_or_else(overflow)?;
         let globals = self.declarations(StorageOwner::Global, None).len();
         let program_once = self
-            .initializers
-            .entries
-            .iter()
+            .initializer_entries()
             .filter(|entry| entry.once == InitializationOnce::Module)
             .count();
         Ok(InstanceBookkeeping {

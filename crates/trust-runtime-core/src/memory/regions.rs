@@ -844,9 +844,9 @@ impl PersistentExtent {
     /// that root's range and reserves no bytes of its own, so no byte is reserved twice.
     pub(crate) fn of(prepared: &PreparedModule) -> Result<Self, RuntimeError> {
         let mut leaves = Leaves::default();
-        let mut globals = alloc::vec![None; prepared.layout.entries.len()];
+        let mut globals = alloc::vec![None; prepared.declaration_count()];
         let mut end = 0u32;
-        for (slot, declaration) in prepared.layout.entries.iter().enumerate() {
+        for (slot, declaration) in prepared.storage_declarations().enumerate() {
             if declaration.owner != StorageOwner::Global || !declaration.owns_storage() {
                 continue;
             }
@@ -999,9 +999,7 @@ impl Leaves {
         let mut end = 0u32;
         for &id in prepared.declarations(StorageOwner::Instance, Some(pou)) {
             let declaration = prepared
-                .layout
-                .entries
-                .get(id as usize)
+                .storage_declaration(id as usize)
                 .ok_or(RuntimeError::TypeMismatch)?;
             let Some(type_id) = declaration.type_id else {
                 continue;

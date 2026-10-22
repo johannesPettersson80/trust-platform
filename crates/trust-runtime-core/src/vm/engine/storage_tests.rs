@@ -450,9 +450,7 @@ fn executable_initializer_fails_cleanly_when_staging_frame_capacity_is_full() {
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
     let plant = crate::vm::engine::test_store::global_instance(&state, "Plant");
     let (initializer, name) = prepared
-        .initializers
-        .entries
-        .iter()
+        .initializer_entries()
         .enumerate()
         .find_map(|(id, entry)| {
             if entry.stage != crate::bytecode::InitializationStage::Explicit
@@ -461,7 +459,7 @@ fn executable_initializer_fails_cleanly_when_staging_frame_capacity_is_full() {
                 return None;
             }
             let declaration = entry.declaration_idx?;
-            let declaration = prepared.layout.entries.get(declaration as usize)?;
+            let declaration = prepared.storage_declaration(declaration as usize)?;
             let name = prepared.vm.strings.get(declaration.name_idx as usize)?;
             if !name.eq_ignore_ascii_case("enabled") {
                 return None;

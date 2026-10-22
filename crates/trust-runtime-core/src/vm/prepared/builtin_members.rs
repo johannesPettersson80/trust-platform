@@ -44,9 +44,7 @@ impl PreparedModule {
                     .iter()
                     .map(|&id| {
                         let name = self
-                            .layout
-                            .entries
-                            .get(id as usize)
+                            .storage_declaration(id as usize)
                             .and_then(|entry| strings.get(entry.name_idx as usize));
                         (name, self.declared_place(id))
                     });
@@ -94,7 +92,7 @@ impl PreparedModule {
     /// presence byte (specification 34 MEM-12) and its leaf's primitive when its type is a scalar.
     /// `None` where the store finds no place.
     fn declared_place(&self, id: u32) -> Option<DeclaredPlace> {
-        let entry = self.layout.entries.get(id as usize)?;
+        let entry = self.storage_declaration(id as usize)?;
         let type_id = entry.type_id?;
         let layout = self.type_layout(type_id)?;
         Some(DeclaredPlace {

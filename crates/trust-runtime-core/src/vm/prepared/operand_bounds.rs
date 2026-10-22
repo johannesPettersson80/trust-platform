@@ -106,7 +106,7 @@ impl OperandBounds {
                 .references_below_call
                 .max(walked.references_below_call);
         }
-        for entry in &prepared.initializers.entries {
+        for entry in prepared.initializer_entries() {
             let start = entry.code_offset as usize;
             let Some(end) = start.checked_add(entry.code_length as usize) else {
                 continue;
@@ -779,7 +779,7 @@ fn member_type(prepared: &PreparedModule, base: Operand, name: u32) -> Option<u3
     for _ in 0..=crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
         let current = level?;
         for &id in prepared.declarations(StorageOwner::Instance, Some(current)) {
-            let declaration = prepared.layout.entries.get(id as usize)?;
+            let declaration = prepared.storage_declaration(id as usize)?;
             if named(declaration.name_idx) {
                 return declaration.type_id;
             }
@@ -985,7 +985,7 @@ fn return_type(prepared: &PreparedModule, pou: u32) -> Option<u32> {
     prepared
         .declarations(StorageOwner::Frame, Some(pou))
         .iter()
-        .filter_map(|&id| prepared.layout.entries.get(id as usize))
+        .filter_map(|&id| prepared.storage_declaration(id as usize))
         .find(|declaration| declaration.slot == 0)
         .and_then(|declaration| declaration.type_id)
 }

@@ -134,7 +134,7 @@ impl PreparedModule {
             }
             _ => return None,
         };
-        let entry = self.layout.entries.get(id as usize)?;
+        let entry = self.storage_declaration(id as usize)?;
         let layout = self.type_layout(entry.type_id?)?;
         if self.presence_offset(id, 0).is_some() {
             return None;

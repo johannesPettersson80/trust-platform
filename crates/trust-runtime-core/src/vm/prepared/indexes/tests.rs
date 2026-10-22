@@ -62,18 +62,23 @@ fn physical_indexes_keep_case_insensitive_identity_and_ignore_external_aliases()
     let mut prepared = prepared();
     let (root_id, root) = prepared.global("pLaNt").unwrap();
     let pou = root.owner_pou_id.unwrap();
-    let real = prepared.member(pou, "ACTIVATIONS").unwrap().clone();
-    let mut alias = real.clone();
+    let real = *prepared.member(pou, "ACTIVATIONS").unwrap();
+    let (real_id, _) = prepared
+        .declaration(real.owner, real.owner_pou_id, real.slot as usize)
+        .unwrap();
+    let mut alias = prepared.storage_declaration_at(real_id as usize);
     alias.role = StorageRole::External;
     alias.slot = u32::MAX;
     alias.flags = 1;
-    prepared.layout.entries.push(alias);
+    let mut layout = prepared.storage_layout();
+    layout.entries.push(alias);
+    prepared.set_declarations(layout.entries);
     let mut budget = PreparationBudget::new(PreparationLimits::default());
     prepared.indexes = PreparedIndexes::build(
         &prepared.vm,
-        &prepared.layout,
+        &prepared.storage_layout(),
         &prepared.roots,
-        &prepared.initializers,
+        &prepared.initializer_index(),
         &prepared.method_owners,
         &prepared.resources,
         &mut budget,
@@ -133,9 +138,7 @@ fn retained_groups_preserve_wire_order_instead_of_physical_slot_order() {
     let mut prepared = prepared();
     let pou = prepared.global("Plant").unwrap().1.owner_pou_id.unwrap();
     let ids = prepared
-        .layout
-        .entries
-        .iter()
+        .storage_declarations()
         .enumerate()
         .filter(|(_, declaration)| {
             declaration.owner == StorageOwner::Instance
@@ -146,15 +149,21 @@ fn retained_groups_preserve_wire_order_instead_of_physical_slot_order() {
         .take(2)
         .collect::<Vec<_>>();
     assert_eq!(ids.len(), 2);
-    prepared.layout.entries[ids[0]].retain = 1;
-    prepared.layout.entries[ids[1]].retain = 1;
-    prepared.layout.entries.swap(ids[0], ids[1]);
+    let mut edited = prepared.storage_declaration_at(ids[0]);
+    edited.retain = 1;
+    prepared.set_declaration(ids[0], edited);
+    let mut edited = prepared.storage_declaration_at(ids[1]);
+    edited.retain = 1;
+    prepared.set_declaration(ids[1], edited);
+    let mut layout = prepared.storage_layout();
+    layout.entries.swap(ids[0], ids[1]);
+    prepared.set_declarations(layout.entries);
     let mut budget = PreparationBudget::new(PreparationLimits::default());
     prepared.indexes = PreparedIndexes::build(
         &prepared.vm,
-        &prepared.layout,
+        &prepared.storage_layout(),
         &prepared.roots,
-        &prepared.initializers,
+        &prepared.initializer_index(),
         &prepared.method_owners,
         &prepared.resources,
         &mut budget,
@@ -182,7 +191,7 @@ fn grouped_indexes_match_wire_collections_for_every_fixture_owner() {
     let prepared = prepared();
     let mut expected_actions = BTreeMap::<(Option<u32>, u8, u8), Vec<u32>>::new();
     let mut expected_instances = BTreeMap::<u32, Vec<u32>>::new();
-    for (id, action) in prepared.initializers.entries.iter().enumerate() {
+    for (id, action) in prepared.initializer_entries().enumerate() {
         if !action.is_action() {
             continue;
         }
@@ -228,7 +237,9 @@ fn grouped_indexes_match_wire_collections_for_every_fixture_owner() {
                 .or_default()
                 .push(id);
             if root.parent_root_idx.is_none()
-                && prepared.layout.entries[root.declaration_idx as usize].role
+                && prepared
+                    .storage_declaration_at(root.declaration_idx as usize)
+                    .role
                     == StorageRole::ProgramRoot
             {
                 programs.entry(pou).or_default().push(id);
@@ -245,7 +256,7 @@ fn grouped_indexes_match_wire_collections_for_every_fixture_owner() {
     let mut retained = BTreeMap::<(u8, Option<u32>), Vec<u32>>::new();
     let mut edges = BTreeMap::<u32, Vec<u32>>::new();
     let mut edge_inputs = BTreeMap::<u32, Vec<(SmolStr, SmolStr, bool)>>::new();
-    for (id, declaration) in prepared.layout.entries.iter().enumerate() {
+    for (id, declaration) in prepared.storage_declarations().enumerate() {
         if !declaration.owns_storage() {
             continue;
         }
@@ -279,7 +290,7 @@ fn grouped_indexes_match_wire_collections_for_every_fixture_owner() {
         if declaration.role == StorageRole::EdgePhase {
             let input_id = declaration.related_declaration_idx.unwrap();
             edges.entry(input_id).or_default().push(id as u32);
-            let input = &prepared.layout.entries[input_id as usize];
+            let input = prepared.storage_declaration_at(input_id as usize);
             edge_inputs.entry(physical.unwrap()).or_default().push((
                 SmolStr::new(&prepared.vm.strings[input.name_idx as usize]),
                 SmolStr::new(&prepared.vm.strings[declaration.name_idx as usize]),
@@ -288,7 +299,7 @@ fn grouped_indexes_match_wire_collections_for_every_fixture_owner() {
         }
     }
     for (key, mut expected) in declarations {
-        expected.sort_unstable_by_key(|id| prepared.layout.entries[*id as usize].slot);
+        expected.sort_unstable_by_key(|id| prepared.storage_declaration_at(*id as usize).slot);
         assert_eq!(
             prepared
                 .indexes
@@ -334,9 +345,7 @@ fn frame_action_plans_match_wire_groups_for_all_owners_and_empty_phases() {
             )
     };
     let mut expected_owners = prepared
-        .initializers
-        .entries
-        .iter()
+        .initializer_entries()
         .filter(|entry| relevant_owner(entry))
         .filter_map(|entry| entry.owner_pou_id)
         .collect::<Vec<_>>();
@@ -523,7 +532,7 @@ fn frame_action_plan_storage_is_refused_before_its_allocation() {
     measure
         .prepare_declarations(
             &prepared.vm,
-            &prepared.layout,
+            &prepared.storage_layout(),
             &prepared.roots,
             &prepared.method_owners,
             &mut measure_budget,
@@ -531,7 +540,7 @@ fn frame_action_plan_storage_is_refused_before_its_allocation() {
         .unwrap();
     measure
         .prepare_actions(
-            &prepared.initializers,
+            &prepared.initializer_index(),
             &prepared.method_owners,
             &mut measure_budget,
         )
@@ -555,7 +564,7 @@ fn frame_action_plan_storage_is_refused_before_its_allocation() {
     limited
         .prepare_declarations(
             &prepared.vm,
-            &prepared.layout,
+            &prepared.storage_layout(),
             &prepared.roots,
             &prepared.method_owners,
             &mut limited_budget,
@@ -563,7 +572,7 @@ fn frame_action_plan_storage_is_refused_before_its_allocation() {
         .unwrap();
     limited
         .prepare_actions(
-            &prepared.initializers,
+            &prepared.initializer_index(),
             &prepared.method_owners,
             &mut limited_budget,
         )
@@ -585,7 +594,7 @@ fn declaration_lookup_matches_linear_owner_and_slot_resolution() {
         StorageOwner::Frame,
     ] {
         let mut keys = Vec::<Option<u32>>::new();
-        for declaration in &prepared.layout.entries {
+        for declaration in prepared.storage_declarations() {
             if declaration.owner != owner || !declaration.owns_storage() {
                 continue;
             }
@@ -606,9 +615,7 @@ fn declaration_lookup_matches_linear_owner_and_slot_resolution() {
         }
         for pou in keys {
             let max_slot = prepared
-                .layout
-                .entries
-                .iter()
+                .storage_declarations()
                 .filter(|declaration| {
                     if declaration.owner != owner || !declaration.owns_storage() {
                         return false;
@@ -631,9 +638,7 @@ fn declaration_lookup_matches_linear_owner_and_slot_resolution() {
                 .unwrap_or(0);
             for slot in 0..=max_slot.saturating_add(2) as usize {
                 let expected = prepared
-                    .layout
-                    .entries
-                    .iter()
+                    .storage_declarations()
                     .enumerate()
                     .find(|(_, declaration)| {
                         if declaration.owner != owner
@@ -665,9 +670,7 @@ fn declaration_lookup_matches_linear_owner_and_slot_resolution() {
         .declaration(StorageOwner::Global, None, usize::MAX)
         .is_none());
     let global_max_slot = prepared
-        .layout
-        .entries
-        .iter()
+        .storage_declarations()
         .filter(|entry| entry.owner == StorageOwner::Global && entry.owns_storage())
         .map(|entry| entry.slot)
         .max()
@@ -675,9 +678,7 @@ fn declaration_lookup_matches_linear_owner_and_slot_resolution() {
     for pou in [None, Some(0), Some(u32::MAX)] {
         for slot in 0..=global_max_slot.saturating_add(1) as usize {
             let expected = prepared
-                .layout
-                .entries
-                .iter()
+                .storage_declarations()
                 .enumerate()
                 .find(|(_, entry)| {
                     entry.owner == StorageOwner::Global
@@ -701,16 +702,13 @@ fn declaration_lookup_falls_back_for_scratch_gaps_and_normalizes_method_aliases(
     let mut prepared = prepared();
     let (&method, &owner) = prepared.method_owners.iter().next().unwrap();
     let template = prepared
-        .layout
-        .entries
-        .iter()
+        .storage_declarations()
         .find(|declaration| {
             declaration.owner == StorageOwner::Instance
                 && declaration.owner_pou_id == Some(owner)
                 && declaration.role == StorageRole::Variable
         })
-        .unwrap()
-        .clone();
+        .unwrap();
 
     let mut root_member = template.clone();
     root_member.slot = 0;
@@ -736,14 +734,14 @@ fn declaration_lookup_falls_back_for_scratch_gaps_and_normalizes_method_aliases(
     let mut frame_member_after = frame_member.clone();
     frame_member_after.slot = 3;
 
-    prepared.layout.entries = vec![
+    prepared.set_declarations(vec![
         root_member,
         external,
         method_member,
         scratch,
         frame_member,
         frame_member_after,
-    ];
+    ]);
     let mut groups = PreparedIndexes::default();
     let mut budget = PreparationBudget::new(PreparationLimits::default());
     for ((owner, pou), id) in [
@@ -762,15 +760,16 @@ fn declaration_lookup_falls_back_for_scratch_gaps_and_normalizes_method_aliases(
     groups
         .declarations
         .sort_values(&mut budget, |a, b| {
-            prepared.layout.entries[*a as usize]
+            prepared
+                .storage_declaration_at(*a as usize)
                 .slot
-                .cmp(&prepared.layout.entries[*b as usize].slot)
+                .cmp(&prepared.storage_declaration_at(*b as usize).slot)
         })
         .unwrap();
     groups
         .prepare_declaration_plan(
             prepared.vm.pou_by_id.len(),
-            &prepared.layout,
+            &prepared.storage_layout(),
             &prepared.method_owners,
             &mut budget,
         )
@@ -809,12 +808,9 @@ fn declaration_lookup_falls_back_for_scratch_gaps_and_normalizes_method_aliases(
 fn declaration_plan_falls_back_for_sparse_reordered_pou_ids() {
     let mut prepared = prepared();
     let template = prepared
-        .layout
-        .entries
-        .iter()
+        .storage_declarations()
         .find(|declaration| declaration.owns_storage())
-        .unwrap()
-        .clone();
+        .unwrap();
     let mut low = template.clone();
     low.owner = StorageOwner::Frame;
     low.owner_pou_id = Some(7);
@@ -823,11 +819,11 @@ fn declaration_plan_falls_back_for_sparse_reordered_pou_ids() {
     let mut high = low.clone();
     high.owner_pou_id = Some(u32::MAX);
     high.slot = 4;
-    prepared.layout.entries = vec![high, low];
+    prepared.set_declarations(vec![high, low]);
 
     let mut indexes = PreparedIndexes::default();
     let mut budget = PreparationBudget::new(PreparationLimits::default());
-    for (id, declaration) in prepared.layout.entries.iter().enumerate() {
+    for (id, declaration) in prepared.storage_declarations().enumerate() {
         indexes
             .declarations
             .push(
@@ -841,15 +837,16 @@ fn declaration_plan_falls_back_for_sparse_reordered_pou_ids() {
     indexes
         .declarations
         .sort_values(&mut budget, |left, right| {
-            prepared.layout.entries[*left as usize]
+            prepared
+                .storage_declaration_at(*left as usize)
                 .slot
-                .cmp(&prepared.layout.entries[*right as usize].slot)
+                .cmp(&prepared.storage_declaration_at(*right as usize).slot)
         })
         .unwrap();
     indexes
         .prepare_declaration_plan(
             prepared.vm.pou_by_id.len(),
-            &prepared.layout,
+            &prepared.storage_layout(),
             &crate::collections::SortedMap::new(),
             &mut budget,
         )
@@ -865,7 +862,7 @@ fn declaration_plan_falls_back_for_sparse_reordered_pou_ids() {
         let expected = expected_group
             .iter()
             .copied()
-            .find(|id| prepared.layout.entries[*id as usize].slot as usize == slot);
+            .find(|id| prepared.storage_declaration_at(*id as usize).slot as usize == slot);
         let actual = prepared
             .declaration(StorageOwner::Frame, Some(pou), slot)
             .map(|(id, _)| id);
@@ -888,16 +885,14 @@ fn declaration_plan_records_are_refused_before_owner_plan_allocation() {
     indexes
         .prepare_declarations(
             &prepared.vm,
-            &prepared.layout,
+            &prepared.storage_layout(),
             &prepared.roots,
             &prepared.method_owners,
             &mut budget,
         )
         .unwrap();
     let owner_count = prepared
-        .layout
-        .entries
-        .iter()
+        .storage_declarations()
         .filter(|entry| {
             entry.owns_storage()
                 && matches!(entry.owner, StorageOwner::Frame | StorageOwner::Instance)
@@ -921,7 +916,7 @@ fn declaration_plan_records_are_refused_before_owner_plan_allocation() {
     limited_indexes
         .prepare_declarations(
             &prepared.vm,
-            &prepared.layout,
+            &prepared.storage_layout(),
             &prepared.roots,
             &prepared.method_owners,
             &mut limited,
@@ -930,7 +925,7 @@ fn declaration_plan_records_are_refused_before_owner_plan_allocation() {
     assert_eq!(
         limited_indexes.prepare_declaration_plan(
             prepared.vm.pou_by_id.len(),
-            &prepared.layout,
+            &prepared.storage_layout(),
             &prepared.method_owners,
             &mut limited,
         ),

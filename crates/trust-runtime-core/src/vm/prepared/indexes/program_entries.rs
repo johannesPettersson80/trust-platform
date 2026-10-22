@@ -19,6 +19,11 @@ use alloc::vec::Vec;
 pub(crate) struct ProgramEntry {
     pub(crate) declaration: u32,
     pub(crate) root: Option<u32>,
+    /// The program's POU, which the root's declaration names, kept here so that a scan reads no
+    /// declaration from the program's image (specification 34 MEM-14).
+    pub(crate) pou: Option<u32>,
+    /// The program's name in the string table, which the program hooks report.
+    pub(crate) name_idx: u32,
 }
 
 crate::memory::figure::holds_no_heap!(ProgramEntry);
@@ -89,7 +94,15 @@ impl PreparedIndexes {
                 .map(u32::try_from)
                 .transpose()
                 .map_err(|_| RuntimeError::Overflow)?;
-            entries.push((name_idx, ProgramEntry { declaration, root }));
+            entries.push((
+                name_idx,
+                ProgramEntry {
+                    declaration,
+                    root,
+                    pou: entry.owner_pou_id,
+                    name_idx: entry.name_idx,
+                },
+            ));
         }
         sort::sort_by(&mut entries, budget, &mut |a, b, _| Ok(a.0.cmp(&b.0)))?;
         budget.charge(0, entries.len())?;
@@ -140,7 +153,7 @@ mod tests {
         indexes
             .prepare_program_entries(
                 &prepared.vm,
-                &prepared.layout,
+                &prepared.storage_layout(),
                 &prepared.roots,
                 &resources,
                 &mut PreparationBudget::new(PreparationLimits::default()),
@@ -151,15 +164,12 @@ mod tests {
         // Worked out from the fixture's data: the declaration named Plant is a program root, and
         // exactly one construction root holds it.
         let declaration = prepared
-            .layout
-            .entries
-            .iter()
+            .storage_declarations()
             .position(|entry| &prepared.vm.strings[entry.name_idx as usize] == "Plant")
             .unwrap() as u32;
-        assert_eq!(
-            prepared.layout.entries[declaration as usize].role,
-            StorageRole::ProgramRoot
-        );
+        let program = prepared.storage_declaration_at(declaration as usize);
+        assert_eq!(program.role, StorageRole::ProgramRoot);
+        assert!(program.owner_pou_id.is_some());
         let holders: Vec<usize> = prepared
             .roots
             .entries
@@ -169,9 +179,13 @@ mod tests {
             .map(|(index, _)| index)
             .collect();
         assert_eq!(holders.len(), 1);
+        // The entry keeps the program's POU and its declared name, which a name that differs only
+        // in case reaches too: the hooks report the program as it is declared.
         let expected = ProgramEntry {
             declaration,
             root: Some(holders[0] as u32),
+            pou: program.owner_pou_id,
+            name_idx: program.name_idx,
         };
         assert_eq!(prepared.program_entry(plant), Some(expected));
         assert_eq!(prepared.program_entry(first), Some(expected));
@@ -190,7 +204,7 @@ mod tests {
         assert_eq!(
             indexes.prepare_program_entries(
                 &prepared.vm,
-                &prepared.layout,
+                &prepared.storage_layout(),
                 &prepared.roots,
                 &prepared.resources,
                 &mut PreparationBudget::new(PreparationLimits {

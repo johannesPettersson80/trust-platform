@@ -239,12 +239,12 @@ impl<'s, 'p, 'n> Carry<'s, 'p, 'n> {
     fn globals(&mut self, target: &mut EngineState<'n>) -> Result<(), RuntimeError> {
         let after: &'n PreparedModule = target.prepared;
         let before = self.source.prepared;
-        for (id, declaration) in after.layout.entries.iter().enumerate() {
-            if declaration.owner != StorageOwner::Global || !carried(declaration) {
+        for (id, declaration) in after.storage_declarations().enumerate() {
+            if declaration.owner != StorageOwner::Global || !carried(&declaration) {
                 continue;
             }
             let id = u32::try_from(id).map_err(|_| RuntimeError::Overflow)?;
-            let name = declared_name(after, declaration)?;
+            let name = declared_name(after, &declaration)?;
             let owner = match declaration.owner_pou_id {
                 Some(function) => Some(pou_name(after, function)?),
                 None => None,
@@ -252,7 +252,7 @@ impl<'s, 'p, 'n> Carry<'s, 'p, 'n> {
             if let Some(owner) = owner {
                 self.path.push(Segment::Name(owner));
             }
-            match matching_global(before, after, declaration) {
+            match matching_global(before, after, &declaration) {
                 Some(old) => {
                     let source = before
                         .global_range(old)
@@ -280,9 +280,7 @@ impl<'s, 'p, 'n> Carry<'s, 'p, 'n> {
         let before = self.source.prepared;
         for (index, root) in after.roots.entries.iter().enumerate() {
             let declaration = after
-                .layout
-                .entries
-                .get(root.declaration_idx as usize)
+                .storage_declaration(root.declaration_idx as usize)
                 .ok_or(RuntimeError::InvalidExecutionState)?;
             if root.parent_root_idx.is_some() || declaration.role != StorageRole::ProgramRoot {
                 continue;
@@ -290,20 +288,18 @@ impl<'s, 'p, 'n> Carry<'s, 'p, 'n> {
             let Some(new) = target.data.construction.roots.get(index).copied().flatten() else {
                 continue;
             };
-            let name = declared_name(after, declaration)?;
+            let name = declared_name(after, &declaration)?;
             let old = before
                 .roots
                 .entries
                 .iter()
                 .enumerate()
                 .find_map(|(old_index, old_root)| {
-                    let old_declaration = before
-                        .layout
-                        .entries
-                        .get(old_root.declaration_idx as usize)?;
+                    let old_declaration =
+                        before.storage_declaration(old_root.declaration_idx as usize)?;
                     (old_root.parent_root_idx.is_none()
                         && old_declaration.role == StorageRole::ProgramRoot
-                        && declared_name(before, old_declaration)
+                        && declared_name(before, &old_declaration)
                             .is_ok_and(|old_name| old_name.eq_ignore_ascii_case(name)))
                     .then(|| {
                         self.source
@@ -353,29 +349,25 @@ impl<'s, 'p, 'n> Carry<'s, 'p, 'n> {
         let same_block = pou_name(before, old_pou)?.eq_ignore_ascii_case(pou_name(after, new_pou)?);
         for &id in after.declarations(StorageOwner::Instance, Some(new_pou)) {
             let declaration = after
-                .layout
-                .entries
-                .get(id as usize)
+                .storage_declaration(id as usize)
                 .ok_or(RuntimeError::InvalidExecutionState)?;
-            if !carried(declaration)
+            if !carried(&declaration)
                 || (declaration.role == StorageRole::NativeState && !same_block)
             {
                 continue;
             }
-            let name = declared_name(after, declaration)?;
+            let name = declared_name(after, &declaration)?;
             let old_id = before
                 .declarations(StorageOwner::Instance, Some(old_pou))
                 .iter()
                 .copied()
                 .find(|&old_id| {
                     before
-                        .layout
-                        .entries
-                        .get(old_id as usize)
+                        .storage_declaration(old_id as usize)
                         .is_some_and(|old| {
                             same_kind(old.role, declaration.role)
-                                && carried(old)
-                                && declared_name(before, old)
+                                && carried(&old)
+                                && declared_name(before, &old)
                                     .is_ok_and(|old_name| old_name.eq_ignore_ascii_case(name))
                         })
                 });
@@ -416,14 +408,10 @@ impl<'s, 'p, 'n> Carry<'s, 'p, 'n> {
         let before = self.source.prepared;
         let after: &'n PreparedModule = target.prepared;
         let old_declaration = before
-            .layout
-            .entries
-            .get(old as usize)
+            .storage_declaration(old as usize)
             .ok_or(RuntimeError::InvalidExecutionState)?;
         let new_declaration = after
-            .layout
-            .entries
-            .get(new as usize)
+            .storage_declaration(new as usize)
             .ok_or(RuntimeError::InvalidExecutionState)?;
         let old_type = old_declaration
             .type_id

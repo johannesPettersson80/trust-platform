@@ -16,12 +16,9 @@ fn actual_lookup_geometry_preserves_dense_fallback_missing_and_root_results() {
     )
     .unwrap();
     let template = prepared
-        .layout
-        .entries
-        .iter()
+        .storage_declarations()
         .find(|entry| entry.owns_storage())
-        .unwrap()
-        .clone();
+        .unwrap();
     let mut global = template.clone();
     global.owner = StorageOwner::Global;
     global.owner_pou_id = None;
@@ -44,10 +41,10 @@ fn actual_lookup_geometry_preserves_dense_fallback_missing_and_root_results() {
         .unwrap();
     let mut collided = sparse.clone();
     collided.owner_pou_id = Some(fallback_pou);
-    prepared.layout.entries = alloc::vec![global, dense, sparse, collided];
+    prepared.set_declarations(alloc::vec![global, dense, sparse, collided]);
     let mut indexes = PreparedIndexes::default();
     let mut budget = PreparationBudget::new(PreparationLimits::default());
-    for (id, declaration) in prepared.layout.entries.iter().enumerate() {
+    for (id, declaration) in prepared.storage_declarations().enumerate() {
         indexes
             .declarations
             .push(
@@ -61,7 +58,7 @@ fn actual_lookup_geometry_preserves_dense_fallback_missing_and_root_results() {
     indexes
         .prepare_declaration_plan(
             prepared.vm.pou_by_id.len(),
-            &prepared.layout,
+            &prepared.storage_layout(),
             &crate::collections::SortedMap::new(),
             &mut budget,
         )
@@ -105,7 +102,7 @@ fn actual_lookup_geometry_preserves_dense_fallback_missing_and_root_results() {
         .iter()
         .find(|r| r.path == IndexLookupPath::DenseGlobal)
         .unwrap();
-    assert_eq!(global.target_table_len.min, prepared.layout.entries.len());
+    assert_eq!(global.target_table_len.min, prepared.declaration_count());
     assert_eq!(
         global.owner_comparisons.sum + global.target_comparisons.sum,
         0

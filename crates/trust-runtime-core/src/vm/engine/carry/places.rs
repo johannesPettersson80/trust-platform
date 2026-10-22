@@ -50,9 +50,7 @@ pub(super) fn matching_global(
         None => None,
     };
     before
-        .layout
-        .entries
-        .iter()
+        .storage_declarations()
         .enumerate()
         .find(|(_, old)| {
             old.owner == StorageOwner::Global
@@ -112,9 +110,7 @@ pub(super) fn member_range(
     id: u32,
 ) -> Result<ByteRange, RuntimeError> {
     let declaration = prepared
-        .layout
-        .entries
-        .get(id as usize)
+        .storage_declaration(id as usize)
         .ok_or(RuntimeError::InvalidExecutionState)?;
     let type_id = declaration
         .type_id

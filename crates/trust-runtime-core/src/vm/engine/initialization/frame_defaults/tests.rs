@@ -17,9 +17,7 @@ fn fixture() -> PreparedModule {
 /// without an executable body, constructed as an intrinsic scalar.
 fn return_default(prepared: &PreparedModule) -> u32 {
     let id = prepared
-        .initializers
-        .entries
-        .iter()
+        .initializer_entries()
         .position(|entry| {
             entry.phase == InitializationPhase::Return
                 && entry.stage == InitializationStage::Default
@@ -27,7 +25,7 @@ fn return_default(prepared: &PreparedModule) -> u32 {
                 && entry.code_length == 0
                 && entry
                     .declaration_idx
-                    .and_then(|index| prepared.layout.entries.get(index as usize))
+                    .and_then(|index| prepared.storage_declaration(index as usize))
                     .is_some_and(|declaration| {
                         declaration.owner == StorageOwner::Frame
                             && declaration.default_const_idx.is_none()
@@ -38,13 +36,14 @@ fn return_default(prepared: &PreparedModule) -> u32 {
 }
 
 fn declaration_of(prepared: &PreparedModule, id: u32) -> usize {
-    prepared.initializers.entries[id as usize]
+    prepared
+        .initializer_at(id as usize)
         .declaration_idx
         .expect("declaration action") as usize
 }
 
 fn frame_for(prepared: &PreparedModule, id: u32) -> VmFrame {
-    let declaration = &prepared.layout.entries[declaration_of(prepared, id)];
+    let declaration = prepared.storage_declaration_at(declaration_of(prepared, id));
     let slots = declaration.slot as usize + 1;
     VmFrame {
         activation: None,
@@ -143,11 +142,15 @@ fn literal_frame_defaults_match_the_declaration_action() {
         let declaration = declaration_of(&prepared, id);
         if wstring {
             let wstring_type = prepared.vm.types.entries.len() as u32 - 1;
-            prepared.layout.entries[declaration].type_id = Some(wstring_type);
+            let mut edited = prepared.storage_declaration_at(declaration);
+            edited.type_id = Some(wstring_type);
+            prepared.set_declaration(declaration, edited);
         }
         let constant = prepared.vm.consts.len() as u32;
         prepared.vm.consts.push(literal.clone());
-        prepared.layout.entries[declaration].default_const_idx = Some(constant);
+        let mut edited = prepared.storage_declaration_at(declaration);
+        edited.default_const_idx = Some(constant);
+        prepared.set_declaration(declaration, edited);
         let direct = apply(&prepared, id, true);
         assert_eq!(direct, apply(&prepared, id, false));
         assert_eq!(direct.result, Ok(()));
@@ -193,25 +196,35 @@ fn other_defaults_take_the_declaration_action_without_charges() {
     let mut prepared = fixture();
     let id = return_default(&prepared);
     // An executable body.
-    prepared.initializers.entries[id as usize].code_length = 1;
+    let mut edited = prepared.initializer_at(id as usize);
+    edited.code_length = 1;
+    prepared.set_initializer(id as usize, edited);
     declined(&prepared, id);
     // A static once marker.
-    prepared.initializers.entries[id as usize].code_length = 0;
-    prepared.initializers.entries[id as usize].once = InitializationOnce::Instance;
+    let mut edited = prepared.initializer_at(id as usize);
+    edited.code_length = 0;
+    edited.once = InitializationOnce::Instance;
+    prepared.set_initializer(id as usize, edited);
     declined(&prepared, id);
     // A literal that holds nested storage needs the general lifetime walk.
-    prepared.initializers.entries[id as usize].once = InitializationOnce::None;
+    let mut edited = prepared.initializer_at(id as usize);
+    edited.once = InitializationOnce::None;
+    prepared.set_initializer(id as usize, edited);
     let declaration = declaration_of(&prepared, id);
     let constant = prepared.vm.consts.len() as u32;
     prepared
         .vm
         .consts
         .push(Value::Instance(crate::memory::InstanceId(1)));
-    prepared.layout.entries[declaration].default_const_idx = Some(constant);
+    let mut edited = prepared.storage_declaration_at(declaration);
+    edited.default_const_idx = Some(constant);
+    prepared.set_declaration(declaration, edited);
     declined(&prepared, id);
     // Storage owned by an instance rather than the frame.
-    prepared.layout.entries[declaration].default_const_idx = None;
-    prepared.layout.entries[declaration].owner = StorageOwner::Instance;
+    let mut edited = prepared.storage_declaration_at(declaration);
+    edited.default_const_idx = None;
+    edited.owner = StorageOwner::Instance;
+    prepared.set_declaration(declaration, edited);
     declined(&prepared, id);
 }
 
@@ -228,7 +241,7 @@ fn with_primitive(prim_id: u16) -> (PreparedModule, u32) {
             max_length: 0,
         },
     });
-    let result_ref = prepared.initializers.entries[id as usize].result_ref_idx as usize;
+    let result_ref = prepared.initializer_at(id as usize).result_ref_idx as usize;
     prepared.vm.ref_types[result_ref] = Some(type_id);
     (prepared, id)
 }
@@ -275,7 +288,9 @@ fn direct_defaults_refuse_at_every_limit_like_the_declaration_action() {
     let declaration = declaration_of(&limited, id);
     let constant = limited.vm.consts.len() as u32;
     limited.vm.consts.push(Value::WString("A".repeat(64)));
-    limited.layout.entries[declaration].default_const_idx = Some(constant);
+    let mut edited = limited.storage_declaration_at(declaration);
+    edited.default_const_idx = Some(constant);
+    limited.set_declaration(declaration, edited);
     // One byte below the copy's demand of 64 UTF-16 code units x 2 bytes (TIME-08).
     limited.limits.max_construction_bytes = 2 * 64 - 1;
     let direct = apply_with_limits(&base, &limited, id, true, 64);

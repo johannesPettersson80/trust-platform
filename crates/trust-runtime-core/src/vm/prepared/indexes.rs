@@ -249,13 +249,13 @@ impl PreparedModule {
         owner: StorageOwner,
         pou: Option<u32>,
         slot: usize,
-    ) -> Option<(u32, &crate::bytecode::StorageDeclaration)> {
+    ) -> Option<(u32, &super::ScanDeclaration)> {
         let wire_slot = u32::try_from(slot).ok()?;
         // Source producers place dense globals first. Admission guarantees a
         // unique owning global per slot; reordered records and external aliases
         // continue through the general index below.
         if owner == StorageOwner::Global
-            && let Some(declaration) = self.layout.entries.get(slot)
+            && let Some(declaration) = self.scan_declaration(slot)
             && declaration.owner == StorageOwner::Global
             && declaration.owns_storage()
             && declaration.slot == wire_slot
@@ -263,7 +263,7 @@ impl PreparedModule {
             #[cfg(all(feature = "std", feature = "test-support"))]
             crate::vm::diagnostic_timing::record_index_target_geometry(
                 crate::vm::diagnostic_timing::IndexLookupPath::DenseGlobal,
-                self.layout.entries.len(),
+                self.declaration_count(),
                 0,
             );
             return Some((wire_slot, declaration));
@@ -277,7 +277,7 @@ impl PreparedModule {
         let range = self.indexes.declaration_plan.range(owner, pou)?;
         let declarations = self.indexes.declarations.slice(&range);
         if let Some(&id) = declarations.get(slot)
-            && let Some(declaration) = self.layout.entries.get(id as usize)
+            && let Some(declaration) = self.scan_declaration(id as usize)
             && declaration.slot == wire_slot
         {
             #[cfg(all(feature = "std", feature = "test-support"))]
@@ -295,7 +295,7 @@ impl PreparedModule {
             {
                 comparisons += 1;
             }
-            self.layout.entries[*id as usize].slot
+            self.scan_declaration_at(*id as usize).slot
         });
         #[cfg(all(feature = "std", feature = "test-support"))]
         crate::vm::diagnostic_timing::record_index_target_geometry(
@@ -305,13 +305,9 @@ impl PreparedModule {
         );
         let at = position.ok()?;
         let id = declarations[at];
-        Some((id, &self.layout.entries[id as usize]))
+        Some((id, self.scan_declaration(id as usize)?))
     }
-    pub(crate) fn member(
-        &self,
-        pou: u32,
-        name: &str,
-    ) -> Option<&crate::bytecode::StorageDeclaration> {
+    pub(crate) fn member(&self, pou: u32, name: &str) -> Option<&super::ScanDeclaration> {
         let at = self
             .indexes
             .members
@@ -322,7 +318,7 @@ impl PreparedModule {
                     .then_with(|| compare_names(&self.vm.strings[entry.1 as usize], name))
             })
             .ok()?;
-        Some(&self.layout.entries[self.indexes.members[at].2 as usize])
+        self.scan_declaration(self.indexes.members[at].2 as usize)
     }
     pub(crate) fn type_member(&self, ty: u32, name: &str) -> Option<u32> {
         self.type_member_position(ty, name)
@@ -342,14 +338,14 @@ impl PreparedModule {
         let (_, _, field_type, ordinal) = self.indexes.type_members[at];
         Some((field_type, ordinal as usize))
     }
-    pub(crate) fn global(&self, name: &str) -> Option<(u32, &crate::bytecode::StorageDeclaration)> {
+    pub(crate) fn global(&self, name: &str) -> Option<(u32, &super::ScanDeclaration)> {
         let at = self
             .indexes
             .globals
             .binary_search_by(|entry| compare_names(&self.vm.strings[entry.0 as usize], name))
             .ok()?;
         let id = self.indexes.globals[at].1;
-        Some((id, &self.layout.entries[id as usize]))
+        Some((id, self.scan_declaration(id as usize)?))
     }
     // The root-owner index alone bounds this search, including absent owners.
     pub(crate) fn root_for_instance_owner(

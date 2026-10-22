@@ -64,12 +64,12 @@
 //! }
 //! ```
 //!
-//! The admitted layout of a prepared module is private to the crate:
+//! The admitted storage declarations of a prepared module are private to the crate:
 //!
 //! ```compile_fail,E0616
 //! use trust_runtime_core::vm::PreparedModule;
 //! fn peek(prepared: &PreparedModule) {
-//!     let _ = &prepared.layout;
+//!     let _ = &prepared.storage;
 //! }
 //! ```
 //!

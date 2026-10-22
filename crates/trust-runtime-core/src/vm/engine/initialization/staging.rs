@@ -70,7 +70,7 @@ impl EngineState<'_> {
         let prepared = self.prepared;
         let Some(declaration) = entry
             .declaration_idx
-            .and_then(|id| prepared.layout.entries.get(id as usize))
+            .and_then(|id| prepared.storage_declaration(id as usize))
         else {
             return Ok(InitializerSeed::empty());
         };
@@ -236,7 +236,9 @@ impl EngineState<'_> {
                 .prepared
                 .declarations(StorageOwner::Instance, Some(template))
             {
-                let declaration = &self.prepared.layout.entries[declaration_id as usize];
+                let declaration = self
+                    .prepared
+                    .storage_declaration_at(declaration_id as usize);
                 if let Some(type_id) = declaration.type_id
                     && let Ok(view) =
                         self.read_slot(MemoryLocation::Instance(id), declaration.slot as usize)
@@ -469,9 +471,7 @@ mod tests {
             .get(&program)
             .unwrap();
         let declaration = prepared
-            .layout
-            .entries
-            .iter()
+            .storage_declarations()
             .enumerate()
             .find(|(_, entry)| {
                 entry.owner == StorageOwner::Instance
@@ -480,7 +480,7 @@ mod tests {
             })
             .map(|(id, _)| id as u32)
             .unwrap();
-        let mut entry = prepared.initializers.entries[0].clone();
+        let mut entry = prepared.initializer_at(0);
         entry.stage = InitializationStage::Explicit;
         entry.declaration_idx = Some(declaration);
         let seed = state
@@ -527,9 +527,7 @@ mod tests {
         };
         let pou = *data.construction.instance_templates.get(&program).unwrap();
         let declaration = prepared
-            .layout
-            .entries
-            .iter()
+            .storage_declarations()
             .position(|entry| {
                 entry.owner == StorageOwner::Instance
                     && entry.owner_pou_id == Some(pou)
@@ -537,13 +535,16 @@ mod tests {
             })
             .unwrap();
         let name = SmolStr::new(
-            &prepared.vm.strings[prepared.layout.entries[declaration].name_idx as usize],
+            &prepared.vm.strings[prepared.storage_declaration_at(declaration).name_idx as usize],
         );
         let Some(Value::Instance(counter)) = original.get_instance_var(program, &name) else {
             panic!("counter")
         };
         let counter = *counter;
-        let member_type = prepared.layout.entries[declaration].type_id.unwrap();
+        let member_type = prepared
+            .storage_declaration_at(declaration)
+            .type_id
+            .unwrap();
         let original = original.get_instance(counter).unwrap().variables.clone();
         let (changed_name, changed_value) = original
             .iter()
@@ -571,11 +572,13 @@ mod tests {
         prepared.vm.code.push(0x21); // STORE_REF through the privately staged member
         prepared.vm.code.extend_from_slice(&reference.to_le_bytes());
         prepared.vm.code.push(0xFF); // malformed instruction after the staged write
-        prepared.initializers.entries[0].code_offset = code_offset;
-        prepared.initializers.entries[0].code_length = 11;
-        prepared.initializers.entries[0].stage = InitializationStage::Explicit;
-        prepared.initializers.entries[0].declaration_idx = Some(declaration as u32);
-        let result_ref_idx = prepared.initializers.entries[0].result_ref_idx as usize;
+        let mut edited = prepared.initializer_at(0);
+        edited.code_offset = code_offset;
+        edited.code_length = 11;
+        edited.stage = InitializationStage::Explicit;
+        edited.declaration_idx = Some(declaration as u32);
+        prepared.set_initializer(0, edited);
+        let result_ref_idx = prepared.initializer_at(0).result_ref_idx as usize;
         *prepared
             .vm
             .ref_types
@@ -593,7 +596,7 @@ mod tests {
                 .variables
                 .clone()
         };
-        let mut entry = prepared.initializers.entries[0].clone();
+        let mut entry = prepared.initializer_at(0);
         entry.stage = InitializationStage::Explicit;
         entry.declaration_idx = Some(declaration as u32);
         let mut seed = state

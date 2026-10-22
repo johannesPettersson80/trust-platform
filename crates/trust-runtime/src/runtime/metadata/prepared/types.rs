@@ -10,15 +10,14 @@ use trust_runtime_core::{
     vm::PreparedModule,
 };
 
-type StorageDeclarations<'a> =
-    std::collections::HashMap<(u32, u8, bool), Vec<&'a StorageDeclaration>>;
+type StorageDeclarations = std::collections::HashMap<(u32, u8, bool), Vec<StorageDeclaration>>;
 type MethodOwners = std::collections::HashMap<u32, Vec<u32>>;
 
 pub(super) struct Projection<'a> {
     pub(super) prepared: &'a PreparedModule,
     pub(super) registry: TypeRegistry,
     pub(super) wire_types: Vec<TypeId>,
-    pub(super) declarations: StorageDeclarations<'a>,
+    pub(super) declarations: StorageDeclarations,
     pub(super) methods: MethodOwners,
 }
 
@@ -238,9 +237,7 @@ fn builtin_primitive(data: &TypeData) -> Option<u16> {
     }
 }
 
-fn collect_owner_indexes<'a>(
-    prepared: &'a PreparedModule,
-) -> (StorageDeclarations<'a>, MethodOwners) {
+fn collect_owner_indexes(prepared: &PreparedModule) -> (StorageDeclarations, MethodOwners) {
     let mut declarations: std::collections::HashMap<_, Vec<_>> = std::collections::HashMap::new();
     for entry in prepared.storage_declarations() {
         if let Some(owner) = entry.owner_pou_id

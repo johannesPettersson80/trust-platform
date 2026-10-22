@@ -906,7 +906,7 @@ impl<'a> CellReader<'a> {
             .prepared
             .declarations(StorageOwner::Global, None)
             .get(ordinal)?;
-        let entry = self.prepared.layout.entries.get(declaration as usize)?;
+        let entry = self.prepared.scan_declaration(declaration as usize)?;
         if entry.role != StorageRole::ProgramRoot {
             return None;
         }
@@ -937,9 +937,7 @@ impl<'a> CellReader<'a> {
             .get(offset)?;
         let name_idx = self
             .prepared
-            .layout
-            .entries
-            .get(declaration as usize)?
+            .scan_declaration(declaration as usize)?
             .name_idx;
         self.prepared.strings().get(name_idx as usize)
     }
@@ -1070,7 +1068,9 @@ impl<'a> CellReader<'a> {
         match self.arm.instance(instance) {
             Some(persistent) => Some(
                 self.prepared
-                    .instance_declarations(persistent.pou)
+                    .declarations(StorageOwner::Instance, Some(persistent.pou))
+                    .iter()
+                    .filter_map(|&id| self.prepared.scan_declaration(id as usize))
                     .filter(|declaration| {
                         declaration.type_id.is_some() && declaration.owns_storage()
                     })
@@ -1245,9 +1245,7 @@ impl<'a> CellReader<'a> {
             .global_range(declaration as usize)?;
         let type_id = self
             .prepared
-            .layout
-            .entries
-            .get(declaration as usize)?
+            .scan_declaration(declaration as usize)?
             .type_id?;
         Some((
             range,
@@ -1263,9 +1261,7 @@ impl<'a> CellReader<'a> {
             .iter()
             .position(|&declaration| {
                 self.prepared
-                    .layout
-                    .entries
-                    .get(declaration as usize)
+                    .scan_declaration(declaration as usize)
                     .and_then(|entry| member_name(self.prepared, entry.name_idx))
                     == Some(name)
             })
@@ -1307,9 +1303,7 @@ impl<'a> CellReader<'a> {
             .enumerate()
             .find(|&(_, &id)| {
                 prepared
-                    .layout
-                    .entries
-                    .get(id as usize)
+                    .scan_declaration(id as usize)
                     .is_some_and(|entry| strings.is(entry.name_idx as usize, name))
             })?;
         self.own_member(persistent, ordinal, id)
@@ -1380,9 +1374,7 @@ impl<'a> CellReader<'a> {
         let member = self.own_member_by_string(instance, name_idx, name)?;
         if self
             .prepared
-            .layout
-            .entries
-            .get(member.declaration as usize)?
+            .scan_declaration(member.declaration as usize)?
             .is_constant()
         {
             return None;
@@ -1411,10 +1403,11 @@ impl<'a> CellReader<'a> {
         let declarations = self
             .prepared
             .declarations(StorageOwner::Instance, Some(persistent.pou));
-        let entries = &self.prepared.layout.entries;
+        // A scan's lookup reads what it needs of each declaration from the heap, not from the
+        // program's image (specification 34 MEM-14).
         match declarations.iter().position(|&id| {
-            entries
-                .get(id as usize)
+            self.prepared
+                .scan_declaration(id as usize)
                 .is_some_and(|entry| entry.name_idx == name_idx)
         }) {
             Some(ordinal) => self.own_member(persistent, ordinal, declarations[ordinal]),
@@ -1430,7 +1423,7 @@ impl<'a> CellReader<'a> {
         id: u32,
     ) -> Option<OwnMember> {
         let prepared = self.prepared;
-        let type_id = prepared.layout.entries.get(id as usize)?.type_id?;
+        let type_id = prepared.scan_declaration(id as usize)?.type_id?;
         let range = ByteRange {
             region: persistent.range.region,
             start: persistent
@@ -1453,9 +1446,7 @@ impl<'a> CellReader<'a> {
         member_name(
             self.prepared,
             self.prepared
-                .layout
-                .entries
-                .get(declaration as usize)?
+                .scan_declaration(declaration as usize)?
                 .name_idx,
         )
     }
@@ -1518,9 +1509,7 @@ impl<'a> CellReader<'a> {
             }
             let holder = self
                 .prepared
-                .layout
-                .entries
-                .get(entry.declaration_idx as usize)?;
+                .scan_declaration(entry.declaration_idx as usize)?;
             match (holder.owner, holder.role) {
                 (StorageOwner::Global, StorageRole::Variable) => {
                     members.push(RefSegment::Field(self.member_named(own.pou, slot)?));
@@ -1559,13 +1548,11 @@ impl<'a> CellReader<'a> {
             .copied()
             .filter(|&id| {
                 self.prepared
-                    .layout
-                    .entries
-                    .get(id as usize)
+                    .scan_declaration(id as usize)
                     .is_some_and(|entry| entry.owns_storage() && entry.type_id.is_some())
             })
             .nth(slot)?;
-        let entry = self.prepared.layout.entries.get(id as usize)?;
+        let entry = self.prepared.scan_declaration(id as usize)?;
         self.prepared
             .vm
             .strings
@@ -1582,9 +1569,7 @@ impl<'a> CellReader<'a> {
             .copied()
             .filter(|&id| {
                 self.prepared
-                    .layout
-                    .entries
-                    .get(id as usize)
+                    .scan_declaration(id as usize)
                     .is_some_and(|entry| entry.owns_storage() && entry.type_id.is_some())
             })
             .position(|id| id == declaration)
@@ -1609,7 +1594,7 @@ impl<'a> CellReader<'a> {
             .prepared
             .declarations(StorageOwner::Instance, Some(persistent.pou))
         {
-            let declaration = self.prepared.layout.entries.get(id as usize)?;
+            let declaration = self.prepared.scan_declaration(id as usize)?;
             let Some(type_id) = declaration.type_id.filter(|_| declaration.owns_storage()) else {
                 continue;
             };

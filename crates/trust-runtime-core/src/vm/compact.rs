@@ -725,13 +725,11 @@ impl Translation<'_, '_> {
         let declarations = prepared.declarations(StorageOwner::Instance, Some(self.pou));
         let ordinal = declarations.iter().position(|&id| {
             prepared
-                .layout
-                .entries
-                .get(id as usize)
+                .storage_declaration(id as usize)
                 .is_some_and(|entry| entry.name_idx == field)
         })?;
         let id = declarations[ordinal];
-        let type_id = prepared.layout.entries.get(id as usize)?.type_id?;
+        let type_id = prepared.storage_declaration(id as usize)?.type_id?;
         let offset = prepared.declaration_offset(id)?;
         let ordinal = u32::try_from(ordinal).ok()?;
         let slot = self.scalar(id, offset, ordinal, None).unwrap_or(Slot {
@@ -765,9 +763,7 @@ impl Translation<'_, '_> {
             .iter()
             .find(|&&id| {
                 prepared
-                    .layout
-                    .entries
-                    .get(id as usize)
+                    .storage_declaration(id as usize)
                     .is_some_and(|entry| entry.name_idx == field)
             })?;
         let offset = prepared.declaration_offset(id)?;
@@ -785,7 +781,7 @@ impl Translation<'_, '_> {
                 prepared
                     .declarations(StorageOwner::Instance, Some(*pou_id))
                     .iter()
-                    .filter_map(|&id| prepared.layout.entries.get(id as usize))
+                    .filter_map(|&id| prepared.storage_declaration(id as usize))
                     .find(|entry| entry.name_idx == field)?
                     .type_id
             }
@@ -846,7 +842,7 @@ impl Translation<'_, '_> {
     /// primitive itself, which the general path neither converts nor bounds.
     fn scalar(&self, id: u32, offset: u32, name: u32, declared: Option<u32>) -> Option<Slot> {
         let prepared = self.prepared;
-        let entry = prepared.layout.entries.get(id as usize)?;
+        let entry = prepared.storage_declaration(id as usize)?;
         let type_id = entry.type_id?;
         let layout = prepared.type_layout(type_id)?;
         let prim = layout.scalar?;

@@ -123,9 +123,9 @@ fn query_result_is_independent_of_an_unrelated_long_admitted_name() {
     let rebuild = |prepared: &mut PreparedModule| {
         prepared.indexes = PreparedIndexes::build(
             &prepared.vm,
-            &prepared.layout,
+            &prepared.storage_layout(),
             &prepared.roots,
-            &prepared.initializers,
+            &prepared.initializer_index(),
             &prepared.method_owners,
             &prepared.resources,
             &mut PreparationBudget::new(PreparationLimits::default()),
@@ -135,7 +135,7 @@ fn query_result_is_independent_of_an_unrelated_long_admitted_name() {
     rebuild(&mut prepared);
     let (root, declaration) = prepared.global("pLaNt").unwrap();
     let owner = declaration.owner_pou_id.unwrap();
-    let member = prepared.member(owner, "ACTIVATIONS").unwrap().clone();
+    let member = *prepared.member(owner, "ACTIVATIONS").unwrap();
     assert_eq!(prepared.named_type("unusedshortname"), Some(unused_type));
 
     prepared

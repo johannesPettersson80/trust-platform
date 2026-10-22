@@ -158,9 +158,9 @@ mod tests {
             .expect("appended reference has a dense type slot") = Some(different);
         prepared.indexes = PreparedIndexes::build(
             &prepared.vm,
-            &prepared.layout,
+            &prepared.storage_layout(),
             &prepared.roots,
-            &prepared.initializers,
+            &prepared.initializer_index(),
             &prepared.method_owners,
             &prepared.resources,
             &mut PreparationBudget::new(prepared.limits),
@@ -243,9 +243,9 @@ mod tests {
         // No public consumer can mutate a prepared module's reference table.
         prepared.indexes = PreparedIndexes::build(
             &prepared.vm,
-            &prepared.layout,
+            &prepared.storage_layout(),
             &prepared.roots,
-            &prepared.initializers,
+            &prepared.initializer_index(),
             &prepared.method_owners,
             &prepared.resources,
             &mut PreparationBudget::new(prepared.limits),

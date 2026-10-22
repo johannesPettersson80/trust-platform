@@ -80,9 +80,7 @@ fn a_trap_inside_an_initializer_returns_its_scratch() {
     // Stage the member that owns a nested instance, the program's `Counter`, so the seed takes
     // its pending, visited and backup lists and backs that instance up.
     let declaration = prepared
-        .layout
-        .entries
-        .iter()
+        .storage_declarations()
         .position(|entry| {
             entry.owner == StorageOwner::Instance
                 && entry.owner_pou_id == Some(pou)
@@ -91,10 +89,12 @@ fn a_trap_inside_an_initializer_returns_its_scratch() {
         .unwrap();
     let code_offset = prepared.vm.code.len() as u32;
     prepared.vm.code.push(0xFF); // malformed instruction
-    prepared.initializers.entries[0].code_offset = code_offset;
-    prepared.initializers.entries[0].code_length = 1;
-    prepared.initializers.entries[0].stage = crate::bytecode::InitializationStage::Explicit;
-    prepared.initializers.entries[0].declaration_idx = Some(declaration as u32);
+    let mut edited = prepared.initializer_at(0);
+    edited.code_offset = code_offset;
+    edited.code_length = 1;
+    edited.stage = crate::bytecode::InitializationStage::Explicit;
+    edited.declaration_idx = Some(declaration as u32);
+    prepared.set_initializer(0, edited);
     let mut state =
         EngineState::borrow(&mut data, &prepared, &super::super::services::LOGICAL_ONLY);
     assert_eq!(

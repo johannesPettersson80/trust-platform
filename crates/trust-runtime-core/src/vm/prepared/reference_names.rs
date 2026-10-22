@@ -143,7 +143,6 @@ mod tests {
             .expect("the board probe is admitted");
         let global = prepared
             .storage_declarations()
-            .iter()
             .find(|declaration| {
                 declaration.owner == StorageOwner::Global
                     && prepared
