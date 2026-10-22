@@ -196,7 +196,9 @@ fn a_due_cycle_is_not_delayed_by_queued_requests() {
 fn a_reply_longer_than_the_link_moves_is_replaced_by_an_error_and_never_cut() {
     let fixture = Fixture::with_frames_of(256);
     let mut runner = fixture.runner();
-    for at in [0, 10, 20] {
+    // Each scan after the first comes two activations of the 10 ms task late, so each records an
+    // overrun; the store keeps no event that every scan makes (specification 11, the event store).
+    for at in [0, 30, 60, 90, 120] {
         fixture.pass_at(&mut runner, at);
     }
     let reply = fixture.call(&mut runner, &request(1, "events.tail"));
@@ -208,7 +210,8 @@ fn a_reply_longer_than_the_link_moves_is_replaced_by_an_error_and_never_cut() {
             "error": "reply longer than 256 bytes",
             "audit_id": "audit-1",
         }),
-        "ten events do not fit a 256-byte frame; transfers in parts come with deployment"
+        "four overruns, a reply of about 330 bytes, do not fit a 256-byte frame; transfers in \
+         parts come with deployment"
     );
     let fits = fixture.call(
         &mut runner,
@@ -216,6 +219,6 @@ fn a_reply_longer_than_the_link_moves_is_replaced_by_an_error_and_never_cut() {
     );
     assert_eq!(
         fits["result"]["events"],
-        json!([{"type": "cycle_end", "cycle": 2, "time_ns": 20_000_000}])
+        json!([{"type": "task_overrun", "name": "Scan", "missed": 2, "time_ns": 120_000_000}])
     );
 }

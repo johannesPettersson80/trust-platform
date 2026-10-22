@@ -2,10 +2,9 @@
 //! composition owns the static arenas and the addresses; this module owns the logic.
 #[cfg(target_os = "none")]
 use crate::board::{Measurement, Memory};
-use crate::count::Count64;
 use core::{
     alloc::{GlobalAlloc, Layout},
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::atomic::{AtomicU32, AtomicUsize, Ordering},
 };
 use embedded_alloc::LlffHeap;
 
@@ -37,8 +36,8 @@ pub struct MeasuredHeap {
     last_failure: AtomicUsize,
     /// Every allocator operation over every region, each allocation, reallocation and free once,
     /// never reset: the count a runtime reads around its scans (specification 34, "The allocation
-    /// count"). In 64 bits, so it does not wrap on a 32-bit chip, read without a critical section.
-    operations: Count64,
+    /// count"). In 32 bits that wrap: a runtime takes the difference of two readings.
+    operations: AtomicU32,
 }
 
 impl MeasuredHeap {
@@ -53,7 +52,7 @@ impl MeasuredHeap {
             allocations: AtomicUsize::new(0),
             failures: AtomicUsize::new(0),
             last_failure: AtomicUsize::new(0),
-            operations: Count64::new(),
+            operations: AtomicU32::new(0),
         }
     }
 
@@ -100,17 +99,15 @@ impl MeasuredHeap {
     }
 
     /// Every allocator operation since the allocator began, each allocation, reallocation and
-    /// free once. Reading it allocates nothing and takes no critical section.
-    pub fn operations(&self) -> u64 {
-        self.operations.read()
+    /// free once, in 32 bits that wrap: the operations between two readings are their wrapping
+    /// difference. Reading it is one load: it allocates nothing and takes no critical section.
+    pub fn operations(&self) -> u32 {
+        self.operations.load(Ordering::Relaxed)
     }
 
-    /// Count one allocator operation, in a critical section, so that no other count interleaves
-    /// with its two words.
+    /// Count one allocator operation with one atomic add, which no interrupt splits.
     fn count_operation(&self) {
-        critical_section::with(|_| {
-            self.operations.increment();
-        });
+        self.operations.fetch_add(1, Ordering::Relaxed);
     }
 
     /// Allocate from the first region that takes `layout`, recording the allocation call, a

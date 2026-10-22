@@ -88,7 +88,7 @@ struct Parts {
 
 /// The heap's count of its allocator operations, which the runtime reads around each scan
 /// (specification 34, "The allocation count").
-fn allocator_operations() -> u64 {
+fn allocator_operations() -> u32 {
     memory::HEAP.operations()
 }
 

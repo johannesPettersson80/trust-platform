@@ -160,9 +160,9 @@ pub struct Esp32Loader<H, C> {
     memory: DeviceMemory,
     room: fn() -> usize,
     running: Option<Running>,
-    /// The heap's count of its allocator operations, which each program's services read around a
-    /// scan (specification 34, "The allocation count").
-    allocator_operations: Option<fn() -> u64>,
+    /// The heap's count of its allocator operations, in 32 bits that wrap, which each program's
+    /// services read around a scan (specification 34, "The allocation count").
+    allocator_operations: Option<fn() -> u32>,
 }
 
 impl<H, C> Esp32Loader<H, C> {
@@ -184,7 +184,7 @@ impl<H, C> Esp32Loader<H, C> {
     /// This loader, whose programs count their scans' allocator operations with `operations`, the
     /// heap's count, which must allocate nothing (specification 34, "The allocation count").
     #[must_use]
-    pub fn with_allocator_operations(mut self, operations: fn() -> u64) -> Self {
+    pub fn with_allocator_operations(mut self, operations: fn() -> u32) -> Self {
         self.allocator_operations = Some(operations);
         self
     }

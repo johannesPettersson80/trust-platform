@@ -33,9 +33,11 @@ pub trait ExecutionServices {
 
     /// The allocator operations, each allocation, reallocation and free once, that the thread
     /// running the scan has made so far, when the platform counts them; `None` when it does not.
-    /// The engine reads it when a scan begins and ends and around every call it makes into a
-    /// service, so reading it must allocate nothing (specification 34, "The allocation count").
-    fn allocator_operations(&self) -> Option<u64> {
+    /// The count is kept in 32 bits that wrap: the operations between two readings are their
+    /// wrapping difference, exact while fewer than 2^32 operations lie between them, which no scan
+    /// makes. The engine reads it when a scan begins and ends and around every call it makes into
+    /// a service, so reading it must allocate nothing (specification 34, "The allocation count").
+    fn allocator_operations(&self) -> Option<u32> {
         None
     }
 
@@ -43,7 +45,7 @@ pub trait ExecutionServices {
     /// one. The engine takes it when a scan begins and reads the count through it around every call
     /// into a service, which spares each reading the call through the services (checklist P1-6).
     /// `None` reads the count through [`Self::allocator_operations`].
-    fn allocator_operations_reader(&self) -> Option<fn() -> u64> {
+    fn allocator_operations_reader(&self) -> Option<fn() -> u32> {
         None
     }
 

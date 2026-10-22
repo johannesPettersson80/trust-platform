@@ -97,7 +97,7 @@ impl<Y: ResourceCycle> ResourceCycle for Program<Y> {
         }
     }
 
-    fn allocator_operations(&self) -> Option<u64> {
+    fn allocator_operations(&self) -> Option<u32> {
         match self {
             Self::Installed(cycle) => cycle.allocator_operations(),
             Self::Missing(_) => None,

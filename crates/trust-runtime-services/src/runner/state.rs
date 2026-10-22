@@ -291,8 +291,8 @@ mod tests {
         // Specification 34 STATE-08 and Appendix D.2: a program loaded in place takes the capacity
         // of its record in the room the store holds, and only a capacity that does not fit that room
         // reserves anew. Worked by hand: a store built for 200 events holds 201 slots; a program
-        // that keeps 10 events leaves the 201 slots and keeps the newest 10 of 11 events (cycles 1
-        // to 10); a program that keeps 200 again needs no new block; one that keeps 300 needs 301
+        // that keeps 10 events leaves the 201 slots and keeps the newest 10 of 11 overruns (missed
+        // 1 to 10); a program that keeps 200 again needs no new block; one that keeps 300 needs 301
         // slots, more than 201, so the store reserves exactly 301. The wrong behaviour caught: a
         // store that frees its room for the smaller capacity, so that the next program with the
         // default capacity must find a block of 201 slots among the blocks of a program that is
@@ -301,9 +301,10 @@ mod tests {
         assert!(records.resize(10));
         assert_eq!(records.event_capacity(), 10);
         assert_eq!(records.events.borrow().capacity(), 201);
-        for cycle in 0..11 {
-            records.push_event(RuntimeEvent::CycleEnd {
-                cycle,
+        for missed in 0..11 {
+            records.push_event(RuntimeEvent::TaskOverrun {
+                name: smol_str::SmolStr::new_static("Scan"),
+                missed,
                 time: trust_runtime_core::value::Duration::ZERO,
             });
         }
@@ -312,8 +313,8 @@ mod tests {
             .borrow()
             .iter()
             .map(|event| match event {
-                RuntimeEvent::CycleEnd { cycle, .. } => *cycle,
-                other => panic!("only cycle ends were stored: {other:?}"),
+                RuntimeEvent::TaskOverrun { missed, .. } => *missed,
+                other => panic!("only overruns were stored: {other:?}"),
             })
             .collect();
         assert_eq!(kept, (1..11).collect::<alloc::vec::Vec<u64>>());

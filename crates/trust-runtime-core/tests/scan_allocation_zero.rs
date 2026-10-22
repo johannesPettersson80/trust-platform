@@ -76,8 +76,8 @@ thread_local! {
     static ARMED: Cell<bool> = const { Cell::new(false) };
     static COUNTED: Cell<Calls> = const { Cell::new(Calls::ZERO) };
     /// Every armed call on this thread, never taken: the count the engine reads through
-    /// `ExecutionServices::allocator_operations`.
-    static TOTAL: Cell<u64> = const { Cell::new(0) };
+    /// `ExecutionServices::allocator_operations`, in 32 bits that wrap.
+    static TOTAL: Cell<u32> = const { Cell::new(0) };
 }
 
 /// Count one call on this thread while it is armed. Only const-initialized `Cell`s are
@@ -90,7 +90,7 @@ fn record(call: fn(&mut Calls)) {
                 call(&mut calls);
                 counted.set(calls);
             });
-            let _ = TOTAL.try_with(|total| total.set(total.get() + 1));
+            let _ = TOTAL.try_with(|total| total.set(total.get().wrapping_add(1)));
             trace_call();
         }
     });
@@ -374,7 +374,7 @@ impl ExecutionServices for Services {
     fn deadline_exceeded(&self) -> bool {
         self.expired.get()
     }
-    fn allocator_operations(&self) -> Option<u64> {
+    fn allocator_operations(&self) -> Option<u32> {
         TOTAL.try_with(Cell::get).ok()
     }
     fn has_wall_clock(&self) -> bool {

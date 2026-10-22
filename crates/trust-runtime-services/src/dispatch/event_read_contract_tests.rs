@@ -243,26 +243,16 @@ fn refused_event_reads_answer_as_the_unbounded_pipeline_does() {
 }
 
 #[test]
-fn fifty_scan_events_fit_a_chips_frame_and_a_thousand_are_refused_but_served() {
-    let mut events = VecDeque::new();
-    for cycle in 0..250_u64 {
-        let time = Duration::from_millis(i64::try_from(cycle * 10).expect("a small number"));
-        let name = SmolStr::new("MainTask");
-        events.extend([
-            RuntimeEvent::CycleStart { cycle, time },
-            RuntimeEvent::TaskStart {
-                name: name.clone(),
-                priority: 1,
-                time,
-            },
-            RuntimeEvent::TaskEnd {
-                name,
-                priority: 1,
-                time,
-            },
-            RuntimeEvent::CycleEnd { cycle, time },
-        ]);
-    }
+fn fifty_overruns_fit_a_chips_frame_and_a_thousand_are_refused_but_served() {
+    // The store of a task that overruns at every scan of 10 ms: one overrun a scan, the events that
+    // every scan makes not kept (specification 11, the event store).
+    let events: VecDeque<_> = (0..1_000_u64)
+        .map(|scan| RuntimeEvent::TaskOverrun {
+            name: SmolStr::new("MainTask"),
+            missed: 1,
+            time: Duration::from_millis(i64::try_from(scan * 10).expect("a small number")),
+        })
+        .collect();
     let host = host_with(&events);
     let fifty = prepare_line_within(
         r#"{"id":1,"type":"events.tail"}"#,
@@ -277,7 +267,7 @@ fn fifty_scan_events_fit_a_chips_frame_and_a_thousand_are_refused_but_served() {
     assert_eq!(returned.len(), 50);
     assert_eq!(
         returned[0],
-        json!({"type": "cycle_end", "cycle": 249, "time_ns": 2_490_000_000_i64})
+        json!({"type": "task_overrun", "name": "MainTask", "missed": 1, "time_ns": 9_990_000_000_i64})
     );
     let thousand = prepare_line_within(
         r#"{"id":2,"type":"events.tail","params":{"limit":1000}}"#,

@@ -397,8 +397,9 @@ fn events_and_faults_read_the_newest_entries_within_their_limit() {
     let host = FakeHost::running();
     host.events
         .borrow_mut()
-        .extend((1..=55).map(|cycle| RuntimeEvent::CycleStart {
-            cycle,
+        .extend((1..=55).map(|missed| RuntimeEvent::TaskOverrun {
+            name: "Scan".into(),
+            missed,
             time: EventTime::ZERO,
         }));
     host.events.borrow_mut().push_back(RuntimeEvent::fault(
@@ -410,7 +411,7 @@ fn events_and_faults_read_the_newest_entries_within_their_limit() {
     let events = events["events"].as_array().expect("events");
     assert_eq!(events.len(), 50, "the default limit is 50");
     assert_eq!(events[0]["type"], json!("fault"));
-    assert_eq!(events[1]["cycle"], json!(55));
+    assert_eq!(events[1]["missed"], json!(55));
 
     let faults = result(faults(2, Some(&json!({"limit": 1_000})), &host));
     assert_eq!(

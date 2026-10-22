@@ -2836,7 +2836,16 @@ another value or type is a configuration error, as for every other
 `runtime.toml` setting. A newer event displaces the oldest, and `events.tail`
 and `faults` answer at most what
 the store holds within their own request limits above. `status` reports the
-store's capacity as `event_capacity`. A debug control with no event sender
+store's capacity as `event_capacity`. The store keeps every runtime event but
+the four that every scan makes, `cycle_start`, `cycle_end`, `task_start` and
+`task_end`: at a scan every few milliseconds they would displace every other
+event within a few scans, and a scan's and a task's timing is in `tasks.stats`
+and the `status` metrics, as an industrial controller keeps its cycle times in
+statistics and its diagnostic buffer for the events that matter (the owner, 22
+October 2026: "I trust you, do what's most professional for a plc runtime").
+Overruns, faults, refused writes, online-change and retained-value events and
+the control events stay in the store. A debug control delivers the four, with
+every other event, to the callers that drain it or listen to it. A debug control with no event sender
 attached buffers events for callers that drain them directly, such as embedders
 and the debugger. That buffer keeps the newest 1,024 events, drops the oldest
 beyond that bound and counts every dropped event, so the caller can tell that it

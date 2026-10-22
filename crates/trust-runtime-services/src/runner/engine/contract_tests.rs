@@ -154,18 +154,20 @@ fn plant_value(cycle: &EngineCycle<'_, TestClock, TestIo>, name: &str) -> Value 
 }
 
 /// Specification 34, "The allocation count": a device counts the allocator operations of the thread
-/// that runs its scans, and the engine tells its own from the services' by reading the count around
-/// every call into a service. Worked by hand: the count is 100 when the scan begins, and the
-/// observer, a service, makes 2 operations at the input sample, so the scan's count ends at 102, of
-/// which the engine made none (102 - 100 - 2). Catches an engine that counts a service's operations
-/// as its own, and a device whose count the engine does not read (no count at all).
+/// that runs its scans, in 32 bits that wrap, and the engine tells its own from the services' by
+/// reading the count around every call into a service. Worked by hand: the count is `0xFFFF_FFFF`
+/// when the scan begins, and the observer, a service, makes 2 operations at the input sample, so
+/// the count wraps and the scan ends at 1: 2 operations, both the services', none the engine's.
+/// Catches an engine that counts a service's operations as its own, a device whose count the engine
+/// does not read (no count at all), and a difference that does not wrap (an overflow, or the
+/// services' 2 operations lost so that the engine's figure is 2).
 #[test]
 fn a_device_counts_the_services_operations_apart_from_the_engines() {
     extern crate std;
     std::thread_local! {
-        static OPERATIONS: core::cell::Cell<u64> = const { core::cell::Cell::new(100) };
+        static OPERATIONS: core::cell::Cell<u32> = const { core::cell::Cell::new(0xFFFF_FFFF) };
     }
-    fn operations() -> u64 {
+    fn operations() -> u32 {
         OPERATIONS.with(core::cell::Cell::get)
     }
     /// An observer that makes two allocator operations at the input sample.
@@ -177,7 +179,7 @@ fn a_device_counts_the_services_operations_apart_from_the_engines() {
             _access: &mut CycleAccess<'_, '_>,
         ) -> Result<(), RuntimeError> {
             if phase == CyclePhase::BeforeInputSample {
-                OPERATIONS.with(|count| count.set(count.get() + 2));
+                OPERATIONS.with(|count| count.set(count.get().wrapping_add(2)));
             }
             Ok(())
         }
@@ -190,11 +192,11 @@ fn a_device_counts_the_services_operations_apart_from_the_engines() {
         EngineCycle::start(&prepared, &services, TestIo::new(clock.clone()), settings())
             .expect("the program starts");
     cycle.reset_task_timing(value::Duration::ZERO);
-    assert_eq!(cycle.allocator_operations(), Some(100));
+    assert_eq!(cycle.allocator_operations(), Some(0xFFFF_FFFF));
     cycle
         .run_scan(logical(0), None, &mut Allocating)
         .expect("the scan runs");
-    assert_eq!(cycle.allocator_operations(), Some(102));
+    assert_eq!(cycle.allocator_operations(), Some(1));
     assert_eq!(cycle.last_scan_allocations(), Some(0));
 }
 

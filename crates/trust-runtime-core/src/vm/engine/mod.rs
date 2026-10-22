@@ -74,6 +74,7 @@ mod retained_graph;
 mod scratch;
 mod services;
 mod store_access;
+pub use allocation_count::operations_between;
 pub use api::RuntimeState;
 #[cfg(feature = "std")]
 pub use owned::OwnedRuntimeState;

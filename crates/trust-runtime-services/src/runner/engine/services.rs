@@ -54,7 +54,7 @@ pub struct DeviceServices<C> {
     drivers: Cell<Vec<IoDriverStatus>>,
     /// The platform's count of its allocator operations, which the engine reads around a scan
     /// (specification 34, "The allocation count"); `None` on a device that does not count.
-    allocator_operations: Option<fn() -> u64>,
+    allocator_operations: Option<fn() -> u32>,
 }
 
 impl<C> DeviceServices<C> {
@@ -74,10 +74,10 @@ impl<C> DeviceServices<C> {
         }
     }
 
-    /// These services with the platform's count of its allocator operations, `operations`, which
-    /// must allocate nothing.
+    /// These services with the platform's count of its allocator operations, `operations`, in 32
+    /// bits that wrap, which must allocate nothing.
     #[must_use]
-    pub fn with_allocator_operations(mut self, operations: Option<fn() -> u64>) -> Self {
+    pub fn with_allocator_operations(mut self, operations: Option<fn() -> u32>) -> Self {
         self.allocator_operations = operations;
         self
     }
@@ -214,11 +214,11 @@ impl<C: MonotonicClock> ExecutionServices for DeviceServices<C> {
     }
 
     /// The platform's count, read through the function the device gave.
-    fn allocator_operations(&self) -> Option<u64> {
+    fn allocator_operations(&self) -> Option<u32> {
         self.allocator_operations.map(|operations| operations())
     }
 
-    fn allocator_operations_reader(&self) -> Option<fn() -> u64> {
+    fn allocator_operations_reader(&self) -> Option<fn() -> u32> {
         self.allocator_operations
     }
 

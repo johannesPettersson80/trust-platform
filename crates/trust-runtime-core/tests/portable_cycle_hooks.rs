@@ -596,7 +596,7 @@ fn hooks_are_called_only_at_the_phases_they_observe() {
         fn current_dt(&self) -> Result<DateTimeValue, RuntimeError> {
             Err(RuntimeError::UndefinedFunction("CURRENT_DT".into()))
         }
-        fn allocator_operations(&self) -> Option<u64> {
+        fn allocator_operations(&self) -> Option<u32> {
             self.0.set(self.0.get() + 1);
             Some(0)
         }

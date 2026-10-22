@@ -64,24 +64,29 @@ fn power_on_counts_logical_time_from_the_program_start_not_from_the_chip_reset()
         "the loop starts the task timing with the program's logical time"
     );
     fixture.pass_at(&mut runner, 350);
+    let tasks = fixture.call(&mut runner, &request(3, "tasks.stats"));
+    assert_eq!(
+        tasks["result"]["tasks"],
+        json!([]),
+        "the scan at the start runs no task: none is due at logical time zero"
+    );
     fixture.pass_at(&mut runner, 360);
     assert_eq!(
         fixture.take_calls(),
         [scan(0), scan(10)],
         "the first scan runs at logical time zero, 350 ms after the chip's reset"
     );
+    let tasks = fixture.call(&mut runner, &request(4, "tasks.stats"));
+    assert_eq!(
+        tasks["result"]["tasks"][0]["name"],
+        json!("Scan"),
+        "the task first runs one interval after the start"
+    );
     let events = fixture.call(&mut runner, &request(1, "events.tail"));
     assert_eq!(
         events["result"]["events"],
-        json!([
-            {"type": "cycle_end", "cycle": 1, "time_ns": 10_000_000},
-            {"type": "task_end", "name": "Scan", "priority": 0, "time_ns": 10_000_000},
-            {"type": "task_start", "name": "Scan", "priority": 0, "time_ns": 10_000_000},
-            {"type": "cycle_start", "cycle": 1, "time_ns": 10_000_000},
-            {"type": "cycle_end", "cycle": 0, "time_ns": 0},
-            {"type": "cycle_start", "cycle": 0, "time_ns": 0},
-        ]),
-        "the boot time is no missed activation: the task first runs one interval after the start"
+        json!([]),
+        "the boot time is no missed activation: no overrun is recorded"
     );
     let status = fixture.call(&mut runner, &request(2, "status"));
     assert_eq!(status["result"]["metrics"]["overruns"], json!(0));

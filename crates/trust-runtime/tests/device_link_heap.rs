@@ -357,28 +357,15 @@ impl VariableQueuePort for FullStore {
     }
 }
 
-/// A store of `count` events the runner records for task `MainTask` every 10 ms.
-fn scan_events_of(count: usize) -> VecDeque<RuntimeEvent> {
+/// A store of the `count` overruns that task `MainTask` records when it overruns at each of its
+/// scans every 10 ms; the store keeps no event that every scan makes (specification 11).
+fn overrun_events_of(count: usize) -> VecDeque<RuntimeEvent> {
     let name = SmolStr::new("MainTask");
     (0..count)
-        .map(|index| {
-            let cycle = u64::try_from(index / 4).expect("a small number");
-            let time =
-                Duration::from_millis(i64::try_from(index / 4 * 10).expect("a small number"));
-            match index % 4 {
-                0 => RuntimeEvent::CycleStart { cycle, time },
-                1 => RuntimeEvent::TaskStart {
-                    name: name.clone(),
-                    priority: 1,
-                    time,
-                },
-                2 => RuntimeEvent::TaskEnd {
-                    name: name.clone(),
-                    priority: 1,
-                    time,
-                },
-                _ => RuntimeEvent::CycleEnd { cycle, time },
-            }
+        .map(|index| RuntimeEvent::TaskOverrun {
+            name: name.clone(),
+            missed: 1,
+            time: Duration::from_millis(i64::try_from(index * 10).expect("a small number")),
         })
         .collect()
 }
@@ -397,9 +384,9 @@ fn fault_events_of(count: usize) -> VecDeque<RuntimeEvent> {
         .collect()
 }
 
-/// A full store of the events the runner records for task `MainTask` every 10 ms.
-fn scan_events() -> VecDeque<RuntimeEvent> {
-    scan_events_of(EVENT_STORE_CAPACITY)
+/// A full store of the overruns of task `MainTask`.
+fn overrun_events() -> VecDeque<RuntimeEvent> {
+    overrun_events_of(EVENT_STORE_CAPACITY)
 }
 
 /// A full store of faults.
@@ -413,7 +400,7 @@ const SIXTEEN_KIB: i64 = 16 * 1024;
 fn a_thousand_events_on_a_chips_frame_are_refused_within_sixteen_kib_of_heap() {
     for (events, line) in [
         (
-            scan_events(),
+            overrun_events(),
             r#"{"id":1,"type":"events.tail","params":{"limit":1000}}"#,
         ),
         (
@@ -541,7 +528,7 @@ fn a_long_reply_takes_no_heap_block_longer_than_a_part() {
     // takes its bound ahead.
     for (events, line) in [
         (
-            scan_events_of(200),
+            overrun_events_of(200),
             r#"{"id":1,"type":"events.tail","params":{"limit":200}}"#,
         ),
         (
@@ -593,7 +580,7 @@ fn an_event_read_reserves_nothing_ahead_of_its_text() {
     // reserves its whole bound up front, which for 64 MiB is a block of 67,108,864 bytes, and one
     // that takes a second part before the first is full.
     let host = FullStore {
-        events: scan_events_of(3),
+        events: overrun_events_of(3),
         live: EngineLiveValues::empty(),
         transfers: Some(RefCell::new(TransferSession::new(
             1,

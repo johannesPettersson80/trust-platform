@@ -13,7 +13,7 @@ use crate::{
     watchdog::{FaultAction, FaultDecision},
 };
 use std::time::{Duration as PhysicalDuration, Instant};
-use trust_runtime_core::vm::{CycleAccess, CycleHooks, CyclePhase};
+use trust_runtime_core::vm::{operations_between, CycleAccess, CycleHooks, CyclePhase};
 
 struct HostedCycle<'a> {
     io: &'a mut IoSubsystem,
@@ -85,7 +85,7 @@ impl Runtime {
             crate::allocation_count::operations(),
             self.state.last_scan_allocations(),
         ) {
-            let services = after.saturating_sub(before).saturating_sub(engine);
+            let services = u64::from(operations_between(before, after)).saturating_sub(engine);
             self.metrics.record_scan_allocations(engine, services);
         }
         match result {

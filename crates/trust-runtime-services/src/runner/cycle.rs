@@ -115,9 +115,9 @@ pub trait ResourceCycle {
     ) -> Result<(), RuntimeError>;
 
     /// The allocator operations the thread that runs the scans has made so far, each allocation,
-    /// reallocation and free once, as the platform counts them; `None` when it does not
-    /// (specification 34, "The allocation count"). Reading it allocates nothing.
-    fn allocator_operations(&self) -> Option<u64> {
+    /// reallocation and free once, as the platform counts them in 32 bits that wrap; `None` when it
+    /// does not (specification 34, "The allocation count"). Reading it allocates nothing.
+    fn allocator_operations(&self) -> Option<u32> {
         None
     }
 

@@ -67,9 +67,11 @@ fn the_runner_keeps_the_capacity_it_is_given() {
     let fixture = Fixture::board_probe();
     let mut runner = fixture.runner_with_capacity(3);
     // The first boundary is due at once; running it at 20 ms misses the task's 10 ms activation,
-    // so the one scan records exactly five events: the cycle's start and end, the overrun, and
-    // the task's start and end.
-    fixture.pass_at(&mut runner, 20);
+    // and each scan 20 ms after the last misses one more, so the four scans record four overruns
+    // of one missed activation each (the store keeps no event that every scan makes).
+    for at in [20, 40, 60, 80] {
+        fixture.pass_at(&mut runner, at);
+    }
     let status = fixture.call(&mut runner, &request(1, "status"));
     assert_eq!(status["result"]["event_capacity"], json!(3));
     let events = fixture.call(
@@ -79,12 +81,12 @@ fn the_runner_keeps_the_capacity_it_is_given() {
     assert_eq!(
         events["result"]["events"],
         json!([
-            {"type": "cycle_end", "cycle": 0, "time_ns": 20_000_000},
-            {"type": "task_end", "name": "Scan", "priority": 0, "time_ns": 20_000_000},
-            {"type": "task_start", "name": "Scan", "priority": 0, "time_ns": 20_000_000},
+            {"type": "task_overrun", "name": "Scan", "missed": 1, "time_ns": 80_000_000},
+            {"type": "task_overrun", "name": "Scan", "missed": 1, "time_ns": 60_000_000},
+            {"type": "task_overrun", "name": "Scan", "missed": 1, "time_ns": 40_000_000},
         ]),
-        "the store keeps the newest three of the scan's five events, so the overrun and the \
-         cycle's start have been dropped"
+        "the store keeps the newest three of the four overruns, so the first, at 20 ms, has been \
+         dropped"
     );
 }
 
@@ -215,7 +217,29 @@ fn restart_from_stopped_starts_the_program_at_once_as_a_new_process_would() {
         let fixture = Fixture::board_probe();
         let mut runner = fixture.runner();
         fixture.pass_at(&mut runner, 0);
+        // A write that the scan at 10 ms refuses leaves an event in the program's records.
+        let queued = fixture.call_at(
+            &mut runner,
+            5,
+            &json!({
+                "id": 9,
+                "type": "set",
+                "params": {"target": "global:probe_depth", "value": "TRUE"},
+            }),
+        );
+        assert_eq!(queued["result"], json!({"status": "queued"}), "{mode}");
         fixture.pass_at(&mut runner, 10);
+        let recorded = fixture.call(&mut runner, &request(8, "events.tail"));
+        assert_eq!(
+            recorded["result"]["events"],
+            json!([{
+                "type": "write_rejected",
+                "target": "probe_depth",
+                "error": "type mismatch",
+                "time_ns": 10_000_000,
+            }]),
+            "{mode}"
+        );
         let _ = fixture.call_at(&mut runner, 15, &request(1, "shutdown"));
         fixture.pass_at(&mut runner, 20);
         assert_eq!(runner.resource_state(), ResourceState::Stopped, "{mode}");
@@ -247,12 +271,9 @@ fn restart_from_stopped_starts_the_program_at_once_as_a_new_process_would() {
         );
         assert_eq!(
             events["result"]["events"],
-            json!([
-                {"type": "cycle_end", "cycle": 0, "time_ns": 0},
-                {"type": "cycle_start", "cycle": 0, "time_ns": 0},
-            ]),
-            "{mode}: the events start empty, as a new process's; the first scan has no \
-             activation due"
+            json!([]),
+            "{mode}: the events start empty, as a new process's: the write refused before the \
+             restart is gone, and the first scan, with no activation due, records none"
         );
         fixture.pass_at(&mut runner, 37);
         assert_eq!(fixture.take_scan_times(), [10], "{mode}");
@@ -484,9 +505,6 @@ fn a_pause_holds_the_scans_from_the_next_boundary_and_the_resume_reports_the_mis
     assert_eq!(
         events["result"]["events"],
         json!([
-            {"type": "cycle_end", "cycle": 2, "time_ns": 50_000_000},
-            {"type": "task_end", "name": "Scan", "priority": 0, "time_ns": 50_000_000},
-            {"type": "task_start", "name": "Scan", "priority": 0, "time_ns": 50_000_000},
             {"type": "task_overrun", "name": "Scan", "missed": 3, "time_ns": 50_000_000},
         ]),
         "the task reports the activations it missed while paused, as on the host"

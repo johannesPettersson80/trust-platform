@@ -434,11 +434,9 @@ fn start_again(device: &mut Device<'_>) {
     let events = device.request(&request(31, "events.tail"));
     assert_eq!(
         events["result"]["events"],
-        json!([
-            {"type": "cycle_end", "cycle": 0, "time_ns": 0},
-            {"type": "cycle_start", "cycle": 0, "time_ns": 0},
-        ]),
-        "the new program's first scan, at the start of its logical time, is its only record"
+        json!([]),
+        "the new program's records start empty: the overruns of the program before are gone, and \
+         its first scan, at the start of its logical time, records no event"
     );
     let tasks = device.request(&request(32, "tasks.stats"));
     assert_eq!(tasks["result"]["tasks"], json!([]));

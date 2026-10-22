@@ -547,7 +547,7 @@ impl ResourceCycle for ScriptedCycle<'_> {
         self.engine.held_time()
     }
 
-    fn allocator_operations(&self) -> Option<u64> {
+    fn allocator_operations(&self) -> Option<u32> {
         self.engine.allocator_operations()
     }
 

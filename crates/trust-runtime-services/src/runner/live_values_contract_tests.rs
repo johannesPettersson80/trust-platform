@@ -181,22 +181,14 @@ fn a_refused_write_becomes_a_write_rejected_event() {
     let events = fixture.call(&mut runner, &json!({"id": 2, "type": "events.tail"}));
     assert_eq!(
         events["result"]["events"],
-        json!([
-            {"type": "cycle_end", "cycle": 1, "time_ns": 10_000_000},
-            {"type": "task_end", "name": "Scan", "priority": 0, "time_ns": 10_000_000},
-            {"type": "task_start", "name": "Scan", "priority": 0, "time_ns": 10_000_000},
-            {"type": "cycle_start", "cycle": 1, "time_ns": 10_000_000},
-            {
-                "type": "write_rejected",
-                "target": "probe_depth",
-                "error": "type mismatch",
-                "time_ns": 10_000_000,
-            },
-            {"type": "cycle_end", "cycle": 0, "time_ns": 0},
-            {"type": "cycle_start", "cycle": 0, "time_ns": 0},
-        ]),
-        "the refused write is reported at the cycle start of the scan at 10 ms, before that scan's \
-         cycle_start event"
+        json!([{
+            "type": "write_rejected",
+            "target": "probe_depth",
+            "error": "type mismatch",
+            "time_ns": 10_000_000,
+        }]),
+        "the refused write is reported at the scan at 10 ms, the first to start after it; the \
+         store keeps no event that every scan makes"
     );
 }
 

@@ -521,8 +521,19 @@ fn a_host_that_goes_away_mid_run_changes_nothing_for_the_program() {
     schedule_button(&fixture);
     let mut device = Device::new(&fixture);
 
+    // 120 writes that the scans refuse (`probe_depth` is an INT) fill the event store with
+    // `write_rejected` events, about 11 KB of `events.tail`, and change nothing in the program; the
+    // store keeps no event that every scan makes (specification 11, the event store).
+    for _ in 0..120 {
+        let queued = device.ask(
+            "set",
+            Some(json!({"target": "global:probe_depth", "value": "TRUE"})),
+        );
+        assert_eq!(queued["result"], json!({"status": "queued"}));
+    }
     device.run_until(1_000);
     let head = device.ask("events.tail", Some(json!({"limit": 1_000})));
+    let tail = head["id"].clone();
     assert_eq!(
         head["ok"],
         json!(true),
@@ -574,7 +585,7 @@ fn a_host_that_goes_away_mid_run_changes_nothing_for_the_program() {
         "the reply read to its end is the one the head named"
     );
     let reply: Value = serde_json::from_slice(&whole).expect("the reply is one JSON object");
-    assert_eq!(reply["id"], json!(1), "the reply answers `events.tail`");
+    assert_eq!(reply["id"], tail, "the reply answers `events.tail`");
     // Read to its last byte, the reply is freed (PORT-05).
     let freed = device.ask("transfer.get", Some(get_params(&transfer, 0, PART_BYTES)));
     assert_eq!(

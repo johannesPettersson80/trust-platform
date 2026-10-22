@@ -35,7 +35,7 @@ impl ExecutionServices for HostServices {
     ) -> trust_runtime_core::vm::register::RegisterExecutionConfiguration {
         self.register_configuration
     }
-    fn allocator_operations(&self) -> Option<u64> {
+    fn allocator_operations(&self) -> Option<u32> {
         crate::allocation_count::operations()
     }
     fn deadline_exceeded(&self) -> bool {

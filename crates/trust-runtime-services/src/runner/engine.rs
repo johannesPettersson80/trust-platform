@@ -258,7 +258,7 @@ impl<C: MonotonicClock, I: ProcessIo, M> ResourceCycle for EngineCycle<'_, C, I,
         self.settings.fault_policy
     }
 
-    fn allocator_operations(&self) -> Option<u64> {
+    fn allocator_operations(&self) -> Option<u32> {
         self.services.allocator_operations()
     }
 

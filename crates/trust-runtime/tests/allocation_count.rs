@@ -14,7 +14,7 @@ use trust_runtime::metrics::RuntimeMetrics;
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::Runtime;
 use trust_runtime_core::io_address::IoAddress;
-use trust_runtime_core::vm::PreparationLimits;
+use trust_runtime_core::vm::{operations_between, PreparationLimits};
 
 /// The system's allocator, counting as the trust-runtime program's does.
 struct CountingAllocator;
@@ -55,7 +55,7 @@ fn each_allocation_reallocation_and_free_of_this_thread_counts_once() {
     values.push(2);
     drop(std::hint::black_box(values));
     let after = operations().expect("the test's allocator counts");
-    assert_eq!(after - before, 3);
+    assert_eq!(operations_between(before, after), 3);
 }
 
 #[test]

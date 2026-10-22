@@ -185,3 +185,155 @@ impl PreparedModule {
             .fold(0usize, |sum, part| sum.saturating_add(part.bytes))
     }
 }
+
+#[cfg(test)]
+mod record_probe {
+    extern crate std;
+
+    use super::PreparedModule;
+    use crate::vm::PreparationLimits;
+    use core::mem::size_of_val;
+    use std::vec::Vec;
+
+    /// Prints the bytes of each field of a prepared program's own record, the part of the figure
+    /// that every program holds, and of its module's, for the program that `TRUST_FIGURE_PROBE`
+    /// names (MEM-14): `TRUST_FIGURE_PROBE=<program.stbc> <test binary> record_probe --ignored
+    /// --nocapture`. The sizes are this host's.
+    #[test]
+    #[ignore = "a measurement probe"]
+    fn record_probe() {
+        let path = std::env::var("TRUST_FIGURE_PROBE").expect("TRUST_FIGURE_PROBE names a program");
+        let bytes = std::fs::read(path).expect("the program reads");
+        let p = PreparedModule::from_bytes(&bytes, PreparationLimits::default())
+            .expect("the program prepares");
+        let mut fields: Vec<(&str, usize)> = Vec::from([
+            ("vm", size_of_val(&p.vm)),
+            ("layout", size_of_val(&p.layout)),
+            ("layouts", size_of_val(&p.layouts)),
+            ("roots", size_of_val(&p.roots)),
+            ("initializers", size_of_val(&p.initializers)),
+            ("access", size_of_val(&p.access)),
+            ("resources", size_of_val(&p.resources)),
+            ("io_bindings", size_of_val(&p.io_bindings)),
+            ("io_leaves", size_of_val(&p.io_leaves)),
+            ("input_leaves", size_of_val(&p.input_leaves)),
+            ("builtin_members", size_of_val(&p.builtin_members)),
+            ("limits", size_of_val(&p.limits)),
+            ("operand_bounds", size_of_val(&p.operand_bounds)),
+            ("call_depth", size_of_val(&p.call_depth)),
+            ("preparation_usage", size_of_val(&p.preparation_usage)),
+            ("indexes", size_of_val(&p.indexes)),
+            ("call_plans", size_of_val(&p.call_plans)),
+            ("stdlib", size_of_val(&p.stdlib)),
+            ("method_owners", size_of_val(&p.method_owners)),
+            ("recipes", size_of_val(&p.recipes)),
+            ("statements", size_of_val(&p.statements)),
+            ("memory_figure", size_of_val(&p.memory_figure)),
+        ]);
+        #[cfg(feature = "register-ir")]
+        fields.push(("register_plans", size_of_val(&p.register_plans)));
+        let vm = &p.vm;
+        fields.extend([
+            ("vm.code", size_of_val(&vm.code)),
+            ("vm.strings", size_of_val(&vm.strings)),
+            ("vm.types", size_of_val(&vm.types)),
+            ("vm.physical_layouts", size_of_val(&vm.physical_layouts)),
+            ("vm.refs", size_of_val(&vm.refs)),
+            ("vm.consts", size_of_val(&vm.consts)),
+            ("vm.pou_by_id", size_of_val(&vm.pou_by_id)),
+            ("vm.program_ids", size_of_val(&vm.program_ids)),
+            ("vm.function_block_ids", size_of_val(&vm.function_block_ids)),
+            ("vm.class_ids", size_of_val(&vm.class_ids)),
+            ("vm.parent_pou_ids", size_of_val(&vm.parent_pou_ids)),
+            (
+                "vm.interface_type_ids_by_pou",
+                size_of_val(&vm.interface_type_ids_by_pou),
+            ),
+            (
+                "vm.native_symbol_specs",
+                size_of_val(&vm.native_symbol_specs),
+            ),
+            ("vm.pou_params", size_of_val(&vm.pou_params)),
+            (
+                "vm.pou_has_return_slot",
+                size_of_val(&vm.pou_has_return_slot),
+            ),
+            (
+                "vm.method_table_by_owner",
+                size_of_val(&vm.method_table_by_owner),
+            ),
+            ("vm.ref_types", size_of_val(&vm.ref_types)),
+            ("vm.compact", size_of_val(&vm.compact)),
+        ]);
+        std::println!("record probe: the record {} B", size_of_val(&p));
+        for (name, size) in fields {
+            std::println!("record probe:   {name}: {size} B");
+        }
+    }
+
+    /// Prints the heap bytes of each table of the prepared program that `TRUST_FIGURE_PROBE`
+    /// names, largest first (MEM-14): `TRUST_FIGURE_PROBE=<program.stbc> <test binary>
+    /// table_probe --ignored --nocapture`. The sizes are this host's.
+    #[test]
+    #[ignore = "a measurement probe"]
+    fn table_probe() {
+        use crate::memory::figure::HeapCount;
+        let path = std::env::var("TRUST_FIGURE_PROBE").expect("TRUST_FIGURE_PROBE names a program");
+        let bytes = std::fs::read(path).expect("the program reads");
+        let p = PreparedModule::from_bytes(&bytes, PreparationLimits::default())
+            .expect("the program prepares");
+        let heap = |add: &dyn Fn(&mut HeapCount)| {
+            let mut count = HeapCount::new();
+            add(&mut count);
+            count.take()
+        };
+        let vm = &p.vm;
+        let mut tables: Vec<(std::string::String, usize)> = [
+            ("vm.code", heap(&|count| count.of(&vm.code))),
+            ("vm.compact", heap(&|count| count.of(&vm.compact))),
+            ("vm.strings", heap(&|count| count.of(&vm.strings))),
+            ("vm.types", heap(&|count| count.of(&vm.types))),
+            (
+                "vm.physical_layouts",
+                heap(&|count| count.of(&vm.physical_layouts)),
+            ),
+            ("vm.refs", heap(&|count| count.of(&vm.refs))),
+            ("vm.ref_types", heap(&|count| count.of(&vm.ref_types))),
+            ("vm.consts", heap(&|count| count.of(&vm.consts))),
+            ("vm.pou_by_id", heap(&|count| count.of(&vm.pou_by_id))),
+            ("vm.pou_params", heap(&|count| count.of(&vm.pou_params))),
+            (
+                "vm.native_symbol_specs",
+                heap(&|count| count.of(&vm.native_symbol_specs)),
+            ),
+            ("layout", heap(&|count| count.of(&p.layout))),
+            ("layouts", heap(&|count| count.of(&p.layouts))),
+            ("roots", heap(&|count| count.of(&p.roots))),
+            ("initializers", heap(&|count| count.of(&p.initializers))),
+            ("access", heap(&|count| count.of(&p.access))),
+            ("resources", heap(&|count| count.of(&p.resources))),
+            ("io_bindings", heap(&|count| count.of(&p.io_bindings))),
+            ("io_leaves", heap(&|count| count.of(&p.io_leaves))),
+            (
+                "builtin_members",
+                heap(&|count| count.of(&p.builtin_members)),
+            ),
+            ("call_plans", heap(&|count| count.of(&p.call_plans))),
+            ("stdlib", heap(&|count| count.of(&p.stdlib))),
+            ("statements", heap(&|count| count.of(&p.statements))),
+        ]
+        .into_iter()
+        .map(|(name, bytes)| (std::string::String::from(name), bytes))
+        .collect();
+        tables.extend(
+            p.indexes
+                .table_heap()
+                .into_iter()
+                .map(|(name, bytes)| (std::format!("indexes.{name}"), bytes)),
+        );
+        tables.sort_by_key(|table| core::cmp::Reverse(table.1));
+        for (name, bytes) in tables {
+            std::println!("table probe:   {name}: {bytes} B");
+        }
+    }
+}

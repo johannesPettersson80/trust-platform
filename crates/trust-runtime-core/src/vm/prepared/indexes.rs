@@ -49,6 +49,67 @@ impl crate::memory::figure::HeapBytes for PreparedIndexes {
     }
 }
 
+/// The heap bytes of each index table, for the table probe of a prepared program (MEM-14).
+#[cfg(test)]
+impl PreparedIndexes {
+    pub(super) fn table_heap(&self) -> alloc::vec::Vec<(&'static str, usize)> {
+        use crate::memory::figure::HeapCount;
+        let mut tables = alloc::vec::Vec::new();
+        let mut table = |name: &'static str, add: &dyn Fn(&mut HeapCount)| {
+            let mut count = HeapCount::new();
+            add(&mut count);
+            tables.push((name, count.take()));
+        };
+        table("members", &|count| count.of(&self.members));
+        table("globals", &|count| count.of(&self.globals));
+        table("type_members", &|count| count.of(&self.type_members));
+        table("named_types", &|count| count.of(&self.named_types));
+        table("root_owners", &|count| count.of(&self.root_owners));
+        table("root_owner_ordinals", &|count| {
+            count.of(&self.root_owner_ordinals);
+        });
+        table("root_candidates", &|count| count.of(&self.root_candidates));
+        table("program_roots", &|count| count.of(&self.program_roots));
+        table("edge_declarations", &|count| {
+            count.of(&self.edge_declarations)
+        });
+        table("declarations", &|count| count.of(&self.declarations));
+        table("declaration_plan", &|count| {
+            count.of(&self.declaration_plan)
+        });
+        table("static_ordinals", &|count| count.of(&self.static_ordinals));
+        table("retained_declarations", &|count| {
+            count.of(&self.retained_declarations);
+        });
+        table("actions", &|count| count.of(&self.actions));
+        table("frame_action_plans", &|count| {
+            count.of(&self.frame_action_plans)
+        });
+        table("instance_actions", &|count| {
+            count.of(&self.instance_actions)
+        });
+        table("resource_actions", &|count| {
+            count.of(&self.resource_actions)
+        });
+        table("module_statics", &|count| count.of(&self.module_statics));
+        table("configuration_actions", &|count| {
+            count.of(&self.configuration_actions);
+        });
+        table("explicit_actions", &|count| {
+            count.of(&self.explicit_actions)
+        });
+        table("edges", &|count| count.of(&self.edges));
+        table("reference_candidates", &|count| {
+            count.of(&self.reference_candidates);
+        });
+        table("background_programs", &|count| {
+            count.of(&self.background_programs)
+        });
+        table("program_entries", &|count| count.of(&self.program_entries));
+        tables
+    }
+}
+
 #[cfg(test)]
 mod charged_lookup_tests;
 #[cfg(all(test, feature = "std", feature = "test-support"))]

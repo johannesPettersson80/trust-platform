@@ -113,17 +113,30 @@ fn an_online_change_preserves_logical_time_and_restarts_the_scan_counter() {
     // ms; the change at 45 ms is committed at the boundary at 50 ms. The candidate keeps the running
     // program's task timing (no timing starts at the change) and scans at 50 ms (not at 0), the
     // program's time is 50 ms and its scan counter is 1 after the first scan, 2 after the next. The
-    // events of the program stay and the cycle events of the candidate count from 0 again: the event
-    // store holds the old program's cycle 4 at 40 ms and the candidate's cycle 0 at 50 ms. Wrong
-    // behaviour caught: a change that starts the program's time at 0 as a restart does, or its task
-    // timing at the change; a scan counter that goes on; an event store that is emptied.
+    // events of the program stay: the write that the old program's scan at 30 ms refused is still in
+    // the event store after the change. Wrong behaviour caught: a change that starts the program's
+    // time at 0 as a restart does, or its task timing at the change; a scan counter that goes on; an
+    // event store that is emptied.
     let rig = Rig::new();
     let mut runner = rig.runner(
         GPIO,
         record(RetainMode::None, &["%IX0.0"], &["%QX0.0"]),
         CheckpointProbe::erased(),
     );
-    for at in [0, 10, 20, 30, 40] {
+    for at in [0, 10, 20] {
+        rig.pass_at(&mut runner, at);
+    }
+    let queued = rig.call_at(
+        &mut runner,
+        25,
+        &json!({
+            "id": 3,
+            "type": "set",
+            "params": {"target": "global:probe_depth", "value": "TRUE"},
+        }),
+    );
+    assert_eq!(queued[0]["result"], json!({"status": "queued"}));
+    for at in [30, 40] {
         rig.pass_at(&mut runner, at);
     }
     assert_eq!(runner.cycle_count, 5);
@@ -131,7 +144,11 @@ fn an_online_change_preserves_logical_time_and_restarts_the_scan_counter() {
 
     assert_eq!(rig.call_at(&mut runner, 45, &reload(4, GPIO)), no_replies());
     rig.pass_at(&mut runner, 50);
-    assert_eq!(rig.replies(), [reloaded(4, 1)]);
+    assert_eq!(
+        rig.replies(),
+        [reloaded(4, 2)],
+        "the refused write's request was audited first"
+    );
     let log = entries(&rig.log);
     assert!(
         log.ends_with(&texts(&["commit", "drop running", "scan change 1 50",])),
@@ -152,12 +169,13 @@ fn an_online_change_preserves_logical_time_and_restarts_the_scan_counter() {
     let events = events[0]["result"]["events"]
         .as_array()
         .expect("the events");
-    for expected in [
-        json!({"type": "cycle_end", "cycle": 4, "time_ns": 40_000_000}),
-        json!({"type": "cycle_end", "cycle": 0, "time_ns": 50_000_000}),
-    ] {
-        assert!(events.contains(&expected), "{expected} in {events:?}");
-    }
+    let refused = json!({
+        "type": "write_rejected",
+        "target": "probe_depth",
+        "error": "type mismatch",
+        "time_ns": 30_000_000,
+    });
+    assert!(events.contains(&refused), "{refused} in {events:?}");
 }
 
 #[test]

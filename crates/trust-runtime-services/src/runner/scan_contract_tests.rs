@@ -79,15 +79,10 @@ fn a_scan_records_the_events_and_metrics_that_trust_runtime_records() {
     fixture.clock.set(ms(12));
     assert_eq!(
         events(&fixture, &mut runner),
-        json!([
-            {"type": "cycle_end", "cycle": 1, "time_ns": 10_000_000},
-            {"type": "task_end", "name": "Scan", "priority": 0, "time_ns": 10_000_000},
-            {"type": "task_start", "name": "Scan", "priority": 0, "time_ns": 10_000_000},
-            {"type": "cycle_start", "cycle": 1, "time_ns": 10_000_000},
-            {"type": "cycle_end", "cycle": 0, "time_ns": 0},
-            {"type": "cycle_start", "cycle": 0, "time_ns": 0},
-        ]),
-        "the first scan has no activation due; the task names and priorities are the program's"
+        json!([]),
+        "two clean scans record no event: the store keeps none of the events that every scan \
+         makes (specification 11, the event store); their timing is in `tasks.stats` and the \
+         metrics below"
     );
     let task_stats = fixture.call(&mut runner, &request(1, "tasks.stats"));
     assert_eq!(
@@ -395,12 +390,8 @@ fn an_overrunning_scan_follows_the_watchdog_action() {
     assert_eq!(runner.last_error(), Some(RuntimeError::WatchdogTimeout));
     assert_eq!(
         events(&fixture, &mut runner),
-        json!([
-            {"type": "fault", "error": "watchdog timeout", "time_ns": 0},
-            {"type": "cycle_end", "cycle": 0, "time_ns": 0},
-            {"type": "cycle_start", "cycle": 0, "time_ns": 0},
-        ]),
-        "the scan itself completed before the overrun was found"
+        json!([{"type": "fault", "error": "watchdog timeout", "time_ns": 0}]),
+        "the watchdog's fault, at the scan's time, is the scan's only event"
     );
 
     let fixture = Fixture::board_probe();
@@ -506,8 +497,6 @@ fn the_retained_values_a_restart_dropped_are_recorded_at_the_programs_time() {
     assert_eq!(
         newest["result"]["events"],
         json!([
-            {"type": "cycle_end", "cycle": 0, "time_ns": 20_000_000},
-            {"type": "cycle_start", "cycle": 0, "time_ns": 20_000_000},
             {"type": "retain_orphan_dropped", "name": "old_total", "time_ns": 10_000_000},
         ]),
         "the program's time is its last scan's until the restart starts its task timing again"

@@ -142,6 +142,22 @@ pub enum RuntimeEvent {
 }
 
 impl RuntimeEvent {
+    /// Whether this is one of the four events that every scan makes, its cycle's start and end
+    /// and its task's start and end. The event store keeps none of them (specification 11, the
+    /// event store): they would displace every other event within a few scans, and a scan's and a
+    /// task's timing is in `tasks.stats` and the `status` metrics. A debug control delivers them
+    /// to the callers that drain it or listen to it.
+    #[must_use]
+    pub const fn is_per_scan(&self) -> bool {
+        matches!(
+            self,
+            Self::CycleStart { .. }
+                | Self::CycleEnd { .. }
+                | Self::TaskStart { .. }
+                | Self::TaskEnd { .. }
+        )
+    }
+
     /// A fault event for `error` at logical `time`, latching its fixed record with no failure
     /// site and no task, for faults that no dispatched instruction raised (specification 34
     /// MEM-05).
@@ -184,9 +200,13 @@ pub const DEBUG_EVENT_BUFFER_CAPACITY: usize = 1_024;
 
 /// Appends `event` to the product event store and drops the oldest events beyond `capacity`, the
 /// newest events the store keeps (`runtime.events.capacity`, specification 11, the event store).
-/// The oldest events are dropped where they lie: a drain from the front moves no event, where
-/// taking each one out to drop it copies it (checklist P1-6).
+/// An event that every scan makes is not kept ([`RuntimeEvent::is_per_scan`]). The oldest events
+/// are dropped where they lie: a drain from the front moves no event, where taking each one out to
+/// drop it copies it (checklist P1-6).
 pub fn store_event(store: &mut VecDeque<RuntimeEvent>, event: RuntimeEvent, capacity: usize) {
+    if event.is_per_scan() {
+        return;
+    }
     store.push_back(event);
     let excess = store.len().saturating_sub(capacity);
     if excess > 0 {

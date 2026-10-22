@@ -510,6 +510,46 @@ fn a_store_above_its_capacity_keeps_only_the_newest_at_the_next_event() {
 }
 
 #[test]
+fn the_store_keeps_no_event_that_every_scan_makes() {
+    // Specification 11, the event store: the store keeps every event but the four that every scan
+    // makes, so they never displace the events that matter. Worked by hand: a store of capacity 2
+    // given a fault, then ten scans' cycle start, task start, task end and cycle end, then an
+    // overrun, holds the fault and the overrun. Catches a store that keeps the scans' events, where
+    // the first scan's events would have displaced the fault.
+    let mut store = VecDeque::new();
+    let fault = fault(&RuntimeError::SimulationFault("fault".into()));
+    store_event(&mut store, fault.clone(), 2);
+    let time = Duration::from_millis(10);
+    for cycle in 0..10 {
+        for event in [
+            RuntimeEvent::CycleStart { cycle, time },
+            RuntimeEvent::TaskStart {
+                name: "Fast".into(),
+                priority: 0,
+                time,
+            },
+            RuntimeEvent::TaskEnd {
+                name: "Fast".into(),
+                priority: 0,
+                time,
+            },
+            RuntimeEvent::CycleEnd { cycle, time },
+        ] {
+            assert!(event.is_per_scan(), "{event:?}");
+            store_event(&mut store, event, 2);
+        }
+    }
+    let overrun = RuntimeEvent::TaskOverrun {
+        name: "Fast".into(),
+        missed: 1,
+        time,
+    };
+    assert!(!overrun.is_per_scan());
+    store_event(&mut store, overrun.clone(), 2);
+    assert_eq!(Vec::from(store), vec![fault, overrun]);
+}
+
+#[test]
 fn debug_buffer_keeps_newest_1024_events_and_counts_the_dropped_oldest() {
     let mut buffer = VecDeque::new();
     let mut dropped = 0_u64;

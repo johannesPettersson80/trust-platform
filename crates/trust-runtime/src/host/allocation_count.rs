@@ -5,15 +5,16 @@
 //! [`count_operation`](crate::allocation_count::count_operation) at each allocation, reallocation
 //! and free, which counts the operations of each thread, and the hosted execution services read the
 //! count of the thread that runs the scans
-//! ([`operations`](crate::allocation_count::operations)). A program that embeds the runtime with an
-//! allocator that does not count has no count, and the runtime reports `null` for it, never zero.
+//! ([`operations`](crate::allocation_count::operations)), in 32 bits that wrap as a chip's count
+//! does. A program that embeds the runtime with an allocator that does not count has no count, and
+//! the runtime reports `null` for it, never zero.
 
 use std::cell::Cell;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 thread_local! {
     /// This thread's allocator operations.
-    static OPERATIONS: Cell<u64> = const { Cell::new(0) };
+    static OPERATIONS: Cell<u32> = const { Cell::new(0) };
 }
 
 /// Whether the program's allocator counts: its first counted operation says so.
@@ -30,10 +31,10 @@ pub fn count_operation() {
     let _ = OPERATIONS.try_with(|count| count.set(count.get().wrapping_add(1)));
 }
 
-/// The allocator operations this thread has made so far, when the program's allocator counts
-/// them; `None` when it does not. Reading it allocates nothing.
+/// The allocator operations this thread has made so far, in 32 bits that wrap, when the program's
+/// allocator counts them; `None` when it does not. Reading it allocates nothing.
 #[must_use]
-pub fn operations() -> Option<u64> {
+pub fn operations() -> Option<u32> {
     if !COUNTING.load(Ordering::Relaxed) {
         return None;
     }

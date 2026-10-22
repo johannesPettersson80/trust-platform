@@ -141,7 +141,7 @@ impl ExecutionServices for HostedExecutionServices {
             .is_some_and(|metadata| metadata.line_table().is_some())
     }
 
-    fn allocator_operations(&self) -> Option<u64> {
+    fn allocator_operations(&self) -> Option<u32> {
         crate::allocation_count::operations()
     }
 

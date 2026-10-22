@@ -38,7 +38,8 @@ pub mod register_test_support;
 mod validated_source;
 pub use context::StatementFrame;
 pub use engine::{
-    CycleAccess, CycleHooks, CyclePhase, ExecutionServices, LogicalExecutionServices, RuntimeState,
+    operations_between, CycleAccess, CycleHooks, CyclePhase, ExecutionServices,
+    LogicalExecutionServices, RuntimeState,
 };
 #[cfg(feature = "std")]
 pub use engine::{OwnedRuntimeState, ResourceReconfiguration};

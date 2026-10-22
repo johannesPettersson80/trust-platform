@@ -88,13 +88,15 @@ fn recording_a_fault_event_allocates_nothing() {
         },
     ];
 
-    // Fill the store to its bound and empty it, so its buffer is already reserved.
+    // Fill the store to its bound and empty it, so its buffer is already reserved. The store keeps
+    // no event that every scan makes, so it is filled with overruns.
     let mut store = VecDeque::new();
     for _ in 0..EVENT_STORE_CAPACITY {
         store_event(
             &mut store,
-            RuntimeEvent::CycleStart {
-                cycle: 0,
+            RuntimeEvent::TaskOverrun {
+                name: "Fast".into(),
+                missed: 1,
                 time: Duration::ZERO,
             },
             EVENT_STORE_CAPACITY,

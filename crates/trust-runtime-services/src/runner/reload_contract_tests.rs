@@ -404,7 +404,29 @@ fn a_restart_after_an_install_runs_the_installed_program_without_a_reset() {
     // rebuilt; records that keep the old program's events; a load that erases or programs the store.
     let rig = Rig::new(FlashProbe::erased(), CheckpointProbe::erased());
     let mut runner = rig.runner(None);
-    rig.stop(&mut runner);
+    // The board probe's scan at 10 ms refuses a write, which leaves an event in its records, and
+    // the probe then stops as `Rig::stop` stops it.
+    rig.ports.pass_at(&mut runner, 0);
+    let queued = rig.ports.call_at(
+        &mut runner,
+        5,
+        &json!({
+            "id": 2,
+            "type": "set",
+            "params": {"target": "global:probe_depth", "value": "TRUE"},
+        }),
+    );
+    assert_eq!(queued["result"], json!({"status": "queued"}));
+    rig.ports.pass_at(&mut runner, 10);
+    let recorded = rig.ports.call(&mut runner, &request(3, "events.tail"));
+    assert_eq!(
+        recorded["result"]["events"][0]["type"],
+        json!("write_rejected"),
+        "the probe recorded the refused write"
+    );
+    let _ = rig.ports.call_at(&mut runner, 15, &request(1, "shutdown"));
+    rig.ports.pass_at(&mut runner, 20);
+    assert_eq!(runner.resource_state(), ResourceState::Stopped);
     let installed = rig.install(&mut runner, &transfer_of(RetainMode::None), 40);
     assert_eq!(installed["result"]["status"], json!("installed"));
     assert_eq!(installed["result"]["sequence"], json!(1));
@@ -455,11 +477,9 @@ fn a_restart_after_an_install_runs_the_installed_program_without_a_reset() {
     );
     assert_eq!(
         events["result"]["events"],
-        json!([
-            {"type": "cycle_end", "cycle": 0, "time_ns": 0},
-            {"type": "cycle_start", "cycle": 0, "time_ns": 0},
-        ]),
-        "the events of the board probe are gone; the new program's first scan is all there is"
+        json!([]),
+        "the events of the board probe, its refused write among them, are gone; the new \
+         program's first scan, with no activation due, records none"
     );
 
     // The program that runs is the installed A4 program: its task `Periodic` has run by 60 ms.

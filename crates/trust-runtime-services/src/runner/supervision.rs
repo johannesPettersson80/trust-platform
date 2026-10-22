@@ -14,7 +14,7 @@ use trust_runtime_core::ports::{
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value;
-use trust_runtime_core::vm::{CarriedValueEvent, RetainApplyEvent};
+use trust_runtime_core::vm::{operations_between, CarriedValueEvent, RetainApplyEvent};
 use trust_runtime_core::watchdog::FaultDecision;
 
 use super::engine::LiveValuesHooks;
@@ -238,12 +238,7 @@ where
         // the engine's, the rest the services' (specification 34, "The allocation count").
         let operations_before = self.cycle.allocator_operations();
         let result = {
-            let mut observer = ScanObserver::new(
-                &self.tasks,
-                &self.shell.records,
-                &self.clock,
-                self.cycle_count,
-            );
+            let mut observer = ScanObserver::new(&self.tasks, &self.shell.records, &self.clock);
             let mut hooks = LiveValuesHooks::new(
                 &self.live,
                 &self.shell.records,
@@ -261,7 +256,7 @@ where
             self.cycle.allocator_operations(),
             self.cycle.last_scan_allocations(),
         ) {
-            let services = after.saturating_sub(before).saturating_sub(engine);
+            let services = u64::from(operations_between(before, after)).saturating_sub(engine);
             self.shell
                 .records
                 .record(|metrics| metrics.record_scan_allocations(engine, services));
@@ -280,10 +275,6 @@ where
             return;
         }
         let held = self.cycle.held_time().saturating_sub(held_before);
-        self.shell.records.push_event(RuntimeEvent::CycleEnd {
-            cycle: self.cycle_count,
-            time: now,
-        });
         // The cycle metric and the overrun check see the active time: the wall time less the holds.
         let wall = self.clock.now().saturating_since(started);
         let active = wall.saturating_sub(held).as_duration();

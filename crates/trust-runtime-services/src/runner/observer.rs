@@ -1,6 +1,8 @@
-//! What the resource loop records of a scan at the engine's cycle phases: the scan and task
-//! events, and the task, program and overrun metrics, as trust-runtime's hosted cycle records
-//! them (`runtime/installed_cycle.rs`). The loop itself records the end of a successful scan.
+//! What the resource loop records of a scan at the engine's cycle phases: the overrun events, and
+//! the task, program and overrun metrics, as trust-runtime's hosted cycle records them
+//! (`runtime/installed_cycle.rs`). The events that every scan makes, its cycle's and its task's
+//! start and end, are not recorded: the event store keeps none of them (specification 11, the event
+//! store), and no caller drains them from a chip.
 
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
@@ -21,24 +23,17 @@ pub(super) struct ScanObserver<'a, C> {
     tasks: &'a [TaskDescriptor],
     records: &'a Records<C>,
     clock: &'a C,
-    cycle: u64,
     task_started: Option<MonotonicInstant>,
     program_started: Option<MonotonicInstant>,
 }
 
 impl<'a, C: MonotonicClock> ScanObserver<'a, C> {
-    /// An observer of scan number `cycle`, counted from the last start of the program.
-    pub(super) fn new(
-        tasks: &'a [TaskDescriptor],
-        records: &'a Records<C>,
-        clock: &'a C,
-        cycle: u64,
-    ) -> Self {
+    /// An observer of a scan of the program whose tasks are `tasks`.
+    pub(super) fn new(tasks: &'a [TaskDescriptor], records: &'a Records<C>, clock: &'a C) -> Self {
         Self {
             tasks,
             records,
             clock,
-            cycle,
             task_started: None,
             program_started: None,
         }
@@ -76,10 +71,7 @@ impl<C: MonotonicClock> CycleHooks for ScanObserver<'_, C> {
     fn observes(&self, phase: CyclePhase) -> bool {
         matches!(
             phase,
-            CyclePhase::CycleStart
-                | CyclePhase::TaskOverrun { .. }
-                | CyclePhase::TaskStart(_)
-                | CyclePhase::TaskEnd(_)
+            CyclePhase::TaskOverrun { .. } | CyclePhase::TaskStart(_) | CyclePhase::TaskEnd(_)
         )
     }
 
@@ -88,12 +80,7 @@ impl<C: MonotonicClock> CycleHooks for ScanObserver<'_, C> {
         phase: CyclePhase,
         access: &mut CycleAccess<'_, '_>,
     ) -> Result<(), RuntimeError> {
-        let time = access.logical_time();
         match phase {
-            CyclePhase::CycleStart => self.records.push_event(RuntimeEvent::CycleStart {
-                cycle: self.cycle,
-                time,
-            }),
             CyclePhase::TaskOverrun { index, missed } => {
                 let task = self.task(index)?;
                 self.records
@@ -101,18 +88,10 @@ impl<C: MonotonicClock> CycleHooks for ScanObserver<'_, C> {
                 self.records.push_event(RuntimeEvent::TaskOverrun {
                     name: task.name.clone(),
                     missed,
-                    time,
+                    time: access.logical_time(),
                 });
             }
-            CyclePhase::TaskStart(index) => {
-                let task = self.task(index)?;
-                self.task_started = Some(self.clock.now());
-                self.records.push_event(RuntimeEvent::TaskStart {
-                    name: task.name.clone(),
-                    priority: task.priority,
-                    time,
-                });
-            }
+            CyclePhase::TaskStart(_) => self.task_started = Some(self.clock.now()),
             CyclePhase::TaskEnd(index) => {
                 let task = self.task(index)?;
                 if let Some(started) = self.task_started.take() {
@@ -120,13 +99,9 @@ impl<C: MonotonicClock> CycleHooks for ScanObserver<'_, C> {
                     self.records
                         .record(|metrics| metrics.record_task(&task.name, duration));
                 }
-                self.records.push_event(RuntimeEvent::TaskEnd {
-                    name: task.name.clone(),
-                    priority: task.priority,
-                    time,
-                });
             }
-            CyclePhase::BeforeInputSample
+            CyclePhase::CycleStart
+            | CyclePhase::BeforeInputSample
             | CyclePhase::AfterInputSample
             | CyclePhase::BackgroundStart(_)
             | CyclePhase::BackgroundEnd(_)
