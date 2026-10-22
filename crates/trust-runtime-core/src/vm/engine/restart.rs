@@ -269,7 +269,7 @@ impl EngineState<'_> {
             .bytes(range)
             .ok_or(RuntimeError::InvalidExecutionState)?;
         let arm = &mut *self.data.store;
-        if arm.write_bytes(at, bytes) {
+        if arm.write_bytes(&at, bytes) {
             Ok(())
         } else {
             Err(RuntimeError::InvalidExecutionState)

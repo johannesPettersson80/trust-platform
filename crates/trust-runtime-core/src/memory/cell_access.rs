@@ -516,10 +516,11 @@ impl CellArm {
     }
 
     /// Copy `bytes` into `range` of the block that holds it (C1-14b). `false`, and nothing written,
-    /// when the block refuses the range or the lengths differ.
-    pub(crate) fn write_bytes(&mut self, range: ByteRange, bytes: &[u8]) -> bool {
+    /// when the block refuses the range or the lengths differ. The range is borrowed: a 12-byte
+    /// range passed by value is copied at every call on a 32-bit chip (checklist P1-6).
+    pub(crate) fn write_bytes(&mut self, range: &ByteRange, bytes: &[u8]) -> bool {
         let (block, _) = self.cells.regions_mut().block_mut(range.region);
-        match block.bytes_mut(range) {
+        match block.bytes_mut(*range) {
             Some(target) if target.len() == bytes.len() => {
                 crate::memory::flat::copy_leaf_bytes(target, bytes);
                 true
@@ -678,9 +679,9 @@ impl CellArm {
     }
 
     /// The bytes of `range` in the block that holds them, or `None` when the block refuses the range
-    /// (checklist P1-6).
-    pub(crate) fn bytes(&self, range: ByteRange) -> Option<&[u8]> {
-        self.cells.regions().block(range.region).bytes(range)
+    /// (checklist P1-6). The range is borrowed, as [`Self::write_bytes`]'s is.
+    pub(crate) fn bytes(&self, range: &ByteRange) -> Option<&[u8]> {
+        self.cells.regions().block(range.region).bytes(*range)
     }
 
     /// The cell store the arm reads and writes, for the tests.

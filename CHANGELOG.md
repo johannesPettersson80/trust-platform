@@ -34,9 +34,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   takes back from the chip's LP SRAM as a third region that an allocation reaches only when the
   other two are full: its heap is 112 KiB (114,688 bytes, also the longest reply), of which a
   program can use 56,076 bytes (80,652 before). On the ESP32-C6 the scan of a 2-statement program
-  went from 0.90 ms to 0.033 ms (its cycle from 2.9 ms to 0.15 ms), and that of a 15-statement
-  program with a timer, an edge trigger and three conversions from 6.8 ms to 0.21 ms (its cycle
-  from 9.9 ms to 0.36 ms).
+  went from 0.90 ms to 0.026 ms (its cycle from 2.9 ms to 0.13 ms), and that of a 15-statement
+  program with a timer, an edge trigger and three conversions from 6.8 ms to 0.20 ms (its cycle
+  from 9.9 ms to 0.34 ms).
 - Fixed: an ESP32-C6 could accept a program whose memory figure fitted the memory it reported for
   programs and then reset at every boot: its control loop, built after the program, needed blocks
   (its event store alone is 19,296 bytes) that the program's blocks had left no room for, though the

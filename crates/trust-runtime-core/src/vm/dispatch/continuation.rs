@@ -54,10 +54,10 @@ pub(super) fn finish_call(
 }
 
 /// Retire partially entered stack frames after a non-pump initializer fault.
-pub(super) fn unwind_stack_frames(
+pub(super) fn unwind_stack_frames<T>(
     runtime: &mut impl ExecutionContext,
     buffers: &mut ExecutionBuffers,
-    result: &mut Result<VmPouStackResult, RuntimeError>,
+    result: &mut Result<T, RuntimeError>,
 ) {
     while let Ok(frame) = buffers.frames.pop() {
         if let Err(error) = runtime.retire_frame(&frame)

@@ -60,9 +60,6 @@ pub fn execute_pou_stack_with_parameter_presence(
         depth_offset,
         entry,
         None,
-        true,
-        false,
-        &mut None,
     )
 }
 
@@ -92,9 +89,6 @@ pub(in crate::vm) fn execute_pou_stack_with_owned_locals(
         depth_offset,
         entry,
         Some(initial_locals),
-        true,
-        false,
-        &mut None,
     )
 }
 
@@ -110,7 +104,61 @@ pub(crate) fn execute_pou_stack_for_engine_entry(
     entry: crate::vm::budget::ExecutionEntry,
     fault_site: &mut Option<FaultSite>,
 ) -> Result<(), RuntimeError> {
-    execute_pou_with_pump(
+    pump(runtime, fault_site, |runtime, buffers| {
+        engine_root(
+            runtime,
+            module,
+            pou_id,
+            entry_instance,
+            depth_offset,
+            entry,
+            buffers,
+        )
+    })
+}
+
+/// The root of an engine-owned entry, whose caller keeps no result: the register tier's activation
+/// when the context runs one, else a program whose body compact code runs without its frame, else
+/// the stack dispatcher's root. The frameless body builds no activation result, so none is moved
+/// on its way out (checklist P1-9).
+fn engine_root(
+    runtime: &mut impl ExecutionContext,
+    module: &VmModule,
+    pou_id: u32,
+    entry_instance: Option<InstanceId>,
+    depth_offset: u32,
+    entry: crate::vm::budget::ExecutionEntry,
+    buffers: &mut ExecutionBuffers,
+) -> Result<(), RuntimeError> {
+    #[cfg(feature = "register-ir")]
+    if runtime.has_register_activation_pump()
+        && let Some(activation) = runtime.start_register_activation(
+            module,
+            pou_id,
+            entry_instance,
+            None,
+            None,
+            None,
+            false,
+            depth_offset,
+            entry,
+            false,
+        )?
+    {
+        return session::drive_register_root(runtime, module, buffers, activation).map(|_| ());
+    }
+    if let Some(done) = super::compact_entry::run(
+        runtime,
+        module,
+        pou_id,
+        entry_instance,
+        depth_offset,
+        entry,
+        buffers,
+    ) {
+        return done;
+    }
+    execute_stack_root(
         runtime,
         module,
         pou_id,
@@ -120,14 +168,14 @@ pub(crate) fn execute_pou_stack_for_engine_entry(
         false,
         depth_offset,
         entry,
+        buffers,
         None,
         false,
-        true,
-        fault_site,
     )
     .map(|_| ())
 }
 
+#[cfg(any(feature = "hir", feature = "register-ir"))]
 #[allow(clippy::too_many_arguments)]
 fn execute_pou_with_pump(
     runtime: &mut impl ExecutionContext,
@@ -140,81 +188,35 @@ fn execute_pou_with_pump(
     depth_offset: u32,
     entry: crate::vm::budget::ExecutionEntry,
     owned_initial_locals: Option<&mut Option<Vec<Value>>>,
-    capture_result_locals: bool,
-    optimize_root: bool,
-    fault_site: &mut Option<FaultSite>,
 ) -> Result<VmPouStackResult, RuntimeError> {
+    pump(runtime, &mut None, |runtime, buffers| {
+        execute_stack_root(
+            runtime,
+            module,
+            pou_id,
+            entry_instance,
+            initial_locals,
+            parameter_values_present,
+            capture_return,
+            depth_offset,
+            entry,
+            buffers,
+            owned_initial_locals,
+            true,
+        )
+    })
+}
+
+/// Runs `root` in the context's execution buffers, which it takes for the entry and gives back
+/// cleared: a failure unwinds the frames the root left and writes the innermost failing
+/// instruction's site to `fault_site` (specification 34 MEM-05), and a success checks the deadline.
+fn pump<R: ExecutionContext, T>(
+    runtime: &mut R,
+    fault_site: &mut Option<FaultSite>,
+    root: impl FnOnce(&mut R, &mut ExecutionBuffers) -> Result<T, RuntimeError>,
+) -> Result<T, RuntimeError> {
     let mut buffers = runtime.take_execution_buffers();
-    let result = {
-        #[cfg(feature = "register-ir")]
-        if optimize_root && runtime.has_register_activation_pump() {
-            match runtime.start_register_activation(
-                module,
-                pou_id,
-                entry_instance,
-                initial_locals,
-                None,
-                parameter_values_present,
-                capture_return,
-                depth_offset,
-                entry,
-                capture_result_locals,
-            ) {
-                Ok(Some(activation)) => {
-                    session::drive_register_root(runtime, module, &mut buffers, activation)
-                }
-                Ok(None) => execute_stack_root(
-                    runtime,
-                    module,
-                    pou_id,
-                    entry_instance,
-                    initial_locals,
-                    parameter_values_present,
-                    capture_return,
-                    depth_offset,
-                    entry,
-                    &mut buffers,
-                    owned_initial_locals,
-                    capture_result_locals,
-                ),
-                Err(error) => Err(error),
-            }
-        } else {
-            execute_stack_root(
-                runtime,
-                module,
-                pou_id,
-                entry_instance,
-                initial_locals,
-                parameter_values_present,
-                capture_return,
-                depth_offset,
-                entry,
-                &mut buffers,
-                owned_initial_locals,
-                capture_result_locals,
-            )
-        }
-        #[cfg(not(feature = "register-ir"))]
-        {
-            let _ = optimize_root;
-            execute_stack_root(
-                runtime,
-                module,
-                pou_id,
-                entry_instance,
-                initial_locals,
-                parameter_values_present,
-                capture_return,
-                depth_offset,
-                entry,
-                &mut buffers,
-                owned_initial_locals,
-                capture_result_locals,
-            )
-        }
-    };
-    let mut result = result;
+    let mut result = root(runtime, &mut buffers);
     if result.is_err() {
         #[cfg(feature = "register-ir")]
         super::continuation::unwind_stack_frames(runtime, &mut buffers, &mut result);
@@ -247,25 +249,6 @@ fn execute_stack_root(
     owned_initial_locals: Option<&mut Option<Vec<Value>>>,
     capture_result_locals: bool,
 ) -> Result<VmPouStackResult, RuntimeError> {
-    // A program whose body compact code runs without its frame, entered with no inputs and no
-    // result to keep, starts without the frame (checklist P1-9).
-    if initial_locals.is_none()
-        && parameter_values_present.is_none()
-        && owned_initial_locals.is_none()
-        && !capture_return
-        && !capture_result_locals
-        && let Some(result) = super::compact_entry::run(
-            runtime,
-            module,
-            pou_id,
-            entry_instance,
-            depth_offset,
-            entry,
-            buffers,
-        )
-    {
-        return result;
-    }
     let progress = execute_with_buffers(
         runtime,
         module,

@@ -306,7 +306,7 @@ fn write_bytes(
     let bytes = cells
         .bytes(range)
         .ok_or(RuntimeError::InvalidExecutionState)?;
-    if arm.write_bytes(at, bytes) {
+    if arm.write_bytes(&at, bytes) {
         Ok(())
     } else {
         Err(RuntimeError::InvalidExecutionState)

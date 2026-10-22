@@ -351,6 +351,7 @@ impl FlatBlock {
 
     /// The bytes of `range`, or `None` when `range` leaves this block.
     #[must_use]
+    #[inline]
     pub fn bytes(&self, range: ByteRange) -> Option<&[u8]> {
         if range.region != self.region {
             return None;
@@ -360,6 +361,7 @@ impl FlatBlock {
 
     /// The bytes of `range`, or `None` when `range` leaves this block.
     #[must_use]
+    #[inline]
     pub fn bytes_mut(&mut self, range: ByteRange) -> Option<&mut [u8]> {
         if range.region != self.region {
             return None;
@@ -392,6 +394,7 @@ impl FlatBlock {
 }
 
 /// The half-open byte indexes of `range`, or `None` when the range cannot be expressed.
+#[inline]
 fn byte_span(range: ByteRange) -> Option<core::ops::Range<usize>> {
     let start = usize::try_from(range.start).ok()?;
     let end = start.checked_add(usize::try_from(range.bytes).ok()?)?;

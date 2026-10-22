@@ -77,7 +77,7 @@ impl<'a> EngineState<'a> {
             } else {
                 self.input_value(binding).and_then(|value| {
                     self.write_input_leaf(saved, leaf, &mut root, |engine, range| {
-                        engine.write_scalar_leaf(range, leaf.prim, &value)
+                        engine.write_scalar_leaf(*range, leaf.prim, &value)
                     })
                 })
             };
@@ -103,14 +103,14 @@ impl<'a> EngineState<'a> {
 
     /// One input write: the deadline check, then the leaf's bytes kept in `saved`, so a refusal can
     /// put them back, then `write` of the leaf's bytes, refused when it writes nothing. The range is
-    /// handed to `write`, not returned: a range in a returned result is a `memcpy` call at
-    /// `opt-level = "z"`.
+    /// handed to `write`, not returned, and lent rather than passed by value: a range in a returned
+    /// result or passed by value is a `memcpy` call at `opt-level = "z"`.
     fn write_input_leaf(
         &mut self,
         saved: &mut SavedDestinations,
         leaf: &IoLeaf,
         root: &mut RootRange,
-        write: impl FnOnce(&mut Self, ByteRange) -> bool,
+        write: impl FnOnce(&mut Self, &ByteRange) -> bool,
     ) -> Result<(), RuntimeError> {
         self.check_entry_deadline()?;
         let range = self
@@ -119,10 +119,10 @@ impl<'a> EngineState<'a> {
         let held = self
             .data
             .store
-            .bytes(range)
+            .bytes(&range)
             .ok_or_else(|| RuntimeError::NullReference)?;
         saved.keep(held)?;
-        if write(self, range) {
+        if write(self, &range) {
             Ok(())
         } else {
             Err(RuntimeError::NullReference)
@@ -193,7 +193,7 @@ impl<'a> EngineState<'a> {
             left -= 1;
             let len = usize::from(leaf.bytes);
             if let (Some(range), Some(held)) = (self.leaf_range(leaf), saved.kept(at, len)) {
-                self.data.store.write_bytes(range, held);
+                self.data.store.write_bytes(&range, held);
             }
             at += len;
         }

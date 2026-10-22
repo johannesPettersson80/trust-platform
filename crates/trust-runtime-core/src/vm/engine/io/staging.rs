@@ -108,8 +108,9 @@ fn persistent_path(prepared: &PreparedModule, ref_idx: u32) -> &[RefSegment] {
     }
 }
 
-/// A staged patch whose flat bytes are in the byte buffer of `ImageStaging`.
+/// A staged patch: the bytes or the bit of a flat window, or one hierarchical value.
 enum StagedPatch {
+    /// A window whose bytes are in the byte buffer of `ImageStaging`.
     Flat {
         area: IoArea,
         start: usize,
@@ -117,8 +118,39 @@ enum StagedPatch {
         len: usize,
         bit: Option<u8>,
     },
+    /// A copied binding's window (`IoLeaf::copy`), whose at most 8 bytes the patch holds, so that
+    /// staging it appends nothing to the byte buffer (checklist P1-6).
+    Copied {
+        area: IoArea,
+        start: usize,
+        bytes: [u8; 8],
+        len: u8,
+        bit: Option<u8>,
+    },
     /// The value of the hierarchical binding at this index of the prepared bindings.
     Hierarchical(usize, Value),
+}
+
+impl StagedPatch {
+    /// The start and the length of the output window the patch writes; `None` for a marker window
+    /// and a hierarchical value.
+    fn output_window(&self) -> Option<(usize, usize)> {
+        match self {
+            Self::Flat {
+                area: IoArea::Output,
+                start,
+                len,
+                ..
+            } => Some((*start, *len)),
+            Self::Copied {
+                area: IoArea::Output,
+                start,
+                len,
+                ..
+            } => Some((*start, usize::from(*len))),
+            _ => None,
+        }
+    }
 }
 
 /// Process-image staging that construction reserves for the bindings and every scan reuses
@@ -307,6 +339,13 @@ impl ImageStaging {
                     len,
                     bit,
                 } => write_window(images, area, start, &self.bytes[offset..offset + len], bit),
+                StagedPatch::Copied {
+                    area,
+                    start,
+                    bytes,
+                    len,
+                    bit,
+                } => write_window(images, area, start, &bytes[..usize::from(len)], bit),
             }
         }
     }
@@ -331,6 +370,18 @@ impl ImageStaging {
                     area,
                     start,
                     bytes: bytes[offset..offset + len].to_vec(),
+                    bit,
+                },
+                StagedPatch::Copied {
+                    area,
+                    start,
+                    bytes: held,
+                    len,
+                    bit,
+                } => OutputPatch::Flat {
+                    area,
+                    start,
+                    bytes: held[..usize::from(len)].to_vec(),
                     bit,
                 },
             })
@@ -544,26 +595,12 @@ impl<'a> EngineState<'a> {
             let windows = staging
                 .patches
                 .iter()
-                .filter(|patch| {
-                    matches!(
-                        patch,
-                        StagedPatch::Flat {
-                            area: IoArea::Output,
-                            ..
-                        }
-                    )
-                })
+                .filter(|patch| patch.output_window().is_some())
                 .count();
             let mut opened = self.open_output_journal(windows)?;
             for patch in &staging.patches {
-                if let StagedPatch::Flat {
-                    area: IoArea::Output,
-                    start,
-                    len,
-                    ..
-                } = patch
-                {
-                    self.journal_output_window(&mut opened, *start, *len)?;
+                if let Some((start, len)) = patch.output_window() {
+                    self.journal_output_window(&mut opened, start, len)?;
                 }
             }
             staging.keep_outputs(&self.data.images.outputs);
@@ -689,51 +726,58 @@ impl<'a> EngineState<'a> {
         root: &mut RootRange,
     ) -> Result<StagedPatch, RuntimeError> {
         let address = &binding.address;
-        let offset = staging.bytes.len();
+        let bit = matches!(address.size, crate::io_address::IoSize::Bit).then_some(address.bit);
         let mut held = [0u8; 8];
         if let Some(leaf) = self.copied_output(index, root, &mut held) {
             // A copied binding's leaf bytes are its image bytes (`IoLeaf::copy`): encoding them
-            // changes no bit, so they go to the staged bytes as they are.
+            // changes no bit, so the patch holds them as they are.
             if address.area == IoArea::Input {
                 return Err(RuntimeError::TypeMismatch);
             }
-            self.copy_flat_window(address, leaf, &held, window, &mut staging.bytes)?;
-        } else {
-            let value = match self.binding_leaf_value(index, root) {
-                Some(value) => value,
-                None => {
-                    let reference = self.persistent_io_view(binding.ref_idx)?;
-                    self.check_read(reference)?;
-                    let view = self
-                        .read_path(reference.location, reference.offset, reference.path)
-                        .map_err(|_| RuntimeError::NullReference)?;
-                    self.charge_allocation_bytes(self.view_clone_charge(&view)?)?;
-                    // The read above already resolved this path, so the view holds exactly the
-                    // leaf the old whole-value materialize returned.
-                    self.materialize(&view)?
-                }
-            };
-            let value = binding.codec.encode(value, address.size)?;
-            if address.path.len() > 1 {
-                self.charge_hierarchical_entry(address)?;
-                return Ok(StagedPatch::Hierarchical(index, value));
-            }
-            if address.area == IoArea::Input {
-                return Err(RuntimeError::TypeMismatch);
-            }
-            self.encode_flat_window(address, value, window, &mut staging.window)?;
-            staging
-                .bytes
-                .try_reserve(staging.window.len())
-                .map_err(|_| RuntimeError::Overflow)?;
-            crate::memory::flat::extend_leaf_bytes(&mut staging.bytes, &staging.window);
+            let len = self.copy_flat_window(address, leaf, &mut held, window)?;
+            return Ok(StagedPatch::Copied {
+                area: address.area,
+                start: address.byte as usize,
+                bytes: held,
+                len,
+                bit,
+            });
         }
+        let offset = staging.bytes.len();
+        let value = match self.binding_leaf_value(index, root) {
+            Some(value) => value,
+            None => {
+                let reference = self.persistent_io_view(binding.ref_idx)?;
+                self.check_read(reference)?;
+                let view = self
+                    .read_path(reference.location, reference.offset, reference.path)
+                    .map_err(|_| RuntimeError::NullReference)?;
+                self.charge_allocation_bytes(self.view_clone_charge(&view)?)?;
+                // The read above already resolved this path, so the view holds exactly the leaf
+                // the old whole-value materialize returned.
+                self.materialize(&view)?
+            }
+        };
+        let value = binding.codec.encode(value, address.size)?;
+        if address.path.len() > 1 {
+            self.charge_hierarchical_entry(address)?;
+            return Ok(StagedPatch::Hierarchical(index, value));
+        }
+        if address.area == IoArea::Input {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        self.encode_flat_window(address, value, window, &mut staging.window)?;
+        staging
+            .bytes
+            .try_reserve(staging.window.len())
+            .map_err(|_| RuntimeError::Overflow)?;
+        crate::memory::flat::extend_leaf_bytes(&mut staging.bytes, &staging.window);
         Ok(StagedPatch::Flat {
             area: address.area,
             start: address.byte as usize,
             offset,
             len: staging.bytes.len() - offset,
-            bit: matches!(address.size, crate::io_address::IoSize::Bit).then_some(address.bit),
+            bit,
         })
     }
 
@@ -902,24 +946,23 @@ impl<'a> EngineState<'a> {
         if !leaf.copy {
             return None;
         }
-        let bytes = self.data.store.bytes(self.leaf_range_in(leaf, root)?)?;
+        let bytes = self.data.store.bytes(&self.leaf_range_in(leaf, root)?)?;
         crate::memory::flat::copy_leaf_bytes(held.get_mut(..bytes.len())?, bytes);
         Some(leaf)
     }
 
-    /// [`Self::encode_flat_window`] for a copied binding whose leaf holds `held`, appending the
-    /// window to `bytes`: the same window check and charge, and the window holds the leaf's bytes,
-    /// or for a bit the BOOL's. A window that preparation checked (`IoLeaf::window`) needs only the
-    /// image's length checked; the check runs when the image is shorter and refuses the binding as
-    /// before.
+    /// [`Self::encode_flat_window`] for a copied binding whose leaf holds `held`: the same window
+    /// check and charge, and `held` becomes the window's bytes, the leaf's bytes or, for a bit, the
+    /// BOOL's; returns the window's length. A window that preparation checked (`IoLeaf::window`)
+    /// needs only the image's length checked; the check runs when the image is shorter and refuses
+    /// the binding as before.
     fn copy_flat_window(
         &self,
         address: &IoAddress,
         leaf: &IoLeaf,
-        held: &[u8; 8],
+        held: &mut [u8; 8],
         len: usize,
-        bytes: &mut Vec<u8>,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<u8, RuntimeError> {
         let width = match leaf.window {
             Some(window) if window.end as usize <= len => (window.end - window.start) as usize,
             _ => {
@@ -931,18 +974,15 @@ impl<'a> EngineState<'a> {
             }
         };
         self.charge_allocation_bytes(width)?;
-        bytes
-            .try_reserve(width)
-            .map_err(|_| RuntimeError::Overflow)?;
         if address.size == crate::io_address::IoSize::Bit {
             // A bit's window is its one byte (`IoAddress::flat_byte_end`).
-            bytes.push(if held[0] != 0 { 1 << address.bit } else { 0 });
+            held[0] = if held[0] != 0 { 1 << address.bit } else { 0 };
+            Ok(1)
         } else if width == usize::from(leaf.bytes) {
-            crate::memory::flat::extend_leaf_bytes(bytes, &held[..width]);
+            Ok(leaf.bytes)
         } else {
-            return Err(RuntimeError::TypeMismatch);
+            Err(RuntimeError::TypeMismatch)
         }
-        Ok(())
     }
 
     /// Encode the flat window of `address` into `bytes`, which keeps its storage, after

@@ -115,6 +115,7 @@ impl SharedBase {
     }
 
     /// The base last stored.
+    #[inline]
     pub(crate) fn load(&self) -> CycleBase {
         CycleBase {
             micros: join(&self.micros),
@@ -125,11 +126,24 @@ impl SharedBase {
     }
 
     /// Keeps `base` for the readings after it.
+    #[inline]
     pub(crate) fn store(&self, base: CycleBase) {
         split(&self.micros, base.micros);
         self.cycles.store(base.cycles, Ordering::Relaxed);
         self.running.store(base.running, Ordering::Relaxed);
         split(&self.last, base.last);
+    }
+
+    /// Gives `reading` from `base`, the base last stored, as [`CycleBase::give`] does, and keeps
+    /// the reading given as the last. The other words still hold `base`, so a reading that reads no
+    /// SYSTIMER writes its last reading alone, and only when it is a later one (checklist P1-6).
+    #[inline]
+    pub(crate) fn give(&self, base: CycleBase, reading: u64) -> u64 {
+        let (reading, given) = base.give(reading);
+        if given.last != base.last {
+            split(&self.last, given.last);
+        }
+        reading
     }
 
     /// Marks a wait that stopped the CPU, as [`CycleBase::stopped`] does: the next reading reads
@@ -139,25 +153,32 @@ impl SharedBase {
     }
 }
 
-/// Two words that hold `value`, the low one first.
-const fn words(value: u64) -> [AtomicU32; 2] {
+/// The low and the high word of `value`.
+const fn halves(value: u64) -> [u32; 2] {
     let [b0, b1, b2, b3, b4, b5, b6, b7] = value.to_le_bytes();
     [
-        AtomicU32::new(u32::from_le_bytes([b0, b1, b2, b3])),
-        AtomicU32::new(u32::from_le_bytes([b4, b5, b6, b7])),
+        u32::from_le_bytes([b0, b1, b2, b3]),
+        u32::from_le_bytes([b4, b5, b6, b7]),
     ]
 }
 
+/// Two words that hold `value`, the low one first.
+const fn words(value: u64) -> [AtomicU32; 2] {
+    let [low, high] = halves(value);
+    [AtomicU32::new(low), AtomicU32::new(high)]
+}
+
 /// The value of two words, the low one first.
+#[inline]
 fn join(words: &[AtomicU32; 2]) -> u64 {
     u64::from(words[0].load(Ordering::Relaxed))
         | (u64::from(words[1].load(Ordering::Relaxed)) << 32)
 }
 
 /// Stores `value` in two words, the low one first.
+#[inline]
 fn split(words: &[AtomicU32; 2], value: u64) {
-    let [low, high] = [value & u64::from(u32::MAX), value >> 32]
-        .map(|word| u32::try_from(word).unwrap_or(u32::MAX));
+    let [low, high] = halves(value);
     words[0].store(low, Ordering::Relaxed);
     words[1].store(high, Ordering::Relaxed);
 }
@@ -230,6 +251,26 @@ mod tests {
         assert_eq!(second, 1_010);
         let (third, _) = base.give(1_011);
         assert_eq!(third, 1_011);
+    }
+
+    /// A reading given through the words is kept as the last reading alone: SYSTIMER read 1,000 µs
+    /// at cycle 0, a reading of 1,010 µs is given as it is and kept as the last, and one of 1,005 µs
+    /// is raised to 1,010 µs and writes nothing.
+    /// Catches: a give that keeps a smaller reading as the last (the clock would go back at the
+    /// next SYSTIMER reading), and one that writes over the base's other words.
+    #[test]
+    fn a_reading_given_through_the_words_keeps_the_last_reading_alone() {
+        let shared = SharedBase::new(CycleBase::STALE.rebased(1_000, 0));
+        let kept = CycleBase {
+            micros: 1_000,
+            cycles: 0,
+            running: true,
+            last: 1_010,
+        };
+        assert_eq!(shared.give(shared.load(), 1_010), 1_010);
+        assert_eq!(shared.load(), kept);
+        assert_eq!(shared.give(shared.load(), 1_005), 1_010);
+        assert_eq!(shared.load(), kept);
     }
 
     /// A base kept in words is the base stored, its microseconds and last reading in two words each:

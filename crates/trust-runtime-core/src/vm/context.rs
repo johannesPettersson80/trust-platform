@@ -935,12 +935,18 @@ pub trait ExecutionContext: super::call::context::CallContext {
     ) -> Result<(), crate::error::RuntimeError> {
         Err(crate::error::RuntimeError::InvalidExecutionState)
     }
-    /// Acquire cleared scratch buffers for a dispatch entry.
-    fn take_execution_buffers(&mut self) -> super::dispatch::ExecutionBuffers {
-        super::dispatch::ExecutionBuffers::default()
+    /// Acquire cleared scratch buffers for a dispatch entry, in a box of their own, so that an
+    /// entry moves a pointer rather than the buffers (checklist P1-9).
+    fn take_execution_buffers(&mut self) -> alloc::boxed::Box<super::dispatch::ExecutionBuffers> {
+        alloc::boxed::Box::default()
     }
     /// Return cleared scratch buffers after entry cleanup.
-    fn recycle_execution_buffers(&mut self, _buffers: super::dispatch::ExecutionBuffers) {}
+    #[allow(clippy::boxed_local)] // the buffers come and go in their box (`take_execution_buffers`)
+    fn recycle_execution_buffers(
+        &mut self,
+        _buffers: alloc::boxed::Box<super::dispatch::ExecutionBuffers>,
+    ) {
+    }
     /// The local slots of a new stack activation, `count` NULL values. A context with
     /// payloads reserved at construction hands one out instead of allocating.
     fn take_frame_locals(&mut self, count: usize) -> alloc::vec::Vec<Value> {

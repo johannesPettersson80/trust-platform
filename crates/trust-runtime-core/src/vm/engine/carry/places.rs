@@ -251,7 +251,7 @@ pub(super) fn copy(
         .view_cells()
         .bytes(source)
         .ok_or(RuntimeError::InvalidExecutionState)?;
-    if target.data.store.write_bytes(at, bytes) {
+    if target.data.store.write_bytes(&at, bytes) {
         Ok(())
     } else {
         Err(RuntimeError::InvalidExecutionState)

@@ -123,7 +123,10 @@ struct ProcessImages {
 /// Reusable execution buffers and per-operation resource accounting. Construction reserves
 /// the buffers, frame locals, journal and staging that every scan reuses (spec 34 MEM-09).
 struct ExecutionResources {
-    buffers: Vec<ExecutionBuffers>,
+    /// The execution buffers of the entries, each in a box of its own, which an entry takes out and
+    /// gives back by its pointer (checklist P1-9).
+    #[allow(clippy::vec_box)] // an entry moves the pointer, not the buffers' 100 bytes
+    buffers: Vec<Box<ExecutionBuffers>>,
     frame_locals: scratch::FrameLocals,
     /// Reusable edge-input plan of one call, empty between calls (spec 34 MEM-09).
     edge_inputs: Vec<VmEdgeInput>,

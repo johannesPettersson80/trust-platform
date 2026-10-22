@@ -277,7 +277,9 @@
  * flash, where a build that moves their addresses moved the cycle by several µs (checklist P1-6,
  * 22 October 2026; about 620 bytes together): the link's line end, the hold port of the scan's
  * start, the Live Values' idle check, the byte vector reservations, the I/O address list's clear,
- * the retained capture's due check, the wait alarm's interrupt clear and the byte slices' compare. */
+ * the retained capture's due check, the wait alarm's interrupt clear and the byte slices' compare;
+ * and the event store's drop of its oldest event where it lies, five times a cycle (about 300
+ * bytes; `drop_glue::<RuntimeEvent>` was in flash in firmware p2o). */
 *(.text.*13LineAssembler*8line_end*)
 *(.text.*14DeviceServices*9hold_port*)
 *(.text.*15LiveValueQueues*7is_idle*)
@@ -287,6 +289,8 @@
 *(.text.*13RetainCapture16interval_elapsed*)
 *(.text.*8systimer*5Alarm*15clear_interrupt*)
 *(.text.*14SlicePartialEqhE17equal_same_length*)
+*(.text.*9vec_deque5drain*12RuntimeEvent*)
+*(.text.*9drop_glueNtNtCs*22trust_runtime_services6events12RuntimeEventE*)
 
 /* The runner's loop around each cycle (checklist P1-7, 21 October 2026): the boundary, into which
  * the scan's timed window inlines (its hooks' setup, the scan's allocation count, the cycle's end

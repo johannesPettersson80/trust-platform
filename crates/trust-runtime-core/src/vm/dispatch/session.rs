@@ -117,10 +117,10 @@ pub(super) fn drive_stack_progress(
 }
 
 #[cfg(not(feature = "register-ir"))]
-pub(super) fn unwind_stack_failure(
+pub(super) fn unwind_stack_failure<T>(
     runtime: &mut impl ExecutionContext,
     buffers: &mut ExecutionBuffers,
-    result: &mut Result<VmPouStackResult, RuntimeError>,
+    result: &mut Result<T, RuntimeError>,
 ) {
     if !buffers.continuations.is_empty() {
         let original = core::mem::replace(result, Err(RuntimeError::InvalidExecutionState));

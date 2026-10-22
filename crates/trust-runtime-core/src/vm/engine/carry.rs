@@ -455,7 +455,7 @@ impl<'s, 'p, 'n> Carry<'s, 'p, 'n> {
                 bytes: 1,
                 ..at
             };
-            if !target.data.store.write_bytes(flag, &[1]) {
+            if !target.data.store.write_bytes(&flag, &[1]) {
                 return Err(RuntimeError::InvalidExecutionState);
             }
         }

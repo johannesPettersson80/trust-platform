@@ -495,6 +495,21 @@ fn the_store_keeps_exactly_its_capacity_and_drops_the_oldest() {
 }
 
 #[test]
+fn a_store_above_its_capacity_keeps_only_the_newest_at_the_next_event() {
+    // Specification 11, the event store: the store keeps the newest `capacity` events. A store that
+    // holds five events when its capacity becomes 3 keeps events 3, 4 and 5 once event 5 is
+    // stored. Wrong behaviour caught: an eviction that drops one event per new event, which leaves
+    // the store above its bound after its capacity shrinks.
+    let mut store = VecDeque::new();
+    for index in 0..5 {
+        store_event(&mut store, write_rejected(index), 10);
+    }
+    store_event(&mut store, write_rejected(5), 3);
+    let expected: Vec<_> = (3..6).map(write_rejected).collect();
+    assert_eq!(Vec::from(store), expected);
+}
+
+#[test]
 fn debug_buffer_keeps_newest_1024_events_and_counts_the_dropped_oldest() {
     let mut buffer = VecDeque::new();
     let mut dropped = 0_u64;

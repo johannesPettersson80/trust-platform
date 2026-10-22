@@ -18,16 +18,15 @@ use super::super::module::VmModule;
 use super::super::{FrameStack, VmTrap};
 use super::session::StackCursor;
 use super::typed_loop::{self, Frame};
-use super::{execute_with_buffers, push_activation_frame, ExecutionBuffers, VmPouStackResult};
+use super::{execute_with_buffers, push_activation_frame, ExecutionBuffers};
 use crate::error::RuntimeError;
 use crate::memory::InstanceId;
-use alloc::vec::Vec;
 
 /// The stack root of program `pou_id` of `instance` at call depth `depth_offset`, joining allowance
 /// `entry`, in `buffers`, when its body has frameless compact code that this composition runs, as
-/// the dispatcher's root runs it (`entry::execute_stack_root`); the caller takes and gives back the
-/// buffers, unwinds a failure and checks the deadline after success, as for any root. `None`,
-/// having done nothing, otherwise.
+/// the dispatcher's root runs it (`entry::execute_stack_root`) for an engine entry, which keeps no
+/// result; the caller takes and gives back the buffers, unwinds a failure and checks the deadline
+/// after success, as for any root. `None`, having done nothing, otherwise.
 pub(super) fn run(
     runtime: &mut impl ExecutionContext,
     module: &VmModule,
@@ -36,7 +35,7 @@ pub(super) fn run(
     depth_offset: u32,
     entry: crate::vm::budget::ExecutionEntry,
     buffers: &mut ExecutionBuffers,
-) -> Option<Result<VmPouStackResult, RuntimeError>> {
+) -> Option<Result<(), RuntimeError>> {
     let code = module.compact_code(pou_id).filter(|code| code.frameless)?;
     let pou = module.pou(pou_id)?;
     // The dispatcher's conditions for compact code at a frame's first instruction.
@@ -56,7 +55,8 @@ pub(super) fn run(
     ))
 }
 
-/// The entry of `code`, the body of `pou_id` that ends at `end`, in `buffers`.
+/// The entry of `code`, the body of `pou_id` that ends at `end`, in `buffers`. No activation result
+/// is built: the engine entry keeps none (checklist P1-9).
 #[allow(clippy::too_many_arguments)]
 fn enter(
     runtime: &mut impl ExecutionContext,
@@ -68,7 +68,7 @@ fn enter(
     depth_offset: u32,
     entry: crate::vm::budget::ExecutionEntry,
     buffers: &mut ExecutionBuffers,
-) -> Result<VmPouStackResult, RuntimeError> {
+) -> Result<(), RuntimeError> {
     // The dispatcher's entry before its frame (`execute_with_buffers`).
     runtime.begin_execution(entry, module.instruction_budget)?;
     ensure_global_call_depth(depth_offset, 1).map_err(VmTrap::into_runtime_error)?;
@@ -110,12 +110,7 @@ fn enter(
         // The dispatcher's end of a frame: the deadline is checked and the pop recorded.
         runtime.check_execution_deadline()?;
         runtime.record_call_op(RegisterCallOpKind::FramePop);
-        return Ok(VmPouStackResult {
-            return_value: None,
-            locals: Vec::new(),
-            block: None,
-            return_in_block: false,
-        });
+        return Ok(());
     }
     // The frame an operation needed ends at the body's end on the dispatcher, whose engine entry
     // gives the activation's locals back (`entry::execute_stack_root`).
@@ -142,11 +137,11 @@ fn enter(
         None,
     )?;
     #[cfg(feature = "register-ir")]
-    let mut result = super::session::drive_stack_progress(runtime, module, buffers, progress)?;
+    let result = super::session::drive_stack_progress(runtime, module, buffers, progress)?;
     #[cfg(not(feature = "register-ir"))]
-    let super::StackProgress::Complete(mut result) = progress;
-    runtime.recycle_frame_locals(core::mem::take(&mut result.locals));
-    Ok(result)
+    let super::StackProgress::Complete(result) = progress;
+    runtime.recycle_frame_locals(result.locals);
+    Ok(())
 }
 
 /// Push and initialize the frame of program `pou_id` of `instance` at call depth `depth`, as the

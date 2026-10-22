@@ -302,7 +302,7 @@ impl EngineState<'_> {
                 // A root saved as its cells gets its bytes back (C1-16).
                 Saved::Cells { range, at } => {
                     if let Some(held) = bytes.get(at..at + range.bytes as usize) {
-                        self.data.store.write_bytes(range, held);
+                        self.data.store.write_bytes(&range, held);
                     }
                     continue;
                 }

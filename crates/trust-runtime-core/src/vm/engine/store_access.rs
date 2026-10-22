@@ -73,7 +73,7 @@ impl StoreAccess for EngineState<'_> {
     #[inline]
     fn read_place_bytes(&self, range: ByteRange, presence: Option<u32>) -> Option<Option<&[u8]>> {
         if let Some(start) = presence {
-            let flag = self.data.store.bytes(ByteRange {
+            let flag = self.data.store.bytes(&ByteRange {
                 start,
                 bytes: 1,
                 ..range
@@ -82,7 +82,7 @@ impl StoreAccess for EngineState<'_> {
                 return Some(None);
             }
         }
-        self.data.store.bytes(range).map(Some)
+        self.data.store.bytes(&range).map(Some)
     }
 
     #[inline]
@@ -291,13 +291,13 @@ impl StoreMutate for EngineState<'_> {
             ..range
         });
         // Nothing is written unless both the leaf and its presence byte lie in the store.
-        if self.data.store.bytes(written).is_none()
-            || flag.is_some_and(|flag| self.data.store.bytes(flag).is_none())
+        if self.data.store.bytes(&written).is_none()
+            || flag.is_some_and(|flag| self.data.store.bytes(&flag).is_none())
         {
             return false;
         }
-        self.data.store.write_bytes(written, bytes)
-            && flag.is_none_or(|flag| self.data.store.write_bytes(flag, &[1]))
+        self.data.store.write_bytes(&written, bytes)
+            && flag.is_none_or(|flag| self.data.store.write_bytes(&flag, &[1]))
     }
 
     #[inline]

@@ -121,12 +121,12 @@ pub(super) fn now_us() -> u64 {
         Some(reading) => (base, reading),
         None => {
             let micros = systimer_us();
-            (base.rebased(micros, cycles), micros)
+            let base = base.rebased(micros, cycles);
+            BASE.store(base);
+            (base, micros)
         }
     };
-    let (reading, base) = base.give(reading);
-    BASE.store(base);
-    reading
+    BASE.give(base, reading)
 }
 
 /// A wait stopped the CPU, whose cycle counter need not count then: the next reading reads

@@ -685,12 +685,15 @@ impl ScratchPlan {
     /// 34 MEM-12; C1-21): what each call level takes, the operand stacks and their buffers, and the
     /// engine's own lists.
     fn parts(&self) -> Option<ScratchParts> {
-        let buffer = ExecutionBuffers::reservation_bytes(self.operands, self.levels)?
-            .checked_add(core::mem::size_of::<ExecutionBuffers>())?;
+        // Each entry's buffers lie in a box of their own, which the pool holds by its pointer.
+        let boxed = core::mem::size_of::<ExecutionBuffers>()
+            .checked_add(core::mem::size_of::<Box<ExecutionBuffers>>())?;
+        let buffer =
+            ExecutionBuffers::reservation_bytes(self.operands, self.levels)?.checked_add(boxed)?;
         // Each initializer body's buffers: its operands, its temporaries and the one frame it runs in.
         let initializer_buffers = self.initializer_buffers.checked_mul(
             ExecutionBuffers::reservation_bytes(self.initializer_operands, 1)?
-                .checked_add(core::mem::size_of::<ExecutionBuffers>())?
+                .checked_add(boxed)?
                 .checked_add(self.initializer_temporaries)?,
         )?;
         let references = ReferenceBuffers::reservation_bytes(
@@ -841,13 +844,13 @@ impl EngineState<'_> {
                 .operand_stack
                 .reserve_temporaries(plan.initializer_temporaries)
                 .map_err(VmTrap::into_runtime_error)?;
-            resources.buffers.push(nested);
+            resources.buffers.push(Box::new(nested));
         }
         buffers
             .operand_stack
             .reserve_temporaries(plan.temporaries)
             .map_err(VmTrap::into_runtime_error)?;
-        resources.buffers.push(buffers);
+        resources.buffers.push(Box::new(buffers));
         resources
             .text_call
             .reserve(plan.text_result, plan.text_arguments, plan.text_count)?;

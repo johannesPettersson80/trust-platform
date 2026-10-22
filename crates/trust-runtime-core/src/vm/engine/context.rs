@@ -284,11 +284,11 @@ impl<'e> ReferenceContext for EngineState<'e> {
     }
     #[inline]
     fn leaf_bytes(&self, range: crate::memory::layout::ByteRange) -> Option<&[u8]> {
-        self.data.store.bytes(range)
+        self.data.store.bytes(&range)
     }
     #[inline]
     fn write_leaf_bytes(&mut self, range: crate::memory::layout::ByteRange, bytes: &[u8]) -> bool {
-        self.data.store.write_bytes(range, bytes)
+        self.data.store.write_bytes(&range, bytes)
     }
     fn before_scalar_clone(&self) -> Result<(), RuntimeError> {
         // A scalar's copy charges no work and allocates nothing (TIME-08 COPY), so it is admitted
@@ -1163,10 +1163,10 @@ impl ExecutionContext for EngineState<'_> {
     ) -> Result<(), RuntimeError> {
         crate::vm::register_ir::abort_register_activation(self, activation)
     }
-    fn take_execution_buffers(&mut self) -> ExecutionBuffers {
+    fn take_execution_buffers(&mut self) -> alloc::boxed::Box<ExecutionBuffers> {
         self.data.resources.buffers.pop().unwrap_or_default()
     }
-    fn recycle_execution_buffers(&mut self, buffers: ExecutionBuffers) {
+    fn recycle_execution_buffers(&mut self, buffers: alloc::boxed::Box<ExecutionBuffers>) {
         self.data.resources.buffers.push(buffers);
     }
     fn take_frame_locals(&mut self, count: usize) -> Vec<Value> {

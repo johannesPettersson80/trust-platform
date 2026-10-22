@@ -101,7 +101,7 @@ fn reserved_scratch_changes_no_result_or_charge_of_any_scan() {
         resources.buffers = resources
             .buffers
             .iter()
-            .map(ExecutionBuffers::grown_on_demand)
+            .map(|buffers| Box::new(buffers.grown_on_demand()))
             .collect();
         resources.frame_locals = FrameLocals::default();
         resources.spare_journal = SavedDestinations::new();
@@ -210,7 +210,7 @@ fn grown_on_demand(data: &mut EngineData) {
     resources.buffers = resources
         .buffers
         .iter()
-        .map(ExecutionBuffers::grown_on_demand)
+        .map(|buffers| Box::new(buffers.grown_on_demand()))
         .collect();
     resources.frame_locals = FrameLocals::default();
     resources.edge_inputs = alloc::vec::Vec::new();

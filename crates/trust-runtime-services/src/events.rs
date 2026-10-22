@@ -184,10 +184,13 @@ pub const DEBUG_EVENT_BUFFER_CAPACITY: usize = 1_024;
 
 /// Appends `event` to the product event store and drops the oldest events beyond `capacity`, the
 /// newest events the store keeps (`runtime.events.capacity`, specification 11, the event store).
+/// The oldest events are dropped where they lie: a drain from the front moves no event, where
+/// taking each one out to drop it copies it (checklist P1-6).
 pub fn store_event(store: &mut VecDeque<RuntimeEvent>, event: RuntimeEvent, capacity: usize) {
     store.push_back(event);
-    while store.len() > capacity {
-        store.pop_front();
+    let excess = store.len().saturating_sub(capacity);
+    if excess > 0 {
+        store.drain(..excess);
     }
 }
 

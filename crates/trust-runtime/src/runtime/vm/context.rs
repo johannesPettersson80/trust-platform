@@ -151,14 +151,14 @@ impl trust_runtime_core::vm::hosted::context::ExecutionContext for Runtime {
 
     fn take_execution_buffers(
         &mut self,
-    ) -> trust_runtime_core::vm::hosted::dispatch::ExecutionBuffers {
-        super::dispatch::take_shared_buffers()
+    ) -> Box<trust_runtime_core::vm::hosted::dispatch::ExecutionBuffers> {
+        Box::new(super::dispatch::take_shared_buffers())
     }
 
     fn recycle_execution_buffers(
         &mut self,
-        buffers: trust_runtime_core::vm::hosted::dispatch::ExecutionBuffers,
+        buffers: Box<trust_runtime_core::vm::hosted::dispatch::ExecutionBuffers>,
     ) {
-        super::dispatch::recycle_shared_buffers(buffers);
+        super::dispatch::recycle_shared_buffers(*buffers);
     }
 }
