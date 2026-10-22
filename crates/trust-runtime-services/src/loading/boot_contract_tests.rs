@@ -3,6 +3,7 @@
 //! `tests/program_store.rs`, which has the C6's units. Every expected value is written out here from
 //! the specification, not taken from the code under test.
 
+use alloc::borrow::Cow;
 use alloc::string::ToString;
 use alloc::vec;
 use alloc::vec::Vec;
@@ -17,7 +18,8 @@ use super::install::{begin, check, InstallError, Progress};
 use super::select::{boot, previous, SelectError};
 use crate::installation::{AdmissionError, InstallationError};
 use crate::tests::program_store::{
-    committed_image, device, packed_container, transfer_of, FlashProbe, PROGRAM, SLOT_BYTES,
+    committed_image, device, packed_container, transfer_of, FlashOp, FlashProbe, PROGRAM,
+    SLOT_BYTES,
 };
 
 /// Memory enough for any container of these tests.
@@ -288,5 +290,48 @@ fn a_check_that_could_not_run_is_not_a_failure_to_restore_retained_values() {
     assert_eq!(
         build.to_string(),
         "the retained-value check could not run: preparation resource limit exceeded"
+    );
+}
+
+#[test]
+fn a_platform_that_reads_its_flash_in_place_boots_the_program_where_it_lies() {
+    // Specification 34 §5.1 and MEM-14, the program image in place: a platform that maps its flash
+    // checks the selected container where it lies and hands over the program's bytes there, reading
+    // no part of the container into memory, so the boot needs no room for it. Worked by hand: a
+    // first flash of the probe in slot A, sequence 1, boots with no room at all; the program is the
+    // slot's bytes, borrowed, and the flash read only the two slot headers, each shorter than the
+    // container. The same slots read into memory refuse the boot for want of room. Catches a boot
+    // that still reads the container into memory, or refuses it for room.
+    let image = committed_image(1, RetainMode::None);
+    let flash = flash_with(&image, None).mapping();
+    let booted = boot(&mut flash.store(), &device(), 0).expect("the mapped container boots");
+    assert_eq!(booted.sequence, 1);
+    assert_eq!(booted.slot, Slot::A);
+    assert!(
+        matches!(booted.program, Cow::Borrowed(_)),
+        "the program stays where it lies"
+    );
+    assert_eq!(booted.program, PROGRAM);
+    let reads: Vec<usize> = flash
+        .ops()
+        .iter()
+        .filter_map(|op| match op {
+            FlashOp::Read { len, .. } => Some(*len),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(reads.len(), 2, "the two slot headers: {reads:?}");
+    assert!(
+        reads.iter().all(|&len| len < image.len()),
+        "no read of the container: {reads:?}"
+    );
+
+    let reading = flash_with(&image, None);
+    assert!(
+        matches!(
+            boot(&mut reading.store(), &device(), 0),
+            Err(SelectError::NoRoom { room: 0, .. })
+        ),
+        "a platform that reads the container into memory needs room for it"
     );
 }

@@ -259,7 +259,8 @@ where
         // A program that fails to load leaves no record of a running program.
         self.running = None;
 
-        // The program is prepared first, and the container's bytes are freed as soon as it is.
+        // The program is prepared first. The C6 maps its slot, so the program's bytes lie in flash
+        // (specification 34 MEM-14); bytes that a boot read into memory are freed as soon as it is.
         let prepared = PreparedModule::from_bytes(&program, device_limits(self.memory))
             .map_err(|error| format!("the installed application cannot be prepared: {error}"))?;
         let bytes = program.len();

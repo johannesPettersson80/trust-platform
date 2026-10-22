@@ -3342,7 +3342,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/mod.rs",
-        "line": 337,
+        "line": 338,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the misa CSR only; no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -3715,6 +3715,38 @@
         "invariant": "A TAMP backup register takes any 32-bit value (RM0456), so the write touches no other register. The cookie keeps its order (BKP1R cleared, then BKP0R and BKP1R written), and ResetControl::take enables the backup domain before the first write.",
         "test_evidence": "The register mapping is host-tested over a fake register file (tests/backup_store.rs); the cookie encoding is host-tested (trust-platform-stm32); the writes and their read-back are proved on the bench (S1b-9u).",
         "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/image_window.rs",
+        "line": 47,
+        "owner": "runtime portability P1 (MEM-14, the program image in place)",
+        "invariant": "Writes the physical page number of a flash page into the selected MMU entry (MMU_ITEM_CONTENT.PADDR, 9 bits; the page is below 512, checked by the u16 conversion and the flash's size), with VALID set; the entry is one of the window's, above the firmware's own entries and below the bootloader's last one.",
+        "test_evidence": "C6 bench of batch s2a: the chip boots, installs and restarts its programs from the mapped slot (speed and figure runs), and trust-runtime-services' loading tests of the mapped boot and the install slot.",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/image_window.rs",
+        "line": 55,
+        "owner": "runtime portability P1 (MEM-14, the program image in place)",
+        "invariant": "Calls the ROM's Cache_Invalidate_Addr (0x40000648 in esp-rom-sys's esp32c6.rom.ld) with the C ABI through inline assembly: a0 and a1 carry the window's virtual range, inside 0x4200_0000..0x4300_0000, and clobber_abi(\"C\") clobbers every register a callee may change; the function only drops that range's cache lines after the window's entries change.",
+        "test_evidence": "C6 bench of batch s2a: the chip boots, installs and restarts its programs from the mapped slot (speed and figure runs), and trust-runtime-services' loading tests of the mapped boot and the install slot.",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/image_window.rs",
+        "line": 69,
+        "owner": "runtime portability P1 (MEM-14, the program image in place)",
+        "invariant": "Builds the slice of the mapped bytes: the entries written above map len bytes of flash from address at this virtual address, readable through the cache. Nothing writes them while they are read: the program store writes no slot whose image a held program reads (spec 34 §5.1), and the window is mapped again only after the program that read it is dropped (ProgramFlash::map).",
+        "test_evidence": "C6 bench of batch s2a: the chip boots, installs and restarts its programs from the mapped slot (speed and figure runs), and trust-runtime-services' loading tests of the mapped boot and the install slot.",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/image_window.rs",
+        "line": 94,
+        "owner": "runtime portability P1 (MEM-14, the program image in place)",
+        "invariant": "Selects an MMU entry (MMU_ITEM_INDEX) for the next content read or write; the index is below the MMU's 256 entries.",
+        "test_evidence": "C6 bench of batch s2a: the chip boots, installs and restarts its programs from the mapped slot (speed and figure runs), and trust-runtime-services' loading tests of the mapped boot and the install slot.",
+        "review_date": "2026-10-22"
       }
     ],
     "delegated_unsafe_path_register": [
@@ -4250,6 +4282,24 @@
         "invariant": "Relaxed on the fetch_or and on the loads: a record is a set of bits and orders no other memory.",
         "test_evidence": "The same host tests as the Atomic entry; the fault path is proved on the bench (S1b-9u).",
         "review_date": "2026-10-18"
+      },
+      {
+        "path_prefix": "crates/trust-platform-esp32/src/hardware/image_window.rs",
+        "primitive": "Atomic",
+        "owner": "runtime portability P1 (MEM-14, the program image in place)",
+        "shared_state": "the program image window's first MMU entry",
+        "invariant": "One AtomicU32 keeps the window's first entry, found once from the MMU before the window is written and stored with a relaxed store; only the C6's main context maps program images, so it publishes nothing else and orders nothing.",
+        "test_evidence": "C6 bench of batch s2a: the chip boots, installs and restarts its programs from the mapped slot (speed and figure runs), and trust-runtime-services' loading tests of the mapped boot and the install slot.",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path_prefix": "crates/trust-platform-esp32/src/hardware/image_window.rs",
+        "primitive": "Ordering::",
+        "owner": "runtime portability P1 (MEM-14, the program image in place)",
+        "shared_state": "the program image window's first MMU entry",
+        "invariant": "One AtomicU32 keeps the window's first entry, found once from the MMU before the window is written and stored with a relaxed store; only the C6's main context maps program images, so it publishes nothing else and orders nothing.",
+        "test_evidence": "C6 bench of batch s2a: the chip boots, installs and restarts its programs from the mapped slot (speed and figure runs), and trust-runtime-services' loading tests of the mapped boot and the install slot.",
+        "review_date": "2026-10-22"
       }
     ],
     "tool_gates": [

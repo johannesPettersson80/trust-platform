@@ -364,6 +364,19 @@ pub trait ProgramFlash {
     ///
     /// [`FlashError::Erase`] when the flash reports the erase as failed.
     fn erase(&mut self, slot: Slot, offset: u32) -> Result<(), FlashError>;
+
+    /// The `len` bytes at `offset` in `slot` where they lie in the address space, when the platform
+    /// reads its flash in place (specification 34 MEM-14, the program image in place); `None` when
+    /// it does not, or when the bytes cannot be mapped, and the caller reads them instead.
+    ///
+    /// The bytes stay valid and unchanged while no install writes the slot and no later call maps
+    /// another slot's bytes in their place: the program store writes no slot whose image the runtime
+    /// reads (specification 34 §5.1), and the runtime maps a slot only after it has dropped the
+    /// program that read the bytes an earlier call mapped.
+    fn map(&mut self, slot: Slot, offset: u32, len: u32) -> Option<&'static [u8]> {
+        let _ = (slot, offset, len);
+        None
+    }
 }
 
 /// The program store a platform supplies for its installed application (specification 34 §5.1):

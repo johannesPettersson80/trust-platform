@@ -26,6 +26,7 @@ mod checkpoint_flash;
 mod clock;
 mod console;
 pub(crate) mod emergency;
+mod image_window;
 mod reset;
 mod usb_link;
 mod wait;

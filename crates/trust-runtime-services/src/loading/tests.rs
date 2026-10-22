@@ -25,8 +25,8 @@ use trust_runtime_core::ports::{ProgramFlash, ProgramStore};
 use trust_runtime_core::retain::checkpoint::{FlashError, FlashGeometry, Slot};
 use trust_runtime_core::vm::{PreparationLimits, PreparedModule};
 
-use super::install::{begin, Committed, Install, InstallError, Progress};
-use super::select::{active, previous, ScanError, SelectError};
+use super::install::{begin, check, start, Committed, Install, InstallError, Progress};
+use super::select::{active, order, previous, ScanError, SelectError};
 use crate::installation::{encode_sequenced, AdmissionError, InstallationError};
 
 /// The installed program: the fixture `program-v2.stbc`, which prepares with the default limits.
@@ -314,6 +314,67 @@ fn the_write_target_is_never_the_newest_committed_slot() {
     assert!(
         flash.borrow().bytes[1] == second_slot,
         "the third install writes slot A, and the newest committed slot B keeps its bytes"
+    );
+}
+
+/// Installs `program` while the runtime holds the program of the container with install sequence
+/// `held`, and returns the commit.
+fn install_held(
+    store: &mut ProgramStore,
+    program: &[u8],
+    held: Option<u64>,
+) -> Result<Committed, InstallError> {
+    let container = transfer_of(program);
+    let checked = check(&container, &device(), |_| Ok(()))?;
+    let mut pending = start(store, container, checked, held)?;
+    loop {
+        match pending.step(store)? {
+            Progress::Pending(next) => pending = next,
+            Progress::Committed(committed) => return Ok(committed),
+        }
+    }
+}
+
+/// The slot that holds the newest committed container.
+fn newest_slot(store: &mut ProgramStore) -> Slot {
+    order(store)
+        .expect("the slots are ordered")
+        .newest
+        .expect("a committed container")
+        .slot
+}
+
+#[test]
+fn an_install_never_writes_the_slot_of_the_program_the_runtime_holds() {
+    // Specification 34 §5.1 and MEM-14: an install writes the slot that does not hold the container
+    // the runtime's program came from, whose image the runtime reads in place. Worked by hand: the
+    // runtime holds sequence 1 from slot A; an install writes sequence 2 to slot B; a second install
+    // while the runtime still holds sequence 1 writes slot B again, sequence 3, replacing the
+    // container that never ran, and slot A keeps its bytes; once the runtime holds sequence 3 from
+    // slot B, the next install, sequence 4, writes slot A. Catches the rule without the held program,
+    // which writes sequence 3 to slot A, over the program the runtime reads.
+    let (flash, mut store) = erased_store();
+    install_program(&mut store, PROGRAM).expect("sequence 1 commits to slot A");
+    let held = flash.borrow().bytes[0].clone();
+
+    let second = install_held(&mut store, PROGRAM, Some(1)).expect("sequence 2 commits");
+    assert_eq!((second.sequence, newest_slot(&mut store)), (2, Slot::B));
+    let third = install_held(&mut store, PROGRAM, Some(1)).expect("sequence 3 commits");
+    assert_eq!(
+        (third.sequence, newest_slot(&mut store)),
+        (3, Slot::B),
+        "the container that never ran is replaced"
+    );
+    assert!(
+        flash.borrow().bytes[0] == held,
+        "the held program's slot A keeps its bytes"
+    );
+
+    let fourth = install_held(&mut store, PROGRAM, Some(3)).expect("sequence 4 commits");
+    assert_eq!(
+        (fourth.sequence, newest_slot(&mut store)),
+        (4, Slot::A),
+        "the program held from slot B keeps it"
     );
 }
 

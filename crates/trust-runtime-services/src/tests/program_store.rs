@@ -58,6 +58,8 @@ struct ProbeState {
     ops: Vec<FlashOp>,
     /// The operation with this index, counted from zero over every operation, fails.
     fail_at: Option<usize>,
+    /// Whether the probe maps its slots for reading in place (specification 34 MEM-14).
+    maps: bool,
 }
 
 /// The fake program flash, shared with the store that owns a handle on it.
@@ -78,7 +80,15 @@ impl FlashProbe {
             slots,
             ops: Vec::new(),
             fail_at: None,
+            maps: false,
         })))
+    }
+
+    /// This probe, mapping its slots for reading in place as a chip's flash does (specification 34
+    /// MEM-14): a mapping is a snapshot of the slot's bytes, which a test may keep for good.
+    pub(crate) fn mapping(self) -> Self {
+        self.0.borrow_mut().maps = true;
+        self
     }
 
     /// A flash whose slots are erased.
@@ -186,6 +196,16 @@ impl ProgramFlash for FlashProbe {
         let start = offset as usize;
         state.slots[slot_index(slot)][start..start + ERASE_UNIT as usize].fill(0xff);
         Ok(())
+    }
+
+    fn map(&mut self, slot: Slot, offset: u32, len: u32) -> Option<&'static [u8]> {
+        let state = self.0.borrow();
+        if !state.maps {
+            return None;
+        }
+        let start = offset as usize;
+        let bytes = state.slots[slot_index(slot)].get(start..start + len as usize)?;
+        Some(Box::leak(bytes.to_vec().into_boxed_slice()))
     }
 }
 

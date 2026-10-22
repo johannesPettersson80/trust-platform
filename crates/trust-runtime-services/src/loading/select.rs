@@ -9,6 +9,7 @@
 //! install sequence, is not committed: it takes no part in the order, and a store with no committed
 //! container names the slot that holds one in its refusal ([`SelectError::VersionOne`]).
 
+use alloc::borrow::Cow;
 use alloc::vec::Vec;
 use core::fmt;
 
@@ -78,14 +79,18 @@ pub struct Stored {
     pub bytes: Vec<u8>,
 }
 
-/// The installed program a device starts at boot: the program's bytes and the decoded record, with
-/// the container they came out of released (specification 34 §5.1).
+/// The installed program a device starts at boot: the program's bytes and the decoded record
+/// (specification 34 §5.1).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Booted {
     /// The container's install sequence.
     pub sequence: u64,
-    /// The bytes of `program.stbc`.
-    pub program: Vec<u8>,
+    /// The slot that holds the container.
+    pub slot: Slot,
+    /// The bytes of `program.stbc`: where they lie in the slot when the platform reads its flash in
+    /// place (specification 34 MEM-14, the program image in place), else read into memory with the
+    /// rest of the container released.
+    pub program: Cow<'static, [u8]>,
     /// The deployment record the container holds.
     pub record: DeploymentRecord,
     /// The preparation limits admission granted; prepare the program with the device's own limits,
@@ -108,8 +113,9 @@ pub enum SelectError {
     /// The selected container fails its payload check or its admission. The other slot is not
     /// selected in its place.
     Refused(AdmissionError),
-    /// The selected container is longer than the memory the boot has for it. Nothing was read into
-    /// memory, and the other slot is not selected in its place.
+    /// The selected container is longer than the memory the boot of a platform that does not read
+    /// its flash in place has for it. Nothing was read into memory, and the other slot is not
+    /// selected in its place.
     NoRoom {
         /// The container's length in bytes.
         needed: usize,
@@ -266,23 +272,37 @@ pub fn previous(
 
 /// The installed program a device starts at boot: the newest committed container, with its payloads
 /// checked and its admission granted by `device`, as [`active`] selects it, but handed over for
-/// starting. `room` is the bytes of memory the boot has for the container; a longer container
-/// refuses the boot before anything is read into memory.
+/// starting.
 ///
-/// The boot reads the container once. It keeps the program's bytes, which it moves to the front of
-/// the memory it read, and the decoded record, and releases the rest of the container.
+/// A platform that reads its flash in place checks the container where it lies in its slot, and
+/// the program's bytes stay there: the boot copies no part of the container to the heap but the
+/// decoded record (specification 34 MEM-14, the program image in place). Any other platform reads
+/// the container once into memory, which `room` bounds: a longer container refuses the boot before
+/// anything is read. It keeps the program's bytes, which it moves to the front of the memory it
+/// read, and the decoded record, and releases the rest of the container.
 ///
 /// # Errors
 ///
 /// [`SelectError`], whose text is `no installed program: <reason>`. A refused container, or one
-/// longer than `room`, refuses the boot, and the other slot is never selected in its place
-/// (DEPLOY-03).
+/// longer than `room` on a platform that reads it into memory, refuses the boot, and the other slot
+/// is never selected in its place (DEPLOY-03).
 pub fn boot(
     store: &mut ProgramStore,
     device: &DeviceDescriptor,
     room: usize,
 ) -> Result<Booted, SelectError> {
     let newest = newest_committed(store)?;
+    if let Some(container) = store.flash.map(newest.slot, 0, newest.header.total_len) {
+        let SequencedAdmitted { sequence, admitted } =
+            installation::admit_sequenced(container, device).map_err(SelectError::Refused)?;
+        return Ok(Booted {
+            sequence,
+            slot: newest.slot,
+            program: Cow::Borrowed(admitted.program),
+            record: admitted.record,
+            limits: admitted.limits,
+        });
+    }
     let needed = newest.header.total_len as usize;
     if needed > room {
         return Err(SelectError::NoRoom { needed, room });
@@ -297,7 +317,8 @@ pub fn boot(
     bytes.drain(..start);
     Ok(Booted {
         sequence,
-        program: bytes,
+        slot: newest.slot,
+        program: Cow::Owned(bytes),
         record,
         limits,
     })

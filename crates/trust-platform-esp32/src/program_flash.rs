@@ -106,6 +106,15 @@ impl<R: RawFlash> ProgramFlash for ProgramSlots<R> {
         let address = erase_address(slot, offset).ok_or(FlashError::Erase)?;
         self.raw.erase_at(address)
     }
+
+    /// The bytes where the flash maps them for reading in place, when they lie inside the slot
+    /// (specification 34 MEM-14).
+    fn map(&mut self, slot: Slot, offset: u32, len: u32) -> Option<&'static [u8]> {
+        let inside = offset.checked_add(len)? <= SLOT_BYTES;
+        inside
+            .then(|| slot_base(slot) + offset)
+            .and_then(|address| self.raw.map_at(address, len))
+    }
 }
 
 /// One flash, shared by the handles that [`FlashOwner`] hands out. Each access borrows the flash
@@ -141,6 +150,10 @@ impl<R: RawFlash> RawFlash for SharedFlash<R> {
     fn erase_at(&mut self, address: u32) -> Result<(), FlashError> {
         let mut flash = self.flash.try_borrow_mut().map_err(|_| FlashError::Erase)?;
         flash.erase_at(address)
+    }
+
+    fn map_at(&mut self, address: u32, len: u32) -> Option<&'static [u8]> {
+        self.flash.try_borrow_mut().ok()?.map_at(address, len)
     }
 }
 

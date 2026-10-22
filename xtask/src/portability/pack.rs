@@ -173,12 +173,13 @@ mod tests {
     }
 
     /// Commits `container` into the store of `flash` as `program.install` commits it once its checks
-    /// have passed: `start` chooses the slot and the install sequence, and `step` then erases, programs,
-    /// reads back and commits, one step at a time. Returns the sequence the commit gave.
+    /// have passed, with no program held: `start` chooses the slot and the install sequence, and
+    /// `step` then erases, programs, reads back and commits, one step at a time. Returns the sequence
+    /// the commit gave.
     fn commit(flash: &Flash, container: Vec<u8>) -> u64 {
         let mut store = flash.store();
         let checked = Checked::of(&container).expect("the container reads");
-        let mut install = start(&mut store, container, checked).expect("the install starts");
+        let mut install = start(&mut store, container, checked, None).expect("the install starts");
         loop {
             match install.step(&mut store).expect("the step runs") {
                 Progress::Pending(next) => install = next,
@@ -272,7 +273,7 @@ mod tests {
         let booted = boot(&mut flash.store(), &DeviceDescriptor::hosted(), ROOM)
             .expect("a packed container boots");
         assert_eq!(booted.sequence, 1, "a first flash has sequence 1");
-        assert_eq!(booted.program, program, "and hands over its program");
+        assert_eq!(&*booted.program, program, "and hands over its program");
 
         let upload =
             installation::encode_sequenced(0, program, &record).expect("the upload encodes");

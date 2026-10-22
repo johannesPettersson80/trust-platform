@@ -303,7 +303,9 @@ impl Parts {
             return Err(String::from("a program install is already running"));
         }
         let checked = install::Checked::of(container).map_err(|error| error.to_string())?;
-        let commit = install::start(store, copy_of(container)?, checked)
+        // The held program's slot is never written (specification 34 §5.1, MEM-14).
+        let held = self.reload.as_ref().and_then(|reload| reload.loaded);
+        let commit = install::start(store, copy_of(container)?, checked, held)
             .map_err(|error| error.to_string())?;
         let committed = commit.identity();
         self.pending = Some(Pending {

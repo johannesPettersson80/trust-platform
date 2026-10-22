@@ -9,6 +9,7 @@
     reason = "each test file that includes this module uses a part of it"
 )]
 
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration as StdDuration;
@@ -31,7 +32,7 @@ use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::ports::{HardwareWatchdog, MonotonicClock, MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::checkpoint::{
-    CheckpointFlash, CheckpointIdentity, CheckpointLog, FlashError,
+    CheckpointFlash, CheckpointIdentity, CheckpointLog, FlashError, Slot,
 };
 use trust_runtime_core::retain::RetainSnapshot;
 use trust_runtime_core::value::Duration;
@@ -328,7 +329,8 @@ pub fn booted(program: &[u8], configuration: Configuration) -> Booted {
     };
     Booted {
         sequence: 1,
-        program: program.to_vec(),
+        slot: Slot::A,
+        program: Cow::Owned(program.to_vec()),
         record,
         limits: PreparationLimits::default(),
     }

@@ -183,6 +183,25 @@ impl Cursor {
     }
 }
 
+/// The slot an install writes (specification 34 §5.1): the slot that does not hold the container
+/// the program the runtime holds came from, `held`, whose image the runtime reads in place
+/// (MEM-14); when the runtime holds none of the store's containers, the slot that does not hold
+/// the newest committed container, or slot A when neither slot holds one. A container installed
+/// after the held program, which has not run, is therefore replaced by the next install, and the
+/// held program's slot is never written.
+#[must_use]
+pub fn install_slot(order: &select::Order, held: Option<u64>) -> Slot {
+    let holding = [order.newest, order.older]
+        .into_iter()
+        .flatten()
+        .find(|container| Some(container.header.sequence) == held);
+    match (holding, order.newest) {
+        (Some(holding), _) => holding.slot.other(),
+        (None, Some(newest)) => newest.slot.other(),
+        (None, None) => Slot::A,
+    }
+}
+
 /// Starts the install of `container`, a complete `TRSTA002` container, and returns the commit that
 /// writes it. The container is the upload that `TransferSession::take_complete` returns, once every
 /// part has arrived and matched the digest (specification 34 §5.1, PORT-05).
@@ -195,7 +214,8 @@ impl Cursor {
 ///
 /// `retain_check` is the check of specification 11 §6.7.1 (decision G13), passed in as a hook by the
 /// platform, as [`check`] takes it. The sequence the transfer carries is not used: the device writes
-/// its own into the header before the commit.
+/// its own into the header before the commit. The runtime holds no program of the store here; a
+/// loop that holds one begins its commit with [`start`].
 ///
 /// # Errors
 ///
@@ -207,7 +227,7 @@ pub fn begin(
     retain_check: impl FnOnce(&Admitted<'_>) -> Result<(), RuntimeError>,
 ) -> Result<Install, InstallError> {
     let checked = check(&container, device, retain_check)?;
-    start(store, container, checked)
+    start(store, container, checked, None)
 }
 
 /// Begins the commit of `container`, a complete `TRSTA002` container that [`check`] has passed, and
@@ -217,8 +237,9 @@ pub fn begin(
 /// This is [`begin`] without the checks, for a caller that ran them in an earlier step: the loop of a
 /// device runs them in the request that carried the container and begins the commit right after
 /// (specification 34 §11.2). Nothing has been written when it returns. The store's committed
-/// containers are ordered, and the container takes the next install sequence and the slot that does
-/// not hold the newest committed container, or slot A when none is committed.
+/// containers are ordered, and the container takes the next install sequence and the slot that
+/// [`install_slot`] names for `held`, the install sequence of the container that the program the
+/// runtime holds came from.
 ///
 /// # Errors
 ///
@@ -229,6 +250,7 @@ pub fn start(
     store: &mut ProgramStore,
     mut container: Vec<u8>,
     checked: Checked,
+    held: Option<u64>,
 ) -> Result<Install, InstallError> {
     let Checked {
         program_bytes,
@@ -246,17 +268,15 @@ pub fn start(
         });
     };
     let order = select::order(store).map_err(InstallError::Scan)?;
-    let (slot, sequence) = match order.newest {
-        Some(newest) => (
-            newest.slot.other(),
-            newest
-                .header
-                .sequence
-                .checked_add(1)
-                .ok_or(InstallError::SequenceExhausted)?,
-        ),
-        None => (Slot::A, installation::FIRST_SEQUENCE),
+    let sequence = match order.newest {
+        Some(newest) => newest
+            .header
+            .sequence
+            .checked_add(1)
+            .ok_or(InstallError::SequenceExhausted)?,
+        None => installation::FIRST_SEQUENCE,
     };
+    let slot = install_slot(&order, held);
     installation::set_sequence(&mut container, sequence)
         .map_err(|error| InstallError::Admission(AdmissionError::Container(error)))?;
     Ok(Install {
