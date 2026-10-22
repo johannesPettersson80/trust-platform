@@ -76,6 +76,7 @@ fn a_computer_runs_source_free_stbc_with_the_engine_maxima() {
             event_store_max: 1_000_000,
             application_slot_bytes: None,
             program_memory_bytes: None,
+            native: None,
         }
     );
 }

@@ -1,0 +1,549 @@
+//! The compiled program's cycle (specification 44 §8.7, specification 34 §8): the scan's order, its
+//! outputs, its faults, the safe outputs, the deadline and the restarts, with a stand-in module
+//! written against the kernel interface.
+//!
+//! The image: `MAIN` in the task `Fast` of 10 ms at priority 1. Its body counts its scans in byte 0
+//! of the instance area, starting from 5, and copies the count's lowest bit to byte 1, which is
+//! bound to `%QX0.1`. A second image's body divides by zero.
+
+use alloc::rc::Rc;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::cell::{Cell, RefCell};
+
+use trust_plc_abi::kernel::{Entry, WITHOUT_DEBUGGER};
+use trust_plc_abi::module::{fault, run};
+use trust_plc_abi::{Cx, FaultCode, AREA_INSTANCES};
+use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::io_address::IoAddress;
+use trust_runtime_core::io_image::FlatImages;
+use trust_runtime_core::memory::Generation;
+use trust_runtime_core::native::image::{
+    type_kind, AreaRecord, CodeImage, EntryKind, EntryRecord, FileRecord, ImageWriter,
+    IoBindRecord, MemoryFigure, RetainRecord, SectionId, StmtRecord, StringPool, SymbolRecord,
+    Target, TaskRecord, TypeRecord, AREA_HAS_INIT, NONE, SYMBOL_PROGRAM,
+};
+use trust_runtime_core::native::program::{admit, Device, ModuleCode, NativeProgram};
+use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
+use trust_runtime_core::retain::RestartMode;
+use trust_runtime_core::value::{Duration, Value};
+use trust_runtime_core::vm::{CycleHooks, CyclePhase};
+use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
+
+use super::CompiledCycle;
+use crate::runner::cycle::{ResourceCycle, RetainSource, TaskDescriptor};
+use crate::runner::engine::{CycleSettings, ProcessIo};
+use crate::status::IoDriverStatus;
+
+const MS: i64 = 1_000_000;
+
+macro_rules! entry {
+    ($name:ident, $body:expr) => {
+        #[cfg(target_arch = "x86_64")]
+        extern "sysv64" fn $name(cx: *mut Cx) -> u32 {
+            run(cx, $body)
+        }
+        #[cfg(not(target_arch = "x86_64"))]
+        extern "C" fn $name(cx: *mut Cx) -> u32 {
+            run(cx, $body)
+        }
+    };
+}
+
+entry!(counting, |cx, areas| {
+    let view: &[Cell<u8>; 8] = areas.view(cx, AREA_INSTANCES)?;
+    view[0].set(view[0].get().wrapping_add(1));
+    view[1].set(view[0].get() & 1);
+    Ok(())
+});
+
+entry!(dividing_by_zero, |cx, _| Err(fault(
+    cx,
+    FaultCode::DivisionByZero,
+    0,
+    0,
+    0
+)));
+
+entry!(nothing, |_, _| Ok(()));
+
+/// The stand-in module: code offset 0 counts, 16 divides by zero, 32 does nothing.
+struct StandIn;
+
+impl ModuleCode for StandIn {
+    fn entry(&self, offset: u32) -> Option<Entry> {
+        match offset {
+            0 => Some(Entry::from_fn(counting)),
+            16 => Some(Entry::from_fn(dividing_by_zero)),
+            32 => Some(Entry::from_fn(nothing)),
+            _ => None,
+        }
+    }
+}
+
+/// The image of `MAIN` whose body is at code offset `body`.
+fn image(body: u32) -> Vec<u8> {
+    let mut strings = StringPool::new();
+    let fast = strings.add("Fast");
+    let mut writer = ImageWriter::new(Target::this_cpu().unwrap_or(Target::X86_64), 1);
+    writer.module(CodeImage {
+        code: vec![0; 64],
+        rodata: Vec::new(),
+        rodata_distance: 64,
+    });
+    writer.table(
+        &[
+            EntryRecord {
+                kind: EntryKind::ProgramBody as u32,
+                index: 0,
+                code_offset: body,
+            },
+            EntryRecord {
+                kind: EntryKind::ColdInit as u32,
+                index: 0,
+                code_offset: 32,
+            },
+        ],
+        &[],
+    );
+    let area = |id: u8, length: u64, flags: u32| AreaRecord {
+        id: u32::from(id),
+        length,
+        alignment: 8,
+        flags,
+        init_offset: 0,
+    };
+    writer.table(
+        &[
+            area(1, 0, 0),
+            area(2, 1, 0),
+            area(3, 0, 0),
+            area(4, 0, 0),
+            area(5, 0, 0),
+            area(6, 8, AREA_HAS_INIT),
+        ],
+        &[],
+    );
+    writer.section(SectionId::Init, vec![5, 0, 0, 0, 0, 0, 0, 0]);
+    writer.table(
+        &[TaskRecord {
+            name: fast,
+            interval_ns: 10 * MS as u64,
+            priority: 1,
+            single: NONE,
+            program_count: 1,
+            program_first: 0,
+            flags: 0,
+        }],
+        &0u32.to_le_bytes(),
+    );
+    name_tables(&mut writer, &mut strings);
+    writer.section(SectionId::Strings, strings.into_bytes());
+    writer.finish().expect("the image builds")
+}
+
+/// The image's binding of `MAIN.OUT` to `%QX0.1`, its symbols, its one type, its file and its
+/// memory figure: areas 72, stack 64 and bookkeeping 24 bytes, 160 in all.
+fn name_tables(writer: &mut ImageWriter, strings: &mut StringPool) {
+    let main = strings.add("MAIN");
+    let count = strings.add("MAIN.COUNT");
+    let out = strings.add("MAIN.OUT");
+    let label = strings.add("main.st");
+    writer.table(
+        &[IoBindRecord {
+            symbol: 2,
+            area: 2,
+            size: 0,
+            byte: 0,
+            bit: 1,
+            flags: 0,
+        }],
+        &[],
+    );
+    let symbol = |canonical, offset, size, flags, parent| SymbolRecord {
+        canonical,
+        display: canonical,
+        type_index: 0,
+        area: 6,
+        flags,
+        offset,
+        size,
+        parent,
+        pou: NONE,
+    };
+    writer.table(
+        &[
+            symbol(main, 0, 8, SYMBOL_PROGRAM, NONE),
+            symbol(count, 0, 1, 0, 0),
+            symbol(out, 1, 1, 0, 0),
+        ],
+        &[],
+    );
+    writer.table(
+        &[TypeRecord {
+            kind: type_kind::USINT,
+            name: 0,
+            size: 1,
+            alignment: 1,
+            detail: 0,
+            count: 0,
+        }],
+        &[],
+    );
+    writer.table::<StmtRecord>(&[], &[]);
+    writer.table::<RetainRecord>(&[], &[]);
+    writer.table(
+        &[FileRecord {
+            label,
+            source_offset: NONE,
+            source_length: 0,
+        }],
+        &[],
+    );
+    writer.section(
+        SectionId::MemFig,
+        MemoryFigure {
+            areas: 72,
+            stack: 64,
+            bookkeeping: 24,
+            total: 160,
+            ..MemoryFigure::default()
+        }
+        .bytes()
+        .to_vec(),
+    );
+}
+
+/// What the stand-in drivers saw: each output image they drove and each safe output image.
+#[derive(Default)]
+struct Driven {
+    outputs: Vec<Vec<u8>>,
+    safe: Vec<Vec<u8>>,
+}
+
+/// Drivers with no input, which record what they drive.
+struct Drivers(Rc<RefCell<Driven>>);
+
+impl ProcessIo for Drivers {
+    fn read_inputs(&mut self, _image: &mut [u8]) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+
+    fn write_outputs(&mut self, image: &[u8]) -> Result<(), RuntimeError> {
+        self.0.borrow_mut().outputs.push(image.to_vec());
+        Ok(())
+    }
+
+    fn write_safe_outputs(&mut self, image: &[u8]) -> Result<(), RuntimeError> {
+        self.0.borrow_mut().safe.push(image.to_vec());
+        Ok(())
+    }
+
+    fn driver_health(&self) -> Vec<IoDriverStatus> {
+        Vec::new()
+    }
+}
+
+/// A clock that reads what the test sets, in microseconds.
+#[derive(Clone)]
+struct Clock(Rc<Cell<u64>>);
+
+impl MonotonicClock for Clock {
+    fn now(&self) -> MonotonicInstant {
+        MonotonicInstant::from_micros(self.0.get())
+    }
+}
+
+/// An observer that records each phase with its logical time and the output image it was given.
+#[derive(Default)]
+struct Phases(Vec<(CyclePhase, Duration, Vec<u8>)>);
+
+impl CycleHooks for Phases {
+    fn on_compiled_phase(
+        &mut self,
+        phase: CyclePhase,
+        now: Duration,
+        images: &FlatImages,
+    ) -> Result<(), RuntimeError> {
+        self.0.push((phase, now, images.outputs.clone()));
+        Ok(())
+    }
+}
+
+fn settings(safe_outputs: Vec<(IoAddress, Value)>) -> CycleSettings {
+    CycleSettings {
+        cycle_interval: Duration::from_millis(10),
+        watchdog: WatchdogPolicy::default(),
+        fault_policy: FaultPolicy::Halt,
+        safe_outputs,
+    }
+}
+
+type Cycle<'i> = CompiledCycle<'i, Clock, Drivers, StandIn>;
+
+/// The cycle of the image `bytes`, started, with its drivers' record and its clock.
+fn cycle(
+    bytes: &[u8],
+    safe_outputs: Vec<(IoAddress, Value)>,
+) -> (Cycle<'_>, Rc<RefCell<Driven>>, Rc<Cell<u64>>) {
+    let device = Device {
+        target: Target::this_cpu().unwrap_or(Target::X86_64),
+        program_memory: 1_000,
+        task_stack: 4_096,
+        max_statements: 1_000,
+    };
+    let admitted = admit(bytes, &device).expect("the image is admitted");
+    let program = NativeProgram::new(admitted, StandIn, &device, &WITHOUT_DEBUGGER)
+        .expect("the program is built");
+    let driven = Rc::new(RefCell::new(Driven::default()));
+    let time = Rc::new(Cell::new(0));
+    let cycle = CompiledCycle::start(
+        program,
+        Drivers(Rc::clone(&driven)),
+        settings(safe_outputs),
+        Clock(Rc::clone(&time)),
+    )
+    .expect("the program starts");
+    (cycle, driven, time)
+}
+
+#[test]
+fn a_scan_runs_the_due_task_and_then_drives_its_outputs() {
+    // Specification 34 CYCLE-01 to CYCLE-06 and specification 10 §4: the task of 10 ms is not due at
+    // its start, 0 ms, and is due at 10 ms; the drivers drive the output image after the program
+    // ran, once per scan. The count starts at 5: the first activation makes 6 (bit 1 clear), the
+    // second 7 (bit 1 set, `%QX0.1` = 0b10). Catches outputs driven before the task, a task run at
+    // its start, and a scan that drives nothing.
+    let bytes = image(0);
+    let (mut cycle, driven, _) = cycle(&bytes, Vec::new());
+    assert_eq!(
+        cycle.tasks(),
+        [TaskDescriptor {
+            name: "Fast".into(),
+            priority: 1,
+        }]
+    );
+    let mut phases = Phases::default();
+    for time in [0, 10, 20] {
+        cycle
+            .run_scan(Duration::from_millis(time), None, &mut phases)
+            .expect("the scan runs");
+    }
+    assert_eq!(driven.borrow().outputs, [vec![0], vec![0], vec![0b10]]);
+    assert_eq!(cycle.program().value("MAIN.COUNT"), Some(Value::USInt(7)));
+}
+
+#[test]
+fn the_observer_sees_the_phases_of_an_engine_scan_in_order() {
+    // Specification 44 §8.7: a compiled program's scan reports the engine's phases in the engine's
+    // order, the due task by its index, with the scan's logical time; the output image the observer
+    // sees after the output sample is the one the scan made. Catches a task numbered by the image
+    // instead of the cycle, phases out of order, and a snapshot of the previous scan.
+    let bytes = image(0);
+    let (mut cycle, _, _) = cycle(&bytes, Vec::new());
+    let mut phases = Phases::default();
+    for time in [10, 20] {
+        cycle
+            .run_scan(Duration::from_millis(time), None, &mut phases)
+            .expect("the scan runs");
+    }
+    let second: Vec<_> = phases.0[7..]
+        .iter()
+        .map(|(phase, now, outputs)| (*phase, now.as_nanos() / MS, outputs.clone()))
+        .collect();
+    assert_eq!(
+        second,
+        [
+            (CyclePhase::CycleStart, 20, vec![0]),
+            (CyclePhase::BeforeInputSample, 20, vec![0]),
+            (CyclePhase::TaskStart(0), 20, vec![0]),
+            (CyclePhase::TaskEnd(0), 20, vec![0]),
+            (CyclePhase::BeforeOutputSample, 20, vec![0b10]),
+            (CyclePhase::AfterOutputSample, 20, vec![0b10]),
+            (CyclePhase::CycleEnd, 20, vec![0b10]),
+        ]
+    );
+}
+
+#[test]
+fn a_late_scan_reports_the_missed_activations() {
+    // Specification 10 §4: a scan 25 ms after the last activation at 10 ms passed the deadlines of
+    // 20 and 30 ms; one activation runs and one is missed, reported before the task starts. Catches
+    // an overrun that is not reported or reported with the image's task number.
+    let bytes = image(0);
+    let (mut cycle, _, _) = cycle(&bytes, Vec::new());
+    let mut phases = Phases::default();
+    for time in [10, 35] {
+        cycle
+            .run_scan(Duration::from_millis(time), None, &mut phases)
+            .expect("the scan runs");
+    }
+    assert!(phases.0.iter().any(|(phase, _, _)| *phase
+        == CyclePhase::TaskOverrun {
+            index: 0,
+            missed: 1
+        }));
+}
+
+#[test]
+fn a_fault_ends_the_scan_before_any_output_and_stays_latched_until_a_restart() {
+    // Specification 44 §8.6 and specification 34 STATE-04: a module's fault fails the scan with its
+    // runtime error and no output is driven; once latched, every scan is refused with it, and a
+    // restart clears it. Catches a fault whose outputs are driven, a latch that runs the next scan,
+    // and a restart that keeps the latch.
+    let bytes = image(16);
+    let (mut cycle, driven, _) = cycle(&bytes, Vec::new());
+    let mut phases = Phases::default();
+    let error = cycle
+        .run_scan(Duration::from_millis(10), None, &mut phases)
+        .expect_err("the module faults");
+    assert_eq!(error, RuntimeError::DivisionByZero);
+    assert_eq!(driven.borrow().outputs, Vec::<Vec<u8>>::new());
+    cycle.latch_fault(error.clone());
+    assert_eq!(
+        cycle.run_scan(Duration::from_millis(20), None, &mut phases),
+        Err(error)
+    );
+    cycle
+        .restart(RestartMode::Warm, RetainSource::Memory)
+        .expect("the restart completes");
+    assert_eq!(cycle.generation(), Generation(1));
+    // After the restart the scan runs again, and faults again.
+    assert_eq!(
+        cycle.run_scan(Duration::from_millis(30), None, &mut phases),
+        Err(RuntimeError::DivisionByZero)
+    );
+}
+
+#[test]
+fn a_scan_past_its_deadline_drives_no_output() {
+    // Specification 34 TIME-04: the deadline is checked before the outputs are published; a scan
+    // that ends after it fails with the execution timeout and drives nothing. Catches a deadline
+    // that is never checked or checked after the outputs.
+    let bytes = image(0);
+    let (mut cycle, driven, time) = cycle(&bytes, Vec::new());
+    time.set(5_000);
+    let deadline = MonotonicInstant::from_micros(4_000);
+    let mut phases = Phases::default();
+    assert_eq!(
+        cycle.run_scan(Duration::from_millis(10), Some(deadline), &mut phases),
+        Err(RuntimeError::ExecutionTimeout)
+    );
+    assert_eq!(driven.borrow().outputs, Vec::<Vec<u8>>::new());
+}
+
+#[test]
+fn the_safe_outputs_are_driven_from_the_output_image() {
+    // Specification 34 STATE-02: a stop drives each output to its `[[io.safe_state]]` value. After a
+    // scan set `%QX0.1`, the safe value FALSE clears it in the image the drivers get. Catches safe
+    // values written somewhere the drivers do not read, and safe outputs that are not driven.
+    let bytes = image(0);
+    let address = IoAddress::parse("%QX0.1").expect("the address parses");
+    let (mut cycle, driven, _) = cycle(&bytes, vec![(address, Value::Bool(false))]);
+    let mut phases = Phases::default();
+    for time in [10, 20] {
+        cycle
+            .run_scan(Duration::from_millis(time), None, &mut phases)
+            .expect("the scan runs");
+    }
+    assert_eq!(driven.borrow().outputs.last(), Some(&vec![0b10]));
+    cycle.apply_safe_outputs().expect("the safe outputs drive");
+    assert_eq!(driven.borrow().safe, [vec![0]]);
+}
+
+#[test]
+fn a_cold_restart_starts_from_the_starting_memory() {
+    // Specification 44 §6.7 and IEC 61131-3 §6.5.6.2: a cold restart gives every variable its
+    // starting value again. Two activations count from 5 to 7, the restart sets 5, and the next
+    // generation is installed. Catches a restart that keeps the program's memory.
+    let bytes = image(0);
+    let (mut cycle, _, _) = cycle(&bytes, Vec::new());
+    let mut phases = Phases::default();
+    for time in [10, 20] {
+        cycle
+            .run_scan(Duration::from_millis(time), None, &mut phases)
+            .expect("the scan runs");
+    }
+    assert_eq!(cycle.program().value("MAIN.COUNT"), Some(Value::USInt(7)));
+    cycle
+        .restart(RestartMode::Cold, RetainSource::Checkpoint)
+        .expect("the restart completes");
+    assert_eq!(cycle.program().value("MAIN.COUNT"), Some(Value::USInt(5)));
+    assert_eq!(cycle.generation(), Generation(1));
+}
+
+#[test]
+fn the_memory_figure_is_the_images() {
+    // Specification 44 §10.4: `status` reports the image's figure: areas 72, stack 64 and
+    // bookkeeping 24, 160 bytes in all, and no retain capture. Catches a figure computed on the
+    // device or taken from another part.
+    let bytes = image(0);
+    let (cycle, _, _) = cycle(&bytes, Vec::new());
+    let memory = cycle.program_memory().expect("the cycle knows its figure");
+    assert_eq!(memory.figure.persistent_block, 72);
+    assert_eq!(memory.figure.activation_stack, 64);
+    assert_eq!(memory.figure.engine, 24);
+    assert_eq!(memory.bytes(), 160);
+}
+
+/// The platform's allocator count of the test: it never changes.
+fn operations() -> u32 {
+    7
+}
+
+#[test]
+fn a_scan_reports_the_allocations_of_its_program() {
+    // Specification 34, "The allocation count": the cycle reads the platform's count around the
+    // program's scan and reports the difference; with no allocation between the two readings the
+    // scan reports 0, and the loop reads the count itself. Catches a cycle that reports no count,
+    // or the count itself instead of the scan's difference.
+    let bytes = image(0);
+    let (cycle, _, _) = cycle(&bytes, Vec::new());
+    let mut cycle = cycle.with_allocator_operations(operations);
+    assert_eq!(cycle.last_scan_allocations(), None);
+    cycle
+        .run_scan(Duration::from_millis(10), None, &mut Phases::default())
+        .expect("the scan runs");
+    assert_eq!(cycle.last_scan_allocations(), Some(0));
+    assert_eq!(cycle.allocator_operations(), Some(7));
+}
+
+/// The allocator count of the next test, which its observer raises.
+static OBSERVED: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
+
+fn observed_operations() -> u32 {
+    OBSERVED.load(core::sync::atomic::Ordering::Relaxed)
+}
+
+/// An observer each of whose phases counts as one allocator operation.
+struct Allocating;
+
+impl CycleHooks for Allocating {
+    fn on_compiled_phase(
+        &mut self,
+        _phase: CyclePhase,
+        _now: Duration,
+        _images: &FlatImages,
+    ) -> Result<(), RuntimeError> {
+        OBSERVED.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+        Ok(())
+    }
+}
+
+#[test]
+fn the_observers_operations_are_not_the_programs() {
+    // Specification 34, "The allocation count": a scan's count is the program's and the kernel's;
+    // what the loop's observer allocates inside the scan, at the task phases, is the services'.
+    // Each of the observer's seven phases here counts one operation and the program makes none:
+    // the scan reports 0, while the platform's count rose by 7. Catches the observer's operations
+    // at the task's start and end counted as the program's.
+    let bytes = image(0);
+    let (cycle, _, _) = cycle(&bytes, Vec::new());
+    let mut cycle = cycle.with_allocator_operations(observed_operations);
+    let start = observed_operations();
+    cycle
+        .run_scan(Duration::from_millis(10), None, &mut Allocating)
+        .expect("the scan runs");
+    assert_eq!(cycle.last_scan_allocations(), Some(0));
+    assert_eq!(observed_operations() - start, 7);
+}

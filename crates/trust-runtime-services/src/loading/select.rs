@@ -20,7 +20,7 @@ use trust_runtime_core::vm::PreparationLimits;
 
 use super::read_padded;
 use crate::installation::{
-    self, AdmissionError, SequencedAdmitted, SequencedHeader, SEQUENCED_HEADER_BYTES,
+    self, AdmissionError, ProgramFormat, SequencedAdmitted, SequencedHeader, SEQUENCED_HEADER_BYTES,
 };
 
 /// A committed container and the slot that holds it.
@@ -87,7 +87,9 @@ pub struct Booted {
     pub sequence: u64,
     /// The slot that holds the container.
     pub slot: Slot,
-    /// The bytes of `program.stbc`: where they lie in the slot when the platform reads its flash in
+    /// What the program is: `program.stbc` or a compiled program image (specification 44 §10.1).
+    pub format: ProgramFormat,
+    /// The bytes of the program: where they lie in the slot when the platform reads its flash in
     /// place (specification 34 MEM-14, the program image in place), else read into memory with the
     /// rest of the container released.
     pub program: Cow<'static, [u8]>,
@@ -298,6 +300,7 @@ pub fn boot(
         return Ok(Booted {
             sequence,
             slot: newest.slot,
+            format: admitted.format,
             program: Cow::Borrowed(admitted.program),
             record: admitted.record,
             limits: admitted.limits,
@@ -310,7 +313,12 @@ pub fn boot(
     let mut bytes = read_container(store, newest)?;
     let SequencedAdmitted { sequence, admitted } =
         installation::admit_sequenced(&bytes, device).map_err(SelectError::Refused)?;
-    let (record, limits, program) = (admitted.record, admitted.limits, admitted.program);
+    let (format, record, limits, program) = (
+        admitted.format,
+        admitted.record,
+        admitted.limits,
+        admitted.program,
+    );
     let start = offset_in(&bytes, program);
     let end = start + program.len();
     bytes.truncate(end);
@@ -318,6 +326,7 @@ pub fn boot(
     Ok(Booted {
         sequence,
         slot: newest.slot,
+        format,
         program: Cow::Owned(bytes),
         record,
         limits,

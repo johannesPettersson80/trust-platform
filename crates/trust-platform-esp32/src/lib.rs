@@ -12,6 +12,8 @@ pub mod boot_counter;
 pub mod checkpoint;
 mod console_budget;
 pub use console_budget::ConsoleError;
+#[cfg(feature = "native")]
+pub mod compiled_loader;
 mod cookie;
 pub use cookie::{ResetCookie, RUNNING_PHASE, WATCHDOG_PHASE};
 #[cfg(any(test, all(target_arch = "riscv32", target_os = "none")))]
@@ -23,6 +25,8 @@ mod image;
 pub use image::{decode_image_header, ImageHeader};
 pub mod loader;
 mod platform;
+#[cfg(feature = "native")]
+pub use platform::NativePlatform;
 pub use platform::Platform;
 #[path = "hardware/process_io.rs"]
 pub mod process_io;
@@ -41,3 +45,5 @@ pub use hardware::{
     emergency_halt, Board, BoardError, BoardHardware, BoardParts, Console, Identity, Monotonic,
     ResetControl, UsbLink, Wait, Watchdog,
 };
+#[cfg(all(target_arch = "riscv32", target_os = "none", feature = "native"))]
+pub use hardware::{C6Code, ProgramCode};

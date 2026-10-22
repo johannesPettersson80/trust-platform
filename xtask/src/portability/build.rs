@@ -48,26 +48,29 @@ pub(super) fn firmware(root: &Path, firmware: &Firmware, report: &str) -> Result
     let binary_flags = artifacts.map_flags(&mut flags)?;
     let report = artifacts.report.to_str().context("non-UTF-8 report path")?;
     let mut configuration = serde_json::json!({
-        "firmware": firmware.name, "target": firmware.target, "profile": "release", "rustflags": flags,
+        "firmware": firmware.name, "target": firmware.target, "profile": "release",
+        "features": firmware.features, "rustflags": flags,
         "binary_rustflags": binary_flags, "manifest": directory.join("Cargo.toml"),
         "status": "started",
         "note": "Path normalization does not claim cross-checkout binary reproducibility."
     });
     super::write_report(report, configuration.clone())?;
     let mut command = Command::new("cargo");
+    command.current_dir(directory).args([
+        "rustc",
+        "--locked",
+        "--release",
+        "--target",
+        firmware.target.as_str(),
+        "--bin",
+        firmware.bin.as_str(),
+        "--message-format=json-render-diagnostics",
+    ]);
+    if !firmware.features.is_empty() {
+        command.args(["--features", &firmware.features.join(",")]);
+    }
     command
-        .current_dir(directory)
-        .args([
-            "rustc",
-            "--locked",
-            "--release",
-            "--target",
-            firmware.target.as_str(),
-            "--bin",
-            firmware.bin.as_str(),
-            "--message-format=json-render-diagnostics",
-            "--",
-        ])
+        .arg("--")
         .args(&binary_flags)
         .env("CARGO_ENCODED_RUSTFLAGS", flags.join("\x1f"));
     // The checked-in profile/target flags own the composition. Host validation

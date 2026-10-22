@@ -159,6 +159,12 @@ pub fn run_native_build(
     )?;
     let image = build_folder.join(format!("program.{}.tpi", triple(target)));
     std::fs::write(&image, &built.image)?;
+    // The record a device admits the image with (specification 44 §10.1).
+    let record = build_folder.join(format!("deployment-record.{}.bin", triple(target)));
+    std::fs::write(
+        &record,
+        trust_runtime::deployment::image_record(&bundle_root, &built.image)?,
+    )?;
     if !emit_source {
         let _ = std::fs::remove_file(work.join("module.rs"));
     }
@@ -170,6 +176,7 @@ pub fn run_native_build(
         "target": triple(target),
         "image": image.display().to_string(),
         "image_bytes": built.image.len(),
+        "record": record.display().to_string(),
         "memory_figure": {
             "areas": figure.areas,
             "stack": figure.stack,

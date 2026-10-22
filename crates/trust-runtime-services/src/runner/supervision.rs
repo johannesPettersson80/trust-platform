@@ -72,6 +72,7 @@ where
     /// the program the change gave; then the scan, or while paused the wait for the next cycle
     /// interval.
     fn take_boundary(&mut self) {
+        let mut boundary = self.next_boundary;
         if self.shell.stop_requested() {
             self.stop();
             return;
@@ -92,13 +93,15 @@ where
                 return;
             }
             self.restarts.reset();
+            // The program's time starts again with the restart, and its cycle grid with it.
+            boundary = None;
         }
         let now = self.clock.now();
         if self.shell.resource.state() == ResourceState::Paused {
             self.next_boundary = Some(now.saturating_add(self.interval()));
             return;
         }
-        self.scan(now);
+        self.scan(now, boundary.unwrap_or(now));
     }
 
     /// One poll of the faulted wait, as trust-runtime's faulted wait ends each poll period: the
@@ -219,9 +222,9 @@ where
         self.next_boundary = Some(start);
     }
 
-    /// Runs one scan that started at `started` on the monotonic clock, and follows the shared
-    /// decisions for its error or its overrun.
-    fn scan(&mut self, started: MonotonicInstant) {
+    /// Runs one scan of the boundary `boundary` that started at `started` on the monotonic clock,
+    /// and follows the shared decisions for its error or its overrun.
+    fn scan(&mut self, started: MonotonicInstant, boundary: MonotonicInstant) {
         let watchdog = self.cycle.watchdog().normalized_for_runtime();
         let fault_policy = self.cycle.fault_policy();
         let now = self.logical(started);
@@ -285,7 +288,8 @@ where
         match watchdog_overrun_action(watchdog, active) {
             None => {
                 self.restarts.reset();
-                self.next_boundary = Some(started.saturating_add(self.interval()));
+                self.next_boundary =
+                    Some(next_on_grid(boundary, self.interval(), self.clock.now()));
             }
             Some(OverrunAction::Restart) => {
                 self.automatic_restart(&RuntimeError::WatchdogTimeout);
@@ -418,5 +422,23 @@ where
                     time: self.program_time,
                 });
         }
+    }
+}
+
+/// The boundary after `boundary` on the program's cycle grid (specification 10 §4.3, a fixed sampling
+/// grid; specification 34 CYCLE-03): one interval later, so that the time a wake takes is never added
+/// to the next interval. When that boundary has passed at `now`, after a scan longer than its
+/// interval, the next scan is due at once and the grid goes on from it, without a burst of scans to
+/// catch up; the tasks count the activations that passed as missed.
+fn next_on_grid(
+    boundary: MonotonicInstant,
+    interval: TimeSpan,
+    now: MonotonicInstant,
+) -> MonotonicInstant {
+    let next = boundary.saturating_add(interval);
+    if next <= now {
+        now
+    } else {
+        next
     }
 }

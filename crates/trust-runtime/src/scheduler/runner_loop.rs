@@ -109,6 +109,9 @@ fn run_resource_loop_core<C, F>(
     let mut paused = false;
     let mut restarts = AutomaticRestartLimiter::default();
     let mut hang_supervisor: Option<supervisor::HangSupervisor> = None;
+    // The nominal start of the next cycle on the cycle grid, once a cycle has completed; any other
+    // pass of the loop starts the grid again from its cycle.
+    let mut boundary: Option<Duration> = None;
     if let Some(gate) = runner.start_gate.as_ref() {
         set_resource_state(&state, ResourceState::Ready);
         if !gate.wait_open(&stop) {
@@ -160,11 +163,13 @@ fn run_resource_loop_core<C, F>(
         }
 
         if paused {
+            boundary = None;
             sleep_one_interval(&runner, runner.clock.now());
             continue;
         }
 
         let now_raw = runner.clock.now();
+        let due = boundary.take().unwrap_or(now_raw);
         let now = scaled_time(runner.program_time(now_raw), runner.time_scale);
         runner.runtime.set_current_time(now);
         let wall_start = std::time::Instant::now();
@@ -203,7 +208,7 @@ fn run_resource_loop_core<C, F>(
             continue;
         }
         restarts.reset();
-        sleep_one_interval(&runner, now_raw);
+        boundary = sleep_until_next_boundary(&runner, due);
     }
 }
 
@@ -398,6 +403,30 @@ fn drain_commands<C: Clock + Clone>(
     }
 }
 
+/// Sleeps until the boundary one cycle interval after `due`, the nominal start of the cycle that
+/// ended, and returns it, so that the cycles keep a fixed grid and the time a wake takes is never
+/// added to the next interval (specification 10 §4.3; specification 34 CYCLE-03). When that boundary
+/// has passed, after a cycle longer than its interval, the next cycle starts at once and the grid
+/// goes on from it, without a burst of cycles to catch up; the tasks count the activations that
+/// passed as missed. Yields and returns `None` when the interval is not positive.
+fn sleep_until_next_boundary<C: Clock + Clone>(
+    runner: &ResourceRunner<C>,
+    due: Duration,
+) -> Option<Duration> {
+    if runner.cycle_interval.as_nanos() <= 0 {
+        thread::yield_now();
+        return None;
+    }
+    let sleep_interval = scaled_sleep_interval(runner.cycle_interval, runner.time_scale);
+    let next = Duration::from_nanos(due.as_nanos().saturating_add(sleep_interval.as_nanos()));
+    let now = runner.clock.now();
+    if next <= now {
+        return Some(now);
+    }
+    runner.clock.sleep_until(next);
+    Some(next)
+}
+
 /// Sleeps until one cycle interval after `from`, or yields when the interval is not positive.
 fn sleep_one_interval<C: Clock + Clone>(runner: &ResourceRunner<C>, from: Duration) {
     let interval = runner.cycle_interval.as_nanos();
@@ -541,6 +570,10 @@ fn set_last_error(last_error: &Arc<Mutex<Option<RuntimeError>>>, err: RuntimeErr
 #[cfg(test)]
 #[path = "runner_loop/restart_storage_trace_cases.rs"]
 mod restart_storage_trace_cases;
+
+#[cfg(test)]
+#[path = "runner_loop/pacing_tests.rs"]
+mod pacing_tests;
 
 #[cfg(test)]
 mod runner_loop_poison_tests {

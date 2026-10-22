@@ -9,6 +9,17 @@ use trust_platform_memory::memory::{MeasuredHeap, StackWindow, TargetMemory};
 /// 16,320 bytes the LP SRAM region takes over (the owner, 21 October 2026, "Use LP SRAM"), so the
 /// three regions hold the 112 KiB that the main heap and the reclaimed RAM held.
 const HEAP_BYTES: usize = 32 * 1024 + 64;
+/// Bytes the main heap of the firmware that runs compiled programs adds to [`HEAP_BYTES`]: 128 KiB of
+/// the RAM that the interpreter's RAM code took (specification 44 §10.3), so that an install's upload
+/// of a program image, which the transfer session holds in one block, can be about 150 KB
+/// (specification 34 PORT-05); the reference workload's container is 86,547 bytes.
+#[cfg(feature = "native")]
+const NATIVE_EXTRA_HEAP_BYTES: usize = 128 * 1024;
+/// Bytes of the main heap this firmware has.
+#[cfg(not(feature = "native"))]
+const MAIN_HEAP_BYTES: usize = HEAP_BYTES;
+#[cfg(feature = "native")]
+const MAIN_HEAP_BYTES: usize = HEAP_BYTES + NATIVE_EXTRA_HEAP_BYTES;
 /// Bytes the boot loader leaves free after boot, reclaimed as the second heap region: esp-hal
 /// 1.2.2's `dram2_seg` at 0x4086E610 to 0x4087E610, 64 KiB.
 const RECLAIMED_BYTES: usize = 64 * 1024;
@@ -31,8 +42,8 @@ pub const STACK_WINDOW: StackWindow = StackWindow::new(STACK_TOP - STACK_WINDOW_
 
 /// The main heap arena, aligned for the allocator.
 #[repr(C, align(8))]
-struct HeapMemory([MaybeUninit<u8>; HEAP_BYTES]);
-static mut HEAP_MEMORY: HeapMemory = HeapMemory([MaybeUninit::uninit(); HEAP_BYTES]);
+struct HeapMemory([MaybeUninit<u8>; MAIN_HEAP_BYTES]);
+static mut HEAP_MEMORY: HeapMemory = HeapMemory([MaybeUninit::uninit(); MAIN_HEAP_BYTES]);
 
 /// The boot loader's reclaimed RAM, placed by `#[ram(reclaimed)]` in `.dram2_uninit` (design
 /// §4.3). It is uninitialized, so the allocator owns it and nothing reads it before `initialize`.
@@ -61,7 +72,7 @@ pub fn initialize() {
     unsafe {
         let main = core::slice::from_raw_parts_mut(
             core::ptr::addr_of_mut!(HEAP_MEMORY) as *mut u8,
-            HEAP_BYTES,
+            MAIN_HEAP_BYTES,
         );
         let reclaimed = core::slice::from_raw_parts_mut(
             core::ptr::addr_of_mut!(RECLAIMED) as *mut u8,

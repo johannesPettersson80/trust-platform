@@ -42,6 +42,8 @@ use core::cell::{Cell, RefCell};
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
+#[cfg(feature = "native")]
+use trust_runtime_core::io_image::FlatImages;
 use trust_runtime_core::io_image::PreparedIoBinding;
 use trust_runtime_core::memory::{Generation, InstanceId, IoArea};
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, TimeSpan};
@@ -544,6 +546,37 @@ impl EngineLiveValues {
         })
     }
 
+    /// The Live Values of a compiled program (specification 44 §13.3): the process-image bindings
+    /// of its image, `bindings`, each named by the parallel `binding_names`, with nothing queued.
+    /// The program's variables are not reachable by name until the symbol table serves them
+    /// (specification 44 §13.3, milestone M3), so it has no retained labels.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::InvalidExecutionState`] when `binding_names` is not parallel to `bindings`.
+    #[cfg(feature = "native")]
+    pub fn for_compiled(
+        bindings: Vec<PreparedIoBinding>,
+        binding_names: Vec<Option<SmolStr>>,
+    ) -> Result<Self, RuntimeError> {
+        if binding_names.len() != bindings.len() {
+            return Err(RuntimeError::InvalidExecutionState);
+        }
+        let copies = live_snapshot::copies_images(&bindings);
+        Ok(Self {
+            inner: Rc::new(LiveInner {
+                queues: RefCell::new(LiveValueQueues::new()),
+                generation: Cell::new(Generation::FIRST),
+                names: RetainedNames::default(),
+                bindings,
+                binding_names,
+                published: RefCell::new(None),
+                copies,
+                images: RefCell::default(),
+            }),
+        })
+    }
+
     /// Clear every queued write and active force at a terminating boundary: safe state, a fault
     /// and a restart (specification 11 §6.9.2). The published snapshot stays, as trust-runtime
     /// keeps it.
@@ -591,6 +624,29 @@ impl EngineLiveValues {
         }
         live_snapshot::fill(&self.inner.bindings, snapshot, |address| {
             access.read_image(address)
+        })
+    }
+
+    /// The published I/O snapshot of a compiled program's last completed scan, from its process
+    /// images `images`: the copy that a request decodes, or the snapshot decoded now when a binding
+    /// is not a flat scalar.
+    #[cfg(feature = "native")]
+    fn publish_images(&self, images: &FlatImages, scan: u64) -> Result<(), RuntimeError> {
+        if self.inner.copies {
+            let queues = self.inner.queues.borrow();
+            self.inner.images.borrow_mut().record_images(
+                images,
+                scan,
+                queues.forced_io.iter().map(|(address, _)| address),
+            );
+            return Ok(());
+        }
+        let mut published = self.inner.published.borrow_mut();
+        let snapshot = published.get_or_insert_with(|| self.build_snapshot());
+        snapshot.scan = Some(scan);
+        snapshot.forced.clear();
+        live_snapshot::fill(&self.inner.bindings, snapshot, |address| {
+            images.read(address)
         })
     }
 
@@ -828,6 +884,34 @@ impl<C: MonotonicClock> CycleHooks for LiveValuesHooks<'_, '_, C> {
 
     fn publish_outputs(&mut self, access: &CycleAccess<'_, '_>) -> Result<(), RuntimeError> {
         self.observer.publish_outputs(access)
+    }
+
+    /// A compiled program publishes its snapshot after the output sample, as the engine does. Its
+    /// variables and process images take no Live Values write or force until the symbol table
+    /// serves them (specification 44 §13.3, milestone M3): every queued request is refused at the
+    /// cycle start with a `WriteRejected` event and withdrawn.
+    #[cfg(feature = "native")]
+    fn on_compiled_phase(
+        &mut self,
+        phase: CyclePhase,
+        now: Duration,
+        images: &FlatImages,
+    ) -> Result<(), RuntimeError> {
+        let live = self.live;
+        match phase {
+            CyclePhase::CycleStart => {
+                let mut queues = live.inner.queues.borrow_mut();
+                if !queues.is_idle() {
+                    let unsupported = RuntimeError::ProfileUnsupported(SmolStr::new_static(
+                        "Live Values writes and forces to a compiled program",
+                    ));
+                    apply::refuse_all(&mut *queues, &unsupported, now, self);
+                }
+            }
+            CyclePhase::AfterOutputSample => live.publish_images(images, self.scan)?,
+            _ => {}
+        }
+        self.observer.on_compiled_phase(phase, now, images)
     }
 }
 

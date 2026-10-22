@@ -38,6 +38,7 @@ use trust_runtime_core::retain::RetainSnapshot;
 use trust_runtime_core::value::Duration;
 use trust_runtime_core::vm::PreparationLimits;
 use trust_runtime_core::watchdog::RetainMode;
+use trust_runtime_services::installation::ProgramFormat;
 use trust_runtime_services::loading::select::Booted;
 use trust_runtime_services::runner::engine::ProcessIo;
 use trust_runtime_services::status::IoDriverStatus;
@@ -330,6 +331,7 @@ pub fn booted(program: &[u8], configuration: Configuration) -> Booted {
     Booted {
         sequence: 1,
         slot: Slot::A,
+        format: ProgramFormat::Bytecode,
         program: Cow::Owned(program.to_vec()),
         record,
         limits: PreparationLimits::default(),

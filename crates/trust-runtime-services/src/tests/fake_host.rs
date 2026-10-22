@@ -414,8 +414,8 @@ impl RecordsPort for FakeHost {
         }
     }
 
-    fn commit_program(&self, container: &[u8]) -> Result<ProgramIdentity, String> {
-        self.commits.borrow_mut().push(container.to_vec());
+    fn commit_program(&self, container: Vec<u8>) -> Result<ProgramIdentity, String> {
+        self.commits.borrow_mut().push(container);
         self.commit_identity
             .ok_or_else(|| String::from("the fake store refuses the commit"))
     }

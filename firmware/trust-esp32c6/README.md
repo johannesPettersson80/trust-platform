@@ -219,7 +219,7 @@ any step, even at a power loss, leaves the previous program selected (DEPLOY-03)
 
 Scan-time code runs from HP SRAM. From flash, through the 32 KB cache, one task activation took
 about 1.77 M cycles for 188,838 instructions (11.07 ms, over the 10 ms period); from RAM it takes
-about 264,000 cycles (1.65 ms). `rwtext_hook.x` lists the selected modules and functions; `build.rs`
+about 264,000 cycles (1.65 ms). `ld/rwtext_hook.x` lists the selected modules and functions; `build.rs`
 puts it on the linker path and `.cargo/config.toml` enables esp-hal's hook. Only the scan's hot path
 is moved: load-time code (preparation, decoding, validation, construction, the engine's initializers
 and its restart and retain paths) and the control path (the runner's requests, its services and JSON,

@@ -24,6 +24,8 @@ use trust_runtime_services::chip::process_io::record_lines;
 
 mod checkpoint_flash;
 mod clock;
+#[cfg(feature = "native")]
+mod code_region;
 mod console;
 pub(crate) mod emergency;
 mod image_window;
@@ -31,6 +33,8 @@ mod reset;
 mod usb_link;
 mod wait;
 pub use clock::Monotonic;
+#[cfg(feature = "native")]
+pub use code_region::{C6Code, ProgramCode};
 pub use console::Console;
 pub use emergency::emergency_halt;
 pub use reset::{ResetControl, Watchdog};

@@ -15,7 +15,7 @@ mod describe;
 mod identity;
 mod refusal;
 
-pub use admission::{admit, admit_memory, DeviceDescriptor};
+pub use admission::{admit, admit_memory, DeviceDescriptor, NativeTarget};
 pub use configuration::{
     Configuration, ControlMode, GpioInput, GpioOutput, HangAction, IoDriver, LogLevel,
     SafeStateEntry, TaskOverride,

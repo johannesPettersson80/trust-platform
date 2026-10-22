@@ -31,7 +31,7 @@ use trust_runtime_core::value::Value;
 use trust_runtime_core::watchdog::RetainMode;
 use trust_runtime_services::capabilities::{LastReset, ResetCauseName};
 use trust_runtime_services::chip::platform::status_settings;
-use trust_runtime_services::installation::Admitted;
+use trust_runtime_services::installation::{Admitted, ProgramFormat};
 use trust_runtime_services::loading::select::Booted;
 use trust_runtime_services::runner::engine::DeviceMemory;
 use trust_runtime_services::runner::{EngineLiveValues, Loaded, ProgramLoader};
@@ -159,6 +159,7 @@ fn install_refusal(
     } = booted(PROBE, config);
     ROOM.with(|room| room.set(FREE));
     match check(&Admitted {
+        format: ProgramFormat::Bytecode,
         program: &program,
         record,
         limits,

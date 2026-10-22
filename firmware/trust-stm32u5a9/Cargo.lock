@@ -515,6 +515,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-plc-abi"
+version = "0.24.75"
+
+[[package]]
 name = "trust-runtime-core"
 version = "0.24.75"
 dependencies = [
@@ -526,6 +530,7 @@ dependencies = [
  "sha2",
  "smol_str",
  "thiserror",
+ "trust-plc-abi",
 ]
 
 [[package]]

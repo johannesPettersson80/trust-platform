@@ -462,7 +462,7 @@ fn start_failure(retains: bool, error: &RuntimeError) -> String {
 
 /// What the deployment configures for the program besides its code (specification 34 §5.1 and
 /// TARGET-08): the cycle interval, the watchdog and fault policies, and the safe value of each output.
-fn settings(config: &Configuration) -> CycleSettings {
+pub(crate) fn settings(config: &Configuration) -> CycleSettings {
     CycleSettings {
         cycle_interval: Duration::from_nanos(
             i64::try_from(config.cycle_interval_nanos).unwrap_or(i64::MAX),

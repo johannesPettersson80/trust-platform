@@ -23,6 +23,17 @@ trust-runtime-core = { workspace = true }
 # the `capabilities` reply. The memory crate depends on no runtime or compiler.
 trust-platform-memory = { workspace = true }
 
+[features]
+# Compiled programs (specification 44): the compiled cycle, the install check of a program image and
+# the hooks that observe a compiled scan, built beside the interpreter until it is deleted
+# (specification 44 §15). A firmware that runs no image leaves it off and links none of it.
+native = []
+
+[dev-dependencies]
+# The stand-in modules of the compiled cycle's tests are written against the kernel interface
+# (specification 44 §8.2).
+trust-plc-abi = { workspace = true }
+
 # Deliberately not `[lints] workspace = true`: the workspace's `unsafe_code = "forbid"` cannot be
 # lowered by a crate, and the integration test's test-only counting allocator must implement the
 # unsafe `GlobalAlloc` trait. The library keeps `#![forbid(unsafe_code)]`; every other workspace

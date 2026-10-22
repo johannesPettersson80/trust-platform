@@ -577,6 +577,22 @@
       "status": "allowed",
       "owner": "native execution (specification 44)",
       "rationale": "The build lays out the standard function blocks at the program library's own offsets, which every module links (specification 44 §6.8)."
+    },
+    {
+      "from": "trust-platform-esp32",
+      "to": "trust-plc-abi",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "native execution (specification 44)",
+      "rationale": "The C6 calls a compiled program's module where its image lies in the mapped slot, through the interface's in-place code (specification 44 §10.3)."
+    },
+    {
+      "from": "trust-runtime-services",
+      "to": "trust-plc-abi",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "native execution (specification 44)",
+      "rationale": "The compiled cycle's tests run stand-in modules written against the kernel interface; a dev edge only, so the shared services never depend on it."
     }
   ],
   "forbidden_workspace_edges": [
@@ -3374,7 +3390,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/mod.rs",
-        "line": 338,
+        "line": 342,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the misa CSR only; no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -3462,9 +3478,9 @@
       },
       {
         "path": "firmware/trust-esp32c6/src/memory.rs",
-        "line": 61,
+        "line": 72,
         "owner": "runtime portability S1b-5 (C6 firmware)",
-        "invariant": "Called exactly once before any allocation on a single core; the private 32,832-byte HEAP_MEMORY static, the 64 KiB reclaimed static and the 16,320-byte LP SRAM static (LOW_POWER) are exclusively owned by the allocator, and the slices cover exactly those statics.",
+        "invariant": "Called exactly once before any allocation on a single core; the private HEAP_MEMORY static of the main heap (32,832 bytes, or 163,904 in the firmware that runs compiled programs), the 64 KiB reclaimed static and the 16,320-byte LP SRAM static (LOW_POWER) are exclusively owned by the allocator, and the slices cover exactly those statics.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: heap accounting and stack-window headroom; the three-region allocator is proven by cargo test -p trust-platform-memory (a_third_region_serves_only_what_the_first_two_cannot); the HP CPU's atomic instructions on LP SRAM were probed on the C6 bench (21 October 2026).",
         "review_date": "2026-10-21"
       },
@@ -3806,10 +3822,50 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 155,
+        "line": 137,
+        "owner": "native execution (specification 44)",
+        "invariant": "In-place code is sound only for the module of an admitted image in memory the CPU executes that stays mapped and unchanged while its entries are called; the caller (a device's loader after the checks of specification 44 §10.2) promises it.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/kernel.rs",
+        "line": 152,
+        "owner": "native execution (specification 44)",
+        "invariant": "The module is executable and unchanged as the caller of InPlace::new promised, and offset is checked inside the module.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/kernel.rs",
+        "line": 190,
         "owner": "native execution (specification 44)",
         "invariant": "A computer kernel's executable mapping holds an admitted module's code copied in before the mapping was made executable and never written after; offset is checked inside the mapping, and the program keeps the mapping alive as long as its entries.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/code_region.rs",
+        "line": 42,
+        "owner": "native execution (specification 44)",
+        "invariant": "The copy writes at most PROGRAM_CODE_BYTES bytes into the program code region while no program holds it (HELD was false and is set), from the mapped slot in flash, apart from it; fence.i makes the CPU fetch the written bytes (RISC-V Zifencei).",
+        "test_evidence": "The pasteurizer's module copied into the program code region and run by the C6's native firmware on ESP32-C6-DevKitC-1 (22 October 2026, 1 h at 1x: control task 0.061 ms average).",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/code_region.rs",
+        "line": 54,
+        "owner": "native execution (specification 44)",
+        "invariant": "The module lies in the slot the image window maps from flash, which the C6 executes in place; the program store never writes the running program's slot and the window is remapped only after that program is dropped (specification 34 §5.1, MEM-14).",
+        "test_evidence": "The pasteurizer's module copied into the program code region and run by the C6's native firmware on ESP32-C6-DevKitC-1 (22 October 2026, 1 h at 1x: control task 0.061 ms average).",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/code_region.rs",
+        "line": 79,
+        "owner": "native execution (specification 44)",
+        "invariant": "The region holds the module this program copied in and holds until it is dropped, executable (outside esp-hal's no-execute ranges, trust_code.x) and unchanged since the copy; offset is checked inside the module.",
+        "test_evidence": "The pasteurizer's module copied into the program code region and run by the C6's native firmware on ESP32-C6-DevKitC-1 (22 October 2026, 1 h at 1x: control task 0.061 ms average).",
         "review_date": "2026-10-22"
       },
       {
@@ -3859,6 +3915,13 @@
         "invariant": "vendored examples are demonstration code only and remain outside shipped runtime/library execution paths",
         "test_evidence": "rg baseline artifact target/gate-artifacts/unsafe-concurrency-baseline-e22773356/unsafe-production-rust-rg.txt",
         "review_date": "2026-05-02"
+      },
+      {
+        "path_prefix": "crates/trust-platform-esp32/src/hardware/code_region/region.rs",
+        "owner": "native execution (specification 44)",
+        "invariant": "The program code region's static, the only content of the NOLOAD .trust_code section that firmware/trust-esp32c6/trust_code.x places between the static data and the main stack: its #[unsafe(link_section)] attribute, which the AST patterns do not see as a site, aliases no other object. No other unsafe code lives in the file.",
+        "test_evidence": "The pasteurizer's module copied into the program code region and run by the C6's native firmware on ESP32-C6-DevKitC-1 (22 October 2026, 1 h at 1x: control task 0.061 ms average).",
+        "review_date": "2026-10-22"
       },
       {
         "path_prefix": "crates/trust-plc-abi/src/plain.rs",
@@ -4403,6 +4466,24 @@
         "invariant": "One AtomicU32 keeps the window's first entry, found once from the MMU before the window is written and stored with a relaxed store; only the C6's main context maps program images, so it publishes nothing else and orders nothing.",
         "test_evidence": "C6 bench of batch s2a: the chip boots, installs and restarts its programs from the mapped slot (speed and figure runs), and trust-runtime-services' loading tests of the mapped boot and the install slot.",
         "review_date": "2026-10-22"
+      },
+      {
+        "path_prefix": "crates/trust-platform-esp32/src/hardware/code_region.rs",
+        "owner": "native execution (specification 44)",
+        "shared_state": "whether a program's module holds the program code region",
+        "invariant": "One AtomicBool is swapped true by ProgramCode::place before the module is copied into the region and stored false when the C6Code that holds it is dropped; only the C6's main context loads programs, and the copy is ordered by the Acquire swap and the Release store, so a second program never writes the region while one runs from it.",
+        "test_evidence": "The pasteurizer's module copied into the region and run by the C6's native firmware on ESP32-C6-DevKitC-1 (22 October 2026, 1 h at 1x), and restarted in place by the probes' installs.",
+        "review_date": "2026-10-22",
+        "primitive": "Atomic"
+      },
+      {
+        "path_prefix": "crates/trust-platform-esp32/src/hardware/code_region.rs",
+        "owner": "native execution (specification 44)",
+        "shared_state": "whether a program's module holds the program code region",
+        "invariant": "One AtomicBool is swapped true by ProgramCode::place before the module is copied into the region and stored false when the C6Code that holds it is dropped; only the C6's main context loads programs, and the copy is ordered by the Acquire swap and the Release store, so a second program never writes the region while one runs from it.",
+        "test_evidence": "The pasteurizer's module copied into the region and run by the C6's native firmware on ESP32-C6-DevKitC-1 (22 October 2026, 1 h at 1x), and restarted in place by the probes' installs.",
+        "review_date": "2026-10-22",
+        "primitive": "Ordering::"
       }
     ],
     "tool_gates": [

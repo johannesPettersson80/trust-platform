@@ -1,0 +1,62 @@
+@startuml runtime-native-execution
+!theme plain
+allowmixing
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle uml2
+skinparam linetype ortho
+skinparam nodesep 45
+skinparam ranksep 35
+
+title truST Native Execution (specification 44): Build, Image and the Chip's Kernel
+
+package "Engineering computer: trust-runtime build --target" as buildPkg #LightYellow {
+    component "trust-hir\nrecorded types and resolved symbols\n(FileAnalysis)" as hir
+    component "host/native/front + model\nlayout of areas, instances, tasks,\nbindings and starting memory" as model
+    component "host/native/lower + emit\none Rust crate per program;\nno unsafe in generated code" as generator
+    component "pinned rustc + rust-lld\n(toolchain bundle, §4.6)\nstatic PIE, no relocations" as toolchain
+    component "trust-plc-lib\narithmetic, conversion, text,\ntimers and edges" as library
+    component "trust-plc-abi\nCx, areas, faults,\nmodule side" as abiModule
+    artifact "program.<triple>.tpi (TRSTI001)\nCODE, RODATA, INIT, tables,\nmemory figure" as image
+    artifact "deployment-record.<triple>.bin\nversion 44.1, tasks, process image,\nruntime.toml + io.toml" as record
+    hir --> model
+    model --> generator
+    generator --> toolchain
+    library --> toolchain
+    abiModule --> toolchain
+    toolchain --> image
+    image --> record : DeploymentRecord::for_image
+}
+
+package "Container and program store (specification 34 §5.1)" as storePkg #LightGreen {
+    artifact "TRSTA002 container\nentry kind 3 = image at a 64-byte boundary,\nkind 2 = record" as container
+    component "installation::admit_sequenced\nkind and record version agree;\ndescriptor names 44.1" as admission
+    component "loading::install::check\nkernel checks of §10.2 in place\nof the STBC dry run" as installCheck
+    image --> container : xtask pack-project / encode_image
+    record --> container
+    container --> admission
+    admission --> installCheck : program.install
+}
+
+package "ESP32-C6 firmware --features native" as chipPkg #LightCyan {
+    component "Runner (trust-runtime-services)\nfixed cycle grid (spec 10 §4.3),\nlink, faults, watchdog, metrics" as runner
+    component "CompiledLoader\n(trust-platform-esp32)\nadmit, place module, claim lines" as loader
+    component "ProgramCode\n128 KiB .trust_code region in RAM,\nexecutable; flash window as fallback" as codeRegion
+    component "CompiledCycle\nread inputs, scan, deadline,\nsnapshot, drive outputs" as cycle
+    component "NativeProgram (trust-runtime-core::native)\nareas, task readiness,\nbindings, fault mapping" as kernel
+    component "module entry points\nextern C fn(*mut Cx) -> u32" as module
+    admission --> loader : boot / restart (Booted, format Image)
+    loader --> codeRegion : copy CODE + RODATA, fence.i
+    loader --> cycle : CompiledCycle::start (cold)
+    runner --> cycle : run_scan(now, deadline, observer)
+    cycle --> kernel : scan(now, task hooks)
+    kernel --> module : Entry::call(Cx)
+    codeRegion ..> module : executes
+}
+
+note bottom of chipPkg
+    The observer sees the cycle start, input sample, task overruns, starts and ends,
+    output sample and cycle end (CycleHooks::on_compiled_phase): status, tasks.stats,
+    io.read and the allocation count work as for STBC. Retain (M2), online change,
+    breakpoints and Live Values writes (M3) are not served yet.
+end note
+@enduml

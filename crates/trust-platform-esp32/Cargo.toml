@@ -18,6 +18,9 @@ critical-section = "1.2.0"
 # the host build of `usb_service` resolve them; the workspace entry builds the core without std.
 trust-runtime-core.workspace = true
 trust-runtime-services.workspace = true
+# The kernel interface: the C6 calls a compiled program's module from its program code region or
+# where its image lies (specification 44 §10.3); only the feature `native` uses it.
+trust-plc-abi = { workspace = true, optional = true }
 
 # The shared reset record the adapter keeps in persistent RTC fast memory, so the C6 and the F407
 # store the same record.
@@ -27,6 +30,11 @@ trust-platform-memory.workspace = true
 # the shared realtime and persistence blocks (`serde_json`), as trust-runtime-services builds them.
 smol_str.workspace = true
 serde_json = { version = "1.0.152", default-features = false, features = ["alloc"] }
+
+[features]
+# Compiled programs (specification 44 §15): the loader of program images and the program code region,
+# for the firmware that runs them.
+native = ["dep:trust-plc-abi", "trust-runtime-services/native"]
 
 # The host test tests/chip_file.rs compares the profile with chips/esp32c6.toml. A dev-dependency
 # is resolved only for this workspace's own tests, never for a firmware build.

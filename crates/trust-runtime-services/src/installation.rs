@@ -13,13 +13,22 @@
 //! exists (specification 34 §5.1.1, DEPLOY-04); the checks in [`decode_sequenced`] are the only
 //! path to the payloads. [`sequenced_layout`] reads only the header of a container, which is how
 //! `program.active` finds the record of a container too large to hold in memory.
+//!
+//! The program of a container is `program.stbc` (entry kind 1) or a compiled program image (entry
+//! kind 3, specification 44 §10.1), whose first byte the writer puts at a multiple of 64 bytes from
+//! the container's start, so that an image a device reads in place keeps the alignment of its
+//! sections (specification 44 §5.3). A container holds one program and its record; its record names
+//! the program's kind by its version, and admission refuses a container whose kind and record differ.
 
 use alloc::vec::Vec;
 use core::fmt;
 use core::ops::Range;
 
+use trust_runtime_core::bytecode::BytecodeVersion;
 use trust_runtime_core::crc32;
-use trust_runtime_core::deployment::{DeploymentRecord, DeploymentRecordError, DeviceDescriptor};
+use trust_runtime_core::deployment::{
+    AdmissionRefusal, DeploymentRecord, DeploymentRecordError, DeviceDescriptor,
+};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::vm::PreparationLimits;
 
@@ -31,6 +40,11 @@ pub const SEQUENCED_MAGIC: [u8; 8] = *b"TRSTA002";
 pub const PROGRAM_KIND: u32 = 1;
 /// The entry kind of the deployment record.
 pub const RECORD_KIND: u32 = 2;
+/// The entry kind of a compiled program image (specification 44 §10.1).
+pub const IMAGE_KIND: u32 = 3;
+/// A compiled program image starts at a multiple of this many bytes from the container's start
+/// (specification 44 §5.3: `CODE` lies at a 64-byte boundary of the image).
+pub const IMAGE_ALIGNMENT: usize = 64;
 /// Offset of the install sequence in a version-2 container (specification 34 §5.1).
 pub const SEQUENCE_OFFSET: usize = 16;
 /// The install sequence of the first commit into an empty store. The program store gives it to that
@@ -95,9 +109,48 @@ impl Version {
     }
 }
 
+/// What the program of a container is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProgramFormat {
+    /// `program.stbc`, entry kind [`PROGRAM_KIND`].
+    Bytecode,
+    /// A compiled program image, entry kind [`IMAGE_KIND`] (specification 44 §10.1).
+    Image,
+}
+
+impl ProgramFormat {
+    /// The entry kind of a program of this format.
+    #[must_use]
+    pub const fn kind(self) -> u32 {
+        match self {
+            Self::Bytecode => PROGRAM_KIND,
+            Self::Image => IMAGE_KIND,
+        }
+    }
+
+    /// The format of a program whose entry kind is `kind`, `None` for any other kind.
+    const fn of_kind(kind: u32) -> Option<Self> {
+        match kind {
+            PROGRAM_KIND => Some(Self::Bytecode),
+            IMAGE_KIND => Some(Self::Image),
+            _ => None,
+        }
+    }
+
+    /// Where the program of this format starts in a container whose header ends at `header_end`.
+    const fn program_offset(self, header_end: usize) -> usize {
+        match self {
+            Self::Bytecode => header_end,
+            Self::Image => header_end.next_multiple_of(IMAGE_ALIGNMENT),
+        }
+    }
+}
+
 /// The two payloads of an installed application container, each a slice of the region.
 pub struct Installed<'a> {
-    /// The bytes of `program.stbc`.
+    /// What the program is.
+    pub format: ProgramFormat,
+    /// The bytes of the program: `program.stbc` or the image.
     pub program: &'a [u8],
     /// The bytes of `deployment-record.bin`.
     pub record: &'a [u8],
@@ -124,7 +177,8 @@ pub enum InstallationError {
     TotalLength,
     /// The entry count is not 2.
     EntryCount(u32),
-    /// An entry's kind is neither 1 nor 2, or a kind appears twice.
+    /// An entry's kind is none of 1, 2 and 3, a kind appears twice, or the container holds two
+    /// programs.
     EntryKind(u32),
     /// An entry's range is inside the header or outside the total length.
     EntryRange,
@@ -179,7 +233,13 @@ impl core::error::Error for InstallationError {}
 /// [`InstallationError::TooLarge`] when the container is longer than a `u32` can count.
 #[cfg(test)]
 pub fn encode(program: &[u8], record: &[u8]) -> Result<Vec<u8>, InstallationError> {
-    write(Version::Plain, None, program, record)
+    write(
+        Version::Plain,
+        None,
+        ProgramFormat::Bytecode,
+        program,
+        record,
+    )
 }
 
 /// Build the `TRSTA002` container of `program` and `record` with the install sequence `sequence`
@@ -199,20 +259,50 @@ pub fn encode_sequenced(
     program: &[u8],
     record: &[u8],
 ) -> Result<Vec<u8>, InstallationError> {
-    write(Version::Sequenced, Some(sequence), program, record)
+    write(
+        Version::Sequenced,
+        Some(sequence),
+        ProgramFormat::Bytecode,
+        program,
+        record,
+    )
+}
+
+/// Build the `TRSTA002` container of the compiled program image `image` and `record` with the
+/// install sequence `sequence` (specification 44 §10.1): [`encode_sequenced`]'s container with the
+/// entry kind [`IMAGE_KIND`] and the image at the first multiple of [`IMAGE_ALIGNMENT`] after the
+/// header, zeros between.
+///
+/// # Errors
+///
+/// [`InstallationError::TooLarge`] when the container is longer than a `u32` can count.
+pub fn encode_image(
+    sequence: u64,
+    image: &[u8],
+    record: &[u8],
+) -> Result<Vec<u8>, InstallationError> {
+    write(
+        Version::Sequenced,
+        Some(sequence),
+        ProgramFormat::Image,
+        image,
+        record,
+    )
 }
 
 /// Writes a container of `version` in its layout's order: the magic, the header CRC-32 (filled in
 /// last), the total length, the sequence of version 2, the entry count, the entry table, and then
-/// the payloads.
+/// the payloads, the program of `format` where that format starts.
 fn write(
     version: Version,
     sequence: Option<u64>,
+    format: ProgramFormat,
     program: &[u8],
     record: &[u8],
 ) -> Result<Vec<u8>, InstallationError> {
     let header_end = version.header_end();
-    let total = header_end
+    let program_offset = format.program_offset(header_end);
+    let total = program_offset
         .checked_add(program.len())
         .and_then(|sum| sum.checked_add(record.len()))
         .ok_or(InstallationError::TooLarge)?;
@@ -228,8 +318,8 @@ fn write(
     let count = u32::try_from(ENTRY_COUNT).map_err(|_| InstallationError::TooLarge)?;
     bytes.extend_from_slice(&count.to_le_bytes());
     for (kind, offset, payload) in [
-        (PROGRAM_KIND, header_end, program),
-        (RECORD_KIND, header_end + program.len(), record),
+        (format.kind(), program_offset, program),
+        (RECORD_KIND, program_offset + program.len(), record),
     ] {
         let offset = u32::try_from(offset).map_err(|_| InstallationError::TooLarge)?;
         let length = u32::try_from(payload.len()).map_err(|_| InstallationError::TooLarge)?;
@@ -241,6 +331,7 @@ fn write(
     debug_assert_eq!(bytes.len(), header_end);
     let crc = crc32::checksum(&bytes[HEADER_CRC_START..header_end]);
     bytes[HEADER_CRC_OFFSET..HEADER_CRC_START].copy_from_slice(&crc.to_le_bytes());
+    bytes.resize(program_offset, 0);
     bytes.extend_from_slice(program);
     bytes.extend_from_slice(record);
     Ok(bytes)
@@ -248,6 +339,7 @@ fn write(
 
 /// The byte ranges of the two payloads of a container that passed its checks.
 struct Payloads {
+    format: ProgramFormat,
     program: Range<usize>,
     record: Range<usize>,
 }
@@ -311,8 +403,8 @@ fn entries(
         let base = version.entries_offset() + index * ENTRY_BYTES;
         let kind = word(base);
         let position = match kind {
-            PROGRAM_KIND => 0,
             RECORD_KIND => 1,
+            other if ProgramFormat::of_kind(other).is_some() => 0,
             other => return Err(InstallationError::EntryKind(other)),
         };
         if seen[position] {
@@ -350,17 +442,22 @@ fn check(region: &[u8], version: Version) -> Result<Payloads, InstallationError>
             return Err(InstallationError::PayloadChecksum(entry.kind));
         }
     }
-    // Each kind appears once, so the two entries are the program and the record in some order.
-    let [first, second] = table;
-    let (program, record) = if first.kind == PROGRAM_KIND {
-        (first, second)
-    } else {
-        (second, first)
-    };
+    let (program, record) = program_and_record(table);
     Ok(Payloads {
+        format: ProgramFormat::of_kind(program.kind).unwrap_or(ProgramFormat::Bytecode),
         program: program.offset..program.end,
         record: record.offset..record.end,
     })
+}
+
+/// The program's entry and the record's: the table holds one program and one record in some order,
+/// as [`entries`] checked.
+fn program_and_record([first, second]: [Entry; ENTRY_COUNT]) -> (Entry, Entry) {
+    if first.kind == RECORD_KIND {
+        (second, first)
+    } else {
+        (first, second)
+    }
 }
 
 /// Check a `TRSTA001` region and return the program and record it holds. Only the tests call this: no
@@ -376,8 +473,13 @@ fn check(region: &[u8], version: Version) -> Result<Payloads, InstallationError>
 /// otherwise the [`InstallationError`] naming the first check that failed.
 #[cfg(test)]
 pub fn decode(region: &[u8]) -> Result<Installed<'_>, InstallationError> {
-    let Payloads { program, record } = check(region, Version::Plain)?;
+    let Payloads {
+        format,
+        program,
+        record,
+    } = check(region, Version::Plain)?;
     Ok(Installed {
+        format,
         program: &region[program],
         record: &region[record],
     })
@@ -394,12 +496,17 @@ pub fn decode(region: &[u8]) -> Result<Installed<'_>, InstallationError> {
 /// [`InstallationError::NoProgram`] when the region is erased or does not start with the `TRSTA002`
 /// magic; otherwise the [`InstallationError`] naming the first check that failed.
 pub fn decode_sequenced(region: &[u8]) -> Result<Sequenced<'_>, InstallationError> {
-    let Payloads { program, record } = check(region, Version::Sequenced)?;
+    let Payloads {
+        format,
+        program,
+        record,
+    } = check(region, Version::Sequenced)?;
     let mut sequence = [0u8; 8];
     sequence.copy_from_slice(&region[SEQUENCE_OFFSET..SEQUENCE_OFFSET + 8]);
     Ok(Sequenced {
         sequence: u64::from_le_bytes(sequence),
         installed: Installed {
+            format,
             program: &region[program],
             record: &region[record],
         },
@@ -500,12 +607,7 @@ pub fn sequenced_layout(
     total_len: u32,
 ) -> Result<SequencedLayout, InstallationError> {
     let table = entries(header, Version::Sequenced, total_len as usize)?;
-    let [first, second] = table;
-    let (program, record) = if first.kind == PROGRAM_KIND {
-        (first, second)
-    } else {
-        (second, first)
-    };
+    let (program, record) = program_and_record(table);
     Ok(SequencedLayout {
         program_bytes: program.end - program.offset,
         record: record.offset..record.end,
@@ -517,7 +619,9 @@ pub fn sequenced_layout(
 /// decoded record and the preparation limits the device granted (specification 34 §5.1, §5.1.1).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Admitted<'a> {
-    /// The bytes of `program.stbc`.
+    /// What the program is.
+    pub format: ProgramFormat,
+    /// The bytes of the program: `program.stbc` or the image.
     pub program: &'a [u8],
     /// The deployment record the container holds.
     pub record: DeploymentRecord,
@@ -582,8 +686,9 @@ pub fn admit<'a>(
     device: &DeviceDescriptor,
 ) -> Result<Admitted<'a>, AdmissionError> {
     let installed = decode(region).map_err(AdmissionError::Container)?;
-    let (record, limits) = admit_payloads(installed.program, installed.record, device)?;
+    let (record, limits) = admit_payloads(&installed, device)?;
     Ok(Admitted {
+        format: installed.format,
         program: installed.program,
         record,
         limits,
@@ -610,10 +715,11 @@ pub fn admit_sequenced<'a>(
         sequence,
         installed,
     } = decode_sequenced(region).map_err(AdmissionError::Container)?;
-    let (record, limits) = admit_payloads(installed.program, installed.record, device)?;
+    let (record, limits) = admit_payloads(&installed, device)?;
     Ok(SequencedAdmitted {
         sequence,
         admitted: Admitted {
+            format: installed.format,
             program: installed.program,
             record,
             limits,
@@ -621,15 +727,21 @@ pub fn admit_sequenced<'a>(
     })
 }
 
-/// The admission both versions share: the record is decoded, and the core admits the program with
-/// it against the device.
+/// The admission both versions share: the record is decoded, a record of another kind of program
+/// than the container's is refused as a record of another program, and the core admits the program
+/// with its record against the device.
 fn admit_payloads(
-    program: &[u8],
-    record: &[u8],
+    installed: &Installed<'_>,
     device: &DeviceDescriptor,
 ) -> Result<(DeploymentRecord, PreparationLimits), AdmissionError> {
-    let record = DeploymentRecord::decode(record).map_err(AdmissionError::Record)?;
-    let limits = trust_runtime_core::deployment::admit(&record, program, device)
+    let record = DeploymentRecord::decode(installed.record).map_err(AdmissionError::Record)?;
+    let names_image = record.application.bytecode_version == BytecodeVersion::NATIVE_IMAGE;
+    if names_image != (installed.format == ProgramFormat::Image) {
+        return Err(AdmissionError::Deployment(RuntimeError::DeploymentRefused(
+            AdmissionRefusal::ProgramMismatch,
+        )));
+    }
+    let limits = trust_runtime_core::deployment::admit(&record, installed.program, device)
         .map_err(AdmissionError::Deployment)?;
     Ok((record, limits))
 }

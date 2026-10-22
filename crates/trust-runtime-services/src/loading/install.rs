@@ -15,8 +15,14 @@ use alloc::vec::Vec;
 use core::fmt;
 use core::ops::Range;
 
-use trust_runtime_core::deployment::{admit_memory, DeploymentRecord, DeviceDescriptor};
+use trust_runtime_core::bytecode::BytecodeVersion;
+use trust_runtime_core::deployment::{
+    admit_memory, AdmissionRefusal, DeploymentRecord, DeviceDescriptor,
+};
 use trust_runtime_core::error::RuntimeError;
+#[cfg(feature = "native")]
+use trust_runtime_core::native::program as native;
+use trust_runtime_core::native::program::Refusal;
 use trust_runtime_core::ports::ProgramStore;
 use trust_runtime_core::retain::checkpoint::{FlashError, FlashGeometry, Slot};
 use trust_runtime_core::vm::{PreparationLimits, PreparedModule};
@@ -25,7 +31,7 @@ use trust_runtime_core::watchdog::RetainMode;
 use super::read_padded;
 use super::select::{self, ScanError};
 use crate::installation::{
-    self, AdmissionError, Admitted, SequencedAdmitted, SEQUENCED_HEADER_BYTES,
+    self, AdmissionError, Admitted, ProgramFormat, SequencedAdmitted, SEQUENCED_HEADER_BYTES,
 };
 
 /// The bytes of a `TRSTA002` header: the payloads start here (specification 34 §5.1).
@@ -63,6 +69,9 @@ pub enum InstallError {
     },
     /// The dry-run preparation refused the program for another reason.
     Preparation(RuntimeError),
+    /// The kernel refuses the compiled program image (specification 44 §10.2): the first of its
+    /// checks that failed, with its numbers.
+    Image(Refusal),
     /// The container is larger than an application slot.
     SlotTooSmall {
         /// The container's length in bytes.
@@ -100,6 +109,7 @@ impl fmt::Display for InstallError {
                 limits.max_preparation_bytes, limits.max_preparation_work
             ),
             Self::Preparation(error) => write!(formatter, "the program does not prepare: {error}"),
+            Self::Image(refusal) => write!(formatter, "the program image is refused: {refusal}"),
             Self::SlotTooSmall { needed, available } => write!(
                 formatter,
                 "the container needs {needed} bytes, an application slot holds {available}"
@@ -327,7 +337,9 @@ impl Checked {
 /// §11.2 (design S4 §2.2): the container and its record, their admission against `device`
 /// (specification 34 §5.1.1, DEPLOY-04), the retained values, a dry-run preparation with the
 /// admitted limits, and the admission of the dry run's memory figure against the memory `device` has
-/// for programs (MEM-12). The dry run's result is dropped. Every runtime runs these checks in this order
+/// for programs (MEM-12). A compiled program image is not prepared: the kernel's checks of
+/// specification 44 §10.2 take the place of the dry run and of the figure's admission. The dry run's
+/// result is dropped. Every runtime runs these checks in this order
 /// with the same texts; the platform supplies `retain_check`, the check of specification 11 §6.7.1
 /// (decision G13), which is given the admitted program.
 ///
@@ -349,17 +361,53 @@ pub fn check(
     retain_check(&admitted).map_err(retain_refusal)?;
     let program_bytes = admitted.program.len();
     let program_sha256 = admitted.record.application.program_sha256;
-    let prepared = PreparedModule::from_bytes(admitted.program, admitted.limits)
-        .map_err(|error| preparation_error(error, program_bytes, admitted.limits))?;
-    // The program's memory figure fits the memory the device has for programs (specification 34
-    // MEM-12): a computer has no maximum, a chip the bytes it measured at boot.
-    let retains = admitted.record.configuration.retain_mode == RetainMode::File;
-    admit_memory(&prepared.memory_figure(), retains, device)
-        .map_err(|error| InstallError::Admission(AdmissionError::Deployment(error)))?;
+    match admitted.format {
+        ProgramFormat::Bytecode => {
+            let prepared = PreparedModule::from_bytes(admitted.program, admitted.limits)
+                .map_err(|error| preparation_error(error, program_bytes, admitted.limits))?;
+            // The program's memory figure fits the memory the device has for programs
+            // (specification 34 MEM-12): a computer has no maximum, a chip the bytes it measured
+            // at boot.
+            let retains = admitted.record.configuration.retain_mode == RetainMode::File;
+            admit_memory(&prepared.memory_figure(), retains, device)
+                .map_err(|error| InstallError::Admission(AdmissionError::Deployment(error)))?;
+        }
+        ProgramFormat::Image => check_image(admitted.program, device)?,
+    }
     Ok(Checked {
         program_bytes,
         program_sha256,
     })
+}
+
+/// The kernel's own checks of the compiled program image `image`, as a boot runs them, against the
+/// memory `device` has for programs (specification 44 §10.2, steps 2, 3, 5 and 6). Admission has
+/// already refused an image on a device that does not run images.
+#[cfg(feature = "native")]
+fn check_image(image: &[u8], device: &DeviceDescriptor) -> Result<(), InstallError> {
+    let Some(target) = device.native else {
+        return Err(runs_no_images());
+    };
+    native::admit(image, &target.device(device.program_memory_bytes))
+        .map(|_| ())
+        .map_err(InstallError::Image)
+}
+
+/// A runtime built without compiled programs runs no image (specification 44 §15).
+#[cfg(not(feature = "native"))]
+fn check_image(_image: &[u8], _device: &DeviceDescriptor) -> Result<(), InstallError> {
+    Err(runs_no_images())
+}
+
+/// The refusal of an image on a device that runs none, as admission refuses its record's version.
+fn runs_no_images() -> InstallError {
+    let version = BytecodeVersion::NATIVE_IMAGE;
+    InstallError::Admission(AdmissionError::Deployment(RuntimeError::DeploymentRefused(
+        AdmissionRefusal::BytecodeVersion {
+            major: version.major,
+            minor: version.minor,
+        },
+    )))
 }
 
 /// The refusal of the retained-value check: a retained-value error is the retained values that cannot

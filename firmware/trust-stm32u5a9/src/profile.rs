@@ -67,4 +67,5 @@ pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
     application_slot_bytes: Some(APPLICATION_BYTES as u64),
     // Measured at boot, before the program loads (`Platform::set_program_memory`).
     program_memory_bytes: None,
+    native: None,
 };

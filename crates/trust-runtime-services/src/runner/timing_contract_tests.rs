@@ -291,10 +291,38 @@ fn a_scan_that_overruns_its_interval_still_lets_the_link_answer_one_request_per_
     assert_eq!(replies.len(), 1);
     assert_eq!(replies[0]["id"], json!(0));
 
-    // The boundary at 25 ms is overdue at 30 ms: request 1 is answered, then the scan runs.
+    // The grid's next boundary, 20 ms, had passed when the scan ended at 30 ms, so the next scan is
+    // due at once: request 1 is answered, then the scan runs.
     fixture.pass_at(&mut runner, 30);
     assert_eq!(fixture.take_scan_times(), [30]);
     let replies = fixture.link.take_replies();
     assert_eq!(replies.len(), 1);
     assert_eq!(replies[0]["id"], json!(1));
+}
+
+#[test]
+fn a_late_wake_does_not_move_the_cycle_grid() {
+    // Specification 10 §4.3 and specification 34 CYCLE-03: the resource samples its tasks on a fixed
+    // grid of the cycle interval. Each pass here comes 1 ms after the deadline of the wait before
+    // it, as a wake that comes late: the scans run 1 ms after each 10 ms boundary, never later, and
+    // the 10 ms task misses no activation in 100 cycles. Catches pacing one interval after the
+    // scan's start, which drifts 1 ms per cycle and loses an activation every 10 cycles.
+    let fixture = Fixture::board_probe();
+    let mut runner = fixture.runner();
+    fixture.pass_at(&mut runner, 0);
+    for _ in 0..100 {
+        let deadline = fixture
+            .wait
+            .take_deadlines()
+            .last()
+            .map(|deadline| u64::try_from(deadline.as_millis()).expect("test deadlines are small"))
+            .expect("the pass waits");
+        fixture.pass_at(&mut runner, deadline + 1);
+    }
+    let expected: Vec<u128> = core::iter::once(0)
+        .chain((1..=100).map(|cycle| cycle * 10 + 1))
+        .collect();
+    assert_eq!(fixture.take_scan_times(), expected);
+    let status = fixture.call(&mut runner, &request(1, "status"));
+    assert_eq!(status["result"]["metrics"]["overruns"], json!(0));
 }

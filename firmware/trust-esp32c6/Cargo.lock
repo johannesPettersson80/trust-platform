@@ -1389,6 +1389,7 @@ dependencies = [
  "serde_json",
  "smol_str",
  "trust-platform-memory",
+ "trust-plc-abi",
  "trust-runtime-core",
  "trust-runtime-services",
 ]
@@ -1403,6 +1404,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-plc-abi"
+version = "0.24.75"
+
+[[package]]
 name = "trust-runtime-core"
 version = "0.24.75"
 dependencies = [
@@ -1414,6 +1419,7 @@ dependencies = [
  "sha2",
  "smol_str",
  "thiserror",
+ "trust-plc-abi",
 ]
 
 [[package]]

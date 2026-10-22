@@ -27,7 +27,6 @@ pub use retained::{
 };
 
 use alloc::boxed::Box;
-use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cell::RefCell;
@@ -243,9 +242,9 @@ impl InstallState {
     ///
     /// # Errors
     ///
-    /// The refusal as plain text: no program store, a commit that already runs, a container the
-    /// store cannot take, or a heap that cannot hold a copy of the container.
-    pub(super) fn begin(&self, container: &[u8]) -> Result<ProgramIdentity, String> {
+    /// The refusal as plain text: no program store, a commit that already runs, or a container the
+    /// store cannot take.
+    pub(super) fn begin(&self, container: Vec<u8>) -> Result<ProgramIdentity, String> {
         self.with(|parts| parts.begin(container))
             .unwrap_or_else(|| Err(String::from("the program store is in use")))
     }
@@ -293,8 +292,8 @@ impl Parts {
         }))
     }
 
-    /// Begins the commit of `container` in the store.
-    fn begin(&mut self, container: &[u8]) -> Result<ProgramIdentity, String> {
+    /// Begins the commit of `container` in the store, which keeps it until the commit's last step.
+    fn begin(&mut self, container: Vec<u8>) -> Result<ProgramIdentity, String> {
         let store = self
             .store
             .as_mut()
@@ -302,11 +301,11 @@ impl Parts {
         if self.pending.is_some() {
             return Err(String::from("a program install is already running"));
         }
-        let checked = install::Checked::of(container).map_err(|error| error.to_string())?;
+        let checked = install::Checked::of(&container).map_err(|error| error.to_string())?;
         // The held program's slot is never written (specification 34 §5.1, MEM-14).
         let held = self.reload.as_ref().and_then(|reload| reload.loaded);
-        let commit = install::start(store, copy_of(container)?, checked, held)
-            .map_err(|error| error.to_string())?;
+        let commit =
+            install::start(store, container, checked, held).map_err(|error| error.to_string())?;
         let committed = commit.identity();
         self.pending = Some(Pending {
             commit,
@@ -337,20 +336,6 @@ impl Parts {
             Err(error) => Step::Finished(reply.map(|owed| failure_reply(owed.id, &error))),
         }
     }
-}
-
-/// A copy of `container` for the commit, which the heap may refuse. The commit keeps the container
-/// until its last step, and the request's own copy ends with the request.
-fn copy_of(container: &[u8]) -> Result<Vec<u8>, String> {
-    let mut copy = Vec::new();
-    copy.try_reserve_exact(container.len()).map_err(|_| {
-        format!(
-            "no room to install a container of {} bytes",
-            container.len()
-        )
-    })?;
-    copy.extend_from_slice(container);
-    Ok(copy)
 }
 
 /// The reply to request `id` when a step of its commit failed: the step's error. The reply carries no

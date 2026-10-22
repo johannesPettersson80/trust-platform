@@ -26,7 +26,7 @@ pub use run::{load, HostCode};
 pub use toolchain::{stack_frames, triple, Toolchain};
 pub use trust_runtime_core::native::image::Target;
 use trust_runtime_core::native::image::{Image, ImageWriter, MemoryFigure};
-pub use trust_runtime_core::native::program::{Device, NativeProgram, NoHooks};
+pub use trust_runtime_core::native::program::{Device, NativeProgram, NoHooks, ScanHooks};
 
 /// Why a project cannot be compiled.
 #[derive(Debug)]

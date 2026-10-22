@@ -204,6 +204,12 @@ impl fmt::Display for AdmissionRefusal {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::ProgramMismatch => formatter.write_str("the record describes another program"),
+            Self::BytecodeVersion { major, minor }
+                if crate::bytecode::BytecodeVersion::new(*major, *minor)
+                    == crate::bytecode::BytecodeVersion::NATIVE_IMAGE =>
+            {
+                formatter.write_str("the device does not run compiled program images")
+            }
             Self::BytecodeVersion { major, minor } => {
                 write!(formatter, "the device does not run STBC {major}.{minor}")
             }

@@ -6868,6 +6868,7 @@ dependencies = [
  "smol_str",
  "trust-chips",
  "trust-platform-memory",
+ "trust-plc-abi",
  "trust-runtime-core",
  "trust-runtime-services",
 ]
@@ -7065,6 +7066,7 @@ dependencies = [
  "serde_json",
  "smol_str",
  "trust-platform-memory",
+ "trust-plc-abi",
  "trust-runtime-core",
 ]
 

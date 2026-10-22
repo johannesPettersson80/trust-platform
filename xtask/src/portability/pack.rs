@@ -1,5 +1,6 @@
 //! `xtask portability pack-project` (specification 34 §5.1): the bench packer that builds the
-//! `TRSTA002` container of a first flash from `program.stbc` and `deployment-record.bin`.
+//! `TRSTA002` container of a first flash from `program.stbc`, or a compiled program image
+//! (specification 44 §10.1), and `deployment-record.bin`.
 //!
 //! Each wire format has one owner: the chip's own `trust_runtime_services::installation` writes
 //! the container, and the core's `DeploymentRecord` reads the record. The container carries the
@@ -10,9 +11,12 @@
 
 use anyhow::{ensure, Context, Result};
 use trust_runtime_core::deployment::{sha256, DeploymentRecord};
+use trust_runtime_core::native::image::MAGIC as IMAGE_MAGIC;
 use trust_runtime_services::installation::{self, FIRST_SEQUENCE};
 
-/// Build the `TRSTA002` container of a first flash for `program` and `record`.
+/// Build the `TRSTA002` container of a first flash for `program` and `record`. A program that starts
+/// with the image magic `TRSTI001` is packed as a compiled program image (entry kind 3), any other as
+/// `program.stbc`.
 ///
 /// The record is read by the core's own decoder, which refuses a record it cannot read
 /// (specification 34 §5.1.1). The container is built by the writer of every container,
@@ -36,7 +40,11 @@ pub(super) fn pack_project(program: &[u8], record: &[u8]) -> Result<Vec<u8>> {
         named.application.program_sha256 == sha256(program),
         "the record describes another program, not this program.stbc"
     );
-    let container = installation::encode_sequenced(FIRST_SEQUENCE, program, record)?;
+    let container = if program.starts_with(&IMAGE_MAGIC) {
+        installation::encode_image(FIRST_SEQUENCE, program, record)?
+    } else {
+        installation::encode_sequenced(FIRST_SEQUENCE, program, record)?
+    };
     Ok(container)
 }
 
@@ -186,6 +194,28 @@ mod tests {
                 Progress::Committed(committed) => return committed.sequence,
             }
         }
+    }
+
+    /// Specification 44 §10.1: a program that starts with the image magic is packed as an image, entry
+    /// kind 3 at byte 64, and its record names the compiled-image version. Catches an image packed as
+    /// STBC, which every device would refuse as a record of another program.
+    #[test]
+    fn an_image_is_packed_as_an_image() {
+        let image = b"TRSTI001 and the rest of an image";
+        let mut record = DeploymentRecord::decode(&record_of(
+            sha256(image),
+            u32::try_from(image.len()).expect("a short image"),
+        ))
+        .expect("the record reads");
+        record.application.bytecode_version = BytecodeVersion::NATIVE_IMAGE;
+        let record = record.encode().expect("the record encodes");
+        let packed = pack_project(image, &record).expect("the record describes this image");
+        assert_eq!(packed[28..32], 3_u32.to_le_bytes());
+        assert_eq!(packed[32..36], 64_u32.to_le_bytes());
+        let decoded =
+            installation::decode_sequenced(&packed).expect("the packed container decodes");
+        assert_eq!(decoded.installed.format, installation::ProgramFormat::Image);
+        assert_eq!(decoded.installed.program, image);
     }
 
     #[test]

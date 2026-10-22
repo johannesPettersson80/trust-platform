@@ -9,7 +9,8 @@
 //! decisions of [`crate::resource::supervisor`] and the command rules of
 //! [`crate::resource::commands`]. The platform adapter supplies the link, the wait and wake, the
 //! clock, the installed program ([`ResourceCycle`]; [`engine`] runs it on the shared engine over
-//! the adapter's process I/O) and its own values and watchdog ([`RunnerPlatform`]).
+//! the adapter's process I/O, and [`compiled`] runs a compiled program image, specification 44)
+//! and its own values and watchdog ([`RunnerPlatform`]).
 //!
 //! A device without an installed program runs the same loop without one ([`Runner::stopped`]):
 //! the resource is Stopped, the loop serves the link and feeds the hardware watchdog, and
@@ -53,6 +54,8 @@
 //! drops the running program. The reply is the one reply in flight until the change ends (the order is
 //! in `online_change.rs`).
 
+#[cfg(feature = "native")]
+pub mod compiled;
 mod cycle;
 mod debugger;
 pub mod engine;
@@ -84,6 +87,8 @@ use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value;
 use trust_runtime_core::vm::RetainApplyEvent;
 
+#[cfg(feature = "native")]
+pub use compiled::CompiledCycle;
 pub use cycle::{resource_tasks, ResourceCycle, RetainSource, TaskDescriptor};
 pub use engine::EngineLiveValues;
 pub use hold::HoldHandle;

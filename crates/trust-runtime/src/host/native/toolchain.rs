@@ -36,7 +36,10 @@ fn cpu(target: Target) -> (&'static str, &'static str) {
 }
 
 /// The linker script of every module: the code from address 0, the read-only data after it, and
-/// sections for data a module must not have, so that their presence is seen and refused.
+/// sections for data a module must not have, so that their presence is seen and refused. The tables
+/// a position-independent executable has (the dynamic symbols and the dynamic section, which the
+/// image does not carry) are placed after them: left to the linker, they go before the code of a
+/// module without read-only data.
 const LINKER_SCRIPT: &str = "SECTIONS
 {
   . = 0;
@@ -44,6 +47,11 @@ const LINKER_SCRIPT: &str = "SECTIONS
   .rodata : ALIGN(16) { *(.rodata .rodata.* .srodata .srodata.*) }
   .data : { *(.data .data.* .sdata .sdata.* .data.rel.ro .data.rel.ro.*) }
   .bss : { *(.bss .bss.* .sbss .sbss.* COMMON) }
+  .dynsym : { *(.dynsym) }
+  .gnu.hash : { *(.gnu.hash) }
+  .hash : { *(.hash) }
+  .dynstr : { *(.dynstr) }
+  .dynamic : { *(.dynamic) }
   /DISCARD/ : { *(.eh_frame .eh_frame_hdr .comment .note .note.*) }
 }
 ";

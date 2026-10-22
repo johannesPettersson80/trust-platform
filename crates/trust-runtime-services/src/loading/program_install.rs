@@ -57,7 +57,7 @@ pub fn request<H: ControlHost>(id: u64, params: Option<&Value>, host: &H) -> Con
     }) {
         return ControlResponse::error(id, error.to_string());
     }
-    match host.commit_program(&container) {
+    match host.commit_program(container) {
         Ok(identity) => ControlResponse::ok(id, installed_result(identity)),
         Err(error) => ControlResponse::error(id, error),
     }

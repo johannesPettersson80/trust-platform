@@ -92,6 +92,23 @@ pub trait CycleHooks {
     fn publish_outputs(&mut self, _access: &CycleAccess<'_, '_>) -> Result<(), RuntimeError> {
         Ok(())
     }
+
+    /// One boundary of a cycle that runs a compiled program, which has no engine state
+    /// (specification 44 §8.7): a phase of [`Self::on_phase`] at the scan's logical time `now`, with
+    /// the program's process images `%I`, `%Q` and `%M` as the last completed scan left them, the
+    /// scan's own at `AfterOutputSample`. The default does nothing.
+    ///
+    /// # Errors
+    ///
+    /// An error fails the scan, as an error of [`Self::on_phase`] does.
+    fn on_compiled_phase(
+        &mut self,
+        _phase: CyclePhase,
+        _now: crate::value::Duration,
+        _images: &crate::io_image::FlatImages,
+    ) -> Result<(), RuntimeError> {
+        Ok(())
+    }
 }
 
 pub(super) struct NoopCycleHooks;

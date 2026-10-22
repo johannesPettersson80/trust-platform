@@ -118,6 +118,41 @@ pub static WITHOUT_DEBUGGER: KernelApi = KernelApi {
     debug_write: no_queued_write,
 };
 
+/// A module's code and read-only data where the image lies, on a device whose CPU executes them in
+/// place: the C6's flash through its MMU window, the U5A9's flash (specification 44 §10.3).
+#[derive(Clone, Copy)]
+pub struct InPlace {
+    module: &'static [u8],
+}
+
+impl InPlace {
+    /// The module `module`: `CODE` with `RODATA` at its distance, as the image holds them.
+    ///
+    /// # Safety
+    ///
+    /// `module` is the module of an image the kernel admitted (specification 44 §10.2), in memory
+    /// the CPU executes, and it stays mapped and unchanged for as long as an entry of it is called.
+    #[must_use]
+    #[allow(unsafe_code)]
+    pub unsafe fn new(module: &'static [u8]) -> Self {
+        Self { module }
+    }
+
+    /// The entry point `offset` bytes into the code, with the Thumb bit on a Thumb target as the
+    /// image's entry table gives it, or `None` past the module.
+    #[must_use]
+    #[allow(unsafe_code)]
+    pub fn entry(&self, offset: u32) -> Option<Entry> {
+        let offset = usize::try_from(offset)
+            .ok()
+            .filter(|offset| *offset < self.module.len())?;
+        // SAFETY: as the caller of `new` promised, the module is the executable code of an admitted
+        // image, unchanged, and `offset` is the offset of one of its entry points from its first
+        // byte, inside the module.
+        Some(unsafe { Entry::from_address(self.module.as_ptr().wrapping_add(offset)) })
+    }
+}
+
 /// A module's code and read-only data in memory the CPU executes, on a computer (specification 44
 /// §10.3): copied into an anonymous mapping that is then made executable and no longer writable.
 #[cfg(feature = "host")]

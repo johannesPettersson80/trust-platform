@@ -5,7 +5,10 @@
 //! store), and no caller drains them from a chip.
 
 use trust_runtime_core::error::RuntimeError;
+#[cfg(feature = "native")]
+use trust_runtime_core::io_image::FlatImages;
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
+use trust_runtime_core::value::Duration;
 use trust_runtime_core::vm::{CycleAccess, CycleHooks, CyclePhase};
 
 use super::cycle::TaskDescriptor;
@@ -48,6 +51,40 @@ impl<'a, C: MonotonicClock> ScanObserver<'a, C> {
     fn since(&self, started: MonotonicInstant) -> core::time::Duration {
         self.clock.now().saturating_since(started).as_duration()
     }
+
+    /// Records `phase` of a scan at the logical time `time`.
+    fn record(&mut self, phase: CyclePhase, time: Duration) -> Result<(), RuntimeError> {
+        match phase {
+            CyclePhase::TaskOverrun { index, missed } => {
+                let task = self.task(index)?;
+                self.records
+                    .record(|metrics| metrics.record_overrun(&task.name, missed));
+                self.records.push_event(RuntimeEvent::TaskOverrun {
+                    name: task.name.clone(),
+                    missed,
+                    time,
+                });
+            }
+            CyclePhase::TaskStart(_) => self.task_started = Some(self.clock.now()),
+            CyclePhase::TaskEnd(index) => {
+                let task = self.task(index)?;
+                if let Some(started) = self.task_started.take() {
+                    let duration = self.since(started);
+                    self.records
+                        .record(|metrics| metrics.record_task(&task.name, duration));
+                }
+            }
+            CyclePhase::CycleStart
+            | CyclePhase::BeforeInputSample
+            | CyclePhase::AfterInputSample
+            | CyclePhase::BackgroundStart(_)
+            | CyclePhase::BackgroundEnd(_)
+            | CyclePhase::BeforeOutputSample
+            | CyclePhase::AfterOutputSample
+            | CyclePhase::CycleEnd => {}
+        }
+        Ok(())
+    }
 }
 
 impl<C: MonotonicClock> CycleHooks for ScanObserver<'_, C> {
@@ -80,35 +117,17 @@ impl<C: MonotonicClock> CycleHooks for ScanObserver<'_, C> {
         phase: CyclePhase,
         access: &mut CycleAccess<'_, '_>,
     ) -> Result<(), RuntimeError> {
-        match phase {
-            CyclePhase::TaskOverrun { index, missed } => {
-                let task = self.task(index)?;
-                self.records
-                    .record(|metrics| metrics.record_overrun(&task.name, missed));
-                self.records.push_event(RuntimeEvent::TaskOverrun {
-                    name: task.name.clone(),
-                    missed,
-                    time: access.logical_time(),
-                });
-            }
-            CyclePhase::TaskStart(_) => self.task_started = Some(self.clock.now()),
-            CyclePhase::TaskEnd(index) => {
-                let task = self.task(index)?;
-                if let Some(started) = self.task_started.take() {
-                    let duration = self.since(started);
-                    self.records
-                        .record(|metrics| metrics.record_task(&task.name, duration));
-                }
-            }
-            CyclePhase::CycleStart
-            | CyclePhase::BeforeInputSample
-            | CyclePhase::AfterInputSample
-            | CyclePhase::BackgroundStart(_)
-            | CyclePhase::BackgroundEnd(_)
-            | CyclePhase::BeforeOutputSample
-            | CyclePhase::AfterOutputSample
-            | CyclePhase::CycleEnd => {}
-        }
-        Ok(())
+        self.record(phase, access.logical_time())
+    }
+
+    /// A compiled program's scan is recorded at the same phases (specification 44 §8.7).
+    #[cfg(feature = "native")]
+    fn on_compiled_phase(
+        &mut self,
+        phase: CyclePhase,
+        now: Duration,
+        _images: &FlatImages,
+    ) -> Result<(), RuntimeError> {
+        self.record(phase, now)
     }
 }

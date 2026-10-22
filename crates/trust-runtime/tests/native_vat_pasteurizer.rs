@@ -11,6 +11,9 @@ use trust_runtime::bundle_builder::collect_project_source_files;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::native::{build, load, Device, NoHooks, Options, Target, Toolchain};
 use trust_runtime::value::{Duration, Value};
+use trust_runtime_core::bytecode::BytecodeVersion;
+use trust_runtime_core::deployment::{DeploymentRecord, DeviceDescriptor};
+use trust_runtime_services::installation::{admit_sequenced, encode_image, ProgramFormat};
 
 const MS: i64 = 1_000_000;
 
@@ -72,6 +75,27 @@ fn the_pasteurizer_runs_natively_as_the_runtime_runs_it() {
         built.figure.code,
         built.figure.total
     );
+    // The image's deployment record carries the project's configuration (specification 44 §10.1):
+    // `runtime.toml` names the resource `Plc` with a 10 ms cycle, and `io.toml` has the three lamps'
+    // safe values. A device that runs images admits the record with the image; one that runs STBC
+    // only refuses it.
+    let record = trust_runtime::deployment::image_record(&project, &built.image)
+        .expect("the record of the image");
+    let decoded = DeploymentRecord::decode(&record).expect("the record reads");
+    assert_eq!(decoded.configuration.resource_name, "Plc");
+    assert_eq!(decoded.configuration.cycle_interval_nanos, 10 * MS as u64);
+    assert_eq!(decoded.configuration.safe_state.len(), 3);
+    assert_eq!(decoded.tasks.len(), 3);
+    let container = encode_image(1, &built.image, &record).expect("the container encodes");
+    let images_only = DeviceDescriptor {
+        bytecode_versions: &[BytecodeVersion::NATIVE_IMAGE],
+        ..DeviceDescriptor::hosted()
+    };
+    let admitted = admit_sequenced(&container, &images_only).expect("the device admits the image");
+    assert_eq!(admitted.admitted.format, ProgramFormat::Image);
+    assert_eq!(admitted.admitted.program, built.image.as_slice());
+    assert!(admit_sequenced(&container, &DeviceDescriptor::hosted()).is_err());
+
     let mut program = load(&built.image, &device()).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
 

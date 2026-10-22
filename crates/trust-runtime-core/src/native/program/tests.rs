@@ -70,7 +70,7 @@ impl ModuleCode for StandIn {
 
 /// An image of `MAIN` in a 10 ms task, its byte 1 bound to `%QX0.1`, whose body is at
 /// `body`, with memory figure `total` and stack bound `stack`.
-fn image(body: u32, total: u64, stack: u64, target: Target) -> Vec<u8> {
+pub(crate) fn image(body: u32, total: u64, stack: u64, target: Target) -> Vec<u8> {
     let mut strings = StringPool::new();
     let main = strings.add("MAIN");
     let count_name = strings.add("MAIN.COUNT");
@@ -270,6 +270,27 @@ fn a_scan_runs_the_due_tasks_and_publishes_the_bound_outputs() {
     assert_eq!(scan(&mut program, 20), (7, 0b10));
     assert_eq!(scan(&mut program, 25), (7, 0b10));
     assert_eq!(scan(&mut program, 30), (8, 0));
+}
+
+/// A safe-state write of an address past the program's one output byte grows the output image
+/// (`write_flat_image`); the next scan still publishes the program's output byte into its first byte
+/// and leaves the rest. Catches a publication that copies nothing once the image is longer than the
+/// program's outputs.
+#[test]
+fn a_grown_output_image_still_takes_the_programs_outputs() {
+    let device = device();
+    let bytes = image(0, 100, 50, device.target);
+    let image = admit(&bytes, &device).unwrap();
+    let mut program = NativeProgram::new(image, StandIn, &device, &WITHOUT_DEBUGGER).unwrap();
+    program.cold_start(Duration::ZERO).unwrap();
+    program.outputs = vec![0, 0xA5];
+    for ms in [10, 20] {
+        program
+            .scan(Duration::from_nanos(ms * MS), &mut NoHooks)
+            .unwrap();
+    }
+    // The count went 5, 6, 7: its lowest bit is `%QX0.1`.
+    assert_eq!(program.outputs, [0b10, 0xA5]);
 }
 
 /// A fault ends the scan with its runtime error and publishes nothing.

@@ -276,13 +276,13 @@ impl RecordsPort for ControlState {
 
     /// Commits the checked container as the project's program through the program store (specification
     /// 34 §11.2), and returns the identity the store gives it.
-    fn commit_program(&self, container: &[u8]) -> Result<ProgramIdentity, String> {
+    fn commit_program(&self, container: Vec<u8>) -> Result<ProgramIdentity, String> {
         let root = self
             .project_root
             .as_deref()
             .ok_or_else(|| String::from("no project folder"))?;
         let sequenced =
-            installation::decode_sequenced(container).map_err(|error| error.to_string())?;
+            installation::decode_sequenced(&container).map_err(|error| error.to_string())?;
         crate::deployment::program_store::install(root, sequenced.installed.program)
             .map_err(|error| error.to_string())
     }

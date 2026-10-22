@@ -18,6 +18,9 @@ pub(super) struct Firmware {
     pub bin: String,
     /// Flag pairs, such as `["-C", "link-arg=-Tlinkall.x"]`, that the target rustflags must contain.
     pub required_rustflags: &'static [[&'static str; 2]],
+    /// The firmware crate's features: `native` for the firmware that runs compiled program images
+    /// (specification 44 §15).
+    pub features: &'static [&'static str],
 }
 
 impl Firmware {
@@ -49,6 +52,15 @@ impl Firmware {
             target: chip.processor.rust_target.clone(),
             bin: chip.firmware.bin.clone(),
             required_rustflags: required_rustflags(chip.identity.family),
+            features: &[],
+        }
+    }
+
+    /// The same chip's firmware that runs compiled program images (specification 44 §15).
+    pub(super) fn native(self) -> Self {
+        Self {
+            features: &["native"],
+            ..self
         }
     }
 }

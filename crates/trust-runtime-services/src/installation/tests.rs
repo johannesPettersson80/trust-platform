@@ -5,6 +5,7 @@
 //! CRC-32/ISO-HDLC. A `TRSTA002` container of the same payloads starts them at offset 60 and is
 //! 65 bytes long.
 
+use alloc::string::ToString;
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -19,8 +20,9 @@ use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::vm::PreparationLimits;
 
 use super::{
-    admit, committed_header, decode, decode_sequenced, encode, encode_sequenced, sequenced_layout,
-    set_sequence, AdmissionError, InstallationError, SequencedHeader, SequencedLayout,
+    admit, admit_sequenced, committed_header, decode, decode_sequenced, encode, encode_image,
+    encode_sequenced, sequenced_layout, set_sequence, AdmissionError, InstallationError,
+    ProgramFormat, SequencedHeader, SequencedLayout,
 };
 
 /// The program `[1, 2, 3]` and the record `[0xaa, 0xbb]` in a version-1 container, byte for byte.
@@ -426,5 +428,126 @@ fn a_layout_is_refused_for_a_header_that_fails_a_check_of_the_container() {
     assert_eq!(
         sequenced_layout(&bytes[..59], 65),
         Err(InstallationError::Truncated)
+    );
+}
+
+/// The bytes of a stand-in compiled program image. Admission reads only their length and SHA-256.
+const IMAGE: &[u8] = b"TRSTI001-image-bytes";
+
+/// [`record_of`] for a compiled program image: the record names [`BytecodeVersion::NATIVE_IMAGE`].
+fn image_record_of(image: &[u8]) -> Vec<u8> {
+    let mut record = record_of(image);
+    record.application.bytecode_version = BytecodeVersion::NATIVE_IMAGE;
+    record.encode().expect("the record encodes")
+}
+
+/// A chip that runs STBC 3.0 and compiled program images.
+fn image_chip() -> DeviceDescriptor {
+    DeviceDescriptor {
+        bytecode_versions: &[BytecodeVersion::SOURCE_FREE, BytecodeVersion::NATIVE_IMAGE],
+        ..chip(6112 * 1024)
+    }
+}
+
+#[test]
+fn an_image_lies_in_its_container_at_a_64_byte_boundary() {
+    // Specification 44 §10.1 and §5.3: entry kind 3 names a compiled program image, which starts at
+    // the first multiple of 64 after the 60-byte header, with zeros between, so that an image read
+    // where it lies keeps its sections' alignment; the record follows the image. Worked out by
+    // hand: the 20 image bytes lie at 64 to 84 and the record from 84. Catches an image at byte 60,
+    // where its code would lose its 64-byte alignment, and a kind the reader takes for STBC.
+    let record = image_record_of(IMAGE);
+    let bytes = encode_image(5, IMAGE, &record).expect("the container encodes");
+    assert_eq!(bytes.len(), 84 + record.len());
+    assert_eq!(&bytes[28..32], &3u32.to_le_bytes());
+    assert_eq!(&bytes[32..36], &64u32.to_le_bytes());
+    assert_eq!(&bytes[36..40], &20u32.to_le_bytes());
+    assert_eq!(&bytes[44..48], &2u32.to_le_bytes());
+    assert_eq!(&bytes[48..52], &84u32.to_le_bytes());
+    assert_eq!(&bytes[60..64], &[0; 4]);
+    assert_eq!(&bytes[64..84], IMAGE);
+    let decoded = decode_sequenced(&bytes).expect("the container decodes");
+    assert_eq!(decoded.sequence, 5);
+    assert_eq!(decoded.installed.format, ProgramFormat::Image);
+    assert_eq!(decoded.installed.program, IMAGE);
+    assert_eq!(decoded.installed.record, record.as_slice());
+    let total = u32::try_from(bytes.len()).expect("a short container");
+    assert_eq!(
+        sequenced_layout(&bytes[..60], total),
+        Ok(SequencedLayout {
+            program_bytes: 20,
+            record: 84..bytes.len(),
+            record_crc: crc32::checksum(&record),
+        })
+    );
+    // An STBC container keeps its program at byte 60.
+    let stbc = sequenced_container(5);
+    let decoded = decode_sequenced(&stbc).expect("the container decodes");
+    assert_eq!(decoded.installed.format, ProgramFormat::Bytecode);
+    assert_eq!(&stbc[32..36], &60u32.to_le_bytes());
+}
+
+#[test]
+fn a_container_of_two_programs_is_refused() {
+    // Specification 44 §10.1: a container holds one program and its record. An image entry next to
+    // an STBC entry is refused by the entry check before any payload is read. Catches a reader that
+    // takes either entry for the program.
+    let mut bytes = encode_image(1, IMAGE, &image_record_of(IMAGE)).expect("the container encodes");
+    bytes[44..48].copy_from_slice(&1u32.to_le_bytes());
+    let crc = crc32::checksum(&bytes[12..60]);
+    bytes[8..12].copy_from_slice(&crc.to_le_bytes());
+    assert!(matches!(
+        decode_sequenced(&bytes),
+        Err(InstallationError::EntryKind(1))
+    ));
+}
+
+#[test]
+fn an_image_and_its_record_name_the_same_kind_of_program() {
+    // Specification 44 §10.1: the record of an image names the compiled-image version, and the
+    // record of STBC an STBC version. A container whose record names the other kind describes
+    // another program and is refused before any state exists, as a record of another program is
+    // (specification 34 §5.1.1 step 1). Catches a device that runs an image as STBC or the reverse.
+    let refused = Err(AdmissionError::Deployment(RuntimeError::DeploymentRefused(
+        AdmissionRefusal::ProgramMismatch,
+    )));
+    let stbc_record = record_of(IMAGE).encode().expect("the record encodes");
+    let image_with_stbc_record =
+        encode_image(1, IMAGE, &stbc_record).expect("the container encodes");
+    assert_eq!(
+        admit_sequenced(&image_with_stbc_record, &image_chip()),
+        refused
+    );
+    let stbc_with_image_record =
+        encode_sequenced(1, IMAGE, &image_record_of(IMAGE)).expect("the container encodes");
+    assert_eq!(
+        admit_sequenced(&stbc_with_image_record, &image_chip()),
+        refused
+    );
+    let image = encode_image(1, IMAGE, &image_record_of(IMAGE)).expect("the container encodes");
+    let admitted = admit_sequenced(&image, &image_chip()).expect("the image is admitted");
+    assert_eq!(admitted.admitted.format, ProgramFormat::Image);
+    assert_eq!(admitted.admitted.program, IMAGE);
+}
+
+#[test]
+fn a_device_that_runs_no_images_refuses_one() {
+    // Specification 34 §5.1.1 step 2 with specification 44 §10.1: a device whose descriptor does not
+    // name the compiled-image version refuses an image, and says so in words rather than as an STBC
+    // version. Catches a refusal that reads "STBC 44.1".
+    let image = encode_image(1, IMAGE, &image_record_of(IMAGE)).expect("the container encodes");
+    let refusal = admit_sequenced(&image, &chip(6112 * 1024)).expect_err("the chip runs no image");
+    assert_eq!(
+        refusal,
+        AdmissionError::Deployment(RuntimeError::DeploymentRefused(
+            AdmissionRefusal::BytecodeVersion {
+                major: 44,
+                minor: 1,
+            }
+        ))
+    );
+    assert_eq!(
+        refusal.to_string(),
+        "deployment refused: the device does not run compiled program images"
     );
 }

@@ -52,6 +52,23 @@ impl PublishedImages {
         access.copy_flat_images(&mut self.images);
     }
 
+    /// Record scan `scan`, the addresses `forced` and a copy of `images`, the process images of a
+    /// compiled program, keeping the storage of the copy.
+    #[cfg(feature = "native")]
+    pub(super) fn record_images<'f>(
+        &mut self,
+        images: &FlatImages,
+        scan: u64,
+        forced: impl Iterator<Item = &'f IoAddress>,
+    ) {
+        self.scan = Some(scan);
+        self.forced.clear();
+        self.forced.extend(forced.cloned());
+        self.images.inputs.clone_from(&images.inputs);
+        self.images.outputs.clone_from(&images.outputs);
+        self.images.memory.clone_from(&images.memory);
+    }
+
     /// Whether a scan has published.
     pub(super) fn published(&self) -> bool {
         self.scan.is_some()

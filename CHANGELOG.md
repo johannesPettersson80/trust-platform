@@ -12,7 +12,21 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   program `examples/vat_pasteurizer` (batch control with a PID loop, twelve alarms, status texts, a
   plant simulation) needs 4,546 bytes of RAM on the ESP32-C6 instead of about 160 KB, and on a
   computer it computes the same values as the runtime, bit for bit, scan after scan. Building needs
-  the toolchain folder at `TRUST_TOOLCHAIN`; running an image on the devices follows.
+  the toolchain folder at `TRUST_TOOLCHAIN`. The build also writes the image's deployment record,
+  and `cargo xtask portability pack-project` packs an image like `program.stbc`. The ESP32-C6
+  firmware built with `build-firmware esp32c6 <report> --native` admits the image where it lies in
+  its program slot and runs its code from a 128 KiB region of its RAM, through the same program
+  store, install, `status`, `tasks.stats` and `io.read` as today; the pasteurizer's control task
+  takes about 0.06 ms there, 0.18 ms at worst over an hour, and its 86 KB image installs over USB.
+  Retained values, online change, the debugger and Live Values writes of a compiled program follow
+  (specification 44 M2, M3).
+- Changed: an install keeps one copy of the uploaded container while it commits, not two, so a chip
+  installs a program twice as large from the same heap.
+- Fixed: a periodic task lost activations. The resource paced each cycle one interval after the
+  previous cycle had started, so every late wake added to the next interval and a 10 ms task lost
+  about one activation in 200 cycles on the ESP32-C6, counted as overruns. Cycles now keep a fixed
+  grid of the cycle interval on computers and chips (specification 10 §4.3): a late wake no longer
+  moves the next cycle, and a cycle longer than its interval starts the next one at once.
 - Changed: a program takes less of a chip's memory. Each table of a prepared program holds exactly
   its entries, and a chip boots the program it has installed where it lies in its flash, without
   copying it into its heap: it reads the program's declarations and initializers there and keeps on

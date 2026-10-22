@@ -1299,6 +1299,19 @@ For a baseline of 0 ms, a 25 ms task sampled every 10 ms shall run at 30, 50,
 fixed sampling grid and no skipped cycles, sampling lateness is less than one
 10 ms cycle; this is not a bound on OS delays or task completion under load.
 
+The resource keeps that sampling grid. A cycle's nominal start is one cycle
+interval after the nominal start of the cycle before it, never one interval
+after the moment the cycle before it actually started, so the time a wake
+takes is not added to the next interval: with a 10 ms cycle and every wake
+1 ms late, the cycles start at 0, 11, 21 and 31 ms, not at 0, 11, 22 and 33 ms,
+and a 10 ms task misses no activation. A cycle that ends after the next nominal
+start makes the next cycle start at once, without a burst of cycles to catch
+up; the grid continues from that start, and the tasks count the deadlines that
+passed as missed under the rule above. A restart, a pause and a start begin the
+grid again from their first cycle. This holds on every runtime, a computer's
+scheduler thread and a chip's resource loop alike (specification 34
+CYCLE-03).
+
 The SINGLE input must resolve to a BOOL variable; if it is missing or non-BOOL, task execution
 fails with a runtime error.
 

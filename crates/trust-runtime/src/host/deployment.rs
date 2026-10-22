@@ -88,6 +88,25 @@ pub fn write_record(project: &Path, program: &[u8]) -> io::Result<RecordWrite> {
     }
 }
 
+/// The deployment record of the compiled program image `image` of `project` (specification 44
+/// §10.1): the record the image's own tables give, with the configuration identity and the
+/// configuration section of the project's `runtime.toml` and `io.toml`, encoded.
+///
+/// # Errors
+///
+/// The configuration files cannot be read or carry a value section 7 cannot hold, the image's
+/// tables do not read, or the record cannot be encoded.
+pub fn image_record(project: &Path, image: &[u8]) -> Result<Vec<u8>, RuntimeError> {
+    let identity = project_configuration_identity(project).map_err(|error| {
+        RuntimeError::InvalidBundle(format!("failed to read the configuration: {error}").into())
+    })?;
+    let mut record = DeploymentRecord::for_image(image, identity)?;
+    record.configuration = configuration::from_project(project)?;
+    record
+        .encode()
+        .map_err(RuntimeError::DeploymentRecordInvalid)
+}
+
 /// The memory figure of `program` on this computer (specification 34 MEM-12): the figure that
 /// preparation computes with the limits that the program's record requests, the hosted defaults,
 /// with the capture of the retained values when the project's `runtime.toml` keeps them. A device

@@ -366,7 +366,7 @@ impl<P: RunnerPlatform, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, C> 
 
     /// Begins the stepped commit of the checked container; the loop writes the `installed` reply
     /// when the last step is done (specification 34 §11.2, PORT-05).
-    fn commit_program(&self, container: &[u8]) -> Result<ProgramIdentity, String> {
+    fn commit_program(&self, container: Vec<u8>) -> Result<ProgramIdentity, String> {
         self.install.begin(container)
     }
 }

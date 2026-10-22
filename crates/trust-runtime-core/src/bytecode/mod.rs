@@ -57,6 +57,9 @@ impl BytecodeVersion {
     pub const SOURCE_FREE_V2: Self = Self::new(2, 0);
     /// Current source-free format with uniform eight-byte temporal storage.
     pub const SOURCE_FREE: Self = Self::new(3, 0);
+    /// Not STBC: the version a deployment record names for a compiled program image `TRSTI001`
+    /// (specification 44 §10.1). No STBC decoder reads it.
+    pub const NATIVE_IMAGE: Self = Self::new(44, 1);
 
     /// Explicit supported pairs; a known major does not admit an unknown minor ABI.
     pub const fn is_supported(self) -> bool {

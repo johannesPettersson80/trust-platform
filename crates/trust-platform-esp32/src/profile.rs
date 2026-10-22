@@ -3,9 +3,10 @@ use crate::cookie::{ResetCookie, WATCHDOG_PHASE};
 use crate::program_flash::SLOT_BYTES;
 use trust_runtime_core::bytecode::BytecodeVersion;
 use trust_runtime_core::deployment::{
-    Capabilities, DeviceDescriptor, NumericContract, RequestedLimits, SchedulingProfile,
-    TimingEvidence,
+    Capabilities, DeviceDescriptor, NativeTarget, NumericContract, RequestedLimits,
+    SchedulingProfile, TimingEvidence,
 };
+use trust_runtime_core::native::image::Target;
 use trust_runtime_services::runner::engine::DeviceStack;
 use trust_runtime_services::transfer::TransferSession;
 
@@ -112,6 +113,9 @@ pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
     application_slot_bytes: Some(SLOT_BYTES as u64),
     // Measured at boot, before the first program loads (`Platform::set_program_memory`).
     program_memory_bytes: None,
+    // The C6's interpreter runs no compiled program image; the native firmware's descriptor
+    // does (specification 44 §15).
+    native: None,
 };
 
 /// The C6's main stack (specification 34 MEM-03 and Appendix D.2; owner, 21 October 2026, "Stack
@@ -129,6 +133,36 @@ pub const MAIN_STACK: DeviceStack = DeviceStack {
     window_bytes: 78 * 1024,
     base_bytes: 34_008,
     level_bytes: 6_144,
+};
+
+/// The bytes of the C6's program code region (specification 44 §10.3): RAM the C6 executes, into
+/// which the loader copies a compiled program's module. 128 KiB holds the pasteurizer's 43,725-byte
+/// module with room for programs three times its size; a larger module runs where it lies in its
+/// slot. The region is the linker's `.trust_code` section; in the firmware that runs compiled
+/// programs it, the main heap's added 128 KiB and the main stack's region share the RAM that the
+/// interpreter's RAM code took, and the stack's region keeps more than the 82 KiB that its window and
+/// margin need (`stack_guard.x`, the build report's `stack.region_bytes`).
+pub const PROGRAM_CODE_BYTES: usize = 128 * 1024;
+
+/// What the C6 offers compiled programs (specification 44 §10.2 and NX-10): the RV32IMAC module
+/// target; as the task stack, the main stack's window less its headroom and the deepest path's
+/// base, 79,872 − 2,048 − 34,008 = 43,816 bytes, which a scan's path, shallower than the install's
+/// that the base measured, leaves to the module; and the default statement budget of 1,000,000.
+pub const NATIVE_TARGET: NativeTarget = NativeTarget {
+    target: Target::Rv32imac,
+    task_stack_bytes: (MAIN_STACK.window_bytes
+        - DeviceStack::HEADROOM_BYTES
+        - MAIN_STACK.base_bytes) as u64,
+    max_statements: 1_000_000,
+};
+
+/// The descriptor of the C6 when its firmware runs compiled program images (specification 44 §15):
+/// [`DEVICE_DESCRIPTOR`] with the compiled-image version as the only program version, so that an
+/// STBC program is refused with its version, and with [`NATIVE_TARGET`].
+pub const NATIVE_DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
+    bytecode_versions: &[BytecodeVersion::NATIVE_IMAGE],
+    native: Some(NATIVE_TARGET),
+    ..DEVICE_DESCRIPTOR
 };
 
 /// The capacity of the C6's heap, in bytes: its three regions, the 32,832-byte main heap, the 64 KiB

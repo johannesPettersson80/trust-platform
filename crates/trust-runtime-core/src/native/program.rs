@@ -12,7 +12,7 @@ use alloc::vec::Vec;
 use core::fmt;
 
 use smol_str::SmolStr;
-use trust_plc_abi::kernel::Entry;
+use trust_plc_abi::kernel::{Entry, InPlace};
 use trust_plc_abi::{Cx, FaultCode, FaultRecord, KernelApi, INTERFACE_VERSION};
 
 use super::image::{
@@ -21,6 +21,7 @@ use super::image::{
 };
 use crate::cycle::{sort_ready_tasks_by_priority, ReadyTask};
 use crate::error::{ExecutionLimitKind, RuntimeError};
+use crate::io_image::FlatImages;
 use crate::task::{evaluate_task_readiness, TaskState};
 use crate::value::Duration;
 
@@ -30,6 +31,13 @@ pub trait ModuleCode {
     /// The entry point whose first instruction is `offset` bytes into `CODE`; `None` when the
     /// platform cannot reach it.
     fn entry(&self, offset: u32) -> Option<Entry>;
+}
+
+/// The code of a device that executes the image where it lies.
+impl ModuleCode for InPlace {
+    fn entry(&self, offset: u32) -> Option<Entry> {
+        InPlace::entry(self, offset)
+    }
 }
 
 /// What a device offers a program (specification 44 §10.2, steps 2 and 6).
@@ -395,6 +403,19 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         slot(id).is_some_and(|index| self.areas[index].write(offset, data))
     }
 
+    /// Copies the process images, `%I`, `%Q` and `%M`, into `images` as the last scan left them,
+    /// keeping the capacity `images` has.
+    pub fn copy_images(&self, images: &mut FlatImages) {
+        for (area, image) in [
+            (0, &mut images.inputs),
+            (1, &mut images.outputs),
+            (2, &mut images.memory),
+        ] {
+            image.resize(self.areas[area].len, 0);
+            self.areas[area].read(0, image);
+        }
+    }
+
     /// Copies the starting memory into the areas that have one, `retain` too when `with_retain`
     /// (specification 44 §6.7, §7.4).
     fn start_memory(&mut self, with_retain: bool) -> Result<(), RuntimeError> {
@@ -462,7 +483,9 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         let inputs = core::mem::take(&mut self.inputs);
         self.areas[0].write(0, &inputs);
         self.inputs = inputs;
-        for binding in self.bindings.clone() {
+        // By index: a scan allocates nothing (specification 34, "The allocation count").
+        for index in 0..self.bindings.len() {
+            let binding = self.bindings[index];
             if binding.image == 2 {
                 continue;
             }
@@ -487,7 +510,8 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     /// Copies the bound variables out to the output and marker images after the tasks ran, and
     /// the output area to the output image.
     fn publish(&mut self) {
-        for binding in self.bindings.clone() {
+        for index in 0..self.bindings.len() {
+            let binding = self.bindings[index];
             if binding.image == 1 {
                 continue;
             }
@@ -514,8 +538,11 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
                 self.areas[image].write(binding.byte as usize, &bytes[..width]);
             }
         }
+        // A safe-state write may have grown the output image past the program's outputs
+        // (`write_flat_image`); the program's outputs are its first bytes.
         let mut outputs = core::mem::take(&mut self.outputs);
-        self.areas[1].read(0, &mut outputs);
+        let length = outputs.len().min(self.areas[1].len);
+        self.areas[1].read(0, &mut outputs[..length]);
         self.outputs = outputs;
     }
 
@@ -703,4 +730,4 @@ pub fn fault_error(record: &FaultRecord, code: u32, budget: u32) -> RuntimeError
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

@@ -336,13 +336,14 @@ pub trait RecordsPort {
     }
 
     /// Commits the complete container `container`, already checked, to the platform's program store
-    /// (specification 34 §11.2), and returns the identity the store gives the program. The default
-    /// refuses.
+    /// (specification 34 §11.2), and returns the identity the store gives the program. The store
+    /// takes the request's container, so that a chip holds one copy of it while it commits. The
+    /// default refuses.
     ///
     /// # Errors
     ///
     /// The store's refusal or failure, as plain text.
-    fn commit_program(&self, _container: &[u8]) -> Result<ProgramIdentity, String> {
+    fn commit_program(&self, _container: Vec<u8>) -> Result<ProgramIdentity, String> {
         Err("the platform does not store programs".into())
     }
 }

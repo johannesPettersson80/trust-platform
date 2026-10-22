@@ -44,6 +44,9 @@ pub(super) fn run(root: &Path, args: Vec<String>) -> Result<()> {
         [action, name, output] if action == "build-firmware" => {
             build::firmware(root, &firmware::Firmware::parse(name)?, output)
         }
+        [action, name, output, native] if action == "build-firmware" && native == "--native" => {
+            build::firmware(root, &firmware::Firmware::parse(name)?.native(), output)
+        }
         [action, gpio, output] if action == "pack" => {
             let main = fs::read(root.join(FIXTURES).join("program-v2.stbc"))?;
             let numeric = fs::read(root.join(FIXTURES).join("numeric-v2.stbc"))?;
@@ -83,7 +86,7 @@ pub(super) fn run(root: &Path, args: Vec<String>) -> Result<()> {
             report["uart_sha256"] = digest(&raw).into();
             write_report(output, report)
         }
-        _ => bail!("expected portability build-firmware <chip> <report.json>, pack <gpio.stbc> <application.bin>, pack-project <program.stbc> <deployment-record.bin> <application.bin>, inspect <board> <firmware.elf> <report.json>, verify <board> <uart.txt> <report.json>, footprint <current.map> <baseline.map> <report.json>, compare-benchmarks <baseline.json> <candidate.json> <report.json>, freeze-source <manifest.json>, check-source <manifest.json>, or database-gate <generated-environment>"),
+        _ => bail!("expected portability build-firmware <chip> <report.json> [--native], pack <gpio.stbc> <application.bin>, pack-project <program.stbc> <deployment-record.bin> <application.bin>, inspect <board> <firmware.elf> <report.json>, verify <board> <uart.txt> <report.json>, footprint <current.map> <baseline.map> <report.json>, compare-benchmarks <baseline.json> <candidate.json> <report.json>, freeze-source <manifest.json>, check-source <manifest.json>, or database-gate <generated-environment>"),
     }
 }
 

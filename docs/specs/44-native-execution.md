@@ -1,7 +1,8 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.2 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 makes
-  exact what the implementation of milestone M1 decided within that design, Appendix B), with the six
+- **Status:** 0.3 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 and
+  0.3 make exact what the implementation of milestone M1 decided within that design, Appendix B),
+  with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 with unsigned
   images accepted on an empty trust list (§5.11), interface calls by `match` (§6.4), the
   non-preemptive scheduler in v1 (§16), sources embedded on computers only (§5.3), and the request
@@ -710,6 +711,18 @@ programs, overruns), 11 §6.2 and 34 §8 (inputs read before the batch, outputs 
 CYCLE-01 to CYCLE-06), the logical clock of 11 §5. The scheduler calls a program's entry instead of
 interpreting it. SCHED-05's 25 ms trace (specification 34 §14.2) is a mandatory test on every target.
 
+On a chip the resource loop of specification 34 runs a compiled program through its `CompiledCycle`
+(trust-runtime-services): the drivers read the inputs, the program samples them, runs its due tasks
+by priority and its programs without a task and stages its outputs, the scan's deadline is checked,
+the I/O snapshot is published after the output sample, and the drivers drive the outputs. A fault
+ends the scan before any output is driven and stays latched until a restart. The loop's observers
+see the cycle's start, the input sample, each task's overruns, start and end, the output sample and
+the cycle's end in the engine's order (`CycleHooks::on_compiled_phase`), so `status`, `tasks.stats`,
+the allocation count and the overrun events report a compiled program as they report STBC. The resource
+keeps its sampling grid (specification 10 §4.3): the next cycle is one interval after the nominal
+start of the previous one, not after its actual start, so a late wake does not cost an activation;
+the reference workload lost one 10 ms activation in about 200 cycles on the C6 before this was so.
+
 ## 9. Determinism and numerics
 
 **NX-12.** For the same image, inputs and logical times, every device computes the same bytes. The
@@ -734,9 +747,25 @@ rules that make this hold:
 ### 10.1 Container and slots
 
 The program store, its two slots, the install steps, the commit point, the boot selection and
-"never write the running program's slot" are specification 34 §5.1 unchanged. The container
-becomes `TRSTA003`: the same header with entry kinds 3 (the program image) and 2 (the deployment
-record); kind 1 (STBC) is refused. `cargo xtask portability pack-project` packs an image.
+"never write the running program's slot" are specification 34 §5.1 unchanged. The container keeps
+its version `TRSTA002` and holds the image as entry kind 3 (kind 1 is STBC, kind 2 the deployment
+record), at the first multiple of 64 bytes after the 60-byte header, zeros between, so that an image
+read where it lies keeps the alignment of its sections (§5.3). The program's kind is in the header
+under its CRC, so the store and the tools know it without the record; a new magic would have made a
+runtime that does not run images take the newest container for no container at all and boot an
+older program in its place, where the kind makes it refuse the newest one with its reason.
+
+The image's deployment record (specification 34 §5.1.1) comes from the image's own tables
+(`DeploymentRecord::for_image`): the image's SHA-256 and length, the version 44.1, which no STBC
+decoder reads and which names a compiled image; a retain-schema identity over the retained
+variables' canonical names and types in the retain map's order; the image's process image and tasks;
+`cooperative-resource-v1`, numeric contract 1, no timing evidence and no capability; no preparation
+limit and no import. The build fills its configuration section from `runtime.toml` and `io.toml`
+as for STBC and writes it as `build/deployment-record.<triple>.bin`. Admission refuses a container
+whose kind and record disagree as a record of another program (`ProgramMismatch`); a device whose
+descriptor does not name 44.1 refuses an image ("the device does not run compiled program images"),
+and a device that runs images only refuses STBC with its version. `cargo xtask portability
+pack-project` packs a program that starts with `TRSTI001` as an image.
 
 ### 10.2 Checks at install and at boot
 
@@ -760,17 +789,35 @@ Before an image runs, on every device, in this order, and the first failure name
 
 The checks read the image where it lies and allocate nothing beyond a few records; on the C6 they
 take the mapped slot. An image that passes is "admitted"; nothing of it is copied to RAM except
-`INIT` into the areas at start.
+`INIT` into the areas at start and, on a device that runs its module from RAM, the module (§10.3).
+The program store's check of an install runs steps 2, 3, 5 and 6 in place of the dry-run
+preparation of STBC, against the device's descriptor (`DeviceDescriptor::native`); step 7 comes with
+the retain map (milestone M2).
 
 ### 10.3 Mapping the code
 
-The kernel runs `CODE` where the image lies when the platform maps flash as executable memory (the
-C6 through its MMU window, specification 34 MEM-14 as 0.52 built it; the U5A9's flash is executable
-in place) and otherwise copies `CODE` and `RODATA` into memory it maps executable (computers:
-`mmap`/`VirtualAlloc` with execute permission, written before it is made executable; on macOS with
-`MAP_JIT` and the `allow-jit` entitlement of the notarized binary; the simulator the same). The
-copy's placement keeps `RODATA` at its fixed distance after `CODE` (§5.3). Position independence
-makes any placement correct.
+The kernel runs `CODE` where the image lies when the platform's flash is executable memory without
+a cache that the program shares (the U5A9's internal flash), and otherwise copies `CODE` and
+`RODATA` into memory it executes: computers into an anonymous mapping made executable after the copy
+(`mmap`/`VirtualAlloc`; on macOS with `MAP_JIT` and the `allow-jit` entitlement of the notarized
+binary; the simulator the same), the C6 into its program code region. The copy's placement keeps
+`RODATA` at its fixed distance after `CODE` (§5.3). Position independence makes any placement
+correct.
+
+The C6 executes its external flash through a 32 KiB cache that the firmware shares, which cannot
+hold a scan's code next to the firmware's: run in place through the image window, the reference
+workload's control task took 0.243 ms on average and 1.05 ms at worst; copied into RAM, 0.063 ms and
+0.178 ms over an hour at 1x (22 October 2026, ESP32-C6-DevKitC-1). The C6 therefore copies the module into its program
+code region: 128 KiB of RAM (`PROGRAM_CODE_BYTES`), the linker section `.trust_code` between the
+firmware's static data and its main stack, where neither of esp-hal's no-execute ranges reaches,
+followed by `fence.i`. One program holds the region at a time; the loop drops the program that ran
+before it loads the next. A module larger than the region runs where it lies in the mapped slot,
+slower, and is not refused. The region is RAM the interpreter's firmware gave to its RAM code; the
+reference workload's module takes 43,725 bytes of it. The firmware keeps its own RAM code list
+(`ld/rwtext_hook_native.x`: the kernel's scan path and the loop around it, 26 KB instead of the
+interpreter's 105 KB), and its main heap takes 128 KiB more, because an install's upload is held in
+one heap block (specification 34 PORT-05): an image of about 150 KB installs over the link, where
+the interpreter's heap of three regions held at most 64 KB in one block.
 
 ### 10.4 The memory figure
 
@@ -781,7 +828,10 @@ declares in a table of constants per device class), and the retain capture buffe
 area, specification 34 MEM-09). It is written to `MEMFIG` and `build.json`, shown by the tools before
 deploy, and checked by the device against the program memory it measures at boot (specification 34
 Appendix D.2 and D.5 define that measurement; it changes only by no longer subtracting a prepared
-program). `status` and `capabilities` report it as today.
+program). `status` and `capabilities` report it as today, in the parts they have: the areas as the
+persistent block, the stack bound as the activation stack, the bookkeeping as the engine and no
+program bytes. A module the device copies into RAM (§10.3) takes the device's program code region,
+not the memory it has for programs, so the figure does not hold it.
 
 ### 10.5 Hardware protection (milestone M5)
 
@@ -799,6 +849,10 @@ of walking declarations, which is one `memcpy` per record and no decoding; the r
 through the same map after checking each key's type against the type table; a key the new image
 does not declare is reported as `retain_orphan_dropped` as today; a declared key the checkpoint
 lacks takes `INIT`.
+
+Until the retain map is read (milestone M2), a compiled program's retained variables keep their
+values in memory across a warm restart, from either source, and no checkpoint is written or read;
+`status` reports no retain capture.
 
 ## 12. Online change
 
@@ -881,6 +935,13 @@ the symbol table. Frame variables of a function or method are read from the task
 task is held inside that function (the symbol's frame offset plus the frame's base, which the hook
 records in `Cx` on entry to a function when hooks are on).
 
+From milestone M1, `status` reports `execution_backend: "native"` for a compiled program, and
+`io.list` and `io.read` answer from the image's process-image bindings: each binding's address as
+the address parser makes it, its variable's elementary type (an alias's or subrange's base type, an
+enumeration's integer) and its declared name. Until the symbol table serves them (milestone M3), a
+Live Values write or force of a compiled program's variables or process image is refused at the
+next cycle start with a `WriteRejected` event and withdrawn.
+
 ## 14. Verification and acceptance
 
 ### 14.1 The reference workload
@@ -960,3 +1021,4 @@ the runtime has errors of their own).
 |---|---|---|
 | 0.1 | 22 October 2026 | First complete version, written after the vat pasteurizer did not fit the ESP32-C6 (160 KB needed, 51 KB available) and the owner asked for the state of the art, no spike and an exact specification. Approved by the owner the same day ("implement the checklist"). |
 | 0.2 | 22 October 2026 | Exact where milestone M1's implementation decided within the approved design: the generator reads trust-hir's recorded types and resolved symbols (§3); one module per CPU for every computer, its calling convention named (§4.4); the flags as they link (static PIE, `prolog-epilog` remarks, because `-stack-size-section` has no effect on stable rustc, §4.5, §8.5); table sections with a count, `CODE` at 64 bytes (§5.3); an entry per program body (§5.4); the type kinds listed (§5.8); strings rounded to even (§6.2); variables as cells behind shared references so that the generated crate needs no `unsafe` (§6.3); the context with the fault record in it and two kernel functions (§8.2); the fault codes listed (Appendix A). Measured: the reference workload's image for the C6 is 86 KB with 43 KB of code, and its memory figure 4,546 bytes (§10.4). No change of direction. |
+| 0.3 | 22 October 2026 | Exact where running the reference workload on the C6 decided within the approved design: the container keeps `TRSTA002` and holds an image as entry kind 3 at a 64-byte boundary, and the image's record comes from its tables (§10.1); the install check runs the kernel's checks (§10.2); the C6 copies the module into a 128 KiB program code region of RAM instead of running it from the flash cache, measured 0.063 ms average and 0.178 ms worst for the control task over an hour against 0.243 ms and 1.05 ms in place, a module too large for the region running in place (§10.3); the figure's parts in `status` (§10.4); the compiled cycle and the sampling grid, whose drift lost activations on every runtime and is corrected in specification 10 §4.3 (§8.7); retain held in memory until M2 (§11); `status`, `io.read` and refused Live Values writes until M3 (§13.3). |

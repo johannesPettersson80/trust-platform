@@ -204,6 +204,36 @@ where
     Ok(())
 }
 
+/// Refuse every queued write and every active force with `error` at logical `time`, each passed to
+/// `sink`, and withdraw them: a program that takes none of them, such as a compiled program before
+/// its symbol table serves them (specification 44 §13.3).
+#[cfg(feature = "native")]
+pub fn refuse_all<T, S>(
+    queues: &mut LiveValueQueues<T>,
+    error: &RuntimeError,
+    time: Duration,
+    sink: &mut S,
+) where
+    T: core::fmt::Debug,
+    S: WriteSink,
+{
+    for write in queues.pending_var_writes.drain(..) {
+        sink.refused(&pending_var_label(&write.target), error, time);
+    }
+    for write in queues.pending_lvalue_writes.drain(..) {
+        sink.refused(&format!("{:?}", write.target), error, time);
+    }
+    for (address, _) in queues.io_writes.drain(..) {
+        sink.refused(&format!("{address:?}"), error, time);
+    }
+    for (address, _) in queues.forced_io.drain(..) {
+        sink.refused(&format!("{address:?}"), error, time);
+    }
+    for force in queues.forced_vars.drain(..) {
+        sink.refused(&forced_var_label(&force.target), error, time);
+    }
+}
+
 fn apply_pending_var(
     access: &mut CycleAccess<'_, '_>,
     names: &RetainedNames,
