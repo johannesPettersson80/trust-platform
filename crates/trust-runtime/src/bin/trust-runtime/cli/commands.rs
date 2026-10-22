@@ -358,20 +358,38 @@ pub enum Command {
     #[command(
         after_help = "Examples:\n  trust-runtime conformance\n  trust-runtime conformance --suite-root ./conformance --output ./conformance/reports/local.json\n  trust-runtime conformance --update-expected"
     )]
-    Conformance {
-        /// Conformance suite root directory.
-        #[arg(long = "suite-root")]
-        suite_root: Option<PathBuf>,
-        /// Summary output file path (JSON).
-        #[arg(long = "output")]
-        output: Option<PathBuf>,
-        /// Refresh expected artifacts from current runtime behavior.
-        #[arg(long, action = ArgAction::SetTrue)]
-        update_expected: bool,
-        /// Optional case-insensitive substring filter for case IDs.
-        #[arg(long)]
-        filter: Option<String>,
-    },
+    Conformance(ConformanceArgs),
+}
+
+/// The options of `conformance`.
+#[derive(Debug, clap::Args)]
+pub struct ConformanceArgs {
+    /// Conformance suite root directory.
+    #[arg(long = "suite-root")]
+    pub suite_root: Option<PathBuf>,
+    /// Summary output file path (JSON).
+    #[arg(long = "output")]
+    pub output: Option<PathBuf>,
+    /// Refresh expected artifacts from current runtime behavior.
+    #[arg(long, action = ArgAction::SetTrue)]
+    pub update_expected: bool,
+    /// Optional case-insensitive substring filter for case IDs.
+    #[arg(long)]
+    pub filter: Option<String>,
+    /// What runs the runtime cases: `vm`, the bytecode engine, or `native`, each case compiled
+    /// into a program image for this computer and run by the kernel (specification 44 §14.2),
+    /// which needs the toolchain at `TRUST_TOOLCHAIN`.
+    #[arg(long = "execution-backend", value_enum, default_value_t = ConformanceBackend::Vm)]
+    pub execution_backend: ConformanceBackend,
+}
+
+/// What runs the runtime cases of `conformance`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum ConformanceBackend {
+    /// The bytecode engine.
+    Vm,
+    /// The case compiled into a program image and run by the kernel (specification 44).
+    Native,
 }
 
 #[derive(Debug, Subcommand)]

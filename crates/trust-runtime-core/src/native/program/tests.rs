@@ -340,6 +340,31 @@ fn a_start_publishes_the_marker_variables_and_keeps_the_image() {
     assert_eq!(markers, [5, 7]);
 }
 
+/// A variable is read and written by its symbol through the type table: `MAIN.COUNT`, a `USINT`
+/// starting at 5, takes a written `USINT` 9; an `INT` is refused as the interpreter refuses a
+/// signed value for an unsigned variable, and the count keeps 9 (specification 44 §5.8). Catches
+/// a write that converts across families or changes the variable before it refuses.
+#[test]
+fn a_variable_is_read_and_written_by_its_symbol() {
+    use crate::value::Value;
+    let device = device();
+    let bytes = image(0, 100, 50, device.target);
+    let image = admit(&bytes, &device).unwrap();
+    let mut program = NativeProgram::new(image, StandIn, &device, &WITHOUT_DEBUGGER).unwrap();
+    program.cold_start(Duration::ZERO).unwrap();
+    let (count, _) = program.image().find_symbol("MAIN.COUNT").unwrap();
+    assert_eq!(program.read_symbol(count), Ok(Value::USInt(5)));
+    program.write_symbol(count, &Value::USInt(9)).unwrap();
+    assert_eq!(program.value("MAIN.COUNT"), Some(Value::USInt(9)));
+    assert_eq!(
+        program.write_symbol(count, &Value::Int(3)),
+        Err(RuntimeError::TypeMismatch)
+    );
+    assert_eq!(program.read_symbol(count), Ok(Value::USInt(9)));
+    let (main, _) = program.image().find_symbol("MAIN").unwrap();
+    assert_eq!(program.read_symbol(main), Err(RuntimeError::TypeMismatch));
+}
+
 /// A fault ends the scan with its runtime error and publishes nothing.
 #[test]
 fn a_module_fault_ends_the_scan() {

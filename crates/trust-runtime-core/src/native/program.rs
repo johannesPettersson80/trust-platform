@@ -17,9 +17,10 @@ use trust_plc_abi::{Cx, FaultCode, FaultRecord, KernelApi, INTERFACE_VERSION};
 
 use super::image::{
     AreaRecord, EntryKind, EntryRecord, Image, ImageError, IoBindRecord, SectionId, SymbolRecord,
-    Target, TaskRecord, AREA_HAS_INIT, BACKGROUND_PRIORITY, NONE,
+    Target, TaskRecord, AREA_HAS_INIT, BACKGROUND_PRIORITY, NONE, SYMBOL_PROGRAM,
 };
-use super::retain::{self, AreaBytes};
+use super::retain;
+use super::values::{damaged, read_value, AreaBytes, Types, Writer};
 use crate::cycle::{sort_ready_tasks_by_priority, ReadyTask};
 use crate::error::{ExecutionLimitKind, RuntimeError};
 use crate::io_image::FlatImages;
@@ -736,59 +737,79 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     }
 
     /// The value of the variable whose canonical name is `canonical`, read through the symbol and
-    /// type tables (specification 44 §13.3): an elementary value, an enumeration's number as an
-    /// `LINT`, or a text; `None` for a name the image does not declare or a structured value.
+    /// type tables as the interpreter holds it (specification 44 §5.7, §5.8, §13.3); `None` for a
+    /// name the image does not declare or a symbol that holds no value.
     pub fn value(&self, canonical: &str) -> Option<crate::value::Value> {
-        use super::image::{type_kind as kind, TypeRecord};
-        use crate::value::Value;
-        let (_, symbol) = self.image.find_symbol(canonical)?;
-        let ty = self
+        let (index, _) = self.image.find_symbol(canonical)?;
+        self.read_symbol(index).ok()
+    }
+
+    /// The record of symbol `index` and the index of its area in the program's memory; a program
+    /// instance holds no value of its own.
+    fn variable(&self, index: u32) -> Result<(SymbolRecord, usize), RuntimeError> {
+        let symbol = self
             .image
-            .table::<TypeRecord>()
-            .ok()?
-            .get(symbol.type_index)?;
-        let offset = symbol.offset as usize;
-        if ty.kind == kind::STRING {
-            let mut length = [0u8; 2];
-            self.read(symbol.area, offset, &mut length).then_some(())?;
-            let length = usize::from(u16::from_le_bytes(length)).min(ty.count as usize);
-            let mut text = vec![0u8; length];
-            self.read(symbol.area, offset + 2, &mut text)
-                .then_some(())?;
-            return Some(Value::String(SmolStr::new(
-                alloc::string::String::from_utf8_lossy(&text),
-            )));
+            .table::<SymbolRecord>()
+            .ok()
+            .and_then(|symbols| symbols.get(index))
+            .ok_or_else(|| damaged("symbol table"))?;
+        if symbol.flags & SYMBOL_PROGRAM != 0 {
+            return Err(RuntimeError::TypeMismatch);
         }
-        let mut bytes = [0u8; 8];
-        let size = (ty.size as usize).min(8);
-        self.read(symbol.area, offset, &mut bytes[..size])
-            .then_some(())?;
-        let unsigned = u64::from_le_bytes(bytes);
-        let signed = |bits: u32| -> i64 {
-            let shift = 64 - bits;
-            ((unsigned << shift) as i64) >> shift
-        };
-        Some(match ty.kind {
-            kind::BOOL => Value::Bool(bytes[0] != 0),
-            kind::SINT => Value::SInt(i8::try_from(signed(8)).ok()?),
-            kind::INT => Value::Int(i16::try_from(signed(16)).ok()?),
-            kind::DINT => Value::DInt(i32::try_from(signed(32)).ok()?),
-            kind::LINT => Value::LInt(signed(64)),
-            kind::USINT => Value::USInt(bytes[0]),
-            kind::UINT => Value::UInt(u16::try_from(unsigned).ok()?),
-            kind::UDINT => Value::UDInt(u32::try_from(unsigned).ok()?),
-            kind::ULINT => Value::ULInt(unsigned),
-            kind::BYTE => Value::Byte(bytes[0]),
-            kind::WORD => Value::Word(u16::try_from(unsigned).ok()?),
-            kind::DWORD => Value::DWord(u32::try_from(unsigned).ok()?),
-            kind::LWORD => Value::LWord(unsigned),
-            kind::REAL => Value::Real(f32::from_bits(u32::try_from(unsigned).ok()?)),
-            kind::LREAL => Value::LReal(f64::from_bits(unsigned)),
-            kind::TIME => Value::Time(Duration::from_nanos(signed(64))),
-            kind::LTIME => Value::LTime(Duration::from_nanos(signed(64))),
-            kind::ENUM => Value::LInt(signed(ty.size * 8)),
-            _ => return None,
-        })
+        let area = slot(symbol.area).ok_or(RuntimeError::TypeMismatch)?;
+        Ok((symbol, area))
+    }
+
+    /// The value of the variable of symbol `index`, read through the type table as the interpreter
+    /// holds it: an enumeration by its declared names, a structure by its declared type and member
+    /// names (specification 44 §5.8).
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::TypeMismatch`] for a symbol that holds no value (a program, an instance, a
+    /// frame variable) or bytes that are no value of the type, [`RuntimeError::InvalidBundle`] for a
+    /// symbol or a type the image's tables do not hold.
+    pub fn read_symbol(&self, index: u32) -> Result<crate::value::Value, RuntimeError> {
+        let (symbol, area) = self.variable(index)?;
+        let types = Types::of(&self.image)?;
+        read_value(
+            &types,
+            &self.areas[area],
+            symbol.offset as usize,
+            symbol.type_index,
+        )
+    }
+
+    /// Writes `value` into the variable of symbol `index` with the conversions of the type table: a
+    /// number widened within its family, a text cut to its capacity, an enumeration of the same type
+    /// and value, a structure member by member, where a member the value lacks keeps what it holds.
+    /// The variable keeps its value when the write is refused.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::TypeMismatch`] for a value the variable's type refuses or a symbol that holds
+    /// no value, [`RuntimeError::SubrangeViolation`] for a number outside its subrange.
+    pub fn write_symbol(
+        &mut self,
+        index: u32,
+        value: &crate::value::Value,
+    ) -> Result<(), RuntimeError> {
+        let (symbol, area) = self.variable(index)?;
+        let types = Types::of(&self.image)?;
+        let offset = symbol.offset as usize;
+        let mut current = vec![0u8; symbol.size as usize];
+        if !self.areas[area].read(offset, &mut current) {
+            return Err(damaged("symbol table"));
+        }
+        let mut staged = current.clone();
+        Writer {
+            types: &types,
+            staged: &mut staged,
+            starting: &current,
+        }
+        .write(symbol.type_index, 0, value, 0)?;
+        self.areas[area].write(offset, &staged);
+        Ok(())
     }
 
     /// The record of the last fault a module raised.

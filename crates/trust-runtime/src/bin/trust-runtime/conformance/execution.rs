@@ -1,8 +1,14 @@
-fn execute_case(case: &CaseDefinition) -> anyhow::Result<CaseArtifact> {
+fn execute_case(
+    case: &CaseDefinition,
+    backend: ConformanceBackend,
+) -> anyhow::Result<CaseArtifact> {
     match case.manifest.kind {
         CaseKind::Runtime => {
             let sources = load_case_sources(case)?;
-            execute_runtime_case(case, &sources)
+            match backend {
+                ConformanceBackend::Vm => execute_runtime_case(case, &sources),
+                ConformanceBackend::Native => execute_runtime_case_native(case, &sources),
+            }
         }
         CaseKind::CompileError => {
             let sources = load_case_sources(case)?;

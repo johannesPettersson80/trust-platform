@@ -116,6 +116,13 @@ impl Front {
             crate::value::StorageAbi::UniformTemporal64,
         )
         .map_err(|error| NativeError::Compile(error.to_string()))?;
+        // The configuration as the runtime prepares it for its own build: a project without a
+        // CONFIGURATION runs each PROGRAM as one instance of its name, without a task, and the
+        // program types and instances are resolved and checked by the same rules (specification
+        // 18 §2.2).
+        let lowered = lowered
+            .prepare_authoring(&[])
+            .map_err(|error| NativeError::Compile(error.to_string()))?;
         let database = frontend.project.database();
         let mut checked = Vec::with_capacity(sources.len());
         for (index, ((file_id, root), source)) in frontend

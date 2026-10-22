@@ -308,12 +308,7 @@ fn run() -> anyhow::Result<()> {
         Some(Command::Rollback { root }) => deploy::run_rollback(root),
         Some(Command::Completions { shell }) => completions::run_completions(shell),
         Some(Command::Bench { action }) => bench::run_bench(action),
-        Some(Command::Conformance {
-            suite_root,
-            output,
-            update_expected,
-            filter,
-        }) => conformance::run_conformance(suite_root, output, update_expected, filter),
+        Some(Command::Conformance(args)) => conformance::run_conformance(args),
     }
 }
 

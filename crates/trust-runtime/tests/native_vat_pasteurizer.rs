@@ -31,13 +31,11 @@ const COMPARED: [(&str, &str); 9] = [
 ];
 
 /// Whether the kernel's `native` is the runtime's `runtime`: the same bits for a real, the same
-/// number for an enumeration, the same text.
+/// value otherwise, an enumeration of the same type and value.
 fn same(native: &Value, runtime: &Value) -> bool {
     match (native, runtime) {
         (Value::Real(a), Value::Real(b)) => a.to_bits() == b.to_bits(),
         (Value::LReal(a), Value::LReal(b)) => a.to_bits() == b.to_bits(),
-        (Value::LInt(a), Value::Enum(b)) => *a == b.numeric_value(),
-        (Value::String(a), Value::String(b)) => a == b,
         (a, b) => a == b,
     }
 }

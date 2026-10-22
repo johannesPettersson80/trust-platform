@@ -457,6 +457,7 @@ interface's `Plain` trait only for a `#[repr(C)]` structure whose every field is
 | `ACTION` (specification 04 §8) | a method of its POU |
 | `PROPERTY` (extension) | its get and set methods |
 | `NAMESPACE`, `USING` (§6.9) | resolved by trust-hir; names are mangled `ns__pou` |
+| A project without a `CONFIGURATION` | each `PROGRAM` as one instance of its own name, without a task, run in every cycle, as the runtime prepares its own build (specification 18 §2.2) |
 | Edge-qualified inputs (`R_EDGE`, `F_EDGE`, Tables 40 and 47) | a hidden previous-value byte in the instance and the edge computed at the call, as specification 03 §3 says |
 | Test POUs (specification 04) | compiled only by the test build, never into an image |
 
@@ -993,6 +994,13 @@ OSCAT with its tests, PLCopen motion, the IEC examples of specifications 01 to 0
 corpus of specification 13), built into images and run on every target. Pass: every expected value,
 fault and event of the corpus; bit-identical outputs across targets (§9); the debugger parity
 tests; SCHED-05's trace.
+
+The repository's conformance suite (`conformance/`) runs on a computer's kernel with
+`trust-runtime conformance --execution-backend native`: each runtime case is built into an image
+for the computer and run cycle by cycle with the restarts, times, inputs and watches of its
+manifest, and its trace must equal the expected artifact the bytecode engine wrote, byte for byte.
+A name in a manifest resolves as the test harness resolves it: a global by its name, a qualified
+path by its full name, and a program variable by its name alone when one program declares it.
 
 ### 14.3 Against RuSTy
 

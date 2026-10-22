@@ -1,9 +1,20 @@
-pub fn run_conformance(
-    suite_root: Option<PathBuf>,
-    output: Option<PathBuf>,
-    update_expected: bool,
-    filter: Option<String>,
-) -> anyhow::Result<()> {
+pub fn run_conformance(args: ConformanceArgs) -> anyhow::Result<()> {
+    let ConformanceArgs {
+        suite_root,
+        output,
+        update_expected,
+        filter,
+        execution_backend: backend,
+    } = args;
+    // The expected artifacts are the bytecode engine's; the native backend is measured against
+    // them (specification 44 §14.2).
+    if update_expected && backend == ConformanceBackend::Native {
+        bail!("expected artifacts are written with the vm backend; drop --update-expected");
+    }
+    let runtime_name = match backend {
+        ConformanceBackend::Vm => "trust-runtime",
+        ConformanceBackend::Native => "trust-runtime-native",
+    };
     let suite_root = resolve_suite_root(suite_root)?;
     let mut cases = discover_cases(&suite_root)?;
     if let Some(filter) = filter.as_deref() {
@@ -21,13 +32,17 @@ pub fn run_conformance(
     let reports_root = suite_root.join("reports");
     fs::create_dir_all(&reports_root)
         .with_context(|| format!("create reports directory '{}'", reports_root.display()))?;
-    let actual_root = reports_root.join("actual");
+    let actual_dir = match backend {
+        ConformanceBackend::Vm => "actual",
+        ConformanceBackend::Native => "actual-native",
+    };
+    let actual_root = reports_root.join(actual_dir);
     fs::create_dir_all(&actual_root)
         .with_context(|| format!("create actual report directory '{}'", actual_root.display()))?;
 
     let timestamp = now_utc_parts();
     let output_path = output.unwrap_or_else(|| {
-        reports_root.join(format!("{}_trust-runtime_summary.json", timestamp.compact))
+        reports_root.join(format!("{}_{runtime_name}_summary.json", timestamp.compact))
     });
     if let Some(parent) = output_path.parent() {
         fs::create_dir_all(parent)
@@ -44,7 +59,7 @@ pub fn run_conformance(
         let started = Instant::now();
         let expected_ref = format!("expected/{}/{}.json", case.category, case.id);
         let expected_path = suite_root.join(&expected_ref);
-        let actual_ref = format!("reports/actual/{}.json", case.id);
+        let actual_ref = format!("reports/{actual_dir}/{}.json", case.id);
         let actual_path = suite_root.join(&actual_ref);
 
         let mut summary_result = SummaryCaseResult {
@@ -58,7 +73,7 @@ pub fn run_conformance(
             reason: None,
         };
 
-        match execute_case(case) {
+        match execute_case(case, backend) {
             Ok(artifact) => {
                 summary_result.cycles = artifact.cycles;
                 if update_expected {
@@ -139,7 +154,7 @@ pub fn run_conformance(
         generated_at_utc: timestamp.rfc3339,
         ordering: "case_id_asc".to_string(),
         runtime: RuntimeSummaryMeta {
-            name: "trust-runtime".to_string(),
+            name: runtime_name.to_string(),
             version: env!("CARGO_PKG_VERSION").to_string(),
             target: format!("{}-{}", std::env::consts::ARCH, std::env::consts::OS),
         },

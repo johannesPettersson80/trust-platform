@@ -1416,19 +1416,34 @@ mod tests {
             "timers",
         ]);
         match cli.command.expect("command") {
-            Command::Conformance {
+            Command::Conformance(ConformanceArgs {
                 suite_root,
                 output,
                 update_expected,
                 filter,
-            } => {
+                execution_backend,
+            }) => {
                 assert_eq!(suite_root, Some(PathBuf::from("conformance")));
                 assert_eq!(output, Some(PathBuf::from("summary.json")));
                 assert!(update_expected);
                 assert_eq!(filter.as_deref(), Some("timers"));
+                assert_eq!(execution_backend, ConformanceBackend::Vm);
             }
             other => panic!("expected conformance command, got {other:?}"),
         }
+        let native = Cli::parse_from([
+            "trust-runtime",
+            "conformance",
+            "--execution-backend",
+            "native",
+        ]);
+        assert!(matches!(
+            native.command,
+            Some(Command::Conformance(ConformanceArgs {
+                execution_backend: ConformanceBackend::Native,
+                ..
+            }))
+        ));
     }
 
     #[test]

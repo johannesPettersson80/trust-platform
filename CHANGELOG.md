@@ -23,6 +23,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   at a warm start with the same conversions, and checks at an install that the new program accepts
   them. Online change, the debugger and Live Values writes of a compiled program follow
   (specification 44 M3).
+- Added: `trust-runtime conformance --execution-backend native` runs the conformance suite on
+  compiled programs: each case is built for this computer and run by the kernel, and its trace is
+  compared with the same expected artifacts (specification 44 §14.2). A project without a
+  `CONFIGURATION` now compiles as the runtime runs it, each `PROGRAM` as an instance of its name.
 - Fixed: a compiled program's variable located at `%M` took the marker image's 0 at its first scan
   instead of its initial value, and a restart cleared the process images; the variable's value is
   now published into the marker image at every start, and the images are carried over a restart,
