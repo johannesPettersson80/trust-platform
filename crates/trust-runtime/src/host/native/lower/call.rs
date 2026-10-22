@@ -50,11 +50,12 @@ enum Called {
 }
 
 /// The name `node` holds: its first token that is not whitespace or a comment, an identifier or
-/// a keyword used as a name (`TIME()`).
+/// a keyword used as a name (`TIME()`); a local's `#` prefix of the Siemens profile is no part of
+/// it (`#count`, specification 02).
 pub(in crate::native) fn ident(node: &SyntaxNode) -> String {
     node.descendants_with_tokens()
         .filter_map(|element| element.into_token())
-        .find(|token| !token.kind().is_trivia())
+        .find(|token| !token.kind().is_trivia() && token.kind() != SyntaxKind::Hash)
         .map(|token| token.text().to_string())
         .unwrap_or_default()
 }
@@ -283,6 +284,18 @@ impl<'a> Lowerer<'_, 'a> {
     ) -> Result<Vec<String>, NativeError> {
         let mut values = Vec::with_capacity(bound.len());
         for (param, arg) in bound {
+            if param.direction == ParamDirection::InOut {
+                // A `VAR_IN_OUT` is the caller's variable itself (IEC §6.6.1.2.2).
+                let Some(arg) = arg else {
+                    return Err(self.unsupported(
+                        node,
+                        format!("the VAR_IN_OUT {} without its variable", param.name),
+                    ));
+                };
+                let place = self.place(&arg.value)?;
+                values.push(place.reference());
+                continue;
+            }
             if param.direction != ParamDirection::In {
                 return Err(self.unsupported(
                     node,
@@ -447,6 +460,7 @@ impl<'a> Lowerer<'_, 'a> {
                 )
             }
         };
+        use trust_runtime_core::native::image::{SYMBOL_INPUT, SYMBOL_IN_OUT};
         let mut outputs = Vec::new();
         for (position, arg) in args.into_iter().enumerate() {
             let member = match &arg.name {
@@ -455,9 +469,7 @@ impl<'a> Lowerer<'_, 'a> {
                     .find(|member| member.name.eq_ignore_ascii_case(name)),
                 None => members
                     .iter()
-                    .filter(|member| {
-                        member.flags & trust_runtime_core::native::image::SYMBOL_INPUT != 0
-                    })
+                    .filter(|member| member.flags & (SYMBOL_INPUT | SYMBOL_IN_OUT) != 0)
                     .nth(position),
             };
             let Some(member) = member else {
@@ -471,7 +483,15 @@ impl<'a> Lowerer<'_, 'a> {
                 ty: member.ty,
                 is_ref: false,
             };
-            if arg.output {
+            if member.flags & SYMBOL_IN_OUT != 0 {
+                // The instance keeps a reference to the variable it was called with (§6.4).
+                let variable = self.place(&arg.value)?;
+                self.line(&format!(
+                    "{}.set(w.areas.refer(cx, {}, abi::RefValue::VARIABLE)?);",
+                    place.expr,
+                    variable.reference()
+                ));
+            } else if arg.output {
                 outputs.push((place, arg.value));
             } else {
                 self.store(&place, &arg.value)?;

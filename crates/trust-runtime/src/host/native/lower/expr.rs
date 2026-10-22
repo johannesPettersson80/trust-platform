@@ -108,11 +108,62 @@ impl Lowerer<'_, '_> {
                 let place = self.place(node)?;
                 Ok(self.load(&place))
             }
+            SyntaxKind::DerefExpr => {
+                let place = self.place(node)?;
+                Ok(self.load(&place))
+            }
             SyntaxKind::BinaryExpr => self.binary(node, ty),
             SyntaxKind::UnaryExpr => self.unary(node, ty),
             SyntaxKind::CallExpr => self.call_scalar(node, ty),
             other => Err(self.unsupported(node, format!("the expression {other:?}"))),
         }
+    }
+
+    /// The reference value of `node` (IEC §6.4.4.10): `NULL`, `REF(variable)`, or a variable or a
+    /// dereference that holds a reference.
+    pub(super) fn reference(&mut self, node: &SyntaxNode) -> Result<String, NativeError> {
+        match node.kind() {
+            SyntaxKind::ParenExpr => match node.children().next() {
+                Some(inner) => self.reference(&inner),
+                None => Err(self.unsupported(node, "an empty parenthesis")),
+            },
+            SyntaxKind::Literal if is_null(node) => Ok("abi::RefValue::NULL_REF".into()),
+            SyntaxKind::CallExpr if is_ref_call(node) => {
+                let Some(target) = node
+                    .children()
+                    .find(|child| child.kind() == SyntaxKind::ArgList)
+                    .and_then(|list| list.children().find(|arg| arg.kind() == SyntaxKind::Arg))
+                    .and_then(|arg| arg.children().last())
+                else {
+                    return Err(self.unsupported(node, "REF without its variable"));
+                };
+                let place = self.place(&target)?;
+                Ok(self.bind(&format!(
+                    "w.areas.refer(cx, {}, abi::RefValue::VARIABLE)?",
+                    place.reference()
+                )))
+            }
+            SyntaxKind::NameRef
+            | SyntaxKind::FieldExpr
+            | SyntaxKind::IndexExpr
+            | SyntaxKind::DerefExpr => {
+                let place = self.place(node)?;
+                if !matches!(self.info(place.ty).kind, Kind::Ref { .. }) {
+                    return Err(self.unsupported(node, "a value that is no reference"));
+                }
+                Ok(format!("{}.get()", place.expr))
+            }
+            other => Err(self.unsupported(node, format!("the reference expression {other:?}"))),
+        }
+    }
+
+    /// Whether `node` is a reference: `NULL` or a value of a reference type.
+    fn is_reference(&mut self, node: &SyntaxNode) -> bool {
+        if is_null(node) {
+            return true;
+        }
+        self.type_of(node)
+            .is_ok_and(|ty| matches!(self.info(ty).kind, Kind::Ref { .. }))
     }
 
     /// The value of an enumeration's value named by `node`, when trust-hir resolved it to one.
@@ -279,6 +330,13 @@ impl Lowerer<'_, '_> {
         };
         use SyntaxKind as K;
         match op {
+            K::Eq | K::Neq if self.is_reference(&left) || self.is_reference(&right) => {
+                // Two references are equal when they name the same variable, or are both `NULL`.
+                let a = self.reference(&left)?;
+                let b = self.reference(&right)?;
+                let sign = if op == K::Eq { "==" } else { "!=" };
+                Ok(format!("({a} {sign} {b})"))
+            }
             K::Eq | K::Neq | K::Lt | K::LtEq | K::Gt | K::GtEq => {
                 let a = self.type_of(&left)?;
                 let b = self.type_of(&right)?;
@@ -451,14 +509,20 @@ impl Lowerer<'_, '_> {
                     let Kind::Enum { values, .. } = &self.info(ty).kind else {
                         return Err(self.unsupported(
                             node,
-                            "a named literal of a type that is no enumeration",
+                            format!(
+                                "the named literal {text} for {}, which is no enumeration",
+                                self.info(ty).name
+                            ),
                         ));
                     };
                     let Some((_, value)) = values
                         .iter()
                         .find(|(name, _)| name.eq_ignore_ascii_case(text))
                     else {
-                        return Err(self.unsupported(node, format!("the enumeration value {text}")));
+                        return Err(self.unsupported(
+                            node,
+                            format!("the enumeration value {text} of {}", self.info(ty).name),
+                        ));
                     };
                     result = Some(Literal::Enum(*value));
                 }
@@ -495,7 +559,10 @@ impl Lowerer<'_, '_> {
                     _ => Err(self.unsupported(node, "a literal that is no text")),
                 }
             }
-            SyntaxKind::NameRef | SyntaxKind::FieldExpr | SyntaxKind::IndexExpr => {
+            SyntaxKind::NameRef
+            | SyntaxKind::FieldExpr
+            | SyntaxKind::IndexExpr
+            | SyntaxKind::DerefExpr => {
                 let place = self.place(node)?;
                 Ok(vec![Text::Str(place.reference())])
             }
@@ -597,7 +664,10 @@ impl Lowerer<'_, '_> {
                 Some(inner) => self.aggregate(&inner, ty),
                 None => Err(self.unsupported(node, "an empty parenthesis")),
             },
-            SyntaxKind::NameRef | SyntaxKind::FieldExpr | SyntaxKind::IndexExpr => {
+            SyntaxKind::NameRef
+            | SyntaxKind::FieldExpr
+            | SyntaxKind::IndexExpr
+            | SyntaxKind::DerefExpr => {
                 let place = self.place(node)?;
                 if place.ty != ty {
                     return Err(self.unsupported(node, "an assignment between different types"));
@@ -619,6 +689,22 @@ impl Lowerer<'_, '_> {
         }
         self.call_statement(node)
     }
+}
+
+/// Whether `node` is the literal `NULL`.
+fn is_null(node: &SyntaxNode) -> bool {
+    node.kind() == SyntaxKind::Literal
+        && node
+            .children_with_tokens()
+            .any(|element| element.kind() == SyntaxKind::KwNull)
+}
+
+/// Whether `node` is the call `REF(variable)`.
+fn is_ref_call(node: &SyntaxNode) -> bool {
+    node.children()
+        .next()
+        .filter(|callee| callee.kind() == SyntaxKind::NameRef)
+        .is_some_and(|callee| super::call::ident(&callee).eq_ignore_ascii_case("REF"))
 }
 
 /// A literal's value.

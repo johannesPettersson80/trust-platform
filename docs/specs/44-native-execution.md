@@ -339,7 +339,9 @@ name in capital letters, so a lookup is one binary search), one 32-byte record p
 
 Every variable the program declares has a symbol, members of structures and instances included,
 so that Live Values, the HMI, OPC UA, Modbus and the debugger find any `a.b.c` by one lookup of its
-canonical name, and browse by parent. Frame variables (`VAR` of functions and methods, `VAR_TEMP`)
+canonical name, and browse by parent. The private state of a library block, which no program
+declares (a timer's start time, the memory of `R_TRIG`, IEC §6.6.3.5.3), is in the type table's
+member list, for its layout, and has no symbol, as the runtime does not name it either. Frame variables (`VAR` of functions and methods, `VAR_TEMP`)
 have symbols with area 7 (stack) and the offset in their frame, for the debugger only.
 
 ### 5.8 Type table
@@ -588,7 +590,14 @@ pointer), character index (u16: the 1-based index of a character reference, 0 ot
 (u32: the target's first byte in the area), extent (u32: the bytes the target spans), generation
 (u32: the installation generation of specification 34 UPDATE-04). A dereference checks that the area exists,
 that offset + extent lies inside it, and that the generation is the current one; an online change
-repoints or nulls references by its copy plan (§12.3). A reference to a frame variable (IEC
+repoints or nulls references by its copy plan (§12.3). Until an online change gives an installation
+a generation of its own (milestone M3), every reference a compiled program takes carries
+generation 1, and the kernel interface of §8.2 carries no generation. `REF(variable)` takes the
+reference of a variable that lies in an area; a `VAR_IN_OUT` of a function block stores the
+reference of the argument of its last call and reads and writes the variable through it, and a
+`VAR_IN_OUT` of a function or a method is the caller's variable itself. A `REF` initializer of a
+global or a program's variable is set by the cold-start and the warm-start initialization (§6.7),
+since the starting memory cannot hold where a variable lies. A reference to a frame variable (IEC
 §6.4.4.10.2 forbids references to temporaries; trust-hir refuses them) never exists.
 
 ### 7.4 Starting memory

@@ -564,6 +564,30 @@ fn a_refused_value_changes_nothing() {
     assert_eq!(area, starting());
 }
 
+/// A warm restart keeps the retained values but the function block instance `Timer`, which takes
+/// its starting value, since an instance is never retained (specification 10). Catches a warm
+/// restart that keeps a retained instance's state, which the interpreter re-initializes.
+#[test]
+fn a_warm_restart_starts_a_retained_instance_again() {
+    let bytes = image();
+    let device = device();
+    let mut program = NativeProgram::new(
+        admit(&bytes, &device).unwrap(),
+        Idle,
+        &device,
+        &WITHOUT_DEBUGGER,
+    )
+    .unwrap();
+    program.cold_start(Duration::ZERO).unwrap();
+    assert!(program.write(5, 0, &9u32.to_le_bytes()));
+    assert!(program.write(5, 48, &[1, 1, 1, 1, 1, 1, 1, 1]));
+    program.warm_start(Duration::ZERO).unwrap();
+    let mut area = vec![0u8; R];
+    assert!(program.read(5, 0, &mut area));
+    assert_eq!(&area[0..4], &9u32.to_le_bytes());
+    assert_eq!(&area[48..56], &[0u8; 8]);
+}
+
 /// The bound counts every retained variable but the instance, under its key, at its largest
 /// encoding. Worked out by hand from the codec's layout.
 #[test]

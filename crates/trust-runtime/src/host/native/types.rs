@@ -14,7 +14,7 @@ use trust_hir::symbols::ParamDirection;
 use trust_hir::types::TypeRegistry;
 use trust_hir::{Type, TypeId};
 use trust_runtime_core::native::image::{
-    type_kind, SYMBOL_CONSTANT, SYMBOL_INPUT, SYMBOL_INSTANCE, SYMBOL_OUTPUT,
+    type_kind, SYMBOL_CONSTANT, SYMBOL_INPUT, SYMBOL_INSTANCE, SYMBOL_IN_OUT, SYMBOL_OUTPUT,
 };
 
 use super::NativeError;
@@ -332,12 +332,12 @@ impl StdFb {
             Self::RTrig => vec![
                 ("CLK", Elem::Bool, offset_of!(RTrig, CLK), input),
                 ("Q", Elem::Bool, offset_of!(RTrig, Q), output),
-                ("M", Elem::Bool, offset_of!(RTrig, M), 0),
+                ("__M", Elem::Bool, offset_of!(RTrig, M), 0),
             ],
             Self::FTrig => vec![
                 ("CLK", Elem::Bool, offset_of!(FTrig, CLK), input),
                 ("Q", Elem::Bool, offset_of!(FTrig, Q), output),
-                ("M", Elem::Bool, offset_of!(FTrig, M), 0),
+                ("__M", Elem::Bool, offset_of!(FTrig, M), 0),
             ],
         }
     }
@@ -387,6 +387,11 @@ pub(super) enum Kind {
         members: Vec<Member>,
     },
     StdFb(StdFb),
+    /// A reference to a variable of the target type: `REF_TO`, and the `VAR_IN_OUT` of a function
+    /// block, which holds a reference to its argument (IEC §6.4.4.10; specification 44 §6.4, §7.3).
+    Ref {
+        target: Ty,
+    },
 }
 
 /// A type with its layout and its name in the generated Rust.
@@ -516,6 +521,12 @@ impl<'a> Types<'a> {
             Kind::Elem(elem) => format!("elem {}", elem.name()),
             Kind::Enum { .. } => format!("enum {}", info.name),
             Kind::Subrange { .. } => format!("subrange {}", info.name),
+            // Every reference is a `RefValue`; its target makes it a type of its own.
+            Kind::Ref { target } => format!("ref {}", target.0),
+            // Arrays of one storage are different types when their elements or their bounds differ:
+            // `ARRAY[0..31]` and `ARRAY[1..32] OF INT` index differently, and arrays of two
+            // enumerations of one base hold different values.
+            Kind::Array { elem, dims } => format!("array {} {dims:?}", elem.0),
             _ => info.rust.clone(),
         };
         if let Some(ty) = self.by_rust.get(&key) {
@@ -554,6 +565,18 @@ impl<'a> Types<'a> {
             align: 2,
             name: SmolStr::new(format!("WSTRING[{capacity}]")),
             rust: format!("WStr<{capacity}>"),
+        })
+    }
+
+    /// The reference to a variable of type `target` (specification 44 §7.3): 16 bytes.
+    pub(super) fn reference(&mut self, target: Ty) -> Ty {
+        let name = SmolStr::new(format!("REF_TO {}", self.info(target).name));
+        self.intern(TypeInfo {
+            kind: Kind::Ref { target },
+            size: 16,
+            align: 4,
+            name,
+            rust: "Cell<abi::RefValue>".into(),
         })
     }
 
@@ -689,9 +712,11 @@ impl<'a> Types<'a> {
                 }))
             }
             Type::FunctionBlock { name } => self.function_block(name),
-            Type::Reference { .. } | Type::Pointer { .. } => Err(NativeError::unsupported(
-                "references (REF_TO, POINTER TO)".into(),
-            )),
+            Type::Reference { target } => {
+                let target = self.of(*target)?;
+                Ok(self.reference(target))
+            }
+            Type::Pointer { .. } => Err(NativeError::unsupported("POINTER TO".into())),
             Type::Union { name, .. } => Err(NativeError::unsupported(format!("UNION {name}"))),
             Type::Class { name } => Err(NativeError::unsupported(format!("CLASS {name}"))),
             Type::Interface { name } => Err(NativeError::unsupported(format!("INTERFACE {name}"))),
@@ -722,17 +747,14 @@ impl<'a> Types<'a> {
         }
         let mut fields = Vec::new();
         for param in &def.params {
-            let flags = match param.direction {
-                ParamDirection::In => SYMBOL_INPUT,
-                ParamDirection::Out => SYMBOL_OUTPUT,
-                ParamDirection::InOut => {
-                    return Err(NativeError::unsupported(format!(
-                        "VAR_IN_OUT {} of {name}",
-                        param.name
-                    )));
-                }
+            let ty = self.of(param.type_id)?;
+            let (ty, flags) = match param.direction {
+                ParamDirection::In => (ty, SYMBOL_INPUT),
+                ParamDirection::Out => (ty, SYMBOL_OUTPUT),
+                // The instance holds a reference to the argument of its last call (§6.4).
+                ParamDirection::InOut => (self.reference(ty), SYMBOL_IN_OUT),
             };
-            fields.push((param.name.clone(), self.of(param.type_id)?, flags));
+            fields.push((param.name.clone(), ty, flags));
         }
         for var in &def.vars {
             if var.external {

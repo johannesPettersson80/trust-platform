@@ -41,6 +41,7 @@ pub(super) fn starting_memory(
     let mut writer = Writer {
         runtime: &runtime,
         model,
+        top: false,
     };
     let mut globals = vec![0u8; writer.model.area_g.size as usize];
     let mut retain = vec![0u8; writer.model.area_r.size as usize];
@@ -61,6 +62,7 @@ pub(super) fn starting_memory(
         let Some(value) = writer.runtime.storage().get_global(&name).cloned() else {
             continue;
         };
+        writer.top = true;
         writer.value(&value, ty, bytes, offset as usize)?;
     }
     let instance_fields: Vec<(SmolStr, usize)> = writer
@@ -82,6 +84,7 @@ pub(super) fn starting_memory(
             (program.members.clone(), program.retained.clone())
         };
         for member in members {
+            writer.top = true;
             writer.member(
                 id,
                 &member.name,
@@ -91,6 +94,7 @@ pub(super) fn starting_memory(
             )?;
         }
         for member in retained {
+            writer.top = true;
             writer.member(
                 id,
                 &member.name,
@@ -124,6 +128,9 @@ fn field_offset(layout: &AreaLayout, name: &str) -> Result<u32, NativeError> {
 struct Writer<'r, 'm, 'a> {
     runtime: &'r Runtime,
     model: &'m mut Model<'a>,
+    /// Whether the next value written is a global or a program's variable itself, not a part of
+    /// one.
+    top: bool,
 }
 
 impl Writer<'_, '_, '_> {
@@ -168,6 +175,7 @@ impl Writer<'_, '_, '_> {
         bytes: &mut [u8],
         offset: usize,
     ) -> Result<(), NativeError> {
+        let top = std::mem::take(&mut self.top);
         let info = self.model.types.info(ty).clone();
         let put = |bytes: &mut [u8], data: &[u8]| -> Result<(), NativeError> {
             bytes
@@ -178,6 +186,14 @@ impl Writer<'_, '_, '_> {
         };
         match (&info.kind, value) {
             (_, Value::Null) => Ok(()),
+            // A reference starts `NULL`; a variable's `REF` initializer is set by the cold-start
+            // and the warm-start initialization (`emit::reference_initializers`), which is only
+            // there for a global or a program's variable.
+            (Kind::Ref { .. }, Value::Reference(None)) => Ok(()),
+            (Kind::Ref { .. }, Value::Reference(Some(_))) if top => Ok(()),
+            (Kind::Ref { .. }, Value::Reference(Some(_))) => Err(NativeError::unsupported(
+                "a reference initializer inside a structure or a function block".into(),
+            )),
             (
                 Kind::Elem(elem)
                 | Kind::Enum { base: elem, .. }
@@ -236,7 +252,12 @@ impl Writer<'_, '_, '_> {
                 Ok(())
             }
             (Kind::Fb { members, .. }, Value::Instance(id)) => {
-                for member in members.clone() {
+                // A `VAR_IN_OUT` holds a reference to its argument from the first call on; it
+                // starts `NULL`, whatever value the runtime keeps for it before a call.
+                let held = members.iter().filter(|member| {
+                    member.flags & trust_runtime_core::native::image::SYMBOL_IN_OUT == 0
+                });
+                for member in held.cloned().collect::<Vec<_>>() {
                     self.member(
                         *id,
                         &member.name,

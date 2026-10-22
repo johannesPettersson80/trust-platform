@@ -187,6 +187,35 @@ pub fn check(
     stage(image, snapshot, &starting).map(|(_, events)| events)
 }
 
+/// The starting bytes of every retained variable whose type holds a function block instance, a
+/// reference or a pointer, with its offset in the retain area: such a value is never retained
+/// (specification 10, "runtime references and instance identities are never retained"), so a warm
+/// restart gives it its starting value.
+///
+/// # Errors
+///
+/// [`RuntimeError::InvalidBundle`] for a retain map or a type table that does not read.
+pub(crate) fn unretainable(image: &Image<'_>) -> Result<Vec<(usize, Vec<u8>)>, RuntimeError> {
+    let types = Types::of(image)?;
+    let starting = starting_bytes(image)?;
+    let mut ranges = Vec::new();
+    each_retained(image, |retained| {
+        if retainable(&types, retained.type_index, 0)? {
+            return Ok(());
+        }
+        let size = usize::try_from(types.get(retained.type_index)?.size)
+            .map_err(|_| RuntimeError::Overflow)?;
+        let bytes = retained
+            .offset
+            .checked_add(size)
+            .and_then(|end| starting.get(retained.offset..end))
+            .ok_or_else(|| damaged("retain map"))?;
+        ranges.push((retained.offset, bytes.to_vec()));
+        Ok(())
+    })?;
+    Ok(ranges)
+}
+
 /// The error of a value the variable `key` refuses, as the interpreter reports it: a subrange
 /// violation with its numbers, an exhausted budget as it is, anything else as a migration error
 /// that names the key.

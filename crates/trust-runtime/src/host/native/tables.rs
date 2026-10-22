@@ -64,7 +64,12 @@ impl Symbols<'_, '_> {
         } else {
             0
         };
-        for member in members {
+        // A library block's own state (`__LAST` of a timer) is no variable the program declares:
+        // the type table keeps it for its layout, the symbol table names none of it (§5.7).
+        for member in members
+            .into_iter()
+            .filter(|member| !member.name.starts_with("__"))
+        {
             self.add(Variable {
                 canonical: format!(
                     "{}.{}",
@@ -518,6 +523,12 @@ fn type_record(
                 member_detail(pool, details, base, &members),
                 count(members.len()),
             )
+        }
+        // A reference's detail is its target type (specification 44 §5.8).
+        Kind::Ref { target } => {
+            details.extend_from_slice(&target.0.to_le_bytes());
+            details.extend_from_slice(&0u32.to_le_bytes());
+            (type_kind::REFERENCE, start, 0)
         }
     };
     TypeRecord {

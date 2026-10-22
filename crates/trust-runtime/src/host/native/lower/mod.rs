@@ -40,6 +40,8 @@ pub(super) struct Local {
     /// The Rust name.
     pub(super) rust: String,
     pub(super) ty: Ty,
+    /// Whether the Rust name is a reference to the storage, as a `VAR_IN_OUT` parameter is.
+    pub(super) is_ref: bool,
 }
 
 /// Where a value lies: a Rust expression naming the storage, or a reference to it.
@@ -187,8 +189,20 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             name: name.clone(),
             rust: rust.clone(),
             ty,
+            is_ref: false,
         });
         rust
+    }
+
+    /// Names the parameter `argument`, a reference to the caller's variable, `name` in the frame:
+    /// a function's or a method's `VAR_IN_OUT` (IEC §6.6.1.2.2).
+    pub(super) fn declare_reference(&mut self, name: &SmolStr, ty: Ty, argument: &str) {
+        self.locals.push(Local {
+            name: name.clone(),
+            rust: argument.to_string(),
+            ty,
+            is_ref: true,
+        });
     }
 
     /// Lowers the statements among `nodes`, the children of a statement list or a branch.
@@ -269,6 +283,11 @@ impl<'m, 'a> Lowerer<'m, 'a> {
         match &info.kind {
             Kind::Str(_) => self.store_text(place, value),
             Kind::WStr(_) => Err(self.unsupported(value, "WSTRING values")),
+            Kind::Ref { .. } => {
+                let reference = self.reference(value)?;
+                self.line(&format!("{}.set({reference});", place.expr));
+                Ok(())
+            }
             Kind::Array { .. } | Kind::Struct { .. } | Kind::Fb { .. } | Kind::StdFb(_) => {
                 let source = self.aggregate(value, place.ty)?;
                 self.line(&format!(
@@ -598,7 +617,32 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             }
             SyntaxKind::FieldExpr => self.field_place(node),
             SyntaxKind::IndexExpr => self.index_place(node),
+            SyntaxKind::DerefExpr => self.deref_place(node),
             other => Err(self.unsupported(node, format!("a {other:?} as a place"))),
+        }
+    }
+
+    /// `reference^`: the variable a reference names, checked as specification 44 §7.3 says.
+    fn deref_place(&mut self, node: &SyntaxNode) -> Result<Place, NativeError> {
+        let Some(reference) = node.children().next() else {
+            return Err(self.unsupported(node, "a dereference without its reference"));
+        };
+        let ty = self.type_of(&reference)?;
+        let Kind::Ref { target } = self.info(ty).kind else {
+            return Err(self.unsupported(node, "a dereference of a value that is no reference"));
+        };
+        let value = self.reference(&reference)?;
+        Ok(self.dereference(&value, target))
+    }
+
+    /// The variable of type `target` the reference value `reference` names, bound to a temporary.
+    pub(super) fn dereference(&mut self, reference: &str, target: Ty) -> Place {
+        let storage = self.info(target).rust.clone();
+        let expr = self.bind(&format!("w.areas.deref::<{storage}>(cx, &{reference})?"));
+        Place {
+            expr,
+            ty: target,
+            is_ref: true,
         }
     }
 
@@ -617,7 +661,7 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             return Ok(Place {
                 expr: local.rust.clone(),
                 ty: local.ty,
-                is_ref: false,
+                is_ref: local.is_ref,
             });
         }
         match self.frame {
@@ -638,7 +682,15 @@ impl<'m, 'a> Lowerer<'m, 'a> {
                     .members()
                     .iter()
                     .find(|member| member.name.eq_ignore_ascii_case(name))
+                    .cloned()
                 {
+                    // A `VAR_IN_OUT` is the variable its stored reference names (§6.4).
+                    if member.flags & trust_runtime_core::native::image::SYMBOL_IN_OUT != 0
+                        && let Kind::Ref { target } = self.info(member.ty).kind
+                    {
+                        let reference = format!("me.{}.get()", member.field());
+                        return Ok(self.dereference(&reference, target));
+                    }
                     return Ok(Place {
                         expr: format!("me.{}", member.field()),
                         ty: member.ty,

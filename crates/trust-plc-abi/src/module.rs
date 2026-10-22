@@ -3,7 +3,13 @@
 
 use core::marker::PhantomData;
 
-use crate::{Area, Cx, Fault, FaultCode, FaultRecord, Plain, AREA_COUNT, INTERFACE_VERSION};
+use crate::{
+    Area, Cx, Fault, FaultCode, FaultRecord, Plain, RefValue, AREA_COUNT, INTERFACE_VERSION,
+};
+
+/// The generation of every reference a compiled program takes: 1, until an online change gives an
+/// installation a generation of its own (specification 44 §7.3, §12, milestone M3).
+pub const GENERATION: u32 = 1;
 
 /// The areas of one entry call. Their views live as long as the call: the kernel keeps the areas
 /// in place and writes none of them until the call returns.
@@ -44,6 +50,108 @@ impl<'s> Areas<'s> {
         // and `base` is aligned for it, and `T: Plain` makes every bit pattern a value of `T` that
         // changes only through cells, so a shared view is sound while the kernel writes nothing.
         Ok(unsafe { &*area.base.cast::<T>() })
+    }
+
+    /// A reference of `kind` to `target`, a variable that lies in one of the areas: the target's
+    /// area, its offset there and its extent, in this program's generation (specification 44
+    /// §7.3).
+    ///
+    /// # Errors
+    ///
+    /// [`FaultCode::ReferenceLifetime`] when `target` lies in no area, as a frame variable does, to
+    /// which IEC 61131-3 allows no reference (§6.4.4.10.2).
+    pub fn refer<T: Plain>(&self, cx: &mut Cx, target: &T, kind: u8) -> Result<RefValue, Fault> {
+        let address = core::ptr::from_ref(target).addr();
+        let extent = core::mem::size_of::<T>();
+        for (index, area) in self.areas.iter().enumerate() {
+            let base = area.base.addr();
+            let end = usize::try_from(area.len)
+                .ok()
+                .and_then(|len| base.checked_add(len));
+            let inside = address >= base
+                && address
+                    .checked_add(extent)
+                    .zip(end)
+                    .is_some_and(|(target_end, end)| target_end <= end);
+            if inside {
+                return Ok(RefValue {
+                    area: u8::try_from(index + 1).unwrap_or(u8::MAX),
+                    kind,
+                    char_index: 0,
+                    offset: u32::try_from(address - base).unwrap_or(u32::MAX),
+                    extent: u32::try_from(extent).unwrap_or(u32::MAX),
+                    generation: GENERATION,
+                });
+            }
+        }
+        Err(fault(cx, FaultCode::ReferenceLifetime, 0, 0, 0))
+    }
+
+    /// The variable `reference` names, viewed as `T` (specification 44 §7.3): the reference is not
+    /// `NULL`, it was taken in this program's generation, it spans exactly a `T`, and its area holds
+    /// it, aligned for `T`.
+    ///
+    /// # Errors
+    ///
+    /// [`FaultCode::NullReference`] for `NULL`, [`FaultCode::ReferenceLifetime`] for a reference of
+    /// another generation or outside its area, and [`FaultCode::TypeMismatch`] for a target that is
+    /// no `T`.
+    #[allow(unsafe_code)]
+    pub fn deref<T: Plain>(&self, cx: &mut Cx, reference: &RefValue) -> Result<&'s T, Fault> {
+        if reference.kind == RefValue::NULL {
+            return Err(fault(cx, FaultCode::NullReference, 0, 0, 0));
+        }
+        if reference.generation != GENERATION {
+            return Err(fault(
+                cx,
+                FaultCode::ReferenceLifetime,
+                i64::from(reference.generation),
+                i64::from(GENERATION),
+                0,
+            ));
+        }
+        let size = core::mem::size_of::<T>();
+        if usize::try_from(reference.extent).ok() != Some(size) {
+            return Err(fault(
+                cx,
+                FaultCode::TypeMismatch,
+                i64::from(reference.extent),
+                i64::try_from(size).unwrap_or(i64::MAX),
+                0,
+            ));
+        }
+        let area = usize::from(reference.area)
+            .checked_sub(1)
+            .and_then(|index| self.areas.get(index));
+        let offset = usize::try_from(reference.offset).ok();
+        let target = area.zip(offset).and_then(|(area, offset)| {
+            let len = usize::try_from(area.len).ok()?;
+            (!area.base.is_null() && offset.checked_add(size)? <= len)
+                .then(|| area.base.wrapping_add(offset))
+        });
+        let Some(target) = target else {
+            return Err(fault(
+                cx,
+                FaultCode::ReferenceLifetime,
+                i64::from(reference.area),
+                i64::from(reference.offset),
+                i64::from(reference.extent),
+            ));
+        };
+        if target.align_offset(core::mem::align_of::<T>()) != 0 {
+            return Err(fault(
+                cx,
+                FaultCode::TypeMismatch,
+                i64::from(reference.offset),
+                0,
+                0,
+            ));
+        }
+        // SAFETY: `target` and the `size_of::<T>()` bytes after it lie inside an area the kernel
+        // owns and keeps in place for the whole entry call (`'s` cannot outlive it), the pointer is
+        // aligned for `T`, and `T: Plain` makes every bit pattern a value of `T` that changes only
+        // through cells, as for `view`.
+        Ok(unsafe { &*target.cast::<T>() })
     }
 }
 

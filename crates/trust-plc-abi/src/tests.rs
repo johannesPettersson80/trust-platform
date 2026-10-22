@@ -242,3 +242,92 @@ fn an_unknown_area_id_is_a_fault() {
     });
     assert_eq!(result, 0);
 }
+
+/// A reference to a variable names its area, its offset and its extent, in generation 1, and
+/// reads and writes the variable through itself (§7.3): `counter` of the globals is area 4,
+/// offset 0, 4 bytes; `level` is offset 4. Catches a reference with another offset than the
+/// variable's, or one that a write through it does not reach.
+#[test]
+fn a_reference_names_its_variable_and_reaches_it() {
+    let mut words = area_words::<4>();
+    let mut cx = context();
+    cx.set_area(AREA_GLOBALS, words.as_mut_ptr().cast(), 32);
+    let result = run(&raw mut cx, |cx, areas| {
+        let globals: &Globals = areas.view(cx, AREA_GLOBALS)?;
+        let counter = areas.refer(cx, &globals.counter, RefValue::VARIABLE)?;
+        let level = areas.refer(cx, &globals.level, RefValue::VARIABLE)?;
+        assert_eq!(
+            counter,
+            RefValue {
+                area: AREA_GLOBALS,
+                kind: RefValue::VARIABLE,
+                char_index: 0,
+                offset: 0,
+                extent: 4,
+                generation: 1,
+            }
+        );
+        assert_eq!(
+            (level.area, level.offset, level.extent),
+            (AREA_GLOBALS, 4, 4)
+        );
+        let target: &Cell<i32> = areas.deref(cx, &counter)?;
+        target.set(77);
+        assert_eq!(globals.counter.get(), 77);
+        Ok(())
+    });
+    assert_eq!(result, 0);
+}
+
+/// A dereference refuses `NULL` with `NullReference`, a reference of another generation with
+/// `ReferenceLifetime`, a target of another size with `TypeMismatch`, and a target outside its
+/// area with `ReferenceLifetime`; a variable on the stack has no reference (§7.3). Catches a
+/// dereference that reads whatever lies at a stale or foreign offset.
+#[test]
+fn a_dereference_refuses_what_names_no_variable_of_its_type() {
+    let mut words = area_words::<4>();
+    let mut cx = context();
+    cx.set_area(AREA_GLOBALS, words.as_mut_ptr().cast(), 32);
+    let mut outcome = |reference: RefValue| {
+        let mut cx = context();
+        cx.set_area(AREA_GLOBALS, words.as_mut_ptr().cast(), 32);
+        run(&raw mut cx, |cx, areas| {
+            let _: &Cell<i32> = areas.deref(cx, &reference)?;
+            Ok(())
+        })
+    };
+    let valid = RefValue {
+        area: AREA_GLOBALS,
+        kind: RefValue::VARIABLE,
+        char_index: 0,
+        offset: 0,
+        extent: 4,
+        generation: 1,
+    };
+    assert_eq!(outcome(valid), 0);
+    assert_eq!(outcome(RefValue::NULL_REF), FaultCode::NullReference as u32);
+    assert_eq!(
+        outcome(RefValue {
+            generation: 2,
+            ..valid
+        }),
+        FaultCode::ReferenceLifetime as u32
+    );
+    assert_eq!(
+        outcome(RefValue { extent: 8, ..valid }),
+        FaultCode::TypeMismatch as u32
+    );
+    assert_eq!(
+        outcome(RefValue {
+            offset: 30,
+            ..valid
+        }),
+        FaultCode::ReferenceLifetime as u32
+    );
+    let on_stack = Cell::new(5i32);
+    let result = run(&raw mut cx, |cx, areas| {
+        areas.refer(cx, &on_stack, RefValue::VARIABLE)?;
+        Ok(())
+    });
+    assert_eq!(result, FaultCode::ReferenceLifetime as u32);
+}

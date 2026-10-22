@@ -3879,7 +3879,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/module.rs",
-        "line": 46,
+        "line": 52,
         "owner": "native execution (specification 44)",
         "invariant": "The view is created only after checking that the area is at least size_of::<T>() bytes, its base non-null and aligned for T; T: Plain makes every bit pattern a value that changes only through cells; the 's lifetime cannot outlive the entry call, during which the kernel keeps the area in place and writes nothing.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3887,7 +3887,15 @@
       },
       {
         "path": "crates/trust-plc-abi/src/module.rs",
-        "line": 66,
+        "line": 154,
+        "owner": "native execution (specification 44)",
+        "invariant": "A dereference views its target only after checking that the reference is not NULL, of the current generation, spans exactly size_of::<T>() bytes that lie inside an existing area, and is aligned for T (specification 44 §7.3); T: Plain and the 's lifetime of the entry call make the shared view sound as for view.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/module.rs",
+        "line": 174,
         "owner": "native execution (specification 44)",
         "invariant": "The kernel calls an entry point with its own non-null context, valid and used by nothing else until the call returns (specification 44 §8.3); null is refused before.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3895,7 +3903,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/module.rs",
-        "line": 140,
+        "line": 248,
         "owner": "native execution (specification 44)",
         "invariant": "index is below breakpoint_bytes and the kernel keeps breakpoint_bytes readable bytes at breakpoints for the call (specification 44 §13.2); null is refused before.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3903,7 +3911,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/module.rs",
-        "line": 145,
+        "line": 253,
         "owner": "native execution (specification 44)",
         "invariant": "The kernel's function table is a static that outlives every call; null is refused before.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",

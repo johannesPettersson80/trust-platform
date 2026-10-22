@@ -496,9 +496,10 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     }
 
     /// A warm restart: every variable but the retained ones takes its starting memory, the
-    /// retained variables keep what they hold, the warm-start initialization runs, and the
-    /// variables located at `%M` are published into the marker image (IEC §6.5.6.1; specification
-    /// 11 §6.7). The process images are carried over.
+    /// retained variables keep what they hold but an instance or a reference, which is never
+    /// retained (specification 10), the warm-start initialization runs, and the variables located at
+    /// `%M` are published into the marker image (IEC §6.5.6.1; specification 11 §6.7). The process
+    /// images are carried over.
     ///
     /// # Errors
     ///
@@ -506,6 +507,10 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     pub fn warm_start(&mut self, now: Duration) -> Result<(), RuntimeError> {
         let retain = u32::from(trust_plc_abi::AREA_RETAIN);
         self.start_memory(|id| !process_image(id) && id != retain)?;
+        // A retained instance or reference is never retained: it starts again.
+        for (offset, starting) in retain::unretainable(&self.image)? {
+            self.areas[RETAIN].write(offset, &starting);
+        }
         self.reset_task_timing(now);
         if let Some(entry) = self.warm {
             self.call(entry, u32::MAX, now)?;

@@ -27,6 +27,16 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   compiled programs: each case is built for this computer and run by the kernel, and its trace is
   compared with the same expected artifacts (specification 44 §14.2). A project without a
   `CONFIGURATION` now compiles as the runtime runs it, each `PROGRAM` as an instance of its name.
+- Added: compiled programs take references (`REF_TO`, `REF()`, `^`, `NULL`) and `VAR_IN_OUT` in
+  function blocks, functions and methods, and the Siemens profile's `#local` names. The PLCopen
+  motion single-axis library and its demonstration, OSCAT's `TICKER` and twelve example projects
+  now compile, and each runs as the runtime runs it: every variable of every scan compared, 846,000
+  values over 30 seconds of the vat pasteurizer.
+- Fixed: a compiled program gave two arrays of one storage one type, so `ARRAY[1..3] OF INT` was
+  indexed by the bounds of an `ARRAY[0..2] OF INT` declared before it, and an array of one
+  enumeration took the values of another of the same base.
+- Fixed: a warm restart of a compiled program kept a retained function block instance or reference,
+  which the runtime gives its initial value again (specification 10).
 - Fixed: a compiled program's variable located at `%M` took the marker image's 0 at its first scan
   instead of its initial value, and a restart cleared the process images; the variable's value is
   now published into the marker image at every start, and the images are carried over a restart,
