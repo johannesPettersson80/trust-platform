@@ -13,7 +13,8 @@ const DEVICE_PART_BYTES: usize = 4096;
 const DEVICE_LINE_LIMIT: usize = 1 << 20;
 
 /// The configuration a case's program is installed with: the debug surface on, which `cycle.step`
-/// needs (specification 11 §6.8.1), and nothing else.
+/// needs (specification 11 §6.8.1), a watchdog of one second, which bounds every stepped scan, and
+/// otherwise the sections a project's `runtime.toml` must have, at their defaults.
 const DEVICE_CASE_RUNTIME: &str = "\
 [bundle]
 version = 1
@@ -26,6 +27,21 @@ cycle_interval_ms = 10
 endpoint = \"unix:///tmp/trust-conformance.sock\"
 mode = \"production\"
 debug_enabled = true
+
+[runtime.log]
+level = \"info\"
+
+[runtime.retain]
+mode = \"none\"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = true
+timeout_ms = 1000
+action = \"halt\"
+
+[runtime.fault]
+policy = \"halt\"
 ";
 
 /// The device the runtime cases run on (specification 44 §14.2): its control link, the target its
@@ -54,11 +70,11 @@ impl DeviceRun {
             toolchain,
         };
         let idle = device_container("idle", &[DEVICE_IDLE_PROGRAM.to_string()], &device)
-            .context("build the idle program")?;
+            .map_err(|error| anyhow!("build the idle program: {error:#}"))?;
         device
             .link
             .install(&idle)
-            .context("install the idle program")?;
+            .map_err(|error| anyhow!("install the idle program: {error:#}"))?;
         device
             .link
             .call("restart", Some(json!({"mode": "cold"})), DEVICE_REPLY_WAIT)?;
@@ -369,7 +385,7 @@ fn execute_runtime_case_device(
         let stepped = device
             .link
             .call("cycle.step", Some(params), DEVICE_REPLY_WAIT)
-            .with_context(|| format!("step cycle {cycle_number}"))?;
+            .map_err(|error| anyhow!("step cycle {cycle_number}: {error:#}"))?;
 
         let read = |member: &str,
                     names: &[String]|

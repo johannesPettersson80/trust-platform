@@ -152,7 +152,11 @@ pub fn run_conformance(args: ConformanceArgs) -> anyhow::Result<()> {
         runtime: RuntimeSummaryMeta {
             name: runtime_name.to_string(),
             version: env!("CARGO_PKG_VERSION").to_string(),
-            target: format!("{}-{}", std::env::consts::ARCH, std::env::consts::OS),
+            // The cases ran on the device when there is one, compiled for its target.
+            target: device.as_ref().map_or_else(
+                || format!("{}-{}", std::env::consts::ARCH, std::env::consts::OS),
+                |device| native::triple(device.target).to_string(),
+            ),
         },
         summary: SummaryTotals {
             total: results.len(),
