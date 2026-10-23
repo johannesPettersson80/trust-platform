@@ -134,10 +134,13 @@ fn shutdown_on_a_computer_keeps_the_control_server_up_in_stopped() {
 fn restart_after_shutdown_runs_the_program_again() {
     // Specification 34 STATE-08: a cold `restart` of the stopped runtime starts the program as a
     // new process would: the scan counter begins again, the uptime and the event store begin
-    // empty, and the logical time of the events begins at zero. Wrong behaviour: the restart is
+    // empty, and the logical time of the events begins at zero. The store keeps no event that
+    // every scan makes (specification 11, the event store), so each run leaves one by a write
+    // its scan refuses, which needs the debug surface enabled. Wrong behaviour: the restart is
     // refused in Stopped, the counter continues, or the records of the stopped program remain.
-    let runtime = ExampleRuntime::new(EXAMPLE).start();
+    let runtime = ExampleRuntime::new(EXAMPLE).debug_enabled(true).start();
     let before = run_until_the_counter_is_high(&runtime);
+    refused_write_times(&runtime, 10);
     stop_the_program(&runtime);
     hold_for(Duration::from_millis(1_000));
     let stopped = runtime.control_request(json!({"id": 1, "type": "status"}));
@@ -151,7 +154,7 @@ fn restart_after_shutdown_runs_the_program_again() {
         .iter()
         .filter_map(|event| event["time_ns"].as_i64())
         .max()
-        .expect("the stopped program left cycle events");
+        .unwrap_or_else(|| panic!("the stopped program left its refused write: {events}"));
 
     start_the_program(&runtime);
 
@@ -171,18 +174,41 @@ fn restart_after_shutdown_runs_the_program_again() {
         "the uptime begins again: {uptime_restarted} ms after the restart, {uptime_stopped} ms \
          while stopped"
     );
-    let events = runtime.control_request(json!({"id": 4, "type": "events.tail"}));
-    let times: Vec<i64> = result_of(&events)["events"]
-        .as_array()
-        .expect("events")
-        .iter()
-        .filter_map(|event| event["time_ns"].as_i64())
-        .collect();
+    let times = refused_write_times(&runtime, 20);
     assert!(
         !times.is_empty() && times.iter().all(|&time| time < newest_old_event),
         "the events of the stopped program are gone and the new ones begin at zero: {times:?} \
          against {newest_old_event}"
     );
+}
+
+/// Queues a write to a global the program does not declare, which the next scan refuses and the
+/// event store keeps as `write_rejected` with the scan's logical time (specification 11, the event
+/// store; specification 34 HOST-09), waits until the store holds it, and returns the logical
+/// times of the store's events then. Requests take the numbers from `id` on.
+fn refused_write_times(runtime: &Runtime, id: u64) -> Vec<i64> {
+    let queued = runtime.control_request(json!({
+        "id": id,
+        "type": "set",
+        "params": {"target": "global:NotDeclared", "value": "7"},
+    }));
+    result_of(&queued);
+    let mut times = Vec::new();
+    runtime.wait_until(WAIT, "the refused write in the event store", || {
+        let events = runtime.control_request(json!({"id": id + 1, "type": "events.tail"}));
+        let events = result_of(&events)["events"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        times = events
+            .iter()
+            .filter_map(|event| event["time_ns"].as_i64())
+            .collect();
+        events
+            .iter()
+            .any(|event| event["type"] == json!("write_rejected"))
+    });
+    times
 }
 
 #[test]
