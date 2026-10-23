@@ -10,7 +10,7 @@ rust-version.workspace = true
 [dependencies]
 # Declared directly: the workspace serde and serde_json entries enable std.
 serde = { version = "1.0.229", default-features = false, features = ["derive", "alloc"] }
-serde_json = { version = "1.0.152", default-features = false, features = ["alloc"] }
+serde_json = { version = "1.0.152", default-features = false, features = ["alloc", "raw_value"] }
 indexmap.workspace = true
 smol_str = { workspace = true }
 # The standard base64 of a part's data and of a reply's data (specification 34, PORT-05), with

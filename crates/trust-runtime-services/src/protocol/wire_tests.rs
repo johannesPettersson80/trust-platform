@@ -316,6 +316,53 @@ fn a_reply_that_fits_one_part_takes_one_part_and_one_that_needs_two_takes_two() 
 }
 
 #[test]
+fn a_reply_written_in_small_pieces_is_the_reply_written_whole() {
+    // Specification 34 PORT-02 and PORT-05: the writer gathers a serializer's pieces of a few bytes
+    // before it writes them into its parts, which changes neither the text, nor where the parts are
+    // cut, nor what the bound and the heap refuse. 9,000 bytes written three at a time are parts of
+    // 4,096, 4,096 and 808 bytes that join to the text; a bound of 9,000 takes them and one of 8,999
+    // overflows at the last piece; a heap with room for two parts refuses after 8,192 bytes. Catches
+    // gathered bytes lost at a part's end or at the finish, or counted twice against the bound.
+    let text: String = (0u8..=255)
+        .cycle()
+        .map(|index| char::from(b'a' + index % 26))
+        .take(9_000)
+        .collect();
+    let written = |reply: &mut ReplyWriter| {
+        for piece in text.as_bytes().chunks(3) {
+            reply.push(core::str::from_utf8(piece).expect("ASCII"));
+        }
+    };
+
+    let mut reply = ReplyWriter::new(usize::MAX, reserve_part);
+    written(&mut reply);
+    let Written::Parts(parts) = reply.finish(4_096) else {
+        panic!("9,000 bytes are longer than a frame of 4,096");
+    };
+    assert_eq!(parts.part_lengths(), [4_096, 4_096, 808]);
+    assert_eq!(
+        parts.into_bytes().expect("the heap has room"),
+        text.as_bytes()
+    );
+
+    let mut reply = ReplyWriter::new(9_000, reserve_part);
+    written(&mut reply);
+    assert!(matches!(reply.finish(usize::MAX), Written::Line(line) if line == text));
+
+    let mut reply = ReplyWriter::new(8_999, reserve_part);
+    written(&mut reply);
+    assert!(reply.refused());
+    assert!(matches!(reply.finish(usize::MAX), Written::Overflow));
+
+    let mut reply = ReplyWriter::new(usize::MAX, room_for::<2>);
+    written(&mut reply);
+    assert!(matches!(
+        reply.finish(usize::MAX),
+        Written::NoRoom { written: 8_192 }
+    ));
+}
+
+#[test]
 fn a_writer_that_is_refused_says_whether_the_bound_or_the_heap_refused() {
     // Specification 34 PORT-05: a reply above the capacity and a reply the heap has no room for are
     // refused with different texts, so the writer keeps them apart. A piece that fits the bound

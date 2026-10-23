@@ -75,6 +75,48 @@ fn snapshot_json_is_the_io_list_and_io_read_answer() {
 }
 
 #[test]
+fn snapshot_text_is_written_in_the_order_of_the_names() {
+    // Specification 34 PORT-02: `io.list` and `io.read` write the snapshot as text without building
+    // a value, the members of every object in the order of their names, as the value they answered
+    // with before wrote them; worked out by hand from the snapshot of the first test. Catches a
+    // member out of that order, a type name or source written without a value, and an address
+    // written another way.
+    let snapshot = IoSnapshot {
+        scan: Some(4),
+        forced: vec![address("%QW2")],
+        inputs: vec![IoSnapshotEntry {
+            name: Some(SmolStr::new("In0")),
+            address: address("%IX0.0"),
+            value_type_name: Some(SmolStr::new("BOOL")),
+            value: IoSnapshotValue::Value(Value::Bool(true)),
+            source: Some(SmolStr::new("MQTT topic plant/line1")),
+        }],
+        outputs: vec![IoSnapshotEntry {
+            name: None,
+            address: address("%QW2"),
+            value_type_name: None,
+            value: IoSnapshotValue::Value(Value::LInt(7)),
+            source: None,
+        }],
+        memory: vec![IoSnapshotEntry {
+            name: Some(SmolStr::new("Speed")),
+            address: address("%MD4"),
+            value_type_name: Some(SmolStr::new("REAL")),
+            value: IoSnapshotValue::Value(Value::Real(1.5)),
+            source: None,
+        }],
+    };
+    assert_eq!(
+        serde_json::to_string(&snapshot).expect("the snapshot serializes"),
+        concat!(
+            r#"{"inputs":[{"address":"%IX0.0","forced":false,"name":"In0","source":"MQTT topic plant/line1","value":"Bool(true)","valueType":"BOOL"}],"#,
+            r#""memory":[{"address":"%MD4","forced":false,"name":"Speed","value":"Real(1.5)","valueType":"REAL"}],"#,
+            r#""outputs":[{"address":"%QW2","forced":true,"name":null,"value":"LInt(7)"}],"scan":4}"#
+        )
+    );
+}
+
+#[test]
 fn snapshot_json_renders_unresolved_and_error_values() {
     let snapshot = IoSnapshot {
         scan: None,

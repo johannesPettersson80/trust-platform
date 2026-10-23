@@ -4286,7 +4286,7 @@ fn ads_server_status_rejects_external_claim_without_live_server_evidence() {
         None,
     );
     assert!(status.ok, "ads.server.status failed: {:?}", status.error);
-    let result = status.result.expect("status result");
+    let result = status.result_value().expect("status result");
     assert_eq!(
         result
             .get("external_client_verified")
@@ -4495,8 +4495,8 @@ END_PROGRAM
 
     let read = handle_request_value(json!({"id": 41, "type": "io.read"}), &state, None);
     assert!(read.ok, "io.read should succeed: {:?}", read.error);
-    let snapshot = read
-        .result
+    let read_result = read.result_value();
+    let snapshot = read_result
         .as_ref()
         .and_then(|result| result.get("snapshot"))
         .expect("snapshot result");
@@ -4538,8 +4538,8 @@ END_PROGRAM
         "io.read should succeed: {:?}",
         next_read.error
     );
-    let forced = next_read
-        .result
+    let next_read_result = next_read.result_value();
+    let forced = next_read_result
         .as_ref()
         .and_then(|result| result.get("snapshot"))
         .and_then(|snapshot| snapshot.get("outputs"))
@@ -4656,7 +4656,7 @@ END_PROGRAM
 
     let status = handle_request_value(json!({"id": 30, "type": "status"}), &state, None);
     assert!(status.ok, "status should succeed: {:?}", status.error);
-    let result = status.result.expect("status result");
+    let result = status.result_value().expect("status result");
     assert_eq!(
         result
             .get("execution_backend")
@@ -4691,7 +4691,7 @@ END_PROGRAM
 
     let status = handle_request_value(json!({"id": 31, "type": "status"}), &state, None);
     assert!(status.ok, "status should succeed: {:?}", status.error);
-    let status_result = status.result.expect("status result");
+    let status_result = status.result_value().expect("status result");
     let status_backend = status_result
         .get("execution_backend")
         .and_then(serde_json::Value::as_str)
@@ -4786,7 +4786,7 @@ END_PROGRAM
 
     let status = handle_request_value(json!({"id": 33, "type": "status"}), &state, None);
     assert!(status.ok, "status should succeed: {:?}", status.error);
-    let result = status.result.expect("status result");
+    let result = status.result_value().expect("status result");
 
     assert_eq!(
         result.get("state").and_then(serde_json::Value::as_str),
@@ -4967,7 +4967,7 @@ END_PROGRAM
 
     let health = handle_request_value(json!({"id": 34, "type": "health"}), &state, None);
     assert!(health.ok, "health should succeed: {:?}", health.error);
-    let result = health.result.expect("health result");
+    let result = health.result_value().expect("health result");
 
     assert_eq!(
         result.get("ok").and_then(serde_json::Value::as_bool),
@@ -5160,7 +5160,7 @@ END_PROGRAM
 
     let status = handle_request_value(json!({"id": 25, "type": "status"}), &state, None);
     assert!(status.ok, "status should succeed: {:?}", status.error);
-    let result = status.result.expect("status result");
+    let result = status.result_value().expect("status result");
     assert_eq!(
         result
             .get("execution_backend")
@@ -5186,7 +5186,7 @@ END_PROGRAM
 
     let status = handle_request_value(json!({"id": 26, "type": "status"}), &state, None);
     assert!(status.ok, "status should succeed: {:?}", status.error);
-    let status_result = status.result.expect("status result");
+    let status_result = status.result_value().expect("status result");
     assert_eq!(
         status_result
             .get("realtime")
@@ -5309,8 +5309,8 @@ END_PROGRAM
         None,
     );
     assert!(viewer_status.ok, "viewer should read status");
-    let viewer_access = viewer_status
-        .result
+    let viewer_status_result = viewer_status.result_value();
+    let viewer_access = viewer_status_result
         .as_ref()
         .and_then(|value| value.get("access"))
         .expect("viewer access capabilities");
@@ -5514,8 +5514,8 @@ END_PROGRAM
 
     let status = handle_request_value(json!({"id": 903, "type": "status"}), &state, Some("unix"));
     assert!(status.ok, "local Unix control should read status");
-    let access = status
-        .result
+    let status_result = status.result_value();
+    let access = status_result
         .as_ref()
         .and_then(|value| value.get("access"))
         .expect("access capabilities");
@@ -5569,8 +5569,8 @@ END_PROGRAM
         Some("unix"),
     );
     assert!(status.ok, "viewer token should read status over Unix");
-    let access = status
-        .result
+    let status_result = status.result_value();
+    let access = status_result
         .as_ref()
         .and_then(|value| value.get("access"))
         .expect("access capabilities");
@@ -5880,7 +5880,7 @@ fn status_runtime_id_is_the_states_and_reading_it_writes_no_file() {
     let second_status = handle_request_value(json!({"id": 602, "type": "status"}), &second, None);
     assert_eq!(
         first_status
-            .result
+            .result_value()
             .as_ref()
             .and_then(|result| result.get("runtime_id")),
         Some(&json!("rt-a")),
@@ -5888,7 +5888,7 @@ fn status_runtime_id_is_the_states_and_reading_it_writes_no_file() {
     );
     assert_eq!(
         second_status
-            .result
+            .result_value()
             .as_ref()
             .and_then(|result| result.get("runtime_id")),
         Some(&json!("rt-b")),

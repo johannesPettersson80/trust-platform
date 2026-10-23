@@ -37,20 +37,28 @@ pub(crate) enum Written {
     NotText(Utf8Error),
 }
 
+/// The bytes a writer gathers before it writes them into its parts: a serializer writes a reply in
+/// pieces of a few bytes, and writing each into the parts costs more than copying it here
+/// (specification 34 PORT-02).
+const GATHER_BYTES: usize = 256;
+
 /// A response written piece by piece into parts of 4,096 bytes, for a link that moves replies of at
 /// most a frame and a session that holds a longer one up to a bound.
 ///
 /// Each part is taken from the heap when the writing reaches it, with a fallible reservation, and
 /// never ahead of the text, so a short reply takes one part and a long reply never takes a block
-/// longer than a part. A piece that does not fit the bound marks the writer as overflowed, and a
-/// part the heap has no room for marks it as without room; the two are kept apart, and either
-/// drops every later piece. Writing never fails, as `serde_json` requires without `std`: [`Self::finish`]
-/// says which of them happened, or hands over the text.
+/// longer than a part. Pieces are gathered in a block of [`GATHER_BYTES`] bytes and written into
+/// the parts when it is full and at the end. A piece that does not fit the bound marks the writer
+/// as overflowed, and a part the heap has no room for marks it as without room; the two are kept
+/// apart, and either drops every later piece. Writing never fails, as `serde_json` requires without
+/// `std`: [`Self::finish`] says which of them happened, or hands over the text.
 pub(crate) struct ReplyWriter {
     parts: ReplyParts,
     bound: usize,
     reserve: PartReserve,
     stopped: Option<Stopped>,
+    gathered: [u8; GATHER_BYTES],
+    gathered_len: usize,
 }
 
 impl ReplyWriter {
@@ -61,7 +69,34 @@ impl ReplyWriter {
             bound,
             reserve,
             stopped: None,
+            gathered: [0; GATHER_BYTES],
+            gathered_len: 0,
         }
+    }
+
+    /// The bytes written, the gathered ones included.
+    const fn written(&self) -> usize {
+        self.parts.len() + self.gathered_len
+    }
+
+    /// Writes `bytes` into the parts, or records that the heap had no room.
+    fn write_parts(&mut self, bytes: &[u8]) {
+        if self.parts.try_write_with(bytes, self.reserve).is_err() {
+            self.stopped = Some(Stopped::NoRoom {
+                written: self.parts.len(),
+            });
+        }
+    }
+
+    /// Writes the gathered bytes into the parts.
+    fn flush(&mut self) {
+        if self.gathered_len == 0 || self.stopped.is_some() {
+            return;
+        }
+        let gathered = self.gathered;
+        let len = self.gathered_len;
+        self.gathered_len = 0;
+        self.write_parts(&gathered[..len]);
     }
 
     /// The writer of the successful response to request `id`, written up to its result.
@@ -92,7 +127,8 @@ impl ReplyWriter {
 
     /// What the reply came to. A reply of at most `frame` bytes is the one line that is sent, and a
     /// longer one is its parts.
-    pub(crate) fn finish(self, frame: usize) -> Written {
+    pub(crate) fn finish(mut self, frame: usize) -> Written {
+        self.flush();
         match self.stopped {
             Some(Stopped::Overflow) => Written::Overflow,
             Some(Stopped::NoRoom { written }) => Written::NoRoom { written },
@@ -121,16 +157,25 @@ impl Write for ReplyWriter {
         if self.stopped.is_some() {
             return Ok(());
         }
-        if piece.len() > self.bound.saturating_sub(self.parts.len()) {
-            self.stopped = Some(Stopped::Overflow);
-        } else if self
-            .parts
-            .try_write_with(piece.as_bytes(), self.reserve)
-            .is_err()
+        if piece.len() > self.bound.saturating_sub(self.written()) {
+            self.flush();
+            if self.stopped.is_none() {
+                self.stopped = Some(Stopped::Overflow);
+            }
+            return Ok(());
+        }
+        let bytes = piece.as_bytes();
+        if bytes.len() > GATHER_BYTES - self.gathered_len {
+            self.flush();
+        }
+        if bytes.len() >= GATHER_BYTES {
+            self.write_parts(bytes);
+        } else if let Some(room) = self
+            .gathered
+            .get_mut(self.gathered_len..self.gathered_len + bytes.len())
         {
-            self.stopped = Some(Stopped::NoRoom {
-                written: self.parts.len(),
-            });
+            room.copy_from_slice(bytes);
+            self.gathered_len += bytes.len();
         }
         Ok(())
     }

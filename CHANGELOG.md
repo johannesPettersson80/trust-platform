@@ -77,6 +77,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Changed: the stack a compiled program needs is the deepest chain of calls the build reads from
   the module, not the sum of every function's frame; calls through interfaces that come back to a
   function, as a decorator's do, count once for each instance.
+- Changed: `status`, `health`, `tasks.stats`, `io.list` and `io.read` write their replies as text
+  without building a JSON value first, and a reply is written into its parts in blocks rather than
+  piece by piece. On the ESP32-C6 a `status` holds the scan loop about 6 ms instead of 9, an
+  `io.read` about 2 ms instead of 6. The replies are the same text as before.
 - Changed: the kernel interface of compiled programs is version 2: a kernel reads the real of
   `STRING_TO_REAL` with the runtime's own reader for the program. An image built before must be
   rebuilt.

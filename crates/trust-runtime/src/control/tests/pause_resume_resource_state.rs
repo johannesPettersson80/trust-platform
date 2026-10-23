@@ -85,7 +85,7 @@ fn faulted_or_stopped_resource_refuses_pause_and_resume_and_changes_nothing() {
                 "{label}: status should succeed: {:?}",
                 status.error
             );
-            let status = status.result.expect("status result");
+            let status = status.result_value().expect("status result");
             let expected = format!("{resource:?}").to_ascii_lowercase();
             assert_eq!(
                 status.pointer("/state").and_then(serde_json::Value::as_str),

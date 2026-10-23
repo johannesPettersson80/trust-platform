@@ -24,7 +24,7 @@ fn driver(name: &str, health: IoDriverHealth) -> IoDriverStatus {
 
 fn result(response: ControlResponse) -> Value {
     assert!(response.ok, "request failed: {:?}", response.error);
-    response.result.expect("response result")
+    response.into_result_value().expect("response result")
 }
 
 fn error(response: &ControlResponse) -> &str {
@@ -452,4 +452,80 @@ fn event_reads_refuse_bad_limits_and_an_unreadable_store() {
         error(&faults(4, None, &unreadable)),
         "event store unavailable"
     );
+}
+
+#[test]
+fn the_frequent_reads_write_the_text_their_values_write() {
+    // Specification 34 PORT-02: `status`, `health` and `tasks.stats` write their results as text,
+    // without building a value, and each text is the one its value writes (specification 11
+    // §6.8.1): the members of every object in the order of their names, the numbers as a value
+    // writes them. Parsing a reply and writing the value again therefore gives the same text.
+    // Catches a member declared out of the order of the names, which the text would carry and a
+    // value would not, in every block the replies have: drivers of each health, a task, a
+    // contributor, the allocations, the memory figure, a debugger hold and a role's access.
+    let mut host = FakeHost::running();
+    host.io_drivers = vec![
+        driver("simulated", IoDriverHealth::Ok),
+        driver(
+            "modbus",
+            IoDriverHealth::Degraded {
+                error: SmolStr::new("slow"),
+            },
+        ),
+        driver(
+            "mqtt",
+            IoDriverHealth::Faulted {
+                error: SmolStr::new("socket closed"),
+            },
+        ),
+    ];
+    host.metrics.profiling.enabled = true;
+    host.metrics.tasks = vec![TaskStatsSnapshot {
+        name: SmolStr::new("Fast"),
+        min_ms: 0.25,
+        max_ms: 1.5,
+        avg_ms: 0.75,
+        last_ms: 1.0,
+        overruns: 2,
+    }];
+    host.metrics.profiling.top_contributors = vec![BudgetContributorSnapshot {
+        key: SmolStr::new("program:Main"),
+        kind: SmolStr::new("program"),
+        name: SmolStr::new("Main"),
+        avg_cycle_ms: 0.5,
+        cycle_pct: 66.5,
+        last_ms: 0.625,
+        last_cycle_pct: 62.5,
+    }];
+    host.metrics.scan_allocations = Some(crate::metrics::ScanAllocations {
+        engine: 3,
+        services: 4,
+    });
+    host.metrics.program_memory = Some(crate::metrics::ProgramMemory {
+        figure: trust_runtime_core::vm::MemoryFigure {
+            program: 18_232,
+            persistent_block: 460,
+            activation_stack: 5_418,
+            operand_stack: 2_158,
+            engine: 3_838,
+            retain_capture: 86,
+        },
+        retains: true,
+    });
+    host.debug_hold = Some("breakpoint");
+    for response in [
+        status(1, &host),
+        status_for(2, &host, Some(AccessRole::Viewer)),
+        status_for(3, &host, Some(AccessRole::Engineer)),
+        health(4, &host),
+        task_stats(5, &host),
+    ] {
+        assert!(response.ok, "request failed: {:?}", response.error);
+        let text = serde_json::to_string(&response).expect("the reply serializes");
+        let value: Value = serde_json::from_str(&text).expect("the reply is JSON");
+        assert_eq!(
+            text,
+            serde_json::to_string(&value).expect("the value serializes")
+        );
+    }
 }

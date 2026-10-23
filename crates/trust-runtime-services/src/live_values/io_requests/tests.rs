@@ -78,7 +78,7 @@ impl IoQueuePort for FakeQueues {
 
 fn result(response: ControlResponse) -> JsonValue {
     assert!(response.ok, "request failed: {:?}", response.error);
-    response.result.expect("response result")
+    response.into_result_value().expect("response result")
 }
 
 fn assert_invalid_params(response: &ControlResponse) {

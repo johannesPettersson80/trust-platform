@@ -48,7 +48,7 @@ fn held_scan_counter(runtime: &crate::Runtime) -> crate::value::Value {
 fn held_scan_status(state: &ControlState) -> serde_json::Value {
     let response = handle_request_value(json!({"id": 90, "type": "status"}), state, None);
     assert!(response.ok, "status should succeed: {:?}", response.error);
-    response.result.expect("status result")
+    response.result_value().expect("status result")
 }
 
 /// Run one scan on a worker thread, so a debugger hold that the scan waits on fails

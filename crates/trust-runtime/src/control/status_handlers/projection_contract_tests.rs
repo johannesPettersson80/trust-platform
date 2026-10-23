@@ -21,7 +21,7 @@ fn state() -> ControlState {
 
 fn result(response: ControlResponse) -> Value {
     assert!(response.ok, "request failed: {:?}", response.error);
-    response.result.expect("response result")
+    response.into_result_value().expect("response result")
 }
 
 fn assert_unavailable(response: ControlResponse) {

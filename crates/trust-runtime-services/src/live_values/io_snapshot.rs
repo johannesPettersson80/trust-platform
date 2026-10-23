@@ -5,11 +5,12 @@
 //! core's IEC type name instead of a `trust_hir::TypeId`, so a target without the compiler's type
 //! table can hold it.
 
-use alloc::format;
-use alloc::string::{String, ToString};
+use alloc::string::String;
 use alloc::vec::Vec;
+use core::fmt;
 
-use serde_json::json;
+use serde::ser::{SerializeSeq, SerializeStruct};
+use serde::{Serialize, Serializer};
 use smol_str::SmolStr;
 use trust_runtime_core::io_address::{IoAddress, IoSize};
 use trust_runtime_core::io_image::io_value_type_name;
@@ -64,12 +65,21 @@ impl IoSnapshot {
     /// address, value, force mark, declared type name and source.
     #[must_use]
     pub fn to_json(&self) -> serde_json::Value {
-        json!({
-            "scan": self.scan,
-            "inputs": self.inputs.iter().map(|entry| entry_to_json(entry, &self.forced)).collect::<Vec<_>>(),
-            "outputs": self.outputs.iter().map(|entry| entry_to_json(entry, &self.forced)).collect::<Vec<_>>(),
-            "memory": self.memory.iter().map(|entry| entry_to_json(entry, &self.forced)).collect::<Vec<_>>(),
-        })
+        serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
+    }
+}
+
+impl Serialize for IoSnapshot {
+    /// The snapshot as `io.list` and `io.read` answer it, written without building a value, its
+    /// members in the order of their names as a value's object writes them (specification 34
+    /// PORT-02).
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut snapshot = serializer.serialize_struct("IoSnapshot", 4)?;
+        snapshot.serialize_field("inputs", &Entries::of(&self.inputs, &self.forced))?;
+        snapshot.serialize_field("memory", &Entries::of(&self.memory, &self.forced))?;
+        snapshot.serialize_field("outputs", &Entries::of(&self.outputs, &self.forced))?;
+        snapshot.serialize_field("scan", &self.scan)?;
+        snapshot.end()
     }
 }
 
@@ -80,65 +90,121 @@ pub fn value_type_name(wire_type: ConversionType) -> Option<&'static str> {
     io_value_type_name(wire_type)
 }
 
-/// The `valueType` JSON of one entry: the name is set only when the binding is typed.
-fn entry_to_json(entry: &IoSnapshotEntry, forced: &[IoAddress]) -> serde_json::Value {
-    let mut payload = json!({
-        "name": entry.name.as_ref().map(SmolStr::as_str),
-        "address": format_address(&entry.address),
-        "value": format_value(&entry.value),
-        "forced": forced.iter().any(|address| address == &entry.address),
-    });
-    if let Some(value_type) = entry.value_type_name.as_deref() {
-        payload["valueType"] = json!(value_type);
-    }
-    if let Some(source) = &entry.source {
-        payload["source"] = json!(source.as_str());
-    }
-    payload
+/// The entries of one area, each with whether a force holds its address.
+struct Entries<'a> {
+    entries: &'a [IoSnapshotEntry],
+    forced: &'a [IoAddress],
 }
 
-/// The JSON of a sampled value, as trust-runtime reports it today.
-fn format_value(value: &IoSnapshotValue) -> serde_json::Value {
-    match value {
-        IoSnapshotValue::Value(value) => json!(format!("{value:?}")),
-        IoSnapshotValue::Error(error) => json!({ "error": error }),
-        IoSnapshotValue::Unresolved => json!("unresolved"),
+impl<'a> Entries<'a> {
+    fn of(entries: &'a [IoSnapshotEntry], forced: &'a [IoAddress]) -> Self {
+        Self { entries, forced }
     }
 }
 
-/// The IEC direct-address text of `address`, as `io.list` and `io.read` report it today.
-fn format_address(address: &IoAddress) -> String {
-    let area = match address.area {
-        IoArea::Input => "I",
-        IoArea::Output => "Q",
-        IoArea::Memory => "M",
-    };
-    let size = match address.size {
-        IoSize::Bit => "X",
-        IoSize::Byte | IoSize::Bytes(_) => "B",
-        IoSize::Word => "W",
-        IoSize::DWord => "D",
-        IoSize::LWord => "L",
-    };
-    if address.wildcard {
-        return format!("%{area}{size}*");
-    }
-    let mut path = address
-        .path
-        .iter()
-        .map(ToString::to_string)
-        .collect::<Vec<_>>()
-        .join(".");
-    if matches!(address.size, IoSize::Bit) {
-        if !path.is_empty() {
-            path.push('.');
+impl Serialize for Entries<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut entries = serializer.serialize_seq(Some(self.entries.len()))?;
+        for entry in self.entries {
+            entries.serialize_element(&Entry {
+                address: AddressText(&entry.address),
+                forced: self.forced.iter().any(|address| address == &entry.address),
+                name: entry.name.as_ref().map(SmolStr::as_str),
+                source: entry.source.as_ref().map(SmolStr::as_str),
+                value: &entry.value,
+                value_type: entry.value_type_name.as_deref(),
+            })?;
         }
-        path.push_str(&address.bit.to_string());
+        entries.end()
     }
-    if path.is_empty() {
-        format!("%{area}{size}{}", address.byte)
-    } else {
-        format!("%{area}{size}{path}")
+}
+
+/// One entry: its name, address, value and force mark, and its declared type name and its source
+/// when it has them.
+#[derive(Serialize)]
+struct Entry<'a> {
+    address: AddressText<'a>,
+    forced: bool,
+    name: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source: Option<&'a str>,
+    value: &'a IoSnapshotValue,
+    #[serde(rename = "valueType", skip_serializing_if = "Option::is_none")]
+    value_type: Option<&'a str>,
+}
+
+impl Serialize for IoSnapshotValue {
+    /// A sampled value as trust-runtime reports it today: the value's debug text, an object with
+    /// the conversion's error, or `unresolved`.
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            IoSnapshotValue::Value(value) => serializer.collect_str(&DebugText(value)),
+            IoSnapshotValue::Error(error) => {
+                let mut object = serializer.serialize_struct("IoSnapshotError", 1)?;
+                object.serialize_field("error", error)?;
+                object.end()
+            }
+            IoSnapshotValue::Unresolved => serializer.serialize_str("unresolved"),
+        }
+    }
+}
+
+/// A value written as its debug text, `Bool(true)`.
+struct DebugText<'a>(&'a Value);
+
+impl fmt::Display for DebugText<'_> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{:?}", self.0)
+    }
+}
+
+/// The IEC direct-address text of an address, as `io.list` and `io.read` report it today: `%IX0.0`,
+/// `%QW2`, `%MB*` for a wildcard.
+struct AddressText<'a>(&'a IoAddress);
+
+impl Serialize for AddressText<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_str(self)
+    }
+}
+
+impl fmt::Display for AddressText<'_> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let address = self.0;
+        let area = match address.area {
+            IoArea::Input => "I",
+            IoArea::Output => "Q",
+            IoArea::Memory => "M",
+        };
+        let size = match address.size {
+            IoSize::Bit => "X",
+            IoSize::Byte | IoSize::Bytes(_) => "B",
+            IoSize::Word => "W",
+            IoSize::DWord => "D",
+            IoSize::LWord => "L",
+        };
+        if address.wildcard {
+            return write!(formatter, "%{area}{size}*");
+        }
+        write!(formatter, "%{area}{size}")?;
+        for (index, part) in address.path.iter().enumerate() {
+            if index > 0 {
+                formatter.write_str(".")?;
+            }
+            write!(formatter, "{part}")?;
+        }
+        let mut written = !address.path.is_empty();
+        if matches!(address.size, IoSize::Bit) {
+            if written {
+                formatter.write_str(".")?;
+            }
+            write!(formatter, "{}", address.bit)?;
+            written = true;
+        }
+        if !written {
+            write!(formatter, "{}", address.byte)?;
+        }
+        Ok(())
     }
 }
 

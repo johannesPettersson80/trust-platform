@@ -8,7 +8,7 @@
 use alloc::format;
 use alloc::string::{String, ToString};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::io_image::validate_process_image_address;
@@ -83,7 +83,7 @@ struct IoAddressParams {
 #[must_use]
 pub fn io_list(id: u64, snapshot: IoSnapshotRead) -> ControlResponse {
     match snapshot {
-        IoSnapshotRead::Published(snapshot) => ControlResponse::ok(id, snapshot.to_json()),
+        IoSnapshotRead::Published(snapshot) => ControlResponse::ok_serialized(id, &snapshot),
         IoSnapshotRead::Missing => {
             ControlResponse::error(id, String::from("no snapshot available"))
         }
@@ -93,14 +93,25 @@ pub fn io_list(id: u64, snapshot: IoSnapshotRead) -> ControlResponse {
     }
 }
 
+/// The result of `io.read`: the published snapshot, or `null`.
+#[derive(Serialize)]
+struct SnapshotReply<'a> {
+    snapshot: Option<&'a IoSnapshot>,
+}
+
 /// `io.read`: the published snapshot, or `null` when none has been published yet.
 #[must_use]
 pub fn io_read(id: u64, snapshot: IoSnapshotRead) -> ControlResponse {
     match snapshot {
-        IoSnapshotRead::Published(snapshot) => {
-            ControlResponse::ok(id, json!({ "snapshot": snapshot.to_json() }))
+        IoSnapshotRead::Published(snapshot) => ControlResponse::ok_serialized(
+            id,
+            &SnapshotReply {
+                snapshot: Some(&snapshot),
+            },
+        ),
+        IoSnapshotRead::Missing => {
+            ControlResponse::ok_serialized(id, &SnapshotReply { snapshot: None })
         }
-        IoSnapshotRead::Missing => ControlResponse::ok(id, json!({ "snapshot": null })),
         IoSnapshotRead::Unavailable => {
             ControlResponse::error(id, String::from("I/O snapshot unavailable"))
         }

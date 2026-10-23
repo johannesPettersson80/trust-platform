@@ -210,14 +210,16 @@ fn admit<H: ControlHost>(
     Ok(Admitted { request, role })
 }
 
-/// Serves an admitted request, adds the access capabilities to a `status` result, and audits it.
+/// Serves an admitted request, a `status` with the access capabilities of its role, and audits
+/// it.
 fn answer<H: ControlHost>(admitted: Admitted, host: &H, client: Option<&str>) -> ControlResponse {
     let Admitted { request, role } = admitted;
-    let mut response = route(&request, host)
-        .unwrap_or_else(|| ControlResponse::error(request.id, "unsupported request".into()));
-    if request.r#type == "status" && response.ok {
-        attach_access_capabilities(&mut response, role);
-    }
+    let response = if request.r#type == "status" {
+        status::status_for(request.id, host, Some(role))
+    } else {
+        route(&request, host)
+            .unwrap_or_else(|| ControlResponse::error(request.id, "unsupported request".into()))
+    };
     audited(host, &request, client, response)
 }
 
@@ -271,49 +273,6 @@ fn audited<H: ControlHost>(
         details: host.audit_details(request),
     });
     response.with_audit_id(audit_id)
-}
-
-/// Adds what `role` may change to an object result of `status`; other results stay as they are.
-fn attach_access_capabilities(response: &mut ControlResponse, role: AccessRole) {
-    let Some(result) = response.result.as_mut() else {
-        return;
-    };
-    let Some(object) = result.as_object_mut() else {
-        return;
-    };
-    object.insert("access".to_string(), access_capabilities_json(role));
-}
-
-/// What `role` may change: writes, forces and releases of values, and HMI writes, which need
-/// `Engineer`; a lower role carries the reason.
-fn access_capabilities_json(role: AccessRole) -> serde_json::Value {
-    let engineer = role.allows(AccessRole::Engineer);
-    let denied_reason = (!engineer).then(|| {
-        format!(
-            "{} role — connect with an engineer token to write or force.",
-            capitalize_role(role.as_str())
-        )
-    });
-    json!({
-        "role": role.as_str(),
-        "io": {
-            "write": engineer,
-            "force": engineer,
-            "release": engineer,
-        },
-        "hmi": {
-            "write": engineer,
-        },
-        "reason": denied_reason,
-    })
-}
-
-fn capitalize_role(role: &str) -> String {
-    let mut chars = role.chars();
-    let Some(first) = chars.next() else {
-        return String::new();
-    };
-    first.to_uppercase().collect::<String>() + chars.as_str()
 }
 
 mod link_reply;

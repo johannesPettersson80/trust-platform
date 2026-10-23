@@ -4,19 +4,23 @@
 
 mod event_reads;
 mod params;
+mod reply;
 mod unconfigured;
 
 use alloc::format;
 use alloc::string::{String, ToString};
-use alloc::vec::Vec;
 
-use serde_json::json;
 use smol_str::SmolStr;
 use trust_runtime_core::scheduler::ResourceState;
 
-use crate::metrics::{ProgramMemory, RuntimeMetricsSnapshot};
+use crate::access::AccessRole;
+use crate::metrics::ProgramMemory;
 use crate::ports::{AccessPort, RecordsPort, ResourcePort, StatusPort};
 use crate::protocol::ControlResponse;
+#[cfg(test)]
+pub(crate) use reply::capitalize_role;
+pub(crate) use reply::AccessCapabilities;
+use reply::{DebugHold, DriverHealth, Health, Metrics, ProgramMemoryReply, Status, TaskStats};
 
 pub(crate) use event_reads::{write_event_read, EventRead};
 pub use params::{
@@ -68,29 +72,10 @@ pub struct StatusSettings {
     pub simulation_warning: SmolStr,
 }
 
-/// The JSON form of one I/O driver's health.
+/// The JSON form of one I/O driver's health, as `status` and `health` write it.
 #[must_use]
-#[allow(
-    clippy::missing_panics_doc,
-    reason = "the serde_json::json! conversions of these values cannot fail"
-)]
 pub fn io_health_to_json(entry: &IoDriverStatus) -> serde_json::Value {
-    match &entry.health {
-        IoDriverHealth::Ok => json!({
-            "name": entry.name.as_str(),
-            "status": "ok",
-        }),
-        IoDriverHealth::Degraded { error } => json!({
-            "name": entry.name.as_str(),
-            "status": "degraded",
-            "error": error.as_str(),
-        }),
-        IoDriverHealth::Faulted { error } => json!({
-            "name": entry.name.as_str(),
-            "status": "faulted",
-            "error": error.as_str(),
-        }),
-    }
+    serde_json::to_value(DriverHealth::of(entry)).unwrap_or(serde_json::Value::Null)
 }
 
 /// `status`: the runtime's identity, stable runtime ID, version, platform, program-control
@@ -101,11 +86,17 @@ pub fn io_health_to_json(entry: &IoDriverStatus) -> serde_json::Value {
 /// cannot be read answers `<value> unavailable`; the values are read in a fixed order, so the
 /// first unreadable one names the error.
 #[must_use]
-#[allow(
-    clippy::missing_panics_doc,
-    reason = "the serde_json::json! conversions of these values cannot fail"
-)]
 pub fn status<H>(id: u64, host: &H) -> ControlResponse
+where
+    H: StatusPort + RecordsPort + ResourcePort + AccessPort,
+{
+    status_for(id, host, None)
+}
+
+/// `status` as [`status`] answers it, with what `role` may change when the dispatcher admitted the
+/// request with a role.
+#[must_use]
+pub fn status_for<H>(id: u64, host: &H, role: Option<AccessRole>) -> ControlResponse
 where
     H: StatusPort + RecordsPort + ResourcePort + AccessPort,
 {
@@ -140,35 +131,35 @@ where
     let Some(openot_persistence) = host.openot_persistence() else {
         return unavailable(id, "OpenOT persistence status");
     };
-    let io_drivers = io_drivers.iter().map(io_health_to_json).collect::<Vec<_>>();
-    ControlResponse::ok(
+    ControlResponse::ok_serialized(
         id,
-        json!({
-            "state": state_label,
-            "fault": fault,
-            "resource": host.resource_name(),
-            "plc_name": host.resource_name(),
-            "runtime_id": host.runtime_id(),
-            "version": env!("CARGO_PKG_VERSION"),
-            "platform": host.platform(),
-            "program_control": host.program_control().as_str(),
-            "uptime_ms": metrics.uptime_ms,
-            "debug_enabled": host.debug_enabled(),
-            "control_mode": control_mode,
-            "debug_hold": debug_hold.map(|reason| json!({"reason": reason})),
-            "execution_backend": settings.execution_backend,
-            "execution_backend_source": settings.execution_backend_source,
-            "simulation_mode": settings.simulation_mode.as_str(),
-            "simulation_enabled": settings.simulation_enabled,
-            "simulation_time_scale": settings.simulation_time_scale,
-            "simulation_warning": settings.simulation_warning.as_str(),
-            "hmi_read_only": true,
-            "event_capacity": event_capacity,
-            "openot_persistence": openot_persistence,
-            "metrics": metrics_json(&metrics, settings.execution_backend),
-            "realtime": realtime,
-            "io_drivers": io_drivers,
-        }),
+        &Status {
+            access: role.map(AccessCapabilities::of),
+            control_mode,
+            debug_enabled: host.debug_enabled(),
+            debug_hold: debug_hold.map(|reason| DebugHold { reason }),
+            event_capacity,
+            execution_backend: settings.execution_backend,
+            execution_backend_source: settings.execution_backend_source,
+            fault,
+            hmi_read_only: true,
+            io_drivers: io_drivers.iter().map(DriverHealth::of).collect(),
+            metrics: Metrics::of(&metrics, settings.execution_backend),
+            openot_persistence,
+            platform: host.platform(),
+            plc_name: host.resource_name(),
+            program_control: host.program_control().as_str(),
+            realtime,
+            resource: host.resource_name(),
+            runtime_id: host.runtime_id(),
+            simulation_enabled: settings.simulation_enabled,
+            simulation_mode: settings.simulation_mode.as_str(),
+            simulation_time_scale: settings.simulation_time_scale,
+            simulation_warning: settings.simulation_warning.as_str(),
+            state: state_label,
+            uptime_ms: metrics.uptime_ms,
+            version: env!("CARGO_PKG_VERSION"),
+        },
     )
 }
 
@@ -178,10 +169,6 @@ where
 /// driver and no realtime posture error. A degraded driver or a realtime warning is reported but
 /// stays healthy.
 #[must_use]
-#[allow(
-    clippy::missing_panics_doc,
-    reason = "the serde_json::json! conversions of these values cannot fail"
-)]
 pub fn health<H>(id: u64, host: &H) -> ControlResponse
 where
     H: StatusPort + ResourcePort,
@@ -203,51 +190,25 @@ where
     ) && fault.is_none()
         && !has_faulted_driver
         && !realtime_has_errors;
-    ControlResponse::ok(
+    ControlResponse::ok_serialized(
         id,
-        json!({
-            "ok": ok,
-            "state": resource_state_label(state),
-            "fault": fault,
-            "io_drivers": io_drivers.iter().map(io_health_to_json).collect::<Vec<_>>(),
-        }),
+        &Health {
+            fault,
+            io_drivers: io_drivers.iter().map(DriverHealth::of).collect(),
+            ok,
+            state: resource_state_label(state),
+        },
     )
 }
 
 /// `tasks.stats`: each task's durations and overruns, sorted by name, and the largest
 /// contributors to the cycle time.
 #[must_use]
-#[allow(
-    clippy::missing_panics_doc,
-    reason = "the serde_json::json! conversions of these values cannot fail"
-)]
 pub fn task_stats<H: RecordsPort>(id: u64, host: &H) -> ControlResponse {
     let Some(metrics) = host.metrics_snapshot() else {
         return unavailable(id, "runtime metrics");
     };
-    let mut tasks = metrics
-        .tasks
-        .iter()
-        .map(|task| {
-            json!({
-                "name": task.name.as_str(),
-                "min_ms": task.min_ms,
-                "avg_ms": task.avg_ms,
-                "max_ms": task.max_ms,
-                "last_ms": task.last_ms,
-                "overruns": task.overruns,
-            })
-        })
-        .collect::<Vec<_>>();
-    tasks.sort_by(|left, right| left["name"].as_str().cmp(&right["name"].as_str()));
-    ControlResponse::ok(
-        id,
-        json!({
-            "tasks": tasks,
-            "profiling_enabled": metrics.profiling.enabled,
-            "top_contributors": top_contributors_json(&metrics),
-        }),
-    )
+    ControlResponse::ok_serialized(id, &TaskStats::of(&metrics))
 }
 
 /// `events.tail` and `events`: the newest events, newest first; `limit` is 1 to 1,000 and 50
@@ -277,68 +238,11 @@ fn resource_state_label(state: ResourceState) -> String {
     format!("{state:?}").to_ascii_lowercase()
 }
 
-/// The `metrics` block of `status`.
-fn metrics_json(metrics: &RuntimeMetricsSnapshot, execution_backend: &str) -> serde_json::Value {
-    json!({
-        "cycle_ms": {
-            "min": metrics.cycle.min_ms,
-            "avg": metrics.cycle.avg_ms,
-            "max": metrics.cycle.max_ms,
-            "last": metrics.cycle.last_ms,
-            "p50": metrics.cycle_percentiles.p50_ms,
-            "p95": metrics.cycle_percentiles.p95_ms,
-            "p99": metrics.cycle_percentiles.p99_ms,
-            "window_samples": metrics.cycle_percentiles.window_samples,
-        },
-        "overruns": metrics.overruns,
-        "faults": metrics.faults,
-        "scan_allocations": metrics.scan_allocations.map(|count| json!({
-            "engine": count.engine,
-            "services": count.services,
-        })),
-        "program_memory": metrics.program_memory.as_ref().map(program_memory_json),
-        "profiling": {
-            "enabled": metrics.profiling.enabled,
-            "top": top_contributors_json(metrics),
-        },
-        "execution_backend": execution_backend,
-    })
-}
-
 /// The `program_memory` block of `status`'s metrics, and of `trust-runtime build --ci`: the memory
 /// figure of a program, in bytes, as a whole and part by part (specification 34 MEM-12).
 #[must_use]
 pub fn program_memory_json(memory: &ProgramMemory) -> serde_json::Value {
-    let figure = &memory.figure;
-    json!({
-        "bytes": memory.bytes(),
-        "program": figure.program,
-        "persistent_block": figure.persistent_block,
-        "activation_stack": figure.activation_stack,
-        "operand_stack": figure.operand_stack,
-        "engine": figure.engine,
-        "retain_capture": memory.retain_capture(),
-    })
-}
-
-/// The largest contributors to the cycle time, as `status` and `tasks.stats` report them.
-fn top_contributors_json(metrics: &RuntimeMetricsSnapshot) -> Vec<serde_json::Value> {
-    metrics
-        .profiling
-        .top_contributors
-        .iter()
-        .map(|entry| {
-            json!({
-                "key": entry.key.as_str(),
-                "kind": entry.kind.as_str(),
-                "name": entry.name.as_str(),
-                "avg_cycle_ms": entry.avg_cycle_ms,
-                "cycle_pct": entry.cycle_pct,
-                "last_ms": entry.last_ms,
-                "last_cycle_pct": entry.last_cycle_pct,
-            })
-        })
-        .collect()
+    serde_json::to_value(ProgramMemoryReply::of(memory)).unwrap_or(serde_json::Value::Null)
 }
 
 #[cfg(test)]

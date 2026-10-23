@@ -30,6 +30,10 @@ fn wire(response: &ControlResponse) -> String {
     serde_json::to_string(response).expect("serialize response")
 }
 
+fn access_capabilities_json(role: AccessRole) -> Value {
+    serde_json::to_value(status::AccessCapabilities::of(role)).expect("access capabilities")
+}
+
 fn only_audit(host: &FakeHost) -> StoredAudit {
     let audits = host.audits();
     assert_eq!(audits.len(), 1, "one audit record per request: {audits:?}");
@@ -67,36 +71,11 @@ fn access_capabilities_are_exact_for_each_role() {
 
 #[test]
 fn capability_reason_capitalization_handles_empty_ascii_and_unicode() {
+    use crate::status::capitalize_role;
     assert_eq!(capitalize_role(""), "");
     assert_eq!(capitalize_role("viewer"), "Viewer");
     assert_eq!(capitalize_role("operator"), "Operator");
     assert_eq!(capitalize_role("åskådare"), "Åskådare");
-}
-
-#[test]
-fn attaching_access_mutates_only_object_results() {
-    let mut object = ControlResponse::ok(1, json!({"status": "running"}));
-    attach_access_capabilities(&mut object, AccessRole::Viewer);
-    assert_eq!(
-        object
-            .result
-            .as_ref()
-            .and_then(|value| value.get("access"))
-            .and_then(|value| value.get("role")),
-        Some(&json!("viewer"))
-    );
-
-    let mut array = ControlResponse::ok(2, json!([]));
-    attach_access_capabilities(&mut array, AccessRole::Admin);
-    assert_eq!(array.result, Some(json!([])));
-
-    let mut scalar = ControlResponse::ok(3, json!("running"));
-    attach_access_capabilities(&mut scalar, AccessRole::Admin);
-    assert_eq!(scalar.result, Some(json!("running")));
-
-    let mut error = ControlResponse::error(4, "failed".into());
-    attach_access_capabilities(&mut error, AccessRole::Admin);
-    assert!(error.result.is_none());
 }
 
 #[test]
@@ -143,7 +122,7 @@ fn missing_and_invalid_tokens_are_refused_with_their_codes() {
         assert!(!response.ok);
         assert_eq!(response.error.as_deref(), Some(error));
         assert_eq!(response.error_code.as_deref(), Some(code));
-        assert!(response.result.is_none(), "status is not answered");
+        assert!(response.result_value().is_none(), "status is not answered");
         let audit = only_audit(&host);
         assert_eq!(audit.error.as_deref(), Some(error));
         assert_eq!(audit.auth_present, auth_present);
@@ -265,7 +244,7 @@ fn io_list_and_io_read_answer_from_the_hosts_snapshot_slot() {
     let listed = dispatch_value(json!({"id": 1, "type": "io.list"}), &host, UNIX);
     assert_eq!(listed.error.as_deref(), Some("no snapshot available"));
     let read = dispatch_value(json!({"id": 2, "type": "io.read"}), &host, UNIX);
-    assert_eq!(read.result, Some(json!({"snapshot": null})));
+    assert_eq!(read.result_value(), Some(json!({"snapshot": null})));
 
     *host.io_snapshot.borrow_mut() = IoSnapshotRead::Published(IoSnapshot {
         scan: Some(9),
@@ -273,7 +252,7 @@ fn io_list_and_io_read_answer_from_the_hosts_snapshot_slot() {
     });
     let listed = dispatch_value(json!({"id": 3, "type": "io.list"}), &host, UNIX);
     assert_eq!(
-        listed.result,
+        listed.result_value(),
         Some(json!({"scan": 9, "inputs": [], "outputs": [], "memory": []})),
         "io.list answers the host's published snapshot"
     );
@@ -625,7 +604,7 @@ fn shutdown_with_the_exit_parameter_replies_first_and_defers_the_exit_for_admin_
 fn status_carries_the_access_capabilities_of_the_request_role() {
     let host = FakeHost::running();
     let viewer = dispatch_value(json!({"id": 1, "type": "status"}), &host, NETWORK);
-    let viewer = viewer.result.expect("status result");
+    let viewer = viewer.result_value().expect("status result");
     let access = &viewer["access"];
     assert_eq!(access["role"], json!("viewer"));
     assert_eq!(
@@ -634,7 +613,7 @@ fn status_carries_the_access_capabilities_of_the_request_role() {
     );
 
     let admin = dispatch_value(json!({"id": 2, "type": "status"}), &host, UNIX);
-    let admin = admin.result.expect("status result");
+    let admin = admin.result_value().expect("status result");
     let access = &admin["access"];
     assert_eq!(access["role"], json!("admin"));
     assert_eq!(access["io"]["force"], json!(true));

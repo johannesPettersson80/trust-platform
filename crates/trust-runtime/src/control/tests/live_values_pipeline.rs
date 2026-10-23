@@ -10,7 +10,7 @@ END_PROGRAM
 
 fn live_values_result(response: ControlResponse) -> serde_json::Value {
     assert!(response.ok, "request failed: {:?}", response.error);
-    response.result.expect("response result")
+    response.into_result_value().expect("response result")
 }
 
 fn poison<T>(mutex: &Arc<Mutex<T>>) {
@@ -64,7 +64,7 @@ fn io_list_answers_the_hosted_snapshot_through_the_portable_one() {
     let response = handle_request_value(json!({"id": 6, "type": "io.list"}), &state, None);
     assert!(response.ok, "request failed: {:?}", response.error);
     assert_eq!(
-        response.result,
+        response.result_value(),
         Some(json!({
             "scan": 5,
             "inputs": [],
