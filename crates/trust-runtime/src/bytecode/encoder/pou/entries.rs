@@ -81,7 +81,16 @@ impl<'a> BytecodeEncoder<'a> {
     ) -> Result<PouEntry, BytecodeError> {
         let name_idx = self.strings.intern(fb.name.clone());
         let params = if emit_params {
-            self.encode_params(&fb.params, ParamDefaultPolicy::InstanceBacked)?
+            // A call of a derived function block connects the inputs, outputs and in-outs it
+            // inherits too (IEC 61131-3 §6.6.7.2.7), in trust-hir's order: the furthest base's
+            // first, then each derived one's, then its own. They are bound by name in the
+            // instance, through its base parts.
+            let mut params = Vec::new();
+            for inherited in self.inherited_params(fb) {
+                params.extend(self.encode_params(&inherited, ParamDefaultPolicy::InstanceBacked)?);
+            }
+            params.extend(self.encode_params(&fb.params, ParamDefaultPolicy::InstanceBacked)?);
+            params
         } else {
             Vec::new()
         };
@@ -144,6 +153,26 @@ impl<'a> BytecodeEncoder<'a> {
             params,
             class_meta: None,
         })
+    }
+
+    /// The parameters `fb` inherits, one list for each function block it extends, the furthest
+    /// base's first. A class declares no parameters, so the chain ends at a class base.
+    fn inherited_params(&self, fb: &FunctionBlockDef) -> Vec<Vec<Param>> {
+        let function_blocks = self.runtime.function_blocks();
+        let mut chain = Vec::new();
+        let mut base = fb.base.as_ref();
+        for _ in 0..function_blocks.len() {
+            let Some(crate::program_model::FunctionBlockBase::FunctionBlock(name)) = base else {
+                break;
+            };
+            let Some(def) = function_blocks.get(&normalize_name(name)) else {
+                break;
+            };
+            chain.push(def.params.clone());
+            base = def.base.as_ref();
+        }
+        chain.reverse();
+        chain
     }
 
     pub(super) fn encode_params(

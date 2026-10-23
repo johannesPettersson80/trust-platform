@@ -24,6 +24,7 @@ use smol_str::SmolStr;
 use crate::error::ExecutionLimitKind;
 use crate::error::RuntimeError;
 use crate::error::StableErrorCode;
+use crate::error::VmFaultDetail;
 use crate::value::Duration;
 
 /// Milliseconds in one whole second of the record's logical time.
@@ -476,9 +477,17 @@ impl fmt::Display for FaultRecord {
                 formatter,
                 "execution timed out: {kind} limit {limit}, used {used}, requested {requested}"
             ),
-            // Every other bounded detail belongs to a VM fault, whose text wraps it in the
-            // bytecode prefix (specification 34 MEM-05).
-            detail => write!(formatter, "invalid bytecode '{detail}'"),
+            // Every other bounded detail belongs to a VM fault, which reads as its runtime error
+            // does: the bytecode prefix around the detail, or `call depth exceeded` for a call
+            // beyond the call levels (specification 34 MEM-05; specification 12 §7.4.1).
+            detail => fmt::Display::fmt(
+                &VmFaultDetail {
+                    code: self.code,
+                    detail,
+                }
+                .runtime_text(),
+                formatter,
+            ),
         }
     }
 }

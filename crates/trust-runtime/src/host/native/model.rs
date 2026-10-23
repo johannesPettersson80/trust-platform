@@ -36,6 +36,12 @@ pub(super) struct ProgramType<'a> {
     pub(super) rust: String,
     /// The Rust type of the retained variables, `PR_<NAME>`.
     pub(super) rust_retain: String,
+    /// The Rust function of its body, `prog_<NAME>`.
+    pub(super) body: String,
+    /// Whether its instances are declared `RETAIN` in the configuration, which retains each of
+    /// its variables declared without a retention qualifier that is no instance (specification 11
+    /// §6.7): such instances have a type of their own, laid out apart.
+    pub(super) retain_all: bool,
     pub(super) members: Vec<Member>,
     pub(super) size: u32,
     pub(super) align: u32,
@@ -270,6 +276,7 @@ fn area_part(types: &Types<'_>, name: SmolStr, ty: Ty) -> (SmolStr, String, u32,
 fn program_type<'a>(
     def: &'a ProgramDef,
     types: &mut Types<'_>,
+    retain_all: bool,
 ) -> Result<ProgramType<'a>, NativeError> {
     let mut plain = Vec::new();
     let mut kept = Vec::new();
@@ -288,7 +295,11 @@ fn program_type<'a>(
         if matches!(types.info(ty).kind, Kind::Fb { .. } | Kind::StdFb(_)) {
             flags |= SYMBOL_INSTANCE;
         }
-        if retained(var.retain) {
+        // An instance follows its own type's declarations, whatever the program instance's
+        // qualifier (specification 11 §6.7).
+        let qualified =
+            retain_all && var.retain == RetainPolicy::Unspecified && flags & SYMBOL_INSTANCE == 0;
+        if retained(var.retain) || qualified {
             kept.push((var.name.clone(), ty, flags | SYMBOL_RETAINED));
         } else {
             plain.push((var.name.clone(), ty, flags));
@@ -296,11 +307,17 @@ fn program_type<'a>(
     }
     let (members, size, align) = lay_out(plain, types);
     let (retained, retain_size, retain_align) = lay_out(kept, types);
-    let name = mangle(&def.name);
+    let name = if retain_all {
+        format!("{}_RETAIN", mangle(&def.name))
+    } else {
+        mangle(&def.name)
+    };
     Ok(ProgramType {
         def,
         rust: format!("P_{name}"),
         rust_retain: format!("PR_{name}"),
+        body: format!("prog_{name}"),
+        retain_all,
         members,
         size,
         align,
@@ -359,12 +376,7 @@ fn instances<'a>(
                 config.type_name, config.name
             )));
         };
-        if config.retain.is_some_and(retained) {
-            return Err(NativeError::unsupported(format!(
-                "the retained program instance {}",
-                config.name
-            )));
-        }
+        let retain_all = config.retain.is_some_and(retained);
         if !config.fb_tasks.is_empty() {
             return Err(NativeError::unsupported(format!(
                 "function blocks of {} bound to tasks",
@@ -373,11 +385,11 @@ fn instances<'a>(
         }
         let program = if let Some(index) = program_types
             .iter()
-            .position(|known| std::ptr::eq(known.def, def))
+            .position(|known| std::ptr::eq(known.def, def) && known.retain_all == retain_all)
         {
             index
         } else {
-            program_types.push(program_type(def, types)?);
+            program_types.push(program_type(def, types, retain_all)?);
             program_types.len() - 1
         };
         instances.push(ProgramInstance {

@@ -655,6 +655,7 @@ mod tests {
                 direction: ParamDirection::In,
                 address: None,
                 default: Some(Expr::Literal(Value::Int(5))),
+                retain: crate::RetainPolicy::Unspecified,
             }],
             vars: Vec::new(),
             temps: Vec::new(),

@@ -40,7 +40,7 @@ impl<'a> Lowerer<'_, 'a> {
     }
 
     /// `SUPER`: the instance's part of its base's type, which lies first (§6.4).
-    fn super_place(&self, node: &SyntaxNode) -> Result<Place, NativeError> {
+    pub(super) fn super_place(&self, node: &SyntaxNode) -> Result<Place, NativeError> {
         let this = self.this_place(node)?;
         let Kind::Fb {
             base: Some(base), ..

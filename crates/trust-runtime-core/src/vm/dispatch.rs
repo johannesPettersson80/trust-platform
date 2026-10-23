@@ -844,16 +844,9 @@ fn execute_with_buffers(
                 let frame = frames
                     .current()
                     .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
-                let self_instance = frame.runtime_instance.ok_or_else(|| {
-                    VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()
-                })?;
                 let super_instance = runtime
-                    .storage()
-                    .instance_parent(self_instance)
-                    .map_err(VmTrap::into_runtime_error)?
-                    .ok_or_else(|| {
-                        VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()
-                    })?;
+                    .super_instance(frame)
+                    .map_err(VmTrap::into_runtime_error)?;
                 operand_stack
                     .push(Value::Instance(super_instance))
                     .map_err(VmTrap::into_runtime_error)?;

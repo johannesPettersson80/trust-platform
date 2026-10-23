@@ -19,7 +19,7 @@ pub use execution::ExecutionLimitKind;
 mod import;
 pub use import::ImportRefusal;
 mod vm_fault;
-pub use vm_fault::VmFaultDetail;
+pub use vm_fault::{RuntimeText, VmFaultDetail};
 
 /// Runtime errors for evaluation and execution.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
@@ -261,8 +261,9 @@ pub enum RuntimeError {
     },
 
     /// A VM fault during a scan with bounded, allocation-free context (specification 34
-    /// MEM-05). Its text and stable code are unchanged from the bytecode fault it replaces.
-    #[error("invalid bytecode '{0}'")]
+    /// MEM-05). Its stable code is unchanged from the bytecode fault it replaces; it reads as
+    /// [`VmFaultDetail::runtime_text`] says.
+    #[error("{}", .0.runtime_text())]
     VmFault(VmFaultDetail),
 
     /// Structured portable decode/validation error, rendered only on request.

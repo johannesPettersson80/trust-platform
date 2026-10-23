@@ -40,7 +40,6 @@ struct Pending {
 struct Symbols<'m, 'a> {
     model: &'m mut Model<'a>,
     pending: Vec<Pending>,
-    retained: Vec<String>,
 }
 
 /// One variable to add with its members.
@@ -127,7 +126,6 @@ impl Symbols<'_, '_> {
             let mut flags = if constant { SYMBOL_CONSTANT } else { 0 };
             if retained {
                 flags |= SYMBOL_RETAINED;
-                self.retained.push(name.to_ascii_uppercase());
             }
             self.add(Variable {
                 canonical: name.to_ascii_uppercase(),
@@ -197,10 +195,8 @@ impl Symbols<'_, '_> {
             });
         }
         for member in retained {
-            let member_canonical = format!("{canonical}.{}", member.name.to_ascii_uppercase());
-            self.retained.push(member_canonical.clone());
             self.add(Variable {
-                canonical: member_canonical,
+                canonical: format!("{canonical}.{}", member.name.to_ascii_uppercase()),
                 display: format!("{name}.{}", member.name),
                 ty: member.ty,
                 area: abi::AREA_RETAIN,
@@ -309,19 +305,15 @@ fn areas(
     (areas, bytes)
 }
 
-/// The symbol table, sorted by canonical name, and the retain map in declaration order.
+/// The symbol table, sorted by canonical name, and the retain map in the order of specification 11
+/// §6.7 (specification 44 §5.10).
 fn symbols(writer: &mut ImageWriter, pool: &mut StringPool, model: &mut Model<'_>) -> Sorted {
     let mut symbols = Symbols {
         model,
         pending: Vec::new(),
-        retained: Vec::new(),
     };
     symbols.collect();
-    let Symbols {
-        mut pending,
-        retained,
-        ..
-    } = symbols;
+    let Symbols { mut pending, .. } = symbols;
     pending.sort_by(|a, b| a.canonical.cmp(&b.canonical));
     pending.dedup_by(|a, b| a.canonical == b.canonical);
     let sorted = Sorted(pending);
@@ -345,16 +337,13 @@ fn symbols(writer: &mut ImageWriter, pool: &mut StringPool, model: &mut Model<'_
         })
         .collect();
     writer.table(&records, &[]);
-    let retain: Vec<RetainRecord> = retained
-        .iter()
-        .filter_map(|canonical| {
-            let index = sorted.index(canonical)?;
-            let symbol = &sorted.0[index as usize];
-            Some(RetainRecord {
-                symbol: index,
-                offset: symbol.offset,
-                size: symbol.size,
-            })
+    let retain: Vec<RetainRecord> = super::retain_map::retain_map(model)
+        .into_iter()
+        .map(|retained| RetainRecord {
+            key: pool.add(&retained.key),
+            area: u32::from(retained.area),
+            offset: retained.offset,
+            type_index: retained.ty.0,
         })
         .collect();
     writer.table(&retain, &[]);

@@ -24,7 +24,7 @@ impl<'a> TypeChecker<'a> {
                 self.resolve_alias_type(*base),
                 Some((i128::from(*lower), i128::from(*upper))),
             ),
-            Some(ty) if ty.is_integer() => (resolved, None),
+            Some(ty) if ty.is_integer() || is_word(ty) => (resolved, None),
             _ => return,
         };
         let Some(base_type) = self.symbols.type_by_id(base) else {
@@ -64,7 +64,10 @@ pub(crate) fn untyped_literal_out_of_range_message(
     base: &Type,
     base_name: &str,
 ) -> Option<String> {
-    if !base.is_integer() || !is_untyped_int_literal_expr(expr) || !is_literal_chain(expr) {
+    if !(base.is_integer() || is_word(base))
+        || !is_untyped_int_literal_expr(expr)
+        || !is_literal_chain(expr)
+    {
         return None;
     }
     let value = exact_int_literal_value(expr);
@@ -78,6 +81,11 @@ pub(crate) fn untyped_literal_out_of_range_message(
     Some(format!(
         "integer literal {shown} is outside the range of {base_name}"
     ))
+}
+
+/// Whether `ty` is a bit string an integer literal can give: `BYTE`, `WORD`, `DWORD`, `LWORD`.
+fn is_word(ty: &Type) -> bool {
+    matches!(ty, Type::Byte | Type::Word | Type::DWord | Type::LWord)
 }
 
 /// Whether `node` is an integer literal under any number of parentheses or unary signs. A binary

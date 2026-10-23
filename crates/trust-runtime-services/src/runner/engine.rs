@@ -47,6 +47,8 @@ use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::io_image::FlatImages;
 use trust_runtime_core::io_image::PreparedIoBinding;
 use trust_runtime_core::memory::{Generation, InstanceId, IoArea};
+#[cfg(feature = "native")]
+use trust_runtime_core::native::variables::{CompiledAccessPoint, CompiledVariables};
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::{RestartMode, RetainSnapshot};
 use trust_runtime_core::value::{Duration, Value};
@@ -897,10 +899,7 @@ impl<C: MonotonicClock> CycleHooks for LiveValuesHooks<'_, '_, C> {
         self.observer.publish_outputs(access)
     }
 
-    /// A compiled program publishes its snapshot after the output sample, as the engine does. Its
-    /// variables and process images take no Live Values write or force until the symbol table
-    /// serves them (specification 44 §13.3, milestone M3): every queued request is refused at the
-    /// cycle start with a `WriteRejected` event and withdrawn.
+    /// A compiled program publishes its snapshot after the output sample, as the engine does.
     #[cfg(feature = "native")]
     fn on_compiled_phase(
         &mut self,
@@ -908,21 +907,52 @@ impl<C: MonotonicClock> CycleHooks for LiveValuesHooks<'_, '_, C> {
         now: Duration,
         images: &FlatImages,
     ) -> Result<(), RuntimeError> {
-        let live = self.live;
-        match phase {
-            CyclePhase::CycleStart => {
-                let mut queues = live.inner.queues.borrow_mut();
-                if !queues.is_idle() {
-                    let unsupported = RuntimeError::ProfileUnsupported(SmolStr::new_static(
-                        "Live Values writes and forces to a compiled program",
-                    ));
-                    apply::refuse_all(&mut *queues, &unsupported, now, self);
-                }
-            }
-            CyclePhase::AfterOutputSample => live.publish_images(images, self.scan)?,
-            _ => {}
+        if phase == CyclePhase::AfterOutputSample {
+            self.live.publish_images(images, self.scan)?;
         }
         self.observer.on_compiled_phase(phase, now, images)
+    }
+
+    /// The Live Values of a compiled program reach its variables through the symbol table
+    /// (specification 44 §13.3): the queued variable writes and the variable forces at the cycle
+    /// start, the queued image writes and the input and marker forces after the drivers read the
+    /// inputs, and the output forces before the outputs reach the drivers.
+    #[cfg(feature = "native")]
+    fn on_compiled_access(
+        &mut self,
+        point: CompiledAccessPoint,
+        now: Duration,
+        variables: &mut dyn CompiledVariables,
+    ) -> Result<(), RuntimeError> {
+        let live = self.live;
+        {
+            let mut queues = live.inner.queues.borrow_mut();
+            if !queues.is_idle() {
+                let generation = live.inner.generation.get();
+                match point {
+                    CompiledAccessPoint::CycleStart => {
+                        apply::compiled_cycle_start(&mut queues, generation, variables, now, self)?;
+                    }
+                    CompiledAccessPoint::AfterInputs => apply::compiled_images(
+                        &mut queues,
+                        &[IoArea::Input, IoArea::Memory],
+                        variables,
+                        now,
+                        self,
+                    )?,
+                    CompiledAccessPoint::BeforeOutputs => {
+                        apply::compiled_images(
+                            &mut queues,
+                            &[IoArea::Output],
+                            variables,
+                            now,
+                            self,
+                        )?;
+                    }
+                }
+            }
+        }
+        self.observer.on_compiled_access(point, now, variables)
     }
 }
 

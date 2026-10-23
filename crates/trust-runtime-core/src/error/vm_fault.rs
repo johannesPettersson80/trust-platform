@@ -24,3 +24,27 @@ impl fmt::Display for VmFaultDetail {
         fmt::Display::fmt(&self.detail, formatter)
     }
 }
+
+impl VmFaultDetail {
+    /// The fault as a runtime error reads: `invalid bytecode '<detail>'` for a fault of the
+    /// executable, and `call depth exceeded` for a call beyond the call levels, which a valid
+    /// program that recurses too deep reaches (specification 12 §7.4.1). The stable code is the
+    /// same for both readings.
+    #[must_use]
+    pub fn runtime_text(&self) -> RuntimeText<'_> {
+        RuntimeText(self)
+    }
+}
+
+/// [`VmFaultDetail::runtime_text`].
+pub struct RuntimeText<'a>(&'a VmFaultDetail);
+
+impl fmt::Display for RuntimeText<'_> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.0.code == StableErrorCode::VmCallStackOverflow {
+            formatter.write_str("call depth exceeded")
+        } else {
+            write!(formatter, "invalid bytecode '{}'", self.0)
+        }
+    }
+}

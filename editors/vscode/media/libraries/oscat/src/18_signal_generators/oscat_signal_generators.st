@@ -10,18 +10,18 @@ VAR_IN_OUT
     RMP : BYTE;
 END_VAR
 VAR
-    TxMs : UDINT;
-    LastMs : UDINT;
+    TxMs : DWORD;
+    LastMs : DWORD;
     LastTr : TIME;
     Init : BOOL;
     LastDir : BOOL;
     Start : BYTE;
 END_VAR
 
-TxMs := DWORD_TO_UDINT(T_PLC_MS());
+TxMs := T_PLC_MS();
 
 IF E AND Init AND (DIR = LastDir) AND (RMP <> SEL(G := DIR, IN0 := BYTE#0, IN1 := BYTE#255)) AND TR = LastTr THEN
-    RMP := FRMP_B(START := Start, DIR := DIR, TD := DWORD_TO_TIME(UDINT_TO_DWORD(TxMs - LastMs)), TR := TR);
+    RMP := FRMP_B(START := Start, DIR := DIR, TD := DWORD_TO_TIME(UDINT_TO_DWORD(T_PLC_ELAPSED(NOW := TxMs, LAST := LastMs))), TR := TR);
 ELSE
     Init := TRUE;
     LastMs := TxMs;
@@ -115,7 +115,7 @@ IF E AND Init THEN
         LastDir := DIR;
     END_IF;
     IF TR > T#0s THEN
-        StepValue := REAL_TO_DINT(UDINT_TO_REAL(DWORD_TO_UDINT(Tx) - DWORD_TO_UDINT(LastTime)) * 65536.0 / UDINT_TO_REAL(DWORD_TO_UDINT(TIME_TO_DWORD(TR))));
+        StepValue := REAL_TO_DINT(UDINT_TO_REAL(T_PLC_ELAPSED(NOW := Tx, LAST := LastTime)) * 65536.0 / UDINT_TO_REAL(DWORD_TO_UDINT(TIME_TO_DWORD(TR))));
     ELSE
         StepValue := DINT#65535;
     END_IF;
@@ -142,19 +142,20 @@ VAR_OUTPUT
     Q : BOOL;
 END_VAR
 VAR
-    TxMs : UDINT;
-    NextMs : UDINT;
+    TxMs : DWORD;
+    NextMs : DWORD;
     Init : BOOL;
 END_VAR
 
 IF ENQ THEN
-    TxMs := DWORD_TO_UDINT(T_PLC_MS());
+    TxMs := T_PLC_MS();
     IF NOT Init THEN
         Init := TRUE;
         NextMs := TxMs;
     END_IF;
-    IF TxMs - NextMs >= DWORD_TO_UDINT(TIME_TO_DWORD(SEL(G := Q, IN0 := PTH, IN1 := PTL))) THEN
-        NextMs := NextMs + DWORD_TO_UDINT(TIME_TO_DWORD(SEL(G := Q, IN0 := PTH, IN1 := PTL)));
+    IF T_PLC_ELAPSED(NOW := TxMs, LAST := NextMs) >= DWORD_TO_UDINT(TIME_TO_DWORD(SEL(G := Q, IN0 := PTH, IN1 := PTL))) THEN
+        (* The next reference reading, modulo 2^32 as the timer wraps. *)
+        NextMs := ULINT_TO_DWORD((DWORD_TO_ULINT(NextMs) + UDINT_TO_ULINT(DWORD_TO_UDINT(TIME_TO_DWORD(SEL(G := Q, IN0 := PTH, IN1 := PTL))))) MOD ULINT#4294967296);
         Q := NOT Q;
     END_IF;
 ELSE
@@ -180,13 +181,13 @@ END_VAR
 VAR
     HighTime : TIME;
     LowTime : TIME;
-    TxMs : UDINT;
-    StartMs : UDINT;
+    TxMs : DWORD;
+    StartMs : DWORD;
     Init : BOOL;
     ElapsedMs : UDINT;
 END_VAR
 
-TxMs := DWORD_TO_UDINT(T_PLC_MS());
+TxMs := T_PLC_MS();
 
 IF NOT Init THEN
     StartMs := TxMs;
@@ -204,7 +205,7 @@ ELSE
 END_IF;
 
 IF ENQ THEN
-    ElapsedMs := TxMs - StartMs;
+    ElapsedMs := T_PLC_ELAPSED(NOW := TxMs, LAST := StartMs);
     IF NOT Q THEN
         IF ElapsedMs >= DWORD_TO_UDINT(TIME_TO_DWORD(LowTime)) THEN
             Q := TRUE;
@@ -241,24 +242,25 @@ VAR_OUTPUT
     OUT : REAL;
 END_VAR
 VAR
-    TxMs : UDINT;
-    LastMs : UDINT;
+    TxMs : DWORD;
+    LastMs : DWORD;
     ElapsedMs : UDINT;
     Init : BOOL;
 END_VAR
 
-TxMs := DWORD_TO_UDINT(T_PLC_MS());
+TxMs := T_PLC_MS();
 
 IF NOT Init THEN
     Init := TRUE;
     LastMs := TxMs;
     ElapsedMs := UDINT#0;
 ELSE
-    ElapsedMs := TxMs - LastMs;
+    ElapsedMs := T_PLC_ELAPSED(NOW := TxMs, LAST := LastMs);
 END_IF;
 
 IF ElapsedMs >= DWORD_TO_UDINT(TIME_TO_DWORD(PT)) THEN
-    LastMs := LastMs + DWORD_TO_UDINT(TIME_TO_DWORD(PT));
+    (* The next reference reading, modulo 2^32 as the timer wraps. *)
+    LastMs := ULINT_TO_DWORD((DWORD_TO_ULINT(LastMs) + UDINT_TO_ULINT(DWORD_TO_UDINT(TIME_TO_DWORD(PT)))) MOD ULINT#4294967296);
     ElapsedMs := ElapsedMs - DWORD_TO_UDINT(TIME_TO_DWORD(PT));
     OUT := AM * (RDM(LAST := REAL#0.0) - 0.5) + OS;
     Q := TRUE;
@@ -313,8 +315,8 @@ VAR_OUTPUT
     OUT : REAL;
 END_VAR
 VAR
-    TxMs : UDINT;
-    LastMs : UDINT;
+    TxMs : DWORD;
+    LastMs : DWORD;
     ElapsedMs : UDINT;
     Init : BOOL;
     Temp : REAL;
@@ -324,7 +326,7 @@ VAR
     PeriodMsReal : REAL;
 END_VAR
 
-TxMs := DWORD_TO_UDINT(T_PLC_MS());
+TxMs := T_PLC_MS();
 PeriodMs := DWORD_TO_UDINT(TIME_TO_DWORD(PT));
 PeriodMsReal := UDINT_TO_REAL(PeriodMs);
 DelayLocal := MODR(IN := DL, DIVI := REAL#1.0);
@@ -337,11 +339,12 @@ IF NOT Init THEN
     LastMs := TxMs;
     ElapsedMs := UDINT#0;
 ELSE
-    ElapsedMs := TxMs - LastMs;
+    ElapsedMs := T_PLC_ELAPSED(NOW := TxMs, LAST := LastMs);
 END_IF;
 
 IF ElapsedMs >= PeriodMs THEN
-    LastMs := LastMs + PeriodMs;
+    (* The next reference reading, modulo 2^32 as the timer wraps. *)
+    LastMs := ULINT_TO_DWORD((DWORD_TO_ULINT(LastMs) + UDINT_TO_ULINT(PeriodMs)) MOD ULINT#4294967296);
     ElapsedMs := ElapsedMs - PeriodMs;
 END_IF;
 
@@ -365,8 +368,8 @@ VAR_OUTPUT
     OUT : REAL;
 END_VAR
 VAR
-    TxMs : UDINT;
-    LastMs : UDINT;
+    TxMs : DWORD;
+    LastMs : DWORD;
     ElapsedMs : UDINT;
     Init : BOOL;
     Temp : REAL;
@@ -375,7 +378,7 @@ VAR
     PeriodMsReal : REAL;
 END_VAR
 
-TxMs := DWORD_TO_UDINT(T_PLC_MS());
+TxMs := T_PLC_MS();
 PeriodMs := DWORD_TO_UDINT(TIME_TO_DWORD(PT));
 PeriodMsReal := UDINT_TO_REAL(PeriodMs);
 DelayLocal := MODR(IN := DL, DIVI := REAL#1.0);
@@ -388,11 +391,12 @@ IF NOT Init THEN
     LastMs := TxMs;
     ElapsedMs := UDINT#0;
 ELSE
-    ElapsedMs := TxMs - LastMs;
+    ElapsedMs := T_PLC_ELAPSED(NOW := TxMs, LAST := LastMs);
 END_IF;
 
 IF ElapsedMs >= PeriodMs THEN
-    LastMs := LastMs + PeriodMs;
+    (* The next reference reading, modulo 2^32 as the timer wraps. *)
+    LastMs := ULINT_TO_DWORD((DWORD_TO_ULINT(LastMs) + UDINT_TO_ULINT(PeriodMs)) MOD ULINT#4294967296);
     ElapsedMs := ElapsedMs - PeriodMs;
 END_IF;
 
@@ -416,8 +420,8 @@ VAR_OUTPUT
     OUT : REAL;
 END_VAR
 VAR
-    TxMs : UDINT;
-    LastMs : UDINT;
+    TxMs : DWORD;
+    LastMs : DWORD;
     ElapsedMs : UDINT;
     Init : BOOL;
     DelayLocal : REAL;
@@ -436,7 +440,7 @@ ELSIF DC = 1.0 THEN
     OUT := AM * 0.5 + OS;
     Q := TRUE;
 ELSE
-    TxMs := DWORD_TO_UDINT(T_PLC_MS());
+    TxMs := T_PLC_MS();
     PeriodMs := DWORD_TO_UDINT(TIME_TO_DWORD(PT));
     PeriodMsReal := UDINT_TO_REAL(PeriodMs);
     DelayLocal := MODR(IN := DL, DIVI := REAL#1.0);
@@ -453,11 +457,12 @@ ELSE
         LastMs := TxMs;
         ElapsedMs := UDINT#0;
     ELSE
-        ElapsedMs := TxMs - LastMs;
+        ElapsedMs := T_PLC_ELAPSED(NOW := TxMs, LAST := LastMs);
     END_IF;
 
     IF ElapsedMs >= PeriodMs THEN
-        LastMs := LastMs + PeriodMs;
+        (* The next reference reading, modulo 2^32 as the timer wraps. *)
+        LastMs := ULINT_TO_DWORD((DWORD_TO_ULINT(LastMs) + UDINT_TO_ULINT(PeriodMs)) MOD ULINT#4294967296);
         ElapsedMs := ElapsedMs - PeriodMs;
     END_IF;
 

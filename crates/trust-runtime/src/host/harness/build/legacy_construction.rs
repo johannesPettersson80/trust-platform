@@ -34,7 +34,12 @@ impl LoweredApplication {
                 runtime.set_resource_name(resource_name.clone());
             }
             globals.extend(config.globals);
-            apply_program_retain_overrides(&mut program_defs, &config.programs, &config.using)?;
+            apply_program_retain_overrides(
+                &mut program_defs,
+                &config.programs,
+                &config.using,
+                runtime.registry(),
+            )?;
             let mut wildcards = apply_globals(&mut runtime, &globals)?;
             register_program_instances(
                 &mut runtime,

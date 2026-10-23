@@ -63,7 +63,10 @@ impl EngineState<'_> {
                 12 * (destinations.len().max(1).ilog2() as usize + 1),
             ])?;
             if destinations
-                .insert(name.to_ascii_uppercase(), (id as u32, None))
+                .insert(
+                    name.to_ascii_uppercase(),
+                    (id as u32, None, declaration.is_retained()),
+                )
                 .is_some()
             {
                 return Err(RuntimeError::RetainMigration(
@@ -91,7 +94,7 @@ impl EngineState<'_> {
                 if destinations
                     .insert(
                         format!("@program/{program}/{name}").to_ascii_uppercase(),
-                        (id, Some(instance)),
+                        (id, Some(instance), declaration.is_retained()),
                     )
                     .is_some()
                 {
@@ -101,6 +104,32 @@ impl EngineState<'_> {
                 }
             }
         }
+        // Every variable of an instance, under its path, with whether it is retained: an unqualified
+        // variable of an instance declared `RETAIN` is (specification 11 §6.7).
+        super::retained_members::instance_members(prepared, |key, root, id, retained| {
+            let instance = self
+                .data
+                .construction
+                .roots
+                .get(root as usize)
+                .copied()
+                .flatten()
+                .ok_or(RuntimeError::InvalidExecutionState)?;
+            // The index entry is bookkeeping (TIME-08) and is not charged.
+            cost_sum(&[
+                key.len(),
+                12 * (destinations.len().max(1).ilog2() as usize + 1),
+            ])?;
+            if destinations
+                .insert(key.to_ascii_uppercase(), (id, Some(instance), retained))
+                .is_some()
+            {
+                return Err(RuntimeError::RetainMigration(
+                    "ambiguous retained destination label".into(),
+                ));
+            }
+            Ok(())
+        })?;
         let mut actions = BTreeMap::new();
         for (index, entry) in prepared.initializer_entries().enumerate() {
             if entry.stage == InitializationStage::Default
@@ -141,13 +170,14 @@ impl EngineState<'_> {
                     1,
                 ])?;
                 self.charge_allocation_bytes(key.len())?;
-                let Some(&(id, instance)) = indexes.destinations.get(&key.to_ascii_uppercase())
+                let Some(&(id, instance, retained)) =
+                    indexes.destinations.get(&key.to_ascii_uppercase())
                 else {
                     events.push(RetainApplyEvent::Orphan { name: key.clone() });
                     continue;
                 };
                 let declaration = prepared.storage_declaration_at(id as usize);
-                if !declaration.is_retained() {
+                if !retained {
                     continue;
                 }
                 self.check_retention_walk(value, 0)?;
@@ -243,7 +273,9 @@ impl EngineState<'_> {
 }
 
 struct RetainedMigrationIndexes {
-    destinations: BTreeMap<String, (u32, Option<InstanceId>)>,
+    /// Each destination by its key in capitals: its declaration, its instance and whether it is
+    /// retained.
+    destinations: BTreeMap<String, (u32, Option<InstanceId>, bool)>,
     actions: BTreeMap<u32, u32>,
 }
 

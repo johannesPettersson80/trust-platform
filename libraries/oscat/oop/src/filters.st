@@ -167,7 +167,7 @@ VAR
     DeltaUs : REAL;
 END_VAR
 NowTime := T_PLC_US();
-DeltaUs := UDINT_TO_REAL(DWORD_TO_UDINT(NowTime) - DWORD_TO_UDINT(LastTime));
+DeltaUs := UDINT_TO_REAL(T_PLC_ELAPSED(NOW := NowTime, LAST := LastTime));
 IF NOT Initialized THEN
     Initialized := TRUE;
     LastSample := Sample;

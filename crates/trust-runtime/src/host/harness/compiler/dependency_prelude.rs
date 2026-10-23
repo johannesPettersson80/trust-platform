@@ -113,6 +113,7 @@ pub(crate) fn resolve_project_global_constants(
                 semantic_file_id: Some(file_ids[file_index]),
                 statement_locations: &mut statement_locations[file_index],
                 compile_time_consts: constants.clone(),
+                lower_bodies: true,
             };
             match evaluate_constant(&declaration, &mut ctx) {
                 Ok(value) => {

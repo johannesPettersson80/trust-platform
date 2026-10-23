@@ -291,17 +291,17 @@ fn body<'a>(
     use trust_syntax::syntax::SyntaxKind as K;
     match item {
         Work::Program(index) => {
-            let (def, rust, rust_retain) = {
+            let (def, rust, rust_retain, name) = {
                 let program = &model.program_types[*index];
                 (
                     program.def,
                     program.rust.clone(),
                     program.rust_retain.clone(),
+                    program.body.clone(),
                 )
             };
             let signature = format!(
-                "fn prog_{}(cx: &mut Cx, w: &World<'_>, me: &{rust}, mr: &{rust_retain}) -> R<()> {{\n",
-                mangle(&def.name),
+                "fn {name}(cx: &mut Cx, w: &World<'_>, me: &{rust}, mr: &{rust_retain}) -> R<()> {{\n",
             );
             let Some((file, node)) = find_pou(front, K::Program, &def.name, None) else {
                 return Err(NativeError::Compile(format!(
@@ -310,7 +310,6 @@ fn body<'a>(
                 )));
             };
             let source = &front.sources[file];
-            let name = format!("prog_{}", mangle(&def.name));
             let mut lowerer = Lowerer::new(model, source, file, ids, Frame::Program(*index), hooks);
             lowerer.recursive = recursion.callees_of(&name);
             declare_locals(&mut lowerer, &def.temps)?;

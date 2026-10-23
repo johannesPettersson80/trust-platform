@@ -131,6 +131,7 @@ fn lower_type_decl_node(
         semantic_file_id: Some(semantic_file_id),
         statement_locations,
         compile_time_consts,
+        lower_bodies: true,
     };
     let mut pending_name: Option<SmolStr> = None;
     let mut last_type_id: Option<TypeId> = None;

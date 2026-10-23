@@ -1,7 +1,11 @@
+/// Gives each unqualified variable of a configured program instance's type the instance's
+/// `RETAIN` or `NON_RETAIN` (IEC 61131-3 §6.5.6.2), but a function block or class instance, which
+/// follows its own type's declarations.
 pub(super) fn apply_program_retain_overrides(
     program_defs: &mut IndexMap<SmolStr, ProgramDef>,
     programs: &[ProgramInstanceConfig],
     using: &[SmolStr],
+    registry: &trust_hir::types::TypeRegistry,
 ) -> Result<(), CompileError> {
     let mut retain_by_type: std::collections::HashMap<SmolStr, crate::RetainPolicy> =
         std::collections::HashMap::new();
@@ -25,7 +29,10 @@ pub(super) fn apply_program_retain_overrides(
             continue;
         };
         for var in &mut program.vars {
-            if matches!(var.retain, crate::RetainPolicy::Unspecified) {
+            let instance = crate::harness::function_block_type_name(var.type_id, registry)
+                .is_some()
+                || crate::harness::class_type_name(var.type_id, registry).is_some();
+            if matches!(var.retain, crate::RetainPolicy::Unspecified) && !instance {
                 var.retain = policy;
             }
         }

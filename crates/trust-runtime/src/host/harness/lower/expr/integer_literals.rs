@@ -20,9 +20,10 @@ fn integer_digits_error(error: std::num::ParseIntError) -> CompileError {
     }
 }
 
-/// Integer types that an untyped literal takes from its destination. Any other destination keeps
-/// the i32 default.
-const INTEGER_DESTINATIONS: [TypeId; 8] = [
+/// Integer and bit-string types that an untyped literal takes from its destination, with their
+/// ranges: a bit string takes the unsigned range of its width (IEC 61131-3 §6.3.2, Table 5). Any
+/// other destination keeps the i32 default.
+const INTEGER_DESTINATIONS: [TypeId; 12] = [
     TypeId::SINT,
     TypeId::INT,
     TypeId::DINT,
@@ -31,6 +32,10 @@ const INTEGER_DESTINATIONS: [TypeId; 8] = [
     TypeId::UINT,
     TypeId::UDINT,
     TypeId::ULINT,
+    TypeId::BYTE,
+    TypeId::WORD,
+    TypeId::DWORD,
+    TypeId::LWORD,
 ];
 
 /// The integer type a destination names, directly or through an alias chain, when it is one of
@@ -90,6 +95,10 @@ fn integer_value_for(target: TypeId, value: i128) -> Result<Value, CompileError>
         TypeId::UINT => u16::try_from(value).map(Value::UInt),
         TypeId::UDINT => u32::try_from(value).map(Value::UDInt),
         TypeId::ULINT => u64::try_from(value).map(Value::ULInt),
+        TypeId::BYTE => u8::try_from(value).map(Value::Byte),
+        TypeId::WORD => u16::try_from(value).map(Value::Word),
+        TypeId::DWORD => u32::try_from(value).map(Value::DWord),
+        TypeId::LWORD => u64::try_from(value).map(Value::LWord),
         _ => return Err(integer_out_of_range()),
     };
     converted.map_err(|_| integer_out_of_range())

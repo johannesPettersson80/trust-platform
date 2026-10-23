@@ -1,11 +1,12 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.12 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+- **Status:** 0.13 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
   0.9 make exact what the implementation of milestones M1 and M2 decided within that design,
   Appendix B; the kernel interface version 2 of 0.7 approved by the owner on 23 October 2026; the
   release images of 0.10 and the M5 request context chosen by the owner on 23 October 2026; the
   recursion bounded by a call depth and the interface version 3 of 0.11 and the cheaper checks of
-  0.12 chosen by the owner on 23 October 2026),
+  0.12 chosen by the owner on 23 October 2026; 0.13 from the runtime defects lane the owner set on
+  23 October 2026),
   with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 with unsigned
   images accepted on an empty trust list (§5.11), interface calls by `match` (§6.4), the
@@ -125,8 +126,9 @@ The build's steps and their outputs:
    The generator reads each POU's statements from the syntax tree with what trust-hir's type checker
    recorded of them: the type of every expression and the symbol every name, member and call resolved
    to (`FileAnalysis::resolved_symbols`), so that it resolves no name itself. The declarations (types,
-   POUs, variables, configuration, tasks) come from the harness's lowering as today; the program model
-   carries no expression types and is not the generator's input.
+   POUs, variables, configuration, tasks) come from the harness's lowering, which for this build
+   lowers no statement: what the bytecode build refuses in a statement does not stop this build. The
+   program model carries no expression types and is not the generator's input.
 2. **Layout.** The generator lays out every variable in its area by the rules of §7.2 and assigns
    every statement an id in source order.
 3. **Generation.** The generator writes one Rust crate: the areas as `#[repr(C)]` types, every POU as
@@ -262,7 +264,7 @@ pool at an offset, every offset is relative to the start of the image.
 | 0 | 8 | Magic `TRSTI001` |
 | 8 | 4 | CRC-32 (ISO-HDLC) of bytes 12 to the end of the section table |
 | 12 | 4 | Total length L of the image |
-| 16 | 2 | Image format version, 1 |
+| 16 | 2 | Image format version, 2 (0.13: the 16-byte retain map of §5.10) |
 | 18 | 2 | Kernel interface version (§8.2) the module was built against |
 | 20 | 4 | Target id (§4.4: 1 rv32imac, 2 thumbv8m.main-hf, 3 x86-64, 4 aarch64) |
 | 24 | 8 | Build time, Unix seconds (informational, excluded from NX-07) |
@@ -386,10 +388,14 @@ reports them. The table is what specification 13's "one resolver on every runtim
 
 ### 5.10 Retain map
 
-One 12-byte record per retained variable, in declaration order: symbol index (4), offset in the
-retain area (4), size (4). The checkpoint's keys (specification 11 §6.7: the variable's identity,
-`@program/<program>/<variable>` for program variables) are the symbols' display names, so a
-checkpoint written by today's runtime restores into the new kernel.
+One 16-byte record per retained variable, in the order of specification 11 §6.7: the offset of its
+checkpoint key in the string pool (4), its area (4), its offset in the area (4) and the index of its
+type (4). The key is the variable's identity of specification 11 §6.7 in its declared spelling: a
+global's name, `@program/<program>/<variable>` for a program's variable, and the path of a retained
+variable of a function block or class instance, `@program/<program>/<path>` or `<path>`. A retained
+global or program variable lies in the retain area; a retained variable of an instance lies with its
+instance, in the globals, retain or instance area. So a checkpoint written by the runtime restores
+into the kernel and one written by the kernel restores into the runtime.
 
 ### 5.11 Signature
 
@@ -473,11 +479,12 @@ interface's `Plain` trait only for a `#[repr(C)]` structure whose every field is
 | `FUNCTION` (§6.6.2) | `fn f_<name>(cx: &mut Cx, inputs…, in_outs: &mut …) -> Result<T, Fault>`; `VAR` and `VAR_TEMP` are Rust locals; `EN`/`ENO` as specification 04 §EN/ENO |
 | `FUNCTION_BLOCK` (§6.6.3) | an instance struct (`VAR_INPUT`, `VAR_OUTPUT`, `VAR`, `VAR_IN_OUT` as `Ref`, nested instances inline); a body function taking `&mut` instance; a call writes the inputs, calls the body, reads the outputs (IEC §6.6.3.4) |
 | `METHOD` (§6.6.5.4, §6.6.7.2) | a function taking `&mut` instance; inputs by value, `VAR_IN_OUT` as the caller's variable, `VAR_OUTPUT` as a place in the caller that the caller copies to the output's variable after the call (IEC §6.6.1.4); `THIS` is the instance; a call without an instance (`m()`) is a call on `THIS`; `SUPER.m()` is a direct call of the base's method on the instance's base part. A function block instance given as an input of a method or a function is the caller's instance, whose outputs the callee reads (IEC §6.6.3.4.1, Table 42 feature 9a), as the runtime passes it; a result of a function block's type is a reference to the instance assigned to it, as `THIS` is a reference to the own instance (§6.6.5.7.2), so that `b.SetVolume(10).Build()` calls `Build` on `b`; it starts as `NULL`, and an instance that lies in no area cannot be named, which is the fault `ReferenceLifetime` (§7.3). A function block instance as an input of a function block, and such a result assigned to a variable, are not compiled yet (NX-09) |
-| `CLASS` (§6.6.5), inheritance (`EXTENDS`, also of function blocks, §6.6.7) | the base struct embedded as the first field, so an instance of a derived type is an instance of its base at the same address; a method the type does not declare is its base's. A call is bound statically when no type derived from the receiver's declared type overrides the method (IEC §6.6.8.5 note); otherwise, and for the body of a function block that a derived type extends, the call is a `match` on the instance's class id, the derived types that override as arms and the declared type's method as the default (§6.6.8.3 to §6.6.8.5). `REF` of a derived instance stored in a reference to its base, and a derived instance as the argument of a base's `VAR_IN_OUT`, are the instance's base part |
+| `CLASS` (§6.6.5), inheritance (`EXTENDS`, also of function blocks, §6.6.7) | the base struct embedded as the first field, so an instance of a derived type is an instance of its base at the same address; a method the type does not declare is its base's. A call is bound statically when no type derived from the receiver's declared type overrides the method (IEC §6.6.8.5 note); otherwise, and for the body of a function block that a derived type extends, the call is a `match` on the instance's class id, the derived types that override as arms and the declared type's method as the default (§6.6.8.3 to §6.6.8.5). `SUPER()` in a derived function block's body is a direct call of its base's own body on the instance's base part (§6.6.7.2.9, Table 48 10c). `REF` of a derived instance stored in a reference to its base, and a derived instance as the argument of a base's `VAR_IN_OUT`, are the instance's base part |
 | `INTERFACE` (§6.6.6), dynamic binding | the build knows every class (closed world): a call through an interface reference is a `match` on the instance's class id over every laid-out type that implements the interface, directly, through a base or through an interface that extends it, each arm a direct call of the method that type reaches; a type that implements no method of the name (an abstract base) has no arm. The class id lies in the first four bytes of every instance of a hierarchy that implements an interface or has more than one type, one id per type, given in the order the types are laid out; the starting memory holds each instance's id, and an instance of a type outside such hierarchies has none. A variable that holds such an instance cannot be a frame variable (a function's or a method's `VAR`, a `VAR_TEMP`): a dynamic call reaches an instance only where it lies in an area, so the build refuses it (NX-09). An interface's value is `NULL`, or the reference of kind instance to an instance or `THIS`; two interface values are equal when they name the same instance. `?=` (Table 52) is a `match` on the class id as well |
 | `ACTION` (specification 04 §8) | a method of its POU |
 | `PROPERTY` (extension) | its `GET` as a method of the property's name and its `SET` as a method `__set_<name>` of one input; a read of the property is a call of the `GET`, an assignment to it a call of the `SET`, bound as a method call, through an interface too |
 | `NAMESPACE`, `USING` (§6.9) | resolved by trust-hir; names are mangled `ns__pou` |
+| A program instance declared `RETAIN` (`PROGRAM RETAIN Main WITH Fast : Plant`) | its program type laid out apart, with a body of its own: each of its variables declared without a retention qualifier that is no instance lies in the retain area with the retained ones, and an instance follows its own type's declarations (specification 11 §6.7) |
 | A project without a `CONFIGURATION` | each `PROGRAM` as one instance of its own name, without a task, run in every cycle, as the runtime prepares its own build (specification 18 §2.2) |
 | Edge-qualified inputs (`R_EDGE`, `F_EDGE`, Tables 40 and 47) | a hidden previous-value byte in the instance and the edge computed at the call, as specification 03 §3 says |
 | Test POUs (specification 04) | compiled only by the test build, never into an image |
@@ -490,8 +497,8 @@ each method or body it can reach; a call that a body makes to a POU of its own c
 included, is a recursive call. A recursive call goes through the library's `recurse`, which takes
 one from `cx.depth` before the call runs and gives it back when it returns, with a fault too; one
 that finds `cx.depth` at zero ends the scan with `CallDepth` (Appendix A), which the kernel reports
-as the bytecode engine reports a call beyond its call levels, with the runtime error whose text is
-`invalid bytecode 'vm call stack overflow'`. Every cycle
+as the bytecode engine reports a call beyond its call levels, `call depth exceeded` (stable code
+`vm_call_stack_overflow`). Every cycle
 goes through a body, so every turn of a recursion takes at least one. `recurse` and every body that
 makes a recursive call are never inlined (`#[inline(never)]`), so every turn passes through at least
 two functions and the link keeps a call relocation for each call of the cycle, from which §8.5
@@ -563,9 +570,10 @@ kernel's restart behaviour is IEC 61131-1's as IEC §6.5.6 refers to it:
 
 - **Cold restart:** every variable takes `INIT`, the retain area too (IEC §6.5.6.2); the cold-init
   entry runs.
-- **Warm restart:** the retain area keeps its values, or, at a warm restart from the checkpoint, the
-  newest valid checkpoint is restored into it (§11; specification 11 §6.7, RETAIN-02); every other
-  variable takes `INIT`; the warm-init entry runs.
+- **Warm restart:** every retained variable the retain map names (§5.10) keeps its value, or, at a
+  warm restart from the checkpoint, the newest valid checkpoint is restored into them (§11;
+  specification 11 §6.7, RETAIN-02); every other variable takes `INIT`, an instance or a reference
+  in the retain area too; the warm-init entry runs.
 - **Online change:** §12.
 
 At both restarts the process images keep their bytes; they take `INIT` once, when the program is
@@ -573,11 +581,15 @@ constructed. After the initialization, every variable located at `%M` is publish
 image, so that the first scan's sample finds the variable's starting or retained value there
 (specification 11 §6.7, "Directly represented variables at restart").
 
-The build computes the starting memory with the runtime's own initialization of the same program on
-the engineering computer (the declared initial values, the types' defaults, the function blocks'
-defaults), so that a compiled program starts where an interpreted one started, and writes each value
-at the place the program's layout gives it. Until the cold-init entry carries the initializers that
-depend on a call (milestone M2), every initializer is evaluated there.
+The build works the starting memory out from the declarations, with the runtime's evaluator of
+initial values on the engineering computer and without constructing or running the program (no
+bytecode build, §15): a variable's initial value, evaluated as a constant expression that may name a
+constant, which the build works out first in declaration order, else its type's default; an
+instance's variables from its type's declarations, its base's first, an initial value given to the
+instance's variable (IEC Table 14, `T1 : TON := (PT := T#1s)`) in place of a declared one, and its
+class id. It writes each value at the place the program's layout gives it. An initial value that
+names a variable other than a constant, or that calls a function block, a method or a user function,
+is the cold-init entry's to compute; until that entry carries it, the build refuses it (NX-09).
 
 A frame starts at each call (IEC §6.5.1, §6.5.2.1, Table 13 3d): a function's or a method's result,
 outputs and locals and a program's or a function block's `VAR_TEMP` take their declared initial
@@ -930,7 +942,7 @@ pack-project` packs a program that starts with `TRSTI001` as an image.
 Before an image runs, on every device, in this order, and the first failure names its reason:
 
 1. The container (specification 34 §5.1) and the record (§5.1.1).
-2. The image header: magic, CRC, length inside the slot, format version 1, target id equal to the
+2. The image header: magic, CRC, length inside the slot, format version 2, target id equal to the
    device's, kernel interface version equal to the kernel's (`kernel interface <n> required, this
    runtime has <m>: rebuild the project`), program library hash known to this kernel.
 3. The section table: each required section present, no overlap, all inside the image, 8-byte
@@ -1010,8 +1022,8 @@ RETAIN-05. A compiled program and the interpreter write the same payload for the
 for byte, and each restores the other's checkpoint. What changes is how the kernel reaches the
 values:
 
-- **Capture.** The capture visits the retain map in its order and writes each variable from the
-  retain area through the type table (§5.8): a scalar as its tag and its bytes, a `STRING` as its
+- **Capture.** The capture visits the retain map in its order and writes each variable from its
+  area through the type table (§5.8): a scalar as its tag and its bytes, a `STRING` as its
   UTF-8 bytes, a `WSTRING` converted to UTF-8, an enumeration by its type and value names, an array
   with its bounds, a structure with its type and member names, the bytes the codec writes for the
   same value held as a value, without building it, so that a capture into the reserved payload
@@ -1021,8 +1033,9 @@ values:
   which a save is due, after the loop's observers; a capture that fails, a non-finite `REAL` for
   example, fails that scan before the outputs are driven. A stop captures and completes the
   checkpoint before the resource reports Stopped.
-- **Restore.** The checkpoint is applied by name, without regard to case, to a copy of the retain
-  area, and every entry is checked against its variable's type before the area changes, with the
+- **Restore.** The checkpoint is applied by name, without regard to case: each entry's bytes are
+  worked out from its variable's present bytes and checked against its type before any area changes,
+  with the
   migration rules of specification 11 §6.7: a number widened within its family (signed, unsigned,
   bit string), a `REAL` to an `LREAL`, a text cut to its capacity without splitting a character, an
   enumeration of the same type, value and value name rebuilt with the declared spelling, an array of
@@ -1030,19 +1043,18 @@ values:
   lacks takes its starting value from `INIT` and a member the type lacks is dropped; a subrange
   value outside its bounds is refused with its numbers. Each converted value is reported as
   `retain_migration_applied`, a key the image does not declare as `retain_orphan_dropped`; a key
-  that names a variable declared without `RETAIN` leaves it alone and is not reported, as the
-  interpreter does. A retained variable the checkpoint does not name keeps the value it holds,
+  that names a variable declared without `RETAIN`, of a program or of an instance, leaves it alone
+  and is not reported, as the interpreter does; the kernel finds such a variable by the key's path
+  through the symbol and type tables. A retained variable the checkpoint does not name keeps the value it holds,
   which after a power-on is its starting value. One refused value refuses the whole checkpoint and
   changes nothing (RETAIN-02).
 - **Install.** The check of an install (specification 34 §11.2, decision G13) restores the newest
   checkpoint into a fresh start of the new image in the same way, before anything is written, and
   refuses the install with the restore's reason.
 
-A `RETAIN` variable of a function block's or a class's type is a member of each instance, laid with
-the instance: the runtime writes no member of an instance into a checkpoint and keeps none across a
-warm restart (specification 11 §6.7 writes the globals and the programs' variables), so a compiled
-program does the same and the checkpoints stay interchangeable. IEC §6.5.6 retains such a variable;
-specification 11 and this section change together when the runtime does.
+A retained variable of a function block or class instance (specification 11 §6.7, IEC §6.5.6.2) is
+laid with its instance and has its record in the retain map, which names its area; the capture, the
+restore and the warm restart treat it as any other retained variable.
 
 The checkpoint's identity is the record's (specification 34 §5.1): the image's SHA-256 and its
 retain-schema identity (§10.1).
@@ -1146,9 +1158,23 @@ records in `Cx` on entry to a function when hooks are on).
 From milestone M1, `status` reports `execution_backend: "native"` for a compiled program, and
 `io.list` and `io.read` answer from the image's process-image bindings: each binding's address as
 the address parser makes it, its variable's elementary type (an alias's or subrange's base type, an
-enumeration's integer) and its declared name. Until the symbol table serves them (milestone M3), a
-Live Values write or force of a compiled program's variables or process image is refused at the
-next cycle start with a `WriteRejected` event and withdrawn.
+enumeration's integer) and its declared name.
+
+Live Values writes and forces reach a compiled program through the symbol table, by the targets of
+specification 11's runtime control I/O and variable mutation contract: `global:<name>` by the
+global's or the qualified variable's symbol, as `Image::find_variable` resolves a name;
+`retain:<label>` by the retain map's key (§5.10), an instance's variable and an array's element
+too; and `instance:<id>:<member>` by the member's symbol under the instance whose symbol's index is
+`id`, a compiled program's instance identity, resolved in the generation the request names. The
+queued variable writes are applied at the cycle start, before the program runs, in arrival order,
+and then every active variable force; the queued image writes and the forces of the input and
+marker images after the drivers read the inputs, before the program samples them, so that a forced
+input holds over the physical one; and the output image's forces after the scan, before the
+outputs reach the drivers and the snapshot. Each write converts the value as the symbol's type does
+(`NativeProgram::write_symbol`) and leaves the variable as it was when it is refused. A target the
+program does not hold or of another generation is refused with a `WriteRejected` event, as the
+bytecode engine refuses it, and a refused force is withdrawn. A debugger's expression write
+(`setExpression`) waits for the debugger of compiled programs and is refused.
 
 ## 14. Verification and acceptance
 
@@ -1274,7 +1300,7 @@ bytes), 18
 `AssertionNear` (`ASSERT_NEAR`: the expected, the actual and the delta in binary64); both are
 reported as the runtime's `AssertionFailed` with its message. 19 `CallDepth` (a recursive call that
 finds no depth left, §6.4) is reported as the bytecode engine's call beyond its call levels,
-`VmTrap::CallStackOverflow`, whose text is `invalid bytecode 'vm call stack overflow'`.
+`VmTrap::CallStackOverflow`: `call depth exceeded`, stable code `vm_call_stack_overflow`.
 
 ## Appendix B — Revision history
 
@@ -1292,3 +1318,4 @@ finds no depth left, §6.4) is reported as the bytecode engine's call beyond its
 | 0.10 | 23 October 2026 | Release images and the request context of M5 (the owner, 23 October 2026, on three questions: "i agree with your advice on all points, just make sure its professional and that we dont take short cuts"). §13.2: the project setting `[build] debug` (specification 14), `true` when absent, chooses a debug image or a release image without statement hooks for `trust-runtime build --target`, `bench project --execution-backend native` and `trust-dev test --execution-backend native`; the conformance suite's cases are debug images; a release image says so in bit 0 of the header flags at offset 120 (§5.2), which were reserved, and in the build's report, and the debugger of M3 refuses what needs the hooks with `the program was built without debug hooks ([build] debug = false)`. NX-10 made exact: each statement and each pass through a loop takes one from the budget before it runs, one that finds it at zero ends the scan, and a release image counts the passes through loops only. §14.3: M4 compares release images with RuSTy. M5 and §16: the control requests are served in a context the tasks preempt. |
 | 0.11 | 23 October 2026 | Recursion bounded by a call depth (the owner, 23 October 2026, "i agree with what you suggest"). §6.4 said that IEC 61131-3 has no recursion and that trust-hir refuses it; IEC 61131-3 leaves recursion to the implementer (§6.6.1.1), trust-hir refuses only a type that holds itself, and the bytecode engine runs recursion within its call levels, so a native image of a recursive program built with a stack bound that counted a cycle once. §6.4: a call that a body makes to a POU of its own cycle of the call graph takes one from `cx.depth` and gives it back when it returns, through the library's `recurse`; none left ends the scan with `CallDepth`, reported as the bytecode engine's call beyond its call levels (Appendix A); `recurse` and every body that makes such a call are never inlined, so the link keeps a call relocation for every call of a cycle, which a function's call of itself need not keep. §8.2: `Cx` gains `depth`, and the interface becomes version 3. §8.5: a cycle counts once in the stack bound, all its frames together, instead of once for each instance with a class id; `MEMFIG` carries the bytes of one call level, and the kernel gives each activation the depth its task stack holds beyond the bound; a computer's kernel claims no more task stack than its thread has. |
 | 0.12 | 23 October 2026 | The checks of M4 made cheaper, none dropped (the owner, 23 October 2026, on why truST's pasteurizer control task took 150 ns per activation against RuSTy's 140 ns: the checks RuSTy does not make). §6.5: the check of a real result, which the library made and the table did not list, is listed, and a chain of real `+ - *` whose operands can neither fault nor write is checked at its last operation, which faults in the same cases and the same statement. §6.6: a release image holds a `FOR` loop's control variable in a local when nothing in the body but the loop can write it, and writes it at the start of each pass. The constant index inside the bounds, unchecked since 0.1, is now unchecked in the generated code too. |
+| 0.13 | 23 October 2026 | The variables of instances retained as IEC 61131-3 §6.5.6.2 says (the runtime defects lane, D1). §5.10: the retain map holds one 16-byte record per retained variable, in the order of specification 11 §6.7, with its checkpoint key, its area, its offset in the area and its type; a retained variable of a function block or class instance lies with its instance, so a record names its area. §5.2 and §10.2: image format version 2. §6.7: a warm restart keeps every variable the retain map names and starts every other one, an instance or a reference in the retain area too. §11: the capture writes each variable from its area; the restore works out each entry's bytes from the variable's present bytes and checks them before any area changes, and finds a member declared without `RETAIN` by its key's path to leave it alone. §6.4 and Appendix A: a call beyond the call levels reads `call depth exceeded`, the bytecode engine's text too (specification 12 §7.4.1). |

@@ -360,15 +360,15 @@ fn coerce_string(value: Value, type_id: TypeId) -> Result<Value, CompileError> {
 }
 
 fn coerce_char(value: Value, type_id: TypeId) -> Result<Value, CompileError> {
+    // A `CHAR` holds U+0000 to U+00FF and a `WCHAR` U+0000 to U+FFFF (specification 02 §6).
     let to_char = |ch: char| -> Result<Value, CompileError> {
         match type_id {
-            TypeId::CHAR if ch.is_ascii() => Ok(Value::Char(ch as u8)),
-            TypeId::CHAR => Err(CompileError::new("initializer out of CHAR range")),
             TypeId::WCHAR => u16::try_from(ch as u32)
                 .map(Value::WChar)
                 .map_err(|_| CompileError::new("initializer out of WCHAR range")),
-            _ if ch.is_ascii() => Ok(Value::Char(ch as u8)),
-            _ => Err(CompileError::new("initializer out of CHAR range")),
+            _ => u8::try_from(ch as u32)
+                .map(Value::Char)
+                .map_err(|_| CompileError::new("initializer out of CHAR range")),
         }
     };
     match value {

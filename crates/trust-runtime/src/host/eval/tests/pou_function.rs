@@ -29,6 +29,7 @@ fn call_function_exec() {
             direction: ParamDirection::In,
             address: None,
             default: None,
+            retain: crate::RetainPolicy::Unspecified,
         }],
         locals: Vec::new(),
         static_locals: Vec::new(),
@@ -76,6 +77,7 @@ fn function_input_interface_defaults_to_null() {
                 direction: ParamDirection::In,
                 address: None,
                 default: None,
+                retain: crate::RetainPolicy::Unspecified,
             },
             Param {
                 name: "Svc".into(),
@@ -83,6 +85,7 @@ fn function_input_interface_defaults_to_null() {
                 direction: ParamDirection::In,
                 address: None,
                 default: None,
+                retain: crate::RetainPolicy::Unspecified,
             },
         ],
         locals: Vec::new(),

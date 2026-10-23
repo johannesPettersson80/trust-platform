@@ -1,37 +1,32 @@
 //! The retained variables of a compiled program (specification 44 §5.10, §11; specification 11
-//! §6.7): their checkpoint, written from the retain area through the retain map and the type table,
-//! and a checkpoint restored by name into the retain area.
+//! §6.7): their checkpoint, written from their areas through the retain map and the type table,
+//! and a checkpoint restored by name into them.
 //!
-//! A capture visits the retain map in its order and writes each variable under the key of
-//! specification 11 §6.7, a global by its declared name and a program variable as
-//! `@program/<program>/<variable>`, with the bytes the STRN v3 payload codec writes for the same
-//! value: a scalar's tag and its bytes, a text as UTF-8, an enumeration by its type and value names,
-//! an array with its bounds, a structure with its type and member names. No `Value` is built, so a
-//! capture into a reserved payload allocates nothing (specification 34 MEM-04). A variable whose
-//! type holds a function block instance is left out of the checkpoint, as the interpreter leaves an
-//! instance out. A checkpoint written by the interpreter therefore restores here, and one written
-//! here restores into the interpreter.
+//! A capture visits the retain map in its order and writes each variable under the key the map
+//! names, specification 11 §6.7's: a global by its declared name, a program variable as
+//! `@program/<program>/<variable>` and a variable of a function block or class instance by its
+//! path, with the bytes the STRN v3 payload codec writes for the same value: a scalar's tag and its
+//! bytes, a text as UTF-8, an enumeration by its type and value names, an array with its bounds, a
+//! structure with its type and member names. No `Value` is built, so a capture into a reserved
+//! payload allocates nothing (specification 34 MEM-04). A variable whose type holds an instance or
+//! a reference is left out of the checkpoint, as the interpreter leaves it out. A checkpoint written
+//! by the interpreter therefore restores here, and one written here restores into the interpreter.
 //!
-//! A restore applies a checkpoint by name to a copy of the retain area, with the interpreter's
-//! migration rules: a safe widening of a number, a text cut to its capacity, an enumeration
-//! rebuilt with its declared spelling, a structure rebuilt member by member, a member the
-//! checkpoint lacks at its starting value, a key nothing declares reported as an orphan. Every
-//! entry is checked before the area changes, so one value the program refuses leaves every
-//! retained variable as it was.
+//! A restore applies a checkpoint by name, with the interpreter's migration rules: a safe widening
+//! of a number, a text cut to its capacity, an enumeration rebuilt with its declared spelling, a
+//! structure rebuilt member by member, a member the checkpoint lacks at its starting value, a key
+//! nothing declares reported as an orphan. Each entry's new bytes are worked out and checked before
+//! any area changes, so one value the program refuses leaves every retained variable as it was.
 
 use alloc::collections::BTreeMap;
 use alloc::format;
-use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 use trust_plc_abi::{AREA_GLOBALS, AREA_INSTANCES, AREA_RETAIN};
 
-use super::image::{
-    type_kind as kind, AreaRecord, Image, RetainRecord, SectionId, SymbolRecord, AREA_HAS_INIT,
-    NONE, SYMBOL_PROGRAM,
-};
+use super::image::{type_kind as kind, AreaRecord, Image, RetainRecord, SectionId, AREA_HAS_INIT};
 use super::values::{
     damaged, read, read_unsigned, read_value, text_length, variant_of, wide_length, wide_units,
     width, AreaBytes, Types, Writer,
@@ -45,17 +40,29 @@ use crate::retain::codec::{
 use crate::retain::RetainSnapshot;
 use crate::vm::RetainApplyEvent;
 
-/// Appends the checkpoint entries of the retained variables in `area`, the program's retain area,
-/// to `payload`, in the retain map's order (specification 44 §5.10, §11).
+/// The bytes of a retained variable: its area, its offset in the area and its bytes. A restore
+/// works them out; a warm start keeps them across the start.
+#[derive(Debug, PartialEq, Eq)]
+pub struct Kept {
+    /// The area: globals, retain or instances.
+    pub area: u8,
+    /// The offset in the area.
+    pub offset: usize,
+    /// The variable's bytes.
+    pub bytes: Vec<u8>,
+}
+
+/// Appends the checkpoint entries of the retained variables to `payload`, in the retain map's
+/// order, each read from its area as `area` gives it (specification 44 §5.10, §11).
 ///
 /// # Errors
 ///
 /// [`RuntimeError::RetainStore`] for a value no checkpoint holds: a non-finite `REAL` or `LREAL`, a
 /// text that is not UTF-8 or UTF-16, an enumeration number its type does not declare.
 /// [`RuntimeError::InvalidBundle`] for a retain map or a type table that does not read.
-pub(crate) fn fill<A: AreaBytes + ?Sized>(
+pub(crate) fn fill<'a, A: AreaBytes + ?Sized + 'a>(
     image: &Image<'_>,
-    area: &A,
+    area: impl Fn(u8) -> Option<&'a A>,
     payload: &mut PayloadWriter<'_>,
 ) -> Result<(), RuntimeError> {
     let types = Types::of(image)?;
@@ -63,10 +70,9 @@ pub(crate) fn fill<A: AreaBytes + ?Sized>(
         if !retainable(&types, retained.type_index, 0)? {
             return Ok(());
         }
-        retained.key.with_pieces(|pieces| {
-            payload.entry_with(pieces, |out| {
-                encode(&types, area, retained.offset, retained.type_index, out, 0)
-            })
+        let bytes = area(retained.area).ok_or_else(|| damaged("retain map"))?;
+        payload.entry_with(&[retained.key], |out| {
+            encode(&types, bytes, retained.offset, retained.type_index, out, 0)
         })
     })
 }
@@ -97,8 +103,8 @@ pub fn payload_bound(image: &Image<'_>) -> Result<usize, RuntimeError> {
     Ok(total)
 }
 
-/// The retain area of `image` with the checkpoint `snapshot` restored into `current`, the bytes the
-/// program's retain area holds now, by name, and the events of the restore in the checkpoint's order
+/// The new bytes of the retained variables with the checkpoint `snapshot` restored into what
+/// `current` gives of each area, by name, and the events of the restore in the checkpoint's order
 /// (specification 11 §6.7; specification 44 §11).
 ///
 /// Each entry goes to the retained variable its key names, without regard to case. A value is
@@ -116,50 +122,65 @@ pub fn payload_bound(image: &Image<'_>) -> Result<usize, RuntimeError> {
 /// [`RuntimeError::RetainSubrangeViolation`] for a value outside its subrange,
 /// [`RuntimeError::RetainMigration`] for any other value the variable's type refuses or two
 /// retained variables with one key, and [`RuntimeError::InvalidBundle`] for tables that do not
-/// read. Nothing is returned then, so the caller's retain area keeps its values.
-pub fn stage(
+/// read. Nothing is returned then, so the caller's areas keep their values.
+pub fn stage<'a>(
     image: &Image<'_>,
     snapshot: &RetainSnapshot,
-    current: &[u8],
-) -> Result<(Vec<u8>, Vec<RetainApplyEvent>), RuntimeError> {
+    current: impl Fn(u8) -> Option<&'a [u8]>,
+) -> Result<(Vec<Kept>, Vec<RetainApplyEvent>), RuntimeError> {
     let types = Types::of(image)?;
-    let starting = starting_bytes(image)?;
-    if current.len() != starting.len() {
-        return Err(damaged("retain area"));
-    }
     let mut destinations = BTreeMap::new();
+    let mut variables = Vec::new();
     each_retained(image, |retained| {
         if destinations
-            .insert(
-                retained.key.folded(),
-                (retained.type_index, retained.offset),
-            )
+            .insert(retained.key.to_ascii_uppercase(), variables.len())
             .is_some()
         {
             return Err(RuntimeError::RetainMigration(
                 "ambiguous retained destination label".into(),
             ));
         }
+        variables.push((retained.area, retained.offset, retained.type_index));
         Ok(())
     })?;
-    let mut staged = current.to_vec();
+    let mut starting: BTreeMap<u8, Vec<u8>> = BTreeMap::new();
+    let mut staged = Vec::new();
     let mut events = Vec::new();
     for (key, value) in snapshot.values() {
-        let Some(&(type_index, offset)) = destinations.get(&key.to_ascii_uppercase()) else {
-            if !declares_unretained(image, key) {
+        let Some(&index) = destinations.get(&key.to_ascii_uppercase()) else {
+            if !names_variable(image, &types, key) {
                 events.push(RetainApplyEvent::Orphan { name: key.clone() });
             }
             continue;
         };
+        let (area, offset, type_index) = variables[index];
+        // A variable that holds an instance or a reference is never restored (specification 10).
+        if !retainable(&types, type_index, 0)? {
+            continue;
+        }
+        let size =
+            usize::try_from(types.get(type_index)?.size).map_err(|_| RuntimeError::Overflow)?;
+        let end = offset.checked_add(size).ok_or(RuntimeError::Overflow)?;
+        let present = current(area)
+            .and_then(|bytes| bytes.get(offset..end))
+            .ok_or_else(|| damaged("retain map"))?;
+        if let alloc::collections::btree_map::Entry::Vacant(entry) = starting.entry(area) {
+            entry.insert(starting_bytes(image, area)?);
+        }
+        let start = starting
+            .get(&area)
+            .and_then(|bytes| bytes.get(offset..end))
+            .ok_or_else(|| damaged("retain map"))?;
+        let mut bytes = present.to_vec();
         let mut writer = Writer {
             types: &types,
-            staged: &mut staged,
-            starting: &starting,
+            staged: &mut bytes,
+            starting: start,
         };
         writer
-            .write(type_index, offset, value, 0)
+            .write(type_index, 0, value, 0)
             .map_err(|error| migration_error(key, error))?;
-        let after = read_value(&types, staged.as_slice(), offset, type_index)
+        let after = read_value(&types, bytes.as_slice(), 0, type_index)
             .map_err(|error| migration_error(key, error))?;
         if &after != value {
             events.push(RetainApplyEvent::Migrated {
@@ -168,6 +189,11 @@ pub fn stage(
                 after,
             });
         }
+        staged.push(Kept {
+            area,
+            offset,
+            bytes,
+        });
     }
     Ok((staged, events))
 }
@@ -183,37 +209,51 @@ pub fn check(
     image: &Image<'_>,
     snapshot: &RetainSnapshot,
 ) -> Result<Vec<RetainApplyEvent>, RuntimeError> {
-    let starting = starting_bytes(image)?;
-    stage(image, snapshot, &starting).map(|(_, events)| events)
+    let mut starting: BTreeMap<u8, Vec<u8>> = BTreeMap::new();
+    for area in [AREA_GLOBALS, AREA_RETAIN, AREA_INSTANCES] {
+        starting.insert(area, starting_bytes(image, area)?);
+    }
+    stage(image, snapshot, |area| {
+        starting.get(&area).map(Vec::as_slice)
+    })
+    .map(|(_, events)| events)
 }
 
-/// The starting bytes of every retained variable whose type holds a function block instance, a
-/// reference or a pointer, with its offset in the retain area: such a value is never retained
-/// (specification 10, "runtime references and instance identities are never retained"), so a warm
-/// restart gives it its starting value.
+/// The bytes of every retained variable the retain map names whose type a checkpoint holds, read
+/// from what `area` gives of each area: what a warm start keeps while every other variable, an
+/// instance or a reference in the retain area too, takes its starting value (specification 44
+/// §6.7, §11).
 ///
 /// # Errors
 ///
 /// [`RuntimeError::InvalidBundle`] for a retain map or a type table that does not read.
-pub(crate) fn unretainable(image: &Image<'_>) -> Result<Vec<(usize, Vec<u8>)>, RuntimeError> {
+pub(crate) fn retained_bytes<'a, A: AreaBytes + ?Sized + 'a>(
+    image: &Image<'_>,
+    area: impl Fn(u8) -> Option<&'a A>,
+) -> Result<Vec<Kept>, RuntimeError> {
     let types = Types::of(image)?;
-    let starting = starting_bytes(image)?;
-    let mut ranges = Vec::new();
+    let mut kept = Vec::new();
     each_retained(image, |retained| {
-        if retainable(&types, retained.type_index, 0)? {
+        if !retainable(&types, retained.type_index, 0)? {
             return Ok(());
         }
         let size = usize::try_from(types.get(retained.type_index)?.size)
             .map_err(|_| RuntimeError::Overflow)?;
-        let bytes = retained
-            .offset
-            .checked_add(size)
-            .and_then(|end| starting.get(retained.offset..end))
-            .ok_or_else(|| damaged("retain map"))?;
-        ranges.push((retained.offset, bytes.to_vec()));
+        let mut bytes = vec![0u8; size];
+        if !area(retained.area)
+            .ok_or_else(|| damaged("retain map"))?
+            .read(retained.offset, &mut bytes)
+        {
+            return Err(damaged("retain map"));
+        }
+        kept.push(Kept {
+            area: retained.area,
+            offset: retained.offset,
+            bytes,
+        });
         Ok(())
     })?;
-    Ok(ranges)
+    Ok(kept)
 }
 
 /// The error of a value the variable `key` refuses, as the interpreter reports it: a subrange
@@ -238,12 +278,13 @@ fn migration_error(key: &SmolStr, error: RuntimeError) -> RuntimeError {
     }
 }
 
-/// The starting bytes of the retain area of `image`, zero where `INIT` gives none.
-fn starting_bytes(image: &Image<'_>) -> Result<Vec<u8>, RuntimeError> {
+/// The starting bytes of the area `id` of `image`, zero where `INIT` gives none; none for an area
+/// the image does not have.
+fn starting_bytes(image: &Image<'_>, id: u8) -> Result<Vec<u8>, RuntimeError> {
     let areas = image
         .table::<AreaRecord>()
         .map_err(|_| damaged("area table"))?;
-    let Some(area) = areas.iter().find(|area| area.id == u32::from(AREA_RETAIN)) else {
+    let Some(area) = areas.iter().find(|area| area.id == u32::from(id)) else {
         return Ok(Vec::new());
     };
     let length = usize::try_from(area.length).map_err(|_| RuntimeError::Overflow)?;
@@ -259,33 +300,73 @@ fn starting_bytes(image: &Image<'_>) -> Result<Vec<u8>, RuntimeError> {
     Ok(bytes)
 }
 
-/// Whether `key` names a variable that `image` declares without `RETAIN`: a non-retained global by
-/// its name, or a non-retained variable of a program instance as `@program/<program>/<variable>`.
-/// The interpreter leaves such a variable alone and reports no orphan (specification 11 §6.7).
-fn declares_unretained(image: &Image<'_>, key: &str) -> bool {
+/// Whether `key` names a variable that `image` declares, retained or not: a global by its name, a
+/// program's variable as `@program/<program>/<variable>`, or a variable of an instance by its path,
+/// followed through the symbol table and, past an array element, through the type table. A restore
+/// leaves a variable declared without `RETAIN` alone and reports no orphan for it, as the
+/// interpreter does (specification 11 §6.7).
+fn names_variable(image: &Image<'_>, types: &Types<'_>, key: &str) -> bool {
     let folded = key.to_ascii_uppercase();
-    let (canonical, program) = match folded.strip_prefix("@PROGRAM/") {
+    let path = match folded.strip_prefix("@PROGRAM/") {
         Some(rest) => match rest.split_once('/') {
-            Some((program, variable)) if !variable.contains(['/', '.']) => {
-                (format!("{program}.{variable}"), true)
+            Some((program, variable)) if !variable.contains('/') => {
+                format!("{program}.{variable}")
             }
             _ => return false,
         },
-        None => (folded, false),
+        None => folded,
     };
-    let Some((_, symbol)) = image.find_symbol(&canonical) else {
+    let (head, mut rest) = path.split_at(path.find('[').unwrap_or(path.len()));
+    let Some((_, symbol)) = image.find_symbol(head) else {
         return false;
     };
-    if program {
-        let parent_is_program = image
-            .table::<SymbolRecord>()
-            .ok()
-            .and_then(|symbols| symbols.get(symbol.parent))
-            .is_some_and(|parent| parent.flags & SYMBOL_PROGRAM != 0);
-        parent_is_program && symbol.area == AREA_INSTANCES
-    } else {
-        symbol.parent == NONE && symbol.area == AREA_GLOBALS
+    let mut ty = symbol.type_index;
+    while !rest.is_empty() {
+        let Ok(record) = types.get(ty) else {
+            return false;
+        };
+        if let Some(after) = rest.strip_prefix('[') {
+            let Some((indexes, tail)) = after.split_once(']') else {
+                return false;
+            };
+            if record.kind != kind::ARRAY {
+                return false;
+            }
+            let Ok((element, mut dimensions)) = types.array(&record) else {
+                return false;
+            };
+            let mut parts = indexes.split(',');
+            let inside = dimensions.all(|(lower, upper)| {
+                parts
+                    .next()
+                    .and_then(|part| part.trim().parse::<i64>().ok())
+                    .is_some_and(|index| (lower..=upper).contains(&index))
+            });
+            if !inside || parts.next().is_some() {
+                return false;
+            }
+            ty = element;
+            rest = tail;
+        } else if let Some(after) = rest.strip_prefix('.') {
+            let end = after.find(['.', '[']).unwrap_or(after.len());
+            let (name, tail) = after.split_at(end);
+            let Ok(mut members) = types.members(&record) else {
+                return false;
+            };
+            let Some(member) = members.find(|member| {
+                types
+                    .string(member.name)
+                    .is_ok_and(|member| member.eq_ignore_ascii_case(name))
+            }) else {
+                return false;
+            };
+            ty = member.type_index;
+            rest = tail;
+        } else {
+            return false;
+        }
     }
+    true
 }
 
 /// The sum of `values`, or [`RuntimeError::Overflow`].
@@ -295,52 +376,15 @@ fn sum(values: &[usize]) -> Result<usize, RuntimeError> {
     })
 }
 
-/// The checkpoint key of a retained variable (specification 11 §6.7).
-#[derive(Clone, Copy)]
-enum Key<'i> {
-    /// A global, by its declared name.
-    Global(&'i str),
-    /// A variable of a program instance, `@program/<program>/<variable>`.
-    Program { program: &'i str, variable: &'i str },
-}
-
-impl Key<'_> {
-    /// Calls `write` with the key as the pieces it is written in.
-    fn with_pieces<R>(&self, write: impl FnOnce(&[&str]) -> R) -> R {
-        match *self {
-            Self::Global(name) => write(&[name]),
-            Self::Program { program, variable } => write(&["@program/", program, "/", variable]),
-        }
-    }
-
-    /// The key's length in bytes.
-    fn len(&self) -> usize {
-        self.with_pieces(|pieces| pieces.iter().map(|piece| piece.len()).sum())
-    }
-
-    /// The key in capitals, as a key is compared on load.
-    fn folded(&self) -> String {
-        let mut key = String::with_capacity(self.len());
-        self.with_pieces(|pieces| {
-            for piece in pieces {
-                key.push_str(piece);
-            }
-        });
-        key.make_ascii_uppercase();
-        key
-    }
-}
-
-/// A variable of the retain map: its key, its type and its offset in the retain area.
+/// A variable of the retain map: its key, its area, its type and its offset in the area.
 struct Retained<'i> {
-    key: Key<'i>,
+    key: &'i str,
+    area: u8,
     type_index: u32,
     offset: usize,
 }
 
-/// Visits the variables of the retain map in its order. A global's key is its display name, a
-/// program variable's the display names of its program instance and of itself (specification 44
-/// §5.10).
+/// Visits the variables of the retain map in its order (specification 44 §5.10).
 fn each_retained<'i>(
     image: &Image<'i>,
     mut visit: impl FnMut(Retained<'i>) -> Result<(), RuntimeError>,
@@ -348,36 +392,18 @@ fn each_retained<'i>(
     let map = image
         .table::<RetainRecord>()
         .map_err(|_| damaged("retain map"))?;
-    let symbols = image
-        .table::<SymbolRecord>()
-        .map_err(|_| damaged("symbol table"))?;
     for record in map.iter() {
-        let symbol = symbols
-            .get(record.symbol)
-            .filter(|symbol| symbol.area == AREA_RETAIN && symbol.offset == record.offset)
+        let key = image
+            .string(record.key)
             .ok_or_else(|| damaged("retain map"))?;
-        let display = image
-            .string(symbol.display)
-            .ok_or_else(|| damaged("symbol table"))?;
-        let key = if symbol.parent == NONE {
-            Key::Global(display)
-        } else {
-            let parent = symbols
-                .get(symbol.parent)
-                .filter(|parent| parent.flags & SYMBOL_PROGRAM != 0)
-                .ok_or_else(|| damaged("retain map"))?;
-            let program = image
-                .string(parent.display)
-                .ok_or_else(|| damaged("symbol table"))?;
-            let variable = display
-                .strip_prefix(program)
-                .and_then(|rest| rest.strip_prefix('.'))
-                .ok_or_else(|| damaged("symbol table"))?;
-            Key::Program { program, variable }
-        };
+        let area = u8::try_from(record.area)
+            .ok()
+            .filter(|area| matches!(*area, AREA_GLOBALS | AREA_RETAIN | AREA_INSTANCES))
+            .ok_or_else(|| damaged("retain map"))?;
         visit(Retained {
             key,
-            type_index: symbol.type_index,
+            area,
+            type_index: record.type_index,
             offset: usize::try_from(record.offset).map_err(|_| RuntimeError::Overflow)?,
         })?;
     }

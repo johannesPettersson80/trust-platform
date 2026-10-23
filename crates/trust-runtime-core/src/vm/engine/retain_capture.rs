@@ -108,6 +108,22 @@ impl EngineState<'_> {
                 }
             }
         }
+        // The retained variables of the instances, under their paths (specification 11 §6.7).
+        for index in 0..self.data.construction.retained_members.len() {
+            let member = &self.data.construction.retained_members[index];
+            let instance = self.data.construction.roots[member.root as usize]
+                .ok_or(RuntimeError::NullReference)?;
+            let declaration = prepared.scan_declaration_at(member.declaration as usize);
+            let name = &prepared.vm.strings[declaration.name_idx as usize];
+            if let Some(view) = self.read_instance_var(instance, name)
+                && view_is_retainable(&view)?
+            {
+                let key = &self.data.construction.retained_members[index].key;
+                let bytes = self.snapshot_entry_charge(&view, key.len())?;
+                self.charge_allocation_bytes(bytes)?;
+                payload.entry_view_pieces(&[key.as_str()], &view)?;
+            }
+        }
         Ok(())
     }
 
@@ -148,9 +164,9 @@ impl EngineState<'_> {
 }
 
 /// The most bytes a retained payload of `prepared`'s resource takes, with the entry count: each
-/// retained global and each root's retained program variable whose type holds no reference and no
-/// instance, under the name it is written with and at the largest encoding of its type
-/// (specification 34 MEM-09; C1-19c). `None` on overflow.
+/// retained global, each root's retained program variable and each retained variable of an
+/// instance whose type holds no reference and no instance, under the name it is written with and at
+/// the largest encoding of its type (specification 34 MEM-09; C1-19c). `None` on overflow.
 pub(crate) fn retained_payload_bound(prepared: &PreparedModule) -> Option<usize> {
     // A variable whose value can hold a reference or an instance is left out of the payload.
     let entry = |key: usize, type_id: Option<u32>| -> Option<usize> {
@@ -186,5 +202,19 @@ pub(crate) fn retained_payload_bound(prepared: &PreparedModule) -> Option<usize>
             total = total.checked_add(entry(key, declaration.type_id)?)?;
         }
     }
-    Some(total)
+    // The retained variables of the instances, under their paths (specification 11 §6.7).
+    let mut members = Some(0usize);
+    super::retained_members::instance_members(prepared, |key, _, id, retained| {
+        if retained {
+            let declaration = prepared
+                .storage_declaration(id as usize)
+                .ok_or(RuntimeError::InvalidExecutionState)?;
+            members = members
+                .zip(entry(key.len(), declaration.type_id))
+                .and_then(|(total, entry)| total.checked_add(entry));
+        }
+        Ok(())
+    })
+    .ok()?;
+    total.checked_add(members?)
 }

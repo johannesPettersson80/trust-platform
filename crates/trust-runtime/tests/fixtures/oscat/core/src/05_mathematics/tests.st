@@ -106,3 +106,23 @@ ASSERT_TRUE(IN := RandomInt <= INT#6);
 RandomDw := RDMDW(LAST := DWORD#12345);
 ASSERT_TRUE(IN := BIT_COUNT(IN := RandomDw) >= INT#0);
 END_TEST_PROGRAM
+
+(* RDMDW packs two RDM draws scaled to 16 bits, the first in the high word: each word is the draw
+   times 65535 as a number, rounded. Within one scan the PLC timer stands still, so RDM gives the
+   same draws again here. As REAL bit patterns (REAL_TO_DWORD, a binary transfer in IEC 61131-3
+   Table 25) the words would hold the low mantissa bits of the scaled draws instead. *)
+TEST_PROGRAM oscat_rdmdw_packs_two_draws_scaled_to_16_bits
+VAR
+    Ones : REAL;
+    High : REAL;
+    Low : REAL;
+    Value : DWORD;
+END_VAR
+ASSERT_TRUE(IN := OSCAT_BASIC_Constants());
+Ones := INT_TO_REAL(BIT_COUNT(IN := DWORD#12345));
+High := RDM(LAST := FRACT(X := Ones * MATH.PI));
+Low := RDM(LAST := FRACT(X := Ones * MATH.E));
+Value := RDMDW(LAST := DWORD#12345);
+ASSERT_EQUAL(EXPECTED := REAL_TO_UDINT(High * REAL#65535.0), ACTUAL := DWORD_TO_UDINT(SHR(Value, 16)));
+ASSERT_EQUAL(EXPECTED := REAL_TO_UDINT(Low * REAL#65535.0), ACTUAL := DWORD_TO_UDINT(Value AND DWORD#16#0000FFFF));
+END_TEST_PROGRAM

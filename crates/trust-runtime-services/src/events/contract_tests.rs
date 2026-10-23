@@ -333,7 +333,7 @@ fn a_fault_event_replies_as_before() {
                 code: StableErrorCode::VmCallStackOverflow,
                 detail: FaultDetail::Text("vm call stack overflow"),
             }),
-            "invalid bytecode 'vm call stack overflow'",
+            "call depth exceeded",
         ),
     ];
 

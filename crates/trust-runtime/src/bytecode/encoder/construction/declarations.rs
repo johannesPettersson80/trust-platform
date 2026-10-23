@@ -123,7 +123,8 @@ impl BytecodeEncoder<'_> {
         let declaration = StorageDeclaration {
             owner: StorageOwner::Instance,
             role: StorageRole::Parameter,
-            retain: 0,
+            // An input's or an output's `RETAIN` or `NON_RETAIN` (IEC 61131-3 §6.5.6.1).
+            retain: retention(parameter.retain),
             flags,
             owner_pou_id: Some(template),
             name_idx,

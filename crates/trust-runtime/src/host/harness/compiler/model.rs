@@ -172,6 +172,9 @@ pub(crate) struct LoweringContext<'a> {
     pub(crate) semantic_file_id: Option<FileId>,
     pub(crate) statement_locations: &'a mut Vec<SourceLocation>,
     pub(crate) compile_time_consts: CompileTimeConsts,
+    /// Whether the POUs' statements are lowered. The compiled-program build reads only the
+    /// declarations and generates the statements from the syntax tree (specification 44 §3).
+    pub(crate) lower_bodies: bool,
 }
 
 pub(crate) struct LoweringInputs<'a> {
@@ -181,6 +184,7 @@ pub(crate) struct LoweringInputs<'a> {
     pub(crate) semantic_file_id: Option<FileId>,
     pub(crate) statement_locations: &'a mut Vec<SourceLocation>,
     pub(crate) compile_time_consts: CompileTimeConsts,
+    pub(crate) lower_bodies: bool,
 }
 
 impl<'a> LoweringInputs<'a> {
@@ -199,6 +203,7 @@ impl<'a> LoweringInputs<'a> {
             semantic_file_id,
             statement_locations,
             compile_time_consts,
+            lower_bodies: true,
         }
     }
 
@@ -216,6 +221,7 @@ impl<'a> LoweringInputs<'a> {
             semantic_file_id: self.semantic_file_id,
             statement_locations: &mut *self.statement_locations,
             compile_time_consts: self.compile_time_consts.clone(),
+            lower_bodies: self.lower_bodies,
         }
     }
 }

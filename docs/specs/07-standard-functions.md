@@ -122,8 +122,15 @@ Binary transfer between BYTE/WORD/DWORD/LWORD. If the target is wider, the right
 ### 2.3 Bit/Numeric Conversions (Table 25)
 
 Binary transfer between bit strings and numeric types as listed in Table 25:
-- Bit to numeric: `BYTE/WORD/DWORD/LWORD` to `SINT/INT/DINT/LINT/USINT/UINT/UDINT/ULINT/REAL/LREAL`
-- Numeric to bit: `SINT/INT/DINT/LINT/USINT/UINT/UDINT/ULINT/REAL/LREAL` to `BYTE/WORD/DWORD/LWORD`
+- Bit to integer: `BYTE/WORD/DWORD/LWORD` to `SINT/INT/DINT/LINT/USINT/UINT/UDINT/ULINT`
+- Integer to bit: `SINT/INT/DINT/LINT/USINT/UINT/UDINT/ULINT` to `BYTE/WORD/DWORD/LWORD`
+- A real converts to and from the bit string of its width only, as a binary transfer:
+  `DWORD_TO_REAL`, `REAL_TO_DWORD`, `LWORD_TO_LREAL` and `LREAL_TO_LWORD`. Table 25 has no
+  other pair of a bit string and a real (no `DWORD_TO_LREAL`, no `WORD_TO_REAL`), so a bit
+  string's numeric value reaches a real through an integer: `UDINT_TO_LREAL(DWORD_TO_UDINT(d))`.
+- A bit string takes no arithmetic operator: the arithmetic functions take `ANY_NUM` (§6.6.2.5.8,
+  Table 29), so its value is converted to an integer first, as `DWORD_TO_UDINT(TIME_TO_DWORD(t))`
+  is before it is divided.
 
 ### 2.4 Date and Time Conversions (Table 26)
 

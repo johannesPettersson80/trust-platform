@@ -109,6 +109,22 @@ pub trait CycleHooks {
     ) -> Result<(), RuntimeError> {
         Ok(())
     }
+
+    /// A boundary of a compiled program's scan at which Live Values reach the program's variables
+    /// and process images through `variables` (specification 44 §13.3), at the scan's logical time
+    /// `now`. The default does nothing.
+    ///
+    /// # Errors
+    ///
+    /// An error fails the scan, as an error of [`Self::on_phase`] does.
+    fn on_compiled_access(
+        &mut self,
+        _point: crate::native::variables::CompiledAccessPoint,
+        _now: crate::value::Duration,
+        _variables: &mut dyn crate::native::variables::CompiledVariables,
+    ) -> Result<(), RuntimeError> {
+        Ok(())
+    }
 }
 
 pub(super) struct NoopCycleHooks;

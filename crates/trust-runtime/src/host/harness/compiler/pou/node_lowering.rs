@@ -253,6 +253,7 @@ fn lower_method_node(
         semantic_file_id: ctx.semantic_file_id,
         statement_locations: ctx.statement_locations,
         compile_time_consts: ctx.compile_time_consts.clone(),
+        lower_bodies: ctx.lower_bodies,
     };
 
     let return_type = node
@@ -299,6 +300,7 @@ fn lower_property_methods(
         semantic_file_id: ctx.semantic_file_id,
         statement_locations: ctx.statement_locations,
         compile_time_consts: ctx.compile_time_consts.clone(),
+        lower_bodies: ctx.lower_bodies,
     };
 
     let mut methods = Vec::new();
@@ -330,6 +332,7 @@ fn lower_property_methods(
                 direction: ParamDirection::In,
                 address: None,
                 default: None,
+                retain: crate::RetainPolicy::Unspecified,
             }],
             locals: Vec::new(),
             static_locals: Vec::new(),

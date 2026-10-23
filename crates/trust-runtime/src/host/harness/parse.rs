@@ -71,6 +71,7 @@ pub fn parse_debug_expression_with_abi(
         semantic_file_id: None,
         statement_locations: &mut statement_locations,
         compile_time_consts: super::compiler::CompileTimeConsts::with_storage_abi(storage_abi),
+        lower_bodies: true,
     };
     super::lower_expr(expr, &mut ctx)
 }
@@ -137,6 +138,7 @@ pub fn parse_debug_lvalue_with_abi(
         semantic_file_id: None,
         statement_locations: &mut statement_locations,
         compile_time_consts: super::compiler::CompileTimeConsts::with_storage_abi(storage_abi),
+        lower_bodies: true,
     };
     super::lower::lower_lvalue(target, &mut ctx)
 }

@@ -142,8 +142,7 @@ fn a_recursion_that_does_not_end_ends_the_scan_at_the_call_depth() {
     // bound) / call level, here worked out from the image's figure; the program's call of
     // `Forever` and as many recursive calls as the depth holds run, each counting in `Calls`, and
     // the next recursive call ends the scan with the error the bytecode engine ends a call beyond
-    // its call levels with, whose text is `invalid bytecode 'vm call stack overflow'`, instead of
-    // running the task stack over. Catches a recursion
+    // its call levels with, `call depth exceeded`, instead of running the task stack over. Catches a recursion
     // that overflows the stack (the native image had no bound before 23 October 2026), a depth
     // not worked out from the figure, and an entry into the recursion counted as a turn.
     let (built, device) = compiled(FOREVER);
@@ -159,10 +158,7 @@ fn a_recursion_that_does_not_end_ends_the_scan_at_the_call_depth() {
         error,
         trust_runtime::runtime_core::vm::VmTrap::CallStackOverflow.into_runtime_error()
     );
-    assert_eq!(
-        error.to_string(),
-        "invalid bytecode 'vm call stack overflow'"
-    );
+    assert_eq!(error.to_string(), "call depth exceeded");
     let calls = i64::try_from(depth + 1).expect("a depth of a test's task stack");
     assert_eq!(
         program.value("MAIN.CALLS"),

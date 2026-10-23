@@ -6,7 +6,9 @@
 //! of the instance area, starting from 5, and copies the count's lowest bit to byte 1, which is
 //! bound to `%QX0.1`. A second image's body divides by zero.
 
+use alloc::format;
 use alloc::rc::Rc;
+use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
@@ -24,6 +26,7 @@ use trust_runtime_core::native::image::{
     Target, TaskRecord, TypeRecord, AREA_HAS_INIT, NONE, SYMBOL_PROGRAM,
 };
 use trust_runtime_core::native::program::{admit, Device, ModuleCode, NativeProgram};
+use trust_runtime_core::native::variables::{CompiledAccessPoint, CompiledVariables};
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::value::{Duration, Value};
@@ -369,6 +372,80 @@ fn the_observer_sees_the_phases_of_an_engine_scan_in_order() {
             (CyclePhase::BeforeOutputSample, 20, vec![0b10]),
             (CyclePhase::AfterOutputSample, 20, vec![0b10]),
             (CyclePhase::CycleEnd, 20, vec![0b10]),
+        ]
+    );
+}
+
+/// An observer that records each boundary of a scan, its phases and its Live Values access points,
+/// and writes through the access points as Live Values do: `MAIN.COUNT` := 40 at the cycle start of
+/// the scan at 10 ms, and `%QX0.1` := TRUE before the outputs of the scan at 20 ms.
+#[derive(Default)]
+struct LiveWrites(Vec<String>);
+
+impl CycleHooks for LiveWrites {
+    fn on_compiled_phase(
+        &mut self,
+        phase: CyclePhase,
+        _now: Duration,
+        _images: &FlatImages,
+    ) -> Result<(), RuntimeError> {
+        self.0.push(format!("{phase:?}"));
+        Ok(())
+    }
+
+    fn on_compiled_access(
+        &mut self,
+        point: CompiledAccessPoint,
+        now: Duration,
+        variables: &mut dyn CompiledVariables,
+    ) -> Result<(), RuntimeError> {
+        self.0.push(format!("access {point:?}"));
+        match (point, now.as_nanos() / MS) {
+            (CompiledAccessPoint::CycleStart, 10) => {
+                variables.write_named("MAIN.COUNT", &Value::USInt(40))
+            }
+            (CompiledAccessPoint::BeforeOutputs, 20) => {
+                variables.write_image(&IoAddress::parse("%QX0.1")?, Value::Bool(true))
+            }
+            _ => Ok(()),
+        }
+    }
+}
+
+#[test]
+fn live_values_reach_a_compiled_scan_at_the_cycle_start_after_the_inputs_and_before_the_outputs() {
+    // Specification 44 §13.3: Live Values reach a compiled program's variables at the cycle start,
+    // before the program runs; its input and marker images after the drivers read the inputs,
+    // before the program samples them; and its output image after the scan, before the outputs
+    // reach the drivers. `MAIN.COUNT` := 40 at the cycle start of the scan at 10 ms makes the
+    // count 41, odd, so `%QX0.1` is set (0b10) where the count of 6 would leave it clear; at 20 ms
+    // the count of 42 clears it, and the write of TRUE before the outputs reaches the drivers
+    // (0b10). Catches a write the scan does not see, an output write the scan overwrites, and an
+    // access point at another boundary.
+    let bytes = image(0);
+    let (mut cycle, driven, _) = cycle(&bytes, Vec::new());
+    let mut live = LiveWrites::default();
+    for time in [0, 10, 20] {
+        cycle
+            .run_scan(Duration::from_millis(time), None, &mut live)
+            .expect("the scan runs");
+    }
+    assert_eq!(driven.borrow().outputs, [vec![0], vec![0b10], vec![0b10]]);
+    assert_eq!(cycle.program().value("MAIN.COUNT"), Some(Value::USInt(42)));
+    let last = &live.0[live.0.len() - 10..];
+    assert_eq!(
+        last,
+        [
+            "CycleStart",
+            "access CycleStart",
+            "BeforeInputSample",
+            "access AfterInputs",
+            "TaskStart(0)",
+            "TaskEnd(0)",
+            "access BeforeOutputs",
+            "BeforeOutputSample",
+            "AfterOutputSample",
+            "CycleEnd",
         ]
     );
 }

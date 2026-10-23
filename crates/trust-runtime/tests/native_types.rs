@@ -100,3 +100,75 @@ fn arrays_of_one_storage_keep_their_bounds_and_elements() {
         ))
     );
 }
+
+/// Bit strings given integer literals: initial values, an untyped literal assigned, a typed one.
+const WORDS: &str = "
+PROGRAM Main
+VAR
+    d : DWORD := 4294967295;
+    l : LWORD := 16#FFFF_FFFF_FFFF_FFFF;
+    b : BYTE := 255;
+    t : LWORD;
+    w : WORD;
+END_VAR
+t := LWORD#16#FFFF_FFFF_FFFF_FFFE;
+w := 65535;
+END_PROGRAM
+";
+
+/// An integer literal for a bit string takes the unsigned range of the bit string's width (IEC
+/// §6.3.2, Table 5): `DWORD := 4294967295`, `LWORD := 16#FFFF_FFFF_FFFF_FFFF`, `BYTE := 255`,
+/// `WORD := 65535` and `LWORD#16#FFFF_FFFF_FFFF_FFFE` hold their values, in both engines, and
+/// `BYTE := 256` is refused. Catches a bit string given the `DINT` range ("integer literal out of
+/// range" for the `DWORD`) and a typed `LWORD` held as an `LINT`, as before 23 October 2026.
+#[test]
+fn a_bit_string_takes_an_integer_literal_of_its_width() {
+    let toolchain = Toolchain::from_env()
+        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let host = Target::this_cpu().expect("a computer target");
+    let work = std::env::temp_dir().join(format!("trust-native-words-{}", std::process::id()));
+    let built = build(
+        &[SourceFile::new(WORDS)],
+        &Options {
+            target: host,
+            hooks: true,
+        },
+        &toolchain,
+        &work,
+    )
+    .expect("the bit strings compile");
+    let _ = std::fs::remove_dir_all(&work);
+    let device = Device {
+        target: host,
+        program_memory: 1 << 20,
+        task_stack: 1 << 20,
+        max_statements: 1_000,
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
+    let mut runtime =
+        trust_runtime::harness::TestHarness::from_source(WORDS).expect("the runtime builds them");
+    let result = runtime.cycle();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    for (name, expected) in [
+        ("d", Value::DWord(4_294_967_295)),
+        ("l", Value::LWord(u64::MAX)),
+        ("b", Value::Byte(255)),
+        ("t", Value::LWord(u64::MAX - 1)),
+        ("w", Value::Word(65_535)),
+    ] {
+        assert_eq!(
+            program.value(&format!("MAIN.{}", name.to_ascii_uppercase())),
+            Some(expected.clone()),
+            "{name}"
+        );
+        assert_eq!(runtime.get_output(name), Some(expected), "{name}");
+    }
+    let refused = trust_runtime::harness::TestHarness::from_source(
+        "PROGRAM Main\nVAR\n    b : BYTE := 256;\nEND_VAR\nEND_PROGRAM\n",
+    );
+    assert!(refused.is_err(), "BYTE := 256 is out of range");
+}

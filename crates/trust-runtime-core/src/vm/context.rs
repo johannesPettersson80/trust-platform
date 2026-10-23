@@ -452,6 +452,23 @@ pub trait ReferenceContext {
             crate::memory::InstanceId(encoded)
         })
     }
+    /// The instance `SUPER` names in `frame` (IEC 61131-3 §6.6.5.7.3): the base part of the part
+    /// of the frame's instance that the running POU's class makes up. A base's method reached
+    /// through `SUPER` runs on the caller's own instance, so that `THIS` stays that instance
+    /// (§6.6.5.7.2). A composition that records no classes takes the frame's instance as that part.
+    fn super_instance(
+        &self,
+        frame: &super::VmFrame,
+    ) -> Result<crate::memory::InstanceId, super::VmTrap> {
+        let own = frame.runtime_instance.ok_or(super::VmTrap::Runtime(
+            crate::error::RuntimeError::TypeMismatch,
+        ))?;
+        self.storage()
+            .instance_parent(own)?
+            .ok_or(super::VmTrap::Runtime(
+                crate::error::RuntimeError::TypeMismatch,
+            ))
+    }
     /// Borrow the composition's shared storage.
     fn storage(&self) -> &Self::Store;
     /// Access internal storage after the shared policy checks.

@@ -125,3 +125,102 @@ impl<C: ModuleCode> NativeProgram<'_, C> {
         markers
     }
 }
+
+/// A compiled program's variables and process images as the Live Values of a cycle boundary reach
+/// them (specification 44 §13.3; specification 11, runtime control I/O and variable mutation
+/// contract): a global or a qualified variable by its name, a retained variable by its retain-map
+/// key, a variable of an instance by the instance's symbol, which is the instance's identity, and
+/// the variable's name, and the process images by address. Each write converts the value as
+/// [`NativeProgram::write_symbol`] does and leaves the variable as it was when it is refused.
+pub trait CompiledVariables {
+    /// Writes `value` to the global or the qualified variable `name`.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::UndefinedVariable`] for a name that reaches no single variable, and the
+    /// error of a value the variable's type refuses.
+    fn write_named(&mut self, name: &str, value: &Value) -> Result<(), RuntimeError>;
+
+    /// Writes `value` to the retained variable whose retain-map key is `label`.
+    ///
+    /// # Errors
+    ///
+    /// As [`NativeProgram::write_retained`].
+    fn write_retained(&mut self, label: &str, value: &Value) -> Result<(), RuntimeError>;
+
+    /// Writes `value` to the variable `member` of the instance whose symbol is `instance`.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::UndefinedVariable`] for an instance symbol the program does not hold,
+    /// [`RuntimeError::UndefinedField`] for a member the instance does not declare, and the error
+    /// of a value the variable's type refuses.
+    fn write_member(
+        &mut self,
+        instance: u32,
+        member: &str,
+        value: &Value,
+    ) -> Result<(), RuntimeError>;
+
+    /// Writes `value` at the process-image `address`.
+    ///
+    /// # Errors
+    ///
+    /// As [`NativeProgram::write_address`].
+    fn write_image(&mut self, address: &IoAddress, value: Value) -> Result<(), RuntimeError>;
+}
+
+impl<C: ModuleCode> CompiledVariables for NativeProgram<'_, C> {
+    fn write_named(&mut self, name: &str, value: &Value) -> Result<(), RuntimeError> {
+        let index = self
+            .image()
+            .find_variable(name)
+            .map_err(|_| RuntimeError::UndefinedVariable(name.into()))?;
+        self.write_symbol(index, value)
+    }
+
+    fn write_retained(&mut self, label: &str, value: &Value) -> Result<(), RuntimeError> {
+        NativeProgram::write_retained(self, label, value)
+    }
+
+    fn write_member(
+        &mut self,
+        instance: u32,
+        member: &str,
+        value: &Value,
+    ) -> Result<(), RuntimeError> {
+        let image = *self.image();
+        let path = image
+            .table::<SymbolRecord>()
+            .ok()
+            .and_then(|symbols| symbols.get(instance))
+            .and_then(|symbol| image.string(symbol.canonical))
+            .map(|owner| format!("{owner}.{}", member.to_ascii_uppercase()))
+            .ok_or_else(|| RuntimeError::UndefinedVariable(format!("{instance}").into()))?;
+        let (index, _) = image
+            .find_symbol(&path)
+            .ok_or_else(|| RuntimeError::UndefinedField(member.into()))?;
+        self.write_symbol(index, value)
+    }
+
+    fn write_image(&mut self, address: &IoAddress, value: Value) -> Result<(), RuntimeError> {
+        self.write_address(address, value)
+    }
+}
+
+/// The boundaries of a compiled program's scan at which Live Values reach its variables
+/// (specification 44 §13.3), as the engine's boundaries do (specification 13, Live Values mutation
+/// lifetime).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompiledAccessPoint {
+    /// The cycle start, before the program runs: the queued variable writes and the variable
+    /// forces.
+    CycleStart,
+    /// After the drivers read the inputs, before the program samples them: the queued image writes
+    /// and the forces of the input and marker images, so a forced input holds over the physical
+    /// one.
+    AfterInputs,
+    /// After the scan, before the outputs reach the drivers and the snapshot: the forces of the
+    /// output image.
+    BeforeOutputs,
+}

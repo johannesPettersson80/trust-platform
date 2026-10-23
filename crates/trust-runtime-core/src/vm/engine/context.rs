@@ -408,6 +408,46 @@ impl<'e> ReferenceContext for EngineState<'e> {
             .ok_or_else(|| VmTrap::NullReference)
     }
 
+    fn super_instance(&self, frame: &VmFrame) -> Result<InstanceId, VmTrap> {
+        let mut part = frame
+            .runtime_instance
+            .ok_or(VmTrap::Runtime(RuntimeError::TypeMismatch))?;
+        // The class whose code runs: a method's owner, or the function block or class itself. Its
+        // part of the frame's instance is found as the members of its class are
+        // (`resolve_instance_owner`).
+        if let Some(pou) = frame.pou_id {
+            let class = self
+                .prepared
+                .method_owners
+                .get(&pou)
+                .copied()
+                .unwrap_or(pou);
+            let mut found = false;
+            for _ in 0..=self.prepared.vm.pou_by_id.len() {
+                if self
+                    .data
+                    .construction
+                    .instance_templates
+                    .get(&part)
+                    .copied()
+                    == Some(class)
+                {
+                    found = true;
+                    break;
+                }
+                let Some(parent) = self.instance_parent(part)? else {
+                    break;
+                };
+                part = parent;
+            }
+            if !found {
+                return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
+            }
+        }
+        self.instance_parent(part)?
+            .ok_or(VmTrap::Runtime(RuntimeError::TypeMismatch))
+    }
+
     fn storage(&self) -> &Self::Store {
         self
     }

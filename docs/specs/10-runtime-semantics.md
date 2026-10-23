@@ -2236,7 +2236,10 @@ lowering:
   selected concrete implementation without widening access to any other
   member;
 - `SUPER.member` selects the inherited implementation but remains subject to
-  the inherited member's visibility;
+  the inherited member's visibility; the base's method runs on the caller's
+  own instance, so `THIS` in it is that instance and `THIS.m()` binds to the
+  instance's class (IEC 61131-3 §6.6.5.6, §6.6.5.7), and `SUPER` in it names
+  the base of the method's own class (specification 12, `LOAD_SUPER`);
 - an inaccessible member produces a compile error and no runnable
   program/class/function-block model; and
 - runtime metadata must not synthesize callable entries for rejected access

@@ -62,16 +62,9 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                 let frame = frames
                     .current()
                     .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
-                let self_instance = frame.runtime_instance.ok_or_else(|| {
-                    VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()
-                })?;
                 let super_instance = runtime
-                    .storage()
-                    .instance_parent(self_instance)
-                    .map_err(VmTrap::into_runtime_error)?
-                    .ok_or_else(|| {
-                        VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()
-                    })?;
+                    .super_instance(frame)
+                    .map_err(VmTrap::into_runtime_error)?;
                 write_register(registers, *dest, Value::Instance(super_instance))?;
             }
             Tier1CompiledInstr::LoadSelfFieldDynamic { field, dest } => {

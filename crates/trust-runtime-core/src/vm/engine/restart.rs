@@ -161,39 +161,68 @@ impl EngineState<'_> {
                 };
                 let new = self.data.construction.roots[root_index]
                     .ok_or(RuntimeError::InvalidExecutionState)?;
-                if let Some(view) = source.read_instance_var(old, name) {
-                    // On the flat store the value is copied from the source's cells, checked and
-                    // charged as its value is; nothing builds the value (C1-14b).
-                    if self.copies_cells_from(&view) {
-                        self.check_retention_cells(view, 0)?;
-                        if view_is_retainable(&view)? {
-                            self.restore_program_cells(new, name, view)?;
-                        }
-                    } else {
-                        let value = view.materialize()?;
-                        self.check_retention_walk(&value, 0)?;
-                        if value_is_retainable(&value) {
-                            self.restore_program_value(new, name, &value)?;
-                        }
-                    }
-                }
-                for &phase_id in source.prepared.edge_declarations(index as u32) {
-                    let phase = source.prepared.storage_declaration_at(phase_id as usize);
-                    let phase_name = &source.prepared.vm.strings[phase.name_idx as usize];
-                    if let Some(view) = source.read_instance_var(old, phase_name) {
-                        if self.copies_cells_from(&view) {
-                            self.restore_program_cells(new, phase_name, view)?;
-                        } else {
-                            let value = view.materialize()?;
-                            self.restore_program_value(new, phase_name, &value)?;
-                        }
-                    }
-                }
+                self.restore_retained_variable(source, (old, new), name, index as u32)?;
             }
+        }
+        // The retained variables of the instances, each in the instance at the same root
+        // (specification 11 §6.7).
+        for index in 0..self.data.construction.retained_members.len() {
+            let (root, id) = {
+                let member = &self.data.construction.retained_members[index];
+                (member.root as usize, member.declaration)
+            };
+            let Some(old) = source.data.construction.roots.get(root).copied().flatten() else {
+                continue;
+            };
+            let new =
+                self.data.construction.roots[root].ok_or(RuntimeError::InvalidExecutionState)?;
+            let declaration = source.prepared.storage_declaration_at(id as usize);
+            let name = &source.prepared.vm.strings[declaration.name_idx as usize];
+            self.restore_retained_variable(source, (old, new), name, id)?;
         }
         // A retained program variable located at %M keeps its retained value, so the marker image
         // the first scan loads must hold it (specification 11 6.7).
         self.publish_marker_image()
+    }
+
+    /// Copies the retained variable `name` of `source`'s instance `old` into this state's instance
+    /// `new`, and the previous phase of an edge input with it, when its value can be retained.
+    fn restore_retained_variable(
+        &mut self,
+        source: &EngineState<'_>,
+        (old, new): (InstanceId, InstanceId),
+        name: &str,
+        declaration: u32,
+    ) -> Result<(), RuntimeError> {
+        if let Some(view) = source.read_instance_var(old, name) {
+            // On the flat store the value is copied from the source's cells, checked and charged
+            // as its value is; nothing builds the value (C1-14b).
+            if self.copies_cells_from(&view) {
+                self.check_retention_cells(view, 0)?;
+                if view_is_retainable(&view)? {
+                    self.restore_program_cells(new, name, view)?;
+                }
+            } else {
+                let value = view.materialize()?;
+                self.check_retention_walk(&value, 0)?;
+                if value_is_retainable(&value) {
+                    self.restore_program_value(new, name, &value)?;
+                }
+            }
+        }
+        for &phase_id in source.prepared.edge_declarations(declaration) {
+            let phase = source.prepared.storage_declaration_at(phase_id as usize);
+            let phase_name = &source.prepared.vm.strings[phase.name_idx as usize];
+            if let Some(view) = source.read_instance_var(old, phase_name) {
+                if self.copies_cells_from(&view) {
+                    self.restore_program_cells(new, phase_name, view)?;
+                } else {
+                    let value = view.materialize()?;
+                    self.restore_program_value(new, phase_name, &value)?;
+                }
+            }
+        }
+        Ok(())
     }
 
     pub(in crate::vm::engine) fn copy_process_images(

@@ -46,6 +46,10 @@ Room.Start();
 (* Scan 1: healthy *)
 SnapshotHealthy := Room.Update(OutdoorTemp := REAL#0.0, SupplyTemp := REAL#55.0, ReturnTemp := REAL#45.0, GasPressureOk := TRUE, LowWaterOk := TRUE, EStopHealthy := TRUE, HeatDemand := REAL#80.0);
 ASSERT_TRUE(IN := SnapshotHealthy.OverallReady);
+(* The burner's start is the meter's first count, read as a number of cubic metres: 1.0, not
+   the REAL whose bit pattern is DWORD#1 (IEC 61131-3 Table 25 makes DWORD_TO_REAL a binary
+   transfer). *)
+ASSERT_EQUAL(EXPECTED := REAL#1.0, ACTUAL := SnapshotHealthy.GasMeterReadingM3);
 
 (* Scan 2: gas pressure fault (Class A) *)
 SnapshotAlarmed := Room.Update(OutdoorTemp := REAL#0.0, SupplyTemp := REAL#55.0, ReturnTemp := REAL#45.0, GasPressureOk := FALSE, LowWaterOk := TRUE, EStopHealthy := TRUE, HeatDemand := REAL#80.0);

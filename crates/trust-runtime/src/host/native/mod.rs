@@ -19,6 +19,7 @@ mod lower;
 mod model;
 mod module;
 mod recursion;
+mod retain_map;
 mod run;
 mod settings;
 mod stack;
@@ -179,7 +180,7 @@ pub fn build_with_tests(
     let registry = front.lowered.builder.registry().clone();
     let mut model = model::Model::new(&front.lowered, registry, tests)?;
     let generated = recursion::generate(&front, &mut model, &ids, options.target, options.hooks)?;
-    let memory = init::starting_memory(sources, tests, &mut model)?;
+    let memory = init::starting_memory(&front.lowered, &mut model)?;
     let symbols: Vec<String> = generated
         .entries
         .iter()

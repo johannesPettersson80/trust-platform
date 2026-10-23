@@ -2007,6 +2007,39 @@ programs in runtime registration order and variables in declaration order.
 Program-variable entries participate in the same full-snapshot validation,
 migration, orphan reporting, and atomic apply boundary as retained globals.
 
+The variables of function block and class instances are retentive as IEC
+61131-3 §6.5.6.2 says. A variable of an instance is retained when its type
+declares it `RETAIN` or `PERSISTENT`, or declares it without a retention
+qualifier and the declaration that holds the instance (the variable, or the
+array or structure the instance lies in) is `RETAIN` or `PERSISTENT`. A
+`NON_RETAIN` variable is not retained, and a variable that is itself an
+instance follows its own type's declarations whatever its holder declares; so
+does an instance that a configured program instance's qualifier would reach
+(`PROGRAM RETAIN P : T` qualifies the program's other unqualified variables).
+A retained variable of an instance is written under its path from the global
+or the program that holds the instance: `<path>` for an instance a global holds
+and `@program/<program-identity>/<path>` for one a program holds. The path is
+the identity of the holding variable followed, segment by segment, by each
+member or field on the way, written `.` and its identity, and each array
+element, written as its indexes in brackets separated by commas, down to the
+retained variable (`@program/Main/Line.Pumps[2].Hours`, `Fleet[1,3].Count`). A
+variable that an instance inherits from its base adds no segment for the base.
+These entries follow the retained globals and the programs' own retained
+variables, in one depth-first walk: the globals in declaration order, then the
+programs in registration order, each one's variables in declaration order; an
+instance's inputs, outputs and in-outs in declaration order, then its other
+variables in declaration order, then the variables of its base the same way;
+an array's elements in index order, the last index changing fastest; a
+structure's fields in declaration order. The walk follows the instances a
+variable holds, not those a reference or an interface names, and it reaches a
+retained variable by the same path at every capture. The variables of a standard
+function block are its inputs and outputs; its own state, which no declaration
+names (a timer's start), starts again at every restart. A key that names a
+variable of an instance declared without retention leaves it alone and is not
+reported, as for a program's variable. These entries take part in the same
+validation, migration, orphan reporting and atomic application as the others,
+and a warm restart in the running process keeps them as it keeps the others.
+
 Insertion stores the complete runtime `Value` without changing its concrete
 variant or nested contents. This is a deterministic snapshot-construction
 contract: constructing a snapshot from an ordered map, borrowing its values,

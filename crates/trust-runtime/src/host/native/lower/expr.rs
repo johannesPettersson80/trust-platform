@@ -253,12 +253,12 @@ impl Lowerer<'_, '_> {
     }
 
     /// The integer value of a constant `node` (a CASE label): a literal, an enumeration's value, or
-    /// a negated literal.
+    /// a negated literal, in the range of every integer type (`LINT` to `ULINT`).
     pub(super) fn constant_integer(
         &mut self,
         node: &SyntaxNode,
         ty: Ty,
-    ) -> Result<i64, NativeError> {
+    ) -> Result<i128, NativeError> {
         if let Some(value) = self.enum_value(node, ty) {
             let digits: String = value
                 .chars()
@@ -273,7 +273,7 @@ impl Lowerer<'_, '_> {
                 let elem = self.info(ty).scalar().unwrap_or(Elem::DInt);
                 match self.literal_value(node, ty)? {
                     Literal::Int(value) => Ok(value),
-                    Literal::Enum(value) => Ok(value),
+                    Literal::Enum(value) => Ok(i128::from(value)),
                     _ => Err(self.unsupported(node, format!("a CASE label of {}", elem.name()))),
                 }
             }
@@ -521,8 +521,17 @@ impl Lowerer<'_, '_> {
         Ok(match value {
             Literal::Bool(value) if elem == Elem::Bool => value.to_string(),
             Literal::Int(value) if elem == Elem::Bool => (value != 0).to_string(),
-            Literal::Int(value) if elem.is_real() => {
-                format!("({value} as {rust})")
+            // An integer literal in a real context: the nearest real, as the conversion at run
+            // time rounds it (IEC Table 11).
+            Literal::Int(value) if elem == Elem::Real => {
+                #[allow(clippy::cast_precision_loss)]
+                let rounded = value as f32;
+                float32(rounded)
+            }
+            Literal::Int(value) if elem == Elem::LReal => {
+                #[allow(clippy::cast_precision_loss)]
+                let rounded = value as f64;
+                float64(rounded)
             }
             Literal::Int(value) => format!("{value}{rust}"),
             Literal::Enum(value) => format!("{value}{rust}"),
@@ -586,9 +595,7 @@ impl Lowerer<'_, '_> {
                 SyntaxKind::KwFalse => result = Some(Literal::Bool(false)),
                 SyntaxKind::IntLiteral => {
                     let magnitude = literal_text::int(text).map_err(error)?;
-                    let value = i64::try_from(magnitude)
-                        .map_err(|_| self.unsupported(node, "an integer literal above i64"))?;
-                    result = Some(Literal::Int(value));
+                    result = Some(Literal::Int(i128::from(magnitude)));
                 }
                 SyntaxKind::RealLiteral => {
                     result = Some(if typed.as_deref() == Some("REAL") {
@@ -835,7 +842,9 @@ fn is_ref_call(node: &SyntaxNode) -> bool {
 /// A literal's value.
 pub(super) enum Literal {
     Bool(bool),
-    Int(i64),
+    /// An integer: the range of `LINT` and of `ULINT` together, so that `LWORD#16#FFFF_FFFF_FFFF_FFFF`
+    /// keeps its value (IEC §6.3.2, Table 5).
+    Int(i128),
     Real32(f32),
     Real64(f64),
     Nanos(i64),

@@ -221,7 +221,9 @@ fn checked_admission_resource_handle_reports_the_owner_fault_for_a_later_shared_
     }
     handle.stop();
     handle.join().unwrap();
-    assert_eq!(handle.state(), ResourceState::Faulted);
+    // A shutdown of the Faulted resource stops it, and its fault stays in `last_error` until the
+    // next start (specification 34 STATE-08; the owner, 23 October 2026).
+    assert_eq!(handle.state(), ResourceState::Stopped);
     assert_eq!(
         handle.last_error(),
         Some(RuntimeError::SubrangeViolation {

@@ -516,3 +516,386 @@ fn a_method_that_returns_this_chains_on_the_instance() {
         assert_eq!(program.value(variable), Some(expected), "{variable}");
     }
 }
+
+/// A derived function block that its call gives an inherited input, an input of its own, and whose
+/// inherited output it reads.
+const INHERITED_INPUTS: &str = "
+FUNCTION_BLOCK Scale
+VAR_INPUT
+    Gain : DINT;
+END_VAR
+VAR_OUTPUT
+    Out : DINT;
+END_VAR
+Out := Gain * 2;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK Shifted EXTENDS Scale
+VAR_INPUT
+    Bias : DINT;
+END_VAR
+Out := Gain * 2 + Bias;
+END_FUNCTION_BLOCK
+
+PROGRAM Calls
+VAR
+    s : Shifted;
+    gain : DINT;
+    result : DINT;
+END_VAR
+s(Gain := 5, Bias := 3, Out => result);
+gain := s.Gain;
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Calls;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+/// A derived function block inherits every variable of its base (IEC §6.6.7.2.7, §6.6.5), so its
+/// call connects the inputs and outputs it inherits as its own: `Gain := 5` sets the inherited
+/// input, `Bias := 3` its own, and `Out => result` reads the inherited output, 5 × 2 + 3 = 13, in
+/// both engines. Catches a call refused with "expected 0 arguments" or "unknown parameter", which
+/// trust-hir gave before 23 October 2026, and an inherited input left unset.
+#[test]
+fn a_derived_function_block_call_connects_its_inherited_inputs_and_outputs() {
+    let mut program = program(INHERITED_INPUTS);
+    program
+        .scan(Duration::from_millis(10), &mut NoHooks)
+        .expect("the scan runs");
+    let mut runtime = trust_runtime::harness::TestHarness::from_source(INHERITED_INPUTS)
+        .expect("the runtime builds the program");
+    runtime.advance_time(Duration::from_millis(10));
+    let result = runtime.cycle();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    for (native, interpreted, expected) in [
+        ("MAIN.S.GAIN", "s.Gain", 5),
+        ("MAIN.S.BIAS", "s.Bias", 3),
+        ("MAIN.S.OUT", "s.Out", 13),
+        ("MAIN.RESULT", "result", 13),
+        ("MAIN.GAIN", "gain", 5),
+    ] {
+        assert_eq!(
+            program.value(native),
+            Some(Value::DInt(expected)),
+            "{native}"
+        );
+        assert_eq!(
+            runtime.get_output(interpreted),
+            Some(Value::DInt(expected)),
+            "{interpreted}"
+        );
+    }
+}
+
+/// A function whose `VAR_IN_OUT` is a `Valve`, given a `MotorValve`, a type derived from it that adds
+/// an input and overrides `Name`, and given a `Valve`.
+const DERIVED_IN_OUT: &str = "
+FUNCTION_BLOCK Valve
+VAR_OUTPUT
+    Open : BOOL;
+END_VAR
+METHOD PUBLIC Command
+Open := TRUE;
+END_METHOD
+METHOD PUBLIC Name : INT
+Name := 1;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK MotorValve EXTENDS Valve
+VAR_INPUT
+    Speed : INT;
+END_VAR
+METHOD PUBLIC OVERRIDE Name : INT
+Name := 2;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION Operate : INT
+VAR_IN_OUT
+    v : Valve;
+END_VAR
+v.Command();
+Operate := v.Name();
+END_FUNCTION
+
+PROGRAM Plant
+VAR
+    m : MotorValve;
+    plain : Valve;
+    viaDerived : INT;
+    viaBase : INT;
+END_VAR
+viaDerived := Operate(v := m);
+viaBase := Operate(v := plain);
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Plant;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+/// An in-out of a function block type takes an instance of a derived type that adds no in-out
+/// (IEC §6.6.8.3; additional inputs are allowed, `docs/IEC_DECISIONS.md` 2026-10-23), and a call
+/// through it binds by the instance's class: `Operate(v := m)` sets `m.Open` and gets
+/// `MotorValve.Name`, 2; `Operate(v := plain)` gets `Valve.Name`, 1; in both engines. Catches the
+/// call refused with E205, which trust-hir gave before 23 October 2026, and a call bound by the
+/// in-out's declared type (`viaDerived` 1).
+#[test]
+fn a_base_in_out_takes_a_derived_instance_in_both_engines() {
+    let mut program = program(DERIVED_IN_OUT);
+    program
+        .scan(Duration::from_millis(10), &mut NoHooks)
+        .expect("the scan runs");
+    let mut runtime = trust_runtime::harness::TestHarness::from_source(DERIVED_IN_OUT)
+        .expect("the runtime builds the program");
+    runtime.advance_time(Duration::from_millis(10));
+    let result = runtime.cycle();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    for (native, interpreted, expected) in [
+        ("MAIN.VIADERIVED", "viaDerived", Value::Int(2)),
+        ("MAIN.VIABASE", "viaBase", Value::Int(1)),
+        ("MAIN.M.OPEN", "m.Open", Value::Bool(true)),
+        ("MAIN.PLAIN.OPEN", "plain.Open", Value::Bool(true)),
+    ] {
+        assert_eq!(program.value(native), Some(expected.clone()), "{native}");
+        assert_eq!(
+            runtime.get_output(interpreted),
+            Some(expected),
+            "{interpreted}"
+        );
+    }
+}
+
+/// Interfaces compared for equality: `i` and `j` name `a`, `k` names `b`, `n1` and `n2` are `NULL`.
+const INTERFACE_EQUALITY: &str = "
+INTERFACE IShape
+    METHOD Area : REAL
+    END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK Sq IMPLEMENTS IShape
+METHOD PUBLIC Area : REAL
+Area := 4.0;
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Compare
+VAR
+    a : Sq;
+    b : Sq;
+    i : IShape;
+    j : IShape;
+    k : IShape;
+    n1 : IShape;
+    n2 : IShape;
+    same : BOOL;
+    differ : BOOL;
+    nulls : BOOL;
+    mixed : BOOL;
+END_VAR
+i := a;
+j := a;
+k := b;
+same := i = j;
+differ := i <> k;
+nulls := n1 = n2;
+mixed := i = n1;
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Compare;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+/// Two values of one interface type compare for equality (IEC §6.6.6.5.1; specification 04 §6 rule
+/// 7): equal when they name the same instance or are both `NULL`, so `same`, `differ` and `nulls`
+/// are TRUE and `mixed` FALSE, in both engines. Catches the comparison refused with E201, which
+/// trust-hir gave before 23 October 2026, and one that compares the instances' values.
+#[test]
+fn interfaces_compare_for_equality_in_both_engines() {
+    let mut program = program(INTERFACE_EQUALITY);
+    program
+        .scan(Duration::from_millis(10), &mut NoHooks)
+        .expect("the scan runs");
+    let mut runtime = trust_runtime::harness::TestHarness::from_source(INTERFACE_EQUALITY)
+        .expect("the runtime builds the program");
+    runtime.advance_time(Duration::from_millis(10));
+    let result = runtime.cycle();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    for (name, expected) in [
+        ("same", true),
+        ("differ", true),
+        ("nulls", true),
+        ("mixed", false),
+    ] {
+        assert_eq!(
+            program.value(&format!("MAIN.{}", name.to_ascii_uppercase())),
+            Some(Value::Bool(expected)),
+            "{name}"
+        );
+        assert_eq!(
+            runtime.get_output(name),
+            Some(Value::Bool(expected)),
+            "{name}"
+        );
+    }
+}
+
+/// `SUPER` through three levels: each `Step` adds its digit and calls its base's, and the base's
+/// `Step` reads `THIS.Name()`. `z` is a `Level3`, `w` a `Level2`, `x` a `B` (of `BINDING`'s kind).
+const SUPER_CHAIN: &str = "
+FUNCTION_BLOCK Level1
+VAR_OUTPUT
+    trace : DINT;
+    named : INT;
+END_VAR
+METHOD PUBLIC Name : INT
+Name := 1;
+END_METHOD
+METHOD PUBLIC Advance
+trace := trace * 10 + 1;
+named := THIS.Name();
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK Level2 EXTENDS Level1
+METHOD PUBLIC OVERRIDE Advance
+trace := trace * 10 + 2;
+SUPER.Advance();
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK Level3 EXTENDS Level2
+METHOD PUBLIC OVERRIDE Name : INT
+Name := 3;
+END_METHOD
+METHOD PUBLIC OVERRIDE Advance
+trace := trace * 10 + 3;
+SUPER.Advance();
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK A
+VAR_OUTPUT
+    r : INT;
+END_VAR
+METHOD PUBLIC Name : INT
+Name := 1;
+END_METHOD
+METHOD PUBLIC Run
+r := THIS.Name();
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK B EXTENDS A
+METHOD PUBLIC OVERRIDE Name : INT
+Name := 2;
+END_METHOD
+METHOD PUBLIC OVERRIDE Run
+SUPER.Run();
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Chain
+VAR
+    z : Level3;
+    w : Level2;
+    x : B;
+END_VAR
+z.Advance();
+w.Advance();
+x.Run();
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Chain;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+/// `SUPER` binds statically to the base's method and `THIS` stays the own instance (IEC
+/// §6.6.5.7.2, §6.6.5.7.3), whose class `THIS.Name()` binds to dynamically (§6.6.5.6), in both
+/// engines: `z.Advance()` runs `Level3`'s, `Level2`'s and `Level1`'s steps, so `z.trace` is 321, and
+/// `THIS.Name()` in `Level1.Advance` is `z`'s, a `Level3`, so 3; `w`, a `Level2`, gives 21 and
+/// `Level1`'s 1; `THIS.Name()` in `A.Run` reached from `B.Run` is `x`'s, so 2. Catches `THIS` bound
+/// to the base part `SUPER` named (`z.named` 1, `x.r` 1), as the bytecode engine did before 23
+/// October 2026, and a `SUPER` taken from the instance instead of the running method's class, which
+/// would call `Level2.Advance` again without end.
+#[test]
+fn this_stays_the_own_instance_through_super_in_both_engines() {
+    let mut program = program(SUPER_CHAIN);
+    program
+        .scan(Duration::from_millis(10), &mut NoHooks)
+        .expect("the scan runs");
+    let mut runtime = trust_runtime::harness::TestHarness::from_source(SUPER_CHAIN)
+        .expect("the runtime builds the program");
+    runtime.advance_time(Duration::from_millis(10));
+    let result = runtime.cycle();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    for (native, interpreted, expected) in [
+        ("MAIN.Z.TRACE", "z.trace", Value::DInt(321)),
+        ("MAIN.Z.NAMED", "z.named", Value::Int(3)),
+        ("MAIN.W.TRACE", "w.trace", Value::DInt(21)),
+        ("MAIN.W.NAMED", "w.named", Value::Int(1)),
+        ("MAIN.X.R", "x.r", Value::Int(2)),
+    ] {
+        assert_eq!(program.value(native), Some(expected.clone()), "{native}");
+        assert_eq!(
+            runtime.get_output(interpreted),
+            Some(expected),
+            "{interpreted}"
+        );
+    }
+}
+
+/// A call through an interface that names no instance.
+const NULL_CALL: &str = "
+INTERFACE ICounter
+    METHOD Inc : INT
+        VAR_INPUT
+            delta : INT;
+        END_VAR
+    END_METHOD
+END_INTERFACE
+
+PROGRAM Main
+VAR
+    j : ICounter;
+    first : INT;
+END_VAR
+first := j.Inc(delta := 1);
+END_PROGRAM
+";
+
+/// A call through an interface that names no instance ends the scan with the error of a null
+/// dereference (specification 10) in the bytecode engine too, as compiled programs report it
+/// (`a_call_through_null_is_a_null_dereference`). Catches the `type mismatch` the bytecode engine
+/// reported before 24 October 2026.
+#[test]
+fn a_call_through_null_is_a_null_dereference_in_the_bytecode_engine() {
+    let mut runtime = trust_runtime::harness::TestHarness::from_source(NULL_CALL)
+        .expect("the runtime builds the program");
+    runtime.advance_time(Duration::from_millis(10));
+    let result = runtime.cycle();
+    assert!(
+        matches!(
+            result.errors.as_slice(),
+            [trust_runtime::error::RuntimeError::NullReference]
+        ),
+        "{:?}",
+        result.errors
+    );
+}

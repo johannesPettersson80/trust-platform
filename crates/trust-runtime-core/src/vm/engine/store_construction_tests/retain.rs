@@ -112,8 +112,10 @@ fn retained_payloads(facts: &mut Facts) {
             assert_eq!(captured, scanned, "{name} after three scans");
         }
     }
-    // The programs that retain: `retain`; `retained_blocks`, whose instance `kept` and reference `follow`
-    // stay out of the payload beside its `total` and its program's `runs`; `retained_values`, whose
+    // The programs that retain: `retain`; `retained_blocks`, whose payload holds its `total`, its
+    // program's `runs` and then the members of the retained instance `kept`, `kept.delta` and
+    // `kept.count` (IEC 61131-3 §6.5.6.2; specification 11 §6.7), while the reference `follow` stays
+    // out of it; `retained_values`, whose
     // arrays, structure and texts all go into it; `overlays` and `unions`, whose overlay and union go
     // into it; and the saved main artifact, whose program retains `activations`.
     assert_eq!(

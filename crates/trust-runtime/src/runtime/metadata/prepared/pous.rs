@@ -47,6 +47,7 @@ impl Projection<'_> {
                                 .ok_or(RuntimeError::InvalidExecutionState)
                         })
                         .transpose()?,
+                    retain: crate::RetainPolicy::Unspecified,
                 })
             })
             .collect()

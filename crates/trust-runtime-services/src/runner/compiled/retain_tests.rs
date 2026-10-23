@@ -178,9 +178,10 @@ fn name_tables(writer: &mut ImageWriter, strings: &mut StringPool) {
     writer.table::<StmtRecord>(&[], &[]);
     writer.table(
         &[RetainRecord {
-            symbol: 0,
+            key: strings.add("Batches"),
+            area: 5,
             offset: 0,
-            size: 1,
+            type_index: 0,
         }],
         &[],
     );

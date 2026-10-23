@@ -6,7 +6,7 @@ use std::fmt::Write as _;
 
 use super::front::Front;
 use super::model::Model;
-use super::types::{mangle, rust_field, Kind, Ty};
+use super::types::{rust_field, Kind, Ty};
 use super::NativeError;
 use trust_runtime_core::native::image::{EntryKind, Target};
 
@@ -170,8 +170,8 @@ pub(super) fn entries(
         let field = rust_field(&instance.name);
         let _ = writeln!(
             source,
-            "#[allow(unsafe_code)]\n#[unsafe(no_mangle)]\npub extern \"{abi}\" fn {symbol}(cx: *mut Cx) -> u32 {{\n    run(cx, |cx, areas| {{\n        let w = World::new(cx, &areas)?;\n        prog_{}(cx, &w, &w.p.{field}, &w.r.{field})\n    }})\n}}\n",
-            mangle(&program.def.name)
+            "#[allow(unsafe_code)]\n#[unsafe(no_mangle)]\npub extern \"{abi}\" fn {symbol}(cx: *mut Cx) -> u32 {{\n    run(cx, |cx, areas| {{\n        let w = World::new(cx, &areas)?;\n        {}(cx, &w, &w.p.{field}, &w.r.{field})\n    }})\n}}\n",
+            program.body
         );
         entries.push(Entry {
             symbol,

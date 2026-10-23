@@ -31,6 +31,7 @@ use trust_runtime_core::io_image::{write_flat_image, FlatImages};
 use trust_runtime_core::memory::Generation;
 use trust_runtime_core::native::image::BACKGROUND_PRIORITY;
 use trust_runtime_core::native::program::{ModuleCode, NativeProgram, NoHooks, ScanHooks};
+use trust_runtime_core::native::variables::CompiledAccessPoint;
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::{RestartMode, RetainSnapshot};
 use trust_runtime_core::value::Duration;
@@ -213,8 +214,10 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledC
         }
         self.now = now;
         observer.on_compiled_phase(CyclePhase::CycleStart, now, &self.images)?;
+        observer.on_compiled_access(CompiledAccessPoint::CycleStart, now, &mut self.program)?;
         observer.on_compiled_phase(CyclePhase::BeforeInputSample, now, &self.images)?;
         self.io.read_inputs(&mut self.program.inputs)?;
+        observer.on_compiled_access(CompiledAccessPoint::AfterInputs, now, &mut self.program)?;
         let mut phases = TaskPhases {
             observer: &mut *observer,
             now,
@@ -242,6 +245,7 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledC
         if deadline.is_some_and(|deadline| self.clock.now() > deadline) {
             return Err(RuntimeError::ExecutionTimeout);
         }
+        observer.on_compiled_access(CompiledAccessPoint::BeforeOutputs, now, &mut self.program)?;
         self.program.copy_images(&mut self.images);
         observer.on_compiled_phase(CyclePhase::BeforeOutputSample, now, &self.images)?;
         // The retained values are captured and offered where an engine cycle captures them; a

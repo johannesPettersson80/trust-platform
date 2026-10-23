@@ -32,7 +32,7 @@ pub use writer::{CodeImage, ImageWriter, StringPool, WriteError};
 /// The image's magic.
 pub const MAGIC: [u8; 8] = *b"TRSTI001";
 /// The format version this reader reads.
-pub const FORMAT_VERSION: u16 = 1;
+pub const FORMAT_VERSION: u16 = 2;
 /// The bytes of the header.
 pub const HEADER_BYTES: usize = 128;
 
@@ -710,7 +710,7 @@ impl<'a> Image<'a> {
         self.check_tasks(entries, symbols)?;
         self.check_bindings(symbols)?;
         self.check_files_and_statements()?;
-        self.check_retain(symbols)?;
+        self.check_retain()?;
         if self.section_bytes(SectionId::MemFig).len() < MemoryFigure::BYTES {
             return Err(ImageError::Table(SectionId::MemFig));
         }
@@ -917,19 +917,37 @@ impl<'a> Image<'a> {
         Ok(())
     }
 
-    /// Every retained variable a symbol and inside the retain area.
-    fn check_retain(&self, symbols: u32) -> Result<(), ImageError> {
+    /// Every retained variable a key in the string pool, of a type of the type table, inside the
+    /// globals, retain or instance area (specification 44 §5.10).
+    fn check_retain(&self) -> Result<(), ImageError> {
         let retain = self.table::<RetainRecord>()?;
-        let retain_length = self.area_length(abi::AREA_RETAIN).unwrap_or(0);
+        let types = self.table::<TypeRecord>()?;
         for (index, retained) in (0u32..).zip(retain.iter()) {
-            if retained.symbol >= symbols {
-                return Err(record(SectionId::Retain, index, "symbol outside SYMBOLS"));
-            }
-            if u64::from(retained.offset) + u64::from(retained.size) > retain_length {
+            if self.string(retained.key).is_none() {
                 return Err(record(
                     SectionId::Retain,
                     index,
-                    "variable outside the retain area",
+                    "key outside the string pool",
+                ));
+            }
+            let Some(ty) = types.get(retained.type_index) else {
+                return Err(record(SectionId::Retain, index, "type outside TYPES"));
+            };
+            let area = u8::try_from(retained.area)
+                .ok()
+                .filter(|area| {
+                    matches!(
+                        *area,
+                        abi::AREA_GLOBALS | abi::AREA_RETAIN | abi::AREA_INSTANCES
+                    )
+                })
+                .ok_or_else(|| record(SectionId::Retain, index, "area of no variable"))?;
+            let length = self.area_length(area).unwrap_or(0);
+            if u64::from(retained.offset) + u64::from(ty.size) > length {
+                return Err(record(
+                    SectionId::Retain,
+                    index,
+                    "variable outside its area",
                 ));
             }
         }

@@ -6,6 +6,26 @@ Authoritative location:
 
 This file tracks implementation decisions made where IEC 61131-3 leaves room for interpretation.
 
+## 2026-10-23 - A derived instance with additional inputs or outputs in a base's VAR_IN_OUT
+
+- Area: calls of function blocks, methods and functions whose `VAR_IN_OUT` is of a function block
+  or class type
+- IEC context:
+  - IEC 61131-3 Ed.3 §6.6.8.3: "An in-out variable of a type may be assigned an instance of a
+    derived function block type, if the derived function block type has no additional in-out
+    variables. Whether or not an instance of a derived function block type with additional input
+    and output variables can be assigned is Implementer specific."
+- Decision:
+  - A `VAR_IN_OUT` of a function block or class type takes an instance of a type derived from it,
+    directly or through several bases, when neither that type nor any type between them declares
+    a `VAR_IN_OUT` of its own. Additional inputs, outputs and other variables are allowed: an
+    instance of a derived type holds its base's variables first on every runtime, and the call
+    reaches the instance's own methods (dynamic binding, §6.6.8.3).
+  - A derived type that declares an in-out of its own is refused for the base's `VAR_IN_OUT`
+    (`E205`), as the standard says.
+- Tests: `crates/trust-runtime/tests/native_objects.rs`
+  (`a_base_in_out_takes_a_derived_instance_in_both_engines`).
+
 ## 2026-10-17 - STRING and WSTRING default length, maximum and capacity unit
 
 - Area: STRING/WSTRING declarations, stores, literals and string functions

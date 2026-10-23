@@ -8,8 +8,7 @@ use smol_str::SmolStr;
 use trust_plc_abi as abi;
 
 use super::image::{
-    Image, IoBindRecord, RetainRecord, SymbolRecord, TaskRecord, TypeRecord, BACKGROUND_PRIORITY,
-    NONE,
+    Image, IoBindRecord, RetainRecord, TaskRecord, TypeRecord, BACKGROUND_PRIORITY, NONE,
 };
 use crate::bytecode::BytecodeVersion;
 use crate::deployment::{
@@ -87,18 +86,15 @@ impl DeploymentRecord {
 }
 
 /// The retain-schema identity of `image`: SHA-256 over each retained variable in the retain map's
-/// order, as its canonical name, a zero byte, and its type's kind, size and count.
+/// order, as its checkpoint key in capitals, a zero byte, and its type's kind, size and count.
 fn retain_schema(image: &Image<'_>) -> Result<[u8; 32], super::image::ImageError> {
-    let symbols = image.table::<SymbolRecord>()?;
     let types = image.table::<TypeRecord>()?;
     let mut schema = Vec::new();
     for retained in image.table::<RetainRecord>()?.iter() {
-        let Some(symbol) = symbols.get(retained.symbol) else {
-            continue;
-        };
-        schema.extend_from_slice(image.string(symbol.canonical).unwrap_or("").as_bytes());
+        let key = image.string(retained.key).unwrap_or("");
+        schema.extend_from_slice(key.to_ascii_uppercase().as_bytes());
         schema.push(0);
-        let ty = types.get(symbol.type_index);
+        let ty = types.get(retained.type_index);
         for word in [
             ty.map_or(0, |ty| ty.kind),
             ty.map_or(0, |ty| ty.size),

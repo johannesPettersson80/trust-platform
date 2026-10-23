@@ -85,7 +85,7 @@ pub enum FaultCode {
     /// `runtime_assertion_failed`.
     AssertionNear = 18,
     /// A recursive call found no call depth left (specification 44 §6.4): the bytecode engine's
-    /// call beyond its call levels, `vm call stack overflow`.
+    /// call beyond its call levels, `call depth exceeded`.
     CallDepth = 19,
 }
 

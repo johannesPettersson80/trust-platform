@@ -158,6 +158,7 @@ fn bind_builtin_function_block_arguments_supports_inout_rebinding() {
             direction: ParamDirection::InOut,
             address: None,
             default: None,
+            retain: crate::RetainPolicy::Unspecified,
         }],
         vars: Vec::new(),
         temps: Vec::new(),

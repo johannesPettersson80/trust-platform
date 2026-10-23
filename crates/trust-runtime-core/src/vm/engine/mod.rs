@@ -71,6 +71,7 @@ mod restart;
 #[cfg(feature = "std")]
 pub use reconfiguration::ResourceReconfiguration;
 mod retained_graph;
+mod retained_members;
 mod scratch;
 mod services;
 mod store_access;
@@ -111,6 +112,9 @@ struct ConstructionState {
     types: Vec<(u32, super::construction::values::ValueOperation)>,
     type_operations: Vec<u8>,
     retained_globals: RetainedGlobals,
+    /// The retained variables of the instances, listed once after construction (specification 11
+    /// §6.7).
+    retained_members: Vec<retained_members::RetainedMember>,
 }
 
 /// Published process images and hierarchical binding values.
@@ -323,6 +327,7 @@ impl<'a> EngineState<'a> {
                 types: Vec::new(),
                 type_operations: Vec::new(),
                 retained_globals: RetainedGlobals::default(),
+                retained_members: Vec::new(),
             },
             lifetimes: LifetimeState {
                 instance_lifetimes: InstanceLifetimes::default(),
@@ -431,6 +436,7 @@ impl<'a> EngineState<'a> {
         state.reserve_instance_bookkeeping()?;
         state.construct_resource(retained)?;
         state.reserve_stored_references()?;
+        state.list_retained_members()?;
         state.reserve_retain_capture()?;
         state.reserve_input_snapshot()?;
         // A variable located at %M starts with its initial value (or, after a warm restart, its

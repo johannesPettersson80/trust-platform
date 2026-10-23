@@ -16,8 +16,9 @@ use trust_plc_abi::kernel::{Entry, InPlace};
 use trust_plc_abi::{Cx, FaultCode, FaultRecord, KernelApi, INTERFACE_VERSION};
 
 use super::image::{
-    AreaRecord, EntryKind, EntryRecord, Image, ImageError, IoBindRecord, MemoryFigure, SectionId,
-    SymbolRecord, Target, TaskRecord, AREA_HAS_INIT, BACKGROUND_PRIORITY, NONE, SYMBOL_PROGRAM,
+    AreaRecord, EntryKind, EntryRecord, Image, ImageError, IoBindRecord, MemoryFigure,
+    RetainRecord, SectionId, SymbolRecord, Target, TaskRecord, AREA_HAS_INIT, BACKGROUND_PRIORITY,
+    NONE, SYMBOL_PROGRAM,
 };
 use super::retain;
 use super::values::{damaged, read_value, AreaBytes, Types, Writer};
@@ -301,9 +302,6 @@ fn slot(id: u8) -> Option<usize> {
     usize::from(id).checked_sub(1).filter(|index| *index < 7)
 }
 
-/// The index of the retain area in a program's memory.
-const RETAIN: usize = trust_plc_abi::AREA_RETAIN as usize - 1;
-
 /// The index of the stack area in a program's memory: the texts of a failed assertion
 /// (specification 44 §7.1).
 const STACK: usize = trust_plc_abi::AREA_STACK as usize - 1;
@@ -503,22 +501,21 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         Ok(())
     }
 
-    /// A warm restart: every variable but the retained ones takes its starting memory, the
-    /// retained variables keep what they hold but an instance or a reference, which is never
-    /// retained (specification 10), the warm-start initialization runs, and the variables located at
-    /// `%M` are published into the marker image (IEC §6.5.6.1; specification 11 §6.7). The process
-    /// images are carried over.
+    /// A warm restart: every retained variable the retain map names keeps what it holds, and every
+    /// other variable takes its starting memory, an instance or a reference in the retain area too,
+    /// which is never retained (specification 10); the warm-start initialization runs, and the
+    /// variables located at `%M` are published into the marker image (IEC §6.5.6.1; specification
+    /// 11 §6.7; specification 44 §6.7). The process images are carried over.
     ///
     /// # Errors
     ///
     /// The fault of the initialization.
     pub fn warm_start(&mut self, now: Duration) -> Result<(), RuntimeError> {
-        let retain = u32::from(trust_plc_abi::AREA_RETAIN);
-        self.start_memory(|id| !process_image(id) && id != retain)?;
-        // A retained instance or reference is never retained: it starts again.
-        for (offset, starting) in retain::unretainable(&self.image)? {
-            self.areas[RETAIN].write(offset, &starting);
-        }
+        let kept = retain::retained_bytes(&self.image, |id| {
+            slot(id).and_then(|index| self.areas.get(index))
+        })?;
+        self.start_memory(|id| !process_image(id))?;
+        self.keep(&kept)?;
         self.reset_task_timing(now);
         if let Some(entry) = self.warm {
             self.call(entry, u32::MAX, now)?;
@@ -541,16 +538,41 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         now: Duration,
         snapshot: &RetainSnapshot,
     ) -> Result<Vec<RetainApplyEvent>, RuntimeError> {
-        let current = self.areas[RETAIN].bytes();
-        let (staged, events) = retain::stage(&self.image, snapshot, &current)?;
-        self.areas[RETAIN].write(0, &staged);
+        let current: Vec<(u8, Vec<u8>)> = [
+            trust_plc_abi::AREA_GLOBALS,
+            trust_plc_abi::AREA_RETAIN,
+            trust_plc_abi::AREA_INSTANCES,
+        ]
+        .into_iter()
+        .filter_map(|id| Some((id, self.areas.get(slot(id)?)?.bytes())))
+        .collect();
+        let (staged, events) = retain::stage(&self.image, snapshot, |id| {
+            current
+                .iter()
+                .find(|(area, _)| *area == id)
+                .map(|(_, bytes)| bytes.as_slice())
+        })?;
+        self.keep(&staged)?;
         self.warm_start(now)?;
         Ok(events)
     }
 
+    /// Writes the bytes of retained variables back where they lie.
+    fn keep(&mut self, kept: &[retain::Kept]) -> Result<(), RuntimeError> {
+        for variable in kept {
+            let written = slot(variable.area)
+                .and_then(|index| self.areas.get_mut(index))
+                .is_some_and(|area| area.write(variable.offset, &variable.bytes));
+            if !written {
+                return Err(super::values::damaged("retain map"));
+            }
+        }
+        Ok(())
+    }
+
     /// Refills `capture` with the checkpoint of the retained variables as they are now: each
-    /// variable of the retain map under its key, written from the retain area without building a
-    /// value, so that a capture into a reserved payload allocates nothing (specification 44 §11;
+    /// variable of the retain map under its key, written from its area without building a value,
+    /// so that a capture into a reserved payload allocates nothing (specification 44 §11;
     /// specification 34 MEM-04).
     ///
     /// # Errors
@@ -558,8 +580,13 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     /// [`RuntimeError::RetainStore`] for a value no checkpoint holds, such as a non-finite `REAL`;
     /// the capture then holds no payload.
     pub fn capture_retain(&self, capture: &mut RetainCapture) -> Result<(), RuntimeError> {
-        let area = &self.areas[RETAIN];
-        capture.refill(|payload| retain::fill(&self.image, area, payload))
+        capture.refill(|payload| {
+            retain::fill(
+                &self.image,
+                |id| slot(id).and_then(|index| self.areas.get(index)),
+                payload,
+            )
+        })
     }
 
     /// The most bytes [`Self::capture_retain`] writes, which a capture reserves (specification 34
@@ -843,9 +870,56 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         value: &crate::value::Value,
     ) -> Result<(), RuntimeError> {
         let (symbol, area) = self.variable(index)?;
+        self.write_place(area, symbol.offset, symbol.type_index, value)
+    }
+
+    /// Writes `value` into the retained variable whose retain-map key is `label`, compared without
+    /// regard to case (specification 44 §5.10), with the conversions of [`Self::write_symbol`]: a
+    /// variable of an instance or an element of an array too, which no symbol of its own names.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::UndefinedVariable`] for a key the retain map does not hold, and the errors
+    /// of [`Self::write_symbol`].
+    pub fn write_retained(
+        &mut self,
+        label: &str,
+        value: &crate::value::Value,
+    ) -> Result<(), RuntimeError> {
+        let records = self
+            .image
+            .table::<RetainRecord>()
+            .map_err(|_| damaged("retain map"))?;
+        let record = records
+            .iter()
+            .find(|record| {
+                self.image
+                    .string(record.key)
+                    .is_some_and(|key| key.eq_ignore_ascii_case(label))
+            })
+            .ok_or_else(|| RuntimeError::UndefinedVariable(SmolStr::new(label)))?;
+        let area = u8::try_from(record.area)
+            .ok()
+            .and_then(slot)
+            .filter(|area| *area != STACK)
+            .ok_or_else(|| damaged("retain map"))?;
+        self.write_place(area, record.offset, record.type_index, value)
+    }
+
+    /// Writes `value` into the variable of type `type_index` at `offset` of the area of index
+    /// `area`, with the conversions of [`Self::write_symbol`]; the variable keeps its value when
+    /// the write is refused.
+    fn write_place(
+        &mut self,
+        area: usize,
+        offset: u32,
+        type_index: u32,
+        value: &crate::value::Value,
+    ) -> Result<(), RuntimeError> {
         let types = Types::of(&self.image)?;
-        let offset = symbol.offset as usize;
-        let mut current = vec![0u8; symbol.size as usize];
+        let size = types.get(type_index)?.size as usize;
+        let offset = offset as usize;
+        let mut current = vec![0u8; size];
         if !self.areas[area].read(offset, &mut current) {
             return Err(damaged("symbol table"));
         }
@@ -855,7 +929,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             staged: &mut staged,
             starting: &current,
         }
-        .write(symbol.type_index, 0, value, 0)?;
+        .write(type_index, 0, value, 0)?;
         self.areas[area].write(offset, &staged);
         Ok(())
     }

@@ -808,7 +808,9 @@ impl<'m, 'a> Lowerer<'m, 'a> {
         if index.kind() != SyntaxKind::Literal {
             return None;
         }
-        self.constant_integer(index, ty).ok()
+        self.constant_integer(index, ty)
+            .ok()
+            .and_then(|value| i64::try_from(value).ok())
     }
 
     /// `array[i, j]`: each index checked against its dimension's bounds (§6.5), one nesting of

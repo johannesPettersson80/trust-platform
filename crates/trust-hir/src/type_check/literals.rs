@@ -491,6 +491,11 @@ pub(crate) fn integer_type_range_fits(ty: &Type, value: i128) -> bool {
         Type::UInt => u16::try_from(value).is_ok(),
         Type::UDInt => u32::try_from(value).is_ok(),
         Type::ULInt => u64::try_from(value).is_ok(),
+        // A bit string takes the unsigned range of its width (IEC 61131-3 §6.3.2, Table 5).
+        Type::Byte => u8::try_from(value).is_ok(),
+        Type::Word => u16::try_from(value).is_ok(),
+        Type::DWord => u32::try_from(value).is_ok(),
+        Type::LWord => u64::try_from(value).is_ok(),
         _ => false,
     }
 }

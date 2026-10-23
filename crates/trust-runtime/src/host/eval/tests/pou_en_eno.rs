@@ -28,6 +28,7 @@ fn en_eno_semantics() {
                 direction: ParamDirection::In,
                 address: None,
                 default: None,
+                retain: crate::RetainPolicy::Unspecified,
             },
             Param {
                 name: "ENO".into(),
@@ -35,6 +36,7 @@ fn en_eno_semantics() {
                 direction: ParamDirection::Out,
                 address: None,
                 default: None,
+                retain: crate::RetainPolicy::Unspecified,
             },
         ],
         locals: Vec::new(),

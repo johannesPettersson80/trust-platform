@@ -520,31 +520,37 @@ impl Record for StmtRecord {
     }
 }
 
-/// One retained variable: 12 bytes, in declaration order (specification 44 §5.10).
+/// One retained variable: 16 bytes, in the order of specification 11 §6.7 (specification 44
+/// §5.10).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RetainRecord {
-    /// The variable's symbol.
-    pub symbol: u32,
-    /// Its offset in the retain area.
+    /// Its checkpoint key, a string offset: a global's name, `@program/<program>/<variable>`, or
+    /// the path of a variable of an instance.
+    pub key: u32,
+    /// The area it lies in: globals, retain or instances.
+    pub area: u32,
+    /// Its offset in the area.
     pub offset: u32,
-    /// Its bytes.
-    pub size: u32,
+    /// Its type's index.
+    pub type_index: u32,
 }
 
 impl Record for RetainRecord {
     const SECTION: SectionId = SectionId::Retain;
-    const BYTES: usize = 12;
+    const BYTES: usize = 16;
     fn read(bytes: &[u8]) -> Self {
         Self {
-            symbol: u32_at(bytes, 0),
-            offset: u32_at(bytes, 4),
-            size: u32_at(bytes, 8),
+            key: u32_at(bytes, 0),
+            area: u32_at(bytes, 4),
+            offset: u32_at(bytes, 8),
+            type_index: u32_at(bytes, 12),
         }
     }
     fn write(&self, out: &mut [u8]) {
-        put(out, 0, &self.symbol.to_le_bytes());
-        put(out, 4, &self.offset.to_le_bytes());
-        put(out, 8, &self.size.to_le_bytes());
+        put(out, 0, &self.key.to_le_bytes());
+        put(out, 4, &self.area.to_le_bytes());
+        put(out, 8, &self.offset.to_le_bytes());
+        put(out, 12, &self.type_index.to_le_bytes());
     }
 }
 

@@ -373,3 +373,12 @@ ASSERT_TRUE(IN := DcfClock.TP);
 ASSERT_EQUAL(EXPECTED := DT#2026-06-01-12:00:00, ACTUAL := DcfClock.RTC);
 ASSERT_EQUAL(EXPECTED := DT#2026-06-01-13:00:00, ACTUAL := DcfClock.RTC1);
 END_TEST_PROGRAM
+
+(* MULTIME multiplies the milliseconds of a time as a number (OSCAT classic guide): three hours
+   times two is six hours, 21,600,000 ms. Converting the milliseconds with DWORD_TO_REAL, a binary
+   transfer in IEC 61131-3 Table 25, scales the REAL whose bit pattern is 10,800,000 and gives
+   19,188,608 ms; below 2^23 ms that pattern is a subnormal REAL, which scales linearly, so only a
+   time of more than about 2.3 hours shows the difference. *)
+TEST_PROGRAM oscat_multime_scales_a_time_of_hours
+ASSERT_EQUAL(EXPECTED := DWORD#21600000, ACTUAL := TIME_TO_DWORD(MULTIME(t := T#3h, M := REAL#2.0)));
+END_TEST_PROGRAM

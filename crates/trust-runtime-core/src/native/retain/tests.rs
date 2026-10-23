@@ -33,11 +33,11 @@ use trust_plc_abi::kernel::{Entry, WITHOUT_DEBUGGER};
 use trust_plc_abi::module::run;
 use trust_plc_abi::Cx;
 
-use super::{check, payload_bound, stage};
+use super::{check, payload_bound, stage, Kept};
 use crate::collections::OrderedMap;
 use crate::error::RuntimeError;
 use crate::native::image::{
-    type_kind, AreaRecord, CodeImage, EntryKind, EntryRecord, FileRecord, ImageWriter,
+    type_kind, AreaRecord, CodeImage, EntryKind, EntryRecord, FileRecord, Image, ImageWriter,
     IoBindRecord, MemberDetail, MemoryFigure, Record, RetainRecord, SectionId, StmtRecord,
     StringPool, SymbolRecord, Target, TaskRecord, TypeRecord, AREA_HAS_INIT, AREA_RETAINED, NONE,
     SYMBOL_INSTANCE, SYMBOL_PROGRAM, SYMBOL_RETAINED, TABLE_PREFIX_BYTES,
@@ -70,6 +70,29 @@ impl ModuleCode for Idle {
 
 /// The retain area's length.
 const R: usize = 56;
+
+/// The retain area `stage` gives with `snapshot` restored into `current`, the retain area as it is:
+/// each variable's new bytes written into a copy of it, every variable of the image lying there.
+fn staged_area(
+    image: &Image<'_>,
+    snapshot: &RetainSnapshot,
+    current: &[u8],
+) -> Result<(Vec<u8>, Vec<RetainApplyEvent>), RuntimeError> {
+    let (kept, events) = stage(image, snapshot, |area| {
+        (area == trust_plc_abi::AREA_RETAIN).then_some(current)
+    })?;
+    let mut area = current.to_vec();
+    for Kept {
+        area: id,
+        offset,
+        bytes,
+    } in kept
+    {
+        assert_eq!(id, trust_plc_abi::AREA_RETAIN);
+        area[offset..offset + bytes.len()].copy_from_slice(&bytes);
+    }
+    Ok((area, events))
+}
 
 /// The retain area's starting memory, as the declarations above give it.
 fn starting() -> Vec<u8> {
@@ -210,15 +233,29 @@ fn image() -> Vec<u8> {
     let mut strings = StringPool::new();
     let (types, details) = types(&mut strings);
     let symbols = symbols(&mut strings);
-    // The retain map in declaration order: the globals, then Main's retained variables.
-    let map: Vec<RetainRecord> = [0u32, 14, 12, 11, 15, 1, 10, 4, 3, 8]
-        .iter()
-        .map(|&index| RetainRecord {
-            symbol: index,
-            offset: symbols[index as usize].offset,
-            size: symbols[index as usize].size,
-        })
-        .collect();
+    // The retain map in declaration order: the globals, then Main's retained variables, each under
+    // its checkpoint key (specification 11 §6.7). `Main.Timer` holds an instance, which no
+    // checkpoint holds.
+    let map: Vec<RetainRecord> = [
+        ("Count", 0usize),
+        ("Ratio", 14),
+        ("Name", 12),
+        ("Mode", 11),
+        ("Wide", 15),
+        ("Level", 1),
+        ("@program/Main/Total", 10),
+        ("@program/Main/Point", 4),
+        ("@program/Main/History", 3),
+        ("@program/Main/Timer", 8),
+    ]
+    .iter()
+    .map(|&(key, index)| RetainRecord {
+        key: strings.add(key),
+        area: u32::from(symbols[index].area),
+        offset: symbols[index].offset,
+        type_index: symbols[index].type_index,
+    })
+    .collect();
     let label = strings.add("main.st");
     let mut writer = ImageWriter::new(
         Target::this_cpu().unwrap_or(Target::X86_64),
@@ -441,7 +478,7 @@ fn a_checkpoint_restores_what_it_captured() {
     program.cold_start(Duration::ZERO).unwrap();
     program.capture_retain(&mut capture).unwrap();
     let snapshot = decode_snapshot_payload_v3(capture.staged_payload()).unwrap();
-    let (staged, events) = stage(&parsed, &snapshot, &[0u8; R]).unwrap();
+    let (staged, events) = staged_area(&parsed, &snapshot, &[0u8; R]).unwrap();
     assert_eq!(events, []);
     // Everything but the instance `Timer`, which no checkpoint holds, is the starting memory.
     assert_eq!(&staged[..48], &starting()[..48]);
@@ -483,7 +520,7 @@ fn a_checkpoint_migrates_by_the_interpreters_rules() {
     snapshot.insert("@program/Main/Point", saved_point.clone());
     let mut current = starting();
     current[30..32].copy_from_slice(&77i16.to_le_bytes());
-    let (staged, events) = stage(&parsed, &snapshot, &current).unwrap();
+    let (staged, events) = staged_area(&parsed, &snapshot, &current).unwrap();
     assert_eq!(&staged[0..4], &9u32.to_le_bytes());
     assert_eq!(&staged[32..36], &(-2i32).to_le_bytes());
     assert_eq!(
@@ -545,7 +582,7 @@ fn a_refused_value_changes_nothing() {
     outside.insert("Count", Value::UDInt(1));
     outside.insert("Level", int(101));
     assert_eq!(
-        stage(&parsed, &outside, &starting()).err(),
+        staged_area(&parsed, &outside, &starting()).err(),
         Some(RuntimeError::RetainSubrangeViolation {
             name: "Level".into(),
             value: 101,
@@ -613,4 +650,50 @@ fn the_bound_is_the_largest_encoding_of_each_variable() {
         payload_bound(&parsed),
         Ok(4 + entries.iter().sum::<usize>())
     );
+}
+
+/// Live Values reach a retained variable by its retain-map key, compared without regard to case,
+/// and a variable of an instance by the instance's symbol and the variable's name (specification
+/// 44 §13.3): `@PROGRAM/MAIN/TOTAL` := 12, `count` := 9, `q` of `Main.Timer` (symbol 8) := TRUE,
+/// and by its name `main.speed` := 4. A key, a member, an instance or a name the program does not
+/// hold is refused and changes nothing. Catches a key compared with its case, a member written at
+/// the instance's own offset, and a refused write that changes a variable.
+#[test]
+fn live_values_reach_a_retained_variable_by_its_key_and_a_member_by_its_instance() {
+    use crate::native::variables::CompiledVariables;
+
+    let bytes = image();
+    let parsed = admit(&bytes, &device()).unwrap();
+    let mut program = NativeProgram::new(parsed, Idle, &device(), &WITHOUT_DEBUGGER).unwrap();
+    program.cold_start(Duration::ZERO).unwrap();
+    program
+        .write_retained("@PROGRAM/MAIN/TOTAL", &Value::DInt(12))
+        .unwrap();
+    program.write_retained("count", &Value::UDInt(9)).unwrap();
+    CompiledVariables::write_member(&mut program, 8, "q", &Value::Bool(true)).unwrap();
+    CompiledVariables::write_named(&mut program, "main.speed", &int(4)).unwrap();
+    assert_eq!(program.value("MAIN.TOTAL"), Some(Value::DInt(12)));
+    assert_eq!(program.value("COUNT"), Some(Value::UDInt(9)));
+    assert_eq!(program.value("MAIN.TIMER.Q"), Some(Value::Bool(true)));
+    assert_eq!(program.value("MAIN.SPEED"), Some(int(4)));
+    assert_eq!(
+        program.write_retained("@program/Main/Speed", &int(1)),
+        Err(RuntimeError::UndefinedVariable(
+            "@program/Main/Speed".into()
+        ))
+    );
+    assert_eq!(
+        CompiledVariables::write_member(&mut program, 8, "ET", &Value::Bool(false)),
+        Err(RuntimeError::UndefinedField("ET".into()))
+    );
+    assert_eq!(
+        CompiledVariables::write_member(&mut program, 99, "Q", &Value::Bool(false)),
+        Err(RuntimeError::UndefinedVariable("99".into()))
+    );
+    assert_eq!(
+        CompiledVariables::write_named(&mut program, "Nothing", &int(1)),
+        Err(RuntimeError::UndefinedVariable("Nothing".into()))
+    );
+    assert_eq!(program.value("MAIN.TIMER.Q"), Some(Value::Bool(true)));
+    assert_eq!(program.value("MAIN.SPEED"), Some(int(4)));
 }

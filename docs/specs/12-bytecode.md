@@ -967,8 +967,16 @@ Static references:
 - `0x20 LOAD_REF u32` (ref table index)
 - `0x21 STORE_REF u32` (ref table index)
 - `0x22 PUSH_REF u32` (push `Value::Reference`)
-- `0x23 LOAD_SELF` (push the current instance)
-- `0x24 LOAD_SUPER` (push the current instance's parent)
+- `0x23 LOAD_SELF` (push the current instance, the one `THIS` names)
+- `0x24 LOAD_SUPER` (push the base part of the part of the current instance that the running POU's
+  class makes up: the class itself for a function block's or class's body, the method's owner for
+  a method; IEC 61131-3 §6.6.5.7.3)
+
+A method called through `CALL_NATIVE` on a receiver that is a base part of the caller's current
+instance, which only `LOAD_SUPER` pushes, is the method of the receiver's class (static binding) and
+runs with the caller's current instance as its own, so `LOAD_SELF` in it pushes that instance and a
+call through it binds to that instance's class (IEC 61131-3 §6.6.5.6, §6.6.5.7.2). Its members are
+found in its class's part of that instance, as an inherited method's are.
 - `0x25 LOAD_NULL` (push the null value)
 
 Dynamic references:
@@ -1145,6 +1153,10 @@ VM-only structural identifiers are:
 | Unsupported reference location | `vm_unsupported_reference_location` |
 | Invalid native-call metadata or payload | `vm_invalid_native_call` |
 | Bytecode decode failure without a narrower decoder variant | `vm_bytecode_decode` |
+
+A fault of the executable reads `invalid bytecode '<detail>'`. A call beyond the call levels is the
+exception: a valid program that recurses too deep reaches it, so it reads `call depth exceeded`,
+with the identifier `vm_call_stack_overflow` unchanged.
 
 Condition, null-reference, loop-step, deadline, instruction-budget, and other
 runtime-value traps use the stable `runtime_*` identifiers in

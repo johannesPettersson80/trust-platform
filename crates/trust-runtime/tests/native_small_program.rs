@@ -814,3 +814,170 @@ fn a_loop_whose_body_can_reach_its_control_variable_reads_it_at_each_use() {
         );
     }
 }
+
+/// A function in a namespace that counts in a global through `VAR_EXTERNAL`.
+const NAMESPACED_EXTERNAL: &str = "
+VAR_GLOBAL
+    Count : DINT;
+END_VAR
+
+NAMESPACE Tools
+FUNCTION Bump : DINT
+VAR_EXTERNAL
+    Count : DINT;
+END_VAR
+Count := Count + 1;
+Bump := Count;
+END_FUNCTION
+END_NAMESPACE
+
+PROGRAM Main
+VAR
+    seen : DINT;
+END_VAR
+seen := Tools.Bump();
+END_PROGRAM
+";
+
+/// A name in a namespace resolves outward to the global namespace, which holds the globals declared
+/// outside any namespace (IEC §6.9.1, §6.9.3): `Tools.Bump`'s `VAR_EXTERNAL Count` names the global
+/// `Count`, so one scan makes it 1 and `seen` 1, in both engines. Catches the external refused with
+/// "VAR_EXTERNAL 'Count' has no matching VAR_GLOBAL", which trust-hir gave before 23 October 2026.
+#[test]
+fn an_external_in_a_namespace_names_a_global_outside_it() {
+    let (built, device) = built_here(NAMESPACED_EXTERNAL, "namespaced-external", true);
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
+    assert_eq!(program.value("COUNT"), Some(Value::DInt(1)));
+    assert_eq!(program.value("MAIN.SEEN"), Some(Value::DInt(1)));
+    let mut runtime = trust_runtime::harness::TestHarness::from_source(NAMESPACED_EXTERNAL)
+        .expect("the runtime builds it");
+    let result = runtime.cycle();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    assert_eq!(runtime.get_output("seen"), Some(Value::DInt(1)));
+}
+
+/// A program the bytecode build refuses: a constant array indexed by a variable (the runtime
+/// defects lane's D14, "unsupported bytecode lowering path") and the difference of two dates
+/// assigned to a `TIME` (D12, "expected TIME initializer").
+const BYTECODE_REFUSES: &str = "
+PROGRAM Main
+VAR CONSTANT
+    Table : ARRAY[0..3] OF INT := [10, 20, 30, 40];
+END_VAR
+VAR
+    i : INT := 2;
+    picked : INT;
+    day : DATE := D#2026-10-25;
+    gap : TIME;
+END_VAR
+picked := Table[i];
+gap := day - D#2026-10-23;
+END_PROGRAM
+";
+
+/// The native build works out a program's starting values from its declarations, without the
+/// bytecode build (specification 44 §6.7; the one list's N1), so a program that the bytecode build
+/// refuses compiles: `Table[2]` is 30 and two days after 23 October is `T#2d`. Catches a native
+/// build that still constructs the program with the bytecode runtime, which refused it.
+#[test]
+fn a_program_the_bytecode_build_refuses_compiles_natively() {
+    let (built, device) = built_here(BYTECODE_REFUSES, "bytecode-refuses", true);
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
+    assert_eq!(program.value("MAIN.PICKED"), Some(Value::Int(30)));
+    assert_eq!(
+        program.value("MAIN.GAP"),
+        Some(Value::Time(Duration::from_secs(2 * 86_400)))
+    );
+}
+
+/// The other constructs the bytecode build refuses (the runtime defects lane's D6, D11, D13, D15
+/// and D16): `SUPER()`, the call of the base's body (IEC §6.6.7.2.9, Table 48 10c); a `CHAR` whose
+/// code is above 127; an unqualified enumeration value as a standard function's argument; an
+/// enumeration literal of a namespace a `USING` names, in a statement; and a function that calls
+/// itself by its bare name.
+const MORE_BYTECODE_REFUSES: &str = "
+NAMESPACE Ctl
+TYPE PIDMode : (Manual, Auto); END_TYPE
+END_NAMESPACE
+
+TYPE Mode : (Off, Heat, Cool); END_TYPE
+
+FUNCTION_BLOCK Base
+VAR_OUTPUT
+    n : INT;
+END_VAR
+n := n + 1;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK Derived EXTENDS Base
+VAR_OUTPUT
+    m : INT;
+END_VAR
+SUPER();
+m := n * 10;
+END_FUNCTION_BLOCK
+
+FUNCTION SumTo : INT
+VAR_INPUT
+    n : INT;
+END_VAR
+IF n <= 0 THEN
+    SumTo := 0;
+ELSE
+    SumTo := n + SumTo(n - 1);
+END_IF;
+END_FUNCTION
+
+PROGRAM Main
+USING Ctl;
+VAR
+    d : Derived;
+    accent : CHAR := CHAR#'$E9';
+    heating : BOOL := TRUE;
+    mode : Mode;
+    pid : PIDMode;
+    sum : INT;
+END_VAR
+d();
+mode := SEL(G := heating, IN0 := Off, IN1 := Heat);
+pid := PIDMode#Auto;
+sum := SumTo(4);
+END_PROGRAM
+";
+
+/// Worked by hand for one scan: `SUPER()` runs `Base`'s body, so `d.n` is 1 and `d.m` 10; `accent`
+/// starts at code 16#E9; `SEL` with `heating` TRUE gives `Heat`, the enumeration's second value;
+/// `pid` is `Auto`, `PIDMode`'s second value; `SumTo(4)` is 4 + 3 + 2 + 1 = 10. Catches each
+/// construct refused, as the bytecode build refuses it, and a `SUPER()` that runs the derived body
+/// again.
+#[test]
+fn the_constructs_the_bytecode_build_refuses_compile_natively() {
+    let (built, device) = built_here(MORE_BYTECODE_REFUSES, "more-bytecode-refuses", true);
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("the scan runs");
+    for (variable, expected) in [
+        ("MAIN.D.N", Value::Int(1)),
+        ("MAIN.D.M", Value::Int(10)),
+        ("MAIN.ACCENT", Value::Char(0xE9)),
+        ("MAIN.SUM", Value::Int(10)),
+    ] {
+        assert_eq!(program.value(variable), Some(expected), "{variable}");
+    }
+    for (variable, ordinal) in [("MAIN.MODE", 1), ("MAIN.PID", 1)] {
+        let Some(Value::Enum(value)) = program.value(variable) else {
+            panic!("{variable} is no enumeration value");
+        };
+        assert_eq!(value.numeric_value(), ordinal, "{variable}");
+    }
+}

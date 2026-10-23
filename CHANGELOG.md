@@ -21,8 +21,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   A compiled program keeps its `RETAIN` variables across a power cut as an interpreted one does:
   the ESP32-C6 saves them into its checkpoint log in the same format, byte for byte, restores them
   at a warm start with the same conversions, and checks at an install that the new program accepts
-  them. Online change, the debugger and Live Values writes of a compiled program follow
-  (specification 44 M3).
+  them. Online change and the debugger of a compiled program follow (specification 44 M3).
 - Added: `trust-runtime conformance --execution-backend native` runs the conformance suite on
   compiled programs: each case is built for this computer and run by the kernel, and its trace is
   compared with the same expected artifacts (specification 44 §14.2). A project without a
@@ -60,9 +59,68 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   a call depth that the kernel works out from the task's stack, the stack beyond the program's
   bound in the bytes one turn of its largest cycle takes, which the build reports as `call_level`.
   A recursion that does not end ends the scan with the error a call beyond the bytecode engine's
-  call levels gives (`invalid bytecode 'vm call stack overflow'`) instead of overrunning the stack
+  call levels gives (`call depth exceeded`) instead of overrunning the stack
   (specification 44 §6.4, §8.5). The kernel interface is version 3: a kernel refuses an image of
   another version, so a chip's firmware and its programs are updated together.
+- Fixed: the variables of function block and class instances are retained as IEC 61131-3
+  §6.5.6.2 says, by the bytecode engine and by compiled programs: a member declared `VAR RETAIN` or
+  `VAR PERSISTENT`, and each member without a qualifier of its own in an instance declared
+  `RETAIN`, keeps its value at a warm restart and is written to the retain checkpoint under its
+  path (`@program/Main/Line.Count`, `Plant.Pumps[2].Hours`); a standard function block keeps its
+  inputs and outputs and starts its own state again (specification 11 §6.7). Before, such members
+  started from their initial values. A compiled program's image is format version 2, whose retain
+  records name an area and an offset; a kernel refuses an image of format 1, so programs are built
+  again.
+- Fixed: the OSCAT library's PLC timers wrap as upstream's do and no block faults when they
+  wrap. `T_PLC_US`, the milliseconds times 1000, overflowed after 71.6 minutes of uptime, so every
+  program with `CTRL_PID`, `FT_PT1` or `FT_DERIV` stopped with an overflow then; `T_PLC_MS`
+  overflowed after 49.7 days; and the 57 blocks that time with them subtracted two readings in
+  checked arithmetic, so each faulted when its timer wrapped, or at 2^31 when it took the timer as
+  DINT. `T_PLC_MS` and `T_PLC_US` now wrap modulo 2^32, the new `T_PLC_ELAPSED(NOW, LAST)` gives the
+  time between two readings across a wrap, and every block uses it (specification 31 §2.1).
+  `CYCLE_TIME` also measures its least cycle again: upstream starts it at the largest 32-bit time,
+  which the port had written as -1 ms. `D_TRIG` gives the difference of a falling input modulo
+  2^32 as upstream does instead of faulting, and `DT_SIMU` no longer faults on a first call long
+  after the start, where it scaled the whole uptime by `SPEED` (after 24.9 days at 2.0).
+- Fixed: the OSCAT library took a `DWORD` as a number through `DWORD_TO_REAL` and
+  `REAL_TO_DWORD`, which IEC 61131-3 Table 25 makes binary transfers, in 25 places: `FT_PT2`
+  divided by zero on its second scan, `FT_PT1`, `FLOW_METER`, `M_TX`, `HEAT_METER` and
+  `FT_Profile` overflowed once time passed, `RDM` and `RDMDW` failed when the PLC timer's bits
+  formed no number, and `MULTIME`, `AIN`, `DT_SIMU`, `FILTER_DW` and `FILTER_MAV_DW` gave wrong
+  values above 2^23. They now convert through `UDINT` (specification 31 §2.2). The boiler-room
+  example's gas meter reading is fixed the same way.
+- Fixed: in the bytecode engine, `THIS` in a base's method reached through `SUPER` is the own
+  instance, so `THIS.m()` there runs the instance's override (IEC 61131-3 §6.6.5.6, §6.6.5.7), and
+  `SUPER` there names the base of that method's class. Before, the method ran on the base part and
+  `THIS.m()` ran the base's `m`; compiled programs already followed the standard.
+- Fixed: in the bytecode engine, a call through an interface that names no instance ends the scan
+  with `null reference dereference`, as compiled programs report it (specification 10), instead of
+  `type mismatch`.
+- Fixed: a call of a derived function block takes the inputs and outputs it inherits as arguments
+  (IEC 61131-3 §6.6.7.2.7), two interfaces of one type compare with `=` and `<>` (§6.6.6.5.1), a
+  derived instance that adds no in-out of its own is taken for a base's `VAR_IN_OUT` (§6.6.8.3),
+  and a `VAR_EXTERNAL` inside a `NAMESPACE` finds a `VAR_GLOBAL` declared outside it (§6.9).
+  Before, the front end refused each of them (E204, E201, E205, E101).
+- Fixed: an integer literal for a `BYTE`, `WORD`, `DWORD` or `LWORD` takes the unsigned range of
+  its width (IEC 61131-3 §6.3.2, Table 5): `DWORD := 4294967295` and
+  `LWORD := 16#FFFF_FFFF_FFFF_FFFF` compile, `BYTE := 256` is refused. Before, a bit string took
+  the `DINT` range and a typed `LWORD` literal above `LINT` was refused.
+- Added: Live Values reach compiled programs as they reach interpreted ones: `set` and `var.force`
+  of a variable by its name, its retain key or its instance, applied at the cycle start and a force
+  held every scan until `var.unforce`; `io.write` and `io.force` of the input and marker images
+  before the program samples them, and of the output image before the outputs reach the drivers
+  (specification 44 §13.3). Before, each was refused with a `WriteRejected` event.
+- Changed: the native build works out a program's starting values from its declarations itself and
+  no longer lowers the statements for the bytecode engine (specification 44 §3, §6.7), so it builds
+  what the bytecode build refuses: a constant array indexed by a variable, `DATE - DATE`, `SUPER()`,
+  a `CHAR` above 127, an enumeration value as a standard function's argument, and a function that
+  calls itself by its bare name. Compiled programs also take a program instance declared `RETAIN`
+  in its configuration, a call of an instance that is an element of an array (`Pumps[2](...)`), and
+  an `LWORD` or `ULINT` literal above `LINT` in a statement.
+- Fixed: a typed literal finds its type through a namespace that a `USING` directive names
+  (`PIDMode#Auto`, IEC 61131-3 §6.9.4). Before, the front end refused it (E102).
+- Changed: a call beyond the call levels ends the scan with `call depth exceeded`, in both engines,
+  instead of `invalid bytecode 'vm call stack overflow'`.
 - Changed: compiled programs make their checks where they can fail and nowhere else, none dropped
   (specification 44 §6.5, §6.6): an array element at a constant index inside the bounds is not
   checked when the scan runs; a chain of real `+ - *` on variables and literals checks its result at

@@ -1043,6 +1043,7 @@ mod tests {
             direction: ParamDirection::In,
             address: None,
             default: None,
+            retain: crate::RetainPolicy::Unspecified,
         }
     }
 

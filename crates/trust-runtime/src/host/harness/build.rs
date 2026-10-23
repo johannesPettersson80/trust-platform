@@ -144,16 +144,19 @@ pub(crate) fn lower_application_with_abi(
     label_errors: bool,
     storage_abi: crate::value::StorageAbi,
 ) -> Result<LoweredApplication, CompileError> {
-    lower_application_and_frontend(sources, label_errors, storage_abi).map(|(lowered, _)| lowered)
+    lower_application_and_frontend(sources, label_errors, storage_abi, true)
+        .map(|(lowered, _)| lowered)
 }
 
 /// The lowered declarations of `sources` together with the semantic model they were lowered from,
 /// which the compiled-program generator reads the statements' types and resolved names from
-/// (specification 44 §3).
+/// (specification 44 §3). The POUs' statements are lowered only when `lower_bodies` is set: the
+/// compiled-program build generates them from the syntax tree.
 pub(crate) fn lower_application_and_frontend(
     sources: &[SourceFile],
     label_errors: bool,
     storage_abi: crate::value::StorageAbi,
+    lower_bodies: bool,
 ) -> Result<(LoweredApplication, AnalyzedSourceFiles), CompileError> {
     let frontend = analyze_source_files(sources, label_errors, storage_abi)?;
 
@@ -171,6 +174,7 @@ pub(crate) fn lower_application_and_frontend(
         &mut builder,
         &mut statement_locations,
         &compile_time_consts,
+        lower_bodies,
     )?;
     let lowered_programs = lower_programs_and_configuration(
         &frontend,
@@ -178,6 +182,7 @@ pub(crate) fn lower_application_and_frontend(
         &mut statement_locations,
         &compile_time_consts,
         root_globals_per_file,
+        lower_bodies,
     )?;
     let source_metadata = statement_locations
         .into_iter()
@@ -285,6 +290,7 @@ fn lower_named_declarations(
     builder: &mut RuntimeBuilder,
     statement_locations: &mut [Vec<SourceLocation>],
     compile_time_consts: &super::compiler::CompileTimeConsts,
+    lower_bodies: bool,
 ) -> Result<(), CompileError> {
     let profile = builder.profile();
     let mut interface_names = std::collections::HashSet::new();
@@ -298,6 +304,7 @@ fn lower_named_declarations(
             &mut statement_locations[idx],
             compile_time_consts.clone(),
         );
+        inputs.lower_bodies = lower_bodies;
         let interfaces = super::lower_interfaces(
             &syntax,
             frontend.declaration_catalogs[idx].as_ref(),
@@ -328,6 +335,7 @@ fn lower_named_declarations(
             &mut statement_locations[idx],
             compile_time_consts.clone(),
         );
+        inputs.lower_bodies = lower_bodies;
         let classes = super::lower_classes(
             &syntax,
             frontend.declaration_catalogs[idx].as_ref(),
@@ -358,6 +366,7 @@ fn lower_named_declarations(
             &mut statement_locations[idx],
             compile_time_consts.clone(),
         );
+        inputs.lower_bodies = lower_bodies;
         let function_blocks = super::lower_function_blocks(
             &syntax,
             frontend.declaration_catalogs[idx].as_ref(),
@@ -388,6 +397,7 @@ fn lower_named_declarations(
             &mut statement_locations[idx],
             compile_time_consts.clone(),
         );
+        inputs.lower_bodies = lower_bodies;
         let functions = super::lower_functions(
             &syntax,
             frontend.declaration_catalogs[idx].as_ref(),
@@ -424,6 +434,7 @@ fn lower_programs_and_configuration(
     statement_locations: &mut [Vec<SourceLocation>],
     compile_time_consts: &super::compiler::CompileTimeConsts,
     root_globals_per_file: Vec<Vec<super::compiler::GlobalInit>>,
+    lower_bodies: bool,
 ) -> Result<LoweredPrograms, CompileError> {
     let profile = builder.profile();
     let mut program_defs = IndexMap::<SmolStr, ProgramDef>::new();
@@ -441,6 +452,7 @@ fn lower_programs_and_configuration(
             &mut statement_locations[idx],
             compile_time_consts.clone(),
         );
+        inputs.lower_bodies = lower_bodies;
         let lowered = super::lower_programs(
             &syntax,
             frontend.declaration_catalogs[idx].as_ref(),
@@ -480,6 +492,7 @@ fn lower_programs_and_configuration(
             &mut statement_locations[idx],
             compile_time_consts.clone(),
         );
+        inputs.lower_bodies = lower_bodies;
         if let Some(config) =
             super::lower_configuration(&syntax, builder.registry_mut(), &mut inputs)?
         {
@@ -619,7 +632,12 @@ impl LoweredApplication {
             }
         };
         self.globals.append(&mut config.globals);
-        apply_program_retain_overrides(&mut self.program_defs, &config.programs, &config.using)?;
+        apply_program_retain_overrides(
+            &mut self.program_defs,
+            &config.programs,
+            &config.using,
+            self.builder.registry(),
+        )?;
         let extras = if configured {
             build_extra_program_instances(
                 &self.program_defs,

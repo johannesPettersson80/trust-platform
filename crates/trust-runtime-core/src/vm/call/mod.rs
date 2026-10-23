@@ -461,9 +461,17 @@ fn dispatch_native_vm_call(
             Ok(NativeCall::Immediate(Value::Null))
         }
         NATIVE_CALL_KIND_METHOD => {
-            let Some(Value::Instance(instance_id)) = receiver_value else {
-                return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
+            let instance_id = match receiver_value {
+                Some(Value::Instance(instance_id)) => instance_id,
+                // A call through an interface that names no instance is a null dereference
+                // (specification 10).
+                Some(Value::Null) => return Err(VmTrap::Runtime(RuntimeError::NullReference)),
+                _ => return Err(VmTrap::Runtime(RuntimeError::TypeMismatch)),
             };
+            // The method is the receiver's class's; it runs on the caller's own instance when the
+            // receiver is one of that instance's base parts, which only `SUPER` names.
+            let runs_on = own_instance_of_base_part(runtime, module, frame, instance_id)?
+                .unwrap_or(instance_id);
             // A prepared plan dispatches through the receiver's prepared class-like POU and
             // the prepared owner/method table (spec 34 MEM-08, MEM-09).
             if let Some(planned) = plan
@@ -476,7 +484,7 @@ fn dispatch_native_vm_call(
                     module,
                     frame,
                     pou,
-                    Some(instance_id),
+                    Some(runs_on),
                     args,
                     Some(&planned.arguments),
                 )
@@ -499,19 +507,36 @@ fn dispatch_native_vm_call(
                 .ok_or_else(|| {
                     VmTrap::Runtime(RuntimeError::UndefinedField(target_name.clone()))
                 })?;
-            PreparedCall::function(
-                runtime,
-                module,
-                frame,
-                pou_id,
-                Some(instance_id),
-                args,
-                None,
-            )
-            .map(NativeCall::User)
+            PreparedCall::function(runtime, module, frame, pou_id, Some(runs_on), args, None)
+                .map(NativeCall::User)
         }
         _ => Err(VmTrap::InvalidNativeCallKind(kind)),
     }
+}
+
+/// The caller's own instance when `receiver` is one of its base parts, which only `SUPER` names:
+/// the base's method is bound statically (IEC 61131-3 §6.6.5.7.3) and runs on the caller's own
+/// instance, so `THIS` in it is still that instance and binds dynamically to its class
+/// (§6.6.5.6, §6.6.5.7.2); the method's members are found in its class's part as any inherited
+/// method's are. `None` for any other receiver.
+fn own_instance_of_base_part(
+    runtime: &impl CallContext,
+    module: &VmModule,
+    frame: &VmFrame,
+    receiver: InstanceId,
+) -> Result<Option<InstanceId>, VmTrap> {
+    let Some(own) = frame.runtime_instance else {
+        return Ok(None);
+    };
+    let mut part = own;
+    for _ in 0..=module.pou_by_id.len() {
+        match runtime.storage().instance_parent(part)? {
+            Some(parent) if parent == receiver => return Ok(Some(own)),
+            Some(parent) => part = parent,
+            None => return Ok(None),
+        }
+    }
+    Ok(None)
 }
 
 /// The function-block POU of an instance's declared type, without a type-name key.

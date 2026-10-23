@@ -100,10 +100,13 @@ fn persistent_cycle_fault_escalates_to_restart_limit_after_three_attempts() {
         .spawn("restart-limit-cycle-fault")
         .expect("spawn runner");
     wait_for_fault(&handle);
+    assert_eq!(handle.state(), ResourceState::Faulted);
     handle.stop();
     handle.join().expect("runner join");
 
-    assert_eq!(handle.state(), ResourceState::Faulted);
+    // A shutdown of the Faulted resource stops it, and its fault stays in `last_error` until the
+    // next start (specification 34 STATE-08; the owner, 23 October 2026).
+    assert_eq!(handle.state(), ResourceState::Stopped);
     match handle
         .last_error()
         .expect("restart escalation should set last_error")
@@ -134,10 +137,13 @@ fn failed_restart_sequence_stays_faulted_with_exactly_one_scan_per_attempt() {
         .spawn("state06-restart-sequence")
         .expect("spawn runner");
     wait_for_fault(&handle);
+    assert_eq!(handle.state(), ResourceState::Faulted);
     handle.stop();
     handle.join().expect("runner join");
 
-    assert_eq!(handle.state(), ResourceState::Faulted);
+    // A shutdown of the Faulted resource stops it, and its fault stays in `last_error` until the
+    // next start (specification 34 STATE-08; the owner, 23 October 2026).
+    assert_eq!(handle.state(), ResourceState::Stopped);
     assert_eq!(
         reads.load(Ordering::SeqCst),
         4,
@@ -158,10 +164,13 @@ fn contained_resource_panic_is_never_retried_under_the_restart_policy() {
     let runner = ResourceRunner::new(runtime, StepClock::new(), Duration::from_millis(1));
     let mut handle = runner.spawn("panic-not-restarted").expect("spawn runner");
     wait_for_fault(&handle);
+    assert_eq!(handle.state(), ResourceState::Faulted);
     handle.stop();
     handle.join().expect("runner join");
 
-    assert_eq!(handle.state(), ResourceState::Faulted);
+    // A shutdown of the Faulted resource stops it, and its fault stays in `last_error` until the
+    // next start (specification 34 STATE-08; the owner, 23 October 2026).
+    assert_eq!(handle.state(), ResourceState::Stopped);
     assert!(
         matches!(handle.last_error(), Some(RuntimeError::ResourcePanic(_))),
         "a contained panic must stay a ResourcePanic"

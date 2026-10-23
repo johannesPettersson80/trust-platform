@@ -17,7 +17,11 @@ use alloc::format;
 
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
+#[cfg(feature = "native")]
+use trust_runtime_core::memory::IoArea;
 use trust_runtime_core::memory::{Generation, InstanceId};
+#[cfg(feature = "native")]
+use trust_runtime_core::native::variables::CompiledVariables;
 use trust_runtime_core::value::{Duration, Value, ValueRef};
 use trust_runtime_core::vm::CycleAccess;
 
@@ -204,33 +208,176 @@ where
     Ok(())
 }
 
-/// Refuse every queued write and every active force with `error` at logical `time`, each passed to
-/// `sink`, and withdraw them: a program that takes none of them, such as a compiled program before
-/// its symbol table serves them (specification 44 §13.3).
+/// The queued variable writes and the active variable forces of a compiled program at its cycle
+/// start, before the program runs (specification 44 §13.3), as [`cycle_start`] and [`forces`] apply
+/// them to the engine: the writes in arrival order through the program's symbol table, then every
+/// force in the order the targets were first forced. A target the program does not hold, or an
+/// instance identity of another generation than `generation`, is refused as the engine refuses it;
+/// a refused force is withdrawn. A debugger's expression write waits for the debugger of compiled
+/// programs and is refused.
+///
+/// # Errors
+///
+/// The deadline or resource error of a request that must fault the enclosing cycle.
 #[cfg(feature = "native")]
-pub fn refuse_all<T, S>(
+pub fn compiled_cycle_start<T, S>(
     queues: &mut LiveValueQueues<T>,
-    error: &RuntimeError,
+    generation: Generation,
+    variables: &mut dyn CompiledVariables,
     time: Duration,
     sink: &mut S,
-) where
+) -> Result<(), RuntimeError>
+where
     T: core::fmt::Debug,
     S: WriteSink,
 {
     for write in queues.pending_var_writes.drain(..) {
-        sink.refused(&pending_var_label(&write.target), error, time);
+        let PendingVarWrite { target, value } = write;
+        let result = match &target {
+            PendingVarTarget::Global(name) => variables.write_named(name, &value),
+            PendingVarTarget::Retain(label) => compiled_retained(variables, label, &value),
+            PendingVarTarget::Instance(at, id, name) => {
+                compiled_member(variables, generation, *at, *id, name, &value)
+            }
+            // A local of a paused frame is not reachable from the scan; the queued write is refused.
+            PendingVarTarget::Local(_, _) => Err(RuntimeError::ReferenceLifetime),
+        };
+        if let Err(error) = result {
+            let operational = is_cycle_operational_error(&error);
+            sink.refused(&pending_var_label(&target), &error, time);
+            if operational {
+                return Err(error);
+            }
+        }
     }
+    let unsupported = RuntimeError::ProfileUnsupported(SmolStr::new_static(
+        "a debugger's expression write to a compiled program",
+    ));
     for write in queues.pending_lvalue_writes.drain(..) {
-        sink.refused(&format!("{:?}", write.target), error, time);
+        sink.refused(&format!("{:?}", write.target), &unsupported, time);
     }
-    for (address, _) in queues.io_writes.drain(..) {
-        sink.refused(&format!("{address:?}"), error, time);
+    // Each queue holds at most one entry per target, so the refused entry is the one at `index`.
+    let mut index = 0;
+    while index < queues.forced_vars.len() {
+        let force = &queues.forced_vars[index];
+        let result = match &force.target {
+            ForcedVarTarget::Global(name) => variables.write_named(name, &force.value),
+            ForcedVarTarget::Retain(label) => compiled_retained(variables, label, &force.value),
+            ForcedVarTarget::Instance(at, id, name) => {
+                compiled_member(variables, generation, *at, *id, name, &force.value)
+            }
+        };
+        match result {
+            Ok(()) => index += 1,
+            Err(error) => {
+                let label = forced_var_label(&queues.forced_vars[index].target);
+                let operational = is_cycle_operational_error(&error);
+                if !operational {
+                    queues.forced_vars.remove(index);
+                }
+                sink.refused(&label, &error, time);
+                if operational {
+                    return Err(error);
+                }
+            }
+        }
     }
-    for (address, _) in queues.forced_io.drain(..) {
-        sink.refused(&format!("{address:?}"), error, time);
+    Ok(())
+}
+
+/// The queued one-shot process-image writes and the active forces of the images `areas` of a
+/// compiled program (specification 44 §13.3): the writes, in arrival order, of an input or marker
+/// address after the drivers read the inputs and before the program samples them, and the forces
+/// of `areas` then; the output image's forces after the scan, before the outputs reach the drivers.
+/// A refused force is withdrawn.
+///
+/// # Errors
+///
+/// The deadline or resource error of a request that must fault the enclosing cycle.
+#[cfg(feature = "native")]
+pub fn compiled_images<T, S>(
+    queues: &mut LiveValueQueues<T>,
+    areas: &[IoArea],
+    variables: &mut dyn CompiledVariables,
+    time: Duration,
+    sink: &mut S,
+) -> Result<(), RuntimeError>
+where
+    S: WriteSink,
+{
+    if !areas.contains(&IoArea::Output) {
+        for (address, value) in queues.io_writes.drain(..) {
+            if let Err(error) = variables.write_image(&address, value) {
+                let operational = is_cycle_operational_error(&error);
+                sink.refused(&format!("{address:?}"), &error, time);
+                if operational {
+                    return Err(error);
+                }
+            }
+        }
     }
-    for force in queues.forced_vars.drain(..) {
-        sink.refused(&forced_var_label(&force.target), error, time);
+    let mut index = 0;
+    while index < queues.forced_io.len() {
+        if !areas.contains(&queues.forced_io[index].0.area) {
+            index += 1;
+            continue;
+        }
+        let result = variables.write_image(
+            &queues.forced_io[index].0,
+            queues.forced_io[index].1.clone(),
+        );
+        match result {
+            Ok(()) => index += 1,
+            Err(error) => {
+                let label = format!("{:?}", queues.forced_io[index].0);
+                let operational = is_cycle_operational_error(&error);
+                if !operational {
+                    queues.forced_io.remove(index);
+                }
+                sink.refused(&label, &error, time);
+                if operational {
+                    return Err(error);
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Writes `value` to the compiled program's retained variable `label`; a key the retain map does
+/// not hold is refused as the engine refuses a retained label it does not resolve.
+#[cfg(feature = "native")]
+fn compiled_retained(
+    variables: &mut dyn CompiledVariables,
+    label: &str,
+    value: &Value,
+) -> Result<(), RuntimeError> {
+    match variables.write_retained(label, value) {
+        Err(RuntimeError::UndefinedVariable(_)) => Err(RuntimeError::ReferenceLifetime),
+        result => result,
+    }
+}
+
+/// Writes `value` to member `name` of the compiled program's instance `id`, an identity resolved
+/// in generation `at`; another installed generation, or an instance or member the program does not
+/// hold, is refused as the engine refuses it (specification 34 §4.3.1).
+#[cfg(feature = "native")]
+fn compiled_member(
+    variables: &mut dyn CompiledVariables,
+    generation: Generation,
+    at: Generation,
+    id: InstanceId,
+    name: &str,
+    value: &Value,
+) -> Result<(), RuntimeError> {
+    if at != generation {
+        return Err(RuntimeError::ReferenceLifetime);
+    }
+    match variables.write_member(id.0, name, value) {
+        Err(RuntimeError::UndefinedVariable(_) | RuntimeError::UndefinedField(_)) => {
+            Err(RuntimeError::ReferenceLifetime)
+        }
+        result => result,
     }
 }
 
@@ -302,3 +449,6 @@ fn instance_reference(
         .ref_for_instance_recursive(id, name)
         .ok_or(RuntimeError::ReferenceLifetime)
 }
+
+#[cfg(all(test, feature = "native"))]
+mod compiled_tests;

@@ -208,8 +208,8 @@ fn oscat_core_suite_passes_every_case() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
-        text.contains("126 passed, 0 failed, 0 errors"),
-        "expected 126 passed, 0 failed, 0 errors.\nstdout:\n{text}"
+        text.contains("131 passed, 0 failed, 0 errors"),
+        "expected 131 passed, 0 failed, 0 errors.\nstdout:\n{text}"
     );
 }
 

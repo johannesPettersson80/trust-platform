@@ -42,15 +42,27 @@ before reading them or invoking helpers that depend on them.
 
 The Chapter 3 carrier types and Chapter 4 globals and helpers SHALL expose the
 fields, values, and classifications documented in the classic guide.
-`T_PLC_MS()` SHALL use the runtime millisecond time bridge and `T_PLC_US()`
-SHALL remain the documented millisecond-derived compatibility projection rather
-than claiming a hardware microsecond clock.
+`T_PLC_MS()` SHALL return the runtime's elapsed time, `TIME()`, in milliseconds
+as a `DWORD` that wraps to zero after 2^32 ms (about 49.7 days), as the upstream
+PLC timer does. `T_PLC_US()` SHALL remain the documented millisecond-derived
+compatibility projection, the milliseconds times 1000 modulo 2^32, which wraps
+after about 71.6 minutes, rather than claiming a hardware microsecond clock.
+Upstream OSCAT measures the time between two readings by `DWORD` subtraction
+that wraps; truST checks integer arithmetic (specification 10), so the package
+measures it with `T_PLC_ELAPSED(NOW, LAST)`, the counts from `LAST` to `NOW`
+modulo 2^32, and adds a time to a reading modulo 2^32. No block of the package
+faults when a timer wraps, and each keeps its timing across the wrap. A block
+measures from its own first reading, so none faults when it first runs long
+after the timer started (`DT_SIMU` scales no time before its first call).
 
 The following truST product adaptations are mandatory:
 
 - `CALENDAR.LOCAL_DT`, `LOCAL_DATE`, and `LOCAL_TOD` replace upstream names
   that collide with reserved date/time keywords;
 - `SEQUENCE_4.STATE` and `SEQUENCE_8.STATE` replace the upstream `STEP` field;
+- `T_PLC_ELAPSED(NOW, LAST)` returns the `UDINT` counts from `LAST` to `NOW` of
+  a PLC timer that wraps after 2^32 counts, which upstream takes as a wrapping
+  `DWORD` difference;
 - the upstream Chapter 19 function `OVERRIDE` is published as `OVERRIDE_3`;
 - buffer helpers use typed `ARRAY[*] OF BYTE` ports and the documented typed
   pointer surface.
@@ -79,6 +91,15 @@ for NaN or either infinity with overflow. Consequently, `CHK_REAL` can observe
 the normal finite classification through supported truST program execution;
 its upstream non-finite classification branches remain source-compatible but
 are not executable conformance oracles.
+
+Where the classic guide computes with the value of a `DWORD` as a number (the
+milliseconds of the PLC timer or of a `TIME`, a count, a raw reading), the
+package converts it as a number, through `UDINT`:
+`UDINT_TO_REAL(DWORD_TO_UDINT(d))` and `UDINT_TO_DWORD(REAL_TO_UDINT(r))`.
+`DWORD_TO_REAL` and `REAL_TO_DWORD` are binary transfers (IEC 61131-3 Table 25;
+specification 07 §2.3), so the package uses them only where the guide transfers
+a bit pattern: `DW_TO_REAL`, `REAL_TO_DW`, `CHK_REAL`, and the bytes of a `REAL`
+that `ESR_MON_R4` reports.
 
 ### 2.3 Time, calendar, and string behavior
 

@@ -163,7 +163,7 @@ fn trap_cases() -> Vec<(VmTrap, StableErrorCode, &'static str)> {
         (
             VmTrap::CallStackOverflow,
             StableErrorCode::VmCallStackOverflow,
-            "invalid bytecode 'vm call stack overflow'",
+            "call depth exceeded",
         ),
         (
             VmTrap::UnsupportedOpcode("reserved"),
@@ -451,6 +451,9 @@ fn a_fault_inside_a_nested_call_records_the_innermost_site() {
 
     assert_eq!(record.code, StableErrorCode::VmCallStackOverflow);
     assert_eq!(record.detail, FaultDetail::Text("vm call stack overflow"));
+    // The fault log reads the record as the runtime error reads (specification 12 §7.4.1), not
+    // as a damaged program's `invalid bytecode 'vm call stack overflow'`.
+    assert_eq!(record.to_string(), "call depth exceeded");
     #[cfg(not(feature = "register-ir"))]
     assert_eq!(record.site, FaultSite { pou: 35, pc: 0x142 });
     assert_eq!(record.task, 0, "the single `Scan` task ran the program");

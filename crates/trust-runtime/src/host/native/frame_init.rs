@@ -115,7 +115,7 @@ pub(super) fn starting_bytes(
         ),
     }
     .map_err(|error| NativeError::Compile(format!("the starting value of {name}: {error}")))?;
-    super::init::value_bytes(builder.storage(), model, &value, ty)
+    super::init::value_bytes(model, &value, ty)
 }
 
 /// Whether a value of `ty` holds an instance of a function block whose starting state the build

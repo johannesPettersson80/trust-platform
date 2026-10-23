@@ -90,6 +90,10 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
             if let Some(type_id) = TypeId::from_builtin_name(type_name) {
                 return type_id;
             }
+            // A type of the scope, a namespace a USING directive names included (IEC §6.9.4).
+            if let Some(type_id) = self.checker.resolve_ref().resolve_type_by_name(type_name) {
+                return type_id;
+            }
             if let Some(type_id) = self.checker.symbols.lookup_registered_type_name(type_name) {
                 return type_id;
             }
@@ -487,7 +491,8 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
         {
             return;
         }
-        // Most types are comparable to themselves
+        // Most types are comparable to themselves; two values of one interface type for equality
+        // only, which the ordering check above already refused (IEC 61131-3 §6.6.6.5.1).
         if lhs == rhs {
             if matches!(
                 self.checker.symbols.type_by_id(lhs),
@@ -497,7 +502,6 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
                         | Type::Union { .. }
                         | Type::FunctionBlock { .. }
                         | Type::Class { .. }
-                        | Type::Interface { .. }
                 )
             ) {
                 self.checker.diagnostics.error(

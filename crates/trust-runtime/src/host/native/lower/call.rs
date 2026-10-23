@@ -27,6 +27,9 @@ pub(super) struct Arg {
 enum Callee<'a> {
     Function(&'a FunctionDef),
     FunctionBlock(Place),
+    /// `SUPER()`: the base's own body on the instance's part of the base (IEC §6.6.7.2.9, Table 48
+    /// 10c), never an override.
+    BaseBody(Place),
     /// A method, by its name, of an instance or through an interface reference.
     Method(Receiver, String),
     Standard(String),
@@ -134,7 +137,11 @@ impl<'a> Lowerer<'_, 'a> {
         match self.callee(&target)? {
             Callee::Function(def) => self.function_call(node, def, args, want),
             Callee::FunctionBlock(instance) => {
-                self.function_block_call(node, &instance, args)?;
+                self.function_block_call(node, &instance, args, false)?;
+                Ok(Called::Nothing)
+            }
+            Callee::BaseBody(instance) => {
+                self.function_block_call(node, &instance, args, true)?;
                 Ok(Called::Nothing)
             }
             Callee::Method(receiver, name) => self.member_call(node, receiver, &name, args, want),
@@ -219,6 +226,16 @@ impl<'a> Lowerer<'_, 'a> {
                 }
                 Err(self.unsupported(target, "a call of a value that is not callable"))
             }
+            // An instance that is an element of an array (`Pumps[i](...)`) or that a reference
+            // names (`ref^(...)`).
+            SyntaxKind::IndexExpr | SyntaxKind::DerefExpr | SyntaxKind::ParenExpr => {
+                let place = self.place(target)?;
+                if matches!(self.info(place.ty).kind, Kind::Fb { .. } | Kind::StdFb(_)) {
+                    return Ok(Callee::FunctionBlock(place));
+                }
+                Err(self.unsupported(target, "a call of a value that is not callable"))
+            }
+            SyntaxKind::SuperExpr => Ok(Callee::BaseBody(self.super_place(target)?)),
             _ => Err(self.unsupported(target, "this callee")),
         }
     }
@@ -499,15 +516,17 @@ impl<'a> Lowerer<'_, 'a> {
         node: &SyntaxNode,
         instance: &Place,
         args: Vec<Arg>,
+        exact: bool,
     ) -> Result<(), NativeError> {
         let info = self.info(instance.ty).clone();
         let (members, body) = match &info.kind {
             Kind::Fb { def, members, .. } => {
                 let defs = self.model.types.defs;
                 // The body of a derived type's instance, which a `VAR_IN_OUT` or a reference of
-                // the base's type may name, is bound by its class (IEC §6.6.8.3, §6.6.8.4).
+                // the base's type may name, is bound by its class (IEC §6.6.8.3, §6.6.8.4);
+                // `SUPER()` calls the base's own body (`exact`).
                 let body = match defs.owner(def) {
-                    Some(owner) if defs.extended_below(owner) => {
+                    Some(owner) if !exact && defs.extended_below(owner) => {
                         super::Need::Body(instance.ty).add_to(&mut self.needs);
                         crate::native::dispatch::body_function(self.model, instance.ty)
                     }

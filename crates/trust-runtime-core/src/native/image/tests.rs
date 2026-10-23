@@ -42,6 +42,7 @@ fn sample(spec: &Sample) -> Vec<u8> {
     let file = strings.add("src/vat.st");
     let int = strings.add("INT");
     let program = strings.add("VatControl");
+    let batches_key = strings.add("@program/Vat/Batches");
 
     let mut writer = ImageWriter::new(Target::X86_64, 1);
     writer.rustc = "1.99.0".into();
@@ -187,9 +188,10 @@ fn sample(spec: &Sample) -> Vec<u8> {
     );
     writer.table(
         &[RetainRecord {
-            symbol: 1,
+            key: batches_key,
+            area: 5,
             offset: 0,
-            size: 4,
+            type_index: 2,
         }],
         &[],
     );
@@ -336,11 +338,13 @@ fn a_damaged_image_is_refused_with_its_reason() {
         Image::parse(truncated),
         Err(ImageError::Length { .. })
     ));
+    // An image of format 1, before the retain map named an area for each variable (specification
+    // 44 0.13), is refused.
     let mut version = bytes.clone();
-    version[16] = 2;
+    version[16] = 1;
     assert_eq!(
         Image::parse(&version).err(),
-        Some(ImageError::FormatVersion(2))
+        Some(ImageError::FormatVersion(1))
     );
     let mut table = bytes.clone();
     table[HEADER_BYTES + 12] ^= 1;
