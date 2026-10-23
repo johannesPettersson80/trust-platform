@@ -18,7 +18,7 @@ use trust_runtime::Runtime;
 use trust_syntax::parser;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
 
-use crate::cli::TestOutput;
+use crate::cli::{TestBackend, TestOutput};
 use crate::style;
 
 include!("test_cmd/models.rs");
@@ -26,6 +26,7 @@ include!("test_cmd/command.rs");
 include!("test_cmd/output.rs");
 include!("test_cmd/execute.rs");
 include!("test_cmd/discovery.rs");
+include!("test_cmd/native.rs");
 
 #[cfg(test)]
 #[path = "test_cmd/tests.rs"]

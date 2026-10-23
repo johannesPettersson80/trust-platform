@@ -5,7 +5,7 @@ use core::cell::Cell;
 use core::mem::{align_of, size_of};
 use core::sync::atomic::{AtomicU32, Ordering};
 
-use crate::kernel::WITHOUT_DEBUGGER;
+use crate::kernel::{read_real, without_debugger, RealReader, WITHOUT_DEBUGGER};
 use crate::module::{run, stmt, tick};
 use crate::{
     plain_struct, Cx, FaultCode, KernelApi, RefValue, Str, WStr, AREA_GLOBALS, AREA_INSTANCES,
@@ -44,8 +44,10 @@ fn fault_codes_are_numbered_from_one_in_appendix_order() {
     assert_eq!(FaultCode::DivisionByZero as u32, 1);
     assert_eq!(FaultCode::InfiniteLoop as u32, 13);
     assert_eq!(FaultCode::ModuleInternal as u32, 16);
+    assert_eq!(FaultCode::AssertionFailed as u32, 17);
+    assert_eq!(FaultCode::AssertionNear as u32, 18);
     assert_eq!(FaultCode::from_raw(0), None);
-    assert_eq!(FaultCode::from_raw(17), None);
+    assert_eq!(FaultCode::from_raw(19), None);
 }
 
 plain_struct! {
@@ -160,12 +162,44 @@ extern "C" fn aborting_stop(_cx: *mut Cx, _stmt: u32) -> u32 {
 static COUNTING: KernelApi = KernelApi {
     stop: counting_stop,
     debug_write: WITHOUT_DEBUGGER.debug_write,
+    read_real: WITHOUT_DEBUGGER.read_real,
 };
 
 static ABORTING: KernelApi = KernelApi {
     stop: aborting_stop,
     debug_write: WITHOUT_DEBUGGER.debug_write,
+    read_real: WITHOUT_DEBUGGER.read_real,
 };
+
+/// A reader that reads `2.5` and nothing else.
+struct OneReal;
+
+impl RealReader for OneReal {
+    fn read(text: &[u8]) -> Result<f64, FaultCode> {
+        if text == b"2.5" {
+            Ok(2.5)
+        } else {
+            Err(FaultCode::TypeMismatch)
+        }
+    }
+}
+
+static READING: KernelApi = without_debugger(read_real::<OneReal>);
+
+/// A module reads a real through the kernel (§8.2): the kernel's reader gets the module's bytes,
+/// and the value or the fault comes back, the fault recorded as the call's; a kernel without a
+/// reader refuses every text.
+#[test]
+fn a_module_reads_reals_through_the_kernel() {
+    let mut cx = Cx::new(&READING);
+    assert_eq!(crate::module::read_real(&mut cx, b"2.5"), Ok(2.5));
+    let refused = crate::module::read_real(&mut cx, b"x").expect_err("a text of no real");
+    assert_eq!(refused.raw(), FaultCode::TypeMismatch as u32);
+    assert_eq!(cx.fault.code, FaultCode::TypeMismatch as u32);
+    let mut plain = Cx::new(&WITHOUT_DEBUGGER);
+    let refused = crate::module::read_real(&mut plain, b"2.5").expect_err("no reader");
+    assert_eq!(refused.raw(), FaultCode::TypeMismatch as u32);
+}
 
 /// While armed, a statement whose bit is set calls the kernel's stop with its id, and the others do
 /// not (§13.2): bits for statements 3 and 9 set (byte 0 bit 3, byte 1 bit 1), statements 3, 4 and 9
@@ -212,11 +246,12 @@ fn a_stop_can_end_the_scan() {
     assert!(!reached.get());
 }
 
-/// A kernel of another interface version is refused before the body runs.
+/// A kernel of another interface version is refused before the body runs: a module of version 2
+/// does not run in a kernel of version 1, whose function table has no `read_real`.
 #[test]
 fn another_interface_version_is_refused() {
     let mut cx = context();
-    cx.version = 2;
+    cx.version = 1;
     let ran = Cell::new(false);
     let result = run(&raw mut cx, |_, _| {
         ran.set(true);
@@ -224,7 +259,7 @@ fn another_interface_version_is_refused() {
     });
     assert_eq!(result, FaultCode::ModuleInternal as u32);
     assert!(!ran.get());
-    assert_eq!(cx.fault.detail[..2], [2, 1]);
+    assert_eq!(cx.fault.detail[..2], [1, 2]);
 }
 
 /// The other areas are untouched: an area id outside 1 to 7 is refused.

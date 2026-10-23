@@ -85,7 +85,10 @@ impl ModuleCode for StandIn {
 fn image(body: u32) -> Vec<u8> {
     let mut strings = StringPool::new();
     let fast = strings.add("Fast");
-    let mut writer = ImageWriter::new(Target::this_cpu().unwrap_or(Target::X86_64), 1);
+    let mut writer = ImageWriter::new(
+        Target::this_cpu().unwrap_or(Target::X86_64),
+        u16::try_from(trust_plc_abi::INTERFACE_VERSION).unwrap(),
+    );
     writer.module(CodeImage {
         code: vec![0; 64],
         rodata: Vec::new(),

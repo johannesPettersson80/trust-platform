@@ -1,13 +1,13 @@
 //! The standard functions (IEC §6.6.2.5; specification 07; specification 44 §6.8) by family:
 //! numerical, bit-shift, bitwise, selection, comparison and arithmetic functions in their function
-//! forms, `MOVE`, and the type conversions; the string functions are in `strings`. Each takes its
-//! inputs as the runtime takes them, evaluated in their order, and gives its result and its faults
-//! as the runtime's implementation does.
+//! forms and `MOVE`; the type conversions are in `conversions`, the string functions in `strings`
+//! and the date and time functions in `dates`. Each takes its inputs as the runtime takes them,
+//! evaluated in their order, and gives its result and its faults as the runtime's implementation
+//! does.
 
 use trust_syntax::syntax::SyntaxNode;
 
 use super::call::{Arg, Called, Want};
-use super::expr::Text;
 use super::{is_scalar, Lowerer};
 use crate::native::types::{Elem, Kind, Ty};
 use crate::native::NativeError;
@@ -61,6 +61,9 @@ impl Lowerer<'_, '_> {
         }
         if super::dates::is_date_function(name) {
             return self.call_date_function(node, name, args, &want);
+        }
+        if super::assertions::assertion(name).is_some() {
+            return self.call_assertion(node, name, args);
         }
         let values = self.standard_arguments(node, name, args)?;
         if name == "CONCAT" {
@@ -143,7 +146,11 @@ impl Lowerer<'_, '_> {
 
     /// The common type of `operands`, the widest, as the runtime's functions take their inputs
     /// (specification 07 §6).
-    fn common_of(&mut self, node: &SyntaxNode, operands: &[SyntaxNode]) -> Result<Ty, NativeError> {
+    pub(super) fn common_of(
+        &mut self,
+        node: &SyntaxNode,
+        operands: &[SyntaxNode],
+    ) -> Result<Ty, NativeError> {
         let Some((first, rest)) = operands.split_first() else {
             return Err(self.unsupported(node, "a standard function without inputs"));
         };
@@ -538,98 +545,5 @@ impl Lowerer<'_, '_> {
             _ => return Err(self.unsupported(node, format!("the standard function {name}"))),
         };
         self.result(node, &value, ty, want)
-    }
-
-    /// `SRC_TO_DST(value)` of the result type `ty` (IEC §6.6.2.5.2 to §6.6.2.5.7; specification
-    /// 07 §2), with the runtime's rounding and faults through the library.
-    fn conversion(
-        &mut self,
-        node: &SyntaxNode,
-        name: &str,
-        value: &SyntaxNode,
-        ty: Ty,
-    ) -> Result<Called, NativeError> {
-        let from = self.type_of(value)?;
-        let source = self.scalar(value)?;
-        let Some(src) = self.info(from).scalar() else {
-            return Err(self.unsupported(node, format!("{name} of a value that is no scalar")));
-        };
-        if let Kind::Str(_) = self.info(ty).kind {
-            let temp = self.temp();
-            self.line(&format!("let {temp} = Str::<20>::new();"));
-            if src.is_signed() {
-                self.line(&format!(
-                    "lib::write_int({temp}.view(), i64::from({source}));"
-                ));
-            } else if src.is_unsigned() || src.is_bits() {
-                self.line(&format!(
-                    "lib::write_uint({temp}.view(), u64::from({source}));"
-                ));
-            } else {
-                return Err(self.unsupported(node, format!("{name}: {} as text", src.name())));
-            }
-            return Ok(Called::Text(vec![Text::Str {
-                reference: format!("&{temp}"),
-                capacity: 20,
-            }]));
-        }
-        let Some(dst) = self.info(ty).scalar() else {
-            return Err(self.unsupported(node, format!("{name} to a type that is no scalar")));
-        };
-        let rust = dst.rust();
-        let truncate = name == "TRUNC";
-        let converted = if src == dst || (src.is_duration() && dst.is_duration()) {
-            source
-        } else if let Some((call, faults)) = super::dates::date_conversion(src, dst, &source) {
-            if faults {
-                self.bind(&call)
-            } else {
-                call
-            }
-        } else if src == Elem::Bool && (dst.is_integer() || dst.is_bits()) {
-            format!("({source} as {rust})")
-        } else if src.is_integer() && dst.is_integer() {
-            if src.is_signed() {
-                self.bind(&format!("lib::sint_to::<{rust}>(cx, i64::from({source}))?"))
-            } else {
-                self.bind(&format!("lib::uint_to::<{rust}>(cx, u64::from({source}))?"))
-            }
-        } else if src.is_integer() && dst.is_real() {
-            let (function, wide) = if src.is_signed() {
-                ("sint", "i64")
-            } else {
-                ("uint", "u64")
-            };
-            let bits = if dst == Elem::Real { 32 } else { 64 };
-            format!("lib::{function}_to_real{bits}({wide}::from({source}))")
-        } else if src.is_real() && dst.is_integer() {
-            let rounding = if truncate { "Truncate" } else { "Nearest" };
-            self.bind(&format!(
-                "lib::real_to_int::<{rust}>(cx, f64::from({source}), lib::Rounding::{rounding})?"
-            ))
-        } else if src == Elem::Real && dst == Elem::LReal {
-            self.bind(&format!("lib::real32_to_real::<f64>(cx, {source})?"))
-        } else if src == Elem::LReal && dst == Elem::Real {
-            self.bind(&format!("lib::real64_to_real32::<f32>(cx, {source})?"))
-        } else if (src.is_bits() || src.is_integer()) && (dst.is_bits() || dst.is_integer()) {
-            // A bit string converts by its bits: cut to the destination's width or extended with
-            // zeros, read with the destination's sign (specification 07 §2).
-            format!("({source} as {rust})")
-        } else if src == Elem::DWord && dst == Elem::Real {
-            self.bind(&format!("lib::bits_to_real32(cx, {source})?"))
-        } else if src == Elem::LWord && dst == Elem::LReal {
-            self.bind(&format!("lib::bits_to_real64(cx, {source})?"))
-        } else if src == Elem::Real && dst == Elem::DWord
-            || src == Elem::LReal && dst == Elem::LWord
-        {
-            format!("{source}.to_bits()")
-        } else if src.is_duration() && dst == Elem::DWord {
-            self.bind(&format!("lib::time_to_dword(cx, {source})?"))
-        } else if src == Elem::DWord && dst.is_duration() {
-            format!("lib::dword_to_time({source})")
-        } else {
-            return Err(self.unsupported(node, format!("{name}: {} to {}", src.name(), dst.name())));
-        };
-        Ok(Called::Scalar(converted))
     }
 }

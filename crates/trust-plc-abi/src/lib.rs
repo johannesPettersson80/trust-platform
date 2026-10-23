@@ -33,7 +33,7 @@ pub use strings::{Str, StrView, WStr, WStrView};
 
 /// The version of this interface. A module carries the version it was built against in its image's
 /// header, and a kernel runs only a module of its own version (specification 44 §8.2, §10.2).
-pub const INTERFACE_VERSION: u32 = 1;
+pub const INTERFACE_VERSION: u32 = 2;
 
 /// The id of the input area, `%I` (specification 44 §7.1).
 pub const AREA_INPUTS: u8 = 1;
@@ -91,6 +91,12 @@ pub type StopFn = abi_fn!(*mut Cx, u32 => u32);
 /// symbol index, at a safe point (specification 44 §13.3). It returns 0, else a fault code.
 pub type DebugWriteFn = abi_fn!(*mut Cx, u32 => u32);
 
+/// The kernel's function that reads the real a text spells, as the runtime reads it (specification
+/// 44 §8.2; specification 07 §2.8): the text is `len` bytes at `text`, white space trimmed and
+/// separators taken out, and the real goes to `out`. It returns 0, else the code of a fault:
+/// `TypeMismatch` for a text that spells no real.
+pub type ReadRealFn = abi_fn!(*mut Cx, *const u8, u32, *mut f64 => u32);
+
 /// The functions a scan may call in the kernel (specification 44 §8.2). Everything else a program
 /// needs, its time, inputs, outputs and variables, is memory that the kernel prepared before the
 /// call.
@@ -100,6 +106,8 @@ pub struct KernelApi {
     pub stop: StopFn,
     /// Applies queued writes to one variable.
     pub debug_write: DebugWriteFn,
+    /// Reads the real a text spells.
+    pub read_real: ReadRealFn,
 }
 
 /// What the kernel gives an entry point: the areas, the task's logical time, the statement budget,

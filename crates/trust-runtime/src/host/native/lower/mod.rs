@@ -7,7 +7,9 @@
 //! statement needs is computed into a numbered temporary first (`t1`, `t2`), in source order, so
 //! that the faults of a statement come in the order its operands are written.
 
+mod assertions;
 mod call;
+mod conversions;
 mod dates;
 mod expr;
 mod functions;

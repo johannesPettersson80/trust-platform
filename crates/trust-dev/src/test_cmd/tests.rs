@@ -617,6 +617,7 @@ END_TEST_PROGRAM
         0,
         TestOutput::Human,
         false,
+        TestBackend::Bytecode,
     );
     let error = result.expect_err("configured test program must execute its failing assertion");
     assert!(
@@ -890,7 +891,124 @@ END_TEST_PROGRAM
         0,
         TestOutput::Human,
         false,
+        TestBackend::Bytecode,
     )
     .unwrap();
     let _ = std::fs::remove_dir_all(project);
+}
+
+/// The tests of a project compiled for this computer pass and fail as the bytecode engine's do, with
+/// the runtime's words (specification 44 §14.2): `ASSERT_EQUAL` of `INT#5` and `INT#4` fails
+/// "expected 5, actual 4"; `ASSERT_NEAR` of 1.0 and 1.5 within 0.1 fails with the binary64 spelling
+/// of the `REAL` 0.1, 0.10000000149011612, and the difference 0.5; `ASSERT_TRUE(FALSE)` fails; an
+/// enumeration is written `Type::Value`; and a test that asserts what holds passes. Each test starts
+/// from a cold restart, so `Counter` is 1 in both tests that count. The tests need the toolchain of
+/// specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+#[test]
+fn native_backend_runs_tests_as_the_bytecode_backend_does() {
+    let project =
+        std::env::temp_dir().join(format!("trust-dev-native-tests-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&project);
+    std::fs::create_dir_all(project.join("src")).expect("project folder");
+    std::fs::write(
+        project.join("src/tests.st"),
+        r#"
+TYPE Color : (Red, Green); END_TYPE
+
+VAR_GLOBAL
+    Counter : INT;
+END_VAR
+
+TEST_PROGRAM Passes
+Counter := Counter + 1;
+ASSERT_EQUAL(EXPECTED := INT#1, ACTUAL := Counter);
+ASSERT_TRUE(IN := TRUE);
+ASSERT_NEAR(EXPECTED := REAL#1.0, ACTUAL := REAL#1.05, DELTA := REAL#0.1);
+END_TEST_PROGRAM
+
+TEST_PROGRAM CountsAgain
+Counter := Counter + 1;
+ASSERT_EQUAL(EXPECTED := INT#1, ACTUAL := Counter);
+END_TEST_PROGRAM
+
+TEST_PROGRAM EqualFails
+ASSERT_EQUAL(EXPECTED := INT#5, ACTUAL := INT#4);
+END_TEST_PROGRAM
+
+TEST_PROGRAM NearFails
+ASSERT_NEAR(EXPECTED := REAL#1.0, ACTUAL := REAL#1.5, DELTA := REAL#0.1);
+END_TEST_PROGRAM
+
+TEST_PROGRAM TrueFails
+ASSERT_TRUE(IN := FALSE);
+END_TEST_PROGRAM
+
+TEST_PROGRAM ColorFails
+VAR
+    c : Color := Green;
+END_VAR
+ASSERT_EQUAL(EXPECTED := Color#Red, ACTUAL := c);
+END_TEST_PROGRAM
+"#,
+    )
+    .expect("write the tests");
+    let sources_root = resolve_sources_root(&project, None).expect("sources");
+    let sources = load_sources(&sources_root).expect("load");
+    let discovered = discover_tests(&sources);
+    let native = execute_native_tests(&project, &discovered, &discovered, 5).expect("native run");
+    let mut runtime = compile_test_runtime(&project, &discovered).expect("bytecode build");
+    let outcome = |results: &[ExecutedTest], name: &str| {
+        let result = results
+            .iter()
+            .find(|result| result.case.name.as_str() == name)
+            .unwrap_or_else(|| panic!("{name} ran"));
+        (result.outcome, result.message.clone().unwrap_or_default())
+    };
+    for (name, expected, message) in [
+        ("Passes", TestOutcome::Passed, ""),
+        ("CountsAgain", TestOutcome::Passed, ""),
+        (
+            "EqualFails",
+            TestOutcome::Failed,
+            "ASSERT_EQUAL failed: expected 5, actual 4",
+        ),
+        (
+            "NearFails",
+            TestOutcome::Failed,
+            "ASSERT_NEAR failed: expected 1, actual 1.5, delta 0.10000000149011612, diff 0.5",
+        ),
+        (
+            "TrueFails",
+            TestOutcome::Failed,
+            "ASSERT_TRUE expected TRUE, got FALSE",
+        ),
+        (
+            "ColorFails",
+            TestOutcome::Failed,
+            "ASSERT_EQUAL failed: expected Color::Red, actual Color::Green",
+        ),
+    ] {
+        assert_eq!(
+            outcome(&native, name),
+            (expected, message.to_string()),
+            "{name} compiled"
+        );
+        let case = discovered
+            .iter()
+            .find(|case| case.name.as_str() == name)
+            .expect("discovered");
+        let started = Instant::now();
+        let bytecode = executed(
+            case,
+            execute_test_case_in_runtime(&mut runtime, case, None),
+            5,
+            started,
+        );
+        assert_eq!(
+            (bytecode.outcome, bytecode.message.unwrap_or_default()),
+            (expected, message.to_string()),
+            "{name} in the bytecode engine"
+        );
+    }
+    let _ = std::fs::remove_dir_all(&project);
 }

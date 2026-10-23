@@ -32,9 +32,11 @@ pub(super) struct StartingMemory {
 /// place.
 pub(super) fn starting_memory(
     sources: &[SourceFile],
+    tests: &[SmolStr],
     model: &mut Model<'_>,
 ) -> Result<StartingMemory, NativeError> {
     let runtime = CompileSession::from_sources(sources.to_vec())
+        .with_extra_program_instances(tests.iter().cloned())
         .build_runtime()
         .map_err(|error| NativeError::Compile(error.to_string()))?;
     let mut writer = Writer {

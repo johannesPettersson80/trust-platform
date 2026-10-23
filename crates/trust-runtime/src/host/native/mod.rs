@@ -94,6 +94,9 @@ pub struct Options {
 pub struct Build {
     /// The program image, `TRSTI001`.
     pub image: Vec<u8>,
+    /// The program instances by their number in the image, which
+    /// [`NativeProgram::run_instance`] takes.
+    pub instances: Vec<String>,
     /// The generated crate.
     pub source: String,
     /// The memory figure the image carries.
@@ -106,7 +109,7 @@ pub struct Build {
 ///
 /// [`NativeError`] for sources with errors or a construct the generator does not compile.
 pub fn generate_source(sources: &[SourceFile], options: &Options) -> Result<String, NativeError> {
-    let front = front::Front::analyze(sources)?;
+    let front = front::Front::analyze(sources, &[])?;
     let ids = front.statement_ids();
     let registry = front.lowered.builder.registry().clone();
     let mut model = model::Model::new(&front.lowered, registry)?;
@@ -125,12 +128,28 @@ pub fn build(
     toolchain: &Toolchain,
     work: &Path,
 ) -> Result<Build, NativeError> {
-    let front = front::Front::analyze(sources)?;
+    build_with_tests(sources, &[], options, toolchain, work)
+}
+
+/// Builds the program image of `sources` as [`build`] does, with each of the test programs `tests`
+/// as an instance of its name that no task runs, for `trust-dev test` (specification 13).
+///
+/// # Errors
+///
+/// [`NativeError`] naming the step that failed.
+pub fn build_with_tests(
+    sources: &[SourceFile],
+    tests: &[smol_str::SmolStr],
+    options: &Options,
+    toolchain: &Toolchain,
+    work: &Path,
+) -> Result<Build, NativeError> {
+    let front = front::Front::analyze(sources, tests)?;
     let ids = front.statement_ids();
     let registry = front.lowered.builder.registry().clone();
     let mut model = model::Model::new(&front.lowered, registry)?;
     let generated = emit::generate(&front, &mut model, &ids, options.target, options.hooks)?;
-    let memory = init::starting_memory(sources, &mut model)?;
+    let memory = init::starting_memory(sources, tests, &mut model)?;
     let symbols: Vec<String> = generated
         .entries
         .iter()
@@ -170,8 +189,14 @@ pub fn build(
     parsed
         .check_tables()
         .map_err(|error| NativeError::Image(error.to_string()))?;
+    let instances = model
+        .instances
+        .iter()
+        .map(|instance| instance.name.to_string())
+        .collect();
     Ok(Build {
         image,
+        instances,
         source: generated.source,
         figure,
     })

@@ -1,0 +1,23 @@
+[package]
+name = "trust-plc-mem"
+description = "The memory functions a compiled truST program module for a computer links (specification 44 §4.5)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+# No dependencies: the crate is linked into a computer's program modules only, which have no C
+# library (specification 44 §4.5); a chip's modules take these functions from their target's
+# builtins.
+[dependencies]
+
+# Deliberately not `[lints] workspace = true`: `memcpy` and its kin read and write through the raw
+# pointers the compiler passes them, which the workspace's `unsafe_code = "forbid"` cannot allow.
+# Each site is a registered unsafe site.
+[lints.rust]
+unsafe_code = "warn"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"

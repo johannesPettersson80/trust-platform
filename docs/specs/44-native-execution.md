@@ -1,7 +1,7 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.6 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
-  0.6 make exact what the implementation of milestones M1 and M2 decided within that design,
+- **Status:** 0.7 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+  0.7 make exact what the implementation of milestones M1 and M2 decided within that design,
   Appendix B),
   with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 with unsigned
@@ -201,6 +201,7 @@ Fixed for every target, in the toolchain bundle's manifest, and recorded in the 
 -C target-cpu=<fixed per target> -C target-feature=<fixed per target, §9>
 -C linker=rust-lld -C linker-flavor=ld.lld, linked with --pie --no-dynamic-linker -nostdlib
 --emit-relocs and a linker script that puts CODE at address 0 and RODATA after it
+-C relro-level=off (also for the libraries: a module has no dynamic linking)
 --cfg trust_module
 ```
 
@@ -213,12 +214,23 @@ ELF's symbols are kept for the image builder, which reads the entry points' offs
 image carries none of them. (`-C llvm-args=-stack-size-section`, which 0.1 named, is accepted by
 stable rustc and has no effect: rustc sets that option itself only for `-Z emit-stack-sizes`.)
 
+A module calls `memcpy`, `memmove`, `memset`, `memcmp` and `bcmp` for a large copy, fill or
+comparison. A chip's target builtins hold them; a computer's module, which links no C library,
+takes them from the `trust-plc-mem` crate of the toolchain, which takes part in the link-time
+optimization and loops with volatile accesses, so that the compiler never turns a loop back into a
+call of the function it defines. On x86-64 the prebuilt `core` makes the compiler call these and
+the arithmetic helpers through the global offset table, with a relocation the linker does not
+relax; the image builder relaxes each such load of a function the module defines, as the linker
+relaxes `R_X86_64_GOTPCRELX` (a `call` and a `jmp` become direct, a `mov` a `lea`), and accepts
+the global offset table only when nothing reads it after and its relocations are its own.
+
 ### 4.6 The toolchain bundle
 
 **NX-08.** The tools carry the compiler. The VS Code extension and `trust-runtime` download, on
 the first build that needs it, one bundle per computer platform from truST's release server:
 rustc and rust-lld of the pinned version, `rust-std` for the targets of §4.4, the program library
-and interface crates (§6.9, §8.2) of the kernel version, and a manifest with every hash. The bundle
+and interface crates (§6.9, §8.2) of the kernel version with the crates they link (`libm`, `ryu`,
+and `trust-plc-mem` for the computers' targets, §4.5), and a manifest with every hash. The bundle
 is installed into the extension's private folder (the user's own Rust installation, if any, is
 never used or touched), verified against its manifest before use, and needs no administrator
 rights. The download is about 250 MB once; the installed bundle about 600 MB. For sites without
@@ -582,6 +594,22 @@ How the library carries the runtime's rules over, function by function:
   days as the runtime does, a component outside its range an overflow, and a `SPLIT_*` converts
   every component to its output's type before it writes any, as the runtime writes them in one
   transaction.
+- A number as text is spelled as the runtime spells it (specification 07 §2.8): an integer in
+  decimal, a real as the shortest digits that read back as the same binary64 value in plain decimal
+  notation with `.0` after a whole number, a `REAL` as the binary64 value it widens to, through the
+  runtime's pinned `ryu`. A text is read as the runtime reads it: its Unicode white space trimmed,
+  a single `_` only between two digits, an integer with an optional base before `#` and a sign
+  after it, in 128 bits and then the destination's type (an overflow outside it), a real by the
+  kernel's `read_real`, the runtime's own reader (§8.2; an overflow for one that is not finite); a
+  text that spells nothing is a type mismatch. The library reads a text in a copy the size of its
+  capacity on the stack.
+- A character converts by its code: a number or a bit string to a `CHAR` or `WCHAR` by its value,
+  a negative one by its bits, an overflow above the type; a `CHAR` to a number by its code and to a
+  text as its character in UTF-8; a text to a `CHAR` when it holds exactly one character (a type
+  mismatch otherwise, an overflow above U+00FF). `USINT_TO_BCD_BYTE` and the others write an
+  unsigned integer as decimal digits of four bits each (an overflow for more digits than the bit
+  string holds), `BYTE_BCD_TO_USINT` and the others read them back (a type mismatch for four bits
+  above 9).
 - `AND`, `OR`, `XOR`, `NOT` and `MOD` are keywords of the language: their function forms are no
   Structured Text, and the operators stand for them.
 
@@ -711,18 +739,24 @@ pub struct Cx {
 pub struct KernelApi {
     pub stop: StopFn,          // a breakpoint hit, a pause or a step: returns 0 to continue, else the fault to raise
     pub debug_write: DebugWriteFn, // applies queued Live Values writes to one variable at a safe point
+    pub read_real: ReadRealFn, // reads the real a text spells, as the runtime reads it
 }
 #[repr(C)] pub struct FaultRecord { pub code: u32, pub stmt: u32, pub detail: [i64; 3] }
 ```
 
-`StopFn` is `fn(*mut Cx, u32) -> u32` and `DebugWriteFn` `fn(*mut Cx, u32) -> u32`, in the
-convention §4.4 names. A module records a fault in `Cx::fault` (its code, the statement and up to
+`StopFn` is `fn(*mut Cx, u32) -> u32`, `DebugWriteFn` `fn(*mut Cx, u32) -> u32` and `ReadRealFn`
+`fn(*mut Cx, *const u8, u32, *mut f64) -> u32`, in the convention §4.4 names. `read_real` reads
+the real of `STRING_TO_REAL` and `STRING_TO_LREAL` from the text the program library copied,
+trimmed and took the separators out of (§6.8), with the runtime's own reader, so that a text reads
+alike in the bytecode engine and on every kernel; that reader cannot be compiled into a module,
+which must not be able to panic (§8.6). It returns 0 and the value, or the fault's code
+(`TypeMismatch`). The interface is version 2 since it has this function (version 1 had two). A module records a fault in `Cx::fault` (its code, the statement and up to
 three numbers: the index and the bounds, the value and the bounds) and returns its code; no kernel
 function is called for it. A statement looks at its breakpoint bit only while `armed` is set, so a
 statement costs a store of its id, a decrement of the budget and two branches when no debugger is
 armed.
 
-Two functions are the whole interface a scan can call. Everything else a program needs (time,
+Three functions are the whole interface a scan can call. Everything else a program needs (time,
 inputs, outputs, markers, retain) is memory the kernel prepared before the scan. The kernel calls
 the module only through the entry table.
 
@@ -1064,6 +1098,14 @@ manifest, and its trace must equal the expected artifact the bytecode engine wro
 A name in a manifest resolves as the test harness resolves it: a global by its name, a qualified
 path by its full name, and a program variable by its name alone when one program declares it.
 
+`trust-dev test --execution-backend native` runs a project's tests compiled for the computer
+(specification 22, the test POUs): one image holds every `TEST_PROGRAM` as an instance of its name
+that no task runs, and each test runs after a cold restart, its program's body once, as the
+bytecode runner runs it (`NativeProgram::run_instance`); a test passes, fails with the runtime's
+message of its failed assertion, or ends with its error. The assertions are compiled as the
+runtime's functions decide them (specification 07, MP-014). A `TEST_FUNCTION_BLOCK` is not
+compiled yet.
+
 A project compiled and the same project in the runtime run in lockstep at the project's cycle
 interval, and every variable the image names a value of is compared after every scan
 (`tests/native_compare.rs`). Where the runtime departs from the standard, a compiled program does
@@ -1126,7 +1168,11 @@ specification 10 §10.2 named after it: 1 `DivisionByZero`, 2 `ModuloByZero`, 3 
 `StringCapacityExceeded`, 11 `ReferenceLifetime`, 12 `NonFiniteValue`, 13 `InfiniteLoop` (reported
 as the work limit of TIME-08, `runtime_execution_timeout`), 14 `StackOverflow`, 15
 `MemoryProtection`, 16 `ModuleInternal` (the last three reported as an invalid execution state until
-the runtime has errors of their own).
+the runtime has errors of their own), 17 `AssertionFailed` (a test's comparison or truth assertion:
+the operands' bytes, and the assertion with the type table's indexes of the operands' types; the
+kernel reads the operands through the type table and words the runtime's message), 18
+`AssertionNear` (`ASSERT_NEAR`: the expected, the actual and the delta in binary64); both are
+reported as the runtime's `AssertionFailed` with its message.
 
 ## Appendix B — Revision history
 
@@ -1138,3 +1184,4 @@ the runtime has errors of their own).
 | 0.4 | 22 October 2026 | Exact where milestone M2's retain decided within the approved design: the capture writes the codec's bytes from the retain area through the type table, without building values, and leaves out a variable that holds an instance as the interpreter does; the restore applies specification 11 §6.7's migrations against the type table and gives a structure member the checkpoint lacks its starting value; a retained variable the checkpoint lacks keeps its value, as the interpreter's warm restart keeps it; the install check restores the newest checkpoint into the new image (§11); the process images are carried over a restart and the variables at `%M` published after it, as specification 11 §6.7 says (§6.7); the retain capture of the figure is twice the kernel's payload bound (§10.4). |
 | 0.5 | 23 October 2026 | Exact where milestone M2's coverage decided within the approved design: the conformance suite runs on a computer's kernel and a project runs in lockstep with the runtime, variable by variable (§14.2); references, `REF`, `^` and a function block's `VAR_IN_OUT` as a stored reference (§7.3); and the object-oriented constructs (§6.2, §6.4, §6.5, §7.2, §7.3): an instance of a derived type holds its base first; only a hierarchy that implements an interface or has more than one type holds class ids, so a function block of neither pays no bytes; a call is bound statically unless a derived type overrides the method, and then, as through an interface, by a `match` on the class id over the laid-out types; such an instance is never a frame variable; a property is a call of its `GET` or `SET`; a method's outputs are copied to their variables after the call; a call through a `NULL` interface is a null dereference. The runtime's two departures from the standard that the comparison found are listed in §14.2. |
 | 0.6 | 23 October 2026 | Exact where milestone M2's standard functions decided within the approved design: how the program library carries the runtime's rules over, function by function, for the numerical, bit, selection, comparison, string, counter and bistable functions and for dates and times (§6.8); a date and time range fault is reported as the runtime reports it, no longer as an overflow (Appendix A); the runtime's third departure from the standard, a `STRING` character above U+00FF read as a `CHAR` (§14.2). |
+| 0.7 | 23 October 2026 | Exact where milestone M2's conversions and frames decided within the approved design: a frame starts at each call at its initial values and its types' defaults, computed by the build (§6.7); numbers, characters and BCD to and from text as the runtime converts them (§6.8); the interface gains the kernel function `read_real`, the runtime's own reader of reals, which no module can carry because it can panic, and becomes version 2 (§8.2); a computer's module links the toolchain's memory functions, modules are compiled without RELRO, and the image builder relaxes x86-64 loads from the global offset table of the functions the module defines (§4.5, §4.6); a test's failed assertion is a fault of its own, 17 or 18, worded by the kernel as the runtime words it, and `trust-dev test` runs a project's tests compiled (§14.2, Appendix A). |

@@ -8,7 +8,7 @@
 use trust_plc_abi::module::fault;
 use trust_plc_abi::{Cx, Fault, FaultCode, StrView};
 
-use crate::text::{starts_character, write_parts, Piece, MAX_TEXT};
+use crate::text::{assign_bytes, starts_character, write_parts, Piece, MAX_TEXT};
 
 /// The characters of `text`.
 fn characters(text: StrView<'_>) -> usize {
@@ -354,5 +354,43 @@ pub fn set_char(cx: &mut Cx, text: StrView<'_>, index: i64, character: u8) -> Re
     }
     // The capacity is at most 65,535 (specification 44 §7.6).
     text.len.set(u16::try_from(end).unwrap_or(u16::MAX));
+    Ok(())
+}
+
+/// `STRING_TO_CHAR(text)`: the one character of `text` as a `CHAR`.
+///
+/// # Errors
+///
+/// `TypeMismatch` for a text of no character or of more than one, and `Overflow` for a character
+/// above 255, which no `CHAR` holds.
+pub fn text_to_char(cx: &mut Cx, text: StrView<'_>) -> Result<u8, Fault> {
+    if characters(text) != 1 {
+        return Err(fault(cx, FaultCode::TypeMismatch, 0, 0, 0));
+    }
+    let code = decode(text, 0);
+    u8::try_from(code).map_err(|_| fault(cx, FaultCode::Overflow, i64::from(code), 0, 0))
+}
+
+/// `CHAR_TO_STRING(code)`: the character of `code`, U+0000 to U+00FF, in UTF-8 into `dst`.
+pub fn write_char(dst: StrView<'_>, code: u8) {
+    let (encoded, used): ([u8; 2], usize) = if code < 0x80 {
+        ([code, 0], 1)
+    } else {
+        ([0xC0 | (code >> 6), 0x80 | (code & 0x3F)], 2)
+    };
+    assign_bytes(dst, encoded.get(..used).unwrap_or(&[]));
+}
+
+/// `WCHAR_TO_STRING(code)`: the character of `code` in UTF-8 into `dst`.
+///
+/// # Errors
+///
+/// `TypeMismatch` for a code of half a surrogate pair, which is no character.
+pub fn write_wchar(cx: &mut Cx, dst: StrView<'_>, code: u16) -> Result<(), Fault> {
+    let Some(character) = char::from_u32(u32::from(code)) else {
+        return Err(fault(cx, FaultCode::TypeMismatch, i64::from(code), 0, 0));
+    };
+    let mut encoded = [0u8; 4];
+    assign_bytes(dst, character.encode_utf8(&mut encoded).as_bytes());
     Ok(())
 }

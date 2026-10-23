@@ -24,10 +24,10 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use trust_plc_abi::kernel::WITHOUT_DEBUGGER;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::native::live::io_bindings;
 use trust_runtime_core::native::program::{self as native, ModuleCode, NativeProgram};
+use trust_runtime_core::native::KERNEL_FUNCTIONS;
 use trust_runtime_core::ports::{HardwareWatchdog, MonotonicClock};
 use trust_runtime_core::retain::checkpoint::CheckpointFlash;
 use trust_runtime_core::retain::RestartMode;
@@ -150,7 +150,7 @@ where
             .map_err(|refusal| format!("the installed application cannot be loaded: {refusal}"))?;
         let (_, module) = admitted.module();
         let code = self.modules.place(module);
-        let program = NativeProgram::new(admitted, code, &device, &WITHOUT_DEBUGGER)
+        let program = NativeProgram::new(admitted, code, &device, &KERNEL_FUNCTIONS)
             .map_err(|refusal| format!("the installed application cannot be loaded: {refusal}"))?;
         platform.feed();
         let (bindings, names) = io_bindings(program.image()).map_err(|error| {

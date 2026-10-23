@@ -1,8 +1,9 @@
 //! A compiled program on this computer (specification 44 §10.3): its image admitted, its module's
 //! code copied into executable memory, and the kernel's program over it.
 
-use trust_plc_abi::kernel::{Entry, Executable, WITHOUT_DEBUGGER};
+use trust_plc_abi::kernel::{Entry, Executable};
 use trust_runtime_core::native::program::{admit, Device, ModuleCode, NativeProgram};
+use trust_runtime_core::native::KERNEL_FUNCTIONS;
 
 use super::NativeError;
 
@@ -29,6 +30,6 @@ pub fn load<'i>(
     let (_, module) = image.module();
     let code = Executable::load(module)
         .map_err(|error| NativeError::Image(format!("the module cannot be mapped: {error}")))?;
-    NativeProgram::new(image, HostCode(code), device, &WITHOUT_DEBUGGER)
+    NativeProgram::new(image, HostCode(code), device, &KERNEL_FUNCTIONS)
         .map_err(|refusal| NativeError::Image(refusal.to_string()))
 }

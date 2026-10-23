@@ -24,14 +24,27 @@ ln -sfn "$sysroot/lib/rustlib/$host/bin/rust-lld" "$out/bin/rust-lld"
 for triple in "${triples[@]}"; do
   build="$out/build"
   # The module flags of specification 44 §4.5 that the libraries share with the module:
-  # position-independent code, abort on panic, and bitcode for the module's link-time optimization.
-  RUSTFLAGS="-C relocation-model=pic -C panic=abort -C embed-bitcode=yes -C opt-level=2 -C codegen-units=1" \
-    cargo build --quiet --release -p trust-plc-lib --target "$triple" --target-dir "$build"
+  # position-independent code, abort on panic, bitcode for the module's link-time optimization,
+  # and no RELRO, so that the memory functions are called directly, not through a global offset
+  # table (the flag travels in the bitcode).
+  # A computer's module links no C library, so it takes the memory functions from
+  # trust-plc-mem; a chip's target builtins have them.
+  packages=(-p trust-plc-lib)
+  crates=(trust_plc_abi trust_plc_lib libm ryu)
+  case $triple in
+    *-none-*) ;;
+    *) packages+=(-p trust-plc-mem); crates+=(trust_plc_mem) ;;
+  esac
+  RUSTFLAGS="-C relocation-model=pic -C panic=abort -C embed-bitcode=yes -C opt-level=2 -C codegen-units=1 -C relro-level=off" \
+    cargo build --quiet --release "${packages[@]}" --target "$triple" --target-dir "$build"
   libraries="$out/lib/$triple"
   mkdir -p "$libraries"
   rm -f "$libraries"/*.rlib
-  cp "$build/$triple/release/deps/"libtrust_plc_abi-*.rlib \
-     "$build/$triple/release/deps/"libtrust_plc_lib-*.rlib \
-     "$build/$triple/release/deps/"liblibm-*.rlib "$libraries/"
+  # The newest build of each crate the library links, so that an older build left in the
+  # target folder is no second candidate.
+  for crate in "${crates[@]}"; do
+    newest=$(ls -t "$build/$triple/release/deps/"lib"$crate"-*.rlib | head -1)
+    cp "$newest" "$libraries/"
+  done
   echo "$triple: $(ls "$libraries" | tr '\n' ' ')"
 done

@@ -383,9 +383,9 @@ A program compiled into a native module calls the program library (`trust-plc-li
 runtime's functions. `crates/trust-runtime/tests/native_stdlib.rs` runs each family compiled and in
 the runtime in lockstep and compares every result and every fault. Compiled today:
 
-- Table 22 conversions between the integers, the reals and the bit strings, `TIME` and `DWORD`,
-  between the date and time types, integers to `STRING`; the other conversions are refused at
-  build (NX-09).
+- Tables 22 to 27 conversions between the integers, the reals and the bit strings, `TIME` and
+  `DWORD`, between the date and time types, numbers and characters to and from `STRING`, numbers
+  to and from `CHAR`, and BCD; the other conversions are refused at build (NX-09).
 - Table 23 numerical functions: `ABS`, `SQRT`, `LN`, `LOG`, `EXP`, `SIN`, `COS`, `TAN`, `ASIN`,
   `ACOS`, `ATAN`, `ATAN2`, `EXPT`; Table 24 `ADD`, `SUB`, `MUL`, `DIV` in function form, `MOVE`.
 - Table 26 `SHL`, `SHR`, `ROL`, `ROR`; Tables 29 to 31 `SEL`, `MAX`, `MIN`, `LIMIT`, `MUX`, `GT`,
@@ -396,6 +396,8 @@ the runtime in lockstep and compares every result and every fault. Compiled toda
 - Tables 36 and 37: the date and time operators and functions (`ADD_TOD_TIME`, `SUB_DT_DT`,
   `MUL_TIME`, `CONCAT_DATE`, `CONCAT_DT`, `SPLIT_DATE`, `SPLIT_DT`, `DAY_OF_WEEK`, … and their
   long forms) and the conversions between the date and time types.
-- Not yet: conversions to and from text other than integers to `STRING`, BCD, `WSTRING`, and the
-  assertion functions.
+- The assertion functions of the non-IEC extensions (MP-014) on scalars (`ASSERT_TRUE`,
+  `ASSERT_FALSE`, `ASSERT_EQUAL`, `ASSERT_NOT_EQUAL`, `ASSERT_GREATER`, `ASSERT_LESS`,
+  `ASSERT_GREATER_OR_EQUAL`, `ASSERT_LESS_OR_EQUAL`, `ASSERT_NEAR`), with the runtime's messages.
+- Not yet: `WSTRING` and `WCHAR` texts, and assertions of texts.
 

@@ -4,8 +4,8 @@
 use core::cell::Cell;
 use core::cmp::Ordering;
 
-use trust_plc_abi::kernel::WITHOUT_DEBUGGER;
-use trust_plc_abi::{Cx, Fault, FaultCode, Plain, Str};
+use trust_plc_abi::kernel::{read_real, without_debugger, RealReader, WITHOUT_DEBUGGER};
+use trust_plc_abi::{Cx, Fault, FaultCode, KernelApi, Plain, Str};
 
 use crate::*;
 
@@ -575,4 +575,85 @@ fn durations_move_dates_in_whole_milliseconds() {
         code(scale_real(&mut cx, 1_000, 0.0, false)),
         FaultCode::DivisionByZero as u32
     );
+}
+
+/// Whether a string the library wrote holds `expected`.
+fn holds<const N: usize>(text: &Str<N>, expected: &str) -> bool {
+    let view = text.view();
+    view.len() == expected.len()
+        && expected
+            .bytes()
+            .enumerate()
+            .all(|(index, byte)| view.byte(index) == byte)
+}
+
+/// A real is spelled as the runtime spells it (specification 07 §2.8): the shortest digits that
+/// read back as the same binary64 value, in plain decimal notation, `.0` after a whole number.
+/// A `REAL` 0.1 widens to 0.100000001490116119384765625, whose shortest binary64 digits are
+/// 0.10000000149011612; 1E30 is 1 and 30 zeros; the minus sign of zero stays; 1.5E-7 is
+/// 0.00000015.
+#[test]
+fn reals_are_spelled_as_the_runtime_spells_them() {
+    for (value, expected) in [
+        (f64::from(0.1f32), "0.10000000149011612"),
+        (0.1, "0.1"),
+        (1.0e30, "1000000000000000000000000000000.0"),
+        (-0.0, "-0.0"),
+        (0.5, "0.5"),
+        (100.0, "100.0"),
+        (1.5e-7, "0.00000015"),
+        (-2.5, "-2.5"),
+    ] {
+        let text = Str::<{ REAL_TEXT }>::new();
+        write_real(text.view(), value);
+        assert!(holds(&text, expected), "{value}");
+    }
+}
+
+/// A reader of reals for these tests, the core library's; a kernel's is the runtime's own, which the
+/// lockstep families of the native tests compare.
+struct CoreReals;
+
+impl RealReader for CoreReals {
+    fn read(text: &[u8]) -> Result<f64, FaultCode> {
+        core::str::from_utf8(text)
+            .ok()
+            .and_then(|text| text.parse().ok())
+            .ok_or(FaultCode::TypeMismatch)
+    }
+}
+
+static READING: KernelApi = without_debugger(read_real::<CoreReals>);
+
+/// A text is read as the runtime reads it (specification 07 §2.8): white space around it
+/// trimmed, a single `_` between digits, a base before `#` with the sign after it; `--5`, `_1`
+/// and `1e3` spell no integer; a real's separators are taken out before the kernel reads it, and
+/// one out of binary64's range is an overflow.
+#[test]
+fn texts_are_read_as_the_runtime_reads_them() {
+    let mut cx = Cx::new(&READING);
+    let integer = |cx: &mut Cx, spelled: &str| {
+        let text = Str::<32>::new();
+        assign_bytes(text.view(), spelled.as_bytes());
+        let mut scratch = [0u8; 32];
+        parse_int(cx, text.view(), &mut scratch)
+    };
+    assert_eq!(integer(&mut cx, " 16#FF "), Ok(255));
+    assert_eq!(integer(&mut cx, "1_000"), Ok(1000));
+    assert_eq!(integer(&mut cx, "8#-17"), Ok(-15));
+    assert_eq!(integer(&mut cx, "+5"), Ok(5));
+    let mismatch = FaultCode::TypeMismatch as u32;
+    for spelled in ["--5", "_1", "1e3", "", "16#", "1__0"] {
+        assert_eq!(code(integer(&mut cx, spelled)), mismatch, "{spelled}");
+    }
+    let real = |cx: &mut Cx, spelled: &str| {
+        let text = Str::<32>::new();
+        assign_bytes(text.view(), spelled.as_bytes());
+        let mut scratch = [0u8; 32];
+        parse_real(cx, text.view(), &mut scratch)
+    };
+    assert_eq!(real(&mut cx, " 1_000.5 "), Ok(1000.5));
+    assert_eq!(real(&mut cx, "-2.5E2"), Ok(-250.0));
+    assert_eq!(code(real(&mut cx, "1e400")), OVERFLOW);
+    assert_eq!(code(real(&mut cx, "abc")), mismatch);
 }

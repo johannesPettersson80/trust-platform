@@ -736,9 +736,40 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         let code = function.call(&mut self.cx);
         if code == 0 {
             Ok(())
+        } else if code == FaultCode::AssertionFailed as u32
+            || code == FaultCode::AssertionNear as u32
+        {
+            // A test's failed assertion, worded as the runtime words it, its operands read
+            // through the type table.
+            let types = Types::of(&self.image)?;
+            Err(RuntimeError::AssertionFailed(
+                assertions::message(&types, &self.cx.fault, code).into(),
+            ))
         } else {
             Err(fault_error(&self.cx.fault, code, self.budget))
         }
+    }
+
+    /// Runs the body of program instance `instance`, the program's number of its body's entry, once
+    /// at logical time `now`, outside the task schedule: the inputs are not sampled and the outputs
+    /// not published. This is a test program's run (specification 22; `trust-dev test`).
+    ///
+    /// # Errors
+    ///
+    /// The fault the body ended with; [`RuntimeError::UndefinedProgram`] for an instance the
+    /// image has no body of.
+    pub fn run_instance(&mut self, instance: u32, now: Duration) -> Result<(), RuntimeError> {
+        let entry = self
+            .image
+            .table::<EntryRecord>()
+            .ok()
+            .and_then(|entries| {
+                entries.iter().position(|entry| {
+                    entry.kind == EntryKind::ProgramBody as u32 && entry.index == instance
+                })
+            })
+            .ok_or_else(|| RuntimeError::UndefinedProgram(alloc::format!("{instance}").into()))?;
+        self.call(entry, u32::MAX, now)
     }
 
     /// The value of the variable whose canonical name is `canonical`, read through the symbol and
@@ -853,6 +884,9 @@ pub fn fault_error(record: &FaultRecord, code: u32, budget: u32) -> RuntimeError
             requested: 1,
             limit: budget as usize,
         },
+        Some(FaultCode::AssertionFailed | FaultCode::AssertionNear) => {
+            RuntimeError::AssertionFailed("assertion failed".into())
+        }
         Some(
             FaultCode::StackOverflow | FaultCode::MemoryProtection | FaultCode::ModuleInternal,
         )
@@ -860,5 +894,6 @@ pub fn fault_error(record: &FaultRecord, code: u32, budget: u32) -> RuntimeError
     }
 }
 
+mod assertions;
 #[cfg(test)]
 pub(crate) mod tests;

@@ -57,6 +57,18 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   enumeration's first value, a subrange's lower bound, a structure's members' initial values), and
   an input a call left out took zero instead of its default; initial values of a function's locals
   and outputs did not compile.
+- Added: compiled programs convert numbers to and from text as the runtime does (`REAL_TO_STRING`
+  spells the shortest digits that read back, `STRING_TO_INT` takes white space, `_`, bases and
+  signs), numbers to and from characters, and BCD (`USINT_TO_BCD_BYTE`, `BYTE_BCD_TO_USINT`).
+- Added: `trust-dev test --execution-backend native` runs a project's `TEST_PROGRAM`s compiled for
+  the computer, each after a cold restart, with the bytecode runner's results and the runtime's
+  messages of failed assertions (`ASSERT_EQUAL`, `ASSERT_NEAR`, `ASSERT_TRUE`, …).
+- Changed: the kernel interface of compiled programs is version 2: a kernel reads the real of
+  `STRING_TO_REAL` with the runtime's own reader for the program. An image built before must be
+  rebuilt.
+- Fixed: a compiled program for a computer whose code copied, filled or compared a large block,
+  such as a long `STRING` or a large array, did not link: the module had no `memcpy` and called the
+  memory functions through a global offset table it may not have.
 - Fixed: `ABS(-0.0)` of a compiled program kept the minus sign of zero; it is `0.0`, as in the
   runtime.
 - Fixed: a compiled program bound a standard function's formal arguments by position, so

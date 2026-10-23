@@ -78,11 +78,17 @@ pub enum FaultCode {
     /// A fault that compiled code cannot raise by construction, such as an area smaller than its
     /// program's view of it (specification 44 §8.6).
     ModuleInternal = 16,
+    /// A test's comparison or truth assertion failed: the operands' bytes and the assertion with
+    /// the operands' types (specification 44 Appendix A): `runtime_assertion_failed`.
+    AssertionFailed = 17,
+    /// A test's `ASSERT_NEAR` failed: the expected, the actual and the delta in binary64:
+    /// `runtime_assertion_failed`.
+    AssertionNear = 18,
 }
 
 impl FaultCode {
     /// Every code, in the order of their numbers.
-    pub const ALL: [Self; 16] = [
+    pub const ALL: [Self; 18] = [
         Self::DivisionByZero,
         Self::ModuloByZero,
         Self::Overflow,
@@ -99,6 +105,8 @@ impl FaultCode {
         Self::StackOverflow,
         Self::MemoryProtection,
         Self::ModuleInternal,
+        Self::AssertionFailed,
+        Self::AssertionNear,
     ];
 
     /// The code numbered `raw`, or `None` for a number no code has.

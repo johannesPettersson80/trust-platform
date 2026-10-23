@@ -3,7 +3,9 @@
 
 use core::ptr::NonNull;
 
-use crate::{Area, Cx, EntryFn, FaultRecord, KernelApi, AREA_COUNT, INTERFACE_VERSION};
+use crate::{
+    Area, Cx, EntryFn, FaultCode, FaultRecord, KernelApi, ReadRealFn, AREA_COUNT, INTERFACE_VERSION,
+};
 
 /// An entry point of an admitted module.
 #[derive(Clone, Copy)]
@@ -112,11 +114,83 @@ extern "C" fn no_queued_write(_cx: *mut Cx, _symbol: u32) -> u32 {
     0
 }
 
-/// The functions of a kernel without a debugger: a stop continues at once and no write is queued.
-pub static WITHOUT_DEBUGGER: KernelApi = KernelApi {
-    stop: continue_stop,
-    debug_write: no_queued_write,
-};
+/// How a kernel reads the real a text spells: with the runtime's own reader, so that a compiled
+/// program reads every text as the runtime does (specification 44 §8.2; specification 07 §2.8).
+pub trait RealReader {
+    /// The real `text` spells.
+    ///
+    /// # Errors
+    ///
+    /// The code of the fault for a text that spells no real.
+    fn read(text: &[u8]) -> Result<f64, FaultCode>;
+}
+
+/// A reader that reads no real, for a kernel whose programs read no text as a real.
+pub struct NoReals;
+
+impl RealReader for NoReals {
+    fn read(_text: &[u8]) -> Result<f64, FaultCode> {
+        Err(FaultCode::TypeMismatch)
+    }
+}
+
+/// The kernel function [`KernelApi::read_real`] of reader `R`.
+#[cfg(target_arch = "x86_64")]
+pub extern "sysv64" fn read_real<R: RealReader>(
+    _cx: *mut Cx,
+    text: *const u8,
+    len: u32,
+    out: *mut f64,
+) -> u32 {
+    read_real_with::<R>(text, len, out)
+}
+
+/// The kernel function [`KernelApi::read_real`] of reader `R`.
+#[cfg(not(target_arch = "x86_64"))]
+pub extern "C" fn read_real<R: RealReader>(
+    _cx: *mut Cx,
+    text: *const u8,
+    len: u32,
+    out: *mut f64,
+) -> u32 {
+    read_real_with::<R>(text, len, out)
+}
+
+#[allow(unsafe_code)]
+fn read_real_with<R: RealReader>(text: *const u8, len: u32, out: *mut f64) -> u32 {
+    let Ok(len) = usize::try_from(len) else {
+        return FaultCode::ModuleInternal as u32;
+    };
+    if text.is_null() || out.is_null() {
+        return FaultCode::ModuleInternal as u32;
+    }
+    // SAFETY: a module calls with its own copy of the text, `len` bytes at `text` that it holds for
+    // the call, and its own aligned `f64` at `out` (`module::read_real`); null is refused before.
+    let bytes = unsafe { core::slice::from_raw_parts(text, len) };
+    match R::read(bytes) {
+        Ok(value) => {
+            // SAFETY: as above, `out` is the module's own `f64`.
+            unsafe { out.write(value) };
+            0
+        }
+        Err(code) => code as u32,
+    }
+}
+
+/// The functions of a kernel without a debugger that reads reals with `read_real`: a stop
+/// continues at once and no write is queued.
+#[must_use]
+pub const fn without_debugger(read_real: ReadRealFn) -> KernelApi {
+    KernelApi {
+        stop: continue_stop,
+        debug_write: no_queued_write,
+        read_real,
+    }
+}
+
+/// The functions of a kernel without a debugger whose programs read no text as a real: a stop
+/// continues at once, no write is queued and no text reads.
+pub static WITHOUT_DEBUGGER: KernelApi = without_debugger(read_real::<NoReals>);
 
 /// A module's code and read-only data where the image lies, on a device whose CPU executes them in
 /// place: the C6's flash through its MMU window, the U5A9's flash (specification 44 §10.3).

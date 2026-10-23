@@ -36,6 +36,14 @@ mod cli {
         Tap,
         Json,
     }
+
+    /// What runs the tests: the bytecode engine, or the project compiled for this computer
+    /// (specification 44).
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+    pub enum TestBackend {
+        Bytecode,
+        Native,
+    }
 }
 
 #[derive(Debug, Parser)]
@@ -100,6 +108,10 @@ enum Command {
         /// Enable CI-friendly behavior (`human` output defaults to `junit`).
         #[arg(long, action = clap::ArgAction::SetTrue)]
         ci: bool,
+        /// What runs the tests: `bytecode`, or `native`, the project compiled for this computer
+        /// with the toolchain at `TRUST_TOOLCHAIN`.
+        #[arg(long = "execution-backend", value_enum, default_value_t = cli::TestBackend::Bytecode)]
+        execution_backend: cli::TestBackend,
     },
 }
 
@@ -157,6 +169,15 @@ fn run() -> anyhow::Result<()> {
             timeout,
             output,
             ci,
-        } => test::run_test(project, filter, list, timeout, output, ci),
+            execution_backend,
+        } => test::run_test(
+            project,
+            filter,
+            list,
+            timeout,
+            output,
+            ci,
+            execution_backend,
+        ),
     }
 }

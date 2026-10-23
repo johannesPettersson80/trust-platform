@@ -5,6 +5,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use smol_str::SmolStr;
 use trust_hir::db::{FileAnalysis, SemanticDatabase};
 use trust_hir::SymbolId;
 use trust_hir::TypeId;
@@ -109,7 +110,7 @@ impl Front {
     /// # Errors
     ///
     /// [`NativeError::Compile`] with every error trust-hir reports, labelled by file.
-    pub(super) fn analyze(sources: &[SourceFile]) -> Result<Self, NativeError> {
+    pub(super) fn analyze(sources: &[SourceFile], tests: &[SmolStr]) -> Result<Self, NativeError> {
         let (lowered, frontend) = lower_application_and_frontend(
             sources,
             true,
@@ -119,9 +120,10 @@ impl Front {
         // The configuration as the runtime prepares it for its own build: a project without a
         // CONFIGURATION runs each PROGRAM as one instance of its name, without a task, and the
         // program types and instances are resolved and checked by the same rules (specification
-        // 18 §2.2).
+        // 18 §2.2); each test program is an instance of its name without a task, as `trust-dev
+        // test` builds it.
         let lowered = lowered
-            .prepare_authoring(&[])
+            .prepare_authoring(tests)
             .map_err(|error| NativeError::Compile(error.to_string()))?;
         let database = frontend.project.database();
         let mut checked = Vec::with_capacity(sources.len());

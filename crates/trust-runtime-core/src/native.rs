@@ -7,9 +7,12 @@
 //! program. The image's deployment record ([`DeploymentRecord::for_image`](crate::deployment::DeploymentRecord::for_image))
 //! comes from its own tables.
 
+mod functions;
 pub mod image;
 pub mod live;
 pub mod program;
 mod record;
 pub mod retain;
 mod values;
+
+pub use functions::{RuntimeReals, KERNEL_FUNCTIONS};

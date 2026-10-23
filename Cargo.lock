@@ -6928,8 +6928,13 @@ name = "trust-plc-lib"
 version = "0.24.75"
 dependencies = [
  "libm",
+ "ryu",
  "trust-plc-abi",
 ]
+
+[[package]]
+name = "trust-plc-mem"
+version = "0.24.75"
 
 [[package]]
 name = "trust-plcopen"

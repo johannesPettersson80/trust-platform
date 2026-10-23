@@ -8,11 +8,12 @@ repository.workspace = true
 rust-version.workspace = true
 
 # Compiled into every program module for every target of specification 44 §4.4, so only crates
-# that build without std and without a heap. `libm` is the pure-Rust mathematics every target
-# shares (specification 44 §9).
+# that build without std and without a heap and that cannot panic. `libm` is the pure-Rust
+# mathematics every target shares, and `ryu` spells reals as the runtime does (specification 44 §9).
 [dependencies]
 trust-plc-abi = { workspace = true }
 libm.workspace = true
+ryu.workspace = true
 
 # Deliberately not `[lints] workspace = true`: the library has no `unsafe` code of its own, so it
 # denies it, but its function block types are declared with `trust_plc_abi::plain_struct!`, whose

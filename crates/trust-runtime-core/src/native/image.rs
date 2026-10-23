@@ -193,6 +193,14 @@ impl Target {
     pub fn thumb(self) -> bool {
         self == Self::ThumbV8mMainHf
     }
+
+    /// Whether the target is a computer's CPU, whose modules link no C library and take the
+    /// memory functions from the toolchain (specification 44 §4.5), where a chip's target builtins
+    /// hold them.
+    #[must_use]
+    pub fn is_computer(self) -> bool {
+        matches!(self, Self::X86_64 | Self::Aarch64)
+    }
 }
 
 /// The header (specification 44 §5.2).

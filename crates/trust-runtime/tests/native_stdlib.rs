@@ -706,3 +706,125 @@ fn date_and_time_functions_compute_as_the_runtime_computes_them() {
     );
     family.run();
 }
+
+/// The conversions to and from texts, characters and BCD (specification 07 §2.8; IEC Tables 22
+/// to 27): reals spelled as the runtime spells them, texts read with their white space, separators,
+/// bases and signs or refused, characters by their codes, and BCD digits, compiled and in the
+/// runtime in lockstep.
+#[test]
+fn text_conversions_compute_as_the_runtime_computes_them() {
+    let spelled = [
+        "' 16#FF '",
+        "'1_000'",
+        "'-128'",
+        "'127'",
+        "'128'",
+        "'+5'",
+        "'--5'",
+        "'_1'",
+        "'1e3'",
+        "''",
+        "'2#1010_1010'",
+        "'8#-17'",
+        "'36#Z'",
+        "'37#1'",
+        "'0'",
+        "'-0'",
+        "'99999999999999999999'",
+        "'-9223372036854775808'",
+        "'18446744073709551615'",
+        "'1.5'",
+        "' 2.5E2 '",
+        "'1_000.25'",
+        "'-0.0'",
+        "'1e400'",
+        "'abc'",
+        "'3.5E38'",
+        "'1.0E-50'",
+        "'NaN'",
+        "'inf'",
+        "'A'",
+        "'é'",
+        "'AB'",
+        "' '",
+        "'0x10'",
+        "'1 000'",
+        "'$N42$T'",
+        "'42 '",
+        "'4_2'",
+        "'16#_F'",
+        "'16#F_'",
+    ];
+    let count = spelled.len();
+    let mut numbers = Numbers(31);
+    let mut family = Family::new("texts", count);
+    family.input(
+        "s",
+        "STRING[40]",
+        &spelled
+            .iter()
+            .map(|text| (*text).to_string())
+            .collect::<Vec<_>>(),
+    );
+    let real_values = reals(&mut numbers, count);
+    family.input(
+        "r",
+        "LREAL",
+        &real_values
+            .iter()
+            .map(|value| real64(*value))
+            .collect::<Vec<_>>(),
+    );
+    #[allow(clippy::cast_possible_truncation)]
+    let narrow: Vec<String> = real_values
+        .iter()
+        .map(|value| real32(value.clamp(-3.0e38, 3.0e38) as f32))
+        .collect();
+    family.input("f", "REAL", &narrow);
+    let codes: Vec<String> = (0..count)
+        .map(|_| numbers.integer(-10, 300).to_string())
+        .collect();
+    family.input("n", "DINT", &codes);
+    // ASCII only: the runtime refuses a `CHAR` initial value above 127 (checklist); the codes above
+    // come from `DINT_TO_CHAR`.
+    let characters: Vec<String> = ["'A'", "'z'", "'#'", "' '", "'$$'", "'0'", "'$''", "'~'"]
+        .iter()
+        .cycle()
+        .take(count)
+        .map(|text| (*text).to_string())
+        .collect();
+    family.input("c", "CHAR", &characters);
+    let small: Vec<String> = (0..count)
+        .map(|_| numbers.integer(0, 255).to_string())
+        .collect();
+    family.input("us", "USINT", &small);
+    let bytes: Vec<String> = (0..count)
+        .map(|_| numbers.integer(0, 255).to_string())
+        .collect();
+    family.input("b", "BYTE", &bytes);
+    let words: Vec<String> = (0..count)
+        .map(|_| numbers.integer(0, 65_535).to_string())
+        .collect();
+    family.input("ui", "UINT", &words);
+    family.input("w", "WORD", &words);
+    family.call("STRING[400]", "OUT := LREAL_TO_STRING(r[i]);");
+    family.call("STRING[400]", "OUT := REAL_TO_STRING(f[i]);");
+    family.call("STRING[8]", "OUT := LREAL_TO_STRING(r[i]);");
+    family.call("DINT", "OUT := STRING_TO_DINT(s[i]);");
+    family.call("SINT", "OUT := STRING_TO_SINT(s[i]);");
+    family.call("ULINT", "OUT := STRING_TO_ULINT(s[i]);");
+    family.call("LINT", "OUT := STRING_TO_LINT(s[i]);");
+    family.call("LREAL", "OUT := STRING_TO_LREAL(s[i]);");
+    family.call("REAL", "OUT := STRING_TO_REAL(s[i]);");
+    family.call("CHAR", "OUT := STRING_TO_CHAR(s[i]);");
+    family.call("CHAR", "OUT := DINT_TO_CHAR(n[i]);");
+    family.call("DINT", "OUT := CHAR_TO_DINT(c[i]);");
+    family.call("BYTE", "OUT := CHAR_TO_BYTE(c[i]);");
+    family.call("STRING[4]", "OUT := CHAR_TO_STRING(c[i]);");
+    family.call("STRING[4]", "OUT := CHAR_TO_STRING(DINT_TO_CHAR(n[i]));");
+    family.call("BYTE", "OUT := USINT_TO_BCD_BYTE(us[i]);");
+    family.call("USINT", "OUT := BYTE_BCD_TO_USINT(b[i]);");
+    family.call("WORD", "OUT := UINT_TO_BCD_WORD(ui[i]);");
+    family.call("UINT", "OUT := WORD_BCD_TO_UINT(w[i]);");
+    family.run();
+}

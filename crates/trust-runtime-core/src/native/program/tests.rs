@@ -97,7 +97,7 @@ fn image_with(
     let out = strings.add("MAIN.OUT");
     let fast = strings.add("Fast");
     let label = strings.add("main.st");
-    let mut writer = ImageWriter::new(target, 1);
+    let mut writer = ImageWriter::new(target, INTERFACE);
     writer.module(CodeImage {
         code: vec![0; 64],
         rodata: Vec::new(),
@@ -241,19 +241,24 @@ fn a_device_refuses_what_it_cannot_run() {
             has: 4096
         })
     );
+    // An image of interface version 1, which has no kernel function `read_real`.
     let mut interface = image(0, 100, 50, device.target);
-    interface[18] = 2;
+    interface[18] = 1;
     let end = HEADER + 16 * u32::from_le_bytes(interface[112..116].try_into().unwrap()) as usize;
     let crc = crate::crc32::checksum(&interface[12..end]);
     interface[8..12].copy_from_slice(&crc.to_le_bytes());
     assert_eq!(
         admit(&interface, &device).err(),
-        Some(Refusal::Interface { image: 2 })
+        Some(Refusal::Interface { image: 1 })
     );
     assert!(admit(&image(0, 100, 50, device.target), &device).is_ok());
 }
 
 const HEADER: usize = crate::native::image::HEADER_BYTES;
+
+/// The interface version of the images the tests write, the kernel's own.
+#[allow(clippy::cast_possible_truncation)]
+const INTERFACE: u16 = trust_plc_abi::INTERFACE_VERSION as u16;
 
 /// A cold start copies the starting memory (the count starts at 5); a scan runs a due task's
 /// program and publishes its bound output: at 10 ms the count is 6 and bit 1 of `%QB0` is 0, at

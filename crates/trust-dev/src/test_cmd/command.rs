@@ -5,6 +5,7 @@ pub fn run_test(
     timeout: u64,
     output: TestOutput,
     ci: bool,
+    backend: TestBackend,
 ) -> anyhow::Result<()> {
     let output = effective_output(output, ci);
     let project_root = match project {
@@ -50,7 +51,10 @@ pub fn run_test(
         return Ok(());
     }
 
-    let mut runtime = compile_test_runtime(&project_root, &discovered)?;
+    let mut runtime = match backend {
+        TestBackend::Bytecode => Some(compile_test_runtime(&project_root, &discovered)?),
+        TestBackend::Native => None,
+    };
     if tests.is_empty() {
         let rendered = render_output(
             output,
@@ -71,37 +75,18 @@ pub fn run_test(
         Some(StdDuration::from_secs(timeout))
     };
     let total_started = Instant::now();
-    let mut results = Vec::with_capacity(tests.len());
-    for case in &tests {
-        let case_started = Instant::now();
-        let result = match execute_test_case_in_runtime(&mut runtime, case, test_timeout) {
-            Ok(()) => ExecutedTest {
-                case: case.clone(),
-                outcome: TestOutcome::Passed,
-                message: None,
-                duration_ms: elapsed_ms(case_started.elapsed()),
-            },
-            Err(RuntimeError::AssertionFailed(message)) => ExecutedTest {
-                case: case.clone(),
-                outcome: TestOutcome::Failed,
-                message: Some(message.to_string()),
-                duration_ms: elapsed_ms(case_started.elapsed()),
-            },
-            Err(RuntimeError::ExecutionTimeout) => ExecutedTest {
-                case: case.clone(),
-                outcome: TestOutcome::Error,
-                message: Some(timeout_message(timeout)),
-                duration_ms: elapsed_ms(case_started.elapsed()),
-            },
-            Err(err) => ExecutedTest {
-                case: case.clone(),
-                outcome: TestOutcome::Error,
-                message: Some(err.to_string()),
-                duration_ms: elapsed_ms(case_started.elapsed()),
-            },
-        };
-        results.push(result);
-    }
+    let results = match runtime.as_mut() {
+        Some(runtime) => {
+            let mut results = Vec::with_capacity(tests.len());
+            for case in &tests {
+                let case_started = Instant::now();
+                let result = execute_test_case_in_runtime(runtime, case, test_timeout);
+                results.push(executed(case, result, timeout, case_started));
+            }
+            results
+        }
+        None => execute_native_tests(&project_root, &discovered, &tests, timeout)?,
+    };
     let total_duration_ms = elapsed_ms(total_started.elapsed());
 
     let summary = summarize_results(&results);
@@ -121,4 +106,28 @@ pub fn run_test(
     }
 
     Ok(())
+}
+
+/// The outcome of `case` from its run's `result`: passed, failed with an assertion's message, or an
+/// error, a timeout of `timeout` seconds among them.
+fn executed(
+    case: &DiscoveredTest,
+    result: Result<(), RuntimeError>,
+    timeout: u64,
+    started: Instant,
+) -> ExecutedTest {
+    let (outcome, message) = match result {
+        Ok(()) => (TestOutcome::Passed, None),
+        Err(RuntimeError::AssertionFailed(message)) => {
+            (TestOutcome::Failed, Some(message.to_string()))
+        }
+        Err(RuntimeError::ExecutionTimeout) => (TestOutcome::Error, Some(timeout_message(timeout))),
+        Err(err) => (TestOutcome::Error, Some(err.to_string())),
+    };
+    ExecutedTest {
+        case: case.clone(),
+        outcome,
+        message,
+        duration_ms: elapsed_ms(started.elapsed()),
+    }
 }

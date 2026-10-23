@@ -322,6 +322,29 @@ fn stop_at(cx: &mut Cx, id: u32) -> Result<(), Fault> {
     }
 }
 
+/// The real the text `text` spells, read by the kernel as the runtime reads it (specification 44
+/// §8.2): `text` is trimmed and holds no separators.
+///
+/// # Errors
+///
+/// The fault the kernel's reader gives, `TypeMismatch` for a text that spells no real.
+#[allow(unsafe_code)]
+pub fn read_real(cx: &mut Cx, text: &[u8]) -> Result<f64, Fault> {
+    if cx.api.is_null() {
+        return Err(fault(cx, FaultCode::ModuleInternal, 0, 0, 0));
+    }
+    let length = u32::try_from(text.len()).unwrap_or(u32::MAX);
+    // SAFETY: the kernel's function table lives as long as the kernel, which outlives the call.
+    let api = unsafe { &*cx.api };
+    let mut value = 0.0;
+    let code = (api.read_real)(cx, text.as_ptr(), length, &raw mut value);
+    match FaultCode::from_raw(code) {
+        None if code == 0 => Ok(value),
+        Some(code) => Err(fault(cx, code, 0, 0, 0)),
+        None => Err(fault(cx, FaultCode::ModuleInternal, i64::from(code), 0, 0)),
+    }
+}
+
 /// Records fault `code` with its numbers as the fault of the call, and returns it to be returned
 /// up to the entry point (specification 44 §8.6).
 #[cold]

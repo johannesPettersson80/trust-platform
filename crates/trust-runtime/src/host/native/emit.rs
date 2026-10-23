@@ -183,6 +183,11 @@ pub(super) fn generate<'a>(
          dead_code, unreachable_code, unused_labels, unused_braces, clippy::all)]\n\n",
     );
     source.push_str(PRELUDE);
+    if target.is_computer() {
+        // The memory functions a large copy or fill calls, which no C library brings
+        // (specification 44 §4.5).
+        source.push_str("extern crate trust_plc_mem;\n");
+    }
     source.push('\n');
     types(&mut source, model);
     programs(&mut source, model);

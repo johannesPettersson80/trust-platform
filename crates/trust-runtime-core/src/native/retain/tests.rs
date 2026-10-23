@@ -220,7 +220,10 @@ fn image() -> Vec<u8> {
         })
         .collect();
     let label = strings.add("main.st");
-    let mut writer = ImageWriter::new(Target::this_cpu().unwrap_or(Target::X86_64), 1);
+    let mut writer = ImageWriter::new(
+        Target::this_cpu().unwrap_or(Target::X86_64),
+        u16::try_from(trust_plc_abi::INTERFACE_VERSION).unwrap(),
+    );
     writer.module(CodeImage {
         code: vec![0; 64],
         rodata: Vec::new(),

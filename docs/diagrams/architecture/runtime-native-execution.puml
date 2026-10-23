@@ -16,15 +16,20 @@ package "Engineering computer: trust-runtime build --target" as buildPkg #LightY
     component "pinned rustc + rust-lld\n(toolchain bundle, §4.6)\nstatic PIE, no relocations" as toolchain
     component "trust-plc-lib\narithmetic, conversion, mathematics,\nbits, text, dates and times,\ntimers, counters, edges, bistables" as library
     component "trust-plc-abi\nCx, areas, faults, references,\nclass ids; module side" as abiModule
+    component "trust-plc-mem\nmemcpy, memset, memcmp\nfor computer modules" as memModule
     artifact "program.<triple>.tpi (TRSTI001)\nCODE, RODATA, INIT, tables,\nmemory figure" as image
     artifact "deployment-record.<triple>.bin\nversion 44.1, tasks, process image,\nruntime.toml + io.toml" as record
+    component "trust-dev test --execution-backend native\nTEST_PROGRAMs as instances without a task;\neach test: cold start, run_instance once" as testRunner
     hir --> model
     model --> generator
     generator --> toolchain
     library --> toolchain
     abiModule --> toolchain
+    memModule --> toolchain
     toolchain --> image
     image --> record : DeploymentRecord::for_image
+    testRunner --> model : build_with_tests
+    testRunner ..> image : runs on this computer's kernel
 }
 
 package "Container and program store (specification 34 §5.1)" as storePkg #LightGreen {
@@ -46,12 +51,14 @@ package "ESP32-C6 firmware --features native" as chipPkg #LightCyan {
     component "native::retain\ncapture and restore through the\nretain map and the type table" as retainMap
     component "RetainStore\nshared capture, checkpoint log\nin flash (STRN v3 payload)" as retainStore
     component "module entry points\nextern C fn(*mut Cx) -> u32" as module
+    component "KERNEL_FUNCTIONS\nstop, debug_write, read_real\n(the runtime's reader of reals)" as kernelFunctions
     admission --> loader : boot / restart (Booted, format Image)
     loader --> codeRegion : copy CODE + RODATA, fence.i
     loader --> cycle : CompiledCycle::start (cold),\nwith_retain, warm restart\nfrom the checkpoint
     runner --> cycle : run_scan(now, deadline, observer)
     cycle --> kernel : scan(now, task hooks)
     kernel --> module : Entry::call(Cx)
+    module ..> kernelFunctions : Cx::api (interface version 2)
     codeRegion ..> module : executes
     cycle --> retainStore : capture at the output sample,\nstep between scans, save at stop
     retainStore --> kernel : capture_retain /\nwarm_start_from

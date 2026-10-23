@@ -3807,7 +3807,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 23,
+        "line": 25,
         "owner": "native execution (specification 44)",
         "invariant": "Turning an address into an entry function is sound only for the address of an entry point of an admitted image in executable memory that stays mapped; the caller (the kernel's loader after the checks of specification 44 §10.2) promises it.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3815,7 +3815,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 26,
+        "line": 28,
         "owner": "native execution (specification 44)",
         "invariant": "The address is a function of the module with the EntryFn signature, as the caller of from_address promises; a data pointer and a function pointer have the same size on every target of specification 44 §4.4.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3823,7 +3823,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 95,
+        "line": 97,
         "owner": "native execution (specification 44)",
         "invariant": "A context's raw pointers name memory its owning cycle owns with it (areas, breakpoint bits, function table); the cycle moves them as one and a module reads them only during a call on the cycle's thread.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3831,7 +3831,23 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 137,
+        "line": 169,
+        "owner": "native execution (specification 44)",
+        "invariant": "A module calls read_real with its own copy of the text, len bytes at text that it holds for the call (module::read_real), and null is refused before; the kernel only reads them during the call.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/kernel.rs",
+        "line": 173,
+        "owner": "native execution (specification 44)",
+        "invariant": "out is the module's own aligned f64, which it holds for the call (module::read_real); null is refused before.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/kernel.rs",
+        "line": 211,
         "owner": "native execution (specification 44)",
         "invariant": "In-place code is sound only for the module of an admitted image in memory the CPU executes that stays mapped and unchanged while its entries are called; the caller (a device's loader after the checks of specification 44 §10.2) promises it.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3839,7 +3855,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 152,
+        "line": 226,
         "owner": "native execution (specification 44)",
         "invariant": "The module is executable and unchanged as the caller of InPlace::new promised, and offset is checked inside the module.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3847,7 +3863,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 190,
+        "line": 264,
         "owner": "native execution (specification 44)",
         "invariant": "A computer kernel's executable mapping holds an admitted module's code copied in before the mapping was made executable and never written after; offset is checked inside the mapping, and the program keeps the mapping alive as long as its entries.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3916,6 +3932,14 @@
         "invariant": "The kernel's function table is a static that outlives every call; null is refused before.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
         "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/module.rs",
+        "line": 338,
+        "owner": "native execution (specification 44)",
+        "invariant": "The kernel's function table is a static that outlives every call; null is refused before.",
+        "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
+        "review_date": "2026-10-22"
       }
     ],
     "delegated_unsafe_path_register": [
@@ -3932,6 +3956,13 @@
         "invariant": "vendored examples are demonstration code only and remain outside shipped runtime/library execution paths",
         "test_evidence": "rg baseline artifact target/gate-artifacts/unsafe-concurrency-baseline-e22773356/unsafe-production-rust-rg.txt",
         "review_date": "2026-05-02"
+      },
+      {
+        "path_prefix": "crates/trust-plc-mem/src/lib.rs",
+        "owner": "native execution (specification 44)",
+        "invariant": "The memory functions of a computer's module (specification 44 §4.5): memcpy, memmove, memset, memcmp and bcmp, each exported with #[unsafe(no_mangle)] under the C name and with the C contract the compiler calls it by, which the AST scan sees as unsafe functions and the full map's token scan as unsafe attributes, so the file is owned whole. Each reads and writes through the raw pointers of its contract, valid for n bytes, with volatile accesses at indexes below n; memmove copies in the direction that reads every byte before it is overwritten. Only a computer's module links the crate, and such a module links no C library that defines these names. No other unsafe code lives in the file.",
+        "test_evidence": "cargo test -p trust-runtime --test native_stdlib: the text family's module for x86-64 calls memset and memcpy for its 340-byte texts, and every value matches the runtime's.",
+        "review_date": "2026-10-22"
       },
       {
         "path_prefix": "crates/trust-platform-esp32/src/hardware/code_region/region.rs",

@@ -15,6 +15,7 @@ members = [
     "crates/trust-runtime-core",
     "crates/trust-plc-abi",
     "crates/trust-plc-lib",
+    "crates/trust-plc-mem",
     "crates/trust-runtime-services",
     "crates/trust-platform-stm32",
     "crates/trust-platform-stm32f4",

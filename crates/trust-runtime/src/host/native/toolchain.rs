@@ -174,6 +174,11 @@ impl Toolchain {
             .map_err(|error| NativeError::Toolchain(format!("{}: {error}", work.display())))?;
         let abi = self.library(target, "trust_plc_abi")?;
         let lib = self.library(target, "trust_plc_lib")?;
+        let mem = if target.is_computer() {
+            Some(self.library(target, "trust_plc_mem")?)
+        } else {
+            None
+        };
         let (cpu, features) = cpu(target);
         let mut command = Command::new(&self.rustc);
         command
@@ -196,6 +201,10 @@ impl Toolchain {
             ])
             .args(["-C", "panic=abort", "-C", "relocation-model=pic"])
             .args(["-C", "overflow-checks=off", "-C", "debuginfo=0"])
+            // A module has no dynamic linking, so read-only relocations mean nothing for it; with
+            // full RELRO the compiler calls the memory functions through a global offset table
+            // that a module may not have (specification 44 §4.5), without it directly.
+            .args(["-C", "relro-level=off"])
             .arg("-C")
             .arg(format!("target-cpu={cpu}"))
             .arg("-C")
@@ -218,6 +227,11 @@ impl Toolchain {
             .arg(format!("trust_plc_abi={}", abi.display()))
             .arg("--extern")
             .arg(format!("trust_plc_lib={}", lib.display()));
+        if let Some(mem) = mem {
+            command
+                .arg("--extern")
+                .arg(format!("trust_plc_mem={}", mem.display()));
+        }
         for entry in entries {
             command
                 .arg("-C")

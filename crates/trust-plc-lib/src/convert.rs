@@ -208,3 +208,83 @@ pub fn time_to_dword(cx: &mut Cx, nanos: i64) -> Result<u32, Fault> {
 pub fn dword_to_time(millis: u32) -> i64 {
     i64::from(millis) * 1_000_000
 }
+
+/// An integer a text spells, in 128 bits, as the integer type `T`: `STRING_TO_INT`.
+///
+/// # Errors
+///
+/// `Overflow` outside `T`.
+#[allow(clippy::cast_possible_truncation)]
+pub fn wide_to<T: IntTarget>(cx: &mut Cx, value: i128) -> Result<T, Fault> {
+    let converted = if let Ok(signed) = i64::try_from(value) {
+        T::from_i64(signed)
+    } else if let Ok(unsigned) = u64::try_from(value) {
+        T::from_u64(unsigned)
+    } else {
+        None
+    };
+    converted.ok_or_else(|| overflow(cx, value as i64))
+}
+
+/// The number `code`, a signed one by its bits, as a `CHAR`: `INT_TO_CHAR`, `BYTE_TO_CHAR`.
+///
+/// # Errors
+///
+/// `Overflow` above 255, a negative number among them.
+#[allow(clippy::cast_possible_wrap)]
+pub fn code_to_char(cx: &mut Cx, code: u64) -> Result<u8, Fault> {
+    u8::try_from(code).map_err(|_| overflow(cx, code as i64))
+}
+
+/// The number `code`, a signed one by its bits, as a `WCHAR`: `INT_TO_WCHAR`.
+///
+/// # Errors
+///
+/// `Overflow` above 65,535, a negative number among them.
+#[allow(clippy::cast_possible_wrap)]
+pub fn code_to_wchar(cx: &mut Cx, code: u64) -> Result<u16, Fault> {
+    u16::try_from(code).map_err(|_| overflow(cx, code as i64))
+}
+
+/// `USINT_TO_BCD_BYTE` and the others: the `digits` decimal digits of `value`, four bits each,
+/// the lowest digit lowest (IEC Table 25).
+///
+/// # Errors
+///
+/// `Overflow` for a value with more digits.
+#[allow(clippy::cast_possible_wrap)]
+pub fn to_bcd(cx: &mut Cx, value: u64, digits: u32) -> Result<u64, Fault> {
+    let mut rest = value;
+    let mut result = 0u64;
+    for digit in 0..digits {
+        result |= (rest % 10) << (digit * 4);
+        rest /= 10;
+    }
+    if rest == 0 {
+        Ok(result)
+    } else {
+        Err(overflow(cx, value as i64))
+    }
+}
+
+/// `BYTE_BCD_TO_USINT` and the others: the number the `digits` decimal digits of `bits` spell,
+/// four bits each, the lowest digit lowest (IEC Table 25).
+///
+/// # Errors
+///
+/// `TypeMismatch` for four bits above 9.
+#[allow(clippy::cast_possible_wrap)]
+pub fn from_bcd(cx: &mut Cx, bits: u64, digits: u32) -> Result<u64, Fault> {
+    let mut result = 0u64;
+    let mut multiplier = 1u64;
+    for digit in 0..digits {
+        let value = (bits >> (digit * 4)) & 0xF;
+        if value > 9 {
+            return Err(fault(cx, FaultCode::TypeMismatch, bits as i64, 0, 0));
+        }
+        // Sixteen digits are below 10^16, so neither step overflows.
+        result += value * multiplier;
+        multiplier = multiplier.saturating_mul(10);
+    }
+    Ok(result)
+}
