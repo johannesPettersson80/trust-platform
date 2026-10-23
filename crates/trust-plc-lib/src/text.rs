@@ -19,13 +19,17 @@ pub enum Piece<'a> {
     Bytes(&'a [u8]),
     /// A string's current value.
     Str(StrView<'a>),
+    /// The bytes of a string from the first to before the second offset, which lie at character
+    /// boundaries.
+    Range(StrView<'a>, usize, usize),
 }
 
 impl Piece<'_> {
-    fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         match self {
             Piece::Bytes(bytes) => bytes.len(),
             Piece::Str(view) => view.len(),
+            Piece::Range(_, start, end) => end.saturating_sub(*start),
         }
     }
 
@@ -33,18 +37,19 @@ impl Piece<'_> {
         match self {
             Piece::Bytes(bytes) => bytes.get(index).copied().unwrap_or(0),
             Piece::Str(view) => view.byte(index),
+            Piece::Range(view, start, _) => view.byte(start + index),
         }
     }
 }
 
 /// Whether `byte` begins a character, that is, is no UTF-8 continuation byte.
-fn starts_character(byte: u8) -> bool {
+pub(crate) fn starts_character(byte: u8) -> bool {
     byte & 0b1100_0000 != 0b1000_0000
 }
 
 /// Writes `parts` one after the other into `dst`, from byte `start`, up to the last whole
 /// character that fits its capacity, sets its length, and returns it.
-fn write_parts(dst: StrView<'_>, start: usize, parts: &[Piece<'_>]) -> usize {
+pub(crate) fn write_parts(dst: StrView<'_>, start: usize, parts: &[Piece<'_>]) -> usize {
     let capacity = dst.capacity();
     let mut at = start.min(capacity);
     'parts: for part in parts {

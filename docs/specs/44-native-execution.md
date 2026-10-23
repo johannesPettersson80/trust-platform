@@ -542,6 +542,33 @@ stdlib oracle corpus, the timer trace cases, the counter decisions). Overloaded 
 `TIME` or `LTIME`) are two monomorphic library functions. Text results (`CONCAT`, `MID`) are
 written into the destination's capacity by the library; no text is built on a heap.
 
+How the library carries the runtime's rules over, function by function:
+
+- A real function (`SQRT`, `LN`, `LOG`, `EXP`, the trigonometric functions) computes in binary64,
+  also for a `REAL`, through the same pinned `libm` as the runtime; a result that is not finite in
+  binary64, or in binary32 for a `REAL`, is an overflow (specification 07 §3). `ABS` of a real
+  clears the sign bit as `libm`'s `fabs` does, so `ABS(-0.0)` is `0.0`. `EXPT` takes a real base
+  and any number as the exponent, converted to binary64; `ATAN2` of two `REAL`s is binary32's.
+- A function's inputs are evaluated in their order before it runs, also those `MUX` does not
+  select; a formal argument (`LIMIT(MX := 10, IN := x, MN := 0)`) binds by its name, `IN1`, `IN2`,
+  … of an extensible function by their numbers.
+- `MUX` refuses a selector outside its inputs with `IndexOutOfBounds`, naming 0 and the last
+  input; the comparisons chain (`GT(a, b, c)` is `a > b AND b > c`); `ADD` and `MUL` fold from the
+  left with the operators' checks; a shift count at or above the width shifts every bit out, a
+  rotation counts modulo the width and a negative count is a type mismatch.
+- The string functions (`LEN`, `LEFT`, `RIGHT`, `MID`, `INSERT`, `DELETE`, `REPLACE`, `FIND`)
+  count characters (DEV-017) and write into a temporary of the sum of their inputs' capacities,
+  so that only the assignment that takes the result cuts it, as in the runtime; a result above
+  65,535 bytes is refused. `s[i]` reads and writes one character (specification 02 §6).
+- The counters count in `INT`, `DINT`, `LINT`, `UDINT` or `ULINT` and stop at the type's limits
+  (specification 08 §4); `SR`, `RS`, `R_TRIG` and `F_TRIG` are the standard's bodies, and
+  Mitsubishi's `DIFU` and `DIFD` are `R_TRIG` and `F_TRIG`, as the runtime takes them.
+- `AND`, `OR`, `XOR`, `NOT` and `MOD` are keywords of the language: their function forms are no
+  Structured Text, and the operators stand for them.
+
+`tests/native_stdlib.rs` runs each family compiled and in the runtime in lockstep, one call per
+scan over edge values and pseudo-random ones, and compares every result and every fault (§14.2).
+
 ### 6.9 The program library and the interface crate
 
 - `trust-plc-abi`: the kernel interface (§8.2): `Cx`, `Fault`, `Ref`, the function table. Versioned
@@ -1024,8 +1051,9 @@ interval, and every variable the image names a value of is compared after every 
 what the standard says and the comparison of such a program is not a pass criterion: inside a
 method reached through `SUPER`, the runtime binds a call through `THIS` to the base's method, as
 its base part is an instance of its own there, where IEC §6.6.8.5 binds it to the instance's class;
-and it ends the scan of a call through a `NULL` interface with a type mismatch, where the call is a
-null dereference (specification 10).
+it ends the scan of a call through a `NULL` interface with a type mismatch, where the call is a
+null dereference (specification 10); and it ends the scan of a `STRING` character above U+00FF
+read as a `CHAR` with a null dereference, where specification 02 §6 makes it an overflow.
 
 ### 14.3 Against RuSTy
 

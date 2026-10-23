@@ -223,12 +223,18 @@ pub trait Real:
     /// The binary64 `value` rounded to the type.
     #[must_use]
     fn narrow(value: f64) -> Self;
+    /// The value with its sign bit cleared, as `libm`'s `fabs` gives it: `-0.0` becomes `0.0`.
+    #[must_use]
+    fn magnitude(self) -> Self;
 }
 
 impl Real for f32 {
     const ZERO: Self = 0.0;
     fn is_finite_(self) -> bool {
         self.is_finite()
+    }
+    fn magnitude(self) -> Self {
+        libm::fabsf(self)
     }
     fn wide(self) -> f64 {
         f64::from(self)
@@ -243,6 +249,9 @@ impl Real for f64 {
     const ZERO: Self = 0.0;
     fn is_finite_(self) -> bool {
         self.is_finite()
+    }
+    fn magnitude(self) -> Self {
+        libm::fabs(self)
     }
     fn wide(self) -> f64 {
         self

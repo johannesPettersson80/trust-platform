@@ -9,7 +9,9 @@
 
 mod call;
 mod expr;
+mod functions;
 mod object;
+mod strings;
 
 pub(super) use call::{ident as ident_of, parameter};
 
@@ -289,7 +291,7 @@ impl<'m, 'a> Lowerer<'m, 'a> {
         {
             return Err(self.unsupported(node, "the assignment attempt ?="));
         }
-        if self.property_write(&target, &value)? {
+        if self.string_element_write(&target, &value)? || self.property_write(&target, &value)? {
             return Ok(());
         }
         let place = self.place(&target)?;

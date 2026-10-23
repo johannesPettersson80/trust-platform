@@ -75,12 +75,25 @@ pub fn subrange<T: Integer>(cx: &mut Cx, value: T, lower: i64, upper: i64) -> Re
     }
 }
 
-/// `ABS` of a real.
+/// `ABS` of a real: its sign bit cleared, as the runtime's `libm` clears it, so that `ABS(-0.0)` is
+/// `0.0`.
 #[inline]
 pub fn fabs<T: Real>(value: T) -> T {
-    if value < T::ZERO {
-        -value
-    } else {
-        value
-    }
+    value.magnitude()
+}
+
+/// The input `MUX` selects with `selector` among `count` inputs, from 0 (IEC §6.6.2.5.10, Table 30).
+///
+/// # Errors
+///
+/// `IndexOutOfBounds` with the selector and the bounds 0 to `count - 1` for a selector outside them.
+#[inline]
+pub fn mux_index(cx: &mut Cx, selector: i64, count: usize) -> Result<usize, Fault> {
+    usize::try_from(selector)
+        .ok()
+        .filter(|index| *index < count)
+        .ok_or_else(|| {
+            let upper = i64::try_from(count).unwrap_or(i64::MAX) - 1;
+            fault(cx, FaultCode::IndexOutOfBounds, selector, 0, upper)
+        })
 }

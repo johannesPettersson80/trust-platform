@@ -19,9 +19,9 @@ fn code<T: core::fmt::Debug>(result: Result<T, Fault>) -> u32 {
 
 const OVERFLOW: u32 = FaultCode::Overflow as u32;
 
-/// Integers are checked in their own type (specification 05 §3): `INT` 32,767 + 1 overflows, where a
-/// wrapping add would give -32,768; `/` truncates toward zero and `MOD` takes the dividend's sign;
-/// `MIN MOD -1` is 0 where Rust's remainder refuses it; `MIN / -1` overflows.
+/// Integers are checked in their own type (specification 05 §3): `INT` 32,767 + 1 overflows, where
+/// a wrapping add would give -32,768; `/` truncates toward zero and `MOD` takes the dividend's
+/// sign; `MIN MOD -1` is 0 where Rust's remainder refuses it; `MIN / -1` overflows.
 #[test]
 fn integers_fault_where_the_type_ends() {
     let mut cx = cx();
@@ -49,8 +49,8 @@ fn integers_fault_where_the_type_ends() {
     assert_eq!(abs(&mut cx, -5i64), Ok(5));
 }
 
-/// A real result must be finite: `REAL` 3E38 * 10 is an overflow, not an infinity, and a division by
-/// zero is a fault even for reals, where IEEE 754 would give an infinity.
+/// A real result must be finite: `REAL` 3E38 * 10 is an overflow, not an infinity, and a division
+/// by zero is a fault even for reals, where IEEE 754 would give an infinity.
 #[test]
 fn reals_fault_on_infinities_and_division_by_zero() {
     let mut cx = cx();
@@ -68,8 +68,8 @@ fn reals_fault_on_infinities_and_division_by_zero() {
     assert_eq!(code(fpow(&mut cx, 10.0f32, 39.0)), OVERFLOW);
 }
 
-/// A real becomes an integer by rounding to the nearest, a tie to the even one (Table 22): 2.5 is 2,
-/// 3.5 is 4, -2.5 is -2, and 32,767.5 rounds to 32,768, which is no `INT`. `TRUNC` cuts toward
+/// A real becomes an integer by rounding to the nearest, a tie to the even one (Table 22): 2.5 is
+/// 2, 3.5 is 4, -2.5 is -2, and 32,767.5 rounds to 32,768, which is no `INT`. `TRUNC` cuts toward
 /// zero. Rounding half away from zero would give 3 for 2.5.
 #[test]
 fn reals_round_to_even_integers() {
@@ -244,6 +244,162 @@ fn strings_compare_by_bytes() {
     assert_eq!(compare(a.view(), b.view()), Ordering::Equal);
 }
 
+/// A string of capacity `N` holding `value`.
+fn string<const N: usize>(value: &str) -> Str<N> {
+    let text = Str::<N>::new();
+    assign_bytes(text.view(), value.as_bytes());
+    text
+}
+
+/// The string functions of Table 34 count characters, not bytes (DEV-017): `'Grüße'` is 7 bytes and
+/// 5 characters. `LEN` is 5; `LEFT(3)` is `'Grü'` and `RIGHT(2)` `'ße'`; `MID(L 2, P 3)` is `'üß'`.
+/// A count below one is no character and one past the end is every character; a position below one
+/// is the first character and one past the end gives nothing. Counting bytes would give `LEN` 7 and
+/// cut `'ü'` in half.
+#[test]
+fn string_functions_count_characters() {
+    let mut cx = cx();
+    let greeting = string::<16>("Grüße");
+    assert_eq!(len_int(&mut cx, greeting.view()), Ok(5));
+    assert_eq!(len_int(&mut cx, string::<4>("").view()), Ok(0));
+    let out = Str::<16>::new();
+    left(&mut cx, out.view(), greeting.view(), 3).unwrap();
+    assert_text(&out, "Grü");
+    left(&mut cx, out.view(), greeting.view(), -2).unwrap();
+    assert_text(&out, "");
+    left(&mut cx, out.view(), greeting.view(), 99).unwrap();
+    assert_text(&out, "Grüße");
+    right(&mut cx, out.view(), greeting.view(), 2).unwrap();
+    assert_text(&out, "ße");
+    right(&mut cx, out.view(), greeting.view(), 0).unwrap();
+    assert_text(&out, "");
+    mid(&mut cx, out.view(), greeting.view(), 2, 3).unwrap();
+    assert_text(&out, "üß");
+    mid(&mut cx, out.view(), greeting.view(), 2, 0).unwrap();
+    assert_text(&out, "Gr");
+    mid(&mut cx, out.view(), greeting.view(), 10, 4).unwrap();
+    assert_text(&out, "ße");
+    mid(&mut cx, out.view(), greeting.view(), 2, 6).unwrap();
+    assert_text(&out, "");
+    mid(&mut cx, out.view(), greeting.view(), 0, 1).unwrap();
+    assert_text(&out, "");
+}
+
+/// `INSERT(IN1, IN2, P)` puts IN2 after the P-th character, at the start for P below one and at the
+/// end past it; `DELETE(IN, L, P)` and `REPLACE(IN1, IN2, L, P)` leave the text as it is from a
+/// position past the end, and `REPLACE` with L 0 inserts at P. `'ABCD'` with `'xy'` after 2 is
+/// `'ABxyCD'`; `'ABCDE'` less 2 from 2 is `'ADE'`, and with `'xy'` for 2 from 2 `'AxyDE'`.
+#[test]
+fn string_functions_insert_delete_and_replace_by_position() {
+    let mut cx = cx();
+    let out = Str::<16>::new();
+    let abcd = string::<8>("ABCD");
+    let abcde = string::<8>("ABCDE");
+    let xy = string::<4>("xy");
+    insert(&mut cx, out.view(), abcd.view(), xy.view(), 2).unwrap();
+    assert_text(&out, "ABxyCD");
+    insert(&mut cx, out.view(), abcd.view(), xy.view(), 0).unwrap();
+    assert_text(&out, "xyABCD");
+    insert(&mut cx, out.view(), abcd.view(), xy.view(), 10).unwrap();
+    assert_text(&out, "ABCDxy");
+    delete(&mut cx, out.view(), abcde.view(), 2, 2).unwrap();
+    assert_text(&out, "ADE");
+    delete(&mut cx, out.view(), abcde.view(), 0, 2).unwrap();
+    assert_text(&out, "ABCDE");
+    delete(&mut cx, out.view(), abcde.view(), 2, 6).unwrap();
+    assert_text(&out, "ABCDE");
+    delete(&mut cx, out.view(), abcde.view(), 2, 0).unwrap();
+    assert_text(&out, "CDE");
+    replace(&mut cx, out.view(), abcde.view(), xy.view(), 2, 2).unwrap();
+    assert_text(&out, "AxyDE");
+    replace(&mut cx, out.view(), abcde.view(), xy.view(), 0, 2).unwrap();
+    assert_text(&out, "AxyBCDE");
+    replace(&mut cx, out.view(), abcde.view(), xy.view(), 2, 6).unwrap();
+    assert_text(&out, "ABCDE");
+}
+
+/// A string function's result longer than 65,535 bytes is a fault before anything is written
+/// (specification 07 §8.1): two texts of 40,000 bytes give 80,000.
+#[test]
+fn string_functions_refuse_results_above_the_maximum() {
+    let mut cx = cx();
+    let long = Str::<40_000>::new();
+    assign_bytes(long.view(), &LONG);
+    let out = string::<8>("kept");
+    assert_eq!(
+        code(insert(&mut cx, out.view(), long.view(), long.view(), 1)),
+        FaultCode::StringCapacityExceeded as u32
+    );
+    assert_eq!(cx.fault.detail[0], 80_000);
+    assert_text(&out, "kept");
+    // An empty text inserted keeps the result within the maximum.
+    let empty = Str::<4>::new();
+    insert(&mut cx, out.view(), long.view(), empty.view(), 1).unwrap();
+    assert_text(&out, "xxxxxxxx");
+}
+
+/// `FIND` gives the character position of the first occurrence, 0 for none and 1 for an empty
+/// text: `'CA'` in `'ABCABC'` at 3, `'ße'` in `'Grüße'` at 4 (byte 5), `'AB'` in `'A'` at 0.
+#[test]
+fn find_counts_characters_before_the_match() {
+    let mut cx = cx();
+    let find_in = |cx: &mut Cx, text: &str, wanted: &str| {
+        find(cx, string::<16>(text).view(), string::<16>(wanted).view())
+    };
+    assert_eq!(find_in(&mut cx, "ABCABC", "CA"), Ok(3));
+    assert_eq!(find_in(&mut cx, "Grüße", "ße"), Ok(4));
+    assert_eq!(find_in(&mut cx, "ABC", "x"), Ok(0));
+    assert_eq!(find_in(&mut cx, "ABC", ""), Ok(1));
+    assert_eq!(find_in(&mut cx, "", ""), Ok(1));
+    assert_eq!(find_in(&mut cx, "A", "AB"), Ok(0));
+}
+
+/// `text[i]` is the i-th character, from 1 (specification 02 §6): `'Grüße'`[3] is `'ü'`, 252. An
+/// index below one or past the fifth character is out of bounds, naming the index and 1 to the
+/// count, or to the largest `LINT` below one, as the runtime does; `'€'` is no `CHAR` and
+/// overflows.
+#[test]
+fn a_character_of_a_string_counts_from_one() {
+    let mut cx = cx();
+    let greeting = string::<16>("Grüße");
+    assert_eq!(char_at(&mut cx, greeting.view(), 1), Ok(b'G'));
+    assert_eq!(char_at(&mut cx, greeting.view(), 3), Ok(252));
+    assert_eq!(
+        code(char_at(&mut cx, greeting.view(), 0)),
+        FaultCode::IndexOutOfBounds as u32
+    );
+    assert_eq!(cx.fault.detail, [0, 1, i64::MAX]);
+    assert_eq!(
+        code(char_at(&mut cx, greeting.view(), 6)),
+        FaultCode::IndexOutOfBounds as u32
+    );
+    assert_eq!(cx.fault.detail, [6, 1, 5]);
+    assert_eq!(code(char_at(&mut cx, string::<4>("€").view(), 1)), OVERFLOW);
+}
+
+/// `text[i] := c` replaces the i-th character; `'ü'` takes two bytes, so `'ABC'` becomes `'AüC'`, 4
+/// bytes, and in a `STRING[3]` it is cut to `'Aü'` at the last whole character. Replacing `'ü'` by
+/// `'x'` moves the rest back. An index out of bounds leaves the text as it was.
+#[test]
+fn writing_a_character_keeps_whole_characters() {
+    let mut cx = cx();
+    let roomy = string::<8>("ABC");
+    set_char(&mut cx, roomy.view(), 2, 252).unwrap();
+    assert_text(&roomy, "AüC");
+    set_char(&mut cx, roomy.view(), 2, b'x').unwrap();
+    assert_text(&roomy, "AxC");
+    let tight = string::<3>("ABC");
+    set_char(&mut cx, tight.view(), 2, 252).unwrap();
+    assert_text(&tight, "Aü");
+    set_char(&mut cx, tight.view(), 1, 233).unwrap();
+    assert_text(&tight, "é");
+    assert_eq!(
+        code(set_char(&mut cx, tight.view(), 3, b'y')),
+        FaultCode::IndexOutOfBounds as u32
+    );
+    assert_text(&tight, "é");
+}
+
 const MS: i64 = 1_000_000;
 
 /// `TON` with `PT` T#100ms (specification 08 §5): the first call measures nothing, `Q` rises when
@@ -303,8 +459,8 @@ fn tp_makes_a_pulse() {
     assert_eq!(step(50, false), (0, 0));
 }
 
-/// `R_TRIG` gives one TRUE on a rising `CLK`; `F_TRIG` gives TRUE at its first call with `CLK` FALSE,
-/// as the standard's body with `M` FALSE at the start does, and then on each falling `CLK`.
+/// `R_TRIG` gives one TRUE on a rising `CLK`; `F_TRIG` gives TRUE at its first call with `CLK`
+/// FALSE, as the standard's body with `M` FALSE at the start does, and then on each falling `CLK`.
 #[test]
 fn edges_follow_the_standard_bodies() {
     let rising = RTrig::ZEROED;

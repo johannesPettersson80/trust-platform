@@ -778,6 +778,11 @@ str[3] := 'X';     // str = 'ABXD'
   cut at its capacity like any other store, losing its last character.
 - `STRING` indexing reads/writes `CHAR`; `WSTRING` indexing reads/writes
   `WCHAR`. Mixing the narrow and wide families is a compile-time type error.
+- A character read as a `CHAR` must be at most U+00FF, and one read as a
+  `WCHAR` at most U+FFFF (DEV-017); a character above that, such as `€` of a
+  `STRING`, ends the scan with an arithmetic overflow, as the string library's
+  element read gives it. (The bytecode engine reports it as a null-reference
+  dereference; compiled programs follow this rule, specification 44 §14.2.)
 - Aliases retain the indexed family and declared capacity. Indexed lvalues
   through structure fields, array elements, dereferences, and `VAR_IN_OUT`
   aliases retain the lifetime and write permissions of the complete base path.

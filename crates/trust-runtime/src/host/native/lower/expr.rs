@@ -12,15 +12,26 @@ use crate::value::Value;
 /// A part of a text: a literal's bytes or a string's value, as `CONCAT` and an assignment take it.
 pub(super) enum Text {
     Bytes(Vec<u8>),
-    /// A reference to a `Str<N>`.
-    Str(String),
+    /// A reference to a `Str<N>` and its capacity `N`.
+    Str {
+        reference: String,
+        capacity: u32,
+    },
 }
 
 impl Text {
-    fn piece(&self) -> String {
+    pub(super) fn piece(&self) -> String {
         match self {
             Self::Bytes(bytes) => format!("lib::Piece::Bytes({})", byte_string(bytes)),
-            Self::Str(reference) => format!("lib::Piece::Str(({reference}).view())"),
+            Self::Str { reference, .. } => format!("lib::Piece::Str(({reference}).view())"),
+        }
+    }
+
+    /// The most bytes the part can hold.
+    pub(super) fn capacity(&self) -> u32 {
+        match self {
+            Self::Bytes(bytes) => u32::try_from(bytes.len()).unwrap_or(u32::MAX),
+            Self::Str { capacity, .. } => *capacity,
         }
     }
 }
@@ -103,6 +114,9 @@ impl Lowerer<'_, '_> {
             }
             SyntaxKind::FieldExpr | SyntaxKind::IndexExpr => {
                 if let Some(value) = self.enum_value(node, ty) {
+                    return Ok(value);
+                }
+                if let Some(value) = self.string_element(node)? {
                     return Ok(value);
                 }
                 let place = self.place(node)?;
@@ -485,6 +499,27 @@ impl Lowerer<'_, '_> {
             Literal::Real64(value) if elem == Elem::LReal => float64(value),
             Literal::Real32(value) if elem == Elem::LReal => float64(f64::from(value)),
             Literal::Nanos(value) if elem.is_duration() => format!("{value}i64"),
+            // A character literal: one character, U+0000 to U+00FF for a `CHAR` and to U+FFFF
+            // for a `WCHAR` (IEC §6.3.3, Table 6).
+            Literal::Text(bytes) if matches!(elem, Elem::Char | Elem::WChar) => {
+                let mut characters = core::str::from_utf8(&bytes)
+                    .map_err(|_| self.unsupported(node, "a character literal of invalid UTF-8"))?
+                    .chars();
+                let (Some(character), None) = (characters.next(), characters.next()) else {
+                    return Err(
+                        self.unsupported(node, "a character literal of other than one character")
+                    );
+                };
+                let code = u32::from(character);
+                let limit = if elem == Elem::Char { 0xFF } else { 0xFFFF };
+                if code > limit {
+                    return Err(self.unsupported(
+                        node,
+                        format!("the character {character:?} as a {}", elem.name()),
+                    ));
+                }
+                format!("{code}{rust}")
+            }
             _ => {
                 return Err(self.unsupported(node, format!("a literal of type {}", elem.name())));
             }
@@ -595,10 +630,25 @@ impl Lowerer<'_, '_> {
             | SyntaxKind::IndexExpr
             | SyntaxKind::DerefExpr => {
                 let place = self.place(node)?;
-                Ok(vec![Text::Str(place.reference())])
+                self.text_of(node, &place)
             }
             SyntaxKind::CallExpr => self.call_text(node),
             other => Err(self.unsupported(node, format!("the text expression {other:?}"))),
+        }
+    }
+
+    /// The text `place`, a `STRING`, holds.
+    pub(super) fn text_of(
+        &self,
+        node: &SyntaxNode,
+        place: &Place,
+    ) -> Result<Vec<Text>, NativeError> {
+        match self.info(place.ty).kind {
+            Kind::Str(capacity) => Ok(vec![Text::Str {
+                reference: place.reference(),
+                capacity,
+            }]),
+            _ => Err(self.unsupported(node, "a value that is no STRING where a text is needed")),
         }
     }
 
@@ -617,7 +667,9 @@ impl Lowerer<'_, '_> {
                     byte_string(bytes)
                 ));
             }
-            [Text::Str(source)] => {
+            [Text::Str {
+                reference: source, ..
+            }] => {
                 self.line(&format!(
                     "lib::assign(({target}).view(), ({source}).view());"
                 ));
@@ -652,28 +704,8 @@ impl Lowerer<'_, '_> {
         right: &SyntaxNode,
         op: SyntaxKind,
     ) -> Result<String, NativeError> {
-        let operand = |lowerer: &mut Self, side: &SyntaxNode| -> Result<String, NativeError> {
-            let parts = lowerer.text(side)?;
-            match parts.as_slice() {
-                [Text::Str(reference)] => Ok(reference.clone()),
-                _ => {
-                    let capacity = parts
-                        .iter()
-                        .map(|part| match part {
-                            Text::Bytes(bytes) => u32::try_from(bytes.len()).unwrap_or(u32::MAX),
-                            Text::Str(_) => 0,
-                        })
-                        .sum::<u32>()
-                        .max(1);
-                    if parts.iter().any(|part| matches!(part, Text::Str(_))) {
-                        return Err(lowerer.unsupported(side, "comparing a joined text"));
-                    }
-                    Ok(lowerer.text_temp(&parts, capacity))
-                }
-            }
-        };
-        let a = operand(self, left)?;
-        let b = operand(self, right)?;
+        let (a, _) = self.text_ref(left)?;
+        let (b, _) = self.text_ref(right)?;
         let ordering = match op {
             SyntaxKind::Eq => "== core::cmp::Ordering::Equal",
             SyntaxKind::Neq => "!= core::cmp::Ordering::Equal",

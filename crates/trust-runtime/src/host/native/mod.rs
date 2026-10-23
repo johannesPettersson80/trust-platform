@@ -17,6 +17,7 @@ mod lower;
 mod model;
 mod module;
 mod run;
+mod std_blocks;
 mod tables;
 mod toolchain;
 mod types;

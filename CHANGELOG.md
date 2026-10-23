@@ -40,6 +40,16 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   runtime runs them, about 375,000 values over 500 scans each; the conformance suite passes 20 of
   its 21 cases on compiled programs. A function block that neither implements an interface nor
   takes part in inheritance keeps its size.
+- Added: compiled programs take the string functions and the characters of a string (`LEN`,
+  `LEFT`, `RIGHT`, `MID`, `INSERT`, `DELETE`, `REPLACE`, `FIND`, `s[i]`), the numerical functions,
+  `EXPT`, `ATAN2`, the bit shifts, `MUX`, `MOVE`, the comparison and arithmetic functions in their
+  function forms, the counters in all their count types, `SR`, `RS` and Mitsubishi's `DIFU` and
+  `DIFD`, each giving the runtime's results and faults on every input the comparison tried. The
+  conformance suite passes all 21 cases on compiled programs, and the Mitsubishi example compiles.
+- Fixed: `ABS(-0.0)` of a compiled program kept the minus sign of zero; it is `0.0`, as in the
+  runtime.
+- Fixed: a compiled program bound a standard function's formal arguments by position, so
+  `LIMIT(MX := 10, IN := x, MN := 0)` took 10 as the minimum.
 - Fixed: a compiled method that returned a structure, a string or an interface received its result
   place where its instance belonged; methods returning one did not compile.
 - Fixed: a compiled program gave two arrays of one storage one type, so `ARRAY[1..3] OF INT` was

@@ -104,7 +104,7 @@ impl<'a> Lowerer<'_, 'a> {
     pub(super) fn call_text(&mut self, node: &SyntaxNode) -> Result<Vec<Text>, NativeError> {
         match self.call(node, Want::Aggregate)? {
             Called::Text(parts) => Ok(parts),
-            Called::Place(place) => Ok(vec![Text::Str(place.reference())]),
+            Called::Place(place) => self.text_of(node, &place),
             _ => Err(self.unsupported(node, "a call without a text where one is needed")),
         }
     }
@@ -562,177 +562,12 @@ impl<'a> Lowerer<'_, 'a> {
         }
         Ok(())
     }
-
-    /// A standard function (IEC §6.6.2.5; specification 07): selection, conversions, `CONCAT`,
-    /// `TIME`.
-    fn standard(
-        &mut self,
-        node: &SyntaxNode,
-        name: &str,
-        args: Vec<Arg>,
-        want: Want,
-    ) -> Result<Called, NativeError> {
-        let values: Vec<SyntaxNode> = args.into_iter().map(|arg| arg.value).collect();
-        if name == "CONCAT" {
-            let mut parts = Vec::new();
-            for value in &values {
-                parts.extend(self.text(value)?);
-            }
-            return Ok(Called::Text(parts));
-        }
-        if name == "TIME" && values.is_empty() {
-            return Ok(Called::Scalar("cx.now_ns".into()));
-        }
-        if name.contains("_TO_") || name.starts_with("TO_") || name == "TRUNC" {
-            let ty = self.type_of(node)?;
-            let [value] = values.as_slice() else {
-                return Err(self.unsupported(node, format!("{name} with other than one input")));
-            };
-            return self.conversion(node, name, value, ty);
-        }
-        // A selection's inputs and result take their common type, as the runtime selects
-        // (specification 07 §6): the widest input's, the selector of SEL aside.
-        let operands = if name == "SEL" {
-            values.get(1..).unwrap_or(&[])
-        } else {
-            &values[..]
-        };
-        let Some((first, rest)) = operands.split_first() else {
-            return Err(self.unsupported(node, format!("{name} without inputs")));
-        };
-        let mut ty = self.operand_type(first)?;
-        for operand in rest {
-            let other = self.operand_type(operand)?;
-            ty = self.common(node, ty, other)?;
-        }
-        let mut scalars = Vec::with_capacity(values.len());
-        for value in &values {
-            let target = if name == "SEL" && scalars.is_empty() {
-                self.model.types.elem(Elem::Bool)
-            } else {
-                ty
-            };
-            scalars.push(self.scalar_to(value, target)?);
-        }
-        let Some(elem) = self.info(ty).scalar() else {
-            return Err(self.unsupported(node, format!("{name} of values that are not scalars")));
-        };
-        let value = match (name, scalars.as_slice()) {
-            ("LIMIT", [mn, value, mx]) => format!("lib::limit({mn}, {value}, {mx})"),
-            ("MAX" | "MIN", [first, rest @ ..]) if !rest.is_empty() => {
-                let function = if name == "MAX" {
-                    "lib::max"
-                } else {
-                    "lib::min"
-                };
-                rest.iter().fold(first.clone(), |acc, next| {
-                    format!("{function}({acc}, {next})")
-                })
-            }
-            ("ABS", [value]) if elem.is_signed() => self.bind(&format!("lib::abs(cx, {value})?")),
-            ("ABS", [value]) if elem.is_real() => format!("lib::fabs({value})"),
-            ("ABS", [value]) => value.clone(),
-            ("SEL", [select, first, second]) => {
-                format!("(if {select} {{ {second} }} else {{ {first} }})")
-            }
-            _ => return Err(self.unsupported(node, format!("the standard function {name}"))),
-        };
-        let value = self.bind(&value);
-        match want {
-            Want::Scalar(target) => Ok(Called::Scalar(self.convert(node, &value, ty, target)?)),
-            _ => Ok(Called::Scalar(value)),
-        }
-    }
-
-    /// `SRC_TO_DST(value)` of the result type `ty` (IEC §6.6.2.5.2 to §6.6.2.5.7; specification
-    /// 07 §2), with the runtime's rounding and faults through the library.
-    fn conversion(
-        &mut self,
-        node: &SyntaxNode,
-        name: &str,
-        value: &SyntaxNode,
-        ty: Ty,
-    ) -> Result<Called, NativeError> {
-        let from = self.type_of(value)?;
-        let source = self.scalar(value)?;
-        let Some(src) = self.info(from).scalar() else {
-            return Err(self.unsupported(node, format!("{name} of a value that is no scalar")));
-        };
-        if let Kind::Str(_) = self.info(ty).kind {
-            let temp = self.temp();
-            self.line(&format!("let {temp} = Str::<20>::new();"));
-            if src.is_signed() {
-                self.line(&format!(
-                    "lib::write_int({temp}.view(), i64::from({source}));"
-                ));
-            } else if src.is_unsigned() || src.is_bits() {
-                self.line(&format!(
-                    "lib::write_uint({temp}.view(), u64::from({source}));"
-                ));
-            } else {
-                return Err(self.unsupported(node, format!("{name}: {} as text", src.name())));
-            }
-            return Ok(Called::Text(vec![Text::Str(format!("&{temp}"))]));
-        }
-        let Some(dst) = self.info(ty).scalar() else {
-            return Err(self.unsupported(node, format!("{name} to a type that is no scalar")));
-        };
-        let rust = dst.rust();
-        let truncate = name == "TRUNC";
-        let converted = if src == dst || (src.is_duration() && dst.is_duration()) {
-            source
-        } else if src == Elem::Bool && (dst.is_integer() || dst.is_bits()) {
-            format!("({source} as {rust})")
-        } else if src.is_integer() && dst.is_integer() {
-            if src.is_signed() {
-                self.bind(&format!("lib::sint_to::<{rust}>(cx, i64::from({source}))?"))
-            } else {
-                self.bind(&format!("lib::uint_to::<{rust}>(cx, u64::from({source}))?"))
-            }
-        } else if src.is_integer() && dst.is_real() {
-            let (function, wide) = if src.is_signed() {
-                ("sint", "i64")
-            } else {
-                ("uint", "u64")
-            };
-            let bits = if dst == Elem::Real { 32 } else { 64 };
-            format!("lib::{function}_to_real{bits}({wide}::from({source}))")
-        } else if src.is_real() && dst.is_integer() {
-            let rounding = if truncate { "Truncate" } else { "Nearest" };
-            self.bind(&format!(
-                "lib::real_to_int::<{rust}>(cx, f64::from({source}), lib::Rounding::{rounding})?"
-            ))
-        } else if src == Elem::Real && dst == Elem::LReal {
-            self.bind(&format!("lib::real32_to_real::<f64>(cx, {source})?"))
-        } else if src == Elem::LReal && dst == Elem::Real {
-            self.bind(&format!("lib::real64_to_real32::<f32>(cx, {source})?"))
-        } else if (src.is_bits() || src.is_integer()) && (dst.is_bits() || dst.is_integer()) {
-            // A bit string converts by its bits: cut to the destination's width or extended with
-            // zeros, read with the destination's sign (specification 07 §2).
-            format!("({source} as {rust})")
-        } else if src == Elem::DWord && dst == Elem::Real {
-            self.bind(&format!("lib::bits_to_real32(cx, {source})?"))
-        } else if src == Elem::LWord && dst == Elem::LReal {
-            self.bind(&format!("lib::bits_to_real64(cx, {source})?"))
-        } else if src == Elem::Real && dst == Elem::DWord
-            || src == Elem::LReal && dst == Elem::LWord
-        {
-            format!("{source}.to_bits()")
-        } else if src.is_duration() && dst == Elem::DWord {
-            self.bind(&format!("lib::time_to_dword(cx, {source})?"))
-        } else if src == Elem::DWord && dst.is_duration() {
-            format!("lib::dword_to_time({source})")
-        } else {
-            return Err(self.unsupported(node, format!("{name}: {} to {}", src.name(), dst.name())));
-        };
-        Ok(Called::Scalar(converted))
-    }
 }
 
 /// The body of a function block: generated, or the library's with whether it takes the time.
 enum Body {
     User(String),
-    Library((&'static str, bool)),
+    Library((String, bool)),
 }
 
 /// Whether `param` is `EN` or `ENO`, which positional arguments skip.

@@ -17,6 +17,7 @@ use trust_runtime_core::native::image::{
 };
 
 pub(super) use super::classes::{Defs, Owner};
+pub(super) use super::std_blocks::StdFb;
 use super::NativeError;
 
 /// An elementary type (IEC §6.4.2, Table 10).
@@ -236,128 +237,6 @@ impl Member {
     /// The member's name in the generated Rust: the path to its base and the name in capitals.
     pub(super) fn field(&self) -> String {
         format!("{}{}", self.via, rust_field(&self.name))
-    }
-}
-
-/// A standard function block of the program library (IEC §6.6.3.5; specification 44 §6.8).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub(super) enum StdFb {
-    Ton,
-    Tof,
-    Tp,
-    RTrig,
-    FTrig,
-}
-
-impl StdFb {
-    /// Whether `name` is a standard function block the program library has.
-    pub(super) fn is_standard(name: &str) -> bool {
-        Self::named(name).is_some()
-    }
-
-    fn named(name: &str) -> Option<Self> {
-        Some(match name.to_ascii_uppercase().as_str() {
-            "TON" | "TON_LTIME" => Self::Ton,
-            "TOF" | "TOF_LTIME" => Self::Tof,
-            "TP" | "TP_LTIME" => Self::Tp,
-            "R_TRIG" => Self::RTrig,
-            "F_TRIG" => Self::FTrig,
-            _ => return None,
-        })
-    }
-
-    /// The IEC name.
-    pub(super) fn name(self) -> &'static str {
-        match self {
-            Self::Ton => "TON",
-            Self::Tof => "TOF",
-            Self::Tp => "TP",
-            Self::RTrig => "R_TRIG",
-            Self::FTrig => "F_TRIG",
-        }
-    }
-
-    /// The library's type.
-    pub(super) fn rust(self) -> &'static str {
-        match self {
-            Self::Ton => "lib::Ton",
-            Self::Tof => "lib::Tof",
-            Self::Tp => "lib::Tp",
-            Self::RTrig => "lib::RTrig",
-            Self::FTrig => "lib::FTrig",
-        }
-    }
-
-    /// The library's body, and whether it takes the task time.
-    pub(super) fn body(self) -> (&'static str, bool) {
-        match self {
-            Self::Ton => ("lib::ton", true),
-            Self::Tof => ("lib::tof", true),
-            Self::Tp => ("lib::tp", true),
-            Self::RTrig => ("lib::r_trig", false),
-            Self::FTrig => ("lib::f_trig", false),
-        }
-    }
-
-    /// The members as the library lays them out: name, type, offset, flags. The offsets are the
-    /// library's own, read from its types on the computer that builds (`#[repr(C)]` lays them out
-    /// the same on every target of specification 44 §4.4).
-    fn members(self) -> Vec<(&'static str, Elem, usize, u8)> {
-        use core::mem::offset_of;
-        use trust_plc_lib::{FTrig, RTrig, Tof, Ton, Tp};
-        let input = SYMBOL_INPUT;
-        let output = SYMBOL_OUTPUT;
-        match self {
-            Self::Ton => vec![
-                ("IN", Elem::Bool, offset_of!(Ton, IN), input),
-                ("PT", Elem::Time, offset_of!(Ton, PT), input),
-                ("Q", Elem::Bool, offset_of!(Ton, Q), output),
-                ("ET", Elem::Time, offset_of!(Ton, ET), output),
-                ("__LAST", Elem::LTime, offset_of!(Ton, LAST), 0),
-                ("__CALLED", Elem::Bool, offset_of!(Ton, CALLED), 0),
-            ],
-            Self::Tof => vec![
-                ("IN", Elem::Bool, offset_of!(Tof, IN), input),
-                ("PT", Elem::Time, offset_of!(Tof, PT), input),
-                ("Q", Elem::Bool, offset_of!(Tof, Q), output),
-                ("ET", Elem::Time, offset_of!(Tof, ET), output),
-                ("__LAST", Elem::LTime, offset_of!(Tof, LAST), 0),
-                ("__CALLED", Elem::Bool, offset_of!(Tof, CALLED), 0),
-                ("__PREV_IN", Elem::Bool, offset_of!(Tof, PREV_IN), 0),
-                ("__TIMING", Elem::Bool, offset_of!(Tof, TIMING), 0),
-            ],
-            Self::Tp => vec![
-                ("IN", Elem::Bool, offset_of!(Tp, IN), input),
-                ("PT", Elem::Time, offset_of!(Tp, PT), input),
-                ("Q", Elem::Bool, offset_of!(Tp, Q), output),
-                ("ET", Elem::Time, offset_of!(Tp, ET), output),
-                ("__LAST", Elem::LTime, offset_of!(Tp, LAST), 0),
-                ("__CALLED", Elem::Bool, offset_of!(Tp, CALLED), 0),
-                ("__PREV_IN", Elem::Bool, offset_of!(Tp, PREV_IN), 0),
-                ("__ACTIVE", Elem::Bool, offset_of!(Tp, ACTIVE), 0),
-            ],
-            Self::RTrig => vec![
-                ("CLK", Elem::Bool, offset_of!(RTrig, CLK), input),
-                ("Q", Elem::Bool, offset_of!(RTrig, Q), output),
-                ("__M", Elem::Bool, offset_of!(RTrig, M), 0),
-            ],
-            Self::FTrig => vec![
-                ("CLK", Elem::Bool, offset_of!(FTrig, CLK), input),
-                ("Q", Elem::Bool, offset_of!(FTrig, Q), output),
-                ("__M", Elem::Bool, offset_of!(FTrig, M), 0),
-            ],
-        }
-    }
-
-    fn layout(self) -> (usize, usize) {
-        use trust_plc_lib::{FTrig, RTrig, Tof, Ton, Tp};
-        match self {
-            Self::Ton => (size_of::<Ton>(), align_of::<Ton>()),
-            Self::Tof => (size_of::<Tof>(), align_of::<Tof>()),
-            Self::Tp => (size_of::<Tp>(), align_of::<Tp>()),
-            Self::RTrig => (size_of::<RTrig>(), align_of::<RTrig>()),
-            Self::FTrig => (size_of::<FTrig>(), align_of::<FTrig>()),
-        }
     }
 }
 
@@ -608,8 +487,8 @@ impl<'a> Types<'a> {
             kind: Kind::StdFb(fb),
             size: u32::try_from(size).unwrap_or(u32::MAX),
             align: u32::try_from(align).unwrap_or(8),
-            name: SmolStr::new_static(fb.name()),
-            rust: fb.rust().to_string(),
+            name: SmolStr::new(fb.name()),
+            rust: fb.rust(),
         };
         self.intern(info)
     }

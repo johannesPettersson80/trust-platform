@@ -376,3 +376,22 @@ branches remain explicit test debt and are not implied by these checked rows.
 
 SPLIT_DATE/TOD/LTOD/DT/LDT VM output handling retains exact binding and transaction semantics; output slice shapes are checked before writes. The native short-arity case asserts that destinations remain unchanged.
 Ties-to-even parity uses exact integer parity only on representable half-integers; exponent-boundary and randomized native equivalence assertions preserve the original remainder-based result.
+
+## Compiled programs (specification 44 §6.8)
+
+A program compiled into a native module calls the program library (`trust-plc-lib`) instead of the
+runtime's functions. `crates/trust-runtime/tests/native_stdlib.rs` runs each family compiled and in
+the runtime in lockstep and compares every result and every fault. Compiled today:
+
+- Table 22 conversions between the integers, the reals and the bit strings, `TIME` and `DWORD`,
+  integers to `STRING`; the other conversions are refused at build (NX-09).
+- Table 23 numerical functions: `ABS`, `SQRT`, `LN`, `LOG`, `EXP`, `SIN`, `COS`, `TAN`, `ASIN`,
+  `ACOS`, `ATAN`, `ATAN2`, `EXPT`; Table 24 `ADD`, `SUB`, `MUL`, `DIV` in function form, `MOVE`.
+- Table 26 `SHL`, `SHR`, `ROL`, `ROR`; Tables 29 to 31 `SEL`, `MAX`, `MIN`, `LIMIT`, `MUX`, `GT`,
+  `GE`, `EQ`, `LE`, `LT`, `NE`.
+- Table 34 `LEN`, `LEFT`, `RIGHT`, `MID`, `CONCAT`, `INSERT`, `DELETE`, `REPLACE`, `FIND`.
+- Tables 43 to 46: `SR`, `RS`, `R_TRIG`, `F_TRIG`, the counters in all five count types, `TP`,
+  `TON`, `TOF`.
+- Not yet: the date and time functions of Tables 36 and 37, conversions to and from text other than
+  integers to `STRING`, BCD, `WSTRING`, and the assertion functions.
+
