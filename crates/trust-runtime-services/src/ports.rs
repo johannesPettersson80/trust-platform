@@ -20,6 +20,7 @@ use trust_runtime_core::scheduler::ResourceState;
 use crate::access::{AccessRole, AuthFailure};
 use crate::capabilities::LastReset;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
+use crate::debug::Debugger;
 use crate::events::RuntimeEvent;
 use crate::installation::Admitted;
 use crate::live_values::io_requests::IoQueuePort;
@@ -111,6 +112,13 @@ pub trait ResourcePort {
 
     /// Whether the runtime runs in debug control mode; an unreadable mode counts as production.
     fn debug_control_mode(&self) -> bool;
+
+    /// Whether the debugger cannot hold the scan because the program has no line table, so a
+    /// debug-mode `pause` is refused before it asks the debugger to hold anything (specification
+    /// 11 §6.13.3). The default is a runtime that can always debug.
+    fn debugger_unavailable(&self) -> bool {
+        false
+    }
 
     /// Asks the debugger to hold the scan at its next statement.
     fn debugger_pause(&self);
@@ -445,6 +453,13 @@ pub(crate) fn part_in_memory(
 pub trait ExtensionDispatch {
     /// Answers `request`, or `None` when the platform has no such operation.
     fn dispatch_extension(&self, request: &ControlRequest) -> Option<ControlResponse>;
+
+    /// The platform's debugger, from which the shared pipeline answers the debug operations
+    /// (specification 11 §6.9 and §6.13). A platform that returns none answers them itself through
+    /// [`Self::dispatch_extension`], as trust-runtime does with its own debugger.
+    fn debugger(&self) -> Option<&dyn Debugger> {
+        None
+    }
 
     /// Audit details of `request` with secrets removed, for operations that have details.
     fn audit_details(&self, request: &ControlRequest) -> Option<serde_json::Value>;

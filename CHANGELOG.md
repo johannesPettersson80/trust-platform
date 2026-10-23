@@ -394,6 +394,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Fixed: on the ESP32-C6 a firmware panic drove every configured output low before the chip
   reset, whatever `[[io.safe_state]]` named. It now drives each output to its safe value, as the
   STM32U5A9 and the stop and fault paths do.
+- Changed: `debug.variables` lists a large array in pages on every runtime, as the Debug Adapter Protocol
+  does: it takes `filter`, `start` and `count`, an array's entry reports `indexedVariables` and a
+  structure's `namedVariables`, and a request without `start` and `count` lists the first 100
+  elements. A chip lists an array of 300 structures page by page within its 256 variable handles,
+  and `trust-debug` passes VS Code's paging on to an attached runtime.
+- Changed: `breakpoints.list` entries now carry `file_id`, `path`, `line` and `column` beside `start` and
+  `end`, the shape a chip gives too (a chip has no source text, so it gives no byte offsets).
 - Changed: `shutdown` on a computer now stops the PLC program and keeps `trust-runtime` running
   in the Stopped state, as it does on a chip, and as CODESYS and TwinCAT keep their runtime up
   while the application is stopped. The control server, the web UI and the other services stay up,

@@ -44,6 +44,7 @@ use trust_runtime_core::vm::PreparedModule;
 use trust_runtime_core::watchdog::RetainMode;
 use trust_runtime_services::capabilities::LastReset;
 use trust_runtime_services::chip::platform::status_settings;
+use trust_runtime_services::debug::LineSources;
 use trust_runtime_services::link::DeviceLineLink;
 use trust_runtime_services::runner::engine::{
     device_limits, CycleSettings, DeviceMemory, DeviceServices, EngineCycle,
@@ -184,6 +185,16 @@ fn main() -> ! {
         heap_bytes: memory::HEAP.capacity(),
         call_depth,
     });
+    // The program's line table and file labels, which place breakpoints and name the files of a stop
+    // (specification 13, "Source Mapping"). They are read before the program is prepared, because
+    // the heap is as free now as it is for preparation.
+    let sources: Option<&'static LineSources> = match LineSources::read(program, &limits) {
+        Ok(sources) => sources.map(|sources| &*Box::leak(Box::new(sources))),
+        Err(error) => serve_stopped(
+            parts,
+            format!("the installed application's line table cannot be read: {error}"),
+        ),
+    };
     // The program lies in the application region, where the prepared program reads its
     // declarations and initializers (specification 34 MEM-14).
     let prepared = match PreparedModule::from_mapped(program, limits) {
@@ -243,7 +254,7 @@ fn main() -> ! {
             .collect(),
     };
     let cycle = match EngineCycle::start(prepared, services, gpio, settings) {
-        Ok(cycle) => cycle.with_debugger(),
+        Ok(cycle) => cycle.with_debugger(sources),
         Err(error) => serve_stopped(
             parts,
             format!("the installed application cannot be started: {error}"),

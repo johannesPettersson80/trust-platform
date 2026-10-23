@@ -39,32 +39,39 @@ use trust_runtime_core::memory::VariableStorage;
 use trust_runtime_core::ports::{ControlLink, MonotonicClock, RunnerWait};
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value;
-use trust_runtime_core::vm::StatementFrame;
+use trust_runtime_core::vm::{PreparedModule, StatementFrame};
 
+use super::cycle::DebugView;
 use super::debugger::{Boundary, StatementStart};
 use super::host::ProgramView;
 use super::shell::Shell;
 use super::{RunnerPlatform, FRAMES_PER_PASS, REPLY_SERVICE_INTERVAL};
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
+use crate::debug::LineSources;
 use crate::status::IoDriverStatus;
 
 /// The halted state of a held scan, lent to the hold for the length of one hook call: the storage
-/// and the active frame the engine passed to the hook, and the health of the process I/O the cycle
-/// published before the program ran. Nothing in it is a copy (specification 11 §6.13.1: the value
-/// of a held scan is the halted state, and the runtime makes no copy per statement).
-#[cfg_attr(
-    not(test),
-    allow(
-        dead_code,
-        reason = "S3d-8's debug.stack, debug.scopes and debug.variables read the halted state here"
-    )
-)]
+/// and the active frame the engine passed to the hook, the prepared program that names them, and the
+/// health of the process I/O the cycle published before the program ran. Nothing in it is a copy
+/// (specification 11 §6.13.1: the value of a held scan is the halted state, and the runtime makes no
+/// copy per statement).
 pub(super) struct HeldView<'a> {
     /// The scan's storage as the statements before the stop left it.
     pub(super) storage: &'a VariableStorage,
     /// The frame of the statement the scan stopped before, with the suspended frames below it.
     pub(super) frame: StatementFrame<'a>,
+    /// The prepared program, which names the POUs and the variables of the frames.
+    pub(super) prepared: &'a PreparedModule,
+    /// The program's `LINE_TABLE` and file labels, when it has a `LINE_TABLE`.
+    pub(super) sources: Option<&'a LineSources>,
     /// The logical time of the scan.
+    #[cfg_attr(
+        not(test),
+        allow(
+            dead_code,
+            reason = "S3c's compiled debug expressions read the time of the halted scan"
+        )
+    )]
     pub(super) logical_time: value::Duration,
     /// The health of the process I/O, which the cycle published after it read the inputs.
     pub(super) drivers: &'a Cell<Vec<IoDriverStatus>>,
@@ -83,7 +90,7 @@ pub(super) trait HoldPass {
     /// # Errors
     ///
     /// The [`RuntimeError`] that fails the scan when the loop's state was in use.
-    fn at_statement(&self, at: &StatementStart) -> Result<Boundary, RuntimeError>;
+    fn at_statement(&self, at: &StatementStart<'_>) -> Result<Boundary, RuntimeError>;
 
     /// Holds the scan before the statement `at` until the debugger releases it.
     ///
@@ -91,7 +98,7 @@ pub(super) trait HoldPass {
     ///
     /// The [`RuntimeError`] that fails the scan when the hold cannot go on: a wait that failed, or
     /// state of the loop that was in use.
-    fn hold(&self, at: &StatementStart, view: &HeldView<'_>) -> Result<(), RuntimeError>;
+    fn hold(&self, at: &StatementStart<'_>, view: &HeldView<'_>) -> Result<(), RuntimeError>;
 
     /// Whether no cell of the loop is borrowed.
     #[cfg(test)]
@@ -127,14 +134,14 @@ impl HoldHandle {
     }
 
     /// The decision at a statement start; see [`HoldPass::at_statement`].
-    pub(super) fn at_statement(&self, at: &StatementStart) -> Result<Boundary, RuntimeError> {
+    pub(super) fn at_statement(&self, at: &StatementStart<'_>) -> Result<Boundary, RuntimeError> {
         self.0.at_statement(at)
     }
 
     /// Holds the scan; see [`HoldPass::hold`].
     pub(super) fn hold(
         &self,
-        at: &StatementStart,
+        at: &StatementStart<'_>,
         view: &HeldView<'_>,
     ) -> Result<(), RuntimeError> {
         self.0.hold(at, view)
@@ -149,9 +156,9 @@ impl HoldHandle {
 }
 
 /// The installed program as a held scan shows it: installed, with the I/O health its cycle
-/// published.
+/// published and the halted state the hook lent.
 struct HeldProgram<'a> {
-    drivers: &'a Cell<Vec<IoDriverStatus>>,
+    view: &'a HeldView<'a>,
 }
 
 impl ProgramView for HeldProgram<'_> {
@@ -161,15 +168,25 @@ impl ProgramView for HeldProgram<'_> {
     }
 
     fn driver_health(&self) -> Vec<IoDriverStatus> {
-        let drivers = self.drivers.take();
+        let drivers = self.view.drivers.take();
         let health = drivers.clone();
-        self.drivers.set(drivers);
+        self.view.drivers.set(drivers);
         health
     }
 
     /// A held scan is a running program's, which no step runs (specification 11 §6.8.1).
     fn step(&self, _request: &StepRequest) -> Result<StepOutcome, StepRefusal> {
         Err(StepRefusal::NotStopped(ResourceState::Running))
+    }
+
+    /// The halted state: the storage and call stack at the stop (specification 11 §6.13.1).
+    fn debug_state(&self) -> Option<DebugView<'_>> {
+        Some(DebugView {
+            storage: self.view.storage,
+            prepared: self.view.prepared,
+            frame: Some(self.view.frame),
+            sources: self.view.sources,
+        })
     }
 }
 
@@ -190,7 +207,7 @@ where
         enabled
     }
 
-    fn at_statement(&self, at: &StatementStart) -> Result<Boundary, RuntimeError> {
+    fn at_statement(&self, at: &StatementStart<'_>) -> Result<Boundary, RuntimeError> {
         #[cfg(test)]
         assert!(
             self.cells_free(),
@@ -199,7 +216,7 @@ where
         self.debug.at_statement(at)
     }
 
-    fn hold(&self, at: &StatementStart, view: &HeldView<'_>) -> Result<(), RuntimeError> {
+    fn hold(&self, at: &StatementStart<'_>, view: &HeldView<'_>) -> Result<(), RuntimeError> {
         #[cfg(test)]
         assert!(
             self.cells_free(),
@@ -262,9 +279,7 @@ where
     /// and returns true when it stops with the link not yet dry. A hold has no boundary that a
     /// request could delay, so it starts every request it finds.
     fn serve_held(&self, view: &HeldView<'_>) -> bool {
-        let program = HeldProgram {
-            drivers: view.drivers,
-        };
+        let program = HeldProgram { view };
         for _ in 0..FRAMES_PER_PASS {
             let Some(received) = self.next_frame() else {
                 return false;

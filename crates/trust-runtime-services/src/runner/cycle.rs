@@ -7,17 +7,35 @@ use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
-use trust_runtime_core::memory::Generation;
+use trust_runtime_core::memory::{Generation, VariableStorage};
 use trust_runtime_core::ports::{MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::value::Duration;
-use trust_runtime_core::vm::{CycleHooks, PreparedModule, RetainApplyEvent};
+use trust_runtime_core::vm::{CycleHooks, PreparedModule, RetainApplyEvent, StatementFrame};
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
 use super::hold::HoldHandle;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
+use crate::debug::LineSources;
 use crate::metrics::ProgramMemory;
 use crate::status::IoDriverStatus;
+
+/// What a debug read sees of the installed program (specification 11 §6.13.1): the program's
+/// storage, the names that its frames and variables carry, the call stack while the debugger holds
+/// the scan, and the sources that place its statements. Nothing in it is a copy.
+#[derive(Debug, Clone, Copy)]
+pub struct DebugView<'a> {
+    /// The program's storage: the state of the last scan that ended between scans, and the halted
+    /// state while the debugger holds the scan.
+    pub storage: &'a VariableStorage,
+    /// The prepared program, which names the POUs and the variables of a frame.
+    pub prepared: &'a PreparedModule,
+    /// The frame of the statement that the scan is held before, with the suspended frames below
+    /// it; none between scans, because the published state of a scan that ended has no call stack.
+    pub frame: Option<StatementFrame<'a>>,
+    /// The program's `LINE_TABLE` and file labels, or none when the program has no `LINE_TABLE`.
+    pub sources: Option<&'a LineSources>,
+}
 
 /// Where a warm restart finds the retained values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -224,4 +242,11 @@ pub trait ResourceCycle {
     /// hook, at the first instruction of a statement, and lends it the halted state. It may keep the
     /// handle for the rest of the boot. The default ignores it: a cycle that never holds a scan.
     fn attach_hold(&mut self, _hold: HoldHandle) {}
+
+    /// The program as a debug read sees it between scans, or none for a cycle that no debugger is
+    /// attached to; the debug operations are then unsupported. While a debugger holds the scan the
+    /// hold lends the halted state instead. The default has no debugger.
+    fn debug_view(&self) -> Option<DebugView<'_>> {
+        None
+    }
 }

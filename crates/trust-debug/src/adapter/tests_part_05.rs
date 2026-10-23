@@ -115,6 +115,9 @@ fn dispatch_threads_stack_scopes_variables() {
         arguments: Some(
             serde_json::to_value(VariablesArguments {
                 variables_reference: locals_scope.variables_reference,
+                filter: None,
+                start: None,
+                count: None,
             })
             .unwrap(),
         ),
@@ -155,6 +158,9 @@ fn dispatch_threads_stack_scopes_variables() {
         arguments: Some(
             serde_json::to_value(VariablesArguments {
                 variables_reference: globals_scope.variables_reference,
+                filter: None,
+                start: None,
+                count: None,
             })
             .unwrap(),
         ),
@@ -172,6 +178,9 @@ fn dispatch_threads_stack_scopes_variables() {
         arguments: Some(
             serde_json::to_value(VariablesArguments {
                 variables_reference: struct_ref,
+                filter: None,
+                start: None,
+                count: None,
             })
             .unwrap(),
         ),
@@ -189,6 +198,9 @@ fn dispatch_threads_stack_scopes_variables() {
         arguments: Some(
             serde_json::to_value(VariablesArguments {
                 variables_reference: array_ref,
+                filter: None,
+                start: None,
+                count: None,
             })
             .unwrap(),
         ),
@@ -207,6 +219,9 @@ fn dispatch_threads_stack_scopes_variables() {
         arguments: Some(
             serde_json::to_value(VariablesArguments {
                 variables_reference: instance_ref,
+                filter: None,
+                start: None,
+                count: None,
             })
             .unwrap(),
         ),
@@ -232,6 +247,9 @@ fn dispatch_threads_stack_scopes_variables() {
         arguments: Some(
             serde_json::to_value(VariablesArguments {
                 variables_reference: parent_ref,
+                filter: None,
+                start: None,
+                count: None,
             })
             .unwrap(),
         ),
@@ -249,6 +267,9 @@ fn dispatch_threads_stack_scopes_variables() {
         arguments: Some(
             serde_json::to_value(VariablesArguments {
                 variables_reference: ref_ref,
+                filter: None,
+                start: None,
+                count: None,
             })
             .unwrap(),
         ),
@@ -266,6 +287,9 @@ fn dispatch_threads_stack_scopes_variables() {
         arguments: Some(
             serde_json::to_value(VariablesArguments {
                 variables_reference: instances_scope.variables_reference,
+                filter: None,
+                start: None,
+                count: None,
             })
             .unwrap(),
         ),

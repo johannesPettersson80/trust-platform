@@ -270,14 +270,21 @@ package "trust-runtime-services\nrunner/ (a device's hold)" as chipHold #PaleGre
     component "hold pass (hold.rs)\nserve up to 8 requests, idle(),\nfeed the watchdog, wait: one feed\ninterval, 1 ms while a reply is in flight;\nhold_started() / hold_ended()" as holdPass
     component "Shell (shell.rs)\nlink, wait, platform, receive buffer,\nresource state, records, debugger;\neach RefCell is borrowed by one leaf\noperation at a time" as chipShell
     component "Runner::run_pass()\nbetween scans; Runner::scan() holds\nno RefCell guard across run_scan()" as chipRunner
+    component "debug/requests.rs\nthe debug operations (debug.*,\nbreakpoints.*, step_*), answered\nfrom the Debugger port" as debugRequests
+    component "runner/debug_port.rs\nDebugger over the loop: published\nreads, LINE_TABLE sources,\nframe names from the prepared program" as debugPort
+    component "debug/replies.rs, projection.rs\nthe one reply builder of every runtime;\nthe handle table, bound 256 on a chip;\nrefusals with stable codes" as debugReplies
 
     chipHook --> chipDebug : at_statement()
+    debugRequests --> debugPort : Debugger port:\nstate, stops, breakpoints, handles
+    debugRequests --> debugReplies : reply shapes,\nrefusals
+    debugPort --> chipDebug : the fields the port reads\nand changes
     chipDebug --> runControl : boundary(), take_pending_stop(),\nholds_here()
     chipHook --> holdPass : hold() until the debugger\nreleases the scan
     holdPass --> chipDebug : holds_here() after each pass
     holdPass --> chipShell : serve, idle, feed, wait
     chipRunner --> chipShell : serve, idle, feed, wait
     chipShell --> sharedDispatch : prepare_line_within():\nstatus, health, pause, resume,\nshutdown while held
+    sharedDispatch --> debugRequests : debug operations on a chip\n(specification 11 §6.13.3)
 }
 
 note right of holdPass
@@ -288,6 +295,14 @@ note right of holdPass
     debugger do not end it. It runs no
     boundary: no scan starts, no output
     is committed, no retain step runs.
+end note
+
+note right of debugReplies
+    breakpoints.list entry, one shape on every runtime:
+    file_id, line, column, end_line, end_column
+    (zero-based). A computer adds start and end,
+    its byte offsets; a chip has no text to count them.
+    Instances list in ascending instance identifier.
 end note
 
 remoteSession -down-> controlServer : JSON IPC (debug.*)

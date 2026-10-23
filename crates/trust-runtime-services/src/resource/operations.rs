@@ -12,6 +12,7 @@ use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 
 use super::replies::{hung_refusal, no_installed_program, queue_refusal, resource_not_running};
+use crate::debug::replies::no_line_table;
 use crate::ports::ResourcePort;
 use crate::protocol::ControlResponse;
 use crate::status::{invalid_params, validate_object_fields};
@@ -44,7 +45,9 @@ pub fn coalesce_restart(pending: Option<RestartMode>, requested: RestartMode) ->
 /// `pause`: holds the scan.
 ///
 /// In debug control mode the debugger holds the scan at its next statement; otherwise the
-/// scheduler pauses between cycles. The reply `paused` means the resource accepted the request.
+/// scheduler pauses between cycles. The reply `paused` means the resource accepted the request. A
+/// program without a line table cannot be held at a statement, so a debug-mode `pause` is refused
+/// with `no_line_table` before the debugger is asked (specification 11 §6.13.3).
 #[must_use]
 #[allow(
     clippy::missing_panics_doc,
@@ -59,6 +62,9 @@ pub fn pause<H: ResourcePort>(id: u64, host: &H) -> ControlResponse {
         return resource_not_running(id, resource);
     }
     if host.debug_control_mode() {
+        if host.debugger_unavailable() {
+            return no_line_table(id);
+        }
         host.debugger_pause();
     } else if let Err(error) = host.pause_resource() {
         return queue_refusal(id, error, host);

@@ -57,6 +57,7 @@
 #[cfg(feature = "native")]
 pub mod compiled;
 mod cycle;
+mod debug_port;
 mod debugger;
 pub mod engine;
 mod hold;
@@ -71,6 +72,7 @@ mod shell;
 mod state;
 mod stepping;
 mod supervision;
+mod threads;
 
 use alloc::boxed::Box;
 use alloc::rc::Rc;
@@ -92,7 +94,7 @@ use trust_runtime_core::vm::RetainApplyEvent;
 
 #[cfg(feature = "native")]
 pub use compiled::CompiledCycle;
-pub use cycle::{resource_tasks, ResourceCycle, RetainSource, TaskDescriptor};
+pub use cycle::{resource_tasks, DebugView, ResourceCycle, RetainSource, TaskDescriptor};
 pub use engine::EngineLiveValues;
 pub use hold::HoldHandle;
 pub use host::RunnerPlatform;
@@ -239,6 +241,14 @@ where
         // `status` reports the memory figure of the program the loop runs (specification 34 MEM-12).
         let memory = cycle.program_memory();
         records.record(|metrics| metrics.set_program_memory(memory));
+        // A platform that enables debugging keeps as many stops as the event store keeps events,
+        // so the bound comes from the device's descriptor or the record's capacity, as the event
+        // store's does (specification 11 §6.13.3); one that does not reserves nothing.
+        let stop_capacity = if platform.debug_enabled() {
+            event_capacity
+        } else {
+            0
+        };
         let shell = Rc::new(Shell::new(
             link,
             wait,
@@ -246,6 +256,7 @@ where
             clock.clone(),
             ResourceCell::running(),
             records,
+            stop_capacity,
         ));
         let mut cycle = Program::Installed(cycle);
         let hold = HoldHandle::new(&shell);
@@ -295,6 +306,7 @@ where
             clock.clone(),
             ResourceCell::stopped(),
             records,
+            0,
         ));
         let hold = HoldHandle::new(&shell);
         Self {
@@ -557,6 +569,12 @@ fn span(configured: value::Duration) -> TimeSpan {
 
 #[cfg(test)]
 mod contract_tests;
+
+#[cfg(test)]
+mod debug_contract_tests;
+
+#[cfg(test)]
+mod debug_read_contract_tests;
 
 #[cfg(test)]
 mod disconnect_contract_tests;

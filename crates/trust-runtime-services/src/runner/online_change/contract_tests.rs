@@ -487,7 +487,7 @@ impl Rig {
         )
         .expect("the program starts");
         let engine = if debugger {
-            engine.with_debugger()
+            engine.with_debugger(None)
         } else {
             engine
         };

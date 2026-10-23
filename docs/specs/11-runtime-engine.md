@@ -6704,6 +6704,101 @@ receives the rejection itself — a failed response carrying the code and its de
 `eval` keeps its own contract (section 6.8.1): it is a bounded exact name read, not an expression,
 and it carries text.
 
+**Before a runtime implements a version (owner, 18 October 2026).** A runtime that implements no
+`expr_version` yet, a chip until the tool compile exists, refuses every request that would evaluate
+an expression and decodes nothing: `debug.evaluate`; `eval`, which such a runtime does not answer as a
+name read; and a `breakpoints.set` whose parameters carry a `condition` or a `log_message` other than
+`null`, which it refuses whole, so that a breakpoint is never stored without the condition the client
+asked for. The refusal is a failed response with the stable code `expr_version_unsupported` and the
+message `this runtime evaluates no debug expressions yet: the compiled expression form is not
+implemented`. A refusal changes nothing.
+
+##### 6.13.3 Debug requests without source text (owner, 18 October 2026)
+
+A runtime that holds no ST source text, a chip, answers the debug operations of the role table
+(section 6.9.5) from the program's `LINE_TABLE` (specification 12 §6.13) and the file labels of its
+`DEBUG_STRING_TABLE`. The shared dispatcher routes `debug.state`, `debug.stops`, `debug.stack`,
+`debug.scopes`, `debug.variables`, `debug.breakpoint_locations`, `breakpoints.set`, `breakpoints.clear`,
+`breakpoints.list`, `breakpoints.clear_all`, `breakpoints.clear_id`, `step_in`, `step_over` and
+`step_out` to one request module, with the role the table gives each, and a read answers from the
+published debug state of section 6.13.1. Each reply is trust-runtime's reply for the same stop, field
+for field: the frame and variable identifiers, the names, the stop reason labels, the error texts and
+the error codes. Line and column numbers in a request and in a reply are zero-based, as trust-runtime
+carries them; the table holds them one-based, and the conversion happens once, at the request. The
+differences that follow from the missing text are these, with the handle bound below, and no others:
+
+- **File identity.** A reply names a file by its label: the `path` of a source, and the last `/`
+  component of the label as its `name`. A file's identifier in a reply is the index of its entry in the
+  table. A request names a file by a path: the file is the one whose label equals the path or is the
+  longest tail of it after a `/`, a `\` counting as `/`, because a client holds a path and a label is
+  relative to the project root. A path that ends with no label is refused with `unknown source path`.
+- **Shared reply shapes.** `breakpoints.list` gives one entry shape on every runtime: `file_id`,
+  `line`, `column`, `end_line` and `end_column`, zero-based, in registration order, built by the one
+  shared reply builder. A runtime that holds the text adds the statement's byte offsets `start` and
+  `end`, which a runtime without the text cannot count. The `Instances` scope lists its instances in
+  ascending instance identifier on every runtime, whatever order the storage's map iterates in.
+- **The buffer of stops.** `debug.stops` returns the stops since its last call, oldest first, and
+  empties the buffer. The buffer is bounded, and a stop beyond the bound replaces the oldest. The bound
+  is the capacity of the event store (`runtime.events.capacity` of the project, or the device
+  descriptor's default; section 6.8.1), because a stop is a smaller record than an event. A runtime that
+  enables debugging takes the whole buffer at start, as it takes the event store, so that no scan
+  allocates for it; a runtime that does not enable debugging takes none. `debug.state` reports the
+  latest stop whatever the buffer holds.
+- **Threads.** Each task is one debugger thread. The threads are numbered 1, 2, ... in the order the
+  resource declares its tasks, a task name that a later task repeats keeps the number of its first, and
+  the programs that run outside every task are one more thread, numbered after the last task. The
+  runtime sets the thread when a task starts, so a stop in a task reports that task's thread.
+- **Variable handles.** The identifiers of a variable list restart at `1` with every `debug.scopes`
+  and are valid until the next one (specification 13, "Runtime debug state, mutation, and projection
+  invariants"), except the handles of an array's pages that a bounded table releases (below).
+- **Handle bound.** A runtime without the text holds at most 256 live variable handles, a handle
+  taken out for a listing counted. A listing that would take the table past that bound is refused
+  whole, with the stable code `variable_handles_full` and the message `the variable handle table is
+  full: request the scopes again`, and the table stays as it was. The bound counts the handles of one
+  page (see "Variable pages" below): when a page of an array finds the table short of the room that
+  its handles need, the table first releases the handles of the oldest earlier pages of arrays, a
+  whole page at a time and only as many pages as the room needs. It releases none when all the earlier
+  pages together would not make the room, and the page is then refused as above. So the 300 elements
+  of an array of structures list as three pages of 100 on a chip, each page taking its own handles. A
+  released handle answers `unknown variables reference`, as a handle that was never issued does, and
+  the client lists its page again to get new handles. A computer keeps its handles unbounded, as it
+  always has, and releases none; the refusal is the same wherever a bound applies.
+- **No line table.** A program without a `LINE_TABLE` has no statement start to hold at or to name, so
+  it cannot be debugged on a runtime that holds no text. Every debug operation above is refused with the
+  stable code `no_line_table` and the message `the program has no line table, so it cannot be debugged:
+  rebuild the project`, and a debug-mode `pause` is refused the same way before the debugger is asked
+  to hold anything. `resume` is unaffected.
+
+**Variable pages (every runtime).** `debug.variables` lists the children of a handle in pages, as the
+Debug Adapter Protocol's `variables` request does (specification 13, "Variables / Evaluate"), so that
+the listing of a large array needs no more handles than one page, and an engineer can inspect every
+element of a large array on a chip as on a computer. This is not one of the differences above: a
+computer and a chip answer a given page with the same entries, because the same shared code cuts it.
+The parameters are `variables_reference` and three optional ones, `filter` (`indexed` or `named`),
+`start` and `count`. `start` and `count` are integers from 0 to 4,294,967,295; any other value of
+the three is refused with an `invalid params` error, and the request changes nothing.
+
+- **Children.** The children of an array are its elements, which are *indexed*. The children of
+  anything else are *named*: the members of a structure, the variables of a scope or of an instance,
+  the target of a reference, and the areas and rows of the I/O scope.
+- **The page.** `filter` keeps the children of the kind it names and lists none of the other kind.
+  `start` is the zero-based index of the first child to list among the children that `filter` keeps,
+  `0` when absent, and `count` is the most children to list. A page lists the children from `start`,
+  in their order, at most `count`, and fewer at the end of the list; a `start` at or past the last
+  child lists none. A name keeps the index it has in the whole list: on the page that starts at 100,
+  the first element is named `[100]`.
+- **Without `count`.** A `count` that is absent or `0` lists a page of 100 elements of an array, the
+  chunk in which VS Code pages. A request that names neither `start` nor `count` therefore answers an
+  array's first page, and an old client still gets an answer that fits. The named children from
+  `start` are all listed without a `count`, because VS Code requests the named children of a variable
+  whole and would never see a member that a page cut off.
+- **Counts.** An entry whose value is an array reports `indexedVariables`, the number of its
+  elements, and an entry whose value is a structure reports `namedVariables`, the number of its
+  members. Both are the size of the whole container, not of a page, so that a client can ask for each
+  chunk. No other entry reports a count: a scalar entry has neither field.
+- **Handles.** Only the children that a page lists take handles, so a page of an array takes at most
+  `count` handles, and at most 100 without a `count`, however large the array is.
+
 ##### Hosted embedding mutation lifecycle (planned H migration)
 
 [Specification 34 §4.3.1](34-runtime-portability.md#431-construction-and-installed-state-mutation)

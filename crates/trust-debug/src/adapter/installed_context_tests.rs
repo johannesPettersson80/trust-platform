@@ -509,6 +509,9 @@ fn reference_variable_inspection_materializes_characters_from_a_detached_snapsho
             arguments: Some(
                 serde_json::to_value(VariablesArguments {
                     variables_reference: handle,
+                    filter: None,
+                    start: None,
+                    count: None,
                 })
                 .unwrap(),
             ),
@@ -576,6 +579,9 @@ END_PROGRAM
         arguments: Some(
             serde_json::to_value(VariablesArguments {
                 variables_reference: retained_handle,
+                filter: None,
+                start: None,
+                count: None,
             })
             .unwrap(),
         ),

@@ -58,9 +58,7 @@ impl DebugAdapter {
         };
 
         if let Some(remote) = self.remote_session.as_mut() {
-            let variables = remote
-                .variables(args.variables_reference)
-                .unwrap_or_default();
+            let variables = remote.variables(&args).unwrap_or_default();
             let body = VariablesResponseBody { variables };
             return DispatchOutcome {
                 responses: vec![self.ok_response(&request, Some(body))],
@@ -200,6 +198,8 @@ impl DebugAdapter {
                         r#type: None,
                         variables_reference: inputs_ref,
                         evaluate_name: None,
+                        named_variables: None,
+                        indexed_variables: None,
                     },
                     Variable {
                         name: "Outputs".to_string(),
@@ -207,6 +207,8 @@ impl DebugAdapter {
                         r#type: None,
                         variables_reference: outputs_ref,
                         evaluate_name: None,
+                        named_variables: None,
+                        indexed_variables: None,
                     },
                     Variable {
                         name: "Memory".to_string(),
@@ -214,6 +216,8 @@ impl DebugAdapter {
                         r#type: None,
                         variables_reference: memory_ref,
                         evaluate_name: None,
+                        named_variables: None,
+                        indexed_variables: None,
                     },
                 ]
             }
@@ -259,6 +263,8 @@ impl DebugAdapter {
                     r#type: None,
                     variables_reference: 0,
                     evaluate_name: Some(name),
+                    named_variables: None,
+                    indexed_variables: None,
                 }
             })
             .collect()
@@ -311,6 +317,8 @@ impl DebugAdapter {
                     r#type: Some(type_name),
                     variables_reference,
                     evaluate_name: None,
+                    named_variables: None,
+                    indexed_variables: None,
                 }
             })
             .collect()
@@ -354,6 +362,8 @@ impl DebugAdapter {
             r#type,
             variables_reference,
             evaluate_name,
+            named_variables: None,
+            indexed_variables: None,
         }
     }
 

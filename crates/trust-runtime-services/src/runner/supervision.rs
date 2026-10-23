@@ -153,10 +153,12 @@ where
     ) -> Result<(), RuntimeError> {
         let events = self.cycle.restart(mode, source)?;
         // A committed restart clears the previous lifecycle's queued writes and forces, as
-        // trust-runtime's `begin_lifecycle` does (specification 11 §6.9.2); a failed one keeps
-        // them, as a failed host restart keeps them.
+        // trust-runtime's `begin_lifecycle` does (specification 11 §6.9.2), and its published debug
+        // state (specification 11 §6.13.1); a failed one keeps them, as a failed host restart
+        // keeps them.
         self.live.clear();
         self.follow_generation();
+        self.shell.debug.restarted();
         self.record_retain_events(events);
         let now = self.logical(self.clock.now());
         self.cycle.reset_task_timing(now);
@@ -209,6 +211,8 @@ where
     /// recorded at time zero, and its first scan is due at once.
     pub(super) fn begin_program(&mut self, events: Vec<RetainApplyEvent>) {
         self.live.clear();
+        // The published debug state of the last run is gone (specification 11 §6.13.1).
+        self.shell.debug.restarted();
         // A restart in place installed the next generation. A program loaded in place has Live
         // Values of its own, in the first generation, over a state that its warm start may have
         // restarted.
@@ -248,7 +252,12 @@ where
         // the engine's, the rest the services' (specification 34, "The allocation count").
         let operations_before = self.cycle.allocator_operations();
         let result = {
-            let mut observer = ScanObserver::new(&self.tasks, &self.shell.records, &self.clock);
+            let mut observer = ScanObserver::new(
+                &self.tasks,
+                &self.shell.records,
+                &self.clock,
+                &self.shell.debug,
+            );
             let mut hooks = LiveValuesHooks::new(
                 &self.live,
                 &self.shell.records,
@@ -271,6 +280,9 @@ where
                 .records
                 .record(|metrics| metrics.record_scan_allocations(engine, services));
         }
+        // A scan that ended, completed or faulted, is the state that a debug read between scans
+        // answers from (specification 11 §6.13.1).
+        self.shell.debug.scan_ended();
         if let Err(error) = result {
             let reported = self.apply_fault(error, FaultDecision::from_fault_policy(fault_policy));
             match cycle_error_action(watchdog, fault_policy, reported) {

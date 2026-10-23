@@ -112,7 +112,7 @@ impl<C: MonotonicClock + 'static> ProgramMemory<C> {
         // built, `memory` drops here, after the last use of the borrows.
         let (module, services) = unsafe { (memory.module.as_ref(), memory.services.as_ref()) };
         let (cycle, built) = engine(module, services)?;
-        Ok((cycle.with_memory(memory).with_debugger(), built))
+        Ok((cycle.with_memory(memory).with_debugger(None), built))
     }
 }
 

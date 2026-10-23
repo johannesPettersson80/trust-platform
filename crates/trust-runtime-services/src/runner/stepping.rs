@@ -1,9 +1,9 @@
 //! Stepped scans in the resource loop (`cycle.step`, specification 11 §6.8.1).
 //!
 //! Between scans the loop lends the dispatcher its program ([`LentProgram`]): what [`ProgramView`]
-//! reads of it, and the program itself for a step, which runs inside the request that asks for it,
-//! so its reply and its audit record carry its result. The program is in a `RefCell` only for the
-//! length of one request; the loop runs no scan meanwhile.
+//! reads of it, the program itself for a step, which runs inside the request that asks for it, so
+//! its reply and its audit record carry its result, and the program's state for a debug read. The
+//! program is in a `RefCell` only for the length of one request; the loop runs no scan meanwhile.
 //!
 //! A cold restart of a step loads a program installed since the program was loaded, as `restart`
 //! loads it (specification 34 STATE-08), and only the loop can load a program in place. Such a step
@@ -13,7 +13,7 @@
 
 use alloc::string::ToString;
 use alloc::vec::Vec;
-use core::cell::{Cell, RefCell};
+use core::cell::{Cell, OnceCell, RefCell};
 
 use smol_str::SmolStr;
 use trust_runtime_core::memory::Generation;
@@ -21,7 +21,7 @@ use trust_runtime_core::ports::{ControlLink, MonotonicClock, RunnerWait};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::value::Duration;
 
-use super::cycle::ResourceCycle;
+use super::cycle::{DebugView, ResourceCycle};
 use super::host::{ProgramView, RunnerPlatform};
 use super::program::Program;
 use super::{span, Runner};
@@ -60,7 +60,11 @@ impl StepState {
 
 /// The loop's program, lent for one request.
 pub(super) struct LentProgram<'p, Y, C> {
-    program: RefCell<&'p mut Program<Y>>,
+    /// The program, until a debug read borrows its state.
+    program: RefCell<Option<&'p mut Program<Y>>>,
+    /// The program a debug read borrows for the rest of the request, whose reply is built from its
+    /// state; a step in the same request is then refused.
+    shared: OnceCell<&'p Program<Y>>,
     /// Why no program is installed, read before the program is lent.
     missing: Option<SmolStr>,
     /// The generation and the time of the last step, which the loop keeps.
@@ -77,7 +81,8 @@ impl<'p, Y, C> LentProgram<'p, Y, C> {
     ) -> Self {
         Self {
             missing: program.missing_reason(),
-            program: RefCell::new(program),
+            program: RefCell::new(Some(program)),
+            shared: OnceCell::new(),
             last_step,
             clock,
         }
@@ -85,6 +90,15 @@ impl<'p, Y, C> LentProgram<'p, Y, C> {
 }
 
 impl<Y: ResourceCycle, C: MonotonicClock> LentProgram<'_, Y, C> {
+    /// `read` of the program, whether a debug read borrows it or not; none while a step runs it.
+    fn read<R>(&self, read: impl FnOnce(&Program<Y>) -> R) -> Option<R> {
+        if let Some(program) = self.shared.get() {
+            return Some(read(program));
+        }
+        let lent = self.program.try_borrow().ok()?;
+        lent.as_deref().map(read)
+    }
+
     /// Runs the step `request` with its restart, when it has one, at `restart_at`. The watchdog
     /// bounds its scan from now, as it bounds every scan from its start. A step whose scan ran is
     /// recorded as the last step: one with an outcome, or one whose watched value could not be read.
@@ -92,7 +106,10 @@ impl<Y: ResourceCycle, C: MonotonicClock> LentProgram<'_, Y, C> {
         if let Some(reason) = &self.missing {
             return Err(StepRefusal::NoProgram(reason.to_string()));
         }
-        let Ok(mut program) = self.program.try_borrow_mut() else {
+        let Ok(mut lent) = self.program.try_borrow_mut() else {
+            return Err(StepRefusal::Unsupported);
+        };
+        let Some(program) = lent.as_deref_mut() else {
             return Err(StepRefusal::Unsupported);
         };
         let watchdog = program.watchdog().normalized_for_runtime();
@@ -114,10 +131,7 @@ impl<Y: ResourceCycle, C: MonotonicClock> ProgramView for LentProgram<'_, Y, C> 
     }
 
     fn driver_health(&self) -> Vec<IoDriverStatus> {
-        self.program
-            .try_borrow()
-            .map(|program| program.io_drivers())
-            .unwrap_or_default()
+        self.read(ResourceCycle::io_drivers).unwrap_or_default()
     }
 
     /// The step's restart happens at the time of the last step since the resource stopped, zero for
@@ -127,16 +141,24 @@ impl<Y: ResourceCycle, C: MonotonicClock> ProgramView for LentProgram<'_, Y, C> 
             return Err(StepRefusal::NoProgram(reason.to_string()));
         }
         let generation = self
-            .program
-            .try_borrow()
-            .map(|program| program.generation())
-            .map_err(|_| StepRefusal::Unsupported)?;
+            .read(ResourceCycle::generation)
+            .ok_or(StepRefusal::Unsupported)?;
         let last = self
             .last_step
             .get()
             .filter(|(stepped, _)| *stepped == generation)
             .map(|(_, time)| time);
         self.run(request, restart_time(request, last)?)
+    }
+
+    /// The program's state for the debug read the request makes: the program is borrowed for the
+    /// rest of the request.
+    fn debug_state(&self) -> Option<DebugView<'_>> {
+        if self.shared.get().is_none() {
+            let program = self.program.try_borrow_mut().ok()?.take()?;
+            let _ = self.shared.set(program);
+        }
+        self.shared.get()?.debug_view()
     }
 }
 

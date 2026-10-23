@@ -62,11 +62,12 @@ pub use limits::{device_limits, DeviceMemory, DeviceStack};
 pub use process_io::ProcessIo;
 pub use services::DeviceServices;
 
-use super::cycle::{resource_tasks, ResourceCycle, RetainSource, TaskDescriptor};
+use super::cycle::{resource_tasks, DebugView, ResourceCycle, RetainSource, TaskDescriptor};
 use super::hold::HoldHandle;
 use super::retain::{RetainConfig, RetainStore};
 use super::state::Records;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
+use crate::debug::LineSources;
 use crate::events::RuntimeEvent;
 use crate::live_values::apply::{self, WriteSink};
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
@@ -233,16 +234,20 @@ impl<'a, C, I> EngineCycle<'a, C, I> {
 
 impl<C: MonotonicClock, I: ProcessIo, M> EngineCycle<'static, C, I, M> {
     /// Lets the debugger hold this program's scans at the first instruction of each statement
-    /// (specification 13, "Safe Points"; specification 34, STATE-07).
+    /// (specification 13, "Safe Points"; specification 34, STATE-07), and answer the debug
+    /// operations from the program.
     ///
     /// The statement starts come from the prepared module's `LINE_TABLE` (specification 12 §6.13),
-    /// which the execution services keep as long as they live, so the module and the services
-    /// are `'static` as a firmware keeps them. A module without a `LINE_TABLE` has no statement
-    /// start, and no scan of it is held. The statement hook costs one check per instruction while
-    /// the platform does not enable debugging.
+    /// and `sources` hold the same table with the labels of its files, which place breakpoints and
+    /// name the files of a stop ([`LineSources::read`] reads them from the program before the
+    /// program is prepared). The execution services keep both for the rest of the boot, so the
+    /// module and the services are `'static` as a firmware keeps them. A module without a
+    /// `LINE_TABLE` has no statement start and passes no sources: no scan of it is held, and the
+    /// debug operations are refused (specification 11 §6.13.3). The statement hook costs one check
+    /// per instruction while the platform does not enable debugging.
     #[must_use]
-    pub fn with_debugger(self) -> Self {
-        self.services.attach_statements(self.prepared);
+    pub fn with_debugger(self, sources: Option<&'static LineSources>) -> Self {
+        self.services.attach_statements(self.prepared, sources);
         self
     }
 }
@@ -394,6 +399,18 @@ impl<C: MonotonicClock, I: ProcessIo, M> ResourceCycle for EngineCycle<'_, C, I,
 
     fn attach_hold(&mut self, hold: HoldHandle) {
         self.services.attach_hold(hold);
+    }
+
+    /// The storage of the last scan that ended, once a debugger is attached; the program is not
+    /// inside a scan while the loop serves a request, so its storage is that state.
+    fn debug_view(&self) -> Option<DebugView<'_>> {
+        let (prepared, sources) = self.services.debug_attachment()?;
+        Some(DebugView {
+            storage: self.state.storage(),
+            prepared,
+            frame: None,
+            sources,
+        })
     }
 }
 

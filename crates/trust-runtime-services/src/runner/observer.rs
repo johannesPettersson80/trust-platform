@@ -12,10 +12,14 @@ use trust_runtime_core::value::Duration;
 use trust_runtime_core::vm::{CycleAccess, CycleHooks, CyclePhase};
 
 use super::cycle::TaskDescriptor;
+use super::debugger::ChipDebug;
 use super::state::Records;
+use super::threads::{background_thread, task_thread};
 use crate::events::RuntimeEvent;
 
-/// The loop's [`CycleHooks`] for one scan.
+/// The loop's [`CycleHooks`] for one scan. It also tells the debugger which thread runs: a task
+/// starts, or the programs that run outside any task do (specification 13, "Multi-Task Thread
+/// Model").
 ///
 /// It keeps the engine's default `has_output_hooks`, true, as trust-runtime's hosted cycle does:
 /// the engine then checks the scan's deadline after the outputs are staged and before they are
@@ -26,17 +30,25 @@ pub(super) struct ScanObserver<'a, C> {
     tasks: &'a [TaskDescriptor],
     records: &'a Records<C>,
     clock: &'a C,
+    debug: &'a ChipDebug,
     task_started: Option<MonotonicInstant>,
     program_started: Option<MonotonicInstant>,
 }
 
 impl<'a, C: MonotonicClock> ScanObserver<'a, C> {
-    /// An observer of a scan of the program whose tasks are `tasks`.
-    pub(super) fn new(tasks: &'a [TaskDescriptor], records: &'a Records<C>, clock: &'a C) -> Self {
+    /// An observer of a scan of the program whose tasks are `tasks`, which tells `debug` the
+    /// thread that runs.
+    pub(super) fn new(
+        tasks: &'a [TaskDescriptor],
+        records: &'a Records<C>,
+        clock: &'a C,
+        debug: &'a ChipDebug,
+    ) -> Self {
         Self {
             tasks,
             records,
             clock,
+            debug,
             task_started: None,
             program_started: None,
         }
@@ -65,7 +77,10 @@ impl<'a, C: MonotonicClock> ScanObserver<'a, C> {
                     time,
                 });
             }
-            CyclePhase::TaskStart(_) => self.task_started = Some(self.clock.now()),
+            CyclePhase::TaskStart(index) => {
+                self.debug.set_thread(task_thread(self.tasks, index));
+                self.task_started = Some(self.clock.now());
+            }
             CyclePhase::TaskEnd(index) => {
                 let task = self.task(index)?;
                 if let Some(started) = self.task_started.take() {
@@ -74,10 +89,12 @@ impl<'a, C: MonotonicClock> ScanObserver<'a, C> {
                         .record(|metrics| metrics.record_task(&task.name, duration));
                 }
             }
+            CyclePhase::BackgroundStart(_) => {
+                self.debug.set_thread(background_thread(self.tasks));
+            }
             CyclePhase::CycleStart
             | CyclePhase::BeforeInputSample
             | CyclePhase::AfterInputSample
-            | CyclePhase::BackgroundStart(_)
             | CyclePhase::BackgroundEnd(_)
             | CyclePhase::BeforeOutputSample
             | CyclePhase::AfterOutputSample
@@ -104,11 +121,14 @@ impl<C: MonotonicClock> CycleHooks for ScanObserver<'_, C> {
         }
     }
 
-    /// The phases whose events and metrics it records.
+    /// The phases whose events and metrics it records, and where a thread starts to run.
     fn observes(&self, phase: CyclePhase) -> bool {
         matches!(
             phase,
-            CyclePhase::TaskOverrun { .. } | CyclePhase::TaskStart(_) | CyclePhase::TaskEnd(_)
+            CyclePhase::TaskOverrun { .. }
+                | CyclePhase::TaskStart(_)
+                | CyclePhase::TaskEnd(_)
+                | CyclePhase::BackgroundStart(_)
         )
     }
 
